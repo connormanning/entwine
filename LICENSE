@@ -1,0 +1,13 @@
+Entwine license (LGPL2)
+================================================================================
+
+Copyright (c) 2016 Connor Manning, Hobu, Inc. (connor@hobu.co)
+
+Supporting embedded libraries
+================================================================================
+
+third/arbiter - Copyright (c) 2015 Connor Manning, Hobu, Inc. (BSD)
+third/bigint - Copyright (c) 2015 Connor Manning, Hobu, Inc. (BSD)
+third/jsoncpp - Copyright (c) 2007-2010 by Baptiste Lepilleur (public domain)
+third/splice-pool - Copyright (c) 2015 Connor Manning, Hobu, Inc. (BSD)
+
