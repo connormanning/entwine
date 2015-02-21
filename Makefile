@@ -14,14 +14,15 @@ all: .FORCE
 		-I. \
 		-I./third \
 		-I./third/json \
-		-lpdalcpp \
-		-lcurl \
-		-lcrypto \
+		-I/usr/include \
 		compression/*.cpp \
 		http/*.cpp \
 		kernel/*.cpp \
 		tree/*.cpp \
 		types/*.cpp \
 		third/jsoncpp.cpp \
+		-lpdalcpp \
+		-lcurl \
+		-lcrypto \
 		-o entwine
 
