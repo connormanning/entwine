@@ -87,8 +87,6 @@ void SleepyTree::insert(const pdal::PointBuffer* pointBuffer, Origin origin)
 
     for (std::size_t i = 0; i < pointBuffer->size(); ++i)
     {
-        if (i % 1000 == 0) std::cout << i << "/" << pointBuffer->size() <<
-            std::endl;
         point.x = pointBuffer->getFieldAs<double>(pdal::Dimension::Id::X, i);
         point.y = pointBuffer->getFieldAs<double>(pdal::Dimension::Id::Y, i);
 
@@ -111,11 +109,7 @@ void SleepyTree::insert(const pdal::PointBuffer* pointBuffer, Origin origin)
 
 void SleepyTree::save(std::string path)
 {
-    if (!path.size())
-    {
-        path = diskPath + "/" + m_outPath + "/0";
-    }
-
+    // TODO
     path = "./out/0";
 
     std::ofstream dataStream;
@@ -166,7 +160,9 @@ void SleepyTree::save(std::string path)
 
 void SleepyTree::load()
 {
-    std::string path(diskPath + "/" + m_outPath + "/0");
+    // TODO
+    std::string path = "./out/0";
+
     std::cout << "Loading " << path << std::endl;
     std::ifstream dataStream;
     dataStream.open(path, std::ifstream::in | std::ifstream::binary);
