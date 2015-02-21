@@ -52,10 +52,10 @@ namespace
 }
 
 SleepyTree::SleepyTree(
-        const std::string& pipelineId,
+        const std::string& outPath,
         const BBox& bbox,
         const Schema& schema)
-    : m_pipelineId(pipelineId)
+    : m_outPath(outPath)
     , m_bbox(new BBox(bbox))
     , m_pointContext(initPointContext())
     , m_originDim(m_pointContext.assignDim(
@@ -65,8 +65,8 @@ SleepyTree::SleepyTree(
     , m_tree(new Sleeper(bbox, m_pointContext.pointSize()))
 { }
 
-SleepyTree::SleepyTree(const std::string& pipelineId)
-    : m_pipelineId(pipelineId)
+SleepyTree::SleepyTree(const std::string& outPath)
+    : m_outPath(outPath)
     , m_bbox()
     , m_pointContext(initPointContext())
     , m_originDim(m_pointContext.assignDim(
@@ -87,6 +87,8 @@ void SleepyTree::insert(const pdal::PointBuffer* pointBuffer, Origin origin)
 
     for (std::size_t i = 0; i < pointBuffer->size(); ++i)
     {
+        if (i % 1000 == 0) std::cout << i << "/" << pointBuffer->size() <<
+            std::endl;
         point.x = pointBuffer->getFieldAs<double>(pdal::Dimension::Id::X, i);
         point.y = pointBuffer->getFieldAs<double>(pdal::Dimension::Id::Y, i);
 
@@ -104,14 +106,17 @@ void SleepyTree::insert(const pdal::PointBuffer* pointBuffer, Origin origin)
             ++m_numPoints;
         }
     }
+    std::cout << "Done" << std::endl;
 }
 
 void SleepyTree::save(std::string path)
 {
     if (!path.size())
     {
-        path = diskPath + "/" + m_pipelineId + "/0";
+        path = diskPath + "/" + m_outPath + "/0";
     }
+
+    path = "./out/0";
 
     std::ofstream dataStream;
     dataStream.open(
@@ -161,7 +166,7 @@ void SleepyTree::save(std::string path)
 
 void SleepyTree::load()
 {
-    std::string path(diskPath + "/" + m_pipelineId + "/0");
+    std::string path(diskPath + "/" + m_outPath + "/0");
     std::cout << "Loading " << path << std::endl;
     std::ifstream dataStream;
     dataStream.open(path, std::ifstream::in | std::ifstream::binary);

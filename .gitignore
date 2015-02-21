@@ -1,1 +1,5 @@
 entwine
+credentials.json
+*.dSYM
+
+out/

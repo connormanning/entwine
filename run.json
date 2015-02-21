@@ -1,0 +1,24 @@
+{
+    "bbox": [
+        192325.727246, 4455899.672669,
+        770274.931198, 4833815.152277
+    ],
+    "manifest": {
+        /*
+        "local": [
+            "/Users/connor/code/greyhound/examples/test/p.laz",
+            "/Users/connor/code/greyhound/examples/test/y.laz"
+            "/Users/connor/code/greyhound/examples/test/j.laz",
+            "/Users/connor/code/greyhound/examples/test/k.laz",
+            "/Users/connor/code/greyhound/examples/test/l.laz"
+        ],
+        */
+        "s3": [
+            "02304754.laz",
+            "03304710.laz",
+            "04204768.laz",
+            "05124564.laz"
+        ]
+    }
+}
+

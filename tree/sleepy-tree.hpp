@@ -23,17 +23,17 @@
 #include "tree/point-info.hpp"
 #include "tree/registry.hpp"
 
-class Schema;
+struct Schema;
 class Sleeper;
 
 class SleepyTree
 {
 public:
     SleepyTree(
-            const std::string& pipelineId,
+            const std::string& outPath,
             const BBox& bbox,
             const Schema& schema);
-    SleepyTree(const std::string& pipelineId);
+    SleepyTree(const std::string& outPath);
     ~SleepyTree();
 
     // Insert the points from a PointBuffer into this index.
@@ -70,7 +70,7 @@ public:
     std::size_t numPoints() const;
 
 private:
-    const std::string m_pipelineId;
+    const std::string m_outPath;
     std::unique_ptr<BBox> m_bbox;
 
     pdal::PointContext m_pointContext;
