@@ -50,8 +50,6 @@ void MultiBatcher::add(const std::string& filename, const Origin origin)
     std::cout << "Adding " << filename << std::endl;
     lock.unlock();
 
-    if (m_batches[index].joinable()) m_batches[index].join();
-
     m_batches[index] = std::thread([this, index, &filename, origin]() {
         try
         {
@@ -154,6 +152,7 @@ void MultiBatcher::add(const std::string& filename, const Origin origin)
         std::cout << "    Done " << filename << std::endl;
         std::unique_lock<std::mutex> lock(m_mutex);
         m_available.push_back(index);
+        m_batches[index].detach();
         lock.unlock();
         m_cv.notify_all();
     });
