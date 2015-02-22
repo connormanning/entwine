@@ -25,7 +25,7 @@ PointInfo::PointInfo(
     : point(new Point(
             pointBuffer->getFieldAs<double>(pdal::Dimension::Id::X, index),
             pointBuffer->getFieldAs<double>(pdal::Dimension::Id::Y, index)))
-    , bytes(pointBuffer->pointSize())
+    , bytes(pointContext.pointSize())
 {
     char* pos(bytes.data());
     for (const auto& dim : pointContext.dims())
