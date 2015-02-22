@@ -17,7 +17,7 @@
 
 namespace
 {
-    const std::size_t numBatches(2);
+    const std::size_t numBatches(6);
     //const std::size_t restorePoint(1000);
 }
 
