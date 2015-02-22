@@ -128,6 +128,12 @@ void Registry::put(
                 // Reload the reference point now that we've acquired the lock.
                 if (toAdd->point->sqDist(mid) < curPoint->sqDist(mid))
                 {
+                    if (roller.depth() < 2)
+                        std::cout <<
+                            "Storing (" <<
+                            toAdd->point->x << "," << toAdd->point->y <<
+                            ") at level " << roller.depth() << std::endl;
+
                     // Pull out the old stored value and store the Point that
                     // was in our atomic member, so we can overwrite that with
                     // the new one.
