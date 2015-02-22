@@ -104,7 +104,6 @@ void SleepyTree::insert(const pdal::PointBuffer* pointBuffer, Origin origin)
             ++m_numPoints;
         }
     }
-    std::cout << "Done" << std::endl;
 }
 
 void SleepyTree::save(std::string path)
