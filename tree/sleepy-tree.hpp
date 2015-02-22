@@ -23,8 +23,8 @@
 #include "tree/point-info.hpp"
 #include "tree/registry.hpp"
 
+class Registry;
 struct Schema;
-class Sleeper;
 
 class SleepyTree
 {
@@ -78,7 +78,7 @@ private:
 
     std::size_t m_numPoints;
 
-    std::unique_ptr<Sleeper> m_tree;
+    std::unique_ptr<Registry> m_registry;
 
     SleepyTree(const SleepyTree&);
     SleepyTree& operator=(const SleepyTree&);

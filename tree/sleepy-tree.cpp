@@ -24,7 +24,7 @@
 
 #include "compression/compression-stream.hpp"
 #include "http/collector.hpp"
-#include "tree/sleeper.hpp"
+#include "tree/roller.hpp"
 
 namespace
 {
@@ -62,7 +62,7 @@ SleepyTree::SleepyTree(
                 "OriginId",
                 pdal::Dimension::Type::Unsigned64))
     , m_numPoints(0)
-    , m_tree(new Sleeper(bbox, m_pointContext.pointSize()))
+    , m_registry(new Registry(m_pointContext.pointSize()))
 { }
 
 SleepyTree::SleepyTree(const std::string& outPath)
@@ -73,7 +73,7 @@ SleepyTree::SleepyTree(const std::string& outPath)
                 "OriginId",
                 pdal::Dimension::Type::Unsigned64))
     , m_numPoints(0)
-    , m_tree()
+    , m_registry()
 {
     load();
 }
@@ -92,6 +92,8 @@ void SleepyTree::insert(const pdal::PointBuffer* pointBuffer, Origin origin)
 
         if (m_bbox->contains(point))
         {
+            Roller roller(*m_bbox.get());
+
             PointInfo* pointInfo(
                     new PointInfo(
                         m_pointContext,
@@ -100,7 +102,7 @@ void SleepyTree::insert(const pdal::PointBuffer* pointBuffer, Origin origin)
                         m_originDim,
                         origin));
 
-            m_tree->addPoint(&pointInfo);
+            m_registry->put(&pointInfo, roller);
             ++m_numPoints;
         }
     }
@@ -126,7 +128,7 @@ void SleepyTree::save(std::string path)
     dataStream.write(reinterpret_cast<const char*>(&xMax), sizeof(double));
     dataStream.write(reinterpret_cast<const char*>(&yMax), sizeof(double));
 
-    const uint64_t uncompressedSize(m_tree->baseData()->size());
+    const uint64_t uncompressedSize(m_registry->baseData()->size());
 
     // TODO Duplicate code with Node::compress().
     CompressionStream compressionStream;
@@ -134,7 +136,9 @@ void SleepyTree::save(std::string path)
             compressionStream,
             m_pointContext.dimTypes());
 
-    compressor.compress(m_tree->baseData()->data(), m_tree->baseData()->size());
+    compressor.compress(
+            m_registry->baseData()->data(),
+            m_registry->baseData()->size());
     compressor.done();
 
     std::shared_ptr<std::vector<char>> compressed(
@@ -194,11 +198,7 @@ void SleepyTree::load()
 
     decompressor.decompress(uncompressed->data(), uncSize);
 
-    m_tree.reset(
-            new Sleeper(
-                *m_bbox.get(),
-                m_pointContext.pointSize(),
-                uncompressed));
+    m_registry.reset(new Registry(m_pointContext.pointSize(), uncompressed));
 }
 
 const BBox& SleepyTree::getBounds() const
@@ -210,8 +210,10 @@ MultiResults SleepyTree::getPoints(
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
+    Roller roller(*m_bbox.get());
     MultiResults results;
-    m_tree->getPoints(
+    m_registry->getPoints(
+            roller,
             results,
             depthBegin,
             depthEnd);
@@ -224,8 +226,10 @@ MultiResults SleepyTree::getPoints(
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
+    Roller roller(*m_bbox.get());
     MultiResults results;
-    m_tree->getPoints(
+    m_registry->getPoints(
+            roller,
             results,
             bbox,
             depthBegin,
@@ -241,7 +245,7 @@ const pdal::PointContext& SleepyTree::pointContext() const
 
 std::shared_ptr<std::vector<char>> SleepyTree::data(uint64_t id)
 {
-    return m_tree->baseData();
+    return m_registry->baseData();
 }
 
 std::size_t SleepyTree::numPoints() const
