@@ -24,7 +24,7 @@
 #include "tree/registry.hpp"
 
 class Registry;
-struct Schema;
+class Schema;
 
 class SleepyTree
 {

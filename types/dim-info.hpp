@@ -11,24 +11,28 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 #include <pdal/Dimension.hpp>
 
-struct DimInfo
+class DimInfo
 {
+public:
     DimInfo(
-            const pdal::Dimension::Id::Enum id,
-            const pdal::Dimension::Type::Enum type)
-        : id(id)
-        , type(type)
-    { }
+            const std::string& name,
+            const std::string& baseTypeName,
+            std::size_t size);
 
-    const pdal::Dimension::Id::Enum id;
-    const pdal::Dimension::Type::Enum type;
+    std::string name() const;
+    pdal::Dimension::Id::Enum id() const;
+    pdal::Dimension::Type::Enum type() const;
+    std::size_t size() const;
 
-    std::size_t size() const
-    {
-        return pdal::Dimension::size(type);
-    }
+    void setId(pdal::Dimension::Id::Enum id);
+
+private:
+    const std::string m_name;
+    pdal::Dimension::Id::Enum m_id;
+    const pdal::Dimension::Type::Enum m_type;
 };
 

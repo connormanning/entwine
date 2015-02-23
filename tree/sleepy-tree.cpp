@@ -25,28 +25,10 @@
 #include "compression/compression-stream.hpp"
 #include "http/collector.hpp"
 #include "tree/roller.hpp"
+#include "types/schema.hpp"
 
 namespace
 {
-    pdal::PointContext initPointContext(/*const Schema& schema*/)
-    {
-        // TODO Get from schema.
-        pdal::PointContext pointContext;
-        pointContext.registerDim(pdal::Dimension::Id::X);
-        pointContext.registerDim(pdal::Dimension::Id::Y);
-        pointContext.registerDim(pdal::Dimension::Id::Z);
-        /*
-        pointContext.registerDim(pdal::Dimension::Id::ScanAngleRank);
-        pointContext.registerDim(pdal::Dimension::Id::Intensity);
-        pointContext.registerDim(pdal::Dimension::Id::PointSourceId);
-        pointContext.registerDim(pdal::Dimension::Id::ReturnNumber);
-        pointContext.registerDim(pdal::Dimension::Id::NumberOfReturns);
-        pointContext.registerDim(pdal::Dimension::Id::ScanDirectionFlag);
-        pointContext.registerDim(pdal::Dimension::Id::Classification);
-        */
-        return pointContext;
-    }
-
     // TODO
     const std::string diskPath("/var/greyhound/serial");
 }
@@ -57,10 +39,7 @@ SleepyTree::SleepyTree(
         const Schema& schema)
     : m_outPath(outPath)
     , m_bbox(new BBox(bbox))
-    , m_pointContext(initPointContext())
-    , m_originDim(m_pointContext.assignDim(
-                "OriginId",
-                pdal::Dimension::Type::Unsigned64))
+    , m_pointContext(schema.pointContext())
     , m_numPoints(0)
     , m_registry(new Registry(m_pointContext.pointSize()))
 { }
@@ -68,10 +47,7 @@ SleepyTree::SleepyTree(
 SleepyTree::SleepyTree(const std::string& outPath)
     : m_outPath(outPath)
     , m_bbox()
-    , m_pointContext(initPointContext())
-    , m_originDim(m_pointContext.assignDim(
-                "OriginId",
-                pdal::Dimension::Type::Unsigned64))
+    , m_pointContext(/*initPointContext()*/) // TODO From serial.
     , m_numPoints(0)
     , m_registry()
 {
@@ -99,7 +75,6 @@ void SleepyTree::insert(const pdal::PointBuffer* pointBuffer, Origin origin)
                         m_pointContext,
                         pointBuffer,
                         i,
-                        m_originDim,
                         origin));
 
             m_registry->put(&pointInfo, roller);

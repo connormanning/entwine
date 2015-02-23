@@ -1,4 +1,9 @@
 {
+    "output": "iowa",
+    "tuning": {
+        "snapshot": 3000,
+        "threads": 24,
+    },
     "bbox": [
         192325.727246, 4455899.672669,
         770274.931198, 4833815.152277
@@ -25,15 +30,10 @@
             "size": 8
         }
     ],
-    "performance": {
-        // These may be overridden or fully specified as command-line args.
-        "snapshot": 3000,
-        "threads": 24,
-    },
     "tree": {
-        "baseDepth": 8,
+        "baseDepth": 12,
         "flatDepth": 12,
-        "deadDepth": 16
+        "deadDepth": 12
     },
     "manifest": {
         "local": [

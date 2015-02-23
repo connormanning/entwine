@@ -26,6 +26,8 @@ set(SOURCES
     "${BASE}/tree/roller.cpp"
     "${BASE}/tree/sleepy-tree.cpp"
     "${BASE}/types/bbox.cpp"
+    "${BASE}/types/dim-info.cpp"
+    "${BASE}/types/schema.cpp"
 )
 
 add_executable(entwine ${SOURCES})

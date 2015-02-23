@@ -28,7 +28,6 @@ struct PointInfo
             const pdal::PointContextRef pointContext,
             const pdal::PointBuffer* pointBuffer,
             std::size_t index,
-            pdal::Dimension::Id::Enum originDim,
             Origin origin);
 
     PointInfo(const Point* point, char* pos, std::size_t len);

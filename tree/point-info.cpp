@@ -20,7 +20,6 @@ PointInfo::PointInfo(
         const pdal::PointContextRef pointContext,
         const pdal::PointBuffer* pointBuffer,
         const std::size_t index,
-        const pdal::Dimension::Id::Enum originDim,
         const Origin origin)
     : point(new Point(
             pointBuffer->getFieldAs<double>(pdal::Dimension::Id::X, index),
@@ -36,13 +35,17 @@ PointInfo::PointInfo(
         {
             pointBuffer->getRawField(dim, index, pos);
         }
-        else if (dim == originDim)
+        /*
+        else if (dim.id == originDim)
         {
             std::memcpy(pos, &origin, sizeof(Origin));
         }
+        */
 
         pos += pointContext.dimSize(dim);
     }
+
+    // TODO Copy origin dimension.
 }
 
 PointInfo::PointInfo(const Point* point, char* pos, const std::size_t len)

@@ -17,8 +17,6 @@
 
 namespace
 {
-    const std::size_t numBatches(24);
-
     Json::Reader reader;
 }
 
@@ -43,6 +41,8 @@ std::vector<std::string> getPaths(const Json::Value& jsonPaths)
         paths[i] = jsonPaths["s3"][static_cast<Json::ArrayIndex>(i)].asString();
     }
 
+    std::cout << "Found " << paths.size() << " paths." << std::endl;
+
     return paths;
 }
 
@@ -55,8 +55,6 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    // Configuration for this run.
-    Json::Value jsonRun;
     const std::string runFile(argv[1]);
     std::ifstream runStream(runFile, std::ifstream::binary);
     if (!runStream.good())
@@ -65,14 +63,15 @@ int main(int argc, char** argv)
             std::endl;
         exit(1);
     }
-    reader.parse(runStream, jsonRun, false);
-    std::cout << "cfg: " << jsonRun.toStyledString() << std::endl;
 
-    const std::vector<std::string> paths(getPaths(jsonRun["manifest"]));
-    std::cout << "Found " << paths.size() << " paths" << std::endl;
-    const BBox bbox(BBox::fromJson(jsonRun["bbox"]));
+    Json::Value config;
+    reader.parse(runStream, config, false);
 
-    std::vector<DimInfo> dims;
+    const std::vector<std::string> paths(getPaths(config["manifest"]));
+    const BBox bbox(BBox::fromJson(config["bbox"]));
+
+    // TODO Construct from config.
+    std::vector<DimInfo> dims(Schema::dimInfoList(config["schema"]));
     Schema schema(dims);
 
     std::shared_ptr<SleepyTree> sleepyTree(
@@ -83,6 +82,7 @@ int main(int argc, char** argv)
 
     S3Info s3Info(getCredentials());
 
+    std::size_t numBatches(2); // TODO
     MultiBatcher batcher(s3Info, "./out", numBatches, sleepyTree);
     const auto start(std::chrono::high_resolution_clock::now());
     for (std::size_t i(0); i < paths.size(); ++i)
