@@ -100,9 +100,15 @@ int main(int argc, char** argv)
 
     //pipelineManager->getStage()->setOptions(srsOptions);
 
+    /*
     bufferReader->prepare(pointContext);
     pdal::PointBufferPtr out(
             *bufferReader->execute(pointContext).begin());
+            */
+    filter->prepare(pointContext);
+    pdal::PointBufferPtr out(
+            *filter->execute(pointContext).begin());
+
 
     double x(0), y(0);
     xMin = 999999999;
