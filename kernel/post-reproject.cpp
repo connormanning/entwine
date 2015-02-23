@@ -8,6 +8,8 @@
 *
 ******************************************************************************/
 
+#include <iomanip>
+
 #include <pdal/BufferReader.hpp>
 #include <pdal/Charbuf.hpp>
 #include <pdal/Compression.hpp>
@@ -113,11 +115,12 @@ int main(int argc, char** argv)
         y = out->getFieldAs<double>(pdal::Dimension::Id::Y, i);
         xMin = std::min(xMin, x);
         yMin = std::min(yMin, y);
-        xMax = std::min(xMax, x);
-        yMax = std::min(yMax, y);
+        xMax = std::max(xMax, x);
+        yMax = std::max(yMax, y);
     }
 
-    std::cout << "(" << xMin << "," << yMin << ") (" <<
+    std::cout << std::setprecision(16) << "(" <<
+        xMin << "," << yMin << ") (" <<
         xMax << "," << yMax << ")" << std::endl;
 }
 
