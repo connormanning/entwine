@@ -3,8 +3,42 @@
         192325.727246, 4455899.672669,
         770274.931198, 4833815.152277
     ],
+    "schema": [
+        {
+            "name": "X",
+            "type": "floating",
+            "size": 8
+        },
+        {
+            "name": "Y",
+            "type": "floating",
+            "size": 8
+        },
+        {
+            "name": "Z",
+            "type": "floating",
+            "size": 8
+        },
+        {
+            "name": "Origin",
+            "type": "unsigned",
+            "size": 8
+        }
+    ],
+    "performance": {
+        // These may be overridden or fully specified as command-line args.
+        "snapshot": 3000,
+        "threads": 24,
+    },
+    "tree": {
+        "baseDepth": 8,
+        "flatDepth": 12,
+        "deadDepth": 16
+    },
     "manifest": {
         "local": [
+        ],
+        "http": [
         ],
         "s3": [
             "05124560.laz",

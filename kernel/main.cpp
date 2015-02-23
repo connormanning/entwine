@@ -18,12 +18,12 @@
 namespace
 {
     const std::size_t numBatches(24);
-    //const std::size_t restorePoint(1000);
+
+    Json::Reader reader;
 }
 
 S3Info getCredentials()
 {
-    Json::Reader reader;
     Json::Value credentials;
     std::ifstream credFile("credentials.json", std::ifstream::binary);
     reader.parse(credFile, credentials, false);
@@ -46,14 +46,26 @@ std::vector<std::string> getPaths(const Json::Value& jsonPaths)
     return paths;
 }
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
-{ // TODO scope for valgrind
+    if (argc < 2)
+    {
+        std::cout << "Input file required." << std::endl <<
+            "\tUsage: entwine config.json [options]" << std::endl;
+        exit(1);
+    }
+
     // Configuration for this run.
     Json::Value jsonRun;
-    Json::Reader reader;
-    std::ifstream runFile("./run.json", std::ifstream::binary);
-    reader.parse(runFile, jsonRun, false);
+    const std::string runFile(argv[1]);
+    std::ifstream runStream(runFile, std::ifstream::binary);
+    if (!runStream.good())
+    {
+        std::cout << "Couldn't open " << runFile << " for reading." <<
+            std::endl;
+        exit(1);
+    }
+    reader.parse(runStream, jsonRun, false);
     std::cout << "cfg: " << jsonRun.toStyledString() << std::endl;
 
     const std::vector<std::string> paths(getPaths(jsonRun["manifest"]));
@@ -112,6 +124,5 @@ int main(int argc, char **argv)
             std::endl;
 
     sleepyTree->save();
-}
 }
 
