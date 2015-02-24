@@ -54,9 +54,9 @@ int main(int argc, char** argv)
     std::vector<char> compressed(cmpSize);
     dataStream.read(compressed.data(), compressed.size());
 
-    CompressionStream compressionStream(compressed);
+    CompressionStream decompressionStream(compressed);
     pdal::LazPerfDecompressor<CompressionStream> decompressor(
-            compressionStream,
+            decompressionStream,
             pointContext.dimTypes());
 
     std::shared_ptr<std::vector<char>> uncompressed(
@@ -73,8 +73,16 @@ int main(int argc, char** argv)
                 0,
                 uncompressed->size() / pointContext.pointSize()));
     std::unique_ptr<pdal::BufferReader> bufferReader(new pdal::BufferReader());
-    bufferReader->addBuffer(pointBuffer);
 
+    // Set bounding box at the end for reproj.
+    std::size_t s(pointBuffer->size());
+    pointBuffer->setField<double>(pdal::Dimension::Id::X, s, 192325.727246);
+    pointBuffer->setField<double>(pdal::Dimension::Id::Y, s, 4455899.672669);
+    ++s;
+    pointBuffer->setField<double>(pdal::Dimension::Id::X, s, 770274.931198);
+    pointBuffer->setField<double>(pdal::Dimension::Id::Y, s, 4833815.152277);
+
+    bufferReader->addBuffer(pointBuffer);
     bufferReader->setSpatialReference(pdal::SpatialReference("EPSG:26915"));
 
     // Reproject to Web Mercator.
@@ -103,11 +111,13 @@ int main(int argc, char** argv)
     xMax = -999999999;
     yMax = -999999999;
 
-    for (std::size_t i(0); i < out->size(); ++i)
+    for (std::size_t i(0); i < out->size() - 2; ++i)
     {
         // Zero out fields in the output that were zero at the input, since
         // they were probably reprojected to junk.
-        if (std::abs(pointBuffer->getFieldAs<double>(pdal::Dimension::Id::X, i)) < 1)
+        if (std::abs(
+                    pointBuffer->getFieldAs<double>(
+                        pdal::Dimension::Id::X, i)) < 1)
         {
             out->setField<double>(pdal::Dimension::Id::X, i, 0);
             out->setField<double>(pdal::Dimension::Id::Y, i, 0);
@@ -125,8 +135,66 @@ int main(int argc, char** argv)
         }
     }
 
-    std::cout << std::setprecision(16) << "(" <<
+    // Log data bounds.
+    std::cout << "DATA: " << std::setprecision(16) << "(" <<
         xMin << "," << yMin << ") (" <<
         xMax << "," << yMax << ")" << std::endl;
+
+    // Set to reprojected initial bounding box.
+    xMin = out->getFieldAs<double>(pdal::Dimension::Id::X, out->size() - 2);
+    yMin = out->getFieldAs<double>(pdal::Dimension::Id::Y, out->size() - 2);
+    xMax = out->getFieldAs<double>(pdal::Dimension::Id::X, out->size() - 1);
+    yMax = out->getFieldAs<double>(pdal::Dimension::Id::Y, out->size() - 1);
+
+    // Log input bounds.
+    std::cout << "INIT: " << std::setprecision(16) << "(" <<
+        xMin << "," << yMin << ") (" <<
+        xMax << "," << yMax << ")" << std::endl;
+
+    std::string outPath = "./out/re";
+    std::ofstream outStream;
+    outStream.open(
+            outPath,
+            std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
+
+    // TODO Need to use actual reprojected input bounds.
+    outStream.write(reinterpret_cast<const char*>(&xMin), sizeof(double));
+    outStream.write(reinterpret_cast<const char*>(&yMin), sizeof(double));
+    outStream.write(reinterpret_cast<const char*>(&xMax), sizeof(double));
+    outStream.write(reinterpret_cast<const char*>(&yMax), sizeof(double));
+
+    const uint64_t uncompressedSize(out->size() * out->pointSize());
+
+    CompressionStream compressionStream;
+    pdal::LazPerfCompressor<CompressionStream> compressor(
+            compressionStream,
+            out->dimTypes());
+
+    std::vector<char> bytes(out->pointSize());
+    for (std::size_t i(0); i < out->size() - 2; ++i) // Don't include bbox.
+    {
+        out->getPackedPoint(out->dimTypes(), i, bytes.data());
+        compressor.compress(bytes.data(), bytes.size());
+    }
+
+    compressor.done();
+
+    std::shared_ptr<std::vector<char>> compressedOut(
+            new std::vector<char>(compressionStream.data().size()));
+
+    std::memcpy(
+            compressedOut->data(),
+            compressionStream.data().data(),
+            compressedOut->size());
+    const uint64_t compressedSize(compressedOut->size());
+
+    outStream.write(
+            reinterpret_cast<const char*>(&uncompressedSize),
+            sizeof(uint64_t));
+    outStream.write(
+            reinterpret_cast<const char*>(&compressedSize),
+            sizeof(uint64_t));
+    outStream.write(compressedOut->data(), compressedOut->size());
+    outStream.close();
 }
 
