@@ -77,12 +77,6 @@ int main(int argc, char** argv)
     bufferReader->setSpatialReference(pdal::SpatialReference("EPSG:26915"));
 
     // Reproject to Web Mercator.
-    /*
-    pipelineManager->addFilter(
-            "filters.reprojection",
-            pipelineManager->getStage());
-    */
-
     pdal::Options srsOptions;
     srsOptions.add(
             pdal::Option(
@@ -98,31 +92,36 @@ int main(int argc, char** argv)
     filter->setInput(bufferReader.get());
     filter->setOptions(srsOptions);
 
-    //pipelineManager->getStage()->setOptions(srsOptions);
-
-    /*
-    bufferReader->prepare(pointContext);
-    pdal::PointBufferPtr out(
-            *bufferReader->execute(pointContext).begin());
-            */
     filter->prepare(pointContext);
     pdal::PointBufferPtr out(
             *filter->execute(pointContext).begin());
-
 
     double x(0), y(0);
     xMin = 999999999;
     yMin = 999999999;
     xMax = -999999999;
     yMax = -999999999;
+
     for (std::size_t i(0); i < out->size(); ++i)
     {
+        // Zero out fields in the output that were zero at the input, since
+        // they were probably reprojected to junk.
+        if (pointBuffer->getFieldAs<double>(pdal::Dimension::Id::X, i) == 0)
+        {
+            out->setField<double>(pdal::Dimension::Id::X, i, 0);
+            out->setField<double>(pdal::Dimension::Id::Y, i, 0);
+        }
+
         x = out->getFieldAs<double>(pdal::Dimension::Id::X, i);
         y = out->getFieldAs<double>(pdal::Dimension::Id::Y, i);
-        xMin = std::min(xMin, x);
-        yMin = std::min(yMin, y);
-        xMax = std::max(xMax, x);
-        yMax = std::max(yMax, y);
+
+        if (x != 0 && y != 0)
+        {
+            xMin = std::min(xMin, x);
+            yMin = std::min(yMin, y);
+            xMax = std::max(xMax, x);
+            yMax = std::max(yMax, y);
+        }
     }
 
     std::cout << std::setprecision(16) << "(" <<
