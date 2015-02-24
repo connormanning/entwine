@@ -8,6 +8,7 @@
 *
 ******************************************************************************/
 
+#include <cmath>
 #include <iomanip>
 
 #include <pdal/BufferReader.hpp>
@@ -106,7 +107,7 @@ int main(int argc, char** argv)
     {
         // Zero out fields in the output that were zero at the input, since
         // they were probably reprojected to junk.
-        if (pointBuffer->getFieldAs<double>(pdal::Dimension::Id::X, i) == 0)
+        if (std::abs(pointBuffer->getFieldAs<double>(pdal::Dimension::Id::X, i)) < 1)
         {
             out->setField<double>(pdal::Dimension::Id::X, i, 0);
             out->setField<double>(pdal::Dimension::Id::Y, i, 0);
@@ -115,7 +116,7 @@ int main(int argc, char** argv)
         x = out->getFieldAs<double>(pdal::Dimension::Id::X, i);
         y = out->getFieldAs<double>(pdal::Dimension::Id::Y, i);
 
-        if (x != 0 && y != 0)
+        if (std::abs(x) > 1 && std::abs(y) > 1)
         {
             xMin = std::min(xMin, x);
             yMin = std::min(yMin, y);
