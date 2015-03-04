@@ -47,6 +47,7 @@ DimInfo::DimInfo(
     : m_name(name)
     , m_id(pdal::Dimension::Id::Unknown)
     , m_type(getType(baseTypeName, size))
+    , m_typeString(baseTypeName)
 { }
 
 std::string DimInfo::name() const
@@ -67,6 +68,11 @@ pdal::Dimension::Type::Enum DimInfo::type() const
 std::size_t DimInfo::size() const
 {
     return pdal::Dimension::size(type());
+}
+
+std::string DimInfo::typeString() const
+{
+    return m_typeString;
 }
 
 void DimInfo::setId(pdal::Dimension::Id::Enum id)

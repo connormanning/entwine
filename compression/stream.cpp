@@ -11,7 +11,7 @@
 #include <stdexcept>
 #include <cstring>
 
-#include "compression-stream.hpp"
+#include "stream.hpp"
 
 CompressionStream::CompressionStream()
     : m_data()

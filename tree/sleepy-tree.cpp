@@ -22,32 +22,36 @@
 #include <pdal/PointBuffer.hpp>
 #include <pdal/Utils.hpp>
 
-#include "compression/compression-stream.hpp"
+#include "compression/stream.hpp"
+#include "compression/util.hpp"
 #include "http/collector.hpp"
 #include "tree/roller.hpp"
+#include "types/bbox.hpp"
 #include "types/schema.hpp"
 
-namespace
-{
-    // TODO
-    const std::string diskPath("/var/greyhound/serial");
-}
-
 SleepyTree::SleepyTree(
-        const std::string& outPath,
+        const std::string& dir,
         const BBox& bbox,
-        const Schema& schema)
-    : m_outPath(outPath)
+        const Schema& schema,
+        const std::size_t baseDepth,
+        const std::size_t flatDepth,
+        const std::size_t diskDepth)
+    : m_dir(dir)
     , m_bbox(new BBox(bbox))
-    , m_pointContext(schema.pointContext())
+    , m_schema(new Schema(schema))
     , m_numPoints(0)
-    , m_registry(new Registry(m_pointContext.pointSize()))
+    , m_registry(
+            new Registry(
+                m_schema->stride(),
+                baseDepth,
+                flatDepth,
+                diskDepth))
 { }
 
-SleepyTree::SleepyTree(const std::string& outPath)
-    : m_outPath(outPath)
+SleepyTree::SleepyTree(const std::string& dir)
+    : m_dir(dir)
     , m_bbox()
-    , m_pointContext(/*initPointContext()*/) // TODO From serial.
+    , m_schema()
     , m_numPoints(0)
     , m_registry()
 {
@@ -72,7 +76,7 @@ void SleepyTree::insert(const pdal::PointBuffer* pointBuffer, Origin origin)
 
             PointInfo* pointInfo(
                     new PointInfo(
-                        m_pointContext,
+                        m_schema->pointContext(),
                         pointBuffer,
                         i,
                         origin));
@@ -83,46 +87,31 @@ void SleepyTree::insert(const pdal::PointBuffer* pointBuffer, Origin origin)
     }
 }
 
-void SleepyTree::save(std::string path)
+void SleepyTree::save()
 {
-    // TODO
-    path = "./out/0";
+    {
+        std::ofstream metaStream(
+                metaPath(),
+                std::ofstream::out | std::ofstream::trunc);
 
-    std::ofstream dataStream;
-    dataStream.open(
-            path,
+        const std::string metaString(meta().toStyledString());
+        metaStream.write(metaString.data(), metaString.size());
+    }
+
+    // TODO Write others besides baseData.  Probably need to call something
+    // like Registry::write().
+    const std::string dataPath(m_dir + "/0");
+    std::ofstream dataStream(
+            dataPath,
             std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
 
-    const double xMin(m_bbox->min().x);
-    const double yMin(m_bbox->min().y);
-    const double xMax(m_bbox->max().x);
-    const double yMax(m_bbox->max().y);
+    const uint64_t uncompressedSize(m_registry->baseData().size());
 
-    dataStream.write(reinterpret_cast<const char*>(&xMin), sizeof(double));
-    dataStream.write(reinterpret_cast<const char*>(&yMin), sizeof(double));
-    dataStream.write(reinterpret_cast<const char*>(&xMax), sizeof(double));
-    dataStream.write(reinterpret_cast<const char*>(&yMax), sizeof(double));
+    std::unique_ptr<std::vector<char>> compressed(
+            Compression::compress(
+                m_registry->baseData(),
+                m_schema->pointContext().dimTypes()));
 
-    const uint64_t uncompressedSize(m_registry->baseData()->size());
-
-    // TODO Duplicate code with Node::compress().
-    CompressionStream compressionStream;
-    pdal::LazPerfCompressor<CompressionStream> compressor(
-            compressionStream,
-            m_pointContext.dimTypes());
-
-    compressor.compress(
-            m_registry->baseData()->data(),
-            m_registry->baseData()->size());
-    compressor.done();
-
-    std::shared_ptr<std::vector<char>> compressed(
-            new std::vector<char>(compressionStream.data().size()));
-
-    std::memcpy(
-            compressed->data(),
-            compressionStream.data().data(),
-            compressed->size());
     const uint64_t compressedSize(compressed->size());
 
     dataStream.write(
@@ -133,28 +122,32 @@ void SleepyTree::save(std::string path)
             sizeof(uint64_t));
     dataStream.write(compressed->data(), compressed->size());
     dataStream.close();
-    std::cout << "Done: " << m_numPoints << " points." << std::endl;
 }
 
 void SleepyTree::load()
 {
-    // TODO
-    std::string path = "./out/0";
+    Json::Value meta;
 
-    std::cout << "Loading " << path << std::endl;
-    std::ifstream dataStream;
-    dataStream.open(path, std::ifstream::in | std::ifstream::binary);
-    if (!dataStream.good())
     {
-        throw std::runtime_error("Could not open " + path);
+        Json::Reader reader;
+        std::ifstream metaStream(metaPath());
+
+        reader.parse(metaStream, meta, false);
     }
 
-    double xMin(0), yMin(0), xMax(0), yMax(0);
-    dataStream.read(reinterpret_cast<char*>(&xMin), sizeof(double));
-    dataStream.read(reinterpret_cast<char*>(&yMin), sizeof(double));
-    dataStream.read(reinterpret_cast<char*>(&xMax), sizeof(double));
-    dataStream.read(reinterpret_cast<char*>(&yMax), sizeof(double));
-    m_bbox.reset(new BBox(Point(xMin, yMin), Point(xMax, yMax)));
+    m_bbox.reset(new BBox(BBox::fromJson(meta["bbox"])));
+    m_schema.reset(new Schema(Schema::fromJson(meta["schema"])));
+
+    // TODO Read others besides baseData.
+    const std::string dataPath(m_dir + "/0");
+
+    std::ifstream dataStream(
+            dataPath,
+            std::ifstream::in | std::ifstream::binary);
+    if (!dataStream.good())
+    {
+        throw std::runtime_error("Could not open " + dataPath);
+    }
 
     uint64_t uncSize(0), cmpSize(0);
     dataStream.read(reinterpret_cast<char*>(&uncSize), sizeof(uint64_t));
@@ -163,17 +156,20 @@ void SleepyTree::load()
     std::vector<char> compressed(cmpSize);
     dataStream.read(compressed.data(), compressed.size());
 
-    CompressionStream compressionStream(compressed);
-    pdal::LazPerfDecompressor<CompressionStream> decompressor(
-            compressionStream,
-            m_pointContext.dimTypes());
+    std::unique_ptr<std::vector<char>> uncompressed(
+            Compression::decompress(
+                compressed,
+                m_schema->pointContext().dimTypes(),
+                uncSize));
 
-    std::shared_ptr<std::vector<char>> uncompressed(
-            new std::vector<char>(uncSize));
-
-    decompressor.decompress(uncompressed->data(), uncSize);
-
-    m_registry.reset(new Registry(m_pointContext.pointSize(), uncompressed));
+    const Json::Value& treeMeta(meta["tree"]);
+    m_registry.reset(
+            new Registry(
+                m_schema->stride(),
+                uncompressed.release(),
+                treeMeta["baseDepth"].asUInt64(),
+                treeMeta["flatDepth"].asUInt64(),
+                treeMeta["diskDepth"].asUInt64()));
 }
 
 const BBox& SleepyTree::getBounds() const
@@ -213,18 +209,39 @@ MultiResults SleepyTree::getPoints(
     return results;
 }
 
-const pdal::PointContext& SleepyTree::pointContext() const
+pdal::PointContext SleepyTree::pointContext() const
 {
-    return m_pointContext;
+    return m_schema->pointContext();
 }
 
-std::shared_ptr<std::vector<char>> SleepyTree::data(uint64_t id)
+std::vector<char>& SleepyTree::data(uint64_t id)
 {
+    // TODO Other IDs besides base.  Let the Registry decide based on ID.
     return m_registry->baseData();
 }
 
 std::size_t SleepyTree::numPoints() const
 {
     return m_numPoints;
+}
+
+Json::Value SleepyTree::meta() const
+{
+    Json::Value tree;
+    tree["baseDepth"] = static_cast<Json::UInt64>(m_registry->baseDepth());
+    tree["flatDepth"] = static_cast<Json::UInt64>(m_registry->flatDepth());
+    tree["diskDepth"] = static_cast<Json::UInt64>(m_registry->diskDepth());
+
+    Json::Value meta;
+    meta["bbox"] =   m_bbox->toJson();
+    meta["schema"] = m_schema->toJson();
+    meta["tree"] =   tree;
+
+    return meta;
+}
+
+std::string SleepyTree::metaPath() const
+{
+    return m_dir + "/meta";
 }
 

@@ -18,7 +18,7 @@
 #include <pdal/PointContext.hpp>
 #include <pdal/ReprojectionFilter.hpp>
 
-#include "compression/compression-stream.hpp"
+#include "compression/stream.hpp"
 #include "types/bbox.hpp"
 
 int main(int argc, char** argv)

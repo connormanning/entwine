@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 2.8.6)
 project(entwine)
 
 set(CMAKE_CXX_FLAGS
-    "-std=c++11 -O1 -Wno-deprecated-declarations -Wall -Werror -pedantic -fexceptions -frtti -g"
+    "${CMAKE_CXX_FLAGS} -std=c++11 -O3 -Wno-deprecated-declarations -Wall -Werror -pedantic -fexceptions -frtti -g"
 )
 
 set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -14,11 +14,11 @@ include_directories(
 )
 
 set(SOURCES
-    "${BASE}/compression/compression-stream.cpp"
+    "${BASE}/compression/stream.cpp"
+    "${BASE}/compression/util.cpp"
     "${BASE}/http/collector.cpp"
     "${BASE}/http/curl.cpp"
     "${BASE}/http/s3.cpp"
-    "${BASE}/kernel/main.cpp"
     "${BASE}/third/jsoncpp.cpp"
     "${BASE}/tree/multi-batcher.cpp"
     "${BASE}/tree/point-info.cpp"
@@ -30,7 +30,12 @@ set(SOURCES
     "${BASE}/types/schema.cpp"
 )
 
-add_executable(entwine ${SOURCES})
+set(ENTWINE_SRC ${SOURCES} "${BASE}/kernel/entwine.cpp")
+set(REPROJ_SRC  ${SOURCES} "${BASE}/kernel/post-reproject.cpp")
+
+add_executable(entwine ${ENTWINE_SRC})
+add_executable(reproj  ${REPROJ_SRC})
 
 target_link_libraries(entwine pdalcpp curl crypto)
+target_link_libraries(reproj  pdalcpp pdal_util curl crypto)
 

@@ -22,21 +22,20 @@ class MultiBatcher
 public:
     MultiBatcher(
             const S3Info& s3Info,
-            const std::string& outPath,
             std::size_t numBatches,
-            std::shared_ptr<SleepyTree> sleepyTree);
+            SleepyTree& sleepyTree);
+    ~MultiBatcher();
 
     void add(const std::string& filename, Origin origin);
 
-    // Must be called before destruction.
+    // Await all outstanding responses.
     void gather();
 
 private:
     S3 m_s3;
-    const std::string m_outPath;
     std::vector<std::thread> m_batches;
     std::vector<std::size_t> m_available;
-    std::shared_ptr<SleepyTree> m_sleepyTree;
+    SleepyTree& m_sleepyTree;
 
     std::mutex m_mutex;
     std::condition_variable m_cv;

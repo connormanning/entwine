@@ -20,15 +20,13 @@
 
 MultiBatcher::MultiBatcher(
         const S3Info& s3Info,
-        const std::string& outPath,
         const std::size_t numBatches,
-        std::shared_ptr<SleepyTree> sleepyTree)
+        SleepyTree& sleepyTree)
     : m_s3(
             s3Info.awsAccessKeyId,
             s3Info.awsSecretAccessKey,
             s3Info.baseAwsUrl,
             s3Info.bucketName)
-    , m_outPath(outPath)
     , m_batches(numBatches)
     , m_available(numBatches)
     , m_sleepyTree(sleepyTree)
@@ -39,6 +37,11 @@ MultiBatcher::MultiBatcher(
     {
         m_available[i] = i;
     }
+}
+
+MultiBatcher::~MultiBatcher()
+{
+    gather();
 }
 
 void MultiBatcher::add(const std::string& filename, const Origin origin)
@@ -69,7 +72,7 @@ void MultiBatcher::add(const std::string& filename, const Origin origin)
 
                 {
                     // Retrieve remote file.
-                    HttpResponse res(m_s3.get("IA_LAZlib/" + filename));
+                    HttpResponse res(m_s3.get(filename));
 
                     // TODO Retry a few times.
                     if (res.code() != 200)
@@ -122,6 +125,7 @@ void MultiBatcher::add(const std::string& filename, const Origin origin)
 
                 // Get and insert the buffer of reprojected points.
                 pipelineManager->execute();
+                std::cout << "Exec'd" << std::endl;
                 const pdal::PointBufferSet& pbSet(pipelineManager->buffers());
 
                 if (remove(localPath.c_str()) != 0)
@@ -132,7 +136,9 @@ void MultiBatcher::add(const std::string& filename, const Origin origin)
 
                 for (const auto pointBuffer : pbSet)
                 {
-                    m_sleepyTree->insert(pointBuffer.get(), origin);
+                    std::cout << "Adding " << pointBuffer->size() <<
+                        " points" << std::endl;
+                    m_sleepyTree.insert(pointBuffer.get(), origin);
                 }
             }
             else

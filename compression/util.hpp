@@ -10,29 +10,21 @@
 
 #pragma once
 
-#include <cstdint>
+#include <memory>
 #include <vector>
 
 #include <pdal/PointContext.hpp>
 
-#include "json/json.h"
-#include "dim-info.hpp"
-
-class Schema
+class Compression
 {
 public:
-    explicit Schema(std::vector<DimInfo> dims);
+    static std::unique_ptr<std::vector<char>> compress(
+            const std::vector<char>& data,
+            pdal::DimTypeList dimTypeList);
 
-    std::size_t stride() const;
-    const std::vector<DimInfo>& dims() const;
-
-    pdal::PointContextRef pointContext() const;
-
-    Json::Value toJson() const;
-    static Schema fromJson(const Json::Value& json);
-
-private:
-    const std::vector<DimInfo> m_dims;
-    const pdal::PointContext m_pointContext;
+    static std::unique_ptr<std::vector<char>> decompress(
+            const std::vector<char>& data,
+            pdal::DimTypeList dimTypeList,
+            std::size_t decompressedSize);
 };
 

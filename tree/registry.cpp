@@ -35,19 +35,19 @@ Registry::Registry(
         std::size_t pointSize,
         std::size_t baseDepth,
         std::size_t flatDepth,
-        std::size_t deadDepth)
+        std::size_t diskDepth)
     : m_pointSize(pointSize)
     , m_baseDepth(baseDepth)
     , m_flatDepth(flatDepth)
-    , m_deadDepth(deadDepth)
+    , m_diskDepth(diskDepth)
     , m_baseOffset(getOffset(baseDepth))
     , m_flatOffset(getOffset(flatDepth))
-    , m_deadOffset(getOffset(deadDepth))
+    , m_diskOffset(getOffset(diskDepth))
     , m_basePoints(m_baseOffset, std::atomic<const Point*>(0))
     , m_baseData(new std::vector<char>(m_baseOffset * pointSize, 0))
     , m_baseLocks(m_baseOffset)
 {
-    if (baseDepth > flatDepth || flatDepth > deadDepth)
+    if (baseDepth > flatDepth || flatDepth > diskDepth)
     {
         throw std::runtime_error("Invalid registry params");
     }
@@ -55,22 +55,22 @@ Registry::Registry(
 
 Registry::Registry(
         std::size_t pointSize,
-        std::shared_ptr<std::vector<char>> data,
+        std::vector<char>* data,
         std::size_t baseDepth,
         std::size_t flatDepth,
-        std::size_t deadDepth)
+        std::size_t diskDepth)
     : m_pointSize(pointSize)
     , m_baseDepth(baseDepth)
     , m_flatDepth(flatDepth)
-    , m_deadDepth(deadDepth)
+    , m_diskDepth(diskDepth)
     , m_baseOffset(getOffset(baseDepth))
     , m_flatOffset(getOffset(flatDepth))
-    , m_deadOffset(getOffset(deadDepth))
+    , m_diskOffset(getOffset(diskDepth))
     , m_basePoints(m_baseOffset, std::atomic<const Point*>(0))
     , m_baseData(data)
     , m_baseLocks(m_baseOffset)
 {
-    if (baseDepth > flatDepth || flatDepth > deadDepth)
+    if (baseDepth > flatDepth || flatDepth > diskDepth)
     {
         throw std::runtime_error("Invalid registry params");
     }
@@ -167,7 +167,7 @@ void Registry::put(
         }
     }
     else if (roller.depth() < m_flatDepth) { /* TODO */ }
-    else if (roller.depth() < m_deadDepth) { /* TODO */ }
+    else if (roller.depth() < m_diskDepth) { /* TODO */ }
     else
     {
         delete toAdd->point;

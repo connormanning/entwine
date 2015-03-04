@@ -14,15 +14,15 @@
 #include <vector>
 
 #include <pdal/PointBuffer.hpp>
-#include <pdal/PointContext.hpp>
 #include <pdal/Dimension.hpp>
 
+#include "json/json.h"
 #include "http/s3.hpp"
-#include "types/bbox.hpp"
 #include "types/point.hpp"
 #include "tree/point-info.hpp"
 #include "tree/registry.hpp"
 
+class BBox;
 class Registry;
 class Schema;
 
@@ -30,17 +30,20 @@ class SleepyTree
 {
 public:
     SleepyTree(
-            const std::string& outPath,
+            const std::string& dir,
             const BBox& bbox,
-            const Schema& schema);
-    SleepyTree(const std::string& outPath);
+            const Schema& schema,
+            std::size_t baseDepth,
+            std::size_t flatDepth,
+            std::size_t diskDepth);
+    SleepyTree(const std::string& dir);
     ~SleepyTree();
 
     // Insert the points from a PointBuffer into this index.
     void insert(const pdal::PointBuffer* pointBuffer, Origin origin);
 
     // Finalize the tree so it may be queried.  No more pipelines may be added.
-    void save(std::string path = "");
+    void save();
 
     // Awaken the tree so more pipelines may be added.  After a load(), no
     // queries should be made until save() is subsequently called.
@@ -64,18 +67,18 @@ public:
             std::size_t depthBegin,
             std::size_t depthEnd);
 
-    const pdal::PointContext& pointContext() const;
-    std::shared_ptr<std::vector<char>> data(uint64_t id);
+    pdal::PointContext pointContext() const;
+    std::vector<char>& data(uint64_t id);
 
     std::size_t numPoints() const;
 
 private:
-    const std::string m_outPath;
+    Json::Value meta() const;
+    std::string metaPath() const;
+
+    const std::string m_dir;
     std::unique_ptr<BBox> m_bbox;
-
-    pdal::PointContext m_pointContext;
-    pdal::Dimension::Id::Enum m_originDim;
-
+    std::unique_ptr<Schema> m_schema;
     std::size_t m_numPoints;
 
     std::unique_ptr<Registry> m_registry;
