@@ -2,9 +2,14 @@ cmake_minimum_required(VERSION 2.8.6)
 
 project(entwine)
 
-set(CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS} -std=c++11 -O3 -Wno-deprecated-declarations -Wall -Werror -pedantic -fexceptions -frtti -g"
-)
+add_definitions(${CMAKE_CXX_FLAGS} "-std=c++11")
+add_definitions(${CMAKE_CXX_FLAGS} "-g")
+add_definitions(${CMAKE_CXX_FLAGS} "-O3")
+add_definitions(${CMAKE_CXX_FLAGS} "-Wno-deprecated-declarations")
+add_definitions(${CMAKE_CXX_FLAGS} "-Wall")
+add_definitions(${CMAKE_CXX_FLAGS} "-Werror")
+add_definitions(${CMAKE_CXX_FLAGS} "-pedantic")
+add_definitions(${CMAKE_CXX_FLAGS} "-fexceptions")
 
 set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 
@@ -20,9 +25,7 @@ add_subdirectory(third)
 add_subdirectory(tree)
 add_subdirectory(types)
 
-add_library(
-    entwine
-    SHARED
+set(OBJS
     $<TARGET_OBJECTS:compression>
     $<TARGET_OBJECTS:http>
     $<TARGET_OBJECTS:third>
@@ -30,6 +33,7 @@ add_library(
     $<TARGET_OBJECTS:types>
 )
 
+add_library(entwine SHARED ${OBJS})
 target_link_libraries(entwine pdalcpp curl crypto)
 install(TARGETS entwine DESTINATION lib)
 
