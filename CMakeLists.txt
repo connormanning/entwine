@@ -13,26 +13,23 @@ include_directories(
     "${BASE}/third/"
 )
 
-set(SOURCES
-    "${BASE}/compression/stream.cpp"
-    "${BASE}/compression/util.cpp"
-    "${BASE}/http/collector.cpp"
-    "${BASE}/http/curl.cpp"
-    "${BASE}/http/s3.cpp"
-    "${BASE}/third/jsoncpp.cpp"
-    "${BASE}/tree/multi-batcher.cpp"
-    "${BASE}/tree/point-info.cpp"
-    "${BASE}/tree/registry.cpp"
-    "${BASE}/tree/roller.cpp"
-    "${BASE}/tree/sleepy-tree.cpp"
-    "${BASE}/tree/branches/base.cpp"
-    "${BASE}/types/bbox.cpp"
-    "${BASE}/types/dim-info.cpp"
-    "${BASE}/types/schema.cpp"
+add_subdirectory(compression)
+add_subdirectory(http)
+add_subdirectory(kernel)
+add_subdirectory(third)
+add_subdirectory(tree)
+add_subdirectory(types)
+
+add_library(
+    entwine
+    SHARED
+    $<TARGET_OBJECTS:compression>
+    $<TARGET_OBJECTS:http>
+    $<TARGET_OBJECTS:third>
+    $<TARGET_OBJECTS:tree>
+    $<TARGET_OBJECTS:types>
 )
 
-add_subdirectory(kernel)
-
-add_library(entwine SHARED ${SOURCES})
 target_link_libraries(entwine pdalcpp curl crypto)
+install(TARGETS entwine DESTINATION lib)
 
