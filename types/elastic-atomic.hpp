@@ -10,6 +10,9 @@
 
 #include <atomic>
 
+namespace entwine
+{
+
 // A copy-constructible and assignable atomic wrapper for use in a vector.
 template <typename T>
 struct ElasticAtomic
@@ -34,4 +37,6 @@ struct ElasticAtomic
 
     std::atomic<T> atom;
 };
+
+} // namespace entwine
 

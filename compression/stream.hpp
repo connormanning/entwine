@@ -13,6 +13,9 @@
 #include <cstdint>
 #include <vector>
 
+namespace entwine
+{
+
 class CompressionStream
 {
 public:
@@ -32,4 +35,6 @@ private:
     std::vector<uint8_t> m_data;
     std::size_t m_index;
 };
+
+} // namespace entwine
 

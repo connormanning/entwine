@@ -40,6 +40,9 @@ namespace
     }
 }
 
+namespace entwine
+{
+
 DimInfo::DimInfo(
         const std::string& name,
         const std::string& baseTypeName,
@@ -79,4 +82,6 @@ void DimInfo::setId(pdal::Dimension::Id::Enum id)
 {
     m_id = id;
 }
+
+} // namespace entwine
 

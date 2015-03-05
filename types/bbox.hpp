@@ -14,6 +14,9 @@
 
 #include "point.hpp"
 
+namespace entwine
+{
+
 class BBox
 {
 public:
@@ -56,4 +59,6 @@ private:
 
     void check(const Point& min, const Point& max) const;
 };
+
+} // namespace entwine
 

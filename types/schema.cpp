@@ -12,7 +12,7 @@
 
 namespace
 {
-    pdal::PointContext getPointContext(std::vector<DimInfo>& dims)
+    pdal::PointContext getPointContext(std::vector<entwine::DimInfo>& dims)
     {
         pdal::PointContext pointContext;
         for (auto& dim : dims)
@@ -23,6 +23,9 @@ namespace
         return pointContext;
     }
 }
+
+namespace entwine
+{
 
 Schema::Schema(std::vector<DimInfo> dims)
     : m_dims(dims)
@@ -72,4 +75,6 @@ Schema Schema::fromJson(const Json::Value& json)
     }
     return Schema(dims);
 }
+
+} // namespace entwine
 

@@ -15,6 +15,9 @@
 
 #include <pdal/Dimension.hpp>
 
+namespace entwine
+{
+
 class DimInfo
 {
 public:
@@ -37,4 +40,6 @@ private:
     const pdal::Dimension::Type::Enum m_type;
     const std::string m_typeString;
 };
+
+} // namespace entwine
 

@@ -35,6 +35,9 @@ namespace
     }
 }
 
+namespace entwine
+{
+
 Registry::Registry(
         const Schema& schema,
         const std::size_t baseDepth,
@@ -184,4 +187,6 @@ Branch* Registry::getBranch(const Roller& roller) const
 
     return branch;
 }
+
+} // namespace entwine
 

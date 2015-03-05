@@ -16,6 +16,9 @@
 #include "tree/branch.hpp"
 #include "types/elastic-atomic.hpp"
 
+namespace entwine
+{
+
 class Schema;
 
 class BaseBranch : public Branch
@@ -43,4 +46,6 @@ private:
     std::unique_ptr<std::vector<char>> m_data;
     std::vector<std::mutex> m_locks;
 };
+
+} // namespace entwine
 

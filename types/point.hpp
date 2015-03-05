@@ -10,6 +10,9 @@
 
 #pragma once
 
+namespace entwine
+{
+
 struct Point
 {
     Point() : x(0), y(0) { }
@@ -25,4 +28,6 @@ struct Point
     double x;
     double y;
 };
+
+} // namespace entwine
 

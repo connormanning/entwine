@@ -16,6 +16,9 @@
 
 #include "types/point.hpp"
 
+namespace entwine
+{
+
 PointInfo::PointInfo(
         const pdal::PointContextRef pointContext,
         const pdal::PointBuffer* pointBuffer,
@@ -60,4 +63,5 @@ void PointInfo::write(char* pos)
     std::memcpy(pos, bytes.data(), bytes.size());
 }
 
+} // namespace entwine
 

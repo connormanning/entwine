@@ -10,6 +10,9 @@
 
 #include "collector.hpp"
 
+namespace entwine
+{
+
 Collector::Collector(const std::size_t numExpected)
     : m_expected(numExpected)
     , m_received(0)
@@ -144,4 +147,6 @@ GetCollector::responses()
 {
     return m_data;
 }
+
+} // namespace entwine
 

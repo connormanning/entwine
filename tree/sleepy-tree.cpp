@@ -29,6 +29,9 @@
 #include "types/bbox.hpp"
 #include "types/schema.hpp"
 
+namespace entwine
+{
+
 SleepyTree::SleepyTree(
         const std::string& dir,
         const BBox& bbox,
@@ -191,4 +194,6 @@ std::string SleepyTree::metaPath() const
 {
     return m_dir + "/meta";
 }
+
+} // namespace entwine
 

@@ -14,6 +14,9 @@
 
 #include "compression/stream.hpp"
 
+namespace entwine
+{
+
 std::unique_ptr<std::vector<char>> Compression::compress(
         const std::vector<char>& data,
         const pdal::DimTypeList dimTypeList)
@@ -54,4 +57,6 @@ std::unique_ptr<std::vector<char>> Compression::decompress(
 
     return decompressed;
 }
+
+} // namespace entwine
 

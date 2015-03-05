@@ -15,6 +15,9 @@
 
 #include <pdal/PointContext.hpp>
 
+namespace entwine
+{
+
 class Compression
 {
 public:
@@ -27,4 +30,6 @@ public:
             pdal::DimTypeList dimTypeList,
             std::size_t decompressedSize);
 };
+
+} // namespace entwine
 

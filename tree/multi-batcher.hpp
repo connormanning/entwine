@@ -17,6 +17,9 @@
 #include "http/s3.hpp"
 #include "tree/sleepy-tree.hpp"
 
+namespace entwine
+{
+
 class MultiBatcher
 {
 public:
@@ -40,4 +43,6 @@ private:
     std::mutex m_mutex;
     std::condition_variable m_cv;
 };
+
+} // namespace entwine
 

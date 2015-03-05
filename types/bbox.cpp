@@ -14,6 +14,9 @@
 
 #include "bbox.hpp"
 
+namespace entwine
+{
+
 BBox::BBox() : m_min(), m_max() { }
 
 BBox::BBox(Point min, Point max)
@@ -125,4 +128,6 @@ void BBox::check(const Point& min, const Point& max) const
         std::cout << "Correcting malformed BBox" << std::endl;
     }
 }
+
+} // namespace entwine
 

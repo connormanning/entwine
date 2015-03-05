@@ -12,6 +12,9 @@
 
 #include "types/bbox.hpp"
 
+namespace entwine
+{
+
 struct Point;
 
 // Maintains the state of the current point as it traverses the virtual tree.
@@ -52,4 +55,6 @@ private:
 
     void step(Dir dir);
 };
+
+} // namespace entwine
 

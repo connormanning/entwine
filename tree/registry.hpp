@@ -20,6 +20,9 @@ namespace Json
     class Value;
 }
 
+namespace entwine
+{
+
 class BBox;
 class BaseBranch;
 class Branch;
@@ -74,4 +77,6 @@ private:
 
     std::unique_ptr<BaseBranch> m_baseBranch;
 };
+
+} // namespace entwine
 

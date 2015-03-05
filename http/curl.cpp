@@ -61,6 +61,9 @@ namespace
     const bool verbose(false);
 }
 
+namespace entwine
+{
+
 Curl::Curl(std::size_t id)
     : m_curl(0)
     , m_headers(0)
@@ -249,4 +252,6 @@ void CurlPool::release(std::shared_ptr<CurlBatch> curlBatch)
     lock.unlock();
     m_cv.notify_one();
 }
+
+} // namespace entwine
 

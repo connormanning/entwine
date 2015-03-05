@@ -13,6 +13,9 @@
 
 #include "stream.hpp"
 
+namespace entwine
+{
+
 CompressionStream::CompressionStream()
     : m_data()
     , m_index(0)
@@ -63,4 +66,6 @@ const std::vector<uint8_t>& CompressionStream::data() const
 {
     return m_data;
 }
+
+} // namespace entwine
 

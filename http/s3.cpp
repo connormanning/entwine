@@ -22,8 +22,11 @@ namespace
     // TODO Configure.
     const std::size_t curlNumBatches(16);
     const std::size_t curlBatchSize(64);
-    static CurlPool curlPool(curlNumBatches, curlBatchSize);
+    static entwine::CurlPool curlPool(curlNumBatches, curlBatchSize);
 }
+
+namespace entwine
+{
 
 S3::S3(
         std::string awsAccessKeyId,
@@ -260,4 +263,6 @@ std::string S3::prefixSlash(const std::string& in) const
     if (in.size() && in[0] != '/') return "/" + in;
     else return in;
 }
+
+} // namespace entwine
 

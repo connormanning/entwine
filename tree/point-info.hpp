@@ -20,6 +20,9 @@ namespace pdal
     class PointBuffer;
 }
 
+namespace entwine
+{
+
 struct Point;
 
 struct PointInfo
@@ -37,4 +40,6 @@ struct PointInfo
     const Point* point;
     std::vector<char> bytes;
 };
+
+} // namespace entwine
 

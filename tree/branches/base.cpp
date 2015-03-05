@@ -22,6 +22,9 @@ namespace
     const double empty(std::numeric_limits<double>::max());
 }
 
+namespace entwine
+{
+
 BaseBranch::BaseBranch(
         const Schema& schema,
         const std::size_t begin,
@@ -229,4 +232,6 @@ void BaseBranch::load(const std::string& dir, const Json::Value& meta)
         }
     }
 }
+
+} // namespace entwine
 

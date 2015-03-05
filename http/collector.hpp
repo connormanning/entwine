@@ -17,8 +17,10 @@
 
 #include "s3.hpp"
 
-// Collector classes to gather asynchronous S3 responses.
+namespace entwine
+{
 
+// Collector classes to gather asynchronous S3 responses.
 class Collector
 {
 public:
@@ -90,4 +92,6 @@ private:
     std::map<uint64_t, const std::shared_ptr<std::vector<uint8_t>>> m_data;
     std::map<uint64_t, std::string> m_errs;
 };
+
+} // namespace entwine
 

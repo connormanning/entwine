@@ -22,6 +22,9 @@
 #include "tree/point-info.hpp"
 #include "tree/registry.hpp"
 
+namespace entwine
+{
+
 class BBox;
 class Schema;
 
@@ -84,4 +87,6 @@ private:
     SleepyTree(const SleepyTree&);
     SleepyTree& operator=(const SleepyTree&);
 };
+
+} // namespace entwine
 

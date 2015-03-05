@@ -15,6 +15,9 @@
 
 #include "curl.hpp"
 
+namespace entwine
+{
+
 class PutCollector;
 class GetCollector;
 
@@ -117,4 +120,6 @@ private:
 
     std::shared_ptr<CurlBatch> m_curlBatch;
 };
+
+} // namespace entwine
 

@@ -18,6 +18,9 @@
 #include "json/json.h"
 #include "dim-info.hpp"
 
+namespace entwine
+{
+
 class Schema
 {
 public:
@@ -35,4 +38,6 @@ private:
     const std::vector<DimInfo> m_dims;
     const pdal::PointContext m_pointContext;
 };
+
+} // namespace entwine
 

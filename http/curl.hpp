@@ -20,6 +20,9 @@
 
 #include <curl/curl.h>
 
+namespace entwine
+{
+
 class HttpResponse
 {
 public:
@@ -128,4 +131,6 @@ private:
     std::mutex m_mutex;
     std::condition_variable m_cv;
 };
+
+} // namespace entwine
 

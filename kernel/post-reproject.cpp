@@ -20,6 +20,8 @@
 #include "compression/stream.hpp"
 #include "types/bbox.hpp"
 
+using namespace entwine;
+
 int main(int argc, char** argv)
 {
     pdal::PointContext pointContext;

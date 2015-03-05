@@ -12,6 +12,9 @@
 
 #include "types/point.hpp"
 
+namespace entwine
+{
+
 Roller::Roller(const BBox& bbox)
     : m_pos(0)
     , m_bbox(bbox)
@@ -113,4 +116,6 @@ void Roller::step(const Dir dir)
     m_pos = (m_pos << 2) + 1 + dir;
     ++m_depth;
 }
+
+} // namespace entwine
 

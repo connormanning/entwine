@@ -17,6 +17,8 @@
 #include <pdal/Stage.hpp>
 #include <pdal/StageFactory.hpp>
 
+namespace entwine
+{
 
 MultiBatcher::MultiBatcher(
         const S3Info& s3Info,
@@ -175,4 +177,6 @@ void MultiBatcher::gather()
 
     t.join();
 }
+
+} // namespace entwine
 

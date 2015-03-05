@@ -19,6 +19,9 @@ namespace Json
     class Value;
 }
 
+namespace entwine
+{
+
 struct Point;
 struct PointInfo;
 class Roller;
@@ -54,4 +57,6 @@ private:
     const std::size_t m_begin;
     const std::size_t m_end;
 };
+
+} // namespace entwine
 

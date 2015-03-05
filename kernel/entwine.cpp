@@ -23,6 +23,8 @@ namespace
     Json::Reader reader;
 }
 
+using namespace entwine;
+
 S3Info getCredentials()
 {
     // TODO Accept flag to specify location of credentials file.
