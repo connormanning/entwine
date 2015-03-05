@@ -12,7 +12,6 @@
 #include <iomanip>
 
 #include <pdal/BufferReader.hpp>
-#include <pdal/Charbuf.hpp>
 #include <pdal/Compression.hpp>
 #include <pdal/Dimension.hpp>
 #include <pdal/PointContext.hpp>

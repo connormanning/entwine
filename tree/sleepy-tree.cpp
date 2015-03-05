@@ -16,7 +16,6 @@
 #include <string>
 #include <thread>
 
-#include <pdal/Charbuf.hpp>
 #include <pdal/Compression.hpp>
 #include <pdal/Dimension.hpp>
 #include <pdal/PointBuffer.hpp>
