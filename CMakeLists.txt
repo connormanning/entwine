@@ -31,12 +31,8 @@ set(SOURCES
     "${BASE}/types/schema.cpp"
 )
 
-set(ENTWINE_SRC ${SOURCES} "${BASE}/kernel/entwine.cpp")
-set(REPROJ_SRC  ${SOURCES} "${BASE}/kernel/post-reproject.cpp")
+add_subdirectory(kernel)
 
-add_executable(entwine ${ENTWINE_SRC})
-add_executable(reproj  ${REPROJ_SRC})
-
+add_library(entwine SHARED ${SOURCES})
 target_link_libraries(entwine pdalcpp curl crypto)
-target_link_libraries(reproj  pdalcpp pdal_util curl crypto)
 

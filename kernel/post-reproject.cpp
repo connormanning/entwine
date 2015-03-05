@@ -64,14 +64,15 @@ int main(int argc, char** argv)
 
     decompressor.decompress(uncompressed->data(), uncSize);
 
-    pdal::Charbuf charbuf(*uncompressed.get());
-    std::istream stream(&charbuf);
-    pdal::PointBufferPtr pointBuffer(
-            new pdal::PointBuffer(
-                stream,
-                pointContext,
-                0,
-                uncompressed->size() / pointContext.pointSize()));
+    pdal::PointBufferPtr pointBuffer(new pdal::PointBuffer(pointContext));
+    for (std::size_t i(0); i < uncSize / pointContext.pointSize(); ++i)
+    {
+        pointBuffer->setPackedPoint(
+                pointContext.dimTypes(),
+                i,
+                uncompressed->data() + i * pointContext.pointSize());
+    }
+
     std::unique_ptr<pdal::BufferReader> bufferReader(new pdal::BufferReader());
 
     // Set bounding box at the end for reproj.
