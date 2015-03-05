@@ -28,9 +28,24 @@ BaseBranch::BaseBranch(
         const std::size_t end)
     : Branch(schema, begin, end)
     , m_points(size(), std::atomic<const Point*>(0))
-    , m_data(new std::vector<char>(size() * schema.stride(), empty))
+    , m_data(new std::vector<char>(size() * schema.stride()))
     , m_locks(size())
-{ }
+{
+    const std::size_t stride(schema.stride());
+    const char* ptr(reinterpret_cast<const char*>(&empty));
+
+    for (std::size_t offset(0); offset < m_data->size(); offset += stride)
+    {
+        std::memcpy(
+                m_data->data() + offset,
+                ptr,
+                sizeof(double));
+        std::memcpy(
+                m_data->data() + offset + sizeof(double),
+                ptr,
+                sizeof(double));
+    }
+}
 
 BaseBranch::BaseBranch(
         const Schema& schema,
