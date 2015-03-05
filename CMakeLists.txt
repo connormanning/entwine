@@ -10,6 +10,7 @@ add_definitions(${CMAKE_CXX_FLAGS} "-Wall")
 add_definitions(${CMAKE_CXX_FLAGS} "-Werror")
 add_definitions(${CMAKE_CXX_FLAGS} "-pedantic")
 add_definitions(${CMAKE_CXX_FLAGS} "-fexceptions")
+add_definitions(${CMAKE_CXX_FLAGS} "-fPIC")
 
 set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 

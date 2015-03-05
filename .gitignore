@@ -1,6 +1,3 @@
-entwine
 credentials.json
-*.dSYM
 
-out/
 .DS_Store
