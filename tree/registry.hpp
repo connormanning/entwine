@@ -15,27 +15,26 @@
 #include <mutex>
 #include <vector>
 
-#include "types/elastic-atomic.hpp"
-#include "types/point.hpp"
+namespace Json
+{
+    class Value;
+}
 
 class BBox;
+class BaseBranch;
+class Branch;
 struct PointInfo;
 class Roller;
+class Schema;
 
-typedef std::vector<std::pair<uint64_t, std::size_t>> MultiResults;
+typedef std::vector<std::size_t> MultiResults;
 
 // Maintains mapping to house the data belonging to each virtual node.
 class Registry
 {
 public:
     Registry(
-            std::size_t pointSize,
-            std::size_t baseDepth,
-            std::size_t flatDepth,
-            std::size_t diskDepth);
-    Registry(
-            std::size_t pointSize,
-            std::vector<char>* data,
+            const Schema& schema,
             std::size_t baseDepth,
             std::size_t flatDepth,
             std::size_t diskDepth);
@@ -56,14 +55,14 @@ public:
             std::size_t depthBegin,
             std::size_t depthEnd);
 
-    std::vector<char>& baseData() { return *m_baseData.get(); }
+    void save(const std::string& dir, Json::Value& meta) const;
+    void load(const std::string& dir, const Json::Value& meta);
 
-    std::size_t baseDepth() const { return m_baseDepth; }
-    std::size_t flatDepth() const { return m_flatDepth; }
-    std::size_t diskDepth() const { return m_diskDepth; }
+    // TODO
+    // getPointData(std::size_t index);
 
 private:
-    const std::size_t m_pointSize;
+    Branch* getBranch(const Roller& roller) const;
 
     const std::size_t m_baseDepth;
     const std::size_t m_flatDepth;
@@ -73,9 +72,6 @@ private:
     const std::size_t m_flatOffset;
     const std::size_t m_diskOffset;
 
-    // TODO Real structures.  These are testing only.
-    std::vector<ElasticAtomic<const Point*>> m_basePoints;
-    std::unique_ptr<std::vector<char>> m_baseData;
-    std::vector<std::mutex> m_baseLocks;
+    std::unique_ptr<BaseBranch> m_baseBranch;
 };
 

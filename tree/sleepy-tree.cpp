@@ -26,6 +26,7 @@
 #include "compression/util.hpp"
 #include "http/collector.hpp"
 #include "tree/roller.hpp"
+#include "tree/registry.hpp"
 #include "types/bbox.hpp"
 #include "types/schema.hpp"
 
@@ -42,7 +43,7 @@ SleepyTree::SleepyTree(
     , m_numPoints(0)
     , m_registry(
             new Registry(
-                m_schema->stride(),
+                *m_schema.get(),
                 baseDepth,
                 flatDepth,
                 diskDepth))
@@ -89,39 +90,20 @@ void SleepyTree::insert(const pdal::PointBuffer* pointBuffer, Origin origin)
 
 void SleepyTree::save()
 {
-    {
-        std::ofstream metaStream(
-                metaPath(),
-                std::ofstream::out | std::ofstream::trunc);
+    Json::Value jsonMeta;
+    addMeta(jsonMeta);
+    m_registry->save(m_dir, jsonMeta["registry"]);
 
-        const std::string metaString(meta().toStyledString());
-        metaStream.write(metaString.data(), metaString.size());
+    std::ofstream metaStream(
+            metaPath(),
+            std::ofstream::out | std::ofstream::trunc);
+    if (!metaStream.good())
+    {
+        throw std::runtime_error("Could not open " + metaPath());
     }
 
-    // TODO Write others besides baseData.  Probably need to call something
-    // like Registry::write().
-    const std::string dataPath(m_dir + "/0");
-    std::ofstream dataStream(
-            dataPath,
-            std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
-
-    const uint64_t uncompressedSize(m_registry->baseData().size());
-
-    std::unique_ptr<std::vector<char>> compressed(
-            Compression::compress(
-                m_registry->baseData(),
-                m_schema->pointContext().dimTypes()));
-
-    const uint64_t compressedSize(compressed->size());
-
-    dataStream.write(
-            reinterpret_cast<const char*>(&uncompressedSize),
-            sizeof(uint64_t));
-    dataStream.write(
-            reinterpret_cast<const char*>(&compressedSize),
-            sizeof(uint64_t));
-    dataStream.write(compressed->data(), compressed->size());
-    dataStream.close();
+    const std::string metaString(jsonMeta.toStyledString());
+    metaStream.write(metaString.data(), metaString.size());
 }
 
 void SleepyTree::load()
@@ -131,6 +113,10 @@ void SleepyTree::load()
     {
         Json::Reader reader;
         std::ifstream metaStream(metaPath());
+        if (!metaStream.good())
+        {
+            throw std::runtime_error("Could not open " + metaPath());
+        }
 
         reader.parse(metaStream, meta, false);
     }
@@ -138,38 +124,15 @@ void SleepyTree::load()
     m_bbox.reset(new BBox(BBox::fromJson(meta["bbox"])));
     m_schema.reset(new Schema(Schema::fromJson(meta["schema"])));
 
-    // TODO Read others besides baseData.
-    const std::string dataPath(m_dir + "/0");
-
-    std::ifstream dataStream(
-            dataPath,
-            std::ifstream::in | std::ifstream::binary);
-    if (!dataStream.good())
-    {
-        throw std::runtime_error("Could not open " + dataPath);
-    }
-
-    uint64_t uncSize(0), cmpSize(0);
-    dataStream.read(reinterpret_cast<char*>(&uncSize), sizeof(uint64_t));
-    dataStream.read(reinterpret_cast<char*>(&cmpSize), sizeof(uint64_t));
-
-    std::vector<char> compressed(cmpSize);
-    dataStream.read(compressed.data(), compressed.size());
-
-    std::unique_ptr<std::vector<char>> uncompressed(
-            Compression::decompress(
-                compressed,
-                m_schema->pointContext().dimTypes(),
-                uncSize));
-
     const Json::Value& treeMeta(meta["tree"]);
     m_registry.reset(
             new Registry(
-                m_schema->stride(),
-                uncompressed.release(),
+                *m_schema.get(),
                 treeMeta["baseDepth"].asUInt64(),
                 treeMeta["flatDepth"].asUInt64(),
                 treeMeta["diskDepth"].asUInt64()));
+
+    m_registry->load(m_dir, meta["registry"]);
 }
 
 const BBox& SleepyTree::getBounds() const
@@ -214,30 +177,15 @@ pdal::PointContext SleepyTree::pointContext() const
     return m_schema->pointContext();
 }
 
-std::vector<char>& SleepyTree::data(uint64_t id)
-{
-    // TODO Other IDs besides base.  Let the Registry decide based on ID.
-    return m_registry->baseData();
-}
-
 std::size_t SleepyTree::numPoints() const
 {
     return m_numPoints;
 }
 
-Json::Value SleepyTree::meta() const
+void SleepyTree::addMeta(Json::Value& meta) const
 {
-    Json::Value tree;
-    tree["baseDepth"] = static_cast<Json::UInt64>(m_registry->baseDepth());
-    tree["flatDepth"] = static_cast<Json::UInt64>(m_registry->flatDepth());
-    tree["diskDepth"] = static_cast<Json::UInt64>(m_registry->diskDepth());
-
-    Json::Value meta;
-    meta["bbox"] =   m_bbox->toJson();
+    meta["bbox"] = m_bbox->toJson();
     meta["schema"] = m_schema->toJson();
-    meta["tree"] =   tree;
-
-    return meta;
 }
 
 std::string SleepyTree::metaPath() const

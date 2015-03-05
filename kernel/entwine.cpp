@@ -10,6 +10,8 @@
 
 #include <iostream>
 
+#include <sys/stat.h>
+
 #include "json/json.h"
 #include "tree/multi-batcher.hpp"
 #include "tree/sleepy-tree.hpp"
@@ -55,6 +57,17 @@ std::vector<std::string> getPaths(const Json::Value& jsonPaths)
     return paths;
 }
 
+void mkdirp(const std::string& path)
+{
+    const bool err(mkdir(path.c_str(), S_IRWXU | S_IRGRP | S_IROTH));
+
+    if (err && errno != EEXIST)
+    {
+        throw std::runtime_error(
+            "Couldn't create: " + path + ":" + strerror(errno));
+    }
+}
+
 int main(int argc, char** argv)
 {
     if (argc < 2)
@@ -79,6 +92,7 @@ int main(int argc, char** argv)
     // Parse configuration.
     const std::vector<std::string> paths(getPaths(config["manifest"]));
     const BBox bbox(BBox::fromJson(config["bbox"]));
+    Schema schema(Schema::fromJson(config["schema"]));
     const S3Info s3Info(getCredentials());
 
     // TODO These values should be overridable via command line.
@@ -91,8 +105,7 @@ int main(int argc, char** argv)
     const std::size_t flatDepth(config["flatDepth"].asUInt64());
     const std::size_t diskDepth(config["diskDepth"].asUInt64());
 
-    // Parse resulting schema.
-    Schema schema(Schema::fromJson(config["schema"]));
+    mkdirp(outDir);
 
     std::cout << "Building from " << paths.size() << " paths." << std::endl;
     std::cout << "Storing dimensions: [";

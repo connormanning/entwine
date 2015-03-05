@@ -10,8 +10,12 @@
 
 #include "registry.hpp"
 
+#include "json/json.h"
+
 #include "tree/roller.hpp"
+#include "tree/branches/base.hpp"
 #include "types/bbox.hpp"
+#include "types/schema.hpp"
 #include "point-info.hpp"
 
 namespace
@@ -32,180 +36,78 @@ namespace
 }
 
 Registry::Registry(
-        std::size_t pointSize,
-        std::size_t baseDepth,
-        std::size_t flatDepth,
-        std::size_t diskDepth)
-    : m_pointSize(pointSize)
-    , m_baseDepth(baseDepth)
+        const Schema& schema,
+        const std::size_t baseDepth,
+        const std::size_t flatDepth,
+        const std::size_t diskDepth)
+    : m_baseDepth(baseDepth)
     , m_flatDepth(flatDepth)
     , m_diskDepth(diskDepth)
     , m_baseOffset(getOffset(baseDepth))
     , m_flatOffset(getOffset(flatDepth))
     , m_diskOffset(getOffset(diskDepth))
-    , m_basePoints(m_baseOffset, std::atomic<const Point*>(0))
-    , m_baseData(new std::vector<char>(m_baseOffset * pointSize, 0))
-    , m_baseLocks(m_baseOffset)
+    , m_baseBranch(new BaseBranch(schema, 0, m_baseOffset))
 {
     if (baseDepth > flatDepth || flatDepth > diskDepth)
     {
         throw std::runtime_error("Invalid registry params");
-    }
-}
-
-Registry::Registry(
-        std::size_t pointSize,
-        std::vector<char>* data,
-        std::size_t baseDepth,
-        std::size_t flatDepth,
-        std::size_t diskDepth)
-    : m_pointSize(pointSize)
-    , m_baseDepth(baseDepth)
-    , m_flatDepth(flatDepth)
-    , m_diskDepth(diskDepth)
-    , m_baseOffset(getOffset(baseDepth))
-    , m_flatOffset(getOffset(flatDepth))
-    , m_diskOffset(getOffset(diskDepth))
-    , m_basePoints(m_baseOffset, std::atomic<const Point*>(0))
-    , m_baseData(data)
-    , m_baseLocks(m_baseOffset)
-{
-    if (baseDepth > flatDepth || flatDepth > diskDepth)
-    {
-        throw std::runtime_error("Invalid registry params");
-    }
-
-    double x(0);
-    double y(0);
-
-    for (std::size_t i(0); i < m_baseData->size() / m_pointSize; ++i)
-    {
-        std::memcpy(
-                reinterpret_cast<char*>(&x),
-                m_baseData->data() + m_pointSize * i,
-                sizeof(double));
-        std::memcpy(
-                reinterpret_cast<char*>(&y),
-                m_baseData->data() + m_pointSize * i,
-                sizeof(double));
-
-        if (x != 0 && y != 0)
-        {
-            m_basePoints[i].atom.store(new Point(x, y));
-        }
     }
 }
 
 Registry::~Registry()
-{
-    for (auto& p : m_basePoints)
-    {
-        if (p.atom.load()) delete p.atom.load();
-    }
-}
+{ }
 
 void Registry::put(
         PointInfo** toAddPtr,
         Roller& roller)
 {
-    bool done(false);
-
     PointInfo* toAdd(*toAddPtr);
 
-    if (roller.depth() < m_baseDepth)
+    Branch* branch(getBranch(roller));
+
+    if (branch)
     {
-        const std::size_t index(roller.pos());
-        auto& myPoint(m_basePoints[index].atom);
-
-        if (myPoint.load())
+        if (!branch->putPoint(toAddPtr, roller))
         {
-            const Point mid(roller.bbox().mid());
-            if (toAdd->point->sqDist(mid) < myPoint.load()->sqDist(mid))
-            {
-                std::lock_guard<std::mutex> lock(m_baseLocks[index]);
-                const Point* curPoint(myPoint.load());
-
-                // Reload the reference point now that we've acquired the lock.
-                if (toAdd->point->sqDist(mid) < curPoint->sqDist(mid))
-                {
-                    // Pull out the old stored value and store the Point that
-                    // was in our atomic member, so we can overwrite that with
-                    // the new one.
-                    PointInfo* old(
-                            new PointInfo(
-                                curPoint,
-                                m_baseData->data() + index * m_pointSize,
-                                toAdd->bytes.size()));
-
-                    // Store this point in the base data store.
-                    toAdd->write(m_baseData->data() + index * m_pointSize);
-                    myPoint.store(toAdd->point);
-                    delete toAdd;
-
-                    // Send our old stored value downstream.
-                    toAdd = old;
-                }
-            }
-        }
-        else
-        {
-            std::unique_lock<std::mutex> lock(m_baseLocks[index]);
-            if (!myPoint.load())
-            {
-                toAdd->write(m_baseData->data() + index * m_pointSize);
-                myPoint.store(toAdd->point);
-                delete toAdd;
-                done = true;
-            }
-            else
-            {
-                // Someone beat us here, call again to enter the other branch.
-                // Be sure to unlock our mutex first.
-                lock.unlock();
-                put(&toAdd, roller);
-            }
+            roller.magnify(toAdd->point);
+            put(&toAdd, roller);
         }
     }
-    else if (roller.depth() < m_flatDepth) { /* TODO */ }
-    else if (roller.depth() < m_diskDepth) { /* TODO */ }
     else
     {
         delete toAdd->point;
         delete toAdd;
-
-        done = true;
-    }
-
-    if (!done)
-    {
-        roller.magnify(toAdd->point);
-        put(&toAdd, roller);
     }
 }
 
 void Registry::getPoints(
         const Roller& roller,
         MultiResults& results,
-        std::size_t depthBegin,
-        std::size_t depthEnd)
+        const std::size_t depthBegin,
+        const std::size_t depthEnd)
 {
-    auto& myPoint(m_basePoints[roller.pos()].atom);
-
-    if (myPoint.load())
+    const Branch* branch(getBranch(roller));
+    if (branch)
     {
-        if (
-                (roller.depth() >= depthBegin) &&
-                (roller.depth() < depthEnd || !depthEnd))
-        {
-            results.push_back(std::make_pair(0, roller.pos() * m_pointSize));
-        }
+        const uint64_t index(roller.pos());
+        const Point* point(branch->getPoint(index));
 
-        if (roller.depth() + 1 < depthEnd || !depthEnd)
+        if (point)
         {
-            getPoints(roller.getNw(), results, depthBegin, depthEnd);
-            getPoints(roller.getNe(), results, depthBegin, depthEnd);
-            getPoints(roller.getSw(), results, depthBegin, depthEnd);
-            getPoints(roller.getSe(), results, depthBegin, depthEnd);
+            if (
+                    (roller.depth() >= depthBegin) &&
+                    (roller.depth() < depthEnd || !depthEnd))
+            {
+                results.push_back(index);
+            }
+
+            if (roller.depth() + 1 < depthEnd || !depthEnd)
+            {
+                getPoints(roller.getNw(), results, depthBegin, depthEnd);
+                getPoints(roller.getNe(), results, depthBegin, depthEnd);
+                getPoints(roller.getSw(), results, depthBegin, depthEnd);
+                getPoints(roller.getSe(), results, depthBegin, depthEnd);
+            }
         }
     }
 }
@@ -214,28 +116,72 @@ void Registry::getPoints(
         const Roller& roller,
         MultiResults& results,
         const BBox& query,
-        std::size_t depthBegin,
-        std::size_t depthEnd)
+        const std::size_t depthBegin,
+        const std::size_t depthEnd)
 {
     if (!roller.bbox().overlaps(query)) return;
 
-    auto& myPoint(m_basePoints[roller.pos()].atom);
-    if (myPoint.load())
+    const Branch* branch(getBranch(roller));
+    if (branch)
     {
-        if (
-                (roller.depth() >= depthBegin) &&
-                (roller.depth() < depthEnd || !depthEnd))
-        {
-            results.push_back(std::make_pair(0, roller.pos() * m_pointSize));
-        }
+        const uint64_t index(roller.pos());
+        const Point* point(branch->getPoint(index));
 
-        if (roller.depth() + 1 < depthEnd || !depthEnd)
+        if (point)
         {
-            getPoints(roller.getNw(), results, depthBegin, depthEnd);
-            getPoints(roller.getNe(), results, depthBegin, depthEnd);
-            getPoints(roller.getSw(), results, depthBegin, depthEnd);
-            getPoints(roller.getSe(), results, depthBegin, depthEnd);
+            if (
+                    (roller.depth() >= depthBegin) &&
+                    (roller.depth() < depthEnd || !depthEnd) &&
+                    (query.contains(*point)))
+            {
+                results.push_back(index);
+            }
+
+            if (roller.depth() + 1 < depthEnd || !depthEnd)
+            {
+                getPoints(roller.getNw(), results, query, depthBegin, depthEnd);
+                getPoints(roller.getNe(), results, query, depthBegin, depthEnd);
+                getPoints(roller.getSw(), results, query, depthBegin, depthEnd);
+                getPoints(roller.getSe(), results, query, depthBegin, depthEnd);
+            }
         }
     }
+}
+
+void Registry::save(const std::string& dir, Json::Value& meta) const
+{
+    Json::Value& treeMeta(meta["tree"]);
+    treeMeta["baseDepth"] = static_cast<Json::UInt64>(m_baseDepth);
+    treeMeta["flatDepth"] = static_cast<Json::UInt64>(m_flatDepth);
+    treeMeta["diskDepth"] = static_cast<Json::UInt64>(m_diskDepth);
+
+    m_baseBranch->save(dir, meta["base"]);
+}
+
+void Registry::load(const std::string& dir, const Json::Value& meta)
+{
+    m_baseBranch->load(dir, meta["base"]);
+}
+
+Branch* Registry::getBranch(const Roller& roller) const
+{
+    Branch* branch(0);
+
+    if (roller.depth() < m_baseDepth)
+    {
+        branch = m_baseBranch.get();
+    }
+    else if (roller.depth() < m_flatDepth)
+    {
+        // TODO
+        throw std::runtime_error("No FlatBranch yet");
+    }
+    else if (roller.depth() < m_diskDepth)
+    {
+        // TODO
+        throw std::runtime_error("No DiskBranch yet");
+    }
+
+    return branch;
 }
 

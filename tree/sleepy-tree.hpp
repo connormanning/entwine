@@ -23,7 +23,6 @@
 #include "tree/registry.hpp"
 
 class BBox;
-class Registry;
 class Schema;
 
 class SleepyTree
@@ -68,12 +67,11 @@ public:
             std::size_t depthEnd);
 
     pdal::PointContext pointContext() const;
-    std::vector<char>& data(uint64_t id);
 
     std::size_t numPoints() const;
 
 private:
-    Json::Value meta() const;
+    void addMeta(Json::Value& meta) const;
     std::string metaPath() const;
 
     const std::string m_dir;

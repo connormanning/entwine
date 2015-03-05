@@ -41,7 +41,9 @@
         "http": [
         ],
         "s3": [
-            "IA_LAZlib/05124560.laz"/*,
+            "IA_LAZlib/02004736.laz" // TODO Remove, already exists below.
+/*,
+            "IA_LAZlib/05124560.laz",
             "IA_LAZlib/06024746.laz",
             "IA_LAZlib/02304752.laz",
             "IA_LAZlib/03304708.laz",
