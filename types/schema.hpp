@@ -25,6 +25,7 @@ class Schema
 {
 public:
     explicit Schema(std::vector<DimInfo> dims);
+    explicit Schema(const pdal::PointContextRef pointContext);
 
     std::size_t stride() const;
     const std::vector<DimInfo>& dims() const;
@@ -35,7 +36,7 @@ public:
     static Schema fromJson(const Json::Value& json);
 
 private:
-    const std::vector<DimInfo> m_dims;
+    std::vector<DimInfo> m_dims;
     const pdal::PointContext m_pointContext;
 };
 

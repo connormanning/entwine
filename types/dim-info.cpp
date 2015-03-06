@@ -45,6 +45,16 @@ namespace entwine
 
 DimInfo::DimInfo(
         const std::string& name,
+        pdal::Dimension::Id::Enum id,
+        pdal::Dimension::Type::Enum type)
+    : m_name(name)
+    , m_id(id)
+    , m_type(type)
+    , m_typeString(pdal::Dimension::toName(pdal::Dimension::base(type)))
+{ }
+
+DimInfo::DimInfo(
+        const std::string& name,
         const std::string& baseTypeName,
         const std::size_t size)
     : m_name(name)

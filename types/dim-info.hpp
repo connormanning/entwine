@@ -23,6 +23,10 @@ class DimInfo
 public:
     DimInfo(
             const std::string& name,
+            pdal::Dimension::Id::Enum id,
+            pdal::Dimension::Type::Enum type);
+    DimInfo(
+            const std::string& name,
             const std::string& baseTypeName,
             std::size_t size);
 
