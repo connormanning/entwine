@@ -1,8 +1,6 @@
 set(MODULE third)
 set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 
-include_directories("${BASE}")
-
 set(
     SOURCES
     "${BASE}/jsoncpp.cpp"
