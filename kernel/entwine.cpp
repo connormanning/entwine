@@ -12,11 +12,11 @@
 
 #include <sys/stat.h>
 
-#include "json/json.h"
-#include "tree/multi-batcher.hpp"
-#include "tree/sleepy-tree.hpp"
-#include "types/bbox.hpp"
-#include "types/schema.hpp"
+#include <entwine/third/json/json.h>
+#include <entwine/tree/multi-batcher.hpp>
+#include <entwine/tree/sleepy-tree.hpp>
+#include <entwine/types/bbox.hpp>
+#include <entwine/types/schema.hpp>
 
 namespace
 {

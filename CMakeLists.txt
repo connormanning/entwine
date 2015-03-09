@@ -12,19 +12,10 @@ add_definitions(${CMAKE_CXX_FLAGS} "-pedantic")
 add_definitions(${CMAKE_CXX_FLAGS} "-fexceptions")
 add_definitions(${CMAKE_CXX_FLAGS} "-fPIC")
 
-set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}")
 
-include_directories(
-    "${BASE}"
-    "${BASE}/third/"
-)
-
-add_subdirectory(compression)
-add_subdirectory(http)
+add_subdirectory(entwine)
 add_subdirectory(kernel)
-add_subdirectory(third)
-add_subdirectory(tree)
-add_subdirectory(types)
 
 set(OBJS
     $<TARGET_OBJECTS:compression>

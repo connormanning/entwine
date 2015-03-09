@@ -1,5 +1,7 @@
-set(ENTWINE_SRC ${SOURCES} "${BASE}/kernel/entwine.cpp")
-set(REPROJ_SRC  ${SOURCES} "${BASE}/kernel/post-reproject.cpp")
+set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
+
+set(ENTWINE_SRC ${SOURCES} "${BASE}/entwine.cpp")
+set(REPROJ_SRC  ${SOURCES} "${BASE}/post-reproject.cpp")
 
 add_executable(entwine_kernel ${ENTWINE_SRC})
 add_executable(reproj_kernel ${REPROJ_SRC})

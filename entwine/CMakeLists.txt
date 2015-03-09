@@ -1,0 +1,6 @@
+add_subdirectory(compression)
+add_subdirectory(http)
+add_subdirectory(third)
+add_subdirectory(tree)
+add_subdirectory(types)
+

@@ -17,8 +17,8 @@
 #include <pdal/PointContext.hpp>
 #include <pdal/ReprojectionFilter.hpp>
 
-#include "compression/stream.hpp"
-#include "types/bbox.hpp"
+#include <entwine/compression/stream.hpp>
+#include <entwine/types/bbox.hpp>
 
 using namespace entwine;
 
