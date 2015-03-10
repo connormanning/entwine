@@ -3949,7 +3949,7 @@ Value& Path::make(Value& root) const {
 #include <utility>
 #include <set>
 #include <assert.h>
-#include <math.h>
+#include <cmath>
 #include <stdio.h>
 #include <string.h>
 
@@ -3957,16 +3957,16 @@ Value& Path::make(Value& root) const {
 #include <float.h>
 #define isfinite _finite
 #define snprintf _snprintf
+#elif defined(__sun) && defined(__SVR4) //Solaris
+#include <ieeefp.h>
+#define isfinite finite
+#else
+#define isfinite std::isfinite
 #endif
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400 // VC++ 8.0
 // Disable warning about strdup being deprecated.
 #pragma warning(disable : 4996)
-#endif
-
-#if defined(__sun) && defined(__SVR4) //Solaris
-#include <ieeefp.h>
-#define isfinite finite
 #endif
 
 namespace Json {
