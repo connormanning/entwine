@@ -72,6 +72,7 @@ public:
     pdal::PointContext pointContext() const;
 
     std::size_t numPoints() const;
+    const std::string& dir() const;
 
 private:
     void addMeta(Json::Value& meta) const;

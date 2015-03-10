@@ -136,30 +136,9 @@ int main(int argc, char** argv)
 
     MultiBatcher batcher(s3Info, threads, *sleepyTree.get());
     const auto start(std::chrono::high_resolution_clock::now());
-    for (std::size_t i(0); i < paths.size(); ++i)
+    for (const auto& path : paths)
     {
-        batcher.add(paths[i], i);
-
-        if ((i + 1) % snapshot == 0)
-        {
-            std::cout <<
-                "Gathering responses for restore point at " <<
-                i + 1 << " / " << paths.size() <<
-                std::endl;
-            batcher.gather();
-            std::cout << "Creating restore" << std::endl;
-
-            std::ofstream dataStream;
-            dataStream.open(
-                    outDir + "/meta",
-                    std::ofstream::out | std::ofstream::trunc);
-            std::string info(std::to_string(i) + "," + paths[i]);
-            dataStream.write(info.data(), info.size());
-            dataStream.close();
-
-            sleepyTree->save();
-            std::cout << "Restore point created" << std::endl;
-        }
+        batcher.add(path);
     }
 
     batcher.gather();

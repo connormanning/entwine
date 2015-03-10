@@ -28,19 +28,27 @@ public:
     MultiBatcher(
             const S3Info& s3Info,
             std::size_t numBatches,
-            SleepyTree& sleepyTree);
+            SleepyTree& sleepyTree,
+            std::size_t snapshot = 0);
     ~MultiBatcher();
 
-    void add(const std::string& filename, Origin origin);
+    // Add a pointcloud file to this index.
+    void add(const std::string& filename);
 
-    // Await all outstanding responses.
+    // Wait for all batched additions to complete.
     void gather();
 
 private:
+    void takeSnapshot();
+
     S3 m_s3;
     std::vector<std::thread> m_batches;
     std::vector<std::size_t> m_available;
+    std::vector<std::string> m_originList;
+
     SleepyTree& m_sleepyTree;
+    const std::size_t m_snapshot;
+    bool m_allowAdd;
 
     std::mutex m_mutex;
     std::condition_variable m_cv;

@@ -184,6 +184,11 @@ std::size_t SleepyTree::numPoints() const
     return m_numPoints;
 }
 
+const std::string& SleepyTree::dir() const
+{
+    return m_dir;
+}
+
 void SleepyTree::addMeta(Json::Value& meta) const
 {
     meta["bbox"] = m_bbox->toJson();

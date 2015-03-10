@@ -25,7 +25,8 @@ namespace entwine
 MultiBatcher::MultiBatcher(
         const S3Info& s3Info,
         const std::size_t numBatches,
-        SleepyTree& sleepyTree)
+        SleepyTree& sleepyTree,
+        std::size_t snapshot)
     : m_s3(
             s3Info.awsAccessKeyId,
             s3Info.awsSecretAccessKey,
@@ -33,7 +34,10 @@ MultiBatcher::MultiBatcher(
             s3Info.bucketName)
     , m_batches(numBatches)
     , m_available(numBatches)
+    , m_originList()
     , m_sleepyTree(sleepyTree)
+    , m_snapshot(snapshot)
+    , m_allowAdd(true)
     , m_mutex()
     , m_cv()
 {
@@ -48,12 +52,18 @@ MultiBatcher::~MultiBatcher()
     gather();
 }
 
-void MultiBatcher::add(const std::string& filename, const Origin origin)
+void MultiBatcher::add(const std::string& filename)
 {
     std::unique_lock<std::mutex> lock(m_mutex);
-    m_cv.wait(lock, [this]()->bool { return m_available.size(); });
+    m_cv.wait(lock, [this]()->bool {
+        return m_available.size() && m_allowAdd;
+    });
     const std::size_t index(m_available.back());
     m_available.pop_back();
+
+    Origin origin(m_originList.size());
+    m_originList.push_back(filename);
+
     std::cout << "Adding " << filename << std::endl;
     lock.unlock();
 
@@ -70,9 +80,7 @@ void MultiBatcher::add(const std::string& filename, const Origin origin)
             const std::string driver(stageFactory->inferReaderDriver(filename));
             if (driver.size())
             {
-                const std::string localPath(
-                        "./tmp/TODO-" +
-                        std::to_string(origin));
+                const std::string localPath("./tmp/" + std::to_string(origin));
 
                 {
                     // Retrieve remote file.
@@ -127,9 +135,7 @@ void MultiBatcher::add(const std::string& filename, const Origin origin)
                 pipelineManager->getStage()->setOptions(srsOptions);
                 */
 
-                // Get and insert the buffer of reprojected points.
                 pipelineManager->execute();
-                std::cout << "Exec'd" << std::endl;
                 const pdal::PointBufferSet& pbSet(pipelineManager->buffers());
 
                 if (remove(localPath.c_str()) != 0)
@@ -140,8 +146,6 @@ void MultiBatcher::add(const std::string& filename, const Origin origin)
 
                 for (const auto pointBuffer : pbSet)
                 {
-                    std::cout << "Adding " << pointBuffer->size() <<
-                        " points" << std::endl;
                     m_sleepyTree.insert(pointBuffer.get(), origin);
                 }
             }
@@ -159,25 +163,64 @@ void MultiBatcher::add(const std::string& filename, const Origin origin)
             std::cout << "Exception in multi-batcher " << filename << std::endl;
         }
 
-        std::cout << "    Done " << filename << std::endl;
         std::unique_lock<std::mutex> lock(m_mutex);
         m_available.push_back(index);
         m_batches[index].detach();
         lock.unlock();
         m_cv.notify_all();
     });
+
+    if (m_snapshot && (origin + 1) % m_snapshot == 0)
+    {
+        takeSnapshot();
+    }
 }
 
 void MultiBatcher::gather()
 {
-    std::thread t([this]() {
-        std::unique_lock<std::mutex> lock(m_mutex);
-        m_cv.wait(lock, [this]()->bool {
-            return m_available.size() == m_batches.size();
-        });
+    std::unique_lock<std::mutex> lock(m_mutex);
+    m_cv.wait(lock, [this]()->bool {
+        return m_available.size() == m_batches.size();
     });
+}
 
-    t.join();
+void MultiBatcher::takeSnapshot()
+{
+    m_mutex.lock();
+    m_allowAdd = false;
+    m_mutex.unlock();
+
+    try
+    {
+        std::cout << "Writing snapshot at " << m_originList.size() << std::endl;
+        gather();
+
+        std::ofstream dataStream;
+        dataStream.open(
+                m_sleepyTree.dir() + "/manifest",
+                std::ofstream::out | std::ofstream::trunc);
+        Json::Value jsonManifest;
+        jsonManifest["manifest"].resize(m_originList.size());
+        for (std::size_t i(0); i < m_originList.size(); ++i)
+        {
+            jsonManifest["manifest"][static_cast<Json::ArrayIndex>(i)] =
+                m_originList[i];
+        }
+        const std::string manifestString(jsonManifest.toStyledString());
+        dataStream.write(manifestString.data(), manifestString.size());
+        dataStream.close();
+
+        m_sleepyTree.save();
+    }
+    catch (...)
+    {
+        std::cout << "Caught exception during snapshot" << std::endl;
+    }
+
+    m_mutex.lock();
+    m_allowAdd = true;
+    m_mutex.unlock();
+    m_cv.notify_all();
 }
 
 } // namespace entwine
