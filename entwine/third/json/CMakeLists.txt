@@ -12,6 +12,5 @@ set(
 )
 
 set(THIRD_SOURCES ${THIRD_SOURCES} ${SOURCES} PARENT_SCOPE)
-
 install(FILES ${HEADERS} DESTINATION include/entwine/third/${MODULE})
 

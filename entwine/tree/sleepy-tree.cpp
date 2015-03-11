@@ -10,20 +10,10 @@
 
 #include <entwine/tree/sleepy-tree.hpp>
 
-#include <limits>
-#include <cmath>
-#include <memory>
-#include <string>
-#include <thread>
-
-#include <pdal/Compression.hpp>
 #include <pdal/Dimension.hpp>
 #include <pdal/PointBuffer.hpp>
 #include <pdal/Utils.hpp>
 
-#include <entwine/compression/stream.hpp>
-#include <entwine/compression/util.hpp>
-#include <entwine/http/collector.hpp>
 #include <entwine/tree/roller.hpp>
 #include <entwine/tree/registry.hpp>
 #include <entwine/types/bbox.hpp>
@@ -33,28 +23,41 @@ namespace entwine
 {
 
 SleepyTree::SleepyTree(
-        const std::string& dir,
+        const std::string& path,
         const BBox& bbox,
         const Schema& schema,
+        const std::size_t dimensions,
         const std::size_t baseDepth,
         const std::size_t flatDepth,
-        const std::size_t diskDepth)
-    : m_dir(dir)
+        const std::size_t diskDepth,
+        bool elastic)
+    : m_path(path)
     , m_bbox(new BBox(bbox))
     , m_schema(new Schema(schema))
+    , m_dimensions(dimensions)
     , m_numPoints(0)
     , m_registry(
             new Registry(
                 *m_schema.get(),
+                dimensions,
                 baseDepth,
                 flatDepth,
-                diskDepth))
-{ }
+                diskDepth,
+                elastic))
+{
+    if (m_dimensions != 2)
+    {
+        // TODO
+        throw std::runtime_error("TODO - Only 2 dimensions so far");
+    }
+}
 
-SleepyTree::SleepyTree(const std::string& dir)
-    : m_dir(dir)
+
+SleepyTree::SleepyTree(const std::string& path)
+    : m_path(path)
     , m_bbox()
     , m_schema()
+    , m_dimensions(0)
     , m_numPoints(0)
     , m_registry()
 {
@@ -93,8 +96,11 @@ void SleepyTree::insert(const pdal::PointBuffer* pointBuffer, Origin origin)
 void SleepyTree::save()
 {
     Json::Value jsonMeta;
-    addMeta(jsonMeta);
-    m_registry->save(m_dir, jsonMeta["registry"]);
+    jsonMeta["bbox"] = m_bbox->toJson();
+    jsonMeta["schema"] = m_schema->toJson();
+    jsonMeta["dimensions"] = static_cast<Json::UInt64>(m_dimensions);
+
+    m_registry->save(m_path, jsonMeta["registry"]);
 
     std::ofstream metaStream(
             metaPath(),
@@ -125,16 +131,14 @@ void SleepyTree::load()
 
     m_bbox.reset(new BBox(BBox::fromJson(meta["bbox"])));
     m_schema.reset(new Schema(Schema::fromJson(meta["schema"])));
+    m_dimensions = meta["dimensions"].asUInt64();
 
-    const Json::Value& treeMeta(meta["tree"]);
     m_registry.reset(
             new Registry(
+                m_path,
                 *m_schema.get(),
-                treeMeta["baseDepth"].asUInt64(),
-                treeMeta["flatDepth"].asUInt64(),
-                treeMeta["diskDepth"].asUInt64()));
-
-    m_registry->load(m_dir, meta["registry"]);
+                m_dimensions,
+                meta["registry"]));
 }
 
 const BBox& SleepyTree::getBounds() const
@@ -142,12 +146,12 @@ const BBox& SleepyTree::getBounds() const
     return *m_bbox.get();
 }
 
-MultiResults SleepyTree::getPoints(
+std::vector<std::size_t> SleepyTree::getPoints(
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
     Roller roller(*m_bbox.get());
-    MultiResults results;
+    std::vector<std::size_t> results;
     m_registry->getPoints(
             roller,
             results,
@@ -157,13 +161,13 @@ MultiResults SleepyTree::getPoints(
     return results;
 }
 
-MultiResults SleepyTree::getPoints(
+std::vector<std::size_t> SleepyTree::getPoints(
         const BBox& bbox,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
     Roller roller(*m_bbox.get());
-    MultiResults results;
+    std::vector<std::size_t> results;
     m_registry->getPoints(
             roller,
             results,
@@ -174,7 +178,7 @@ MultiResults SleepyTree::getPoints(
     return results;
 }
 
-pdal::PointContext SleepyTree::pointContext() const
+const pdal::PointContextRef SleepyTree::pointContext() const
 {
     return m_schema->pointContext();
 }
@@ -184,20 +188,14 @@ std::size_t SleepyTree::numPoints() const
     return m_numPoints;
 }
 
-const std::string& SleepyTree::dir() const
+const std::string& SleepyTree::path() const
 {
-    return m_dir;
-}
-
-void SleepyTree::addMeta(Json::Value& meta) const
-{
-    meta["bbox"] = m_bbox->toJson();
-    meta["schema"] = m_schema->toJson();
+    return m_path;
 }
 
 std::string SleepyTree::metaPath() const
 {
-    return m_dir + "/meta";
+    return m_path + "/meta";
 }
 
 } // namespace entwine

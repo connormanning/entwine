@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include <cstdint>
+#include <cstddef>
 
 #include <entwine/types/bbox.hpp>
 

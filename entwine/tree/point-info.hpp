@@ -12,7 +12,7 @@
 
 #include <pdal/PointContext.hpp>
 
-#include <cstdint>
+#include <cstddef>
 #include <vector>
 
 typedef uint64_t Origin;

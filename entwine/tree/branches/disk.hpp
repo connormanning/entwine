@@ -10,47 +10,34 @@
 
 #pragma once
 
-#include <mutex>
-#include <string>
-#include <vector>
-
 #include <entwine/tree/branch.hpp>
-#include <entwine/types/elastic-atomic.hpp>
-
-namespace Json
-{
-    class Value;
-}
 
 namespace entwine
 {
 
-class Schema;
-
-class BaseBranch : public Branch
+class DiskBranch : public Branch
 {
 public:
-    BaseBranch(
+    DiskBranch(
             const Schema& schema,
             std::size_t dimensions,
-            std::size_t depthEnd);
-    BaseBranch(
+            std::size_t depthBegin,
+            std::size_t depthEnd,
+            bool elastic);
+    DiskBranch(
             const std::string& path,
             const Schema& schema,
             std::size_t dimensions,
             const Json::Value& meta);
-    ~BaseBranch();
+    ~DiskBranch();
 
     virtual bool putPoint(PointInfo** toAddPtr, const Roller& roller);
     virtual const Point* getPoint(std::size_t index) const;
 
 private:
     virtual void saveImpl(const std::string& path, Json::Value& meta) const;
-    void load(const std::string& path, const Json::Value& meta);
 
-    std::vector<ElasticAtomic<const Point*>> m_points;
-    std::unique_ptr<std::vector<char>> m_data;
-    std::vector<std::mutex> m_locks;
+    const bool m_elastic;
 };
 
 } // namespace entwine

@@ -10,9 +10,8 @@
 
 #pragma once
 
-#include <cstdint>
-
-#include <entwine/types/schema.hpp>
+#include <cstddef>
+#include <string>
 
 namespace Json
 {
@@ -25,17 +24,23 @@ namespace entwine
 class Point;
 class PointInfo;
 class Roller;
+class Schema;
 
 class Branch
 {
 public:
-    Branch(const Schema& schema, std::size_t begin, std::size_t end)
-        : m_schema(schema)
-        , m_begin(begin)
-        , m_end(end)
-    { }
+    Branch(
+            const Schema& schema,
+            std::size_t dimensions,
+            std::size_t depthBegin,
+            std::size_t depthEnd);
+    Branch(
+            const Schema& schema,
+            std::size_t dimensions,
+            const Json::Value& meta);
+    virtual ~Branch();
 
-    virtual ~Branch() { }
+    bool accepts(std::size_t index) const;
 
     // Returns true if this point was successfully stored.
     virtual bool putPoint(PointInfo** toAddPtr, const Roller& roller) = 0;
@@ -43,19 +48,24 @@ public:
     // Null pointer indicates that there is no point at this index.
     virtual const Point* getPoint(std::size_t index) const = 0;
 
-    virtual void save(const std::string& dir, Json::Value& meta) const = 0;
-    virtual void load(const std::string& dir, const Json::Value& meta) = 0;
+    void save(const std::string& path, Json::Value& meta) const;
 
 protected:
-    const Schema& schema() const { return m_schema; }
-    std::size_t begin() const { return m_begin; }
-    std::size_t end()   const { return m_end; }
-    std::size_t size()  const { return m_end - m_begin; }
+    virtual void saveImpl(const std::string& path, Json::Value& meta) const = 0;
+
+    const Schema& schema()      const;
+    std::size_t depthBegin()    const;
+    std::size_t depthEnd()      const;
+    std::size_t indexBegin()    const;
+    std::size_t indexEnd()      const;
+    std::size_t size()          const;
 
 private:
     const Schema& m_schema;
-    const std::size_t m_begin;
-    const std::size_t m_end;
+    const std::size_t m_depthBegin;
+    const std::size_t m_depthEnd;
+    const std::size_t m_indexBegin;
+    const std::size_t m_indexEnd;
 };
 
 } // namespace entwine

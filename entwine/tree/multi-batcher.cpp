@@ -17,6 +17,7 @@
 #include <pdal/Stage.hpp>
 #include <pdal/StageFactory.hpp>
 
+#include <entwine/third/json/json.h>
 #include <entwine/tree/sleepy-tree.hpp>
 
 namespace entwine
@@ -197,7 +198,7 @@ void MultiBatcher::takeSnapshot()
 
         std::ofstream dataStream;
         dataStream.open(
-                m_sleepyTree.dir() + "/manifest",
+                m_sleepyTree.path() + "/manifest",
                 std::ofstream::out | std::ofstream::trunc);
         Json::Value jsonManifest;
         jsonManifest["manifest"].resize(m_originList.size());

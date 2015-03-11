@@ -8,12 +8,14 @@
 *
 ******************************************************************************/
 
-#include "base.hpp"
+#include <entwine/tree/branches/base.hpp>
 
 #include <limits>
 
 #include <entwine/compression/util.hpp>
+#include <entwine/third/json/json.h>
 #include <entwine/types/point.hpp>
+#include <entwine/types/schema.hpp>
 #include <entwine/tree/roller.hpp>
 #include <entwine/tree/point-info.hpp>
 
@@ -27,60 +29,39 @@ namespace entwine
 
 BaseBranch::BaseBranch(
         const Schema& schema,
-        const std::size_t begin,
-        const std::size_t end)
-    : Branch(schema, begin, end)
+        const std::size_t dimensions,
+        const std::size_t depthEnd)
+    : Branch(schema, dimensions, 0, depthEnd)
     , m_points(size(), std::atomic<const Point*>(0))
     , m_data(new std::vector<char>(size() * schema.stride()))
     , m_locks(size())
 {
     const std::size_t stride(schema.stride());
-    const char* ptr(reinterpret_cast<const char*>(&empty));
 
     for (std::size_t offset(0); offset < m_data->size(); offset += stride)
     {
         std::memcpy(
                 m_data->data() + offset,
-                ptr,
+                &empty,
                 sizeof(double));
         std::memcpy(
                 m_data->data() + offset + sizeof(double),
-                ptr,
+                &empty,
                 sizeof(double));
     }
 }
 
 BaseBranch::BaseBranch(
+        const std::string& path,
         const Schema& schema,
-        const std::size_t begin,
-        const std::size_t end,
-        std::vector<char>* data)
-    : Branch(schema, begin, end)
+        const std::size_t dimensions,
+        const Json::Value& meta)
+    : Branch(schema, dimensions, meta)
     , m_points(size(), std::atomic<const Point*>(0))
-    , m_data(data)
+    , m_data(new std::vector<char>(size() * schema.stride()))
     , m_locks(size())
 {
-    double x(0);
-    double y(0);
-
-    const std::size_t stride(schema.stride());
-
-    for (std::size_t i(0); i < m_data->size() / stride; ++i)
-    {
-        std::memcpy(
-                reinterpret_cast<char*>(&x),
-                m_data->data() + stride * i,
-                sizeof(double));
-        std::memcpy(
-                reinterpret_cast<char*>(&y),
-                m_data->data() + stride * i,
-                sizeof(double));
-
-        if (x != empty && y != empty)
-        {
-            m_points[i].atom.store(new Point(x, y));
-        }
-    }
+    load(path, meta);
 }
 
 BaseBranch::~BaseBranch()
@@ -154,11 +135,11 @@ const Point* BaseBranch::getPoint(std::size_t index) const
     return m_points[index].atom.load();
 }
 
-void BaseBranch::save(const std::string& dir, Json::Value& meta) const
+void BaseBranch::saveImpl(const std::string& path, Json::Value& meta) const
 {
-    meta[std::to_string(begin())] = static_cast<Json::UInt64>(end());
+    meta["ids"].append(0);
 
-    const std::string dataPath(dir + "/0");
+    const std::string dataPath(path + "/0");
     std::ofstream dataStream(
             dataPath,
             std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
@@ -186,9 +167,9 @@ void BaseBranch::save(const std::string& dir, Json::Value& meta) const
     dataStream.close();
 }
 
-void BaseBranch::load(const std::string& dir, const Json::Value& meta)
+void BaseBranch::load(const std::string& path, const Json::Value& meta)
 {
-    const std::string dataPath(dir + "/0");
+    const std::string dataPath(path + "/0");
     std::ifstream dataStream(
             dataPath,
             std::ifstream::in | std::ifstream::binary);

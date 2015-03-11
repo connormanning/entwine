@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include <cstdint>
+#include <cstddef>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -26,11 +26,11 @@ namespace entwine
 class BBox;
 class BaseBranch;
 class Branch;
+class DiskBranch;
+class FlatBranch;
 class PointInfo;
 class Roller;
 class Schema;
-
-typedef std::vector<std::size_t> MultiResults;
 
 // Maintains mapping to house the data belonging to each virtual node.
 class Registry
@@ -38,28 +38,35 @@ class Registry
 public:
     Registry(
             const Schema& schema,
+            std::size_t dimensions,
             std::size_t baseDepth,
             std::size_t flatDepth,
-            std::size_t diskDepth);
+            std::size_t diskDepth,
+            bool elastic);
+    Registry(
+            const std::string& path,
+            const Schema& schema,
+            std::size_t dimensions,
+            const Json::Value& meta);
     ~Registry();
 
+    // TODO Return values from these instead of modifying references.
     void put(PointInfo** toAddPtr, Roller& roller);
 
     void getPoints(
             const Roller& roller,
-            MultiResults& results,
+            std::vector<std::size_t>& results,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
     void getPoints(
             const Roller& roller,
-            MultiResults& results,
+            std::vector<std::size_t>& results,
             const BBox& query,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
-    void save(const std::string& dir, Json::Value& meta) const;
-    void load(const std::string& dir, const Json::Value& meta);
+    void save(const std::string& path, Json::Value& meta) const;
 
     // TODO
     // getPointData(std::size_t index);
@@ -67,15 +74,9 @@ public:
 private:
     Branch* getBranch(const Roller& roller) const;
 
-    const std::size_t m_baseDepth;
-    const std::size_t m_flatDepth;
-    const std::size_t m_diskDepth;
-
-    const std::size_t m_baseOffset;
-    const std::size_t m_flatOffset;
-    const std::size_t m_diskOffset;
-
     std::unique_ptr<BaseBranch> m_baseBranch;
+    std::unique_ptr<FlatBranch> m_flatBranch;
+    std::unique_ptr<DiskBranch> m_diskBranch;
 };
 
 } // namespace entwine

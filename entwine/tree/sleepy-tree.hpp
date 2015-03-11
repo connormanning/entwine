@@ -10,35 +10,45 @@
 
 #pragma once
 
+#include <cstddef>
 #include <memory>
+#include <string>
 #include <vector>
 
-#include <pdal/PointBuffer.hpp>
-#include <pdal/Dimension.hpp>
+#include <pdal/PointContext.hpp>
 
-#include <entwine/third/json/json.h>
-#include <entwine/http/s3.hpp>
-#include <entwine/types/point.hpp>
 #include <entwine/tree/point-info.hpp>
-#include <entwine/tree/registry.hpp>
+
+namespace pdal
+{
+    class PointBuffer;
+}
+
+namespace Json
+{
+    class Value;
+}
 
 namespace entwine
 {
 
 class BBox;
+class Registry;
 class Schema;
 
 class SleepyTree
 {
 public:
     SleepyTree(
-            const std::string& dir,
+            const std::string& path,
             const BBox& bbox,
             const Schema& schema,
+            std::size_t dimensions,
             std::size_t baseDepth,
             std::size_t flatDepth,
-            std::size_t diskDepth);
-    SleepyTree(const std::string& dir);
+            std::size_t diskDepth,
+            bool elastic);
+    SleepyTree(const std::string& path);
     ~SleepyTree();
 
     // Insert the points from a PointBuffer into this index.
@@ -56,7 +66,7 @@ public:
 
     // Return all points at depth levels between [depthBegin, depthEnd).
     // A depthEnd value of zero will return all points at levels >= depthBegin.
-    MultiResults getPoints(
+    std::vector<std::size_t> getPoints(
             std::size_t depthBegin,
             std::size_t depthEnd);
 
@@ -64,23 +74,23 @@ public:
     // levels from [depthBegin, depthEnd).
     // A depthEnd value of zero will return all points within the query range
     // that have a tree level >= depthBegin.
-    MultiResults getPoints(
+    std::vector<std::size_t> getPoints(
             const BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
-    pdal::PointContext pointContext() const;
+    const pdal::PointContextRef pointContext() const;
 
     std::size_t numPoints() const;
-    const std::string& dir() const;
+    const std::string& path() const;
 
 private:
-    void addMeta(Json::Value& meta) const;
     std::string metaPath() const;
 
-    const std::string m_dir;
+    const std::string m_path;
     std::unique_ptr<BBox> m_bbox;
     std::unique_ptr<Schema> m_schema;
+    std::size_t m_dimensions;
     std::size_t m_numPoints;
 
     std::unique_ptr<Registry> m_registry;

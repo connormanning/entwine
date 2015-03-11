@@ -11,7 +11,7 @@
 #pragma once
 
 #include <set>
-#include <cstdint>
+#include <cstddef>
 #include <memory>
 #include <vector>
 

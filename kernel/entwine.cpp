@@ -99,6 +99,8 @@ int main(int argc, char** argv)
 
     // TODO These values should be overridable via command line.
     const std::string outDir(config["output"].asString());
+    const std::size_t dimensions(config["dimensions"].asUInt64());
+    const bool elastic(config["elastic"].asBool());
     const Json::Value& tuning(config["tuning"]);
     const std::size_t snapshot(tuning["snapshot"].asUInt64());
     const std::size_t threads(tuning["threads"].asUInt64());
@@ -130,9 +132,11 @@ int main(int argc, char** argv)
                 outDir,
                 bbox,
                 schema,
+                dimensions,
                 baseDepth,
                 flatDepth,
-                diskDepth));
+                diskDepth,
+                elastic));
 
     MultiBatcher batcher(s3Info, threads, *sleepyTree.get());
     const auto start(std::chrono::high_resolution_clock::now());
