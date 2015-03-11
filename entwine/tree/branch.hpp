@@ -40,6 +40,8 @@ public:
             const Json::Value& meta);
     virtual ~Branch();
 
+    // Returns true if the specified index is owned by this branch.  Does not
+    // necessarily mean that a valid Point resides at this index.
     bool accepts(std::size_t index) const;
 
     // Returns true if this point was successfully stored.
@@ -48,6 +50,7 @@ public:
     // Null pointer indicates that there is no point at this index.
     virtual const Point* getPoint(std::size_t index) const = 0;
 
+    // Writes necessary metadata and point data to disk.
     void save(const std::string& path, Json::Value& meta) const;
 
 protected:

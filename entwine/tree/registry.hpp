@@ -50,7 +50,6 @@ public:
             const Json::Value& meta);
     ~Registry();
 
-    // TODO Return values from these instead of modifying references.
     void put(PointInfo** toAddPtr, Roller& roller);
 
     void getPoints(

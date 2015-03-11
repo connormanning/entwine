@@ -199,12 +199,13 @@ void BaseBranch::load(const std::string& path, const Json::Value& meta)
     for (std::size_t i(0); i < m_data->size() / stride; ++i)
     {
         std::memcpy(
-                reinterpret_cast<char*>(&x),
+                &x,
                 m_data->data() + stride * i,
                 sizeof(double));
+
         std::memcpy(
-                reinterpret_cast<char*>(&y),
-                m_data->data() + stride * i,
+                &y,
+                m_data->data() + stride * i + sizeof(double),
                 sizeof(double));
 
         if (x != empty && y != empty)
