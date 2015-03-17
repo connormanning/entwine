@@ -68,16 +68,6 @@ std::string DimInfo::name() const
     return m_name;
 }
 
-pdal::Dimension::Id::Enum DimInfo::id() const
-{
-    return m_id;
-}
-
-pdal::Dimension::Type::Enum DimInfo::type() const
-{
-    return m_type;
-}
-
 std::size_t DimInfo::size() const
 {
     return pdal::Dimension::size(type());
@@ -86,6 +76,16 @@ std::size_t DimInfo::size() const
 std::string DimInfo::typeString() const
 {
     return m_typeString;
+}
+
+pdal::Dimension::Id::Enum DimInfo::id() const
+{
+    return m_id;
+}
+
+pdal::Dimension::Type::Enum DimInfo::type() const
+{
+    return m_type;
 }
 
 void DimInfo::setId(pdal::Dimension::Id::Enum id)

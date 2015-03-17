@@ -6,6 +6,7 @@ set(
     "${BASE}/bbox.cpp"
     "${BASE}/dim-info.cpp"
     "${BASE}/schema.cpp"
+    "${BASE}/simple-point-table.cpp"
 )
 
 set(
@@ -15,6 +16,7 @@ set(
     "${BASE}/elastic-atomic.hpp"
     "${BASE}/point.hpp"
     "${BASE}/schema.hpp"
+    "${BASE}/simple-point-table.hpp"
 )
 
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})

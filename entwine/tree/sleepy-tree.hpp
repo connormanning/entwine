@@ -15,13 +15,11 @@
 #include <string>
 #include <vector>
 
-#include <pdal/PointContext.hpp>
-
 #include <entwine/tree/point-info.hpp>
 
 namespace pdal
 {
-    class PointBuffer;
+    class PointView;
 }
 
 namespace Json
@@ -51,8 +49,8 @@ public:
     SleepyTree(const std::string& path);
     ~SleepyTree();
 
-    // Insert the points from a PointBuffer into this index.
-    void insert(const pdal::PointBuffer& pointBuffer, Origin origin);
+    // Insert the points from a PointView into this index.
+    void insert(const pdal::PointView& pointView, Origin origin);
 
     // Finalize the tree so it may be queried.  No more pipelines may be added.
     void save();

@@ -12,15 +12,14 @@
 
 namespace
 {
-    pdal::PointContext getPointContext(std::vector<entwine::DimInfo>& dims)
+    pdal::PointLayoutPtr getPointLayout(std::vector<entwine::DimInfo>& dims)
     {
-        pdal::PointContext pointContext;
+        pdal::PointLayoutPtr layout(new pdal::PointLayout());
         for (auto& dim : dims)
         {
-            dim.setId(
-                    pointContext.registerOrAssignDim(dim.name(), dim.type()));
+            dim.setId(layout->registerOrAssignDim(dim.name(), dim.type()));
         }
-        return pointContext;
+        return layout;
     }
 
     /*
@@ -47,7 +46,7 @@ namespace entwine
 
 Schema::Schema(std::vector<DimInfo> dims)
     : m_dims(dims)
-    , m_pointContext(getPointContext(m_dims))
+    , m_layout(getPointLayout(m_dims))
 { }
 
 /*
@@ -57,9 +56,9 @@ Schema::Schema(const pdal::PointContextRef pointContext)
 { }
 */
 
-std::size_t Schema::stride() const
+std::size_t Schema::pointSize() const
 {
-    return m_pointContext.pointSize();
+    return m_layout->pointSize();
 }
 
 const std::vector<DimInfo>& Schema::dims() const
@@ -67,9 +66,9 @@ const std::vector<DimInfo>& Schema::dims() const
     return m_dims;
 }
 
-const pdal::PointContextRef Schema::pointContext() const
+const pdal::PointLayoutPtr Schema::pdalLayout() const
 {
-    return m_pointContext;
+    return m_layout;
 }
 
 Json::Value Schema::toJson() const

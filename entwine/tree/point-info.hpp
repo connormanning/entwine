@@ -10,8 +10,6 @@
 
 #pragma once
 
-#include <pdal/PointContext.hpp>
-
 #include <cstddef>
 #include <vector>
 
@@ -19,20 +17,21 @@ typedef uint64_t Origin;
 
 namespace pdal
 {
-    class PointBuffer;
+    class PointView;
 }
 
 namespace entwine
 {
 
 class Point;
+class Schema;
 
 class PointInfo
 {
 public:
     PointInfo(
-            const pdal::PointContextRef pointContext,
-            const pdal::PointBuffer& pointBuffer,
+            const Schema& treeSchema,
+            const pdal::PointView& remoteView,
             std::size_t index,
             Origin origin);
 

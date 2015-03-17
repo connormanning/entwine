@@ -11,7 +11,7 @@
 #include <entwine/tree/sleepy-tree.hpp>
 
 #include <pdal/Dimension.hpp>
-#include <pdal/PointBuffer.hpp>
+#include <pdal/PointView.hpp>
 #include <pdal/Utils.hpp>
 
 #include <entwine/tree/roller.hpp>
@@ -67,14 +67,16 @@ SleepyTree::SleepyTree(const std::string& path)
 SleepyTree::~SleepyTree()
 { }
 
-void SleepyTree::insert(const pdal::PointBuffer& pointBuffer, Origin origin)
+void SleepyTree::insert(const pdal::PointView& pointView, Origin origin)
 {
     Point point;
 
-    for (std::size_t i = 0; i < pointBuffer.size(); ++i)
+    const Schema& schemaRef(*m_schema.get());
+
+    for (std::size_t i = 0; i < pointView.size(); ++i)
     {
-        point.x = pointBuffer.getFieldAs<double>(pdal::Dimension::Id::X, i);
-        point.y = pointBuffer.getFieldAs<double>(pdal::Dimension::Id::Y, i);
+        point.x = pointView.getFieldAs<double>(pdal::Dimension::Id::X, i);
+        point.y = pointView.getFieldAs<double>(pdal::Dimension::Id::Y, i);
 
         if (m_bbox->contains(point))
         {
@@ -82,8 +84,8 @@ void SleepyTree::insert(const pdal::PointBuffer& pointBuffer, Origin origin)
 
             PointInfo* pointInfo(
                     new PointInfo(
-                        m_schema->pointContext(),
-                        pointBuffer,
+                        schemaRef,
+                        pointView,
                         i,
                         origin));
 

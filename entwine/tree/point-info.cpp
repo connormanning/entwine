@@ -11,41 +11,38 @@
 #include <entwine/tree/point-info.hpp>
 
 #include <pdal/Dimension.hpp>
-#include <pdal/PointBuffer.hpp>
-#include <pdal/PointContext.hpp>
+#include <pdal/PointView.hpp>
 
 #include <entwine/types/point.hpp>
+#include <entwine/types/schema.hpp>
 
 namespace entwine
 {
 
 PointInfo::PointInfo(
-        const pdal::PointContextRef pointContext,
-        const pdal::PointBuffer& pointBuffer,
+        const Schema& treeSchema,
+        const pdal::PointView& remoteView,
         const std::size_t index,
         const Origin origin)
     : point(new Point(
-            pointBuffer.getFieldAs<double>(pdal::Dimension::Id::X, index),
-            pointBuffer.getFieldAs<double>(pdal::Dimension::Id::Y, index)))
-    , bytes(pointContext.pointSize())
+            remoteView.getFieldAs<double>(pdal::Dimension::Id::X, index),
+            remoteView.getFieldAs<double>(pdal::Dimension::Id::Y, index)))
+    , bytes(treeSchema.pointSize())
 {
     char* pos(bytes.data());
-    for (const auto& dim : pointContext.dims())
+
+    for (const auto& dim : treeSchema.dims())
     {
+        const pdal::Dimension::Id::Enum dimId(dim.id());
+
         // Not all dimensions may be present in every pipeline of our
         // invokation, which is not an error.
-        if (pointBuffer.hasDim(dim))
+        if (remoteView.hasDim(dimId))
         {
-            pointBuffer.getRawField(dim, index, pos);
+            remoteView.getField(pos, dimId, dim.type(), index);
         }
-        /*
-        else if (dim.id == originDim)
-        {
-            std::memcpy(pos, &origin, sizeof(Origin));
-        }
-        */
 
-        pos += pointContext.dimSize(dim);
+        pos += remoteView.dimSize(dimId);
     }
 
     // TODO Copy origin dimension.

@@ -13,20 +13,29 @@
 #include <pdal/Compression.hpp>
 
 #include <entwine/compression/stream.hpp>
+#include <entwine/types/schema.hpp>
 
 namespace entwine
 {
 
 std::unique_ptr<std::vector<char>> Compression::compress(
         const std::vector<char>& data,
-        const pdal::DimTypeList dimTypeList)
+        const Schema& schema)
+{
+    return compress(data.data(), data.size(), schema);
+}
+
+std::unique_ptr<std::vector<char>> Compression::compress(
+        const char* data,
+        const std::size_t size,
+        const Schema& schema)
 {
     CompressionStream compressionStream;
     pdal::LazPerfCompressor<CompressionStream> compressor(
             compressionStream,
-            dimTypeList);
+            schema.pdalLayout()->dimTypes());
 
-    compressor.compress(data.data(), data.size());
+    compressor.compress(data, size);
     compressor.done();
 
     std::unique_ptr<std::vector<char>> compressed(
@@ -42,13 +51,13 @@ std::unique_ptr<std::vector<char>> Compression::compress(
 
 std::unique_ptr<std::vector<char>> Compression::decompress(
         const std::vector<char>& data,
-        const pdal::DimTypeList dimTypeList,
+        const Schema& schema,
         const std::size_t decompressedSize)
 {
     CompressionStream compressionStream(data);
     pdal::LazPerfDecompressor<CompressionStream> decompressor(
             compressionStream,
-            dimTypeList);
+            schema.pdalLayout()->dimTypes());
 
     std::unique_ptr<std::vector<char>> decompressed(
             new std::vector<char>(decompressedSize));

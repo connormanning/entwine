@@ -13,7 +13,8 @@
 #include <thread>
 
 #include <pdal/PipelineManager.hpp>
-#include <pdal/PointBuffer.hpp>
+#include <pdal/PointView.hpp>
+#include <pdal/Reader.hpp>
 #include <pdal/Stage.hpp>
 #include <pdal/StageFactory.hpp>
 
@@ -137,7 +138,7 @@ void MultiBatcher::add(const std::string& filename)
                 */
 
                 pipelineManager->execute();
-                const pdal::PointBufferSet& pbSet(pipelineManager->buffers());
+                const pdal::PointViewSet& viewSet(pipelineManager->views());
 
                 if (remove(localPath.c_str()) != 0)
                 {
@@ -145,9 +146,9 @@ void MultiBatcher::add(const std::string& filename)
                     throw std::runtime_error("Couldn't delete tmp file");
                 }
 
-                for (const auto pointBuffer : pbSet)
+                for (const auto view : viewSet)
                 {
-                    m_sleepyTree.insert(*pointBuffer.get(), origin);
+                    m_sleepyTree.insert(*view.get(), origin);
                 }
             }
             else

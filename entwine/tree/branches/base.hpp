@@ -22,6 +22,11 @@ namespace Json
     class Value;
 }
 
+namespace pdal
+{
+    class PointView;
+}
+
 namespace entwine
 {
 
@@ -43,16 +48,14 @@ public:
 
     virtual bool addPoint(PointInfo** toAddPtr, const Roller& roller);
     virtual const Point* getPoint(std::size_t index);
-    virtual std::vector<char> getPointData(std::size_t index);
+    virtual std::vector<char> getPointData(std::size_t index); // TODO
 
 private:
     virtual void saveImpl(const std::string& path, Json::Value& meta);
     void load(const std::string& path, const Json::Value& meta);
 
-    char* getPointPosition(std::size_t index) const;
-
     std::vector<ElasticAtomic<const Point*>> m_points;
-    std::unique_ptr<std::vector<char>> m_data;
+    std::unique_ptr<pdal::PointView> m_data;
     std::vector<std::mutex> m_locks;
 };
 

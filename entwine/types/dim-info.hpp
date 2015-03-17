@@ -31,11 +31,13 @@ public:
             std::size_t size);
 
     std::string name() const;
-    pdal::Dimension::Id::Enum id() const;
-    pdal::Dimension::Type::Enum type() const;
     std::size_t size() const;
     std::string typeString() const;
 
+    pdal::Dimension::Id::Enum id() const;
+    pdal::Dimension::Type::Enum type() const;
+
+    // May be unknown until PDAL registration.
     void setId(pdal::Dimension::Id::Enum id);
 
 private:

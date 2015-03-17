@@ -13,10 +13,14 @@
 #include <cstring>
 #include <limits>
 
+#include <pdal/PointView.hpp>
+#include <pdal/PointTable.hpp>
+
 #include <entwine/compression/util.hpp>
 #include <entwine/third/json/json.h>
 #include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/simple-point-table.hpp>
 #include <entwine/tree/roller.hpp>
 #include <entwine/tree/point-info.hpp>
 
@@ -34,21 +38,15 @@ BaseBranch::BaseBranch(
         const std::size_t depthEnd)
     : Branch(schema, dimensions, 0, depthEnd)
     , m_points(size(), std::atomic<const Point*>(0))
-    , m_data(new std::vector<char>(size() * schema.stride()))
+    , m_data(
+            new pdal::PointView(
+                pdal::PointTablePtr(new SimplePointTable(schema))))
     , m_locks(size())
 {
-    const std::size_t stride(schema.stride());
-
-    for (std::size_t offset(0); offset < m_data->size(); offset += stride)
+    for (std::size_t i(0); i < size(); ++i)
     {
-        std::memcpy(
-                m_data->data() + offset,
-                &empty,
-                sizeof(double));
-        std::memcpy(
-                m_data->data() + offset + sizeof(double),
-                &empty,
-                sizeof(double));
+        m_data->setField(pdal::Dimension::Id::X, i, empty);
+        m_data->setField(pdal::Dimension::Id::Y, i, empty);
     }
 }
 
@@ -59,7 +57,9 @@ BaseBranch::BaseBranch(
         const Json::Value& meta)
     : Branch(schema, dimensions, meta)
     , m_points(size(), std::atomic<const Point*>(0))
-    , m_data(new std::vector<char>(size() * schema.stride()))
+    , m_data(
+            new pdal::PointView(
+                pdal::PointTablePtr(new SimplePointTable(schema))))
     , m_locks(size())
 {
     load(path, meta);
@@ -79,6 +79,7 @@ bool BaseBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
     PointInfo* toAdd(*toAddPtr);
     const std::size_t index(roller.pos());
     auto& myPoint(m_points[index].atom);
+    const std::size_t pointSize(schema().pointSize());
 
     if (myPoint.load())
     {
@@ -90,17 +91,15 @@ bool BaseBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
 
             if (toAdd->point->sqDist(mid) < curPoint->sqDist(mid))
             {
+                char* pos(m_data->getPoint(index));
+
                 // Pull out the old stored value and store the Point that
                 // was in our atomic member, so we can overwrite that with
                 // the new one.
-                PointInfo* old(
-                        new PointInfo(
-                            curPoint,
-                            m_data->data() + index * schema().stride(),
-                            toAdd->bytes.size()));
+                PointInfo* old(new PointInfo(curPoint, pos, pointSize));
 
                 // Store this point.
-                toAdd->write(m_data->data() + index * schema().stride());
+                toAdd->write(pos);
                 myPoint.store(toAdd->point);
                 delete toAdd;
 
@@ -114,7 +113,7 @@ bool BaseBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
         std::unique_lock<std::mutex> lock(m_locks[index]);
         if (!myPoint.load())
         {
-            toAdd->write(m_data->data() + index * schema().stride());
+            toAdd->write(m_data->getPoint(index));
             myPoint.store(toAdd->point);
             delete toAdd;
             done = true;
@@ -138,12 +137,16 @@ const Point* BaseBranch::getPoint(const std::size_t index)
 
 std::vector<char> BaseBranch::getPointData(const std::size_t index)
 {
+    // TODO
+    return std::vector<char>();
+
+    /*
     // TODO Since we are being queried, we are assuming that addPoint() is no
     // longer be called so the data is now constant.  Does this call need to be
     // supported during the build phase?  If so we need to lock here.
     if (getPoint(index))
     {
-        const std::size_t pointSize(schema().stride());
+        const std::size_t pointSize(schema().pointSize());
         std::vector<char> bytes(pointSize);
         std::memcpy(bytes.data(), getPointPosition(index), pointSize);
         return bytes;
@@ -152,6 +155,7 @@ std::vector<char> BaseBranch::getPointData(const std::size_t index)
     {
         return std::vector<char>();
     }
+    */
 }
 
 void BaseBranch::saveImpl(const std::string& path, Json::Value& meta)
@@ -167,12 +171,13 @@ void BaseBranch::saveImpl(const std::string& path, Json::Value& meta)
         throw std::runtime_error("Could not open for write: " + dataPath);
     }
 
-    const uint64_t uncompressedSize(m_data->size());
+    const uint64_t uncompressedSize(m_data->size() * schema().pointSize());
 
     std::unique_ptr<std::vector<char>> compressed(
             Compression::compress(
-                *m_data.get(),
-                schema().pointContext().dimTypes()));
+                m_data->getPoint(0),
+                uncompressedSize,
+                schema()));
 
     const uint64_t compressedSize(compressed->size());
 
@@ -215,30 +220,27 @@ void BaseBranch::load(const std::string& path, const Json::Value& meta)
     std::unique_ptr<std::vector<char>> uncompressed(
             Compression::decompress(
                 compressed,
-                schema().pointContext().dimTypes(),
+                schema(),
                 uncSize));
 
     double x(0);
     double y(0);
+    const std::size_t pointSize(schema().pointSize());
 
-    const std::size_t stride(schema().stride());
-
-    for (std::size_t i(0); i < m_data->size() / stride; ++i)
+    for (std::size_t i(0); i < size(); ++i)
     {
-        const char* pos(getPointPosition(i));
+        const char* pos(uncompressed->data() + i * pointSize);
         std::memcpy(&x, pos, sizeof(double));
         std::memcpy(&y, pos + sizeof(double), sizeof(double));
+
+        m_data->setField(pdal::Dimension::Id::X, i, x);
+        m_data->setField(pdal::Dimension::Id::Y, i, y);
 
         if (x != empty && y != empty)
         {
             m_points[i].atom.store(new Point(x, y));
         }
     }
-}
-
-char* BaseBranch::getPointPosition(const std::size_t index) const
-{
-    return m_data->data() + index * schema().stride();
 }
 
 } // namespace entwine

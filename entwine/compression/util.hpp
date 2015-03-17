@@ -10,24 +10,30 @@
 
 #pragma once
 
+#include <cstddef>
 #include <memory>
 #include <vector>
 
-#include <pdal/PointContext.hpp>
-
 namespace entwine
 {
+
+class Schema;
 
 class Compression
 {
 public:
     static std::unique_ptr<std::vector<char>> compress(
             const std::vector<char>& data,
-            pdal::DimTypeList dimTypeList);
+            const Schema& schema);
+
+    static std::unique_ptr<std::vector<char>> compress(
+            const char* data,
+            std::size_t size,
+            const Schema& schema);
 
     static std::unique_ptr<std::vector<char>> decompress(
             const std::vector<char>& data,
-            pdal::DimTypeList dimTypeList,
+            const Schema& schema,
             std::size_t decompressedSize);
 };
 
