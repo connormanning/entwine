@@ -38,18 +38,23 @@ DiskBranch::DiskBranch(
 DiskBranch::~DiskBranch()
 { }
 
-bool DiskBranch::putPoint(PointInfo** toAddPtr, const Roller& roller)
+bool DiskBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
 {
     if (m_elastic) std::cout << m_elastic << std::endl;
     return false;
 }
 
-const Point* DiskBranch::getPoint(std::size_t index) const
+const Point* DiskBranch::getPoint(std::size_t index)
 {
     return 0;
 }
 
-void DiskBranch::saveImpl(const std::string& path, Json::Value& meta) const
+std::vector<char> DiskBranch::getPointData(std::size_t index)
+{
+    return std::vector<char>();
+}
+
+void DiskBranch::saveImpl(const std::string& path, Json::Value& meta)
 {
     meta["elastic"] = m_elastic;
 

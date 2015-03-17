@@ -17,20 +17,20 @@ namespace
 {
     struct PutData
     {
-        PutData(const std::shared_ptr<std::vector<uint8_t>> data)
+        PutData(const std::shared_ptr<std::vector<char>> data)
             : data(data)
             , offset(0)
         { }
 
-        const std::shared_ptr<std::vector<uint8_t>> data;
+        const std::shared_ptr<std::vector<char>> data;
         std::size_t offset;
     };
 
     std::size_t getCb(
-            const uint8_t* in,
+            const char* in,
             std::size_t size,
             std::size_t num,
-            std::vector<uint8_t>* out)
+            std::vector<char>* out)
     {
         const std::size_t fullBytes(size * num);
         const std::size_t startSize(out->size());
@@ -42,7 +42,7 @@ namespace
     }
 
     std::size_t putCb(
-            uint8_t* out,
+            char* out,
             std::size_t size,
             std::size_t num,
             PutData* in)
@@ -112,7 +112,7 @@ HttpResponse Curl::get(std::string url, std::vector<std::string> headers)
     init(url, headers);
 
     int httpCode(0);
-    std::shared_ptr<std::vector<uint8_t>> data(new std::vector<uint8_t>());
+    std::shared_ptr<std::vector<char>> data(new std::vector<char>());
 
     // Register callback function and date pointer to consume the result.
     curl_easy_setopt(m_curl, CURLOPT_WRITEFUNCTION, getCb);
@@ -133,7 +133,7 @@ HttpResponse Curl::get(std::string url, std::vector<std::string> headers)
 HttpResponse Curl::put(
         std::string url,
         std::vector<std::string> headers,
-        const std::shared_ptr<std::vector<uint8_t>> data)
+        const std::shared_ptr<std::vector<char>> data)
 {
     init(url, headers);
 
@@ -192,7 +192,7 @@ HttpResponse CurlBatch::get(
 HttpResponse CurlBatch::put(
         std::string url,
         std::vector<std::string> headers,
-        const std::shared_ptr<std::vector<uint8_t>> data)
+        const std::shared_ptr<std::vector<char>> data)
 {
     std::shared_ptr<Curl> curl(acquire());
     HttpResponse res(curl->put(url, headers, data));

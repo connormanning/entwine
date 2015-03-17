@@ -32,7 +32,7 @@ class PointInfo
 public:
     PointInfo(
             const pdal::PointContextRef pointContext,
-            const pdal::PointBuffer* pointBuffer,
+            const pdal::PointBuffer& pointBuffer,
             std::size_t index,
             Origin origin);
 

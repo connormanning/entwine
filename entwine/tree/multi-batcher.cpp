@@ -95,7 +95,7 @@ void MultiBatcher::add(const std::string& filename)
                         throw std::runtime_error("Couldn't fetch " + filename);
                     }
 
-                    std::shared_ptr<std::vector<uint8_t>> fileData(res.data());
+                    std::shared_ptr<std::vector<char>> fileData(res.data());
                     std::ofstream writer(
                             localPath,
                             std::ofstream::binary |
@@ -147,7 +147,7 @@ void MultiBatcher::add(const std::string& filename)
 
                 for (const auto pointBuffer : pbSet)
                 {
-                    m_sleepyTree.insert(pointBuffer.get(), origin);
+                    m_sleepyTree.insert(*pointBuffer.get(), origin);
                 }
             }
             else

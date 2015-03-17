@@ -12,6 +12,7 @@
 
 #include <cstddef>
 #include <string>
+#include <vector>
 
 namespace Json
 {
@@ -45,16 +46,21 @@ public:
     bool accepts(std::size_t index) const;
 
     // Returns true if this point was successfully stored.
-    virtual bool putPoint(PointInfo** toAddPtr, const Roller& roller) = 0;
+    virtual bool addPoint(PointInfo** toAddPtr, const Roller& roller) = 0;
 
-    // Null pointer indicates that there is no point at this index.
-    virtual const Point* getPoint(std::size_t index) const = 0;
+    // Returns the bytes of a point if there is a point at this index,
+    // otherwise returns an empty vector.
+    virtual std::vector<char> getPointData(std::size_t index) = 0;
+
+    // Returns the point coordinates at this index.  Null pointer indicates
+    // that there is no point at this index.
+    virtual const Point* getPoint(std::size_t index) = 0;
 
     // Writes necessary metadata and point data to disk.
-    void save(const std::string& path, Json::Value& meta) const;
+    void save(const std::string& path, Json::Value& meta);
 
 protected:
-    virtual void saveImpl(const std::string& path, Json::Value& meta) const = 0;
+    virtual void saveImpl(const std::string& path, Json::Value& meta) = 0;
 
     const Schema& schema()      const;
     std::size_t depthBegin()    const;

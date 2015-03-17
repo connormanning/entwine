@@ -11,6 +11,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 namespace entwine
@@ -20,7 +21,6 @@ class CompressionStream
 {
 public:
     CompressionStream();
-    CompressionStream(const std::vector<uint8_t>& data);
     CompressionStream(const std::vector<char>& data);
 
     void putBytes(const uint8_t* bytes, std::size_t length);
@@ -29,10 +29,10 @@ public:
     uint8_t getByte();
     void getBytes(uint8_t* bytes, std::size_t length);
 
-    const std::vector<uint8_t>& data() const;
+    const std::vector<char>& data() const;
 
 private:
-    std::vector<uint8_t> m_data;
+    std::vector<char> m_data;
     std::size_t m_index;
 };
 

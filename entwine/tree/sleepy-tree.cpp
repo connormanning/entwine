@@ -67,14 +67,14 @@ SleepyTree::SleepyTree(const std::string& path)
 SleepyTree::~SleepyTree()
 { }
 
-void SleepyTree::insert(const pdal::PointBuffer* pointBuffer, Origin origin)
+void SleepyTree::insert(const pdal::PointBuffer& pointBuffer, Origin origin)
 {
     Point point;
 
-    for (std::size_t i = 0; i < pointBuffer->size(); ++i)
+    for (std::size_t i = 0; i < pointBuffer.size(); ++i)
     {
-        point.x = pointBuffer->getFieldAs<double>(pdal::Dimension::Id::X, i);
-        point.y = pointBuffer->getFieldAs<double>(pdal::Dimension::Id::Y, i);
+        point.x = pointBuffer.getFieldAs<double>(pdal::Dimension::Id::X, i);
+        point.y = pointBuffer.getFieldAs<double>(pdal::Dimension::Id::Y, i);
 
         if (m_bbox->contains(point))
         {
@@ -87,7 +87,7 @@ void SleepyTree::insert(const pdal::PointBuffer* pointBuffer, Origin origin)
                         i,
                         origin));
 
-            m_registry->put(&pointInfo, roller);
+            m_registry->addPoint(&pointInfo, roller);
             ++m_numPoints;
         }
     }
@@ -146,41 +146,35 @@ const BBox& SleepyTree::getBounds() const
     return *m_bbox.get();
 }
 
-std::vector<std::size_t> SleepyTree::getPoints(
+std::vector<std::size_t> SleepyTree::query(
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
     Roller roller(*m_bbox.get());
     std::vector<std::size_t> results;
-    m_registry->getPoints(
-            roller,
-            results,
-            depthBegin,
-            depthEnd);
-
+    m_registry->query(roller, results, depthBegin, depthEnd);
     return results;
 }
 
-std::vector<std::size_t> SleepyTree::getPoints(
+std::vector<std::size_t> SleepyTree::query(
         const BBox& bbox,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
     Roller roller(*m_bbox.get());
     std::vector<std::size_t> results;
-    m_registry->getPoints(
-            roller,
-            results,
-            bbox,
-            depthBegin,
-            depthEnd);
-
+    m_registry->query(roller, results, bbox, depthBegin, depthEnd);
     return results;
 }
 
-const pdal::PointContextRef SleepyTree::pointContext() const
+std::vector<char> SleepyTree::getPointData(const std::size_t index)
 {
-    return m_schema->pointContext();
+    return m_registry->getPointData(index);
+}
+
+const Schema& SleepyTree::schema() const
+{
+    return *m_schema.get();
 }
 
 std::size_t SleepyTree::numPoints() const
@@ -188,7 +182,7 @@ std::size_t SleepyTree::numPoints() const
     return m_numPoints;
 }
 
-const std::string& SleepyTree::path() const
+std::string SleepyTree::path() const
 {
     return m_path;
 }

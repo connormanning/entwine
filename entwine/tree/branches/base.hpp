@@ -41,12 +41,15 @@ public:
             const Json::Value& meta);
     ~BaseBranch();
 
-    virtual bool putPoint(PointInfo** toAddPtr, const Roller& roller);
-    virtual const Point* getPoint(std::size_t index) const;
+    virtual bool addPoint(PointInfo** toAddPtr, const Roller& roller);
+    virtual const Point* getPoint(std::size_t index);
+    virtual std::vector<char> getPointData(std::size_t index);
 
 private:
-    virtual void saveImpl(const std::string& path, Json::Value& meta) const;
+    virtual void saveImpl(const std::string& path, Json::Value& meta);
     void load(const std::string& path, const Json::Value& meta);
+
+    char* getPointPosition(std::size_t index) const;
 
     std::vector<ElasticAtomic<const Point*>> m_points;
     std::unique_ptr<std::vector<char>> m_data;

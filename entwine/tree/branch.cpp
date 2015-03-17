@@ -61,7 +61,7 @@ bool Branch::accepts(const std::size_t index) const
     return (index >= m_indexBegin) && (index < m_indexEnd);
 }
 
-void Branch::save(const std::string& path, Json::Value& meta) const
+void Branch::save(const std::string& path, Json::Value& meta)
 {
     meta["depthBegin"] = static_cast<Json::UInt64>(m_depthBegin);
     meta["depthEnd"] = static_cast<Json::UInt64>(m_depthEnd);

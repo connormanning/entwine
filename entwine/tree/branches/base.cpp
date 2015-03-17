@@ -10,6 +10,7 @@
 
 #include <entwine/tree/branches/base.hpp>
 
+#include <cstring>
 #include <limits>
 
 #include <entwine/compression/util.hpp>
@@ -72,7 +73,7 @@ BaseBranch::~BaseBranch()
     }
 }
 
-bool BaseBranch::putPoint(PointInfo** toAddPtr, const Roller& roller)
+bool BaseBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
 {
     bool done(false);
     PointInfo* toAdd(*toAddPtr);
@@ -123,19 +124,37 @@ bool BaseBranch::putPoint(PointInfo** toAddPtr, const Roller& roller)
             // Someone beat us here, call again to enter the other branch.
             // Be sure to unlock our mutex first.
             lock.unlock();
-            return putPoint(&toAdd, roller);
+            return addPoint(&toAdd, roller);
         }
     }
 
     return done;
 }
 
-const Point* BaseBranch::getPoint(std::size_t index) const
+const Point* BaseBranch::getPoint(const std::size_t index)
 {
     return m_points[index].atom.load();
 }
 
-void BaseBranch::saveImpl(const std::string& path, Json::Value& meta) const
+std::vector<char> BaseBranch::getPointData(const std::size_t index)
+{
+    // TODO Since we are being queried, we are assuming that addPoint() is no
+    // longer be called so the data is now constant.  Does this call need to be
+    // supported during the build phase?  If so we need to lock here.
+    if (getPoint(index))
+    {
+        const std::size_t pointSize(schema().stride());
+        std::vector<char> bytes(pointSize);
+        std::memcpy(bytes.data(), getPointPosition(index), pointSize);
+        return bytes;
+    }
+    else
+    {
+        return std::vector<char>();
+    }
+}
+
+void BaseBranch::saveImpl(const std::string& path, Json::Value& meta)
 {
     meta["ids"].append(0);
 
@@ -169,6 +188,14 @@ void BaseBranch::saveImpl(const std::string& path, Json::Value& meta) const
 
 void BaseBranch::load(const std::string& path, const Json::Value& meta)
 {
+    if (
+            !meta["ids"].isArray() ||
+            meta["ids"].size() != 1 ||
+            meta[0] != 0)
+    {
+        throw std::runtime_error("Invalid serialized base branch.");
+    }
+
     const std::string dataPath(path + "/0");
     std::ifstream dataStream(
             dataPath,
@@ -198,21 +225,20 @@ void BaseBranch::load(const std::string& path, const Json::Value& meta)
 
     for (std::size_t i(0); i < m_data->size() / stride; ++i)
     {
-        std::memcpy(
-                &x,
-                m_data->data() + stride * i,
-                sizeof(double));
-
-        std::memcpy(
-                &y,
-                m_data->data() + stride * i + sizeof(double),
-                sizeof(double));
+        const char* pos(getPointPosition(i));
+        std::memcpy(&x, pos, sizeof(double));
+        std::memcpy(&y, pos + sizeof(double), sizeof(double));
 
         if (x != empty && y != empty)
         {
             m_points[i].atom.store(new Point(x, y));
         }
     }
+}
+
+char* BaseBranch::getPointPosition(const std::size_t index) const
+{
+    return m_data->data() + index * schema().stride();
 }
 
 } // namespace entwine

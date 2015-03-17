@@ -80,12 +80,12 @@ public:
 
     HttpResponse put(
             std::string file,
-            const std::shared_ptr<std::vector<uint8_t>> data);
+            const std::shared_ptr<std::vector<char>> data);
     HttpResponse put(std::string file, const std::string& data);
     void put(
             uint64_t id,
             std::string file,
-            const std::shared_ptr<std::vector<uint8_t>> data,
+            const std::shared_ptr<std::vector<char>> data,
             PutCollector* collector);
 
     const std::string& baseAwsUrl() const { return m_baseAwsUrl; }
@@ -109,8 +109,8 @@ private:
             std::string httpDate,
             std::string contentType) const;
 
-    std::vector<uint8_t> signString(std::string input) const;
-    std::string encodeBase64(std::vector<uint8_t> input) const;
+    std::vector<char> signString(std::string input) const;
+    std::string encodeBase64(std::vector<char> input) const;
     std::string prefixSlash(const std::string& in) const;
 
     const std::string m_awsAccessKeyId;

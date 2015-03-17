@@ -23,6 +23,7 @@ namespace
         return pointContext;
     }
 
+    /*
     std::vector<entwine::DimInfo> getDims(
             const pdal::PointContextRef pointContext)
     {
@@ -38,6 +39,7 @@ namespace
         }
         return dims;
     }
+    */
 }
 
 namespace entwine
@@ -48,10 +50,12 @@ Schema::Schema(std::vector<DimInfo> dims)
     , m_pointContext(getPointContext(m_dims))
 { }
 
+/*
 Schema::Schema(const pdal::PointContextRef pointContext)
     : m_dims(getDims(pointContext))
     , m_pointContext(getPointContext(m_dims))
 { }
+*/
 
 std::size_t Schema::stride() const
 {
@@ -63,7 +67,7 @@ const std::vector<DimInfo>& Schema::dims() const
     return m_dims;
 }
 
-pdal::PointContext Schema::pointContext() const
+const pdal::PointContextRef Schema::pointContext() const
 {
     return m_pointContext;
 }

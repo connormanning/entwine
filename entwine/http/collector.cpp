@@ -74,7 +74,7 @@ PutCollector::~PutCollector()
 void PutCollector::insert(
     uint64_t id,
     HttpResponse res,
-    const std::shared_ptr<std::vector<uint8_t>> data)
+    const std::shared_ptr<std::vector<char>> data)
 {
     if (res.code() != 200)
     {
@@ -89,11 +89,11 @@ void PutCollector::insert(
     inc();
 }
 
-std::map<uint64_t, const std::shared_ptr<std::vector<uint8_t>>>
+std::map<uint64_t, const std::shared_ptr<std::vector<char>>>
 PutCollector::errs()
 {
     waitFor(m_expected);
-    std::map<uint64_t, const std::shared_ptr<std::vector<uint8_t>>> tmp;
+    std::map<uint64_t, const std::shared_ptr<std::vector<char>>> tmp;
     m_errs.swap(tmp);
     return tmp;
 }
@@ -142,7 +142,7 @@ std::map<uint64_t, std::string> GetCollector::errs()
     return tmp;
 }
 
-std::map<uint64_t, const std::shared_ptr<std::vector<uint8_t>>>
+std::map<uint64_t, const std::shared_ptr<std::vector<char>>>
 GetCollector::responses()
 {
     return m_data;

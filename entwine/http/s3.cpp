@@ -119,7 +119,7 @@ void S3::get(uint64_t id, std::string file, GetCollector* collector)
 
 HttpResponse S3::put(
         std::string file,
-        const std::shared_ptr<std::vector<uint8_t>> data)
+        const std::shared_ptr<std::vector<char>> data)
 {
     const std::string filePath(m_bucketName + prefixSlash(file));
     const std::string endpoint("http://" + m_baseAwsUrl + filePath);
@@ -129,15 +129,15 @@ HttpResponse S3::put(
 
 HttpResponse S3::put(std::string file, const std::string& data)
 {
-    std::shared_ptr<std::vector<uint8_t>> vec(
-            new std::vector<uint8_t>(data.begin(), data.end()));
+    std::shared_ptr<std::vector<char>> vec(
+            new std::vector<char>(data.begin(), data.end()));
     return put(file, vec);
 }
 
 void S3::put(
         uint64_t id,
         std::string file,
-        const std::shared_ptr<std::vector<uint8_t>> data,
+        const std::shared_ptr<std::vector<char>> data,
         PutCollector* collector)
 {
     std::thread t([this, id, file, data, collector]() {
@@ -173,7 +173,7 @@ std::string S3::getSignedEncodedString(
                 httpDate,
                 contentType));
 
-    const std::vector<uint8_t> signedData(signString(toSign));
+    const std::vector<char> signedData(signString(toSign));
     return encodeBase64(signedData);
 }
 
@@ -191,9 +191,9 @@ std::string S3::getStringToSign(
         file;
 }
 
-std::vector<uint8_t> S3::signString(std::string input) const
+std::vector<char> S3::signString(std::string input) const
 {
-    std::vector<uint8_t> hash(20, ' ');
+    std::vector<char> hash(20, ' ');
     unsigned int outLength(0);
 
     HMAC_CTX ctx;
@@ -206,26 +206,26 @@ std::vector<uint8_t> S3::signString(std::string input) const
             EVP_sha1());
     HMAC_Update(
             &ctx,
-            reinterpret_cast<const uint8_t*>(input.data()),
+            reinterpret_cast<const unsigned char*>(input.data()),
             input.size());
     HMAC_Final(
             &ctx,
-            hash.data(),
+            reinterpret_cast<unsigned char*>(hash.data()),
             &outLength);
     HMAC_CTX_cleanup(&ctx);
 
     return hash;
 }
 
-std::string S3::encodeBase64(std::vector<uint8_t> input) const
+std::string S3::encodeBase64(std::vector<char> input) const
 {
     const std::string vals(
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
 
     std::size_t fullSteps(input.size() / 3);
     while (input.size() % 3) input.push_back(0);
-    uint8_t* pos(input.data());
-    uint8_t* end(input.data() + fullSteps * 3);
+    char* pos(input.data());
+    char* end(input.data() + fullSteps * 3);
 
     std::string output(fullSteps * 4, '_');
     std::size_t outIndex(0);

@@ -21,12 +21,12 @@ namespace entwine
 
 PointInfo::PointInfo(
         const pdal::PointContextRef pointContext,
-        const pdal::PointBuffer* pointBuffer,
+        const pdal::PointBuffer& pointBuffer,
         const std::size_t index,
         const Origin origin)
     : point(new Point(
-            pointBuffer->getFieldAs<double>(pdal::Dimension::Id::X, index),
-            pointBuffer->getFieldAs<double>(pdal::Dimension::Id::Y, index)))
+            pointBuffer.getFieldAs<double>(pdal::Dimension::Id::X, index),
+            pointBuffer.getFieldAs<double>(pdal::Dimension::Id::Y, index)))
     , bytes(pointContext.pointSize())
 {
     char* pos(bytes.data());
@@ -34,9 +34,9 @@ PointInfo::PointInfo(
     {
         // Not all dimensions may be present in every pipeline of our
         // invokation, which is not an error.
-        if (pointBuffer->hasDim(dim))
+        if (pointBuffer.hasDim(dim))
         {
-            pointBuffer->getRawField(dim, index, pos);
+            pointBuffer.getRawField(dim, index, pos);
         }
         /*
         else if (dim.id == originDim)

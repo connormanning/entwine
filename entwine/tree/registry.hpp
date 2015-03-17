@@ -50,28 +50,27 @@ public:
             const Json::Value& meta);
     ~Registry();
 
-    void put(PointInfo** toAddPtr, Roller& roller);
+    void addPoint(PointInfo** toAddPtr, Roller& roller);
 
-    void getPoints(
+    void query(
             const Roller& roller,
             std::vector<std::size_t>& results,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
-    void getPoints(
+    void query(
             const Roller& roller,
             std::vector<std::size_t>& results,
-            const BBox& query,
+            const BBox& queryBBox,
             std::size_t depthBegin,
             std::size_t depthEnd);
+
+    std::vector<char> getPointData(std::size_t index);
 
     void save(const std::string& path, Json::Value& meta) const;
 
-    // TODO
-    // getPointData(std::size_t index);
-
 private:
-    Branch* getBranch(const Roller& roller) const;
+    Branch* getBranch(std::size_t index) const;
 
     std::unique_ptr<BaseBranch> m_baseBranch;
     std::unique_ptr<FlatBranch> m_flatBranch;

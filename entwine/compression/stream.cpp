@@ -22,34 +22,29 @@ CompressionStream::CompressionStream()
     , m_index(0)
 { }
 
-CompressionStream::CompressionStream(const std::vector<uint8_t>& data)
+CompressionStream::CompressionStream(const std::vector<char>& data)
     : m_data(data)
     , m_index(0)
 { }
 
-CompressionStream::CompressionStream(const std::vector<char>& data)
-    : m_data(data.size())
-    , m_index(0)
-{
-    std::memcpy(m_data.data(), data.data(), data.size());
-}
-
 void CompressionStream::putBytes(const uint8_t* bytes, const std::size_t length)
 {
-    for (std::size_t i(0); i < length; ++i)
-    {
-        m_data.push_back(*bytes++);
-    }
+    const std::size_t startSize(m_data.size());
+    m_data.resize(m_data.size() + length);
+    std::memcpy(
+            m_data.data() + startSize,
+            bytes,
+            length);
 }
 
 void CompressionStream::putByte(const uint8_t byte)
 {
-    m_data.push_back(byte);
+    m_data.push_back(reinterpret_cast<const char&>(byte));
 }
 
 uint8_t CompressionStream::getByte()
 {
-    return m_data.at(m_index++);
+    return reinterpret_cast<uint8_t&>(m_data.at(m_index++));
 }
 
 void CompressionStream::getBytes(uint8_t* bytes, std::size_t length)
@@ -63,7 +58,7 @@ void CompressionStream::getBytes(uint8_t* bytes, std::size_t length)
     m_index += length;
 }
 
-const std::vector<uint8_t>& CompressionStream::data() const
+const std::vector<char>& CompressionStream::data() const
 {
     return m_data;
 }

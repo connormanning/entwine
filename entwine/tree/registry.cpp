@@ -128,18 +128,17 @@ Registry::Registry(
 Registry::~Registry()
 { }
 
-void Registry::put(PointInfo** toAddPtr, Roller& roller)
+void Registry::addPoint(PointInfo** toAddPtr, Roller& roller)
 {
     PointInfo* toAdd(*toAddPtr);
 
-    Branch* branch(getBranch(roller));
-
+    Branch* branch(getBranch(roller.pos()));
     if (branch)
     {
-        if (!branch->putPoint(toAddPtr, roller))
+        if (!branch->addPoint(toAddPtr, roller))
         {
             roller.magnify(toAdd->point);
-            put(&toAdd, roller);
+            addPoint(&toAdd, roller);
         }
     }
     else
@@ -149,13 +148,13 @@ void Registry::put(PointInfo** toAddPtr, Roller& roller)
     }
 }
 
-void Registry::getPoints(
+void Registry::query(
         const Roller& roller,
         std::vector<std::size_t>& results,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
-    const Branch* branch(getBranch(roller));
+    Branch* branch(getBranch(roller.pos()));
     if (branch)
     {
         const uint64_t index(roller.pos());
@@ -172,25 +171,25 @@ void Registry::getPoints(
 
             if (roller.depth() + 1 < depthEnd || !depthEnd)
             {
-                getPoints(roller.getNw(), results, depthBegin, depthEnd);
-                getPoints(roller.getNe(), results, depthBegin, depthEnd);
-                getPoints(roller.getSw(), results, depthBegin, depthEnd);
-                getPoints(roller.getSe(), results, depthBegin, depthEnd);
+                query(roller.getNw(), results, depthBegin, depthEnd);
+                query(roller.getNe(), results, depthBegin, depthEnd);
+                query(roller.getSw(), results, depthBegin, depthEnd);
+                query(roller.getSe(), results, depthBegin, depthEnd);
             }
         }
     }
 }
 
-void Registry::getPoints(
+void Registry::query(
         const Roller& roller,
         std::vector<std::size_t>& results,
-        const BBox& query,
+        const BBox& queryBBox,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
-    if (!roller.bbox().overlaps(query)) return;
+    if (!roller.bbox().overlaps(queryBBox)) return;
 
-    const Branch* branch(getBranch(roller));
+    Branch* branch(getBranch(roller.pos()));
     if (branch)
     {
         const uint64_t index(roller.pos());
@@ -201,19 +200,33 @@ void Registry::getPoints(
             if (
                     (roller.depth() >= depthBegin) &&
                     (roller.depth() < depthEnd || !depthEnd) &&
-                    (query.contains(*point)))
+                    (queryBBox.contains(*point)))
             {
                 results.push_back(index);
             }
 
             if (roller.depth() + 1 < depthEnd || !depthEnd)
             {
-                getPoints(roller.getNw(), results, query, depthBegin, depthEnd);
-                getPoints(roller.getNe(), results, query, depthBegin, depthEnd);
-                getPoints(roller.getSw(), results, query, depthBegin, depthEnd);
-                getPoints(roller.getSe(), results, query, depthBegin, depthEnd);
+                query(roller.getNw(), results, queryBBox, depthBegin, depthEnd);
+                query(roller.getNe(), results, queryBBox, depthBegin, depthEnd);
+                query(roller.getSw(), results, queryBBox, depthBegin, depthEnd);
+                query(roller.getSe(), results, queryBBox, depthBegin, depthEnd);
             }
         }
+    }
+}
+
+std::vector<char> Registry::getPointData(const std::size_t index)
+{
+    Branch* branch(getBranch(index));
+
+    if (branch)
+    {
+        return branch->getPointData(index);
+    }
+    else
+    {
+        return std::vector<char>();
     }
 }
 
@@ -224,10 +237,9 @@ void Registry::save(const std::string& path, Json::Value& meta) const
     if (m_diskBranch) m_diskBranch->save(path, meta["disk"]);
 }
 
-Branch* Registry::getBranch(const Roller& roller) const
+Branch* Registry::getBranch(const std::size_t index) const
 {
     Branch* branch(0);
-    const std::size_t index(roller.pos());
 
     if (m_baseBranch && m_baseBranch->accepts(index))
     {

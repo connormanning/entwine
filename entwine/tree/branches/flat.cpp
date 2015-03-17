@@ -40,18 +40,23 @@ FlatBranch::FlatBranch(
 FlatBranch::~FlatBranch()
 { }
 
-bool FlatBranch::putPoint(PointInfo** toAddPtr, const Roller& roller)
+bool FlatBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
 {
     if (m_elastic) std::cout << m_elastic << std::endl;
     return false;
 }
 
-const Point* FlatBranch::getPoint(std::size_t index) const
+const Point* FlatBranch::getPoint(std::size_t index)
 {
     return 0;
 }
 
-void FlatBranch::saveImpl(const std::string& path, Json::Value& meta) const
+std::vector<char> FlatBranch::getPointData(std::size_t index)
+{
+    return std::vector<char>();
+}
+
+void FlatBranch::saveImpl(const std::string& path, Json::Value& meta)
 {
     meta["elastic"] = m_elastic;
 

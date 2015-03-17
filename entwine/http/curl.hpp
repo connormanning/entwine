@@ -31,7 +31,7 @@ public:
         , m_data()
     { }
 
-    HttpResponse(int code, std::shared_ptr<std::vector<uint8_t>> data)
+    HttpResponse(int code, std::shared_ptr<std::vector<char>> data)
         : m_code(code)
         , m_data(data)
     { }
@@ -44,11 +44,11 @@ public:
     ~HttpResponse() { }
 
     int code() const { return m_code; }
-    std::shared_ptr<std::vector<uint8_t>> data() const { return m_data; }
+    std::shared_ptr<std::vector<char>> data() const { return m_data; }
 
 private:
     int m_code;
-    std::shared_ptr<std::vector<uint8_t>> m_data;
+    std::shared_ptr<std::vector<char>> m_data;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -65,7 +65,7 @@ public:
     HttpResponse put(
             std::string url,
             std::vector<std::string> headers,
-            const std::shared_ptr<std::vector<uint8_t>> data);
+            const std::shared_ptr<std::vector<char>> data);
 
 private:
     Curl(std::size_t id);
@@ -74,7 +74,7 @@ private:
     CURL* m_curl;
     curl_slist* m_headers;
 
-    std::vector<uint8_t> m_data;
+    std::vector<char> m_data;
 
     const std::size_t m_id;
 
@@ -96,7 +96,7 @@ public:
     HttpResponse put(
             std::string url,
             std::vector<std::string> headers,
-            const std::shared_ptr<std::vector<uint8_t>> data);
+            const std::shared_ptr<std::vector<char>> data);
 
 private:
     CurlBatch(std::size_t id, std::size_t batchSize);

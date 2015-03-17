@@ -31,11 +31,12 @@ public:
             const Json::Value& meta);
     ~FlatBranch();
 
-    virtual bool putPoint(PointInfo** toAddPtr, const Roller& roller);
-    virtual const Point* getPoint(std::size_t index) const;
+    virtual bool addPoint(PointInfo** toAddPtr, const Roller& roller);
+    virtual const Point* getPoint(std::size_t index);
+    virtual std::vector<char> getPointData(std::size_t index);
 
 private:
-    virtual void saveImpl(const std::string& path, Json::Value& meta) const;
+    virtual void saveImpl(const std::string& path, Json::Value& meta);
 
     const bool m_elastic;
 };

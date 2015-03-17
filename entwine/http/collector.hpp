@@ -57,16 +57,16 @@ public:
     void insert(
             uint64_t id,
             HttpResponse res,
-            const std::shared_ptr<std::vector<uint8_t>> data);
+            const std::shared_ptr<std::vector<char>> data);
 
     // Returns list of errors.
     // NOTE: This will block until all expected responses have been received.
     // NOTE: This is a destructive operation, which will clear the error
     // list from the Collector.
-    std::map<uint64_t, const std::shared_ptr<std::vector<uint8_t>>> errs();
+    std::map<uint64_t, const std::shared_ptr<std::vector<char>>> errs();
 
 private:
-    std::map<uint64_t, const std::shared_ptr<std::vector<uint8_t>>> m_errs;
+    std::map<uint64_t, const std::shared_ptr<std::vector<char>>> m_errs;
 };
 
 class GetCollector : public Collector
@@ -86,10 +86,10 @@ public:
     // This call assumes that all HTTP activity is complete, so a caller must
     // first make sure the result of errs() is empty, which will ensure that
     // all responses have been correctly received.
-    std::map<uint64_t, const std::shared_ptr<std::vector<uint8_t>>> responses();
+    std::map<uint64_t, const std::shared_ptr<std::vector<char>>> responses();
 
 private:
-    std::map<uint64_t, const std::shared_ptr<std::vector<uint8_t>>> m_data;
+    std::map<uint64_t, const std::shared_ptr<std::vector<char>>> m_data;
     std::map<uint64_t, std::string> m_errs;
 };
 

@@ -52,7 +52,7 @@ public:
     ~SleepyTree();
 
     // Insert the points from a PointBuffer into this index.
-    void insert(const pdal::PointBuffer* pointBuffer, Origin origin);
+    void insert(const pdal::PointBuffer& pointBuffer, Origin origin);
 
     // Finalize the tree so it may be queried.  No more pipelines may be added.
     void save();
@@ -66,7 +66,7 @@ public:
 
     // Return all points at depth levels between [depthBegin, depthEnd).
     // A depthEnd value of zero will return all points at levels >= depthBegin.
-    std::vector<std::size_t> getPoints(
+    std::vector<std::size_t> query(
             std::size_t depthBegin,
             std::size_t depthEnd);
 
@@ -74,15 +74,19 @@ public:
     // levels from [depthBegin, depthEnd).
     // A depthEnd value of zero will return all points within the query range
     // that have a tree level >= depthBegin.
-    std::vector<std::size_t> getPoints(
+    std::vector<std::size_t> query(
             const BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
-    const pdal::PointContextRef pointContext() const;
+    // Get the constituent bytes of a point by its index, with bytes arranged
+    // in accordance with the Schema.
+    std::vector<char> getPointData(std::size_t index);
+
+    const Schema& schema() const;
 
     std::size_t numPoints() const;
-    const std::string& path() const;
+    std::string path() const;
 
 private:
     std::string metaPath() const;
