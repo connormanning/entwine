@@ -65,7 +65,7 @@ public:
             std::size_t depthBegin,
             std::size_t depthEnd);
 
-    std::vector<char> getPointData(std::size_t index);
+    std::vector<char> getPointData(std::size_t index, const Schema& schema);
 
     void save(const std::string& path, Json::Value& meta) const;
 

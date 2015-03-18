@@ -21,24 +21,6 @@ namespace
         }
         return layout;
     }
-
-    /*
-    std::vector<entwine::DimInfo> getDims(
-            const pdal::PointContextRef pointContext)
-    {
-        std::vector<entwine::DimInfo> dims;
-        for (const auto& id : pointContext.dims())
-        {
-            dims.push_back(
-                    entwine::DimInfo(
-                        pointContext.dimName(id),
-                        id,
-                        pointContext.dimType(id)));
-
-        }
-        return dims;
-    }
-    */
 }
 
 namespace entwine
@@ -48,13 +30,6 @@ Schema::Schema(std::vector<DimInfo> dims)
     : m_dims(dims)
     , m_layout(getPointLayout(m_dims))
 { }
-
-/*
-Schema::Schema(const pdal::PointContextRef pointContext)
-    : m_dims(getDims(pointContext))
-    , m_pointContext(getPointContext(m_dims))
-{ }
-*/
 
 std::size_t Schema::pointSize() const
 {

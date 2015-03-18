@@ -27,8 +27,9 @@ class MultiBatcher
 public:
     MultiBatcher(
             const S3Info& s3Info,
-            std::size_t numBatches,
             SleepyTree& sleepyTree,
+            std::size_t numThreads,
+            std::size_t pointBatchSize = 0,
             std::size_t snapshot = 0);
     ~MultiBatcher();
 
@@ -42,11 +43,13 @@ private:
     void takeSnapshot();
 
     S3 m_s3;
-    std::vector<std::thread> m_batches;
+    std::vector<std::thread> m_threads;
     std::vector<std::size_t> m_available;
     std::vector<std::string> m_originList;
 
     SleepyTree& m_sleepyTree;
+
+    const std::size_t m_pointBatchSize;
     const std::size_t m_snapshot;
     bool m_allowAdd;
 

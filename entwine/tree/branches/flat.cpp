@@ -51,7 +51,9 @@ const Point* FlatBranch::getPoint(std::size_t index)
     return 0;
 }
 
-std::vector<char> FlatBranch::getPointData(std::size_t index)
+std::vector<char> FlatBranch::getPointData(
+        std::size_t index,
+        const Schema& schema)
 {
     return std::vector<char>();
 }

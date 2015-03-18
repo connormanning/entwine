@@ -49,7 +49,9 @@ const Point* DiskBranch::getPoint(std::size_t index)
     return 0;
 }
 
-std::vector<char> DiskBranch::getPointData(std::size_t index)
+std::vector<char> DiskBranch::getPointData(
+        std::size_t index,
+        const Schema& schema)
 {
     return std::vector<char>();
 }

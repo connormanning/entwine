@@ -135,27 +135,25 @@ const Point* BaseBranch::getPoint(const std::size_t index)
     return m_points[index].atom.load();
 }
 
-std::vector<char> BaseBranch::getPointData(const std::size_t index)
+std::vector<char> BaseBranch::getPointData(
+        const std::size_t index,
+        const Schema& reqSchema)
 {
-    // TODO
-    return std::vector<char>();
+    std::vector<char> bytes;
 
-    /*
-    // TODO Since we are being queried, we are assuming that addPoint() is no
-    // longer be called so the data is now constant.  Does this call need to be
-    // supported during the build phase?  If so we need to lock here.
     if (getPoint(index))
     {
-        const std::size_t pointSize(schema().pointSize());
-        std::vector<char> bytes(pointSize);
-        std::memcpy(bytes.data(), getPointPosition(index), pointSize);
-        return bytes;
+        bytes.resize(reqSchema.pointSize());
+        char* pos(bytes.data());
+
+        for (const auto& reqDim : reqSchema.dims())
+        {
+            m_data->getField(pos, reqDim.id(), reqDim.type(), index);
+            pos += reqDim.size();
+        }
     }
-    else
-    {
-        return std::vector<char>();
-    }
-    */
+
+    return bytes;
 }
 
 void BaseBranch::saveImpl(const std::string& path, Json::Value& meta)

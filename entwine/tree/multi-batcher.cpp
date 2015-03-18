@@ -15,29 +15,31 @@
 #include <pdal/PipelineManager.hpp>
 #include <pdal/PointView.hpp>
 #include <pdal/Reader.hpp>
-#include <pdal/Stage.hpp>
 #include <pdal/StageFactory.hpp>
 
 #include <entwine/third/json/json.h>
 #include <entwine/tree/sleepy-tree.hpp>
+#include <entwine/types/simple-point-table.hpp>
 
 namespace entwine
 {
 
 MultiBatcher::MultiBatcher(
         const S3Info& s3Info,
-        const std::size_t numBatches,
         SleepyTree& sleepyTree,
-        std::size_t snapshot)
+        const std::size_t numThreads,
+        const std::size_t pointBatchSize,
+        const std::size_t snapshot)
     : m_s3(
             s3Info.awsAccessKeyId,
             s3Info.awsSecretAccessKey,
             s3Info.baseAwsUrl,
             s3Info.bucketName)
-    , m_batches(numBatches)
-    , m_available(numBatches)
+    , m_threads(numThreads)
+    , m_available(numThreads)
     , m_originList()
     , m_sleepyTree(sleepyTree)
+    , m_pointBatchSize(pointBatchSize)
     , m_snapshot(snapshot)
     , m_allowAdd(true)
     , m_mutex()
@@ -69,11 +71,13 @@ void MultiBatcher::add(const std::string& filename)
     std::cout << "Adding " << filename << std::endl;
     lock.unlock();
 
-    m_batches[index] = std::thread([this, index, &filename, origin]() {
+    m_threads[index] = std::thread([this, index, &filename, origin]() {
         try
         {
+            std::shared_ptr<SimplePointTable> pointTable(
+                    new SimplePointTable());
             std::unique_ptr<pdal::PipelineManager> pipelineManager(
-                    new pdal::PipelineManager());
+                    new pdal::PipelineManager(pointTable));
             std::unique_ptr<pdal::StageFactory> stageFactory(
                     new pdal::StageFactory());
             std::unique_ptr<pdal::Options> readerOptions(
@@ -110,11 +114,30 @@ void MultiBatcher::add(const std::string& filename)
 
                 pipelineManager->addReader(driver);
 
-                pdal::Stage* reader(static_cast<pdal::Reader*>(
+                pdal::Reader* reader(static_cast<pdal::Reader*>(
                         pipelineManager->getStage()));
                 readerOptions->add(pdal::Option("filename", localPath));
                 reader->setOptions(*readerOptions.get());
 
+                if (m_pointBatchSize)
+                {
+                    reader->setReadCb(
+                            [this, pointTable, origin]
+                            (pdal::PointView& view, pdal::PointId index)
+                    {
+                        if (index >= m_pointBatchSize)
+                        {
+                            m_sleepyTree.insert(view, origin);
+
+                            // We've consumed all the points in the view, clear
+                            // the data and their indices.
+                            pointTable->clear();
+                            view.clear();
+                        }
+                    });
+                }
+
+                // TODO Snap together a BufferReader to do the reprojection.
                 /*
                 reader->setSpatialReference(
                         pdal::SpatialReference("EPSG:26915"));
@@ -146,6 +169,10 @@ void MultiBatcher::add(const std::string& filename)
                     throw std::runtime_error("Couldn't delete tmp file");
                 }
 
+                // We've probably already inserted all the data in the reader
+                // callback, so this set probably only has an empty view.
+                // However since not all readers may support the streaming
+                // callback, insert anything these views here.
                 for (const auto view : viewSet)
                 {
                     m_sleepyTree.insert(*view.get(), origin);
@@ -167,7 +194,7 @@ void MultiBatcher::add(const std::string& filename)
 
         std::unique_lock<std::mutex> lock(m_mutex);
         m_available.push_back(index);
-        m_batches[index].detach();
+        m_threads[index].detach();
         lock.unlock();
         m_cv.notify_all();
     });
@@ -182,7 +209,7 @@ void MultiBatcher::gather()
 {
     std::unique_lock<std::mutex> lock(m_mutex);
     m_cv.wait(lock, [this]()->bool {
-        return m_available.size() == m_batches.size();
+        return m_available.size() == m_threads.size();
     });
 }
 

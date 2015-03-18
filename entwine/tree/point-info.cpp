@@ -41,6 +41,10 @@ PointInfo::PointInfo(
         {
             remoteView.getField(pos, dimId, dim.type(), index);
         }
+        else if (dim.name() == "Origin")
+        {
+            std::memcpy(pos, &origin, sizeof(Origin));
+        }
 
         pos += remoteView.dimSize(dimId);
     }

@@ -216,13 +216,15 @@ void Registry::query(
     }
 }
 
-std::vector<char> Registry::getPointData(const std::size_t index)
+std::vector<char> Registry::getPointData(
+        const std::size_t index,
+        const Schema& schema)
 {
     Branch* branch(getBranch(index));
 
     if (branch)
     {
-        return branch->getPointData(index);
+        return branch->getPointData(index, schema);
     }
     else
     {

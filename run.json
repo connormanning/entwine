@@ -2,7 +2,8 @@
     "output": "iowa",
     "tuning": {
         "snapshot": 3000,
-        "threads": 24
+        "threads": 24,
+        "pointBatchSize": 1048576
     },
     "dimensions": 2,
     "elastic": false,
@@ -27,6 +28,7 @@
             "size": 8
         },
         {
+            // TODO Should use a 'trackOrigin' flag or something instead.
             "name": "Origin",
             "type": "unsigned",
             "size": 8

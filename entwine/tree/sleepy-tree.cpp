@@ -169,9 +169,11 @@ std::vector<std::size_t> SleepyTree::query(
     return results;
 }
 
-std::vector<char> SleepyTree::getPointData(const std::size_t index)
+std::vector<char> SleepyTree::getPointData(
+        const std::size_t index,
+        const Schema& schema)
 {
-    return m_registry->getPointData(index);
+    return m_registry->getPointData(index, schema);
 }
 
 const Schema& SleepyTree::schema() const
