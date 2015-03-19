@@ -25,7 +25,7 @@ class Schema
 {
 public:
     explicit Schema(std::vector<DimInfo> dims);
-    explicit Schema(const pdal::PointLayoutPtr layout);
+    // explicit Schema(const pdal::PointLayoutPtr layout);
 
     const std::vector<DimInfo>& dims() const;
     const pdal::PointLayoutPtr pdalLayout() const;

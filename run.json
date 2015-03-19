@@ -5,7 +5,6 @@
     "tuning": {
         "snapshot": 3000,
         "threads": 24,
-        "pointBatchSize": 1048576
     },
     "dimensions": 2,
     "elastic": false,   // Put this in "tree"?

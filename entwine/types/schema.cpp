@@ -19,9 +19,13 @@ namespace
         {
             dim.setId(layout->registerOrAssignDim(dim.name(), dim.type()));
         }
+
+        layout->finalize();
+
         return layout;
     }
 
+    /*
     std::vector<entwine::DimInfo> getDims(const pdal::PointLayout& layout)
     {
         std::vector<entwine::DimInfo> dims;
@@ -36,6 +40,7 @@ namespace
         }
         return dims;
     }
+    */
 }
 
 namespace entwine
@@ -46,10 +51,12 @@ Schema::Schema(std::vector<DimInfo> dims)
     , m_layout(getPointLayout(m_dims))
 { }
 
+/*
 Schema::Schema(const pdal::PointLayoutPtr layout)
     : m_dims(getDims(*layout.get()))
     , m_layout(layout)
 { }
+*/
 
 std::size_t Schema::pointSize() const
 {

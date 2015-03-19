@@ -29,7 +29,6 @@ public:
             const S3Info& s3Info,
             SleepyTree& sleepyTree,
             std::size_t numThreads,
-            std::size_t pointBatchSize = 0,
             std::size_t snapshot = 0);
     ~MultiBatcher();
 
@@ -49,7 +48,6 @@ private:
 
     SleepyTree& m_sleepyTree;
 
-    const std::size_t m_pointBatchSize;
     const std::size_t m_snapshot;
     bool m_allowAdd;
 

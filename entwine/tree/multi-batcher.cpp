@@ -19,6 +19,7 @@
 
 #include <entwine/third/json/json.h>
 #include <entwine/tree/sleepy-tree.hpp>
+#include <entwine/types/schema.hpp>
 #include <entwine/types/simple-point-table.hpp>
 
 namespace entwine
@@ -28,7 +29,6 @@ MultiBatcher::MultiBatcher(
         const S3Info& s3Info,
         SleepyTree& sleepyTree,
         const std::size_t numThreads,
-        const std::size_t pointBatchSize,
         const std::size_t snapshot)
     : m_s3(
             s3Info.awsAccessKeyId,
@@ -39,7 +39,6 @@ MultiBatcher::MultiBatcher(
     , m_available(numThreads)
     , m_originList()
     , m_sleepyTree(sleepyTree)
-    , m_pointBatchSize(pointBatchSize)
     , m_snapshot(snapshot)
     , m_allowAdd(true)
     , m_mutex()
@@ -75,11 +74,9 @@ void MultiBatcher::add(const std::string& filename)
         try
         {
             std::shared_ptr<SimplePointTable> pointTable(
-                    new SimplePointTable());
+                    new SimplePointTable(m_sleepyTree.schema()));
             SimplePointTable& pointTableRef(*pointTable.get());
 
-            std::unique_ptr<pdal::PipelineManager> pipelineManager(
-                    new pdal::PipelineManager(pointTableRef));
             std::unique_ptr<pdal::StageFactory> stageFactory(
                     new pdal::StageFactory());
             std::unique_ptr<pdal::Options> readerOptions(
@@ -88,6 +85,16 @@ void MultiBatcher::add(const std::string& filename)
             const std::string driver(stageFactory->inferReaderDriver(filename));
             if (driver.size())
             {
+                std::unique_ptr<pdal::Reader> reader(
+                        static_cast<pdal::Reader*>(
+                            stageFactory->createStage(driver)));
+
+                /*
+                std::unique_ptr<pdal::Filter> filter(
+                        static_cast<pdal::Filter*>(
+                            stageFactory->createStage("filters.reprojection")));
+                */
+
                 const std::string localPath("./tmp/" + std::to_string(origin));
 
                 {
@@ -114,32 +121,20 @@ void MultiBatcher::add(const std::string& filename)
                     writer.close();
                 }
 
-                pipelineManager->addReader(driver);
-
-                pdal::Reader* reader(static_cast<pdal::Reader*>(
-                        pipelineManager->getStage()));
                 readerOptions->add(pdal::Option("filename", localPath));
                 reader->setOptions(*readerOptions.get());
 
-                if (m_pointBatchSize)
+                reader->setReadCb(
+                        [this, &pointTableRef, origin]
+                        (pdal::PointView& view, pdal::PointId index)
                 {
-                    reader->setReadCb(
-                            [this, &pointTableRef, origin]
-                            (pdal::PointView& view, pdal::PointId index)
-                    {
-                        if (index >= m_pointBatchSize)
-                        {
-                            m_sleepyTree.insert(view, origin);
+                    pdal::PointViewPtr point(view.makeNew());
+                    point->appendPoint(view, index);
+                    m_sleepyTree.insert(*point.get(), origin);
+                    pointTableRef.clear();
+                });
 
-                            // We've consumed all the points in the view, clear
-                            // the data and their indices.
-                            pointTableRef.clear();
-                            view.clear();
-                        }
-                    });
-                }
-
-                // TODO Snap together a BufferReader to do the reprojection.
+                // TODO Reprojection.
                 /*
                 reader->setSpatialReference(
                         pdal::SpatialReference("EPSG:26915"));
@@ -162,22 +157,12 @@ void MultiBatcher::add(const std::string& filename)
                 pipelineManager->getStage()->setOptions(srsOptions);
                 */
 
-                pipelineManager->execute();
-                const pdal::PointViewSet& viewSet(pipelineManager->views());
+                reader->execute(pointTableRef);
 
                 if (remove(localPath.c_str()) != 0)
                 {
                     std::cout << "Couldn't delete " << localPath << std::endl;
                     throw std::runtime_error("Couldn't delete tmp file");
-                }
-
-                // We've probably already inserted all the data in the reader
-                // callback, so this set probably only has an empty view.
-                // However since not all readers may support the streaming
-                // callback, insert anything these views here.
-                for (const auto view : viewSet)
-                {
-                    m_sleepyTree.insert(*view.get(), origin);
                 }
             }
             else

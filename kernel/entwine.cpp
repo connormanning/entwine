@@ -105,7 +105,6 @@ int main(int argc, char** argv)
     const Json::Value& tuning(config["tuning"]);
     const std::size_t snapshot(tuning["snapshot"].asUInt64());
     const std::size_t threads(tuning["threads"].asUInt64());
-    const std::size_t pointBatchSize(tuning["pointBatchSize"].asUInt64());
 
     const std::size_t baseDepth(config["baseDepth"].asUInt64());
     const std::size_t flatDepth(config["flatDepth"].asUInt64());
@@ -144,7 +143,6 @@ int main(int argc, char** argv)
             s3Info,
             *sleepyTree.get(),
             threads,
-            pointBatchSize,
             snapshot);
 
     const auto start(std::chrono::high_resolution_clock::now());
