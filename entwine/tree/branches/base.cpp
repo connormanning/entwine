@@ -38,9 +38,8 @@ BaseBranch::BaseBranch(
         const std::size_t depthEnd)
     : Branch(schema, dimensions, 0, depthEnd)
     , m_points(size(), std::atomic<const Point*>(0))
-    , m_data(
-            new pdal::PointView(
-                pdal::PointTablePtr(new SimplePointTable(schema))))
+    , m_table(new SimplePointTable(schema))
+    , m_data(new pdal::PointView(*m_table.get()))
     , m_locks(size())
 {
     for (std::size_t i(0); i < size(); ++i)
@@ -57,9 +56,8 @@ BaseBranch::BaseBranch(
         const Json::Value& meta)
     : Branch(schema, dimensions, meta)
     , m_points(size(), std::atomic<const Point*>(0))
-    , m_data(
-            new pdal::PointView(
-                pdal::PointTablePtr(new SimplePointTable(schema))))
+    , m_table(new SimplePointTable(schema))
+    , m_data(new pdal::PointView(*m_table.get()))
     , m_locks(size())
 {
     load(path, meta);

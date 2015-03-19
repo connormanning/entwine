@@ -11,6 +11,7 @@
 #include <entwine/compression/util.hpp>
 
 #include <pdal/Compression.hpp>
+#include <pdal/PointLayout.hpp>
 
 #include <entwine/compression/stream.hpp>
 #include <entwine/types/schema.hpp>

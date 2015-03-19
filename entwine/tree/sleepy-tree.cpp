@@ -90,6 +90,9 @@ void SleepyTree::insert(const pdal::PointView& pointView, Origin origin)
                         origin));
 
             m_registry->addPoint(&pointInfo, roller);
+
+            // TODO Only incremement if the point was accepted, or the tree
+            // has an elastic end branch.
             ++m_numPoints;
         }
     }

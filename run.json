@@ -1,4 +1,6 @@
 {
+    // TODO Specify whether output is compressed.
+    // TODO Allow FS/S3/HTTP/SQLite writer formats.
     "output": "iowa",
     "tuning": {
         "snapshot": 3000,
@@ -6,7 +8,7 @@
         "pointBatchSize": 1048576
     },
     "dimensions": 2,
-    "elastic": false,
+    "elastic": false,   // Put this in "tree"?
     "bbox": [
         192325.727246, 4455899.672669,
         770274.931198, 4833815.152277
@@ -29,6 +31,7 @@
         },
         {
             // TODO Should use a 'trackOrigin' flag or something instead.
+            // Maybe in "tree"?
             "name": "Origin",
             "type": "unsigned",
             "size": 8

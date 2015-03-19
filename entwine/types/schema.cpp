@@ -10,6 +10,8 @@
 
 #include <entwine/types/schema.hpp>
 
+#include <pdal/PointLayout.hpp>
+
 namespace
 {
     pdal::PointLayoutPtr getPointLayout(std::vector<entwine::DimInfo>& dims)
@@ -21,6 +23,21 @@ namespace
         }
         return layout;
     }
+
+    std::vector<entwine::DimInfo> getDims(const pdal::PointLayout& layout)
+    {
+        std::vector<entwine::DimInfo> dims;
+        for (const auto& id : layout.dims())
+        {
+            dims.push_back(
+                    entwine::DimInfo(
+                        layout.dimName(id),
+                        id,
+                        layout.dimType(id)));
+
+        }
+        return dims;
+    }
 }
 
 namespace entwine
@@ -29,6 +46,11 @@ namespace entwine
 Schema::Schema(std::vector<DimInfo> dims)
     : m_dims(dims)
     , m_layout(getPointLayout(m_dims))
+{ }
+
+Schema::Schema(const pdal::PointLayoutPtr layout)
+    : m_dims(getDims(*layout.get()))
+    , m_layout(layout)
 { }
 
 std::size_t Schema::pointSize() const

@@ -76,8 +76,10 @@ void MultiBatcher::add(const std::string& filename)
         {
             std::shared_ptr<SimplePointTable> pointTable(
                     new SimplePointTable());
+            SimplePointTable& pointTableRef(*pointTable.get());
+
             std::unique_ptr<pdal::PipelineManager> pipelineManager(
-                    new pdal::PipelineManager(pointTable));
+                    new pdal::PipelineManager(pointTableRef));
             std::unique_ptr<pdal::StageFactory> stageFactory(
                     new pdal::StageFactory());
             std::unique_ptr<pdal::Options> readerOptions(
@@ -122,7 +124,7 @@ void MultiBatcher::add(const std::string& filename)
                 if (m_pointBatchSize)
                 {
                     reader->setReadCb(
-                            [this, pointTable, origin]
+                            [this, &pointTableRef, origin]
                             (pdal::PointView& view, pdal::PointId index)
                     {
                         if (index >= m_pointBatchSize)
@@ -131,7 +133,7 @@ void MultiBatcher::add(const std::string& filename)
 
                             // We've consumed all the points in the view, clear
                             // the data and their indices.
-                            pointTable->clear();
+                            pointTableRef.clear();
                             view.clear();
                         }
                     });

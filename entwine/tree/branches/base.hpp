@@ -26,6 +26,7 @@ namespace Json
 namespace pdal
 {
     class PointView;
+    class PointTable;
 }
 
 namespace entwine
@@ -58,6 +59,7 @@ private:
     void load(const std::string& path, const Json::Value& meta);
 
     std::vector<ElasticAtomic<const Point*>> m_points;
+    std::unique_ptr<pdal::PointTable> m_table;
     std::unique_ptr<pdal::PointView> m_data;
     std::vector<std::mutex> m_locks;
 };
