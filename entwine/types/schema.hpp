@@ -13,14 +13,10 @@
 #include <cstddef>
 #include <vector>
 
+#include <pdal/PointLayout.hpp>
+
 #include <entwine/third/json/json.h>
 #include <entwine/types/dim-info.hpp>
-
-namespace pdal
-{
-    class PointLayout;
-    typedef std::shared_ptr<PointLayout> PointLayoutPtr;
-}
 
 namespace entwine
 {

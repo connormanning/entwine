@@ -10,8 +10,6 @@
 
 #include <entwine/types/schema.hpp>
 
-#include <pdal/PointLayout.hpp>
-
 namespace
 {
     pdal::PointLayoutPtr getPointLayout(std::vector<entwine::DimInfo>& dims)
