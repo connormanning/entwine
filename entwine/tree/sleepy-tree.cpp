@@ -89,11 +89,10 @@ void SleepyTree::insert(const pdal::PointView& pointView, Origin origin)
                         i,
                         origin));
 
-            m_registry->addPoint(&pointInfo, roller);
-
-            // TODO Only incremement if the point was accepted, or the tree
-            // has an elastic end branch.
-            ++m_numPoints;
+            if (m_registry->addPoint(&pointInfo, roller))
+            {
+                ++m_numPoints;
+            }
         }
     }
 }
@@ -104,6 +103,7 @@ void SleepyTree::save()
     jsonMeta["bbox"] = m_bbox->toJson();
     jsonMeta["schema"] = m_schema->toJson();
     jsonMeta["dimensions"] = static_cast<Json::UInt64>(m_dimensions);
+    jsonMeta["numPoints"] = static_cast<Json::UInt64>(m_numPoints);
 
     m_registry->save(m_path, jsonMeta["registry"]);
 

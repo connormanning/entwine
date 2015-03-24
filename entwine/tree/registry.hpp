@@ -50,7 +50,7 @@ public:
             const Json::Value& meta);
     ~Registry();
 
-    void addPoint(PointInfo** toAddPtr, Roller& roller);
+    bool addPoint(PointInfo** toAddPtr, Roller& roller);
 
     void query(
             const Roller& roller,

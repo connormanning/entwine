@@ -128,17 +128,21 @@ Registry::Registry(
 Registry::~Registry()
 { }
 
-void Registry::addPoint(PointInfo** toAddPtr, Roller& roller)
+bool Registry::addPoint(PointInfo** toAddPtr, Roller& roller)
 {
+    bool accepted(false);
     PointInfo* toAdd(*toAddPtr);
 
-    Branch* branch(getBranch(roller.pos()));
-    if (branch)
+    if (Branch* branch{getBranch(roller.pos())})
     {
         if (!branch->addPoint(toAddPtr, roller))
         {
             roller.magnify(toAdd->point);
-            addPoint(toAddPtr, roller);
+            accepted = addPoint(toAddPtr, roller);
+        }
+        else
+        {
+            accepted = true;
         }
     }
     else
@@ -146,6 +150,8 @@ void Registry::addPoint(PointInfo** toAddPtr, Roller& roller)
         delete toAdd->point;
         delete toAdd;
     }
+
+    return accepted;
 }
 
 void Registry::query(
