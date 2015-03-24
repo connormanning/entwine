@@ -91,10 +91,10 @@ public:
     const std::string& baseAwsUrl() const { return m_baseAwsUrl; }
     const std::string& bucketName() const { return m_bucketName; }
 
+private:
     std::vector<std::string> getHeaders(std::string filePath) const;
     std::vector<std::string> putHeaders(std::string filePath) const;
 
-private:
     std::string getHttpDate() const;
 
     std::string getSignedEncodedString(

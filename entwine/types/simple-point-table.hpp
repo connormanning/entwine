@@ -21,7 +21,7 @@ namespace entwine
 
 class Schema;
 
-class SimplePointTable : public pdal::PointTable
+class SimplePointTable : public pdal::BasePointTable
 {
 public:
     SimplePointTable();

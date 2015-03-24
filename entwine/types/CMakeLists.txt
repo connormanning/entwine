@@ -6,6 +6,7 @@ set(
     "${BASE}/bbox.cpp"
     "${BASE}/dim-info.cpp"
     "${BASE}/schema.cpp"
+    "${BASE}/simple-point-layout.cpp"
     "${BASE}/simple-point-table.cpp"
 )
 
@@ -16,6 +17,7 @@ set(
     "${BASE}/elastic-atomic.hpp"
     "${BASE}/point.hpp"
     "${BASE}/schema.hpp"
+    "${BASE}/simple-point-layout.hpp"
     "${BASE}/simple-point-table.hpp"
 )
 

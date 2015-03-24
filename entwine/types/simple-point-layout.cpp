@@ -10,6 +10,8 @@
 
 #include <entwine/types/simple-point-layout.hpp>
 
+#include <pdal/Utils.hpp>
+
 bool SimplePointLayout::update(
         pdal::Dimension::Detail dimDetail,
         const std::string& name)
@@ -19,7 +21,11 @@ bool SimplePointLayout::update(
     if (!m_finalized && !pdal::Utils::contains(m_used, dimDetail.id()))
     {
         dimDetail.setOffset(m_pointSize);
+
         m_pointSize += dimDetail.size();
+        m_used.push_back(dimDetail.id());
+        m_detail[dimDetail.id()] = dimDetail;
+
         added = true;
     }
 

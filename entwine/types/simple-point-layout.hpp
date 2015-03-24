@@ -15,6 +15,8 @@
 class SimplePointLayout : public pdal::PointLayout
 {
 private:
-    bool update(pdal::Dimension::Detail dimDetail, const std::string& name);
+    virtual bool update(
+            pdal::Dimension::Detail dimDetail,
+            const std::string& name);
 };
 

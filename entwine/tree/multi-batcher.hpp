@@ -41,6 +41,9 @@ public:
 private:
     void takeSnapshot();
 
+    // Throws if unsuccessful.  TODO Return status instead?
+    void writeFile(const std::string& localPath, const std::string& remoteName);
+
     S3 m_s3;
     std::vector<std::thread> m_threads;
     std::vector<std::size_t> m_available;

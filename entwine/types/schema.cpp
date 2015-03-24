@@ -9,12 +9,13 @@
 ******************************************************************************/
 
 #include <entwine/types/schema.hpp>
+#include <entwine/types/simple-point-layout.hpp>
 
 namespace
 {
     pdal::PointLayoutPtr getPointLayout(std::vector<entwine::DimInfo>& dims)
     {
-        pdal::PointLayoutPtr layout(new pdal::PointLayout());
+        pdal::PointLayoutPtr layout(new SimplePointLayout());
         for (auto& dim : dims)
         {
             dim.setId(layout->registerOrAssignDim(dim.name(), dim.type()));

@@ -12,15 +12,22 @@
 
 #include <thread>
 
+#include <pdal/Filter.hpp>
 #include <pdal/PipelineManager.hpp>
 #include <pdal/PointView.hpp>
 #include <pdal/Reader.hpp>
 #include <pdal/StageFactory.hpp>
+#include <pdal/StageWrapper.hpp>
 
 #include <entwine/third/json/json.h>
 #include <entwine/tree/sleepy-tree.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/simple-point-table.hpp>
+
+namespace
+{
+    const std::size_t httpAttempts(3);
+}
 
 namespace entwine
 {
@@ -79,84 +86,67 @@ void MultiBatcher::add(const std::string& filename)
 
             std::unique_ptr<pdal::StageFactory> stageFactory(
                     new pdal::StageFactory());
-            std::unique_ptr<pdal::Options> readerOptions(
-                    new pdal::Options());
+
+            std::unique_ptr<pdal::Options> readerOptions(new pdal::Options());
+            std::unique_ptr<pdal::Options> reprojOptions(new pdal::Options());
 
             const std::string driver(stageFactory->inferReaderDriver(filename));
             if (driver.size())
             {
+                // Fetch remote file and write locally.
+                const std::string localPath("./tmp/" + std::to_string(origin));
+                writeFile(localPath, filename);
+
+                // Set up the file reader.
                 std::unique_ptr<pdal::Reader> reader(
                         static_cast<pdal::Reader*>(
                             stageFactory->createStage(driver)));
 
-                /*
-                std::unique_ptr<pdal::Filter> filter(
-                        static_cast<pdal::Filter*>(
-                            stageFactory->createStage("filters.reprojection")));
-                */
-
-                const std::string localPath("./tmp/" + std::to_string(origin));
-
-                {
-                    // Retrieve remote file.
-                    HttpResponse res(m_s3.get(filename));
-
-                    // TODO Retry a few times.
-                    if (res.code() != 200)
-                    {
-                        std::cout << "Couldn't fetch " + filename <<
-                                " - Got: " << res.code() << std::endl;
-                        throw std::runtime_error("Couldn't fetch " + filename);
-                    }
-
-                    std::shared_ptr<std::vector<char>> fileData(res.data());
-                    std::ofstream writer(
-                            localPath,
-                            std::ofstream::binary |
-                                std::ofstream::out |
-                                std::ofstream::trunc);
-                    writer.write(
-                            reinterpret_cast<const char*>(fileData->data()),
-                            fileData->size());
-                    writer.close();
-                }
+                reader->setSpatialReference(
+                        pdal::SpatialReference("EPSG:26915"));
 
                 readerOptions->add(pdal::Option("filename", localPath));
                 reader->setOptions(*readerOptions.get());
 
-                reader->setReadCb(
-                        [this, &pointTableRef, origin]
-                        (pdal::PointView& view, pdal::PointId index)
-                {
-                    pdal::PointViewPtr point(view.makeNew());
-                    point->appendPoint(view, index);
-                    m_sleepyTree.insert(*point.get(), origin);
-                    pointTableRef.clear();
-                });
+                // Set up the reprojection filter.
+                std::shared_ptr<pdal::Filter> reproj(
+                        static_cast<pdal::Filter*>(
+                            stageFactory->createStage("filters.reprojection")));
 
-                // TODO Reprojection.
-                /*
-                reader->setSpatialReference(
-                        pdal::SpatialReference("EPSG:26915"));
-
-                // Reproject to Web Mercator.
-                pipelineManager->addFilter(
-                        "filters.reprojection",
-                        pipelineManager->getStage());
-
-                pdal::Options srsOptions;
-                srsOptions.add(
+                reprojOptions->add(
                         pdal::Option(
                             "in_srs",
                             pdal::SpatialReference("EPSG:26915")));
-                srsOptions.add(
+                reprojOptions->add(
                         pdal::Option(
                             "out_srs",
                             pdal::SpatialReference("EPSG:3857")));
 
-                pipelineManager->getStage()->setOptions(srsOptions);
-                */
+                pdal::Filter& reprojRef(*reproj.get());
+                // reproj->setInput(*reader.get());
+                //reproj->setOptions(*reprojOptions.get());
 
+                pdal::FilterWrapper::initialize(reproj, pointTableRef);
+                pdal::FilterWrapper::processOptions(
+                        reprojRef,
+                        *reprojOptions.get());
+                pdal::FilterWrapper::ready(reprojRef, pointTableRef);
+
+                // Set up our per-point data handler.
+                reader->setReadCb(
+                        [this, &pointTableRef, &reprojRef, origin]
+                        (pdal::PointView& view, pdal::PointId index)
+                {
+                    pdal::PointViewPtr point(view.makeNew());
+                    point->appendPoint(view, index);
+
+                    pdal::FilterWrapper::filter(reprojRef, point);
+
+                    m_sleepyTree.insert(*point.get(), origin);
+                    pointTableRef.clear();
+                });
+
+                reader->prepare(pointTableRef);
                 reader->execute(pointTableRef);
 
                 if (remove(localPath.c_str()) != 0)
@@ -237,6 +227,37 @@ void MultiBatcher::takeSnapshot()
     m_allowAdd = true;
     m_mutex.unlock();
     m_cv.notify_all();
+}
+
+void MultiBatcher::writeFile(
+        const std::string& localPath,
+        const std::string& remoteName)
+{
+    std::size_t tries(0);
+
+    HttpResponse res;
+
+    do
+    {
+        res = m_s3.get(remoteName);
+    } while (res.code() != 200 && ++tries < httpAttempts);
+
+    if (res.code() != 200)
+    {
+        std::cout << "Couldn't fetch " + remoteName <<
+                " - Got: " << res.code() << std::endl;
+        throw std::runtime_error("Couldn't fetch " + remoteName);
+    }
+
+    std::shared_ptr<std::vector<char>> fileData(res.data());
+    std::ofstream writer(
+            localPath,
+            std::ofstream::binary |
+                std::ofstream::out |
+                std::ofstream::trunc);
+
+    writer.write(fileData->data(), fileData->size());
+    writer.close();
 }
 
 } // namespace entwine

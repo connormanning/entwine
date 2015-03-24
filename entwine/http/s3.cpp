@@ -217,12 +217,12 @@ std::vector<char> S3::signString(std::string input) const
     return hash;
 }
 
-std::string S3::encodeBase64(std::vector<char> test) const
+std::string S3::encodeBase64(std::vector<char> data) const
 {
     std::vector<uint8_t> input;
-    for (std::size_t i(0); i < test.size(); ++i)
+    for (std::size_t i(0); i < data.size(); ++i)
     {
-        char c(test[i]);
+        char c(data[i]);
         input.push_back(*reinterpret_cast<uint8_t*>(&c));
     }
 
