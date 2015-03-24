@@ -138,7 +138,7 @@ void Registry::addPoint(PointInfo** toAddPtr, Roller& roller)
         if (!branch->addPoint(toAddPtr, roller))
         {
             roller.magnify(toAdd->point);
-            addPoint(&toAdd, roller);
+            addPoint(toAddPtr, roller);
         }
     }
     else

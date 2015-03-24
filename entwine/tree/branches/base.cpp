@@ -102,7 +102,7 @@ bool BaseBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
                 delete toAdd;
 
                 // Send our old stored value downstream.
-                toAdd = old;
+                *toAddPtr = old;
             }
         }
     }

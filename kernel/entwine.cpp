@@ -106,9 +106,10 @@ int main(int argc, char** argv)
     const std::size_t snapshot(tuning["snapshot"].asUInt64());
     const std::size_t threads(tuning["threads"].asUInt64());
 
-    const std::size_t baseDepth(config["baseDepth"].asUInt64());
-    const std::size_t flatDepth(config["flatDepth"].asUInt64());
-    const std::size_t diskDepth(config["diskDepth"].asUInt64());
+    const Json::Value& tree(config["tree"]);
+    const std::size_t baseDepth(tree["baseDepth"].asUInt64());
+    const std::size_t flatDepth(tree["flatDepth"].asUInt64());
+    const std::size_t diskDepth(tree["diskDepth"].asUInt64());
 
     mkdirp(outDir);
 

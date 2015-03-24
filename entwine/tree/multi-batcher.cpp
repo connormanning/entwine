@@ -123,8 +123,6 @@ void MultiBatcher::add(const std::string& filename)
                             pdal::SpatialReference("EPSG:3857")));
 
                 pdal::Filter& reprojRef(*reproj.get());
-                // reproj->setInput(*reader.get());
-                //reproj->setOptions(*reprojOptions.get());
 
                 pdal::FilterWrapper::initialize(reproj, pointTableRef);
                 pdal::FilterWrapper::processOptions(
