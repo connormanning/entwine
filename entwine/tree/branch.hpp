@@ -72,9 +72,14 @@ public:
             std::size_t index,
             const Schema& schema) = 0;
 
-    // Returns the point coordinates at this index.  Null pointer indicates
-    // that there is no point at this index.
-    virtual const Point* getPoint(std::size_t index) = 0;
+    // Returns true if there is a point at this index.
+    virtual bool hasPoint(std::size_t index) = 0;
+
+    // Returns the point at this index or throws if there isn't one.
+    //
+    // TODO Return default constructed Point instead?  After hasPoint() returns
+    // true this call will always succeed so throwing might be ok.
+    virtual Point getPoint(std::size_t index) = 0;
 
     // Writes necessary metadata and point data to disk.
     void save(const std::string& path, Json::Value& meta);

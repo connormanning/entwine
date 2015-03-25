@@ -69,9 +69,21 @@ bool DiskBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
     return chunk.addPoint(*toAddPtr);
 }
 
-const Point* DiskBranch::getPoint(std::size_t index)
+bool DiskBranch::hasPoint(std::size_t index)
 {
-    return 0;
+    bool has(false);
+
+    if (m_chunks[getChunkId(index)].exists())
+    {
+
+    }
+
+    return has;
+}
+
+Point DiskBranch::getPoint(std::size_t index)
+{
+    return Point();
 }
 
 std::vector<char> DiskBranch::getPointData(

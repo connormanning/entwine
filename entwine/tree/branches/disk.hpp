@@ -46,6 +46,11 @@ public:
         return *m_chunk.load();
     }
 
+    bool exists() const
+    {
+        return m_chunk.load() != 0;
+    }
+
 private:
     std::mutex m_mutex;
     std::atomic<Chunk*> m_chunk;
@@ -67,7 +72,8 @@ public:
     ~DiskBranch();
 
     virtual bool addPoint(PointInfo** toAddPtr, const Roller& roller);
-    virtual const Point* getPoint(std::size_t index);
+    virtual bool hasPoint(std::size_t index);
+    virtual Point getPoint(std::size_t index);
     virtual std::vector<char> getPointData(
             std::size_t index,
             const Schema& schema);

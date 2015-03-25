@@ -49,7 +49,8 @@ public:
     ~BaseBranch();
 
     virtual bool addPoint(PointInfo** toAddPtr, const Roller& roller);
-    virtual const Point* getPoint(std::size_t index);
+    virtual bool hasPoint(std::size_t index);
+    virtual Point getPoint(std::size_t index);
     virtual std::vector<char> getPointData(
             std::size_t index,
             const Schema& schema);

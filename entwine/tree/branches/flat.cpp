@@ -11,6 +11,7 @@
 #include <entwine/tree/branches/flat.hpp>
 
 #include <entwine/third/json/json.h>
+#include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
 
 namespace entwine
@@ -42,9 +43,14 @@ bool FlatBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
     return false;
 }
 
-const Point* FlatBranch::getPoint(std::size_t index)
+bool FlatBranch::hasPoint(std::size_t index)
 {
-    return 0;
+    return false;
+}
+
+Point FlatBranch::getPoint(std::size_t index)
+{
+    return Point();
 }
 
 std::vector<char> FlatBranch::getPointData(

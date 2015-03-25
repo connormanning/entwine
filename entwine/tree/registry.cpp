@@ -143,13 +143,11 @@ void Registry::query(
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
-    Branch* branch(getBranch(roller.pos()));
-    if (branch)
+    if (Branch* branch = getBranch(roller.pos()))
     {
         const uint64_t index(roller.pos());
-        const Point* point(branch->getPoint(index));
 
-        if (point)
+        if (branch->hasPoint(index))
         {
             if (
                     (roller.depth() >= depthBegin) &&
@@ -178,18 +176,18 @@ void Registry::query(
 {
     if (!roller.bbox().overlaps(queryBBox)) return;
 
-    Branch* branch(getBranch(roller.pos()));
-    if (branch)
+    if (Branch* branch = getBranch(roller.pos()))
     {
         const uint64_t index(roller.pos());
-        const Point* point(branch->getPoint(index));
 
-        if (point)
+        if (branch->hasPoint(index))
         {
+            const Point point(branch->getPoint(index));
+
             if (
                     (roller.depth() >= depthBegin) &&
                     (roller.depth() < depthEnd || !depthEnd) &&
-                    (queryBBox.contains(*point)))
+                    (queryBBox.contains(point)))
             {
                 results.push_back(index);
             }
@@ -209,9 +207,7 @@ std::vector<char> Registry::getPointData(
         const std::size_t index,
         const Schema& schema)
 {
-    Branch* branch(getBranch(index));
-
-    if (branch)
+    if (Branch* branch = getBranch(index))
     {
         return branch->getPointData(index, schema);
     }

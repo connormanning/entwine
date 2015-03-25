@@ -129,9 +129,19 @@ bool BaseBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
     return done;
 }
 
-const Point* BaseBranch::getPoint(const std::size_t index)
+bool BaseBranch::hasPoint(const std::size_t index)
 {
-    return m_points[index].atom.load();
+    return m_points[index].atom.load() != 0;
+}
+
+Point BaseBranch::getPoint(const std::size_t index)
+{
+    if (!hasPoint(index))
+    {
+        throw std::runtime_error("Check if the point exists first");
+    }
+
+    return Point(*m_points[index].atom.load());
 }
 
 std::vector<char> BaseBranch::getPointData(
@@ -140,7 +150,7 @@ std::vector<char> BaseBranch::getPointData(
 {
     std::vector<char> bytes;
 
-    if (getPoint(index))
+    if (hasPoint(index))
     {
         bytes.resize(reqSchema.pointSize());
         char* pos(bytes.data());
