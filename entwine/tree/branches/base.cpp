@@ -189,10 +189,10 @@ void BaseBranch::saveImpl(const std::string& path, Json::Value& meta)
 
 void BaseBranch::load(const std::string& path, const Json::Value& meta)
 {
-    if (
-            !meta["ids"].isArray() ||
-            meta["ids"].size() != 1 ||
-            meta[0] != 0)
+    const Json::Value jsonIds(meta["ids"]);
+
+    // Only one ID allowed here, which is ID zero.
+    if (!jsonIds.isArray() || jsonIds.size() != 1 || jsonIds[0] != 0)
     {
         throw std::runtime_error("Invalid serialized base branch.");
     }

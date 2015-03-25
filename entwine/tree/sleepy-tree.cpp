@@ -137,6 +137,7 @@ void SleepyTree::load()
     m_bbox.reset(new BBox(BBox::fromJson(meta["bbox"])));
     m_schema.reset(new Schema(Schema::fromJson(meta["schema"])));
     m_dimensions = meta["dimensions"].asUInt64();
+    m_numPoints = meta["numPoints"].asUInt64();
 
     m_registry.reset(
             new Registry(
