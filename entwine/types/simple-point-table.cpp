@@ -67,5 +67,10 @@ void SimplePointTable::clear()
     m_numPoints = 0;
 }
 
+std::vector<char> SimplePointTable::data() const
+{
+    return m_data;
+}
+
 } // namespace entwine
 

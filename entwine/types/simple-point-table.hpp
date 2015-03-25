@@ -40,6 +40,8 @@ public:
 
     void clear();
 
+    std::vector<char> data() const;
+
 private:
     char* getDimension(
             const pdal::Dimension::Detail* dimDetail,

@@ -38,6 +38,7 @@ SleepyTree::SleepyTree(
     , m_numTossed(0)
     , m_registry(
             new Registry(
+                m_path,
                 *m_schema.get(),
                 dimensions,
                 baseDepth,

@@ -24,7 +24,16 @@ namespace entwine
 class Chunk
 {
 public:
+    Chunk(
+            const std::string& path,
+            std::size_t begin,
+            const std::vector<char>& initData);
+
     bool addPoint(const PointInfo* toAdd);
+
+    // TODO
+    bool awaken() { return false; }
+    bool sleep()  { return false; }
 
 private:
 };
@@ -32,24 +41,18 @@ private:
 class LockedChunk
 {
 public:
-    Chunk& get()
-    {
-        if (!m_chunk.load())
-        {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            if (!m_chunk.load())
-            {
-                m_chunk.store(new Chunk());
-            }
-        }
+    ~LockedChunk();
 
-        return *m_chunk.load();
-    }
+    // Initialize the chunk.  Thread-safe and idempotent.
+    void init(
+            const std::string& path,
+            std::size_t begin,
+            const std::vector<char>& data);
 
-    bool exists() const
-    {
-        return m_chunk.load() != 0;
-    }
+    Chunk& get() { return *m_chunk.load(); }
+
+    // Atomically determines whether the chunk has been created.
+    bool exists() const;
 
 private:
     std::mutex m_mutex;
@@ -60,6 +63,7 @@ class DiskBranch : public Branch
 {
 public:
     DiskBranch(
+            const std::string& path,
             const Schema& schema,
             std::size_t dimensions,
             std::size_t depthBegin,
@@ -84,8 +88,12 @@ private:
 
     virtual void saveImpl(const std::string& path, Json::Value& meta);
 
+    const std::string& m_path;
+
+    const std::size_t m_pointsPerChunk;
     std::vector<LockedChunk> m_chunks;
-    const std::size_t m_chunkSize;
+
+    const std::vector<char> m_emptyChunk;
 };
 
 } // namespace entwine

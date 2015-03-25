@@ -25,6 +25,7 @@ namespace entwine
 {
 
 Registry::Registry(
+        const std::string& path,
         const Schema& schema,
         const std::size_t dimensions,
         const std::size_t baseDepth,
@@ -42,6 +43,7 @@ Registry::Registry(
     {
         m_diskBranch.reset(
                 new DiskBranch(
+                    path,
                     schema,
                     dimensions,
                     flatDepth,

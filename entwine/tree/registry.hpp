@@ -37,6 +37,7 @@ class Registry
 {
 public:
     Registry(
+            const std::string& path,
             const Schema& schema,
             std::size_t dimensions,
             std::size_t baseDepth,
