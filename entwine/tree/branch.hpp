@@ -79,6 +79,10 @@ public:
     // Writes necessary metadata and point data to disk.
     void save(const std::string& path, Json::Value& meta);
 
+    static std::size_t calcOffset(
+            std::size_t depth,
+            std::size_t dimensions);
+
 protected:
     virtual void saveImpl(const std::string& path, Json::Value& meta) = 0;
 

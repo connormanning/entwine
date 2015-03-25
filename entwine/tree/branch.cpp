@@ -12,21 +12,6 @@
 
 #include <entwine/types/schema.hpp>
 
-namespace
-{
-    std::size_t getOffset(std::size_t depth, std::size_t dimensions)
-    {
-        std::size_t offset(0);
-
-        for (std::size_t i(0); i < depth; ++i)
-        {
-            offset = (offset << dimensions) + 1;
-        }
-
-        return offset;
-    }
-}
-
 namespace entwine
 {
 
@@ -38,8 +23,8 @@ Branch::Branch(
     : m_schema(schema)
     , m_depthBegin(depthBegin)
     , m_depthEnd(depthEnd)
-    , m_indexBegin(getOffset(m_depthBegin, dimensions))
-    , m_indexEnd(getOffset(m_depthEnd, dimensions))
+    , m_indexBegin(calcOffset(m_depthBegin, dimensions))
+    , m_indexEnd(calcOffset(m_depthEnd, dimensions))
 { }
 
 Branch::Branch(
@@ -49,8 +34,8 @@ Branch::Branch(
     : m_schema(schema)
     , m_depthBegin(meta["depthBegin"].asUInt64())
     , m_depthEnd(meta["depthEnd"].asUInt64())
-    , m_indexBegin(getOffset(m_depthBegin, dimensions))
-    , m_indexEnd(getOffset(m_depthEnd, dimensions))
+    , m_indexBegin(calcOffset(m_depthBegin, dimensions))
+    , m_indexEnd(calcOffset(m_depthEnd, dimensions))
 { }
 
 Branch::~Branch()
@@ -67,6 +52,18 @@ void Branch::save(const std::string& path, Json::Value& meta)
     meta["depthEnd"] = static_cast<Json::UInt64>(m_depthEnd);
 
     saveImpl(path, meta);
+}
+
+std::size_t Branch::calcOffset(std::size_t depth, std::size_t dimensions)
+{
+    std::size_t offset(0);
+
+    for (std::size_t i(0); i < depth; ++i)
+    {
+        offset = (offset << dimensions) + 1;
+    }
+
+    return offset;
 }
 
 const Schema& Branch::schema() const

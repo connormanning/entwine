@@ -10,13 +10,46 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
-#include <unordered_set>
+#include <map>
+#include <mutex>
+#include <memory>
 
 #include <entwine/tree/branch.hpp>
 
 namespace entwine
 {
+
+class Chunk
+{
+public:
+    bool addPoint(const PointInfo* toAdd);
+
+private:
+};
+
+class LockedChunk
+{
+public:
+    Chunk& get()
+    {
+        if (!m_chunk.load())
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (!m_chunk.load())
+            {
+                m_chunk.store(new Chunk());
+            }
+        }
+
+        return *m_chunk.load();
+    }
+
+private:
+    std::mutex m_mutex;
+    std::atomic<Chunk*> m_chunk;
+};
 
 class DiskBranch : public Branch
 {
@@ -40,9 +73,13 @@ public:
             const Schema& schema);
 
 private:
+    // Returns the chunk ID that contains this index.
+    std::size_t getChunkId(std::size_t index) const;
+
     virtual void saveImpl(const std::string& path, Json::Value& meta);
 
-    std::unordered_set<uint64_t> m_chunks;
+    std::vector<LockedChunk> m_chunks;
+    const std::size_t m_chunkSize;
 };
 
 } // namespace entwine
