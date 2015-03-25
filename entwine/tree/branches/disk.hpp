@@ -10,6 +10,9 @@
 
 #pragma once
 
+#include <cstdint>
+#include <unordered_set>
+
 #include <entwine/tree/branch.hpp>
 
 namespace entwine
@@ -38,6 +41,8 @@ public:
 
 private:
     virtual void saveImpl(const std::string& path, Json::Value& meta);
+
+    std::unordered_set<uint64_t> m_chunks;
 };
 
 } // namespace entwine

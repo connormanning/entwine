@@ -12,6 +12,8 @@
 
 #include <entwine/third/json/json.h>
 #include <entwine/types/schema.hpp>
+#include <entwine/util/fs.hpp>
+#include <entwine/util/platform.hpp>
 
 namespace entwine
 {

@@ -11,13 +11,12 @@
 #include <fstream>
 #include <iostream>
 
-#include <sys/stat.h>
-
 #include <entwine/third/json/json.h>
 #include <entwine/tree/multi-batcher.hpp>
 #include <entwine/tree/sleepy-tree.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/util/fs.hpp>
 
 namespace
 {
@@ -60,17 +59,6 @@ std::vector<std::string> getPaths(const Json::Value& jsonPaths)
     return paths;
 }
 
-void mkdirp(const std::string& path)
-{
-    const bool err(mkdir(path.c_str(), S_IRWXU | S_IRGRP | S_IROTH));
-
-    if (err && errno != EEXIST)
-    {
-        throw std::runtime_error(
-            "Couldn't create: " + path + ":" + strerror(errno));
-    }
-}
-
 int main(int argc, char** argv)
 {
     if (argc < 2)
@@ -110,7 +98,11 @@ int main(int argc, char** argv)
     const std::size_t flatDepth(tree["flatDepth"].asUInt64());
     const std::size_t diskDepth(tree["diskDepth"].asUInt64());
 
-    mkdirp(outDir);
+    if (!Fs::mkdirp(outDir))
+    {
+        std::cout << "Could not create output dir: " << outDir << std::endl;
+        return 1;
+    }
 
     std::cout << "Building from " << paths.size() << " paths." << std::endl;
     std::cout << "Storing dimensions: [";
@@ -159,5 +151,7 @@ int main(int argc, char** argv)
 
     sleepyTree->save();
     std::cout << "Save complete." << std::endl;
+
+    return 0;
 }
 

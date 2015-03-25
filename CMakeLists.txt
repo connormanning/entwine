@@ -23,6 +23,7 @@ set(OBJS
     $<TARGET_OBJECTS:third>
     $<TARGET_OBJECTS:tree>
     $<TARGET_OBJECTS:types>
+    $<TARGET_OBJECTS:util>
 )
 
 add_library(entwine SHARED ${OBJS})
