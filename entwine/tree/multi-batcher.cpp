@@ -23,10 +23,16 @@
 #include <entwine/tree/sleepy-tree.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/simple-point-table.hpp>
+#include <entwine/util/fs.hpp>
 
 namespace
 {
     const std::size_t httpAttempts(3);
+
+    const std::ios_base::openmode binaryTruncMode(
+            std::ofstream::binary |
+            std::ofstream::out |
+            std::ofstream::trunc);
 }
 
 namespace entwine
@@ -95,7 +101,26 @@ void MultiBatcher::add(const std::string& filename)
             {
                 // Fetch remote file and write locally.
                 const std::string localPath("./tmp/" + std::to_string(origin));
-                writeFile(localPath, filename);
+
+                {
+                    const HttpResponse res(fetchFile(filename));
+
+                    if (res.code() != 200)
+                    {
+                        std::cout << "Couldn't fetch " + filename <<
+                                " - Got: " << res.code() << std::endl;
+                        throw std::runtime_error("Couldn't fetch " + filename);
+                    }
+
+
+                    if (!Fs::writeFile(
+                                localPath,
+                                *res.data().get(),
+                                binaryTruncMode))
+                    {
+                        throw std::runtime_error("Couldn't write " + localPath);
+                    }
+                }
 
                 // Set up the file reader.
                 std::unique_ptr<pdal::Reader> reader(
@@ -147,7 +172,7 @@ void MultiBatcher::add(const std::string& filename)
                 reader->prepare(pointTableRef);
                 reader->execute(pointTableRef);
 
-                if (remove(localPath.c_str()) != 0)
+                if (!Fs::removeFile(localPath))
                 {
                     std::cout << "Couldn't delete " << localPath << std::endl;
                     throw std::runtime_error("Couldn't delete tmp file");
@@ -199,10 +224,6 @@ void MultiBatcher::takeSnapshot()
         std::cout << "Writing snapshot at " << m_originList.size() << std::endl;
         gather();
 
-        std::ofstream dataStream;
-        dataStream.open(
-                m_sleepyTree.path() + "/manifest",
-                std::ofstream::out | std::ofstream::trunc);
         Json::Value jsonManifest;
         jsonManifest["manifest"].resize(m_originList.size());
         for (std::size_t i(0); i < m_originList.size(); ++i)
@@ -211,10 +232,20 @@ void MultiBatcher::takeSnapshot()
                 m_originList[i];
         }
         const std::string manifestString(jsonManifest.toStyledString());
-        dataStream.write(manifestString.data(), manifestString.size());
-        dataStream.close();
+
+        if (!Fs::writeFile(
+                m_sleepyTree.path() + "/manifest",
+                manifestString,
+                std::ofstream::out | std::ofstream::trunc))
+        {
+            throw std::runtime_error("Could not write manifest");
+        }
 
         m_sleepyTree.save();
+    }
+    catch (std::runtime_error& e)
+    {
+        std::cout << "Caught: " << e.what() << " during snapshot" << std::endl;
     }
     catch (...)
     {
@@ -227,9 +258,7 @@ void MultiBatcher::takeSnapshot()
     m_cv.notify_all();
 }
 
-void MultiBatcher::writeFile(
-        const std::string& localPath,
-        const std::string& remoteName)
+HttpResponse MultiBatcher::fetchFile(const std::string& remoteName)
 {
     std::size_t tries(0);
 
@@ -240,22 +269,7 @@ void MultiBatcher::writeFile(
         res = m_s3.get(remoteName);
     } while (res.code() != 200 && ++tries < httpAttempts);
 
-    if (res.code() != 200)
-    {
-        std::cout << "Couldn't fetch " + remoteName <<
-                " - Got: " << res.code() << std::endl;
-        throw std::runtime_error("Couldn't fetch " + remoteName);
-    }
-
-    std::shared_ptr<std::vector<char>> fileData(res.data());
-    std::ofstream writer(
-            localPath,
-            std::ofstream::binary |
-                std::ofstream::out |
-                std::ofstream::trunc);
-
-    writer.write(fileData->data(), fileData->size());
-    writer.close();
+    return res;
 }
 
 } // namespace entwine

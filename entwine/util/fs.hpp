@@ -10,7 +10,9 @@
 
 #pragma once
 
+#include <ios>
 #include <string>
+#include <vector>
 
 namespace entwine
 {
@@ -19,13 +21,33 @@ class Fs
 {
 public:
     // Returns true if the directory did not exist before and was created.
-    static bool mkdir(const std::string& path);
+    static bool mkdir(const std::string& dir);
 
     // Returns true if the directory was created or already existed.
-    static bool mkdirp(const std::string& path);
+    static bool mkdirp(const std::string& dir);
 
     // Returns true if file exists (can be opened for reading).
-    static bool fileExists(const std::string& path);
+    static bool fileExists(const std::string& filename);
+
+    // Returns true if file successfully removed.
+    static bool removeFile(const std::string& filename);
+
+    // Returns true if successfully written.
+    static bool writeFile(
+            const std::string& filename,
+            const std::vector<char>& contents,
+            std::ios_base::openmode mode = std::ios_base::out);
+
+    static bool writeFile(
+            const std::string& filename,
+            const std::string& contents,
+            std::ios_base::openmode mode = std::ios_base::out);
+
+    static bool writeFile(
+            const std::string& filename,
+            const char* data,
+            std::size_t size,
+            std::ios_base::openmode mode = std::ios_base::out);
 };
 
 } // namespace entwine
