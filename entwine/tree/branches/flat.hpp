@@ -22,8 +22,7 @@ public:
             const Schema& schema,
             std::size_t dimensions,
             std::size_t depthBegin,
-            std::size_t depthEnd,
-            bool elastic);
+            std::size_t depthEnd);
     FlatBranch(
             const std::string& path,
             const Schema& schema,
@@ -39,8 +38,6 @@ public:
 
 private:
     virtual void saveImpl(const std::string& path, Json::Value& meta);
-
-    const bool m_elastic;
 };
 
 } // namespace entwine

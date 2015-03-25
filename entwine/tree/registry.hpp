@@ -41,8 +41,7 @@ public:
             std::size_t dimensions,
             std::size_t baseDepth,
             std::size_t flatDepth,
-            std::size_t diskDepth,
-            bool elastic);
+            std::size_t diskDepth);
     Registry(
             const std::string& path,
             const Schema& schema,

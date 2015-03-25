@@ -44,8 +44,7 @@ public:
             std::size_t dimensions,
             std::size_t baseDepth,
             std::size_t flatDepth,
-            std::size_t diskDepth,
-            bool elastic);
+            std::size_t diskDepth);
     SleepyTree(const std::string& path);
     ~SleepyTree();
 
@@ -96,6 +95,7 @@ private:
     std::unique_ptr<Schema> m_schema;
     std::size_t m_dimensions;
     std::size_t m_numPoints;
+    std::size_t m_numTossed;
 
     std::unique_ptr<Registry> m_registry;
 

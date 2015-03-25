@@ -20,10 +20,8 @@ FlatBranch::FlatBranch(
         const Schema& schema,
         const std::size_t dimensions,
         const std::size_t depthBegin,
-        const std::size_t depthEnd,
-        const bool elastic)
+        const std::size_t depthEnd)
     : Branch(schema, dimensions, depthBegin, depthEnd)
-    , m_elastic(elastic)
 { }
 
 FlatBranch::FlatBranch(
@@ -32,7 +30,6 @@ FlatBranch::FlatBranch(
         const std::size_t dimensions,
         const Json::Value& meta)
     : Branch(schema, dimensions, meta)
-    , m_elastic(meta["elastic"].asBool())
 {
     // TODO Load from disk.
 }
@@ -42,7 +39,6 @@ FlatBranch::~FlatBranch()
 
 bool FlatBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
 {
-    if (m_elastic) std::cout << m_elastic << std::endl;
     return false;
 }
 
@@ -60,8 +56,6 @@ std::vector<char> FlatBranch::getPointData(
 
 void FlatBranch::saveImpl(const std::string& path, Json::Value& meta)
 {
-    meta["elastic"] = m_elastic;
-
     // TODO Write data to disk.
 
     // TODO Write IDs to meta["ids"].

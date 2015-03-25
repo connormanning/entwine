@@ -29,8 +29,7 @@ Registry::Registry(
         const std::size_t dimensions,
         const std::size_t baseDepth,
         const std::size_t rawFlatDepth,
-        const std::size_t rawDiskDepth,
-        const bool elastic)
+        const std::size_t rawDiskDepth)
     : m_baseBranch()
     , m_flatBranch()
     , m_diskBranch()
@@ -39,11 +38,6 @@ Registry::Registry(
     const std::size_t flatDepth(std::max(baseDepth, rawFlatDepth));
     const std::size_t diskDepth(std::max(flatDepth, rawDiskDepth));
 
-    // If elastic is specified, then the highest branch of the tree will be
-    // allowed to grow arbitrarily.  Track whether the highest branch has
-    // been created yet.
-    bool created(false);
-
     if (diskDepth > flatDepth)
     {
         m_diskBranch.reset(
@@ -51,10 +45,7 @@ Registry::Registry(
                     schema,
                     dimensions,
                     flatDepth,
-                    diskDepth,
-                    elastic));
-
-        created = true;
+                    diskDepth));
     }
 
     if (flatDepth > baseDepth)
@@ -64,19 +55,11 @@ Registry::Registry(
                     schema,
                     dimensions,
                     baseDepth,
-                    flatDepth,
-                    elastic && !created));
-
-        created = true;
+                    flatDepth));
     }
 
     if (baseDepth)
     {
-        if (elastic && !created)
-        {
-            std::cout << "Elastic request ignored." << std::endl;
-        }
-
         m_baseBranch.reset(
                 new BaseBranch(
                     schema,

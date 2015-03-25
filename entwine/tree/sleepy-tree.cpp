@@ -29,21 +29,20 @@ SleepyTree::SleepyTree(
         const std::size_t dimensions,
         const std::size_t baseDepth,
         const std::size_t flatDepth,
-        const std::size_t diskDepth,
-        bool elastic)
+        const std::size_t diskDepth)
     : m_path(path)
     , m_bbox(new BBox(bbox))
     , m_schema(new Schema(schema))
     , m_dimensions(dimensions)
     , m_numPoints(0)
+    , m_numTossed(0)
     , m_registry(
             new Registry(
                 *m_schema.get(),
                 dimensions,
                 baseDepth,
                 flatDepth,
-                diskDepth,
-                elastic))
+                diskDepth))
 {
     if (m_dimensions != 2)
     {
@@ -59,6 +58,7 @@ SleepyTree::SleepyTree(const std::string& path)
     , m_schema()
     , m_dimensions(0)
     , m_numPoints(0)
+    , m_numTossed(0)
     , m_registry()
 {
     load();
@@ -93,6 +93,10 @@ void SleepyTree::insert(const pdal::PointView& pointView, Origin origin)
             {
                 ++m_numPoints;
             }
+            else
+            {
+                ++m_numTossed;
+            }
         }
     }
 }
@@ -104,6 +108,7 @@ void SleepyTree::save()
     jsonMeta["schema"] = m_schema->toJson();
     jsonMeta["dimensions"] = static_cast<Json::UInt64>(m_dimensions);
     jsonMeta["numPoints"] = static_cast<Json::UInt64>(m_numPoints);
+    jsonMeta["numTossed"] = static_cast<Json::UInt64>(m_numTossed);
 
     m_registry->save(m_path, jsonMeta["registry"]);
 
