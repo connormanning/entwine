@@ -15,6 +15,8 @@
 #include <string>
 #include <vector>
 
+#include <pdal/Dimension.hpp>
+
 #include <entwine/tree/point-info.hpp>
 
 namespace pdal
@@ -49,7 +51,7 @@ public:
     ~SleepyTree();
 
     // Insert the points from a PointView into this index.
-    void insert(const pdal::PointView& pointView, Origin origin);
+    void insert(pdal::PointView& pointView, Origin origin);
 
     // Finalize the tree so it may be queried.  No more pipelines may be added.
     void save();
@@ -93,6 +95,7 @@ private:
     const std::string m_path;
     std::unique_ptr<BBox> m_bbox;
     std::unique_ptr<Schema> m_schema;
+    pdal::Dimension::Id::Enum m_originId;
     std::size_t m_dimensions;
     std::size_t m_numPoints;
     std::size_t m_numTossed;

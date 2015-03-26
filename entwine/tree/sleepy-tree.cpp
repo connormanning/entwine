@@ -33,6 +33,7 @@ SleepyTree::SleepyTree(
     : m_path(path)
     , m_bbox(new BBox(bbox))
     , m_schema(new Schema(schema))
+    , m_originId(m_schema->pdalLayout()->findProprietaryDim("Origin"))
     , m_dimensions(dimensions)
     , m_numPoints(0)
     , m_numTossed(0)
@@ -68,11 +69,9 @@ SleepyTree::SleepyTree(const std::string& path)
 SleepyTree::~SleepyTree()
 { }
 
-void SleepyTree::insert(const pdal::PointView& pointView, Origin origin)
+void SleepyTree::insert(pdal::PointView& pointView, Origin origin)
 {
     Point point;
-
-    const Schema& schemaRef(*m_schema.get());
 
     for (std::size_t i = 0; i < pointView.size(); ++i)
     {
@@ -83,12 +82,13 @@ void SleepyTree::insert(const pdal::PointView& pointView, Origin origin)
         {
             Roller roller(*m_bbox.get());
 
+            pointView.setField(m_originId, i, origin);
+
             PointInfo* pointInfo(
                     new PointInfo(
-                        schemaRef,
-                        pointView,
-                        i,
-                        origin));
+                        new Point(point),
+                        pointView.getPoint(i),
+                        m_schema->pointSize()));
 
             if (m_registry->addPoint(&pointInfo, roller))
             {
@@ -142,8 +142,10 @@ void SleepyTree::load()
 
     m_bbox.reset(new BBox(BBox::fromJson(meta["bbox"])));
     m_schema.reset(new Schema(Schema::fromJson(meta["schema"])));
+    m_originId = m_schema->pdalLayout()->findProprietaryDim("Origin");
     m_dimensions = meta["dimensions"].asUInt64();
     m_numPoints = meta["numPoints"].asUInt64();
+    m_numTossed = meta["numTossed"].asUInt64();
 
     m_registry.reset(
             new Registry(
