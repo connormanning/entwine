@@ -79,7 +79,8 @@ public:
             std::size_t depthEnd);
 
     // Get the constituent bytes of a point by its index, with bytes arranged
-    // in accordance with the requested schema.
+    // in accordance with the requested schema.  If no point exists at the
+    // specified index, returns an empty vector.
     //
     // TODO Document.
     std::vector<char> getPointData(std::size_t index, const Schema& schema);

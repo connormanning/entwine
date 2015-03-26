@@ -16,13 +16,13 @@ namespace entwine
 {
 
 SimplePointTable::SimplePointTable()
-    : BasePointTable()
+    : SizedPointTable()
     , m_data()
     , m_numPoints(0)
 { }
 
 SimplePointTable::SimplePointTable(const Schema& schema)
-    : BasePointTable(schema.pdalLayout())
+    : SizedPointTable(schema.pdalLayout())
     , m_data()
     , m_numPoints(0)
 { }
@@ -30,7 +30,7 @@ SimplePointTable::SimplePointTable(const Schema& schema)
 SimplePointTable::SimplePointTable(
         const Schema& schema,
         const std::vector<char>& data)
-    : BasePointTable(schema.pdalLayout())
+    : SizedPointTable(schema.pdalLayout())
     , m_data(data)
     , m_numPoints(data.size() / schema.pointSize())
 {

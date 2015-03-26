@@ -33,9 +33,7 @@ public:
     virtual bool addPoint(PointInfo** toAddPtr, const Roller& roller);
     virtual bool hasPoint(std::size_t index);
     virtual Point getPoint(std::size_t index);
-    virtual std::vector<char> getPointData(
-            std::size_t index,
-            const Schema& schema);
+    virtual std::vector<char> getPointData(std::size_t index);
 
 private:
     virtual void saveImpl(const std::string& path, Json::Value& meta);

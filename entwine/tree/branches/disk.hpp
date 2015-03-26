@@ -22,6 +22,8 @@
 namespace entwine
 {
 
+class Schema;
+
 class Chunk
 {
 public:
@@ -30,13 +32,17 @@ public:
             std::size_t begin,
             const std::vector<char>& initData);
 
-    bool addPoint(const PointInfo* toAdd, std::size_t offset);
+    bool addPoint(
+            const Schema& schema,
+            PointInfo** toAddPtr,
+            std::size_t offset);
 
     // TODO
     bool awaken() { return false; }
     bool sleep()  { return false; }
 
 private:
+    char* m_mapping;
 };
 
 class LockedChunk
@@ -78,9 +84,7 @@ public:
     virtual bool addPoint(PointInfo** toAddPtr, const Roller& roller);
     virtual bool hasPoint(std::size_t index);
     virtual Point getPoint(std::size_t index);
-    virtual std::vector<char> getPointData(
-            std::size_t index,
-            const Schema& schema);
+    virtual std::vector<char> getPointData(std::size_t index);
 
 private:
     // Returns the chunk ID that contains this index.

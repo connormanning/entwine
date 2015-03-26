@@ -118,7 +118,7 @@ bool Registry::addPoint(PointInfo** toAddPtr, Roller& roller)
     bool accepted(false);
     PointInfo* toAdd(*toAddPtr);
 
-    if (Branch* branch{getBranch(roller.pos())})
+    if (Branch* branch = getBranch(roller.pos()))
     {
         if (!branch->addPoint(toAddPtr, roller))
         {
@@ -205,13 +205,11 @@ void Registry::query(
     }
 }
 
-std::vector<char> Registry::getPointData(
-        const std::size_t index,
-        const Schema& schema)
+std::vector<char> Registry::getPointData(const std::size_t index)
 {
     if (Branch* branch = getBranch(index))
     {
-        return branch->getPointData(index, schema);
+        return branch->getPointData(index);
     }
     else
     {

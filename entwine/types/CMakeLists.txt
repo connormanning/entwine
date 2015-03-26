@@ -9,6 +9,7 @@ set(
     "${BASE}/schema.cpp"
     "${BASE}/simple-point-layout.cpp"
     "${BASE}/simple-point-table.cpp"
+    "${BASE}/single-point-table.cpp"
 )
 
 set(
@@ -21,6 +22,7 @@ set(
     "${BASE}/schema.hpp"
     "${BASE}/simple-point-layout.hpp"
     "${BASE}/simple-point-table.hpp"
+    "${BASE}/single-point-table.hpp"
 )
 
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})

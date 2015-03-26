@@ -10,13 +10,18 @@
 
 #include <entwine/tree/branches/disk.hpp>
 
+#include <fcntl.h>
+#include <sys/mman.h>
+
 #include <pdal/PointView.hpp>
 
 #include <entwine/third/json/json.h>
 #include <entwine/tree/roller.hpp>
 #include <entwine/tree/point-info.hpp>
+#include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/simple-point-table.hpp>
+#include <entwine/types/single-point-table.hpp>
 #include <entwine/util/fs.hpp>
 #include <entwine/util/platform.hpp>
 
@@ -25,8 +30,6 @@ namespace entwine
 
 namespace
 {
-    const double empty(std::numeric_limits<double>::max());
-
     std::size_t pointsPerChunk(std::size_t depthBegin, std::size_t dimensions)
     {
         return
@@ -55,8 +58,8 @@ namespace
 
         for (std::size_t i(0); i < pointsPerChunk; ++i)
         {
-            view.setField(pdal::Dimension::Id::X, i, empty);
-            view.setField(pdal::Dimension::Id::Y, i, empty);
+            view.setField(pdal::Dimension::Id::X, i, INFINITY);
+            view.setField(pdal::Dimension::Id::Y, i, INFINITY);
         }
 
         return table.data();
@@ -72,6 +75,7 @@ Chunk::Chunk(
         const std::string& path,
         std::size_t begin,
         const std::vector<char>& initData)
+    : m_mapping(0)
 {
     std::string filename(path + "/" + std::to_string(begin));
 
@@ -79,11 +83,53 @@ Chunk::Chunk(
     {
         Fs::writeFile(filename, initData, binaryTruncMode);
     }
+
+    // TODO Wrap this C stuff.
+    int fd(open(filename.c_str(), O_RDWR));
+
+    if (fd < 0)
+        throw std::runtime_error("Could not open " + filename);
+
+    char* mapping(
+            static_cast<char*>(mmap(
+                0,
+                initData.size(),
+                PROT_READ | PROT_WRITE,
+                MAP_SHARED,
+                fd,
+                0)));
+
+    if (mapping == MAP_FAILED)
+        throw std::runtime_error("Could not map " + filename);
+
+    m_mapping = mapping;
 }
 
-bool Chunk::addPoint(const PointInfo* toAdd, const std::size_t offset)
+bool Chunk::addPoint(
+        const Schema& schema,
+        PointInfo** toAddPtr,
+        const std::size_t offset)
 {
-    std::cout << "DISKING!" << std::endl;
+    PointInfo* toAdd(*toAddPtr);
+
+    char* pos(m_mapping + offset);
+
+    SinglePointTable table(schema, pos);
+    LinkingPointView view(table);
+
+    double x = view.getFieldAs<double>(pdal::Dimension::Id::X, 0);
+    double y = view.getFieldAs<double>(pdal::Dimension::Id::Y, 0);
+
+    if (Point::exists(x, y))
+    {
+        std::cout << " " << std::endl;
+    }
+    else
+    {
+        // Empty point here - store incoming.
+        std::cout << " " << std::endl;
+    }
+
     delete toAdd->point;
     delete toAdd;
     return true;
@@ -161,17 +207,22 @@ bool DiskBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
     // file exists, although it might be asleep (i.e. not mem-mapped).
     Chunk& chunk(lockedChunk.get());
 
-    return chunk.addPoint(*toAddPtr, getByteOffset(chunkId, roller.pos()));
+    return chunk.addPoint(
+            schema(),
+            toAddPtr,
+            getByteOffset(chunkId, roller.pos()));
 }
 
 bool DiskBranch::hasPoint(std::size_t index)
 {
     bool result(false);
 
+    /*
     if (m_chunks[getChunkId(index)].exists())
     {
 
     }
+    */
 
     return result;
 }
@@ -181,9 +232,7 @@ Point DiskBranch::getPoint(std::size_t index)
     return Point();
 }
 
-std::vector<char> DiskBranch::getPointData(
-        std::size_t index,
-        const Schema& schema)
+std::vector<char> DiskBranch::getPointData(std::size_t index)
 {
     return std::vector<char>();
 }

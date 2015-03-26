@@ -10,8 +10,6 @@
 
 #pragma once
 
-#include <vector>
-
 #include <entwine/types/sized-point-table.hpp>
 
 namespace entwine
@@ -19,12 +17,10 @@ namespace entwine
 
 class Schema;
 
-class SimplePointTable : public SizedPointTable
+class SinglePointTable : public SizedPointTable
 {
 public:
-    SimplePointTable();
-    explicit SimplePointTable(const Schema& schema);
-    SimplePointTable(const Schema& schema, const std::vector<char>& data);
+    SinglePointTable(const Schema& schema, char* data);
 
     virtual pdal::PointId addPoint();
     virtual char* getPoint(pdal::PointId index);
@@ -37,18 +33,14 @@ public:
             pdal::PointId index,
             void* value);
 
-    void clear();
-    std::size_t size() const;
-
-    std::vector<char> data() const;
+    virtual std::size_t size() const { return 1; }
 
 private:
     char* getDimension(
             const pdal::Dimension::Detail* dimDetail,
             pdal::PointId index);
 
-    std::vector<char> m_data;
-    std::size_t m_numPoints;
+    char* m_point;
 };
 
 } // namespace entwine

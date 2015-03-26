@@ -18,16 +18,13 @@
 
 #include <entwine/compression/util.hpp>
 #include <entwine/third/json/json.h>
+#include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/simple-point-table.hpp>
+#include <entwine/types/single-point-table.hpp>
 #include <entwine/tree/roller.hpp>
 #include <entwine/tree/point-info.hpp>
-
-namespace
-{
-    const double empty(std::numeric_limits<double>::max());
-}
 
 namespace entwine
 {
@@ -46,8 +43,8 @@ BaseBranch::BaseBranch(
 
     for (std::size_t i(0); i < size(); ++i)
     {
-        view.setField(pdal::Dimension::Id::X, i, empty);
-        view.setField(pdal::Dimension::Id::Y, i, empty);
+        view.setField(pdal::Dimension::Id::X, i, INFINITY);
+        view.setField(pdal::Dimension::Id::Y, i, INFINITY);
     }
 
     m_data = table.data();
@@ -147,11 +144,16 @@ Point BaseBranch::getPoint(const std::size_t index)
     return Point(*m_points[index].atom.load());
 }
 
-std::vector<char> BaseBranch::getPointData(
-        const std::size_t index,
-        const Schema& reqSchema)
+std::vector<char> BaseBranch::getPointData(const std::size_t index)
 {
-    return std::vector<char>(getLocation(index), getLocation(index + 1));
+    if (hasPoint(index))
+    {
+        return std::vector<char>(getLocation(index), getLocation(index + 1));
+    }
+    else
+    {
+        return std::vector<char>();
+    }
 }
 
 void BaseBranch::saveImpl(const std::string& path, Json::Value& meta)
@@ -220,12 +222,15 @@ void BaseBranch::load(const std::string& path, const Json::Value& meta)
 
     for (std::size_t i(0); i < size(); ++i)
     {
-        const char* pos(getLocation(i));
+        char* pos(getLocation(i));
 
-        std::memcpy(&x, pos, sizeof(double));
-        std::memcpy(&y, pos + sizeof(double), sizeof(double));
+        SinglePointTable table(schema(), pos);
+        LinkingPointView view(table);
 
-        if (x != empty && y != empty)
+        x = view.getFieldAs<double>(pdal::Dimension::Id::X, 0);
+        y = view.getFieldAs<double>(pdal::Dimension::Id::Y, 0);
+
+        if (Point::exists(x, y))
         {
             m_points[i].atom.store(new Point(x, y));
         }

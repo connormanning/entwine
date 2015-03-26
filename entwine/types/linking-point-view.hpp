@@ -12,7 +12,7 @@
 
 #include <pdal/PointView.hpp>
 
-#include <entwine/types/simple-point-table.hpp>
+#include <entwine/types/sized-point-table.hpp>
 
 namespace entwine
 {
@@ -20,7 +20,7 @@ namespace entwine
 class LinkingPointView : public pdal::PointView
 {
 public:
-    LinkingPointView(SimplePointTable& table);
+    LinkingPointView(SizedPointTable& table);
 };
 
 } // namespace entwine

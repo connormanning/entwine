@@ -68,9 +68,7 @@ public:
     //
     // If so we need to lock here.  If not, then it should be documented and
     // enforced that this cannot be called while points are being inserted.
-    virtual std::vector<char> getPointData(
-            std::size_t index,
-            const Schema& schema) = 0;
+    virtual std::vector<char> getPointData(std::size_t index) = 0;
 
     // Returns true if there is a point at this index.
     virtual bool hasPoint(std::size_t index) = 0;

@@ -19,7 +19,7 @@
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/schema.hpp>
-#include <entwine/types/simple-point-table.hpp>
+#include <entwine/types/single-point-table.hpp>
 
 namespace entwine
 {
@@ -187,19 +187,23 @@ std::vector<char> SleepyTree::getPointData(
         const std::size_t index,
         const Schema& reqSchema)
 {
-    // Dealing with a foreign schema here.
-    std::vector<char> nativePoint(m_registry->getPointData(index, reqSchema));
-    std::vector<char> schemaPoint(reqSchema.pointSize());
+    std::vector<char> schemaPoint;
+    std::vector<char> nativePoint(m_registry->getPointData(index));
 
-    SimplePointTable table(schema(), nativePoint);
-    LinkingPointView view(table);
-
-    char* pos(schemaPoint.data());
-
-    for (const auto& reqDim : reqSchema.dims())
+    if (nativePoint.size())
     {
-        view.getField(pos, reqDim.id(), reqDim.type(), 0);
-        pos += reqDim.size();
+        schemaPoint.resize(reqSchema.pointSize());
+
+        SinglePointTable table(schema(), nativePoint.data());
+        LinkingPointView view(table);
+
+        char* pos(schemaPoint.data());
+
+        for (const auto& reqDim : reqSchema.dims())
+        {
+            view.getField(pos, reqDim.id(), reqDim.type(), 0);
+            pos += reqDim.size();
+        }
     }
 
     return schemaPoint;

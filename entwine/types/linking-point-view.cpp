@@ -13,7 +13,7 @@
 namespace entwine
 {
 
-LinkingPointView::LinkingPointView(SimplePointTable& table)
+LinkingPointView::LinkingPointView(SizedPointTable& table)
     : PointView(table)
 {
     for (std::size_t i(0); i < table.size(); ++i)

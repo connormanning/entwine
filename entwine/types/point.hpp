@@ -10,8 +10,12 @@
 
 #pragma once
 
+#include <cmath>
+
 namespace entwine
 {
+
+class Schema;
 
 class Point
 {
@@ -24,6 +28,11 @@ public:
     double sqDist(const Point& other) const
     {
         return (x - other.x) * (x - other.x) + (y - other.y) * (y - other.y);
+    }
+
+    static bool exists(double x, double y)
+    {
+        return (x != INFINITY && y != INFINITY);
     }
 
     double x;
