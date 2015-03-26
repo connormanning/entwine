@@ -34,6 +34,18 @@ namespace
             Branch::calcOffset(depthBegin, dimensions);
     }
 
+    std::size_t numChunks(
+            std::size_t depthBegin,
+            std::size_t depthEnd,
+            std::size_t dimensions)
+    {
+        const std::size_t numPoints(
+                Branch::calcOffset(depthEnd, dimensions) -
+                Branch::calcOffset(depthBegin, dimensions));
+
+        return numPoints / pointsPerChunk(depthBegin, dimensions);
+    }
+
     std::vector<char> makeEmptyChunk(
             const Schema& schema,
             std::size_t pointsPerChunk)
@@ -61,14 +73,17 @@ Chunk::Chunk(
         std::size_t begin,
         const std::vector<char>& initData)
 {
-    // TODO Check if it exists first for the serial awakening case.
-
     std::string filename(path + "/" + std::to_string(begin));
-    Fs::writeFile(filename, initData, binaryTruncMode);
+
+    if (!Fs::fileExists(filename))
+    {
+        Fs::writeFile(filename, initData, binaryTruncMode);
+    }
 }
 
-bool Chunk::addPoint(const PointInfo* toAdd)
+bool Chunk::addPoint(const PointInfo* toAdd, const std::size_t offset)
 {
+    std::cout << "DISKING!" << std::endl;
     delete toAdd->point;
     delete toAdd;
     return true;
@@ -111,7 +126,7 @@ DiskBranch::DiskBranch(
     : Branch(schema, dimensions, depthBegin, depthEnd)
     , m_path(path)
     , m_pointsPerChunk(pointsPerChunk(depthBegin, dimensions))
-    , m_chunks((depthEnd - depthEnd) / m_pointsPerChunk)
+    , m_chunks(numChunks(depthBegin, depthEnd, dimensions))
     , m_emptyChunk(makeEmptyChunk(schema, m_pointsPerChunk))
 { }
 
@@ -123,11 +138,8 @@ DiskBranch::DiskBranch(
     : Branch(schema, dimensions, meta)
     , m_path(path)
     , m_pointsPerChunk(pointsPerChunk(depthBegin(), dimensions))
-    , m_chunks((depthEnd() - depthEnd()) / m_pointsPerChunk)
+    , m_chunks(numChunks(depthBegin(), depthEnd(), dimensions))
     , m_emptyChunk(makeEmptyChunk(schema, m_pointsPerChunk))
-{ }
-
-DiskBranch::~DiskBranch()
 { }
 
 bool DiskBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
@@ -149,19 +161,19 @@ bool DiskBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
     // file exists, although it might be asleep (i.e. not mem-mapped).
     Chunk& chunk(lockedChunk.get());
 
-    return chunk.addPoint(*toAddPtr);
+    return chunk.addPoint(*toAddPtr, getByteOffset(chunkId, roller.pos()));
 }
 
 bool DiskBranch::hasPoint(std::size_t index)
 {
-    bool has(false);
+    bool result(false);
 
     if (m_chunks[getChunkId(index)].exists())
     {
 
     }
 
-    return has;
+    return result;
 }
 
 Point DiskBranch::getPoint(std::size_t index)
@@ -176,12 +188,21 @@ std::vector<char> DiskBranch::getPointData(
     return std::vector<char>();
 }
 
-std::size_t DiskBranch::getChunkId(std::size_t index) const
+std::size_t DiskBranch::getChunkId(const std::size_t index) const
 {
     assert(index >= indexBegin() && index < indexEnd());
 
     const std::size_t offset(index - indexBegin());
     return offset / m_pointsPerChunk;
+}
+
+std::size_t DiskBranch::getByteOffset(
+        const std::size_t chunkId,
+        const std::size_t index) const
+{
+    assert(index >= chunkId);
+
+    return (index - chunkId) / schema().pointSize();
 }
 
 void DiskBranch::saveImpl(const std::string& path, Json::Value& meta)

@@ -29,7 +29,7 @@ public:
             std::size_t begin,
             const std::vector<char>& initData);
 
-    bool addPoint(const PointInfo* toAdd);
+    bool addPoint(const PointInfo* toAdd, std::size_t offset);
 
     // TODO
     bool awaken() { return false; }
@@ -51,7 +51,7 @@ public:
 
     Chunk& get() { return *m_chunk.load(); }
 
-    // Atomically determines whether the chunk has been created.
+    // If this returns false, init() must be called before using get().
     bool exists() const;
 
 private:
@@ -73,7 +73,6 @@ public:
             const Schema& schema,
             std::size_t dimensions,
             const Json::Value& meta);
-    ~DiskBranch();
 
     virtual bool addPoint(PointInfo** toAddPtr, const Roller& roller);
     virtual bool hasPoint(std::size_t index);
@@ -85,6 +84,9 @@ public:
 private:
     // Returns the chunk ID that contains this index.
     std::size_t getChunkId(std::size_t index) const;
+
+    // Returns the byte offset for this index within the specified chunkId.
+    std::size_t getByteOffset(std::size_t chunkId, std::size_t index) const;
 
     virtual void saveImpl(const std::string& path, Json::Value& meta);
 
