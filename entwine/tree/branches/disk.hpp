@@ -39,8 +39,9 @@ public:
 
     bool addPoint(
             const Schema& schema,
+            const Roller& roller,
             PointInfo** toAddPtr,
-            std::size_t offset);
+            std::size_t byteOffset);
 
     // TODO
     bool awaken() { return false; }
@@ -49,17 +50,19 @@ public:
 private:
     std::unique_ptr<fs::FileDescriptor> m_fd;
     char* m_mapping;
+    std::mutex m_mutex;
 };
 
 class LockedChunk
 {
 public:
+    LockedChunk();
     ~LockedChunk();
 
     // Initialize the chunk.  Thread-safe and idempotent.
     void init(
             const std::string& path,
-            std::size_t begin,
+            std::size_t firstPointIndex,
             const std::vector<char>& data);
 
     Chunk& get() { return *m_chunk.load(); }
@@ -93,11 +96,13 @@ public:
     virtual std::vector<char> getPointData(std::size_t index);
 
 private:
-    // Returns the chunk ID that contains this index.
+    // Returns the zero-based chunk ID that contains this index.
     std::size_t getChunkId(std::size_t index) const;
 
     // Returns the byte offset for this index within the specified chunkId.
-    std::size_t getByteOffset(std::size_t chunkId, std::size_t index) const;
+    std::size_t getByteOffset(
+            std::size_t chunkFirstPoint,
+            std::size_t index) const;
 
     virtual void saveImpl(const std::string& path, Json::Value& meta);
 

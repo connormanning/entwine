@@ -116,13 +116,12 @@ Registry::~Registry()
 bool Registry::addPoint(PointInfo** toAddPtr, Roller& roller)
 {
     bool accepted(false);
-    PointInfo* toAdd(*toAddPtr);
 
     if (Branch* branch = getBranch(roller.pos()))
     {
         if (!branch->addPoint(toAddPtr, roller))
         {
-            roller.magnify(toAdd->point);
+            roller.magnify((*toAddPtr)->point);
             accepted = addPoint(toAddPtr, roller);
         }
         else
@@ -132,8 +131,8 @@ bool Registry::addPoint(PointInfo** toAddPtr, Roller& roller)
     }
     else
     {
-        delete toAdd->point;
-        delete toAdd;
+        delete (*toAddPtr)->point;
+        delete (*toAddPtr);
     }
 
     return accepted;

@@ -77,12 +77,14 @@ namespace
 
 Chunk::Chunk(
         const std::string& path,
-        std::size_t begin,
+        std::size_t firstPointIndex,
         const std::vector<char>& initData)
     : m_fd()
     , m_mapping(0)
+    , m_mutex()
 {
-    std::string filename(getFilename(path, begin));
+    std::cout << "Making chunk" << std::endl;
+    std::string filename(getFilename(path, firstPointIndex));
 
     if (!fs::fileExists(filename))
     {
@@ -113,33 +115,62 @@ Chunk::Chunk(
 
 bool Chunk::addPoint(
         const Schema& schema,
+        const Roller& roller,
         PointInfo** toAddPtr,
-        const std::size_t offset)
+        const std::size_t byteOffset)
 {
+    bool done(false);
     PointInfo* toAdd(*toAddPtr);
 
-    char* pos(m_mapping + offset);
+    char* pos(m_mapping + byteOffset);
 
     SinglePointTable table(schema, pos);
     LinkingPointView view(table);
+
+    // TODO Should have multiple for high-traffic chunks close to the base.
+    std::lock_guard<std::mutex> lock(m_mutex);
 
     double x = view.getFieldAs<double>(pdal::Dimension::Id::X, 0);
     double y = view.getFieldAs<double>(pdal::Dimension::Id::Y, 0);
 
     if (Point::exists(x, y))
     {
-        std::cout << " " << std::endl;
+        const Point curPoint(x, y);
+        const Point mid(roller.bbox().mid());
+
+        if (toAdd->point->sqDist(mid) < curPoint.sqDist(mid))
+        {
+            // Pull out the old stored value.
+            PointInfo* old(
+                    new PointInfo(
+                        new Point(curPoint),
+                        pos,
+                        schema.pointSize()));
+
+            toAdd->write(pos);
+            delete toAdd->point;
+            delete toAdd;
+
+            *toAddPtr = old;
+        }
     }
     else
     {
         // Empty point here - store incoming.
-        std::cout << " " << std::endl;
+        toAdd->write(pos);
+
+        delete toAdd->point;
+        delete toAdd;
+        done = true;
     }
 
-    delete toAdd->point;
-    delete toAdd;
-    return true;
+    return done;
 }
+
+LockedChunk::LockedChunk()
+    : m_mutex()
+    , m_chunk(0)
+{ }
 
 LockedChunk::~LockedChunk()
 {
@@ -151,7 +182,7 @@ LockedChunk::~LockedChunk()
 
 void LockedChunk::init(
         const std::string& path,
-        const std::size_t begin,
+        const std::size_t firstPointIndex,
         const std::vector<char>& initData)
 {
     if (!exists())
@@ -159,7 +190,7 @@ void LockedChunk::init(
         std::lock_guard<std::mutex> lock(m_mutex);
         if (!exists())
         {
-            m_chunk.store(new Chunk(path, begin, initData));
+            m_chunk.store(new Chunk(path, firstPointIndex, initData));
         }
     }
 }
@@ -196,27 +227,30 @@ DiskBranch::DiskBranch(
 
 bool DiskBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
 {
-    std::size_t chunkId(getChunkId(roller.pos()));
-    LockedChunk& lockedChunk(m_chunks[chunkId]);
+    // Zero-based index of this chunk.
+    const std::size_t chunkIndex(getChunkId(roller.pos()));
+
+    // First point position belonging to this chunk.
+    const std::size_t chunkFirstPoint(
+            indexBegin() + chunkIndex * m_pointsPerChunk);
+
+    LockedChunk& lockedChunk(m_chunks[chunkIndex]);
 
     if (!lockedChunk.exists())
     {
         // TODO This is relatively infrequent, so could lock here and add this
         // chunkId to some structure for bookkeeping.
-        //
-        // If that structure is full, put stalest entry to sleep.
 
-        lockedChunk.init(m_path, chunkId, m_emptyChunk);
+        lockedChunk.init(m_path, chunkFirstPoint, m_emptyChunk);
     }
 
-    // At this point, the LockedChunk's member is created, and its backing
-    // file exists, although it might be asleep (i.e. not mem-mapped).
     Chunk& chunk(lockedChunk.get());
 
     return chunk.addPoint(
             schema(),
+            roller,
             toAddPtr,
-            getByteOffset(chunkId, roller.pos()));
+            getByteOffset(chunkFirstPoint, roller.pos()));
 }
 
 bool DiskBranch::hasPoint(std::size_t index)
@@ -247,17 +281,17 @@ std::size_t DiskBranch::getChunkId(const std::size_t index) const
 {
     assert(index >= indexBegin() && index < indexEnd());
 
-    const std::size_t offset(index - indexBegin());
-    return offset / m_pointsPerChunk;
+    const std::size_t pointOffset(index - indexBegin());
+    return pointOffset / m_pointsPerChunk;
 }
 
 std::size_t DiskBranch::getByteOffset(
-        const std::size_t chunkId,
+        const std::size_t chunkFirstPoint,
         const std::size_t index) const
 {
-    assert(index >= chunkId);
+    assert(index >= chunkFirstPoint);
 
-    return (index - chunkId) / schema().pointSize();
+    return (index - chunkFirstPoint) * schema().pointSize();
 }
 
 void DiskBranch::saveImpl(const std::string& path, Json::Value& meta)

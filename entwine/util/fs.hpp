@@ -61,8 +61,6 @@ namespace fs
         int id() const;
 
     private:
-        int open(const std::string& filename, int flags);
-
         const int m_fd;
     };
 

@@ -73,7 +73,7 @@ bool writeFile(
 }
 
 FileDescriptor::FileDescriptor(const std::string& filename, const int flags)
-    : m_fd(open(filename, flags))
+    : m_fd(open(filename.c_str(), flags))
 { }
 
 FileDescriptor::~FileDescriptor()
@@ -95,11 +95,6 @@ bool FileDescriptor::good() const
 int FileDescriptor::id() const
 {
     return m_fd;
-}
-
-int FileDescriptor::open(const std::string& filename, int flags)
-{
-    return open(filename.c_str(), flags);
 }
 
 } // namespace fs

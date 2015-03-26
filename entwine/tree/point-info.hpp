@@ -30,12 +30,6 @@ class Schema;
 class PointInfo
 {
 public:
-    PointInfo(
-            const Schema& treeSchema,
-            const pdal::PointView& remoteView,
-            std::size_t index,
-            Origin origin);
-
     PointInfo(const Point* point, char* pos, std::size_t len);
 
     void write(char* pos);

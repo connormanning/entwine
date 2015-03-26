@@ -77,7 +77,6 @@ bool BaseBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
     PointInfo* toAdd(*toAddPtr);
     const std::size_t index(roller.pos());
     auto& myPoint(m_points[index].atom);
-    const std::size_t pointSize(schema().pointSize());
 
     if (myPoint.load())
     {
@@ -94,7 +93,11 @@ bool BaseBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
                 // Pull out the old stored value and store the Point that
                 // was in our atomic member, so we can overwrite that with
                 // the new one.
-                PointInfo* old(new PointInfo(curPoint, pos, pointSize));
+                PointInfo* old(
+                        new PointInfo(
+                            curPoint,
+                            pos,
+                            schema().pointSize()));
 
                 // Store this point.
                 toAdd->write(pos);
