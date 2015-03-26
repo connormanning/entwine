@@ -187,6 +187,7 @@ std::vector<char> SleepyTree::getPointData(
         const std::size_t index,
         const Schema& reqSchema)
 {
+    // Dealing with a foreign schema here.
     std::vector<char> nativePoint(m_registry->getPointData(index, reqSchema));
     std::vector<char> schemaPoint(reqSchema.pointSize());
 
@@ -197,7 +198,7 @@ std::vector<char> SleepyTree::getPointData(
 
     for (const auto& reqDim : reqSchema.dims())
     {
-        view.getField(pos, reqDim.id(), reqDim.type(), index);
+        view.getField(pos, reqDim.id(), reqDim.type(), 0);
         pos += reqDim.size();
     }
 

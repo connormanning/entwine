@@ -38,7 +38,7 @@ BaseBranch::BaseBranch(
         const std::size_t depthEnd)
     : Branch(schema, dimensions, 0, depthEnd)
     , m_points(size(), std::atomic<const Point*>(0))
-    , m_vector()
+    , m_data()
     , m_locks(size())
 {
     SimplePointTable table(schema);
@@ -50,7 +50,7 @@ BaseBranch::BaseBranch(
         view.setField(pdal::Dimension::Id::Y, i, empty);
     }
 
-    m_vector = table.data();
+    m_data = table.data();
 }
 
 BaseBranch::BaseBranch(
@@ -60,7 +60,7 @@ BaseBranch::BaseBranch(
         const Json::Value& meta)
     : Branch(schema, dimensions, meta)
     , m_points(size(), std::atomic<const Point*>(0))
-    , m_vector()
+    , m_data()
     , m_locks(size())
 {
     load(path, meta);
@@ -167,11 +167,11 @@ void BaseBranch::saveImpl(const std::string& path, Json::Value& meta)
         throw std::runtime_error("Could not open for write: " + dataPath);
     }
 
-    const uint64_t uncompressedSize(m_vector.size());
+    const uint64_t uncompressedSize(m_data.size());
 
     std::unique_ptr<std::vector<char>> compressed(
             Compression::compress(
-                m_vector.data(),
+                m_data.data(),
                 uncompressedSize,
                 schema()));
 
@@ -213,7 +213,7 @@ void BaseBranch::load(const std::string& path, const Json::Value& meta)
     std::vector<char> compressed(cmpSize);
     dataStream.read(compressed.data(), compressed.size());
 
-    m_vector = *Compression::decompress(compressed, schema(), uncSize).release();
+    m_data = *Compression::decompress(compressed, schema(), uncSize).release();
 
     double x(0);
     double y(0);
@@ -234,7 +234,7 @@ void BaseBranch::load(const std::string& path, const Json::Value& meta)
 
 char* BaseBranch::getLocation(std::size_t index)
 {
-    return m_vector.data() + index * schema().pointSize();
+    return m_data.data() + index * schema().pointSize();
 }
 
 } // namespace entwine

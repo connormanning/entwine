@@ -62,7 +62,7 @@ private:
     char* getLocation(std::size_t index);
 
     std::vector<ElasticAtomic<const Point*>> m_points;
-    std::vector<char> m_vector;
+    std::vector<char> m_data;
     std::vector<std::mutex> m_locks;
 };
 
