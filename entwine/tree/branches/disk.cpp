@@ -10,7 +10,6 @@
 
 #include <entwine/tree/branches/disk.hpp>
 
-#include <fcntl.h>
 #include <sys/mman.h>
 
 #include <pdal/PointView.hpp>
@@ -65,6 +64,11 @@ namespace
         return table.data();
     }
 
+    std::string getFilename(const std::string& path, const std::size_t id)
+    {
+        return path + "/" + std::to_string(id);
+    }
+
     const std::ios_base::openmode binaryTruncMode(
             std::ofstream::binary |
             std::ofstream::out |
@@ -75,20 +79,22 @@ Chunk::Chunk(
         const std::string& path,
         std::size_t begin,
         const std::vector<char>& initData)
-    : m_mapping(0)
+    : m_fd()
+    , m_mapping(0)
 {
-    std::string filename(path + "/" + std::to_string(begin));
+    std::string filename(getFilename(path, begin));
 
-    if (!Fs::fileExists(filename))
+    if (!fs::fileExists(filename))
     {
-        Fs::writeFile(filename, initData, binaryTruncMode);
+        fs::writeFile(filename, initData, binaryTruncMode);
     }
 
-    // TODO Wrap this C stuff.
-    int fd(open(filename.c_str(), O_RDWR));
+    m_fd.reset(new fs::FileDescriptor(filename));
 
-    if (fd < 0)
+    if (!m_fd->good())
+    {
         throw std::runtime_error("Could not open " + filename);
+    }
 
     char* mapping(
             static_cast<char*>(mmap(
@@ -96,7 +102,7 @@ Chunk::Chunk(
                 initData.size(),
                 PROT_READ | PROT_WRITE,
                 MAP_SHARED,
-                fd,
+                m_fd->id(),
                 0)));
 
     if (mapping == MAP_FAILED)

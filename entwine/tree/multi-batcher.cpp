@@ -113,7 +113,7 @@ void MultiBatcher::add(const std::string& filename)
                     }
 
 
-                    if (!Fs::writeFile(
+                    if (!fs::writeFile(
                                 localPath,
                                 *res.data().get(),
                                 binaryTruncMode))
@@ -172,7 +172,7 @@ void MultiBatcher::add(const std::string& filename)
                 reader->prepare(pointTableRef);
                 reader->execute(pointTableRef);
 
-                if (!Fs::removeFile(localPath))
+                if (!fs::removeFile(localPath))
                 {
                     std::cout << "Couldn't delete " << localPath << std::endl;
                     throw std::runtime_error("Couldn't delete tmp file");
@@ -233,7 +233,7 @@ void MultiBatcher::takeSnapshot()
         }
         const std::string manifestString(jsonManifest.toStyledString());
 
-        if (!Fs::writeFile(
+        if (!fs::writeFile(
                 m_sleepyTree.path() + "/manifest",
                 manifestString,
                 std::ofstream::out | std::ofstream::trunc))

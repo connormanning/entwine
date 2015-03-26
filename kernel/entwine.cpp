@@ -98,7 +98,7 @@ int main(int argc, char** argv)
     const std::size_t flatDepth(tree["flatDepth"].asUInt64());
     const std::size_t diskDepth(tree["diskDepth"].asUInt64());
 
-    if (!Fs::mkdirp(outDir))
+    if (!fs::mkdirp(outDir))
     {
         std::cout << "Could not create output dir: " << outDir << std::endl;
         return 1;

@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <fcntl.h>
+
 #include <ios>
 #include <string>
 #include <vector>
@@ -17,38 +19,53 @@
 namespace entwine
 {
 
-class Fs
+// Pretty much everything here is currently UNIX-only.
+namespace fs
 {
-public:
     // Returns true if the directory did not exist before and was created.
-    static bool mkdir(const std::string& dir);
+    bool mkdir(const std::string& dir);
 
     // Returns true if the directory was created or already existed.
-    static bool mkdirp(const std::string& dir);
+    bool mkdirp(const std::string& dir);
 
     // Returns true if file exists (can be opened for reading).
-    static bool fileExists(const std::string& filename);
+    bool fileExists(const std::string& filename);
 
     // Returns true if file successfully removed.
-    static bool removeFile(const std::string& filename);
+    bool removeFile(const std::string& filename);
 
     // Returns true if successfully written.
-    static bool writeFile(
+    bool writeFile(
             const std::string& filename,
             const std::vector<char>& contents,
             std::ios_base::openmode mode = std::ios_base::out);
 
-    static bool writeFile(
+    bool writeFile(
             const std::string& filename,
             const std::string& contents,
             std::ios_base::openmode mode = std::ios_base::out);
 
-    static bool writeFile(
+    bool writeFile(
             const std::string& filename,
             const char* data,
             std::size_t size,
             std::ios_base::openmode mode = std::ios_base::out);
-};
 
+    class FileDescriptor
+    {
+    public:
+        FileDescriptor(const std::string& filename, int flags = O_RDWR);
+        ~FileDescriptor();
+
+        bool good() const;
+        int id() const;
+
+    private:
+        int open(const std::string& filename, int flags);
+
+        const int m_fd;
+    };
+
+} // namespace fs
 } // namespace entwine
 

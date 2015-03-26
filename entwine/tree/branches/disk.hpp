@@ -22,6 +22,11 @@
 namespace entwine
 {
 
+namespace fs
+{
+    class FileDescriptor;
+}
+
 class Schema;
 
 class Chunk
@@ -42,6 +47,7 @@ public:
     bool sleep()  { return false; }
 
 private:
+    std::unique_ptr<fs::FileDescriptor> m_fd;
     char* m_mapping;
 };
 

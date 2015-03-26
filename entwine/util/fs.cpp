@@ -11,37 +11,41 @@
 #include <entwine/util/fs.hpp>
 
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include <cstdio>
 #include <fstream>
+#include <iostream>
 
 namespace entwine
 {
+namespace fs
+{
 
-bool Fs::mkdir(const std::string& dir)
+bool mkdir(const std::string& dir)
 {
     const bool err(::mkdir(dir.c_str(), S_IRWXU | S_IRGRP | S_IROTH));
     return !err;
 }
 
-bool Fs::mkdirp(const std::string& dir)
+bool mkdirp(const std::string& dir)
 {
     const bool err(::mkdir(dir.c_str(), S_IRWXU | S_IRGRP | S_IROTH));
     return (!err || errno == EEXIST);
 }
 
-bool Fs::fileExists(const std::string& filename)
+bool fileExists(const std::string& filename)
 {
     std::ifstream stream(filename);
     return stream.good();
 }
 
-bool Fs::removeFile(const std::string& filename)
+bool removeFile(const std::string& filename)
 {
     return remove(filename.c_str()) == 0;
 }
 
-bool Fs::writeFile(
+bool writeFile(
         const std::string& filename,
         const std::vector<char>& contents,
         const std::ios_base::openmode mode)
@@ -49,7 +53,7 @@ bool Fs::writeFile(
     return writeFile(filename, contents.data(), contents.size(), mode);
 }
 
-bool Fs::writeFile(
+bool writeFile(
         const std::string& filename,
         const std::string& contents,
         const std::ios_base::openmode mode)
@@ -57,7 +61,7 @@ bool Fs::writeFile(
     return writeFile(filename, contents.data(), contents.size(), mode);
 }
 
-bool Fs::writeFile(
+bool writeFile(
         const std::string& filename,
         const char* data,
         const std::size_t size,
@@ -68,5 +72,36 @@ bool Fs::writeFile(
     return writer.good();
 }
 
+FileDescriptor::FileDescriptor(const std::string& filename, const int flags)
+    : m_fd(open(filename, flags))
+{ }
+
+FileDescriptor::~FileDescriptor()
+{
+    if (m_fd != -1)
+    {
+        if (close(m_fd) < 0)
+        {
+            std::cout << "Error closing file descriptor!" << std::endl;
+        }
+    }
+}
+
+bool FileDescriptor::good() const
+{
+    return m_fd != -1;
+}
+
+int FileDescriptor::id() const
+{
+    return m_fd;
+}
+
+int FileDescriptor::open(const std::string& filename, int flags)
+{
+    return open(filename.c_str(), flags);
+}
+
+} // namespace fs
 } // namespace entwine
 
