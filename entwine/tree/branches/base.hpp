@@ -59,9 +59,10 @@ private:
     virtual void saveImpl(const std::string& path, Json::Value& meta);
     void load(const std::string& path, const Json::Value& meta);
 
+    char* getLocation(std::size_t index);
+
     std::vector<ElasticAtomic<const Point*>> m_points;
-    std::unique_ptr<SimplePointTable> m_table;
-    std::unique_ptr<pdal::PointView> m_data;
+    std::vector<char> m_vector;
     std::vector<std::mutex> m_locks;
 };
 

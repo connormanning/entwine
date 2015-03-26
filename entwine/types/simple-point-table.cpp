@@ -27,6 +27,16 @@ SimplePointTable::SimplePointTable(const Schema& schema)
     , m_numPoints(0)
 { }
 
+SimplePointTable::SimplePointTable(
+        const Schema& schema,
+        const std::vector<char>& data)
+    : BasePointTable(schema.pdalLayout())
+    , m_data(data)
+    , m_numPoints(data.size() / schema.pointSize())
+{
+    assert(m_data.size() % schema.pointSize() == 0);
+}
+
 pdal::PointId SimplePointTable::addPoint()
 {
     m_data.resize(m_data.size() + m_layout->pointSize());
@@ -65,6 +75,11 @@ void SimplePointTable::clear()
 {
     m_data.clear();
     m_numPoints = 0;
+}
+
+std::size_t SimplePointTable::size() const
+{
+    return m_data.size();
 }
 
 std::vector<char> SimplePointTable::data() const

@@ -26,6 +26,7 @@ class SimplePointTable : public pdal::BasePointTable
 public:
     SimplePointTable();
     explicit SimplePointTable(const Schema& schema);
+    SimplePointTable(const Schema& schema, const std::vector<char>& data);
 
     virtual pdal::PointId addPoint();
     virtual char* getPoint(pdal::PointId index);
@@ -39,6 +40,7 @@ public:
             void* value);
 
     void clear();
+    std::size_t size() const;
 
     std::vector<char> data() const;
 

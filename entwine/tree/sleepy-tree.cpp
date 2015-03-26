@@ -17,7 +17,9 @@
 #include <entwine/tree/roller.hpp>
 #include <entwine/tree/registry.hpp>
 #include <entwine/types/bbox.hpp>
+#include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/simple-point-table.hpp>
 
 namespace entwine
 {
@@ -183,9 +185,23 @@ std::vector<std::size_t> SleepyTree::query(
 
 std::vector<char> SleepyTree::getPointData(
         const std::size_t index,
-        const Schema& schema)
+        const Schema& reqSchema)
 {
-    return m_registry->getPointData(index, schema);
+    std::vector<char> nativePoint(m_registry->getPointData(index, reqSchema));
+    std::vector<char> schemaPoint(reqSchema.pointSize());
+
+    SimplePointTable table(schema(), nativePoint);
+    LinkingPointView view(table);
+
+    char* pos(schemaPoint.data());
+
+    for (const auto& reqDim : reqSchema.dims())
+    {
+        view.getField(pos, reqDim.id(), reqDim.type(), index);
+        pos += reqDim.size();
+    }
+
+    return schemaPoint;
 }
 
 const Schema& SleepyTree::schema() const

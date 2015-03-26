@@ -38,15 +38,19 @@ BaseBranch::BaseBranch(
         const std::size_t depthEnd)
     : Branch(schema, dimensions, 0, depthEnd)
     , m_points(size(), std::atomic<const Point*>(0))
-    , m_table(new SimplePointTable(schema))
-    , m_data(new pdal::PointView(*m_table.get()))
+    , m_vector()
     , m_locks(size())
 {
+    SimplePointTable table(schema);
+    pdal::PointView view(table);
+
     for (std::size_t i(0); i < size(); ++i)
     {
-        m_data->setField(pdal::Dimension::Id::X, i, empty);
-        m_data->setField(pdal::Dimension::Id::Y, i, empty);
+        view.setField(pdal::Dimension::Id::X, i, empty);
+        view.setField(pdal::Dimension::Id::Y, i, empty);
     }
+
+    m_vector = table.data();
 }
 
 BaseBranch::BaseBranch(
@@ -56,8 +60,7 @@ BaseBranch::BaseBranch(
         const Json::Value& meta)
     : Branch(schema, dimensions, meta)
     , m_points(size(), std::atomic<const Point*>(0))
-    , m_table(new SimplePointTable(schema))
-    , m_data(new pdal::PointView(*m_table.get()))
+    , m_vector()
     , m_locks(size())
 {
     load(path, meta);
@@ -89,7 +92,7 @@ bool BaseBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
 
             if (toAdd->point->sqDist(mid) < curPoint->sqDist(mid))
             {
-                char* pos(m_data->getPoint(index));
+                char* pos(getLocation(index));
 
                 // Pull out the old stored value and store the Point that
                 // was in our atomic member, so we can overwrite that with
@@ -111,7 +114,7 @@ bool BaseBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
         std::unique_lock<std::mutex> lock(m_locks[index]);
         if (!myPoint.load())
         {
-            toAdd->write(m_data->getPoint(index));
+            toAdd->write(getLocation(index));
             myPoint.store(toAdd->point);
             delete toAdd;
             done = true;
@@ -148,21 +151,7 @@ std::vector<char> BaseBranch::getPointData(
         const std::size_t index,
         const Schema& reqSchema)
 {
-    std::vector<char> bytes;
-
-    if (hasPoint(index))
-    {
-        bytes.resize(reqSchema.pointSize());
-        char* pos(bytes.data());
-
-        for (const auto& reqDim : reqSchema.dims())
-        {
-            m_data->getField(pos, reqDim.id(), reqDim.type(), index);
-            pos += reqDim.size();
-        }
-    }
-
-    return bytes;
+    return std::vector<char>(getLocation(index), getLocation(index + 1));
 }
 
 void BaseBranch::saveImpl(const std::string& path, Json::Value& meta)
@@ -178,11 +167,11 @@ void BaseBranch::saveImpl(const std::string& path, Json::Value& meta)
         throw std::runtime_error("Could not open for write: " + dataPath);
     }
 
-    const uint64_t uncompressedSize(m_data->size() * schema().pointSize());
+    const uint64_t uncompressedSize(m_vector.size());
 
     std::unique_ptr<std::vector<char>> compressed(
             Compression::compress(
-                m_data->getPoint(0),
+                m_vector.data(),
                 uncompressedSize,
                 schema()));
 
@@ -224,30 +213,28 @@ void BaseBranch::load(const std::string& path, const Json::Value& meta)
     std::vector<char> compressed(cmpSize);
     dataStream.read(compressed.data(), compressed.size());
 
-    std::unique_ptr<std::vector<char>> uncompressed(
-            Compression::decompress(
-                compressed,
-                schema(),
-                uncSize));
+    m_vector = *Compression::decompress(compressed, schema(), uncSize).release();
 
     double x(0);
     double y(0);
-    const std::size_t pointSize(schema().pointSize());
 
     for (std::size_t i(0); i < size(); ++i)
     {
-        const char* pos(uncompressed->data() + i * pointSize);
+        const char* pos(getLocation(i));
+
         std::memcpy(&x, pos, sizeof(double));
         std::memcpy(&y, pos + sizeof(double), sizeof(double));
-
-        m_data->setField(pdal::Dimension::Id::X, i, x);
-        m_data->setField(pdal::Dimension::Id::Y, i, y);
 
         if (x != empty && y != empty)
         {
             m_points[i].atom.store(new Point(x, y));
         }
     }
+}
+
+char* BaseBranch::getLocation(std::size_t index)
+{
+    return m_vector.data() + index * schema().pointSize();
 }
 
 } // namespace entwine

@@ -5,6 +5,7 @@ set(
     SOURCES
     "${BASE}/bbox.cpp"
     "${BASE}/dim-info.cpp"
+    "${BASE}/linking-point-view.cpp"
     "${BASE}/schema.cpp"
     "${BASE}/simple-point-layout.cpp"
     "${BASE}/simple-point-table.cpp"
@@ -15,6 +16,7 @@ set(
     "${BASE}/bbox.hpp"
     "${BASE}/dim-info.hpp"
     "${BASE}/elastic-atomic.hpp"
+    "${BASE}/linking-point-view.hpp"
     "${BASE}/point.hpp"
     "${BASE}/schema.hpp"
     "${BASE}/simple-point-layout.hpp"
