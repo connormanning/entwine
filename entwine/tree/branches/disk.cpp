@@ -421,7 +421,20 @@ Point DiskBranch::getPoint(std::size_t index)
 
 std::vector<char> DiskBranch::getPointData(std::size_t index)
 {
-    return std::vector<char>();
+    std::vector<char> data;
+
+    const std::size_t chunkSize(m_pointsPerChunk * schema().pointSize());
+    LockedChunk& lockedChunk(getLockedChunk(index));
+
+    if (lockedChunk.backed(m_path))
+    {
+        if (Chunk* chunk = lockedChunk.awaken(schema(), m_path, chunkSize))
+        {
+            data = chunk->getPointData(index);
+        }
+    }
+
+    return data;
 }
 
 LockedChunk& DiskBranch::getLockedChunk(const std::size_t index)
