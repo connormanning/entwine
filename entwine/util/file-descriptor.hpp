@@ -10,15 +10,28 @@
 
 #pragma once
 
-#include <cstddef>
+#include <fcntl.h>
+
+#include <string>
 
 namespace entwine
 {
-namespace platform
+namespace fs
 {
 
-std::size_t pageSize();
+class FileDescriptor
+{
+public:
+    FileDescriptor(const std::string& filename, int flags = O_RDWR);
+    ~FileDescriptor();
 
-} // namespace platform
+    bool good() const;
+    int id() const;
+
+private:
+    const int m_fd;
+};
+
+} // namespace fs
 } // namespace entwine
 

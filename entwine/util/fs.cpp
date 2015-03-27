@@ -72,31 +72,6 @@ bool writeFile(
     return writer.good();
 }
 
-FileDescriptor::FileDescriptor(const std::string& filename, const int flags)
-    : m_fd(open(filename.c_str(), flags))
-{ }
-
-FileDescriptor::~FileDescriptor()
-{
-    if (m_fd != -1)
-    {
-        if (close(m_fd) < 0)
-        {
-            std::cout << "Error closing file descriptor!" << std::endl;
-        }
-    }
-}
-
-bool FileDescriptor::good() const
-{
-    return m_fd != -1;
-}
-
-int FileDescriptor::id() const
-{
-    return m_fd;
-}
-
 } // namespace fs
 } // namespace entwine
 

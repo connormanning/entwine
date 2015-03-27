@@ -14,8 +14,10 @@
 
 namespace entwine
 {
+namespace platform
+{
 
-std::size_t Platform::pageSize()
+std::size_t pageSize()
 {
 #if defined _SC_PAGE_SIZE
     return sysconf(_SC_PAGE_SIZE);
@@ -24,5 +26,6 @@ std::size_t Platform::pageSize()
 #endif
 }
 
+} // namespace platform
 } // namespace entwine
 
