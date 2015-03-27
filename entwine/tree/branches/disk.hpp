@@ -16,6 +16,7 @@
 #include <map>
 #include <mutex>
 #include <memory>
+#include <set>
 
 #include <entwine/tree/branch.hpp>
 
@@ -33,44 +34,68 @@ class Chunk
 {
 public:
     Chunk(
+            const Schema& schema,
             const std::string& path,
             std::size_t begin,
             const std::vector<char>& initData);
-
-    bool addPoint(
+    Chunk(
             const Schema& schema,
-            const Roller& roller,
-            PointInfo** toAddPtr,
-            std::size_t byteOffset);
+            const std::string& path,
+            std::size_t begin,
+            const std::size_t chunkSize);
+    ~Chunk();
 
-    // TODO
-    bool awaken() { return false; }
-    bool sleep()  { return false; }
+    bool addPoint(const Roller& roller, PointInfo** toAddPtr);
+
+    bool hasPoint(std::size_t index) const;
+    Point getPoint(std::size_t index) const;
+    std::vector<char> getPointData(std::size_t index) const;
+
+    void sync();
 
 private:
+    std::size_t getByteOffset(std::size_t index) const;
+
+    const Schema& m_schema;
     std::unique_ptr<fs::FileDescriptor> m_fd;
     char* m_mapping;
+    const std::size_t m_begin;
+    const std::size_t m_size;
     std::mutex m_mutex;
 };
 
 class LockedChunk
 {
 public:
-    LockedChunk();
+    LockedChunk(std::size_t begin);
     ~LockedChunk();
 
-    // Initialize the chunk.  Thread-safe and idempotent.
-    void init(
+    // Initialize the chunk, creating its backing file if needed.  Thread-safe
+    // and idempotent.
+    Chunk* init(
+            const Schema& schema,
             const std::string& path,
-            std::size_t firstPointIndex,
             const std::vector<char>& data);
 
-    Chunk& get() { return *m_chunk.load(); }
+    // Read-only version to awaken the chunk for querying.  Returns null
+    // pointer if there is no file for this chunk.
+    Chunk* awaken(
+            const Schema& schema,
+            const std::string& path,
+            std::size_t chunkSize);
 
-    // If this returns false, init() must be called before using get().
-    bool exists() const;
+    Chunk* get() { return m_chunk.load(); }
+
+    // True if the underlying file for this chunk exists.
+    bool backed(const std::string& path) const;
+
+    // True if our owned Chunk has been initialized.
+    bool live() const;
+
+    std::size_t id() const { return m_begin; }
 
 private:
+    const std::size_t m_begin;
     std::mutex m_mutex;
     std::atomic<Chunk*> m_chunk;
 };
@@ -96,20 +121,18 @@ public:
     virtual std::vector<char> getPointData(std::size_t index);
 
 private:
-    // Returns the zero-based chunk ID that contains this index.
-    std::size_t getChunkId(std::size_t index) const;
-
-    // Returns the byte offset for this index within the specified chunkId.
-    std::size_t getByteOffset(
-            std::size_t chunkFirstPoint,
-            std::size_t index) const;
+    LockedChunk& getLockedChunk(std::size_t index);
+    std::size_t getChunkIndex(std::size_t index) const;
 
     virtual void saveImpl(const std::string& path, Json::Value& meta);
 
     const std::string& m_path;
 
+    std::set<std::size_t> m_ids;
+    std::mutex m_mutex;
+
     const std::size_t m_pointsPerChunk;
-    std::vector<LockedChunk> m_chunks;
+    std::vector<std::unique_ptr<LockedChunk>> m_chunks;
 
     const std::vector<char> m_emptyChunk;
 };
