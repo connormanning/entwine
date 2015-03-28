@@ -25,6 +25,7 @@ Branch::Branch(
     , m_depthEnd(depthEnd)
     , m_indexBegin(calcOffset(m_depthBegin, dimensions))
     , m_indexEnd(calcOffset(m_depthEnd, dimensions))
+    , m_dimensions(dimensions)
 { }
 
 Branch::Branch(
@@ -36,6 +37,7 @@ Branch::Branch(
     , m_depthEnd(meta["depthEnd"].asUInt64())
     , m_indexBegin(calcOffset(m_depthBegin, dimensions))
     , m_indexEnd(calcOffset(m_depthEnd, dimensions))
+    , m_dimensions(dimensions)
 { }
 
 Branch::~Branch()
@@ -94,6 +96,11 @@ std::size_t Branch::indexEnd() const
 std::size_t Branch::size() const
 {
     return m_indexEnd - m_indexBegin;
+}
+
+std::size_t Branch::dimensions() const
+{
+    return m_dimensions;
 }
 
 } //namespace entwine

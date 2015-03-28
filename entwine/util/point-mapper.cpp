@@ -64,7 +64,9 @@ PointMapper::~PointMapper()
     {
         if (char* mapping = m.atom.load())
         {
-            if (msync(mapping, m_slotSize, MS_ASYNC) == -1)
+            if (
+                    msync(mapping, m_slotSize, MS_ASYNC) == -1 ||
+                    munmap(mapping, m_slotSize) == -1)
             {
                 throw std::runtime_error("Couldn't sync mapping");
             }
@@ -166,6 +168,7 @@ std::size_t PointMapper::getGlobalOffset(std::size_t index) const
 
     return (index - m_firstPointIndex) * m_schema.pointSize();
 }
+
 char* PointMapper::ensureMapping(const std::size_t slotIndex)
 {
     auto& thisMapping(m_mappings[slotIndex].atom);

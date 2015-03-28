@@ -26,78 +26,50 @@ namespace entwine
 namespace fs
 {
     class FileDescriptor;
+    class PointMapper;
 }
 
 class Schema;
 
-class Chunk
-{
-public:
-    Chunk(
-            const Schema& schema,
-            const std::string& path,
-            std::size_t begin,
-            const std::vector<char>& initData);
-    Chunk(
-            const Schema& schema,
-            const std::string& path,
-            std::size_t begin,
-            const std::size_t chunkSize);
-    ~Chunk();
-
-    bool addPoint(const Roller& roller, PointInfo** toAddPtr);
-
-    bool hasPoint(std::size_t index) const;
-    Point getPoint(std::size_t index) const;
-    std::vector<char> getPointData(std::size_t index) const;
-
-    void sync();
-
-private:
-    std::size_t getByteOffset(std::size_t index) const;
-
-    const Schema& m_schema;
-    std::unique_ptr<fs::FileDescriptor> m_fd;
-    char* m_mapping;
-    const std::size_t m_begin;
-    const std::size_t m_size;
-    std::mutex m_mutex;
-};
-
 class LockedChunk
 {
 public:
-    LockedChunk(std::size_t begin);
-    ~LockedChunk();
-
-    // Initialize the chunk, creating its backing file if needed.  Thread-safe
-    // and idempotent.
-    Chunk* init(
-            const Schema& schema,
+    LockedChunk(
             const std::string& path,
-            const std::vector<char>& data);
-
-    // Read-only version to awaken the chunk for querying.  Returns null
-    // pointer if there is no file for this chunk.
-    Chunk* awaken(
             const Schema& schema,
-            const std::string& path,
+            std::size_t begin,
             std::size_t chunkSize);
 
-    Chunk* get() { return m_chunk.load(); }
+    ~LockedChunk();
 
-    // True if the underlying file for this chunk exists.
-    bool backed(const std::string& path) const;
+    // Initialize the mapper, creating its backing file if needed.  Thread-safe
+    // and idempotent.  This is only necessary in order to write to the backing
+    // file.  For read-only queries, just call get(), which will only create
+    // the PointMapper if the backing file already exists and the mapper is
+    // not live.
+    //
+    // Returns true if the backing file was created and written, or false if
+    // it already existed.  A false return value does not mean that get() will
+    // fail.
+    bool create(const std::vector<char>& initData);
 
-    // True if our owned Chunk has been initialized.
+    // Initialize the mapper in a read-only fashion, returning a null pointer
+    // if the backing file does not exist.
+    fs::PointMapper* get();
+
+    // True if our owned Mapper has been initialized.
     bool live() const;
 
     std::size_t id() const { return m_begin; }
 
 private:
+    const std::string m_filename;
+    const Schema& m_schema;
     const std::size_t m_begin;
+    const std::size_t m_chunkSize;
+
     std::mutex m_mutex;
-    std::atomic<Chunk*> m_chunk;
+    std::atomic<fs::PointMapper*> m_mapper;
 };
 
 class DiskBranch : public Branch
@@ -121,6 +93,8 @@ public:
     virtual std::vector<char> getPointData(std::size_t index);
 
 private:
+    void init();
+
     LockedChunk& getLockedChunk(std::size_t index);
     std::size_t getChunkIndex(std::size_t index) const;
 
@@ -132,7 +106,7 @@ private:
     std::mutex m_mutex;
 
     const std::size_t m_pointsPerChunk;
-    std::vector<std::unique_ptr<LockedChunk>> m_chunks;
+    std::vector<std::unique_ptr<LockedChunk>> m_mappers;
 
     const std::vector<char> m_emptyChunk;
 };

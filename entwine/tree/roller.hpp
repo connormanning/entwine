@@ -8,6 +8,8 @@
 *
 ******************************************************************************/
 
+#pragma once
+
 #include <cstddef>
 
 #include <entwine/types/bbox.hpp>

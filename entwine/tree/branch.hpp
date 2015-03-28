@@ -97,6 +97,7 @@ protected:
     std::size_t indexBegin()    const;
     std::size_t indexEnd()      const;
     std::size_t size()          const;
+    std::size_t dimensions()    const;
 
 private:
     const Schema& m_schema;
@@ -104,6 +105,8 @@ private:
     const std::size_t m_depthEnd;
     const std::size_t m_indexBegin;
     const std::size_t m_indexEnd;
+
+    const std::size_t m_dimensions;
 };
 
 } // namespace entwine

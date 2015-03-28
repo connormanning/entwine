@@ -22,7 +22,9 @@
 #include <entwine/types/simple-point-table.hpp>
 #include <entwine/types/single-point-table.hpp>
 #include <entwine/util/fs.hpp>
+#include <entwine/util/file-descriptor.hpp>
 #include <entwine/util/platform.hpp>
+#include <entwine/util/point-mapper.hpp>
 
 namespace entwine
 {
@@ -75,244 +77,67 @@ namespace
             std::ofstream::trunc);
 }
 
-Chunk::Chunk(
-        const Schema& schema,
+LockedChunk::LockedChunk(
         const std::string& path,
-        const std::size_t begin,
-        const std::vector<char>& initData)
-    : m_schema(schema)
-    , m_fd()
-    , m_mapping(0)
-    , m_begin(begin)
-    , m_size(initData.size())
-    , m_mutex()
-{
-    std::cout << "Making chunk" << std::endl;
-    std::string filename(getFilename(path, m_begin));
-
-    if (!fs::fileExists(filename))
-    {
-        fs::writeFile(filename, initData, binaryTruncMode);
-    }
-
-    m_fd.reset(new fs::FileDescriptor(filename));
-
-    if (!m_fd->good())
-    {
-        throw std::runtime_error("Could not open " + filename);
-    }
-
-    char* mapping(
-            static_cast<char*>(mmap(
-                0,
-                m_size,
-                PROT_READ | PROT_WRITE,
-                MAP_SHARED,
-                m_fd->id(),
-                0)));
-
-    if (mapping == MAP_FAILED)
-        throw std::runtime_error("Could not map " + filename);
-
-    m_mapping = mapping;
-}
-
-Chunk::Chunk(
         const Schema& schema,
-        const std::string& path,
         const std::size_t begin,
-        const std::size_t size)
-    : m_schema(schema)
-    , m_fd()
-    , m_mapping(0)
+        const std::size_t chunkSize)
+    : m_filename(getFilename(path, begin))
+    , m_schema(schema)
     , m_begin(begin)
-    , m_size(size)
+    , m_chunkSize(chunkSize)
     , m_mutex()
-{
-    std::string filename(getFilename(path, m_begin));
-
-    if (!fs::fileExists(filename))
-    {
-        throw std::runtime_error("File does not exist");
-    }
-
-    m_fd.reset(new fs::FileDescriptor(filename));
-
-    if (!m_fd->good())
-    {
-        throw std::runtime_error("Could not open " + filename);
-    }
-
-    char* mapping(
-            static_cast<char*>(mmap(
-                0,
-                m_size,
-                PROT_READ | PROT_WRITE,
-                MAP_SHARED,
-                m_fd->id(),
-                0)));
-
-    if (mapping == MAP_FAILED)
-        throw std::runtime_error("Could not map " + filename);
-
-    m_mapping = mapping;
-}
-
-Chunk::~Chunk()
-{
-    sync();
-}
-
-bool Chunk::addPoint(const Roller& roller, PointInfo** toAddPtr)
-{
-    bool done(false);
-
-    PointInfo* toAdd(*toAddPtr);
-
-    char* pos(m_mapping + getByteOffset(roller.pos()));
-
-    SinglePointTable table(m_schema, pos);
-    LinkingPointView view(table);
-
-    // TODO Should have multiple for high-traffic chunks close to the base.
-    std::lock_guard<std::mutex> lock(m_mutex);
-
-    double x = view.getFieldAs<double>(pdal::Dimension::Id::X, 0);
-    double y = view.getFieldAs<double>(pdal::Dimension::Id::Y, 0);
-
-    if (Point::exists(x, y))
-    {
-        const Point curPoint(x, y);
-        const Point mid(roller.bbox().mid());
-
-        if (toAdd->point->sqDist(mid) < curPoint.sqDist(mid))
-        {
-            // Pull out the old stored value.
-            PointInfo* old(
-                    new PointInfo(
-                        new Point(curPoint),
-                        pos,
-                        m_schema.pointSize()));
-
-            toAdd->write(pos);
-            delete toAdd->point;
-            delete toAdd;
-
-            *toAddPtr = old;
-        }
-    }
-    else
-    {
-        // Empty point here - store incoming.
-        toAdd->write(pos);
-
-        delete toAdd->point;
-        delete toAdd;
-        done = true;
-    }
-
-    return done;
-}
-
-bool Chunk::hasPoint(const std::size_t index) const
-{
-    const Point p(getPoint(index));
-    return Point::exists(p.x, p.y);
-}
-
-Point Chunk::getPoint(const std::size_t index) const
-{
-    char* pos(m_mapping + getByteOffset(index));
-
-    SinglePointTable table(m_schema, pos);
-    LinkingPointView view(table);
-
-    double x = view.getFieldAs<double>(pdal::Dimension::Id::X, 0);
-    double y = view.getFieldAs<double>(pdal::Dimension::Id::Y, 0);
-
-    return Point(x, y);
-}
-
-std::vector<char> Chunk::getPointData(const std::size_t index) const
-{
-    char* begin(m_mapping + getByteOffset(index));
-    char* end(m_mapping + getByteOffset(index + 1));
-
-    return std::vector<char>(begin, end);
-}
-
-void Chunk::sync()
-{
-    if (m_mapping && msync(m_mapping, m_size, MS_ASYNC) == -1)
-    {
-        throw std::runtime_error("Couldn't sync mapping");
-    }
-}
-
-std::size_t Chunk::getByteOffset(std::size_t index) const
-{
-    return (index - m_begin) * m_schema.pointSize();
-}
-
-LockedChunk::LockedChunk(const std::size_t begin)
-    : m_begin(begin)
-    , m_mutex()
-    , m_chunk(0)
+    , m_mapper(0)
 { }
 
 LockedChunk::~LockedChunk()
 {
     if (live())
     {
-        delete m_chunk.load();
+        delete m_mapper.load();
     }
 }
 
-Chunk* LockedChunk::init(
-        const Schema& schema,
-        const std::string& path,
-        const std::vector<char>& initData)
+fs::PointMapper* LockedChunk::get()
 {
     if (!live())
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        if (!live())
+        if (!live() && fs::fileExists(m_filename))
         {
-            m_chunk.store(new Chunk(schema, path, m_begin, initData));
+            m_mapper.store(
+                    new fs::PointMapper(
+                        m_schema,
+                        m_filename,
+                        m_chunkSize,
+                        m_begin));
         }
     }
 
-    return get();
+    return m_mapper.load();
 }
 
-Chunk* LockedChunk::awaken(
-        const Schema& schema,
-        const std::string& path,
-        const std::size_t chunkSize)
+bool LockedChunk::create(const std::vector<char>& initData)
 {
-    if (backed(path))
+    bool created(false);
+
+    if (!live())
     {
-        if (!live())
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (!live() && !fs::fileExists(m_filename))
         {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            if (!live())
-            {
-                m_chunk.store(new Chunk(schema, path, m_begin, chunkSize));
-            }
+            assert(initData.size() == m_chunkSize);
+            fs::writeFile(m_filename, initData, binaryTruncMode);
+            created = true;
         }
     }
 
-    return get();
-}
-
-bool LockedChunk::backed(const std::string& path) const
-{
-    return fs::fileExists(getFilename(path, m_begin));
+    return created;
 }
 
 bool LockedChunk::live() const
 {
-    return m_chunk.load() != 0;
+    return m_mapper.load() != 0;
 }
 
 DiskBranch::DiskBranch(
@@ -325,17 +150,10 @@ DiskBranch::DiskBranch(
     , m_path(path)
     , m_ids()
     , m_pointsPerChunk(pointsPerChunk(depthBegin, dimensions))
-    , m_chunks()
+    , m_mappers()
     , m_emptyChunk(makeEmptyChunk(schema, m_pointsPerChunk))
 {
-    const std::size_t chunks(numChunks(depthBegin, depthEnd, dimensions));
-
-    for (std::size_t i(0); i < chunks; ++i)
-    {
-        m_chunks.emplace_back(
-                std::unique_ptr<LockedChunk>(
-                    new LockedChunk(indexBegin() + i * m_pointsPerChunk)));
-    }
+    init();
 }
 
 DiskBranch::DiskBranch(
@@ -347,16 +165,30 @@ DiskBranch::DiskBranch(
     , m_path(path)
     , m_ids()
     , m_pointsPerChunk(pointsPerChunk(depthBegin(), dimensions))
-    , m_chunks()
+    , m_mappers()
     , m_emptyChunk(makeEmptyChunk(schema, m_pointsPerChunk))
 {
-    const std::size_t chunks(numChunks(depthBegin(), depthEnd(), dimensions));
+    init();
+}
+
+void DiskBranch::init()
+{
+    if (depthBegin() < 6)
+    {
+        throw std::runtime_error("DiskBranch needs depthBegin >= 6");
+    }
+
+    const std::size_t chunks(numChunks(depthBegin(), depthEnd(), dimensions()));
 
     for (std::size_t i(0); i < chunks; ++i)
     {
-        m_chunks.emplace_back(
+        m_mappers.emplace_back(
                 std::unique_ptr<LockedChunk>(
-                    new LockedChunk(indexBegin() + i * m_pointsPerChunk)));
+                    new LockedChunk(
+                        m_path,
+                        schema(),
+                        indexBegin() + i * m_pointsPerChunk,
+                        m_emptyChunk.size())));
     }
 }
 
@@ -364,16 +196,13 @@ bool DiskBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
 {
     LockedChunk& lockedChunk(getLockedChunk(roller.pos()));
 
-    if (!lockedChunk.live())
+    if (lockedChunk.create(m_emptyChunk))
     {
-        // First point position belonging to this chunk.
-        lockedChunk.init(schema(), m_path, m_emptyChunk);
-
         std::lock_guard<std::mutex> lock(m_mutex);
         m_ids.insert(lockedChunk.id());
     }
 
-    if (Chunk* chunk = lockedChunk.get())
+    if (fs::PointMapper* chunk = lockedChunk.get())
     {
         return chunk->addPoint(roller, toAddPtr);
     }
@@ -385,35 +214,18 @@ bool DiskBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
 
 bool DiskBranch::hasPoint(std::size_t index)
 {
-    bool result(false);
-
-    const std::size_t chunkSize(m_pointsPerChunk * schema().pointSize());
-    LockedChunk& lockedChunk(getLockedChunk(index));
-
-    if (lockedChunk.backed(m_path))
-    {
-        if (Chunk* chunk = lockedChunk.awaken(schema(), m_path, chunkSize))
-        {
-            result = chunk->hasPoint(index);
-        }
-    }
-
-    return result;
+    return Point::exists(getPoint(index));
 }
 
 Point DiskBranch::getPoint(std::size_t index)
 {
     Point point(INFINITY, INFINITY);
 
-    const std::size_t chunkSize(m_pointsPerChunk * schema().pointSize());
     LockedChunk& lockedChunk(getLockedChunk(index));
 
-    if (lockedChunk.backed(m_path))
+    if (fs::PointMapper* chunk = lockedChunk.get())
     {
-        if (Chunk* chunk = lockedChunk.awaken(schema(), m_path, chunkSize))
-        {
-            point = chunk->getPoint(index);
-        }
+        point = chunk->getPoint(index);
     }
 
     return point;
@@ -423,15 +235,11 @@ std::vector<char> DiskBranch::getPointData(std::size_t index)
 {
     std::vector<char> data;
 
-    const std::size_t chunkSize(m_pointsPerChunk * schema().pointSize());
     LockedChunk& lockedChunk(getLockedChunk(index));
 
-    if (lockedChunk.backed(m_path))
+    if (fs::PointMapper* chunk = lockedChunk.get())
     {
-        if (Chunk* chunk = lockedChunk.awaken(schema(), m_path, chunkSize))
-        {
-            data = chunk->getPointData(index);
-        }
+        data = chunk->getPointData(index);
     }
 
     return data;
@@ -439,7 +247,7 @@ std::vector<char> DiskBranch::getPointData(std::size_t index)
 
 LockedChunk& DiskBranch::getLockedChunk(const std::size_t index)
 {
-    return *m_chunks[getChunkIndex(index)].get();
+    return *m_mappers[getChunkIndex(index)].get();
 }
 
 std::size_t DiskBranch::getChunkIndex(std::size_t index) const

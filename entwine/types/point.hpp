@@ -30,9 +30,14 @@ public:
         return (x - other.x) * (x - other.x) + (y - other.y) * (y - other.y);
     }
 
+    static bool exists(Point p)
+    {
+        return (p.x != INFINITY && p.y != INFINITY);
+    }
+
     static bool exists(double x, double y)
     {
-        return (x != INFINITY && y != INFINITY);
+        return exists(Point(x, y));
     }
 
     double x;
