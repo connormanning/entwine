@@ -77,7 +77,7 @@ namespace
             std::ofstream::trunc);
 }
 
-LockedChunk::LockedChunk(
+ChunkManager::ChunkManager(
         const std::string& path,
         const Schema& schema,
         const std::size_t begin,
@@ -90,7 +90,7 @@ LockedChunk::LockedChunk(
     , m_mapper(0)
 { }
 
-LockedChunk::~LockedChunk()
+ChunkManager::~ChunkManager()
 {
     if (live())
     {
@@ -98,7 +98,7 @@ LockedChunk::~LockedChunk()
     }
 }
 
-fs::PointMapper* LockedChunk::get()
+fs::PointMapper* ChunkManager::getMapper()
 {
     if (!live())
     {
@@ -117,7 +117,7 @@ fs::PointMapper* LockedChunk::get()
     return m_mapper.load();
 }
 
-bool LockedChunk::create(const std::vector<char>& initData)
+bool ChunkManager::create(const std::vector<char>& initData)
 {
     bool created(false);
 
@@ -135,7 +135,7 @@ bool LockedChunk::create(const std::vector<char>& initData)
     return created;
 }
 
-bool LockedChunk::live() const
+bool ChunkManager::live() const
 {
     return m_mapper.load() != 0;
 }
@@ -183,8 +183,8 @@ void DiskBranch::init()
     for (std::size_t i(0); i < chunks; ++i)
     {
         m_mappers.emplace_back(
-                std::unique_ptr<LockedChunk>(
-                    new LockedChunk(
+                std::unique_ptr<ChunkManager>(
+                    new ChunkManager(
                         m_path,
                         schema(),
                         indexBegin() + i * m_pointsPerChunk,
@@ -194,15 +194,15 @@ void DiskBranch::init()
 
 bool DiskBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
 {
-    LockedChunk& lockedChunk(getLockedChunk(roller.pos()));
+    ChunkManager& chunkManager(getChunkManager(roller.pos()));
 
-    if (lockedChunk.create(m_emptyChunk))
+    if (chunkManager.create(m_emptyChunk))
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        m_ids.insert(lockedChunk.id());
+        m_ids.insert(chunkManager.id());
     }
 
-    if (fs::PointMapper* chunk = lockedChunk.get())
+    if (fs::PointMapper* chunk = chunkManager.getMapper())
     {
         return chunk->addPoint(roller, toAddPtr);
     }
@@ -221,9 +221,9 @@ Point DiskBranch::getPoint(std::size_t index)
 {
     Point point(INFINITY, INFINITY);
 
-    LockedChunk& lockedChunk(getLockedChunk(index));
+    ChunkManager& chunkManager(getChunkManager(index));
 
-    if (fs::PointMapper* chunk = lockedChunk.get())
+    if (fs::PointMapper* chunk = chunkManager.getMapper())
     {
         point = chunk->getPoint(index);
     }
@@ -235,9 +235,9 @@ std::vector<char> DiskBranch::getPointData(std::size_t index)
 {
     std::vector<char> data;
 
-    LockedChunk& lockedChunk(getLockedChunk(index));
+    ChunkManager& chunkManager(getChunkManager(index));
 
-    if (fs::PointMapper* chunk = lockedChunk.get())
+    if (fs::PointMapper* chunk = chunkManager.getMapper())
     {
         data = chunk->getPointData(index);
     }
@@ -245,7 +245,7 @@ std::vector<char> DiskBranch::getPointData(std::size_t index)
     return data;
 }
 
-LockedChunk& DiskBranch::getLockedChunk(const std::size_t index)
+ChunkManager& DiskBranch::getChunkManager(const std::size_t index)
 {
     return *m_mappers[getChunkIndex(index)].get();
 }

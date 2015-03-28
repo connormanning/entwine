@@ -31,16 +31,26 @@ namespace fs
 
 class Schema;
 
-class LockedChunk
+// A 'chunk' is a pre-allocated file of constant size, which is managed by this
+// structure.  Each chunk is further broken down into dynamically created
+// 'slots', which are equally-sized fractions of the full chunk.  Slots are
+// managed by the PointMapper.
+//
+// This class takes care of:
+//    - Writing the initial file when an addPoint call requires a chunk that
+//      does not yet exist.
+//    - Initializing the PointMapper on this chunk once it's created.
+//    - Providing safe access to the PointMapper.
+class ChunkManager
 {
 public:
-    LockedChunk(
+    ChunkManager(
             const std::string& path,
             const Schema& schema,
             std::size_t begin,
             std::size_t chunkSize);
 
-    ~LockedChunk();
+    ~ChunkManager();
 
     // Initialize the mapper, creating its backing file if needed.  Thread-safe
     // and idempotent.  This is only necessary in order to write to the backing
@@ -55,7 +65,7 @@ public:
 
     // Initialize the mapper in a read-only fashion, returning a null pointer
     // if the backing file does not exist.
-    fs::PointMapper* get();
+    fs::PointMapper* getMapper();
 
     // True if our owned Mapper has been initialized.
     bool live() const;
@@ -95,7 +105,7 @@ public:
 private:
     void init();
 
-    LockedChunk& getLockedChunk(std::size_t index);
+    ChunkManager& getChunkManager(std::size_t index);
     std::size_t getChunkIndex(std::size_t index) const;
 
     virtual void saveImpl(const std::string& path, Json::Value& meta);
@@ -106,7 +116,7 @@ private:
     std::mutex m_mutex;
 
     const std::size_t m_pointsPerChunk;
-    std::vector<std::unique_ptr<LockedChunk>> m_mappers;
+    std::vector<std::unique_ptr<ChunkManager>> m_mappers;
 
     const std::vector<char> m_emptyChunk;
 };
