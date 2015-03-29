@@ -73,13 +73,16 @@ public:
     virtual std::vector<char> getPointData(std::size_t index) = 0;
 
     // Returns true if there is a point at this index.
-    virtual bool hasPoint(std::size_t index) = 0;
+    virtual bool hasPoint(std::size_t index);
 
     // Returns the point at this index or throws if there isn't one.
     //
     // TODO Return default constructed Point instead?  After hasPoint() returns
     // true this call will always succeed so throwing might be ok.
     virtual Point getPoint(std::size_t index) = 0;
+
+    // Purge information that was required to fetch information for this index.
+    virtual void purge(std::size_t index) { }
 
     // Writes necessary metadata and point data to disk.
     void save(const std::string& path, Json::Value& meta);

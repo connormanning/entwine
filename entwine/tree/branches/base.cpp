@@ -139,24 +139,26 @@ bool BaseBranch::hasPoint(const std::size_t index)
 
 Point BaseBranch::getPoint(const std::size_t index)
 {
-    if (!hasPoint(index))
+    Point point(INFINITY, INFINITY);
+
+    if (hasPoint(index))
     {
-        throw std::runtime_error("Check if the point exists first");
+        point = Point(*m_points[index].atom.load());
     }
 
-    return Point(*m_points[index].atom.load());
+    return point;
 }
 
 std::vector<char> BaseBranch::getPointData(const std::size_t index)
 {
+    std::vector<char> data;
+
     if (hasPoint(index))
     {
-        return std::vector<char>(getLocation(index), getLocation(index + 1));
+        data.assign(getLocation(index), getLocation(index + 1));
     }
-    else
-    {
-        return std::vector<char>();
-    }
+
+    return data;
 }
 
 void BaseBranch::saveImpl(const std::string& path, Json::Value& meta)

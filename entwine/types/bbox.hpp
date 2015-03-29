@@ -27,8 +27,6 @@ public:
     Point max() const;
     Point mid() const;
 
-    void set(const Point& min, const Point& max);
-
     // Returns true if this BBox shares any area in common with another.
     bool overlaps(const BBox& other) const;
 

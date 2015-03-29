@@ -10,6 +10,7 @@
 
 #include <entwine/tree/branch.hpp>
 
+#include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
 
 namespace entwine
@@ -46,6 +47,11 @@ Branch::~Branch()
 bool Branch::accepts(const std::size_t index) const
 {
     return (index >= m_indexBegin) && (index < m_indexEnd);
+}
+
+bool Branch::hasPoint(const std::size_t index)
+{
+    return Point::exists(getPoint(index));
 }
 
 void Branch::save(const std::string& path, Json::Value& meta)

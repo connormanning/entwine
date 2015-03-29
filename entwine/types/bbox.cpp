@@ -40,13 +40,6 @@ Point BBox::mid() const
             m_min.y + (m_max.y - m_min.y) / 2.0);
 }
 
-void BBox::set(const Point& min, const Point& max)
-{
-    check(min, max);
-    m_min = Point(std::min(min.x, max.x), std::min(min.y, max.y));
-    m_max = Point(std::max(min.x, max.x), std::max(min.y, max.y));
-}
-
 bool BBox::overlaps(const BBox& other) const
 {
     Point middle(mid());

@@ -212,11 +212,6 @@ bool DiskBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
     }
 }
 
-bool DiskBranch::hasPoint(std::size_t index)
-{
-    return Point::exists(getPoint(index));
-}
-
 Point DiskBranch::getPoint(std::size_t index)
 {
     Point point(INFINITY, INFINITY);

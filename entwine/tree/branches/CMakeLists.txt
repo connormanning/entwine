@@ -6,6 +6,7 @@ set(
     "${BASE}/base.cpp"
     "${BASE}/flat.cpp"
     "${BASE}/disk.cpp"
+    "${BASE}/trimmer.cpp"
 )
 
 set(
@@ -13,6 +14,7 @@ set(
     "${BASE}/base.hpp"
     "${BASE}/flat.hpp"
     "${BASE}/disk.hpp"
+    "${BASE}/trimmer.hpp"
 )
 
 set(BRANCHES_SOURCES ${SOURCES} PARENT_SCOPE)
