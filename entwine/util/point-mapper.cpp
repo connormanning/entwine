@@ -214,7 +214,6 @@ char* PointMapper::ensureMapping(Clipper* clipper, const std::size_t index)
 
 char* PointMapper::getMapping(const std::size_t slotIndex) const
 {
-    assert(m_mappings[slotIndex].atom.load());
     return m_mappings[slotIndex].atom.load();
 }
 

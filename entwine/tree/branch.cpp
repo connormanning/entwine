@@ -46,6 +46,7 @@ Branch::~Branch()
 
 bool Branch::accepts(Clipper* clipper, const std::size_t index)
 {
+    assert(clipper);
     const bool accepted((index >= m_indexBegin) && (index < m_indexEnd));
 
     if (accepted && clipper)
