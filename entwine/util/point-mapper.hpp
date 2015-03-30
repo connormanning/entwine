@@ -12,6 +12,7 @@
 
 #include <cstddef>
 #include <mutex>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -22,6 +23,8 @@
 namespace entwine
 {
 
+class Branch;
+class Clipper;
 class PointInfo;
 
 namespace fs
@@ -38,13 +41,16 @@ public:
             std::size_t firstPoint);
     ~PointMapper();
 
-    bool addPoint(const Roller& roller, PointInfo** toAddPtr);
-
+    bool addPoint(PointInfo** toAddPtr, const Roller& roller);
     Point getPoint(std::size_t index);
     std::vector<char> getPointData(std::size_t index);
 
+    void clip(Clipper* clipper, std::size_t slotIndex);
+
+    char* ensureMapping(Clipper* clipper, std::size_t index);
+
 private:
-    char* ensureMapping(std::size_t slotIndex);
+    char* getMapping(std::size_t slotIndex) const;
 
     std::size_t getSlotIndex(std::size_t index) const;
     std::size_t getSlotOffset(std::size_t index) const;
@@ -57,8 +63,10 @@ private:
 
     const std::size_t m_firstPointIndex;
 
+    // TODO Wrap these.
     std::vector<ElasticAtomic<char*>> m_mappings;
     std::vector<std::mutex> m_locks;
+    std::vector<std::set<Clipper*>> m_slotRefs;
 };
 
 } // namespace fs

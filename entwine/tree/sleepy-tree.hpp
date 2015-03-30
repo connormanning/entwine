@@ -33,6 +33,7 @@ namespace entwine
 {
 
 class BBox;
+class Clipper;
 class Registry;
 class Schema;
 
@@ -51,7 +52,13 @@ public:
     ~SleepyTree();
 
     // Insert the points from a PointView into this index.
-    void insert(pdal::PointView& pointView, Origin origin);
+    void insert(
+            pdal::PointView& pointView,
+            Origin origin,
+            Clipper* clipper);
+
+    // Remove resources that are done being used.
+    void clip(Clipper* clipper, std::size_t index);
 
     // Finalize the tree so it may be queried.  No more pipelines may be added.
     void save();
@@ -66,6 +73,7 @@ public:
     // Return all points at depth levels between [depthBegin, depthEnd).
     // A depthEnd value of zero will return all points at levels >= depthBegin.
     std::vector<std::size_t> query(
+            Clipper* clipper,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
@@ -74,6 +82,7 @@ public:
     // A depthEnd value of zero will return all points within the query range
     // that have a tree level >= depthBegin.
     std::vector<std::size_t> query(
+            Clipper* clipper,
             const BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd);
@@ -81,9 +90,10 @@ public:
     // Get the constituent bytes of a point by its index, with bytes arranged
     // in accordance with the requested schema.  If no point exists at the
     // specified index, returns an empty vector.
-    //
-    // TODO Document.
-    std::vector<char> getPointData(std::size_t index, const Schema& schema);
+    std::vector<char> getPointData(
+            Clipper* clipper,
+            std::size_t index,
+            const Schema& schema);
 
     const Schema& schema() const;
 

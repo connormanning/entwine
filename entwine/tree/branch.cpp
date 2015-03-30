@@ -44,9 +44,16 @@ Branch::Branch(
 Branch::~Branch()
 { }
 
-bool Branch::accepts(const std::size_t index) const
+bool Branch::accepts(Clipper* clipper, const std::size_t index)
 {
-    return (index >= m_indexBegin) && (index < m_indexEnd);
+    const bool accepted((index >= m_indexBegin) && (index < m_indexEnd));
+
+    if (accepted && clipper)
+    {
+        grow(clipper, index);
+    }
+
+    return accepted;
 }
 
 bool Branch::hasPoint(const std::size_t index)

@@ -22,6 +22,7 @@ namespace Json
 namespace entwine
 {
 
+class Clipper;
 class Point;
 class PointInfo;
 class Roller;
@@ -43,7 +44,7 @@ public:
 
     // Returns true if this branch is responsible for the specified index.
     // Does not necessarily mean that this index contains a valid Point.
-    bool accepts(std::size_t index) const;
+    bool accepts(Clipper* clipper, std::size_t index);
 
     // Returns true if this point was successfully stored.
     virtual bool addPoint(PointInfo** toAddPtr, const Roller& roller) = 0;
@@ -81,8 +82,8 @@ public:
     // true this call will always succeed so throwing might be ok.
     virtual Point getPoint(std::size_t index) = 0;
 
-    // Purge information that was required to fetch information for this index.
-    virtual void purge(std::size_t index) { }
+    virtual void grow(Clipper* clipper, std::size_t index) { }
+    virtual void clip(Clipper* clipper, std::size_t index) { }
 
     // Writes necessary metadata and point data to disk.
     void save(const std::string& path, Json::Value& meta);

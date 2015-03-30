@@ -101,6 +101,9 @@ public:
     virtual Point getPoint(std::size_t index);
     virtual std::vector<char> getPointData(std::size_t index);
 
+    virtual void grow(Clipper* clipper, std::size_t index);
+    virtual void clip(Clipper* clipper, std::size_t index);
+
 private:
     void init();
 

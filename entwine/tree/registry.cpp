@@ -16,6 +16,7 @@
 #include <entwine/tree/roller.hpp>
 #include <entwine/tree/point-info.hpp>
 #include <entwine/tree/branches/base.hpp>
+#include <entwine/tree/branches/clipper.hpp>
 #include <entwine/tree/branches/disk.hpp>
 #include <entwine/tree/branches/flat.hpp>
 #include <entwine/types/bbox.hpp>
@@ -113,16 +114,16 @@ Registry::Registry(
 Registry::~Registry()
 { }
 
-bool Registry::addPoint(PointInfo** toAddPtr, Roller& roller)
+bool Registry::addPoint(PointInfo** toAddPtr, Roller& roller, Clipper* clipper)
 {
     bool accepted(false);
 
-    if (Branch* branch = getBranch(roller.pos()))
+    if (Branch* branch = getBranch(clipper, roller.pos()))
     {
         if (!branch->addPoint(toAddPtr, roller))
         {
             roller.magnify((*toAddPtr)->point);
-            accepted = addPoint(toAddPtr, roller);
+            accepted = addPoint(toAddPtr, roller, clipper);
         }
         else
         {
@@ -138,16 +139,25 @@ bool Registry::addPoint(PointInfo** toAddPtr, Roller& roller)
     return accepted;
 }
 
+void Registry::clip(Clipper* clipper, std::size_t index)
+{
+    if (Branch* branch = getBranch(clipper, index))
+    {
+        branch->clip(clipper, index);
+    }
+}
+
 void Registry::query(
         const Roller& roller,
+        Clipper* clipper,
         std::vector<std::size_t>& results,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
-    if (Branch* branch = getBranch(roller.pos()))
-    {
-        const uint64_t index(roller.pos());
+    const uint64_t index(roller.pos());
 
+    if (Branch* branch = getBranch(clipper, index))
+    {
         if (branch->hasPoint(index))
         {
             if (
@@ -159,10 +169,10 @@ void Registry::query(
 
             if (roller.depth() + 1 < depthEnd || !depthEnd)
             {
-                query(roller.getNw(), results, depthBegin, depthEnd);
-                query(roller.getNe(), results, depthBegin, depthEnd);
-                query(roller.getSw(), results, depthBegin, depthEnd);
-                query(roller.getSe(), results, depthBegin, depthEnd);
+                query(roller.getNw(), clipper, results, depthBegin, depthEnd);
+                query(roller.getNe(), clipper, results, depthBegin, depthEnd);
+                query(roller.getSw(), clipper, results, depthBegin, depthEnd);
+                query(roller.getSe(), clipper, results, depthBegin, depthEnd);
             }
         }
     }
@@ -170,6 +180,7 @@ void Registry::query(
 
 void Registry::query(
         const Roller& roller,
+        Clipper* clipper,
         std::vector<std::size_t>& results,
         const BBox& queryBBox,
         const std::size_t depthBegin,
@@ -177,10 +188,10 @@ void Registry::query(
 {
     if (!roller.bbox().overlaps(queryBBox)) return;
 
-    if (Branch* branch = getBranch(roller.pos()))
-    {
-        const uint64_t index(roller.pos());
+    const uint64_t index(roller.pos());
 
+    if (Branch* branch = getBranch(clipper, index))
+    {
         if (branch->hasPoint(index))
         {
             const Point point(branch->getPoint(index));
@@ -195,18 +206,25 @@ void Registry::query(
 
             if (roller.depth() + 1 < depthEnd || !depthEnd)
             {
-                query(roller.getNw(), results, queryBBox, depthBegin, depthEnd);
-                query(roller.getNe(), results, queryBBox, depthBegin, depthEnd);
-                query(roller.getSw(), results, queryBBox, depthBegin, depthEnd);
-                query(roller.getSe(), results, queryBBox, depthBegin, depthEnd);
+                const auto nw(roller.getNw());
+                const auto ne(roller.getNe());
+                const auto sw(roller.getSw());
+                const auto se(roller.getSe());
+
+                query(nw, clipper, results, queryBBox, depthBegin, depthEnd);
+                query(ne, clipper, results, queryBBox, depthBegin, depthEnd);
+                query(sw, clipper, results, queryBBox, depthBegin, depthEnd);
+                query(se, clipper, results, queryBBox, depthBegin, depthEnd);
             }
         }
     }
 }
 
-std::vector<char> Registry::getPointData(const std::size_t index)
+std::vector<char> Registry::getPointData(
+        Clipper* clipper,
+        const std::size_t index)
 {
-    if (Branch* branch = getBranch(index))
+    if (Branch* branch = getBranch(clipper, index))
     {
         return branch->getPointData(index);
     }
@@ -223,19 +241,19 @@ void Registry::save(const std::string& path, Json::Value& meta) const
     if (m_diskBranch) m_diskBranch->save(path, meta["disk"]);
 }
 
-Branch* Registry::getBranch(const std::size_t index) const
+Branch* Registry::getBranch(Clipper* clipper, const std::size_t index) const
 {
     Branch* branch(0);
 
-    if (m_baseBranch && m_baseBranch->accepts(index))
+    if (m_baseBranch && m_baseBranch->accepts(clipper, index))
     {
         branch = m_baseBranch.get();
     }
-    else if (m_flatBranch && m_flatBranch->accepts(index))
+    else if (m_flatBranch && m_flatBranch->accepts(clipper, index))
     {
         branch = m_flatBranch.get();
     }
-    else if (m_diskBranch && m_diskBranch->accepts(index))
+    else if (m_diskBranch && m_diskBranch->accepts(clipper, index))
     {
         branch = m_diskBranch.get();
     }

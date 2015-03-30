@@ -26,6 +26,7 @@ namespace entwine
 class BBox;
 class BaseBranch;
 class Branch;
+class Clipper;
 class DiskBranch;
 class FlatBranch;
 class PointInfo;
@@ -50,27 +51,34 @@ public:
             const Json::Value& meta);
     ~Registry();
 
-    bool addPoint(PointInfo** toAddPtr, Roller& roller);
+    bool addPoint(PointInfo** toAddPtr, Roller& roller, Clipper* clipper);
+    void clip(Clipper* clipper, std::size_t index);
 
     void query(
             const Roller& roller,
+            Clipper* clipper,
             std::vector<std::size_t>& results,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
     void query(
             const Roller& roller,
+            Clipper* clipper,
             std::vector<std::size_t>& results,
             const BBox& queryBBox,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
-    std::vector<char> getPointData(std::size_t index);
+    std::vector<char> getPointData(Clipper* clipper, std::size_t index);
 
     void save(const std::string& path, Json::Value& meta) const;
 
 private:
-    Branch* getBranch(std::size_t index) const;
+    // This call will cause the Branch to wake up any serialized data needed
+    // to handle calls for this index.  Branch-specific data for what was
+    // woken up will be added to this Clipper, and on destruction, this Clipper
+    // will signal to the Branch that it can now release those resources.
+    Branch* getBranch(Clipper* clipper, std::size_t index) const;
 
     std::unique_ptr<BaseBranch> m_baseBranch;
     std::unique_ptr<FlatBranch> m_flatBranch;

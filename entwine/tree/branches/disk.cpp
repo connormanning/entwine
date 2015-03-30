@@ -17,6 +17,7 @@
 #include <entwine/third/json/json.h>
 #include <entwine/tree/roller.hpp>
 #include <entwine/tree/point-info.hpp>
+#include <entwine/tree/branches/clipper.hpp>
 #include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/simple-point-table.hpp>
@@ -178,9 +179,9 @@ void DiskBranch::init()
         throw std::runtime_error("DiskBranch needs depthBegin >= 6");
     }
 
-    const std::size_t chunks(numChunks(depthBegin(), depthEnd(), dimensions()));
+    const std::size_t mappers(numChunks(depthBegin(), depthEnd(), dimensions()));
 
-    for (std::size_t i(0); i < chunks; ++i)
+    for (std::size_t i(0); i < mappers; ++i)
     {
         m_mappers.emplace_back(
                 std::unique_ptr<ChunkManager>(
@@ -194,21 +195,15 @@ void DiskBranch::init()
 
 bool DiskBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
 {
-    ChunkManager& chunkManager(getChunkManager(roller.pos()));
+    ChunkManager& mapperManager(getChunkManager(roller.pos()));
 
-    if (chunkManager.create(m_emptyChunk))
+    if (fs::PointMapper* mapper = mapperManager.getMapper())
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_ids.insert(chunkManager.id());
-    }
-
-    if (fs::PointMapper* chunk = chunkManager.getMapper())
-    {
-        return chunk->addPoint(roller, toAddPtr);
+        return mapper->addPoint(toAddPtr, roller);
     }
     else
     {
-        throw std::runtime_error("Couldn't create Chunk");
+        throw std::runtime_error("Chunk wasn't created");
     }
 }
 
@@ -216,11 +211,11 @@ Point DiskBranch::getPoint(std::size_t index)
 {
     Point point(INFINITY, INFINITY);
 
-    ChunkManager& chunkManager(getChunkManager(index));
+    ChunkManager& mapperManager(getChunkManager(index));
 
-    if (fs::PointMapper* chunk = chunkManager.getMapper())
+    if (fs::PointMapper* mapper = mapperManager.getMapper())
     {
-        point = chunk->getPoint(index);
+        point = mapper->getPoint(index);
     }
 
     return point;
@@ -230,14 +225,40 @@ std::vector<char> DiskBranch::getPointData(std::size_t index)
 {
     std::vector<char> data;
 
-    ChunkManager& chunkManager(getChunkManager(index));
+    ChunkManager& mapperManager(getChunkManager(index));
 
-    if (fs::PointMapper* chunk = chunkManager.getMapper())
+    if (fs::PointMapper* mapper = mapperManager.getMapper())
     {
-        data = chunk->getPointData(index);
+        data = mapper->getPointData(index);
     }
 
     return data;
+}
+
+void DiskBranch::grow(Clipper* clipper, std::size_t index)
+{
+    ChunkManager& mapperManager(getChunkManager(index));
+
+    if (mapperManager.create(m_emptyChunk))
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_ids.insert(mapperManager.id());
+    }
+
+    if (fs::PointMapper* mapper = mapperManager.getMapper())
+    {
+        mapper->ensureMapping(clipper, index);
+    }
+}
+
+void DiskBranch::clip(Clipper* clipper, std::size_t index)
+{
+    ChunkManager& mapperManager(getChunkManager(index));
+
+    if (fs::PointMapper* mapper = mapperManager.getMapper())
+    {
+        mapper->clip(clipper, index);
+    }
 }
 
 ChunkManager& DiskBranch::getChunkManager(const std::size_t index)

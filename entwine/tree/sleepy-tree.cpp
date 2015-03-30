@@ -71,7 +71,10 @@ SleepyTree::SleepyTree(const std::string& path)
 SleepyTree::~SleepyTree()
 { }
 
-void SleepyTree::insert(pdal::PointView& pointView, Origin origin)
+void SleepyTree::insert(
+        pdal::PointView& pointView,
+        Origin origin,
+        Clipper* clipper)
 {
     Point point;
 
@@ -92,7 +95,7 @@ void SleepyTree::insert(pdal::PointView& pointView, Origin origin)
                         pointView.getPoint(i),
                         m_schema->pointSize()));
 
-            if (m_registry->addPoint(&pointInfo, roller))
+            if (m_registry->addPoint(&pointInfo, roller, clipper))
             {
                 ++m_numPoints;
             }
@@ -101,7 +104,16 @@ void SleepyTree::insert(pdal::PointView& pointView, Origin origin)
                 ++m_numTossed;
             }
         }
+        else
+        {
+            ++m_numTossed;
+        }
     }
+}
+
+void SleepyTree::clip(Clipper* clipper, std::size_t index)
+{
+    m_registry->clip(clipper, index);
 }
 
 void SleepyTree::save()
@@ -163,32 +175,35 @@ const BBox& SleepyTree::getBounds() const
 }
 
 std::vector<std::size_t> SleepyTree::query(
+        Clipper* clipper,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
     Roller roller(*m_bbox.get());
     std::vector<std::size_t> results;
-    m_registry->query(roller, results, depthBegin, depthEnd);
+    m_registry->query(roller, clipper, results, depthBegin, depthEnd);
     return results;
 }
 
 std::vector<std::size_t> SleepyTree::query(
+        Clipper* clipper,
         const BBox& bbox,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
     Roller roller(*m_bbox.get());
     std::vector<std::size_t> results;
-    m_registry->query(roller, results, bbox, depthBegin, depthEnd);
+    m_registry->query(roller, clipper, results, bbox, depthBegin, depthEnd);
     return results;
 }
 
 std::vector<char> SleepyTree::getPointData(
+        Clipper* clipper,
         const std::size_t index,
         const Schema& reqSchema)
 {
     std::vector<char> schemaPoint;
-    std::vector<char> nativePoint(m_registry->getPointData(index));
+    std::vector<char> nativePoint(m_registry->getPointData(clipper, index));
 
     if (nativePoint.size())
     {

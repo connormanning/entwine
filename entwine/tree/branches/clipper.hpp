@@ -8,30 +8,31 @@
 *
 ******************************************************************************/
 
-#include <entwine/tree/branches/trimmer.hpp>
+#pragma once
 
-#include <entwine/tree/branch.hpp>
+#include <cstddef>
+#include <set>
 
 namespace entwine
 {
 
-Trimmer::Trimmer()
-    : m_clips()
-{ }
+class Branch;
+class SleepyTree;
 
-Trimmer::~Trimmer()
+class Clipper
 {
-    trim();
-}
+public:
+    Clipper(SleepyTree& tree);
+    ~Clipper();
 
-void Trimmer::trim()
-{
-    for (auto& clip : m_clips)
-    {
-        Branch* branch(clip.first);
-        branch->purge(clip.second);
-    }
-}
+    bool insert(std::size_t index);
 
-} // anonymous namespace
+    void clip();
+
+private:
+    SleepyTree& m_tree;
+    std::set<std::size_t> m_clips;
+};
+
+} // namespace entwine
 

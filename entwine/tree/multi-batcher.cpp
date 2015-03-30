@@ -20,6 +20,7 @@
 #include <pdal/StageWrapper.hpp>
 
 #include <entwine/third/json/json.h>
+#include <entwine/tree/branches/clipper.hpp>
 #include <entwine/tree/sleepy-tree.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/simple-point-table.hpp>
@@ -83,24 +84,29 @@ void MultiBatcher::add(const std::string& filename)
     std::cout << "Adding " << filename << std::endl;
     lock.unlock();
 
-    m_threads[index] = std::thread([this, index, &filename, origin]() {
+    std::unique_ptr<pdal::StageFactory> stageFactoryPtr(
+            new pdal::StageFactory());
+
+    pdal::StageFactory& stageFactory(*stageFactoryPtr.get());
+
+    m_threads[index] = std::thread(
+        [this, index, origin, filename, &stageFactory]() {
         try
         {
             std::shared_ptr<SimplePointTable> pointTable(
                     new SimplePointTable(m_sleepyTree.schema()));
             SimplePointTable& pointTableRef(*pointTable.get());
 
-            std::unique_ptr<pdal::StageFactory> stageFactory(
-                    new pdal::StageFactory());
-
             std::unique_ptr<pdal::Options> readerOptions(new pdal::Options());
             std::unique_ptr<pdal::Options> reprojOptions(new pdal::Options());
 
-            const std::string driver(stageFactory->inferReaderDriver(filename));
+            const std::string driver(stageFactory.inferReaderDriver(filename));
             if (driver.size())
             {
                 // Fetch remote file and write locally.
-                const std::string localPath("./tmp/" + std::to_string(origin));
+                const std::string localPath(
+                    "./tmp/" + m_sleepyTree.path() + "-" +
+                            std::to_string(origin));
 
                 {
                     const HttpResponse res(fetchFile(filename));
@@ -111,7 +117,6 @@ void MultiBatcher::add(const std::string& filename)
                                 " - Got: " << res.code() << std::endl;
                         throw std::runtime_error("Couldn't fetch " + filename);
                     }
-
 
                     if (!fs::writeFile(
                                 localPath,
@@ -125,7 +130,7 @@ void MultiBatcher::add(const std::string& filename)
                 // Set up the file reader.
                 std::unique_ptr<pdal::Reader> reader(
                         static_cast<pdal::Reader*>(
-                            stageFactory->createStage(driver)));
+                            stageFactory.createStage(driver)));
 
                 reader->setSpatialReference(
                         pdal::SpatialReference("EPSG:26915"));
@@ -136,7 +141,7 @@ void MultiBatcher::add(const std::string& filename)
                 // Set up the reprojection filter.
                 std::shared_ptr<pdal::Filter> reproj(
                         static_cast<pdal::Filter*>(
-                            stageFactory->createStage("filters.reprojection")));
+                            stageFactory.createStage("filters.reprojection")));
 
                 reprojOptions->add(
                         pdal::Option(
@@ -155,9 +160,12 @@ void MultiBatcher::add(const std::string& filename)
                         *reprojOptions.get());
                 pdal::FilterWrapper::ready(reprojRef, pointTableRef);
 
+                std::unique_ptr<Clipper> clipper(new Clipper(m_sleepyTree));
+                Clipper* clipperPtr(clipper.get());
+
                 // Set up our per-point data handler.
                 reader->setReadCb(
-                        [this, &pointTableRef, &reprojRef, origin]
+                        [this, &pointTableRef, &reprojRef, origin, clipperPtr]
                         (pdal::PointView& view, pdal::PointId index)
                 {
                     pdal::PointViewPtr point(view.makeNew());
@@ -165,13 +173,14 @@ void MultiBatcher::add(const std::string& filename)
 
                     pdal::FilterWrapper::filter(reprojRef, point);
 
-                    m_sleepyTree.insert(*point.get(), origin);
+                    m_sleepyTree.insert(*point.get(), origin, clipperPtr);
                     pointTableRef.clear();
                 });
 
                 reader->prepare(pointTableRef);
                 reader->execute(pointTableRef);
 
+                std::cout << "\t Done " << filename << std::endl;
                 if (!fs::removeFile(localPath))
                 {
                     std::cout << "Couldn't delete " << localPath << std::endl;
