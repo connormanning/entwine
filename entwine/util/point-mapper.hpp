@@ -51,7 +51,6 @@ public:
 private:
     const Schema& m_schema;
     char* m_mapping;
-    std::vector<char> m_data;
     std::vector<ElasticAtomic<const Point*>> m_points;
     std::vector<std::mutex> m_locks;
 };
