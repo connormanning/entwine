@@ -40,11 +40,12 @@ Slot::Slot(
         const std::size_t firstPoint)
     : m_schema(schema)
     , m_mapping(0)
-    , m_mutex()
     , m_points(pointsPerSlot, std::atomic<const Point*>(0))
+    , m_locks(pointsPerSlot)
 {
     const std::size_t pointSize(m_schema.pointSize());
 
+    std::cout << "CREATING SLOT " << firstPoint << std::endl;
     m_mapping =
             static_cast<char*>(mmap(
                 0,
@@ -78,11 +79,13 @@ Slot::Slot(
             m_points[i].atom.store(new Point(x, y));
         }
     }
+    std::cout << "      (done) " << firstPoint << std::endl;
 }
 
 Slot::~Slot()
 {
     const std::size_t slotSize(m_points.size() * m_schema.pointSize());
+    std::cout << "DELETING SLOT " << std::endl;
 
     if (
             msync(m_mapping, slotSize, MS_ASYNC) == -1 ||
@@ -113,8 +116,7 @@ bool Slot::addPoint(
 
         if (toAdd->point->sqDist(mid) < myPoint.load()->sqDist(mid))
         {
-            // TODO Finer lock resolution?
-            std::lock_guard<std::mutex> lock(m_mutex);
+            std::lock_guard<std::mutex> lock(m_locks[index]);
             const Point* curPoint(myPoint.load());
 
             if (toAdd->point->sqDist(mid) < curPoint->sqDist(mid))
@@ -138,7 +140,7 @@ bool Slot::addPoint(
     }
     else
     {
-        std::unique_lock<std::mutex> lock(m_mutex);
+        std::unique_lock<std::mutex> lock(m_locks[index]);
         if (!myPoint.load())
         {
             char* pos(m_mapping + index * m_schema.pointSize());

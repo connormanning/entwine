@@ -51,8 +51,8 @@ public:
 private:
     const Schema& m_schema;
     char* m_mapping;
-    std::mutex m_mutex;
     std::vector<ElasticAtomic<const Point*>> m_points;
+    std::vector<std::mutex> m_locks;
 };
 
 class PointMapper
