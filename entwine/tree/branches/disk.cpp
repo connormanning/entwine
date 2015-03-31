@@ -111,7 +111,8 @@ fs::PointMapper* ChunkManager::getMapper()
                         m_schema,
                         m_filename,
                         m_chunkSize,
-                        m_begin));
+                        m_begin,
+                        m_chunkSize / m_schema.pointSize()));
         }
     }
 
@@ -207,6 +208,20 @@ bool DiskBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
     }
 }
 
+bool DiskBranch::hasPoint(std::size_t index)
+{
+    bool result(false);
+
+    ChunkManager& mapperManager(getChunkManager(index));
+
+    if (fs::PointMapper* mapper = mapperManager.getMapper())
+    {
+        return mapper->hasPoint(index);
+    }
+
+    return result;
+}
+
 Point DiskBranch::getPoint(std::size_t index)
 {
     Point point(INFINITY, INFINITY);
@@ -247,7 +262,7 @@ void DiskBranch::grow(Clipper* clipper, std::size_t index)
 
     if (fs::PointMapper* mapper = mapperManager.getMapper())
     {
-        mapper->ensureMapping(clipper, index);
+        mapper->grow(clipper, index);
     }
 }
 

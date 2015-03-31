@@ -30,7 +30,31 @@ class PointInfo;
 namespace fs
 {
 
-// Currently hard-coded to map the file in sections of fileSize / 256.
+class Slot
+{
+public:
+    Slot(
+            const Schema& schema,
+            const FileDescriptor& fd,
+            std::size_t firstPoint);
+    ~Slot();
+
+    bool addPoint(
+            PointInfo** toAddPtr,
+            const Roller& roller,
+            std::size_t index);
+
+    bool hasPoint(std::size_t index);
+    Point getPoint(std::size_t index);
+    std::vector<char> getPointData(std::size_t index);
+
+private:
+    const Schema& m_schema;
+    char* m_mapping;
+    std::mutex m_mutex;
+    std::vector<ElasticAtomic<const Point*>> m_points;
+};
+
 class PointMapper
 {
 public:
@@ -38,35 +62,27 @@ public:
             const Schema& schema,
             const std::string& filename,
             std::size_t fileSize,
-            std::size_t firstPoint);
+            std::size_t firstPoint,
+            std::size_t numPoints);
     ~PointMapper();
 
     bool addPoint(PointInfo** toAddPtr, const Roller& roller);
+    bool hasPoint(std::size_t index);
     Point getPoint(std::size_t index);
     std::vector<char> getPointData(std::size_t index);
 
-    void clip(Clipper* clipper, std::size_t slotIndex);
-
-    char* ensureMapping(Clipper* clipper, std::size_t index);
+    void grow(Clipper* clipper, std::size_t index);
+    void clip(Clipper* clipper, std::size_t index);
 
 private:
-    char* getMapping(std::size_t slotIndex) const;
-
-    std::size_t getSlotIndex(std::size_t index) const;
-    std::size_t getSlotOffset(std::size_t index) const;
-    std::size_t getGlobalOffset(std::size_t index) const;
-
     const Schema& m_schema;
     FileDescriptor m_fd;
 
-    const std::size_t m_slotSize;
+    const std::size_t m_firstPoint;
 
-    const std::size_t m_firstPointIndex;
-
-    // TODO Wrap these.
-    std::vector<ElasticAtomic<char*>> m_mappings;
+    std::vector<ElasticAtomic<Slot*>> m_slots;
+    std::vector<std::set<const Clipper*>> m_refs;
     std::vector<std::mutex> m_locks;
-    std::vector<std::set<Clipper*>> m_slotRefs;
 };
 
 } // namespace fs

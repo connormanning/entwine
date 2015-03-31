@@ -180,7 +180,7 @@ void MultiBatcher::add(const std::string& filename)
                 reader->prepare(pointTableRef);
                 reader->execute(pointTableRef);
 
-                std::cout << "\t Done " << filename << std::endl;
+                std::cout << "\tDone " << filename << std::endl;
                 if (!fs::removeFile(localPath))
                 {
                     std::cout << "Couldn't delete " << localPath << std::endl;

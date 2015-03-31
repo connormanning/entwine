@@ -81,6 +81,7 @@ bool BaseBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
     if (myPoint.load())
     {
         const Point mid(roller.bbox().mid());
+
         if (toAdd->point->sqDist(mid) < myPoint.load()->sqDist(mid))
         {
             std::lock_guard<std::mutex> lock(m_locks[index]);
@@ -125,7 +126,7 @@ bool BaseBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
             // Be sure to unlock our mutex first.
             std::cout << "Race lost, recursing." << std::endl;
             lock.unlock();
-            return addPoint(&toAdd, roller);
+            done = addPoint(&toAdd, roller);
         }
     }
 

@@ -26,7 +26,7 @@
 
 namespace
 {
-    const std::size_t numSlots(256);
+    const std::size_t pointsPerSlot(entwine::platform::pageSize());
 }
 
 namespace entwine
@@ -34,18 +34,172 @@ namespace entwine
 namespace fs
 {
 
+Slot::Slot(
+        const Schema& schema,
+        const FileDescriptor& fd,
+        const std::size_t firstPoint)
+    : m_schema(schema)
+    , m_mapping(0)
+    , m_mutex()
+    , m_points(pointsPerSlot, std::atomic<const Point*>(0))
+{
+    const std::size_t pointSize(m_schema.pointSize());
+
+    m_mapping =
+            static_cast<char*>(mmap(
+                0,
+                pointsPerSlot * pointSize,
+                PROT_READ | PROT_WRITE,
+                MAP_SHARED,
+                fd.id(),
+                firstPoint * pointSize));
+
+    if (m_mapping == MAP_FAILED)
+    {
+        std::cout << "Mapping failed: " << strerror(errno) << std::endl;
+        throw std::runtime_error("Could not create mapping!");
+    }
+
+    double x(0);
+    double y(0);
+
+    for (std::size_t i(0); i < pointsPerSlot; ++i)
+    {
+        char* pos(m_mapping + pointSize * i);
+
+        SinglePointTable table(m_schema, pos);
+        LinkingPointView view(table);
+
+        x = view.getFieldAs<double>(pdal::Dimension::Id::X, 0);
+        y = view.getFieldAs<double>(pdal::Dimension::Id::Y, 0);
+
+        if (Point::exists(x, y))
+        {
+            m_points[i].atom.store(new Point(x, y));
+        }
+    }
+}
+
+Slot::~Slot()
+{
+    const std::size_t slotSize(m_points.size() * m_schema.pointSize());
+
+    if (
+            msync(m_mapping, slotSize, MS_ASYNC) == -1 ||
+            munmap(m_mapping, slotSize) == -1)
+    {
+        throw std::runtime_error("Couldn't sync mapping");
+    }
+
+    for (auto& p : m_points)
+    {
+        if (p.atom.load()) delete p.atom.load();
+    }
+}
+
+bool Slot::addPoint(
+        PointInfo** toAddPtr,
+        const Roller& roller,
+        const std::size_t index)
+{
+    // TODO Mostly duplicate code with BaseBranch::addPoint.
+    bool done(false);
+    PointInfo* toAdd(*toAddPtr);
+    auto& myPoint(m_points[index].atom);
+
+    if (myPoint.load())
+    {
+        const Point mid(roller.bbox().mid());
+
+        if (toAdd->point->sqDist(mid) < myPoint.load()->sqDist(mid))
+        {
+            // TODO Finer lock resolution?
+            std::lock_guard<std::mutex> lock(m_mutex);
+            const Point* curPoint(myPoint.load());
+
+            if (toAdd->point->sqDist(mid) < curPoint->sqDist(mid))
+            {
+                char* pos(m_mapping + index * m_schema.pointSize());
+
+                // Pull out the old stored value.
+                PointInfo* old(
+                        new PointInfo(
+                            curPoint,
+                            pos,
+                            m_schema.pointSize()));
+
+                toAdd->write(pos);
+                myPoint.store(toAdd->point);
+                delete toAdd;
+
+                *toAddPtr = old;
+            }
+        }
+    }
+    else
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        if (!myPoint.load())
+        {
+            char* pos(m_mapping + index * m_schema.pointSize());
+            toAdd->write(pos);
+            myPoint.store(toAdd->point);
+            delete toAdd;
+            done = true;
+        }
+        else
+        {
+            std::cout << "Race lost, recursing." << std::endl;
+            lock.unlock();
+            done = addPoint(&toAdd, roller, index);
+        }
+    }
+
+    return done;
+}
+
+bool Slot::hasPoint(const std::size_t index)
+{
+    return m_points[index].atom.load() != 0;
+}
+
+Point Slot::getPoint(const std::size_t index)
+{
+    Point point(INFINITY, INFINITY);
+
+    if (hasPoint(index))
+    {
+        point = Point(*m_points[index].atom.load());
+    }
+
+    return point;
+}
+
+std::vector<char> Slot::getPointData(const std::size_t index)
+{
+    std::vector<char> data;
+
+    if (hasPoint(index))
+    {
+        char* pos(m_mapping + index * m_schema.pointSize());
+        data.assign(pos, pos + m_schema.pointSize());
+    }
+
+    return data;
+}
+
 PointMapper::PointMapper(
         const Schema& schema,
         const std::string& filename,
         const std::size_t fileSize,
-        const std::size_t firstPoint)
+        const std::size_t firstPoint,
+        const std::size_t numPoints)
     : m_schema(schema)
     , m_fd(filename)
-    , m_slotSize(fileSize / numSlots)
-    , m_firstPointIndex(firstPoint)
-    , m_mappings(numSlots, {0})
-    , m_locks(numSlots)
-    , m_slotRefs(numSlots)
+    , m_firstPoint(firstPoint)
+    , m_slots(numPoints / pointsPerSlot, {0})
+    , m_refs(m_slots.size())
+    , m_locks(m_slots.size())
 {
     if (!fs::fileExists(filename))
     {
@@ -53,8 +207,8 @@ PointMapper::PointMapper(
     }
 
     if (
-            m_slotSize * numSlots != fileSize ||
-            m_slotSize % platform::pageSize())
+            numPoints % pointsPerSlot != 0 ||
+            numPoints * m_schema.pointSize() != fileSize)
     {
         throw std::runtime_error("Invalid arguments to PointMapper");
     }
@@ -62,186 +216,103 @@ PointMapper::PointMapper(
 
 PointMapper::~PointMapper()
 {
-    for (auto& m : m_mappings)
+    for (auto& slot : m_slots)
     {
-        if (char* mapping = m.atom.load())
+        if (slot.atom.load())
         {
-            if (
-                    msync(mapping, m_slotSize, MS_ASYNC) == -1 ||
-                    munmap(mapping, m_slotSize) == -1)
-            {
-                throw std::runtime_error("Couldn't sync mapping");
-            }
+            delete slot.atom.load();
         }
     }
 }
 
 bool PointMapper::addPoint(PointInfo** toAddPtr, const Roller& roller)
 {
-    bool done(false);
-
     const std::size_t index(roller.pos());
-    assert(index >= m_firstPointIndex);
+    assert(index >= m_firstPoint);
 
-    const std::size_t slotIndex(getSlotIndex(index));
+    const std::size_t localOffset(index - m_firstPoint);
+    const std::size_t slotIndex (localOffset / pointsPerSlot);
+    const std::size_t slotOffset(localOffset % pointsPerSlot);
 
-    char* pos(getMapping(slotIndex) + getSlotOffset(index));
+    return m_slots[slotIndex].atom.load()->addPoint(
+            toAddPtr,
+            roller,
+            slotOffset);
+}
 
-    SinglePointTable table(m_schema, pos);
-    LinkingPointView view(table);
+bool PointMapper::hasPoint(const std::size_t index)
+{
+    const std::size_t localOffset(index - m_firstPoint);
+    const std::size_t slotIndex (localOffset / pointsPerSlot);
+    const std::size_t slotOffset(localOffset % pointsPerSlot);
 
-    std::lock_guard<std::mutex> lock(m_locks[slotIndex]);
-
-    Point curPoint(
-            view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
-            view.getFieldAs<double>(pdal::Dimension::Id::Y, 0));
-
-    PointInfo* toAdd(*toAddPtr);
-
-    if (Point::exists(curPoint.x, curPoint.y))
-    {
-        const Point mid(roller.bbox().mid());
-
-        if (toAdd->point->sqDist(mid) < curPoint.sqDist(mid))
-        {
-            // Pull out the old stored value.
-            PointInfo* old(
-                    new PointInfo(
-                        new Point(curPoint),
-                        pos,
-                        m_schema.pointSize()));
-
-            toAdd->write(pos);
-            delete toAdd->point;
-            delete toAdd;
-
-            *toAddPtr = old;
-        }
-    }
-    else
-    {
-        // Empty point here - store incoming.
-        toAdd->write(pos);
-
-        delete toAdd->point;
-        delete toAdd;
-        done = true;
-    }
-
-    return done;
+    return m_slots[slotIndex].atom.load()->hasPoint(slotOffset);
 }
 
 Point PointMapper::getPoint(const std::size_t index)
 {
-    const std::size_t slotIndex(getSlotIndex(index));
+    const std::size_t localOffset(index - m_firstPoint);
+    const std::size_t slotIndex (localOffset / pointsPerSlot);
+    const std::size_t slotOffset(localOffset % pointsPerSlot);
 
-    char* pos(getMapping(slotIndex) + getSlotOffset(index));
-
-    SinglePointTable table(m_schema, pos);
-    LinkingPointView view(table);
-
-    return Point(
-            view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
-            view.getFieldAs<double>(pdal::Dimension::Id::Y, 0));
+    return m_slots[slotIndex].atom.load()->getPoint(slotOffset);
 }
 
 std::vector<char> PointMapper::getPointData(const std::size_t index)
 {
-    const std::size_t slotIndex(getSlotIndex(index));
+    const std::size_t localOffset(index - m_firstPoint);
+    const std::size_t slotIndex (localOffset / pointsPerSlot);
+    const std::size_t slotOffset(localOffset % pointsPerSlot);
 
-    char* pos(getMapping(slotIndex) + getSlotOffset(index));
-
- ;   return std::vector<char>(pos, pos + m_schema.pointSize());
+    return m_slots[slotIndex].atom.load()->getPointData(slotOffset);
 }
 
-std::size_t PointMapper::getSlotIndex(std::size_t index) const
+void PointMapper::grow(Clipper* clipper, const std::size_t index)
 {
-    return getGlobalOffset(index) / m_slotSize;
-}
+    const std::size_t localOffset(index - m_firstPoint);
+    const std::size_t slotIndex (localOffset / pointsPerSlot);
+    // const std::size_t slotOffset(localOffset % pointsPerSlot);
+    const std::size_t globalSlot(m_firstPoint + slotIndex * pointsPerSlot);
 
-std::size_t PointMapper::getSlotOffset(std::size_t index) const
-{
-    return getGlobalOffset(index) % m_slotSize;
-}
+    auto& slot(m_slots[slotIndex].atom);
 
-std::size_t PointMapper::getGlobalOffset(std::size_t index) const
-{
-    assert(index >= m_firstPointIndex);
-
-    return (index - m_firstPointIndex) * m_schema.pointSize();
-}
-
-char* PointMapper::ensureMapping(Clipper* clipper, const std::size_t index)
-{
-    const std::size_t slotIndex(getSlotIndex(index));
-    const std::size_t globalSlot(
-            m_firstPointIndex + slotIndex * m_slotSize / m_schema.pointSize());
+    if (!slot.load())
+    {
+        std::lock_guard<std::mutex> lock(m_locks[slotIndex]);
+        if (!slot.load())
+        {
+            slot.store(new Slot(m_schema, m_fd, slotIndex * pointsPerSlot));
+        }
+    }
 
     if (clipper && clipper->insert(globalSlot))
     {
         std::lock_guard<std::mutex> lock(m_locks[slotIndex]);
-        m_slotRefs[slotIndex].insert(clipper);
+        m_refs[slotIndex].insert(clipper);
     }
+}
 
-    auto& thisMapping(m_mappings[slotIndex].atom);
+void PointMapper::clip(Clipper* clipper, const std::size_t globalSlot)
+{
+    const std::size_t localOffset(globalSlot - m_firstPoint);
+    const std::size_t slotIndex (localOffset / pointsPerSlot);
+    const std::size_t slotOffset(localOffset % pointsPerSlot);
 
-    if (!thisMapping.load())
+    if (slotOffset != 0)
     {
-        std::lock_guard<std::mutex> lock(m_locks[slotIndex]);
-        if (!thisMapping.load())
-        {
-            char* mapping(
-                    static_cast<char*>(mmap(
-                        0,
-                        m_slotSize,
-                        PROT_READ | PROT_WRITE,
-                        MAP_SHARED,
-                        m_fd.id(),
-                        slotIndex * m_slotSize)));
-
-            if (mapping == MAP_FAILED)
-            {
-                std::cout << "Mapping failed: " << strerror(errno) << std::endl;
-                throw std::runtime_error("Could not create mapping!");
-            }
-
-            thisMapping.store(mapping);
-        }
+        throw std::runtime_error("Invalid PointMapper state");
     }
 
-    return thisMapping.load();
-}
-
-char* PointMapper::getMapping(const std::size_t slotIndex) const
-{
-    return m_mappings[slotIndex].atom.load();
-}
-
-void PointMapper::clip(Clipper* clipper, std::size_t index)
-{
-    const std::size_t slotIndex(getSlotIndex(index));
-
-    auto& thisRefCount(m_slotRefs[slotIndex]);
-    auto& thisMapping(m_mappings[slotIndex].atom);
+    auto& myRef(m_refs[slotIndex]);
+    auto& mySlot(m_slots[slotIndex].atom);
 
     std::lock_guard<std::mutex> lock(m_locks[slotIndex]);
+    myRef.erase(clipper);
 
-    thisRefCount.erase(clipper);
-
-    if (thisRefCount.empty())
+    if (myRef.empty())
     {
-        // No more references exist for this mapping.  Unmap it.
-        if (char* mapping = thisMapping.load())
-        {
-            if (
-                msync(mapping, m_slotSize, MS_ASYNC) == -1 ||
-                munmap(mapping, m_slotSize) == -1)
-            {
-                throw std::runtime_error("Could not unmap");
-            }
-
-            thisMapping.store(0);
-        }
+        delete mySlot.load();
+        mySlot.store(0);
     }
 }
 

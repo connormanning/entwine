@@ -98,6 +98,7 @@ public:
             const Json::Value& meta);
 
     virtual bool addPoint(PointInfo** toAddPtr, const Roller& roller);
+    virtual bool hasPoint(std::size_t index);
     virtual Point getPoint(std::size_t index);
     virtual std::vector<char> getPointData(std::size_t index);
 
