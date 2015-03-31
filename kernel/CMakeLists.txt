@@ -9,3 +9,5 @@ target_link_libraries(entwine_kernel entwine pdalcpp curl crypto)
 
 set_target_properties(entwine_kernel PROPERTIES OUTPUT_NAME entwine)
 
+install(TARGETS entwine_kernel DESTINATION bin)
+
