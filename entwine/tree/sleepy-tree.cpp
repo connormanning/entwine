@@ -239,6 +239,25 @@ std::string SleepyTree::path() const
     return m_path;
 }
 
+std::string SleepyTree::name() const
+{
+    std::string name;
+
+    // TODO Temporary/hacky.
+    const std::size_t pos(m_path.find_last_of("/\\"));
+
+    if (pos != std::string::npos)
+    {
+        name = m_path.substr(pos + 1);
+    }
+    else
+    {
+        name = m_path;
+    }
+
+    return name;
+}
+
 std::string SleepyTree::metaPath() const
 {
     return m_path + "/meta";

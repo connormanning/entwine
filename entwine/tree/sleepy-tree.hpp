@@ -99,6 +99,7 @@ public:
 
     std::size_t numPoints() const;
     std::string path() const;
+    std::string name() const;
 
 private:
     std::string metaPath() const;

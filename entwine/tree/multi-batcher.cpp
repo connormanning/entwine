@@ -105,7 +105,7 @@ void MultiBatcher::add(const std::string& filename)
             {
                 // Fetch remote file and write locally.
                 const std::string localPath(
-                    "./tmp/" + m_sleepyTree.path() + "-" +
+                    "./tmp/" + m_sleepyTree.name() + "-" +
                             std::to_string(origin));
 
                 {
