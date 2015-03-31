@@ -40,7 +40,6 @@ Slot::Slot(
         const std::size_t firstPoint)
     : m_schema(schema)
     , m_mapping(0)
-    , m_data()
     , m_points(pointsPerSlot, std::atomic<const Point*>(0))
     , m_locks(pointsPerSlot)
 {
@@ -52,7 +51,7 @@ Slot::Slot(
                 0,
                 dataSize,
                 PROT_READ | PROT_WRITE,
-                MAP_SHARED,
+                MAP_PRIVATE,
                 fd.id(),
                 firstPoint * pointSize));
 
@@ -62,14 +61,12 @@ Slot::Slot(
         throw std::runtime_error("Could not create mapping!");
     }
 
-    m_data.assign(m_mapping, m_mapping + dataSize);
-
     double x(0);
     double y(0);
 
     for (std::size_t i(0); i < pointsPerSlot; ++i)
     {
-        char* pos(m_data.data() + pointSize * i);
+        char* pos(m_mapping + pointSize * i);
 
         SinglePointTable table(m_schema, pos);
         LinkingPointView view(table);
@@ -88,10 +85,8 @@ Slot::~Slot()
 {
     const std::size_t slotSize(m_points.size() * m_schema.pointSize());
 
-    std::memcpy(m_mapping, m_data.data(), m_data.size());
-
     if (
-            msync(m_mapping, slotSize, MS_ASYNC) == -1 ||
+            msync(m_mapping, slotSize, MS_SYNC) == -1 ||
             munmap(m_mapping, slotSize) == -1)
     {
         throw std::runtime_error("Couldn't sync mapping");
@@ -124,7 +119,7 @@ bool Slot::addPoint(
 
             if (toAdd->point->sqDist(mid) < curPoint->sqDist(mid))
             {
-                char* pos(m_data.data() + index * m_schema.pointSize());
+                char* pos(m_mapping + index * m_schema.pointSize());
 
                 // Pull out the old stored value.
                 PointInfo* old(
@@ -146,7 +141,7 @@ bool Slot::addPoint(
         std::unique_lock<std::mutex> lock(m_locks[index]);
         if (!myPoint.load())
         {
-            char* pos(m_data.data() + index * m_schema.pointSize());
+            char* pos(m_mapping + index * m_schema.pointSize());
             toAdd->write(pos);
             myPoint.store(toAdd->point);
             delete toAdd;
@@ -185,7 +180,7 @@ std::vector<char> Slot::getPointData(const std::size_t index)
 
     if (hasPoint(index))
     {
-        char* pos(m_data.data() + index * m_schema.pointSize());
+        char* pos(m_mapping + index * m_schema.pointSize());
         data.assign(pos, pos + m_schema.pointSize());
     }
 
