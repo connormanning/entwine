@@ -313,10 +313,6 @@ void PointMapper::clip(Clipper* clipper, const std::size_t globalSlot)
         delete mySlot.load();
         mySlot.store(0);
     }
-    else
-    {
-        std::cout << globalSlot << " REFS:" << myRef.size() << std::endl;
-    }
 }
 
 } // namespace fs
