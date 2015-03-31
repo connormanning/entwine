@@ -87,6 +87,7 @@ Slot::Slot(
 Slot::~Slot()
 {
     const std::size_t slotSize(m_points.size() * m_schema.pointSize());
+    std::memcpy(m_mapping, m_data.data(), m_data.size());
 
     if (
             msync(m_mapping, slotSize, MS_SYNC) == -1 ||
