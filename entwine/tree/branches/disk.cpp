@@ -106,7 +106,6 @@ fs::PointMapper* ChunkManager::getMapper()
         std::lock_guard<std::mutex> lock(m_mutex);
         if (!live() && fs::fileExists(m_filename))
         {
-            std::cout << "CREATING MAPPER" << std::endl;
             m_mapper.store(
                     new fs::PointMapper(
                         m_schema,
@@ -129,7 +128,6 @@ bool ChunkManager::create(const std::vector<char>& initData)
         std::lock_guard<std::mutex> lock(m_mutex);
         if (!live() && !fs::fileExists(m_filename))
         {
-            std::cout << "CREATING FILE" << std::endl;
             assert(initData.size() == m_chunkSize);
             fs::writeFile(m_filename, initData, binaryTruncMode);
             created = true;

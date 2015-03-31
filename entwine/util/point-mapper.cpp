@@ -45,7 +45,6 @@ Slot::Slot(
 {
     const std::size_t pointSize(m_schema.pointSize());
 
-    std::cout << "CREATING SLOT " << firstPoint << std::endl;
     m_mapping =
             static_cast<char*>(mmap(
                 0,
@@ -79,13 +78,11 @@ Slot::Slot(
             m_points[i].atom.store(new Point(x, y));
         }
     }
-    std::cout << "      (done) " << firstPoint << std::endl;
 }
 
 Slot::~Slot()
 {
     const std::size_t slotSize(m_points.size() * m_schema.pointSize());
-    std::cout << "DELETING SLOT " << std::endl;
 
     if (
             msync(m_mapping, slotSize, MS_ASYNC) == -1 ||
@@ -151,9 +148,8 @@ bool Slot::addPoint(
         }
         else
         {
-            std::cout << "Race lost, recursing." << std::endl;
             lock.unlock();
-            done = addPoint(&toAdd, roller, index);
+            done = addPoint(toAddPtr, roller, index);
         }
     }
 
@@ -315,6 +311,10 @@ void PointMapper::clip(Clipper* clipper, const std::size_t globalSlot)
     {
         delete mySlot.load();
         mySlot.store(0);
+    }
+    else
+    {
+        std::cout << globalSlot << " REFS:" << myRef.size() << std::endl;
     }
 }
 

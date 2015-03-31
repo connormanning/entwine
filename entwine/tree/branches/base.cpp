@@ -124,9 +124,8 @@ bool BaseBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
         {
             // Someone beat us here, call again to enter the other branch.
             // Be sure to unlock our mutex first.
-            std::cout << "Race lost, recursing." << std::endl;
             lock.unlock();
-            done = addPoint(&toAdd, roller);
+            done = addPoint(toAddPtr, roller);
         }
     }
 
