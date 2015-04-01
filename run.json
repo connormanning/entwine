@@ -7,12 +7,20 @@
         "threads": 24
     },
     "dimensions": 2,
-    "elastic": false,   // Put this in "tree"?
     "bbox": [
-        // In web-mercator.
+        // Whole state in web-mercator.
         -10796577.371225, 4902908.135781,
         -10015953.953824, 5375808.896799
     ],
+    /*
+    "bbox": [
+        // One file
+        -10758100.0,
+          5271000.0,
+        -10757000.0,
+          5272000.0
+    ],
+    */
     "schema": [
         {
             "name": "X",
@@ -39,8 +47,8 @@
     ],
     "tree": {
         "baseDepth": 12,
-        "flatDepth": 12,
-        "diskDepth": 12
+        "flatDepth": 0,
+        "diskDepth": 0
     },
     "manifest": {
         "local": [
@@ -48,7 +56,10 @@
         "http": [
         ],
         "s3": [
-            "IA_LAZlib/02004736.laz" // TODO Remove, already exists below.
+            "IA_LAZlib/02004736.laz",  // TODO Remove, already exists below.
+            "IA_LAZlib/03224572.laz",
+            "IA_LAZlib/04124630.laz",
+            "IA_LAZlib/05024744.laz"
 /*,
             "IA_LAZlib/05124560.laz",
             "IA_LAZlib/06024746.laz",
