@@ -83,7 +83,7 @@ int main(int argc, char** argv)
     // Parse configuration.
     const std::vector<std::string> paths(getPaths(config["manifest"]));
     const BBox bbox(BBox::fromJson(config["bbox"]));
-    Schema schema(Schema::fromJson(config["schema"]));
+    DimList dimList(Schema::fromJson(config["schema"]));
     const S3Info s3Info(getCredentials());
 
     // TODO These values should be overridable via command line.
@@ -104,31 +104,41 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    std::cout << "Building from " << paths.size() << " paths." << std::endl;
-    std::cout << "Storing dimensions: [";
-    for (std::size_t i(0); i < schema.dims().size(); ++i)
-    {
-        std::cout << schema.dims()[i].name();
-        if (i < schema.dims().size() - 1) std::cout << ", ";
-    }
-    std::cout << "]" << std::endl;
-    std::cout << "S3 source: " << s3Info.baseAwsUrl <<
-        "/" << s3Info.bucketName << std::endl;
-    std::cout << "Performance tuning:\n" <<
-        "\tSnapshot: " << snapshot << "\n" <<
-        "\tThreads:  " << threads << std::endl;
-    std::cout << "Saving to: " << outDir << std::endl;
-    std::cout << "BBox: " << bbox.toJson().toStyledString() << std::endl;
+    std::unique_ptr<SleepyTree> sleepyTree;
 
-    std::unique_ptr<SleepyTree> sleepyTree(
-            new SleepyTree(
-                outDir,
-                bbox,
-                schema,
-                dimensions,
-                baseDepth,
-                flatDepth,
-                diskDepth));
+    if (fs::fileExists(outDir + "/meta"))
+    {
+        // Adding to a previous build.
+        sleepyTree.reset(new SleepyTree(outDir));
+    }
+    else
+    {
+        std::cout << "Building from " << paths.size() << " paths." << std::endl;
+        std::cout << "Storing dimensions: [";
+        for (std::size_t i(0); i < dimList.size(); ++i)
+        {
+            std::cout << dimList[i].name();
+            if (i < dimList.size() - 1) std::cout << ", ";
+        }
+        std::cout << "]" << std::endl;
+        std::cout << "S3 source: " << s3Info.baseAwsUrl <<
+            "/" << s3Info.bucketName << std::endl;
+        std::cout << "Performance tuning:\n" <<
+            "\tSnapshot: " << snapshot << "\n" <<
+            "\tThreads:  " << threads << std::endl;
+        std::cout << "Saving to: " << outDir << std::endl;
+        std::cout << "BBox: " << bbox.toJson().toStyledString() << std::endl;
+
+        sleepyTree.reset(
+                new SleepyTree(
+                    outDir,
+                    bbox,
+                    dimList,
+                    dimensions,
+                    baseDepth,
+                    flatDepth,
+                    diskDepth));
+    }
 
     MultiBatcher batcher(
             s3Info,

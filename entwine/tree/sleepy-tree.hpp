@@ -18,6 +18,7 @@
 #include <pdal/Dimension.hpp>
 
 #include <entwine/tree/point-info.hpp>
+#include <entwine/types/dim-info.hpp>
 
 namespace pdal
 {
@@ -35,7 +36,6 @@ namespace entwine
 class BBox;
 class Clipper;
 class Registry;
-class Schema;
 
 class SleepyTree
 {
@@ -43,8 +43,8 @@ public:
     SleepyTree(
             const std::string& path,
             const BBox& bbox,
-            const Schema& schema,
-            std::size_t dimensions,
+            const DimList& dimList,
+            std::size_t numDimensions,
             std::size_t baseDepth,
             std::size_t flatDepth,
             std::size_t diskDepth);

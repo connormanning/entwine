@@ -27,23 +27,23 @@ namespace entwine
 SleepyTree::SleepyTree(
         const std::string& path,
         const BBox& bbox,
-        const Schema& schema,
-        const std::size_t dimensions,
+        const DimList& dimList,
+        const std::size_t numDimensions,
         const std::size_t baseDepth,
         const std::size_t flatDepth,
         const std::size_t diskDepth)
     : m_path(path)
     , m_bbox(new BBox(bbox))
-    , m_schema(new Schema(schema))
-    , m_originId(m_schema->pdalLayout()->findProprietaryDim("Origin"))
-    , m_dimensions(dimensions)
+    , m_schema(new Schema(dimList))
+    , m_originId(m_schema->pdalLayout().findProprietaryDim("Origin"))
+    , m_dimensions(numDimensions)
     , m_numPoints(0)
     , m_numTossed(0)
     , m_registry(
             new Registry(
                 m_path,
                 *m_schema.get(),
-                dimensions,
+                m_dimensions,
                 baseDepth,
                 flatDepth,
                 diskDepth))
@@ -54,7 +54,6 @@ SleepyTree::SleepyTree(
         throw std::runtime_error("TODO - Only 2 dimensions so far");
     }
 }
-
 
 SleepyTree::SleepyTree(const std::string& path)
     : m_path(path)
@@ -156,7 +155,7 @@ void SleepyTree::load()
 
     m_bbox.reset(new BBox(BBox::fromJson(meta["bbox"])));
     m_schema.reset(new Schema(Schema::fromJson(meta["schema"])));
-    m_originId = m_schema->pdalLayout()->findProprietaryDim("Origin");
+    m_originId = m_schema->pdalLayout().findProprietaryDim("Origin");
     m_dimensions = meta["dimensions"].asUInt64();
     m_numPoints = meta["numPoints"].asUInt64();
     m_numTossed = meta["numTossed"].asUInt64();

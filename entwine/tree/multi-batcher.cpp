@@ -29,11 +29,6 @@
 namespace
 {
     const std::size_t httpAttempts(3);
-
-    const std::ios_base::openmode binaryTruncMode(
-            std::ofstream::binary |
-            std::ofstream::out |
-            std::ofstream::trunc);
 }
 
 namespace entwine
@@ -121,7 +116,7 @@ void MultiBatcher::add(const std::string& filename)
                     if (!fs::writeFile(
                                 localPath,
                                 *res.data().get(),
-                                binaryTruncMode))
+                                fs::binaryTruncMode))
                     {
                         throw std::runtime_error("Couldn't write " + localPath);
                     }

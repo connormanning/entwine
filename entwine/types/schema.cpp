@@ -9,13 +9,17 @@
 ******************************************************************************/
 
 #include <entwine/types/schema.hpp>
+
+#include <pdal/PointLayout.hpp>
+
 #include <entwine/types/simple-point-layout.hpp>
 
 namespace
 {
-    pdal::PointLayoutPtr getPointLayout(std::vector<entwine::DimInfo>& dims)
+    std::unique_ptr<pdal::PointLayout> makePointLayout(
+            std::vector<entwine::DimInfo>& dims)
     {
-        pdal::PointLayoutPtr layout(new SimplePointLayout());
+        std::unique_ptr<pdal::PointLayout> layout(new SimplePointLayout());
         for (auto& dim : dims)
         {
             dim.setId(layout->registerOrAssignDim(dim.name(), dim.type()));
@@ -27,7 +31,7 @@ namespace
     }
 
     /*
-    std::vector<entwine::DimInfo> getDims(const pdal::PointLayout& layout)
+    std::vector<entwine::DimInfo> makeDims(const pdal::PointLayout& layout)
     {
         std::vector<entwine::DimInfo> dims;
         for (const auto& id : layout.dims())
@@ -48,16 +52,19 @@ namespace entwine
 {
 
 Schema::Schema(std::vector<DimInfo> dims)
-    : m_dims(dims)
-    , m_layout(getPointLayout(m_dims))
+    : m_layout(makePointLayout(dims))
+    , m_dims(dims)
 { }
 
 /*
 Schema::Schema(const pdal::PointLayoutPtr layout)
-    : m_dims(getDims(*layout.get()))
+    : m_dims(makeDims(*layout.get()))
     , m_layout(layout)
 { }
 */
+
+Schema::~Schema()
+{ }
 
 std::size_t Schema::pointSize() const
 {
@@ -69,9 +76,9 @@ const std::vector<DimInfo>& Schema::dims() const
     return m_dims;
 }
 
-const pdal::PointLayoutPtr Schema::pdalLayout() const
+pdal::PointLayout& Schema::pdalLayout() const
 {
-    return m_layout;
+    return *m_layout.get();
 }
 
 Json::Value Schema::toJson() const
@@ -88,7 +95,7 @@ Json::Value Schema::toJson() const
     return json;
 }
 
-Schema Schema::fromJson(const Json::Value& json)
+DimList Schema::fromJson(const Json::Value& json)
 {
     std::vector<DimInfo> dims;
     for (Json::ArrayIndex i(0); i < json.size(); ++i)
@@ -100,7 +107,7 @@ Schema Schema::fromJson(const Json::Value& json)
                     jsonDim["type"].asString(),
                     jsonDim["size"].asUInt64()));
     }
-    return Schema(dims);
+    return dims;
 }
 
 } // namespace entwine

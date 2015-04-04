@@ -13,10 +13,13 @@
 #include <cstddef>
 #include <vector>
 
-#include <pdal/PointLayout.hpp>
-
 #include <entwine/third/json/json.h>
 #include <entwine/types/dim-info.hpp>
+
+namespace pdal
+{
+    class PointLayout;
+}
 
 namespace entwine
 {
@@ -26,18 +29,19 @@ class Schema
 public:
     explicit Schema(std::vector<DimInfo> dims);
     // explicit Schema(const pdal::PointLayoutPtr layout);
+    ~Schema();
 
     const std::vector<DimInfo>& dims() const;
-    const pdal::PointLayoutPtr pdalLayout() const;
+    pdal::PointLayout& pdalLayout() const;
 
     std::size_t pointSize() const;
 
     Json::Value toJson() const;
-    static Schema fromJson(const Json::Value& json);
+    static DimList fromJson(const Json::Value& json);
 
 private:
-    std::vector<DimInfo> m_dims;
-    const pdal::PointLayoutPtr m_layout;
+    const std::unique_ptr<pdal::PointLayout> m_layout;
+    const DimList m_dims;
 };
 
 } // namespace entwine

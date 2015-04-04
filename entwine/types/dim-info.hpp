@@ -47,5 +47,7 @@ private:
     const std::string m_typeString;
 };
 
+typedef std::vector<DimInfo> DimList;
+
 } // namespace entwine
 

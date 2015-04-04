@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <fstream>
 #include <ios>
 #include <string>
 #include <vector>
@@ -18,6 +19,12 @@ namespace entwine
 {
 namespace fs
 {
+
+// Binary output, overwriting any existing file with a conflicting name.
+const std::ios_base::openmode binaryTruncMode(
+        std::ofstream::binary |
+        std::ofstream::out |
+        std::ofstream::trunc);
 
 // Returns true if the directory did not exist before and was created.
 bool mkdir(const std::string& dir);

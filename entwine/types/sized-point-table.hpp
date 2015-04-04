@@ -13,6 +13,7 @@
 #include <cstddef>
 
 #include <pdal/Dimension.hpp>
+#include <pdal/PointLayout.hpp>
 #include <pdal/PointTable.hpp>
 
 namespace entwine
@@ -21,13 +22,13 @@ namespace entwine
 class SizedPointTable : public pdal::BasePointTable
 {
 public:
-    SizedPointTable() { }
-
-    explicit SizedPointTable(pdal::PointLayoutPtr layout)
-        : BasePointTable(layout)
+    explicit SizedPointTable(pdal::PointLayout& layout)
+        : m_layout(layout)
     { }
+    ~SizedPointTable() { }
 
     // Inherited from pdal::BasePointTable.
+    virtual pdal::PointLayoutPtr layout() const { return &m_layout; }
     virtual pdal::PointId addPoint() = 0;
     virtual char* getPoint(pdal::PointId index) = 0;
     virtual void setField(
@@ -40,6 +41,9 @@ public:
             void* value) = 0;
 
     virtual std::size_t size() const = 0;
+
+protected:
+    pdal::PointLayout& m_layout;
 };
 
 } // namespace entwine

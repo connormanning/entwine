@@ -52,7 +52,7 @@ Slot::Slot(
                 0,
                 dataSize,
                 PROT_READ | PROT_WRITE,
-                MAP_PRIVATE,
+                MAP_SHARED,
                 fd.id(),
                 firstPoint * pointSize));
 
@@ -62,7 +62,8 @@ Slot::Slot(
         throw std::runtime_error("Could not create mapping!");
     }
 
-    m_data.assign(m_mapping, m_mapping + dataSize);
+    m_data.resize(dataSize);
+    std::memcpy(m_data.data(), m_mapping, dataSize);
 
     double x(0);
     double y(0);
@@ -107,6 +108,8 @@ bool Slot::addPoint(
         const Roller& roller,
         const std::size_t index)
 {
+    assert(index < m_points.size());
+
     // TODO Mostly duplicate code with BaseBranch::addPoint.
     bool done(false);
     PointInfo* toAdd(*toAddPtr);
@@ -123,6 +126,8 @@ bool Slot::addPoint(
 
             if (toAdd->point->sqDist(mid) < curPoint->sqDist(mid))
             {
+                assert(index * m_schema.pointSize() < m_data.size());
+
                 char* pos(m_data.data() + index * m_schema.pointSize());
 
                 // Pull out the old stored value.
@@ -145,6 +150,8 @@ bool Slot::addPoint(
         std::unique_lock<std::mutex> lock(m_locks[index]);
         if (!myPoint.load())
         {
+            assert(index * m_schema.pointSize() < m_data.size());
+
             char* pos(m_data.data() + index * m_schema.pointSize());
             toAdd->write(pos);
             myPoint.store(toAdd->point);

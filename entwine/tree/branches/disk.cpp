@@ -71,11 +71,6 @@ namespace
     {
         return path + "/" + std::to_string(id);
     }
-
-    const std::ios_base::openmode binaryTruncMode(
-            std::ofstream::binary |
-            std::ofstream::out |
-            std::ofstream::trunc);
 }
 
 ChunkManager::ChunkManager(
@@ -129,7 +124,7 @@ bool ChunkManager::create(const std::vector<char>& initData)
         if (!live() && !fs::fileExists(m_filename))
         {
             assert(initData.size() == m_chunkSize);
-            fs::writeFile(m_filename, initData, binaryTruncMode);
+            fs::writeFile(m_filename, initData, fs::binaryTruncMode);
             created = true;
         }
     }

@@ -15,12 +15,6 @@
 namespace entwine
 {
 
-SimplePointTable::SimplePointTable()
-    : SizedPointTable()
-    , m_data()
-    , m_numPoints(0)
-{ }
-
 SimplePointTable::SimplePointTable(const Schema& schema)
     : SizedPointTable(schema.pdalLayout())
     , m_data()
@@ -39,13 +33,13 @@ SimplePointTable::SimplePointTable(
 
 pdal::PointId SimplePointTable::addPoint()
 {
-    m_data.resize(m_data.size() + m_layout->pointSize());
+    m_data.resize(m_data.size() + m_layout.pointSize());
     return m_numPoints++;
 }
 
 char* SimplePointTable::getPoint(pdal::PointId index)
 {
-    return m_data.data() + index * m_layout->pointSize();
+    return m_data.data() + index * m_layout.pointSize();
 }
 
 void SimplePointTable::setField(

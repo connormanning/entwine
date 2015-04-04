@@ -34,7 +34,7 @@ std::unique_ptr<std::vector<char>> Compression::compress(
     CompressionStream compressionStream;
     pdal::LazPerfCompressor<CompressionStream> compressor(
             compressionStream,
-            schema.pdalLayout()->dimTypes());
+            schema.pdalLayout().dimTypes());
 
     compressor.compress(data, size);
     compressor.done();
@@ -58,7 +58,7 @@ std::unique_ptr<std::vector<char>> Compression::decompress(
     CompressionStream compressionStream(data);
     pdal::LazPerfDecompressor<CompressionStream> decompressor(
             compressionStream,
-            schema.pdalLayout()->dimTypes());
+            schema.pdalLayout().dimTypes());
 
     std::unique_ptr<std::vector<char>> decompressed(
             new std::vector<char>(decompressedSize));
