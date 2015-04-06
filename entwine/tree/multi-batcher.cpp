@@ -23,12 +23,32 @@
 #include <entwine/tree/branches/clipper.hpp>
 #include <entwine/tree/sleepy-tree.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/simple-point-table.hpp>
 #include <entwine/util/fs.hpp>
 
 namespace
 {
     const std::size_t httpAttempts(3);
+    const std::size_t pointBatchSize(4096);
+
+    void insertPoints(
+            entwine::SleepyTree& tree,
+            pdal::Filter& filter,
+            entwine::SimplePointTable& table,
+            const entwine::Origin origin,
+            entwine::Clipper* clipper)
+    {
+        if (table.size())
+        {
+            std::shared_ptr<entwine::LinkingPointView> link(
+                    new entwine::LinkingPointView(table));
+            pdal::FilterWrapper::filter(filter, link);
+
+            tree.insert(*link.get(), origin, clipper);
+            table.clear();
+        }
+    }
 }
 
 namespace entwine
@@ -88,9 +108,9 @@ void MultiBatcher::add(const std::string& filename)
         [this, index, origin, filename, &stageFactory]() {
         try
         {
-            std::shared_ptr<SimplePointTable> pointTable(
+            std::shared_ptr<SimplePointTable> pointTablePtr(
                     new SimplePointTable(m_sleepyTree.schema()));
-            SimplePointTable& pointTableRef(*pointTable.get());
+            SimplePointTable& pointTable(*pointTablePtr.get());
 
             std::unique_ptr<pdal::Options> readerOptions(new pdal::Options());
             std::unique_ptr<pdal::Options> reprojOptions(new pdal::Options());
@@ -149,31 +169,41 @@ void MultiBatcher::add(const std::string& filename)
 
                 pdal::Filter& reprojRef(*reproj.get());
 
-                pdal::FilterWrapper::initialize(reproj, pointTableRef);
+                pdal::FilterWrapper::initialize(reproj, pointTable);
                 pdal::FilterWrapper::processOptions(
                         reprojRef,
                         *reprojOptions.get());
-                pdal::FilterWrapper::ready(reprojRef, pointTableRef);
+                pdal::FilterWrapper::ready(reprojRef, pointTable);
 
                 std::unique_ptr<Clipper> clipper(new Clipper(m_sleepyTree));
                 Clipper* clipperPtr(clipper.get());
 
                 // Set up our per-point data handler.
                 reader->setReadCb(
-                        [this, &pointTableRef, &reprojRef, origin, clipperPtr]
+                        [this, &pointTable, &reprojRef, origin, clipperPtr]
                         (pdal::PointView& view, pdal::PointId index)
                 {
-                    pdal::PointViewPtr point(view.makeNew());
-                    point->appendPoint(view, index);
-
-                    pdal::FilterWrapper::filter(reprojRef, point);
-
-                    m_sleepyTree.insert(*point.get(), origin, clipperPtr);
-                    pointTableRef.clear();
+                    if (pointTable.size() >= pointBatchSize)
+                    {
+                        insertPoints(
+                                m_sleepyTree,
+                                reprojRef,
+                                pointTable,
+                                origin,
+                                clipperPtr);
+                    }
                 });
 
-                reader->prepare(pointTableRef);
-                reader->execute(pointTableRef);
+                reader->prepare(pointTable);
+                reader->execute(pointTable);
+
+                // Insert the leftover points that didn't reach the batch size.
+                insertPoints(
+                        m_sleepyTree,
+                        reprojRef,
+                        pointTable,
+                        origin,
+                        clipperPtr);
 
                 std::cout << "\tDone " << filename << std::endl;
                 if (!fs::removeFile(localPath))
