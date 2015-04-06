@@ -32,6 +32,7 @@ namespace
     const std::size_t httpAttempts(3);
     const std::size_t pointBatchSize(4096);
 
+    // Insert points into the tree, and clear the PointTable.
     void insertPoints(
             entwine::SleepyTree& tree,
             pdal::Filter& filter,
@@ -93,11 +94,10 @@ void MultiBatcher::add(const std::string& filename)
     const std::size_t index(m_available.back());
     m_available.pop_back();
 
-    Origin origin(m_originList.size());
-    m_originList.push_back(filename);
-
     std::cout << "Adding " << filename << std::endl;
     lock.unlock();
+
+    Origin origin(m_sleepyTree.addOrigin(filename));
 
     std::unique_ptr<pdal::StageFactory> stageFactoryPtr(
             new pdal::StageFactory());

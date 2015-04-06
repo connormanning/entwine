@@ -70,6 +70,14 @@ SleepyTree::SleepyTree(const std::string& path)
 SleepyTree::~SleepyTree()
 { }
 
+Origin SleepyTree::addOrigin(const std::string& filename)
+{
+    std::lock_guard<std::mutex> lock(m_originMutex);
+    const Origin origin(m_originList.size());
+    m_originList.push_back(filename);
+    return origin;
+}
+
 void SleepyTree::insert(
         pdal::PointView& pointView,
         Origin origin,
@@ -124,6 +132,13 @@ void SleepyTree::save()
     jsonMeta["numPoints"] = static_cast<Json::UInt64>(m_numPoints);
     jsonMeta["numTossed"] = static_cast<Json::UInt64>(m_numTossed);
 
+    // Add origin list to meta.
+    Json::Value& jsonManifest(jsonMeta["manifest"]);
+    for (Json::ArrayIndex i(0); i < m_originList.size(); ++i)
+    {
+        jsonManifest.append(m_originList[i]);
+    }
+
     m_registry->save(m_path, jsonMeta["registry"]);
 
     std::ofstream metaStream(
@@ -159,6 +174,12 @@ void SleepyTree::load()
     m_dimensions = meta["dimensions"].asUInt64();
     m_numPoints = meta["numPoints"].asUInt64();
     m_numTossed = meta["numTossed"].asUInt64();
+    const Json::Value& metaManifest(meta["manifest"]);
+
+    for (Json::ArrayIndex i(0); i < metaManifest.size(); ++i)
+    {
+        m_originList.push_back(metaManifest[i].asString());
+    }
 
     m_registry.reset(
             new Registry(

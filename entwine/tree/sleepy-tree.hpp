@@ -51,6 +51,8 @@ public:
     SleepyTree(const std::string& path);
     ~SleepyTree();
 
+    Origin addOrigin(const std::string& filename);
+
     // Insert the points from a PointView into this index.
     void insert(
             pdal::PointView& pointView,
@@ -111,6 +113,9 @@ private:
     std::size_t m_dimensions;
     std::size_t m_numPoints;
     std::size_t m_numTossed;
+
+    std::mutex m_originMutex;
+    std::vector<std::string> m_originList;
 
     std::unique_ptr<Registry> m_registry;
 
