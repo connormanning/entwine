@@ -68,6 +68,7 @@ bool writeFile(
         const std::ios_base::openmode mode)
 {
     std::ofstream writer(filename, mode);
+    if (!writer.good()) return false;
     writer.write(data, size);
     return writer.good();
 }

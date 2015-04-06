@@ -51,14 +51,14 @@ namespace
         return numPoints / pointsPerChunk(depthBegin, dimensions);
     }
 
-    std::vector<char> makeEmptyChunk(
-            const Schema& schema,
-            std::size_t pointsPerChunk)
+    std::vector<char> makeEmptyChunk(const Schema& schema)
     {
         SimplePointTable table(schema);
         pdal::PointView view(table);
 
-        for (std::size_t i(0); i < pointsPerChunk; ++i)
+        // We require that the disk branch is no shallower than depth 6, so
+        // there will always be a multiple of 4096 points per chunk.
+        for (std::size_t i(0); i < 4096; ++i)
         {
             view.setField(pdal::Dimension::Id::X, i, INFINITY);
             view.setField(pdal::Dimension::Id::Y, i, INFINITY);
@@ -123,8 +123,21 @@ bool ChunkManager::create(const std::vector<char>& initData)
         std::lock_guard<std::mutex> lock(m_mutex);
         if (!live() && !fs::fileExists(m_filename))
         {
-            assert(initData.size() == m_chunkSize);
-            fs::writeFile(m_filename, initData, fs::binaryTruncMode);
+            const std::size_t dataSize(initData.size());
+            assert(m_chunkSize % dataSize == 0);
+
+            std::ofstream writer(m_filename, fs::binaryTruncMode);
+
+            if (!writer.good())
+            {
+                throw std::runtime_error("Couldn't open chunk file");
+            }
+
+            for (std::size_t i(0); i < m_chunkSize / dataSize; ++i)
+            {
+                writer.write(initData.data(), dataSize);
+            }
+
             created = true;
         }
     }
@@ -148,7 +161,7 @@ DiskBranch::DiskBranch(
     , m_ids()
     , m_pointsPerChunk(pointsPerChunk(depthBegin, dimensions))
     , m_mappers()
-    , m_emptyChunk(makeEmptyChunk(schema, m_pointsPerChunk))
+    , m_emptyChunk(makeEmptyChunk(schema))
 {
     init();
 }
@@ -163,7 +176,7 @@ DiskBranch::DiskBranch(
     , m_ids()
     , m_pointsPerChunk(pointsPerChunk(depthBegin(), dimensions))
     , m_mappers()
-    , m_emptyChunk(makeEmptyChunk(schema, m_pointsPerChunk))
+    , m_emptyChunk(makeEmptyChunk(schema))
 {
     init();
 }
@@ -177,6 +190,8 @@ void DiskBranch::init()
 
     const std::size_t mappers(numChunks(depthBegin(), depthEnd(), dimensions()));
 
+    const std::size_t chunkSize(m_pointsPerChunk * schema().pointSize());
+
     for (std::size_t i(0); i < mappers; ++i)
     {
         m_mappers.emplace_back(
@@ -185,7 +200,7 @@ void DiskBranch::init()
                         m_path,
                         schema(),
                         indexBegin() + i * m_pointsPerChunk,
-                        m_emptyChunk.size())));
+                        chunkSize)));
     }
 }
 
