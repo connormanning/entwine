@@ -14,8 +14,6 @@
 #include <cstdint>
 #include <vector>
 
-typedef uint64_t Origin;
-
 namespace pdal
 {
     class PointView;
@@ -23,6 +21,8 @@ namespace pdal
 
 namespace entwine
 {
+
+typedef uint64_t Origin;
 
 class Point;
 class Schema;
