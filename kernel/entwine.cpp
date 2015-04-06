@@ -106,6 +106,8 @@ int main(int argc, char** argv)
 
     std::unique_ptr<SleepyTree> sleepyTree;
 
+    std::cout << "Building from " << paths.size() << " paths." << std::endl;
+
     if (fs::fileExists(outDir + "/meta"))
     {
         // Adding to a previous build.
@@ -113,7 +115,6 @@ int main(int argc, char** argv)
     }
     else
     {
-        std::cout << "Building from " << paths.size() << " paths." << std::endl;
         std::cout << "Storing dimensions: [";
         for (std::size_t i(0); i < dimList.size(); ++i)
         {

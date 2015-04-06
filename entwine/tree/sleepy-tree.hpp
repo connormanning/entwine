@@ -59,7 +59,7 @@ public:
             Origin origin,
             Clipper* clipper);
 
-    // Remove resources that are done being used.
+    // Remove resources that are no longer needed.
     void clip(Clipper* clipper, std::size_t index);
 
     // Finalize the tree so it may be queried.  No more pipelines may be added.
