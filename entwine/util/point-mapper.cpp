@@ -286,9 +286,10 @@ void PointMapper::grow(Clipper* clipper, const std::size_t index)
 
     auto& slot(m_slots[slotIndex].atom);
 
+    std::lock_guard<std::mutex> lock(m_locks[slotIndex]);
+
     if (!slot.load())
     {
-        std::lock_guard<std::mutex> lock(m_locks[slotIndex]);
         if (!slot.load())
         {
             slot.store(new Slot(m_schema, m_fd, slotIndex * pointsPerSlot));
@@ -297,7 +298,6 @@ void PointMapper::grow(Clipper* clipper, const std::size_t index)
 
     if (clipper && clipper->insert(globalSlot))
     {
-        std::lock_guard<std::mutex> lock(m_locks[slotIndex]);
         m_refs[slotIndex].insert(clipper);
     }
 }
