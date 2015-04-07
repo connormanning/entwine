@@ -30,26 +30,6 @@
 namespace
 {
     const std::size_t httpAttempts(3);
-    const std::size_t pointBatchSize(4096);
-
-    // Insert points into the tree, and clear the PointTable.
-    void insertPoints(
-            entwine::SleepyTree& tree,
-            pdal::Filter& filter,
-            entwine::SimplePointTable& table,
-            const entwine::Origin origin,
-            entwine::Clipper* clipper)
-    {
-        if (table.size())
-        {
-            std::shared_ptr<entwine::LinkingPointView> link(
-                    new entwine::LinkingPointView(table));
-            pdal::FilterWrapper::filter(filter, link);
-
-            tree.insert(*link.get(), origin, clipper);
-            table.clear();
-        }
-    }
 }
 
 namespace entwine
@@ -102,7 +82,7 @@ void MultiBatcher::add(const std::string& filename)
     std::unique_ptr<pdal::StageFactory> stageFactoryPtr(
             new pdal::StageFactory());
 
-    pdal::StageFactory& stageFactory(*stageFactoryPtr.get());
+    pdal::StageFactory& stageFactory(*stageFactoryPtr);
 
     m_threads[index] = std::thread(
         [this, index, origin, filename, &stageFactory]() {
@@ -110,7 +90,7 @@ void MultiBatcher::add(const std::string& filename)
         {
             std::shared_ptr<SimplePointTable> pointTablePtr(
                     new SimplePointTable(m_sleepyTree.schema()));
-            SimplePointTable& pointTable(*pointTablePtr.get());
+            SimplePointTable& pointTable(*pointTablePtr);
 
             std::unique_ptr<pdal::Options> readerOptions(new pdal::Options());
             std::unique_ptr<pdal::Options> reprojOptions(new pdal::Options());
@@ -135,7 +115,7 @@ void MultiBatcher::add(const std::string& filename)
 
                     if (!fs::writeFile(
                                 localPath,
-                                *res.data().get(),
+                                *res.data(),
                                 fs::binaryTruncMode))
                     {
                         throw std::runtime_error("Couldn't write " + localPath);
@@ -151,7 +131,7 @@ void MultiBatcher::add(const std::string& filename)
                         pdal::SpatialReference("EPSG:26915"));
 
                 readerOptions->add(pdal::Option("filename", localPath));
-                reader->setOptions(*readerOptions.get());
+                reader->setOptions(*readerOptions);
 
                 // Set up the reprojection filter.
                 std::shared_ptr<pdal::Filter> reproj(
@@ -167,12 +147,10 @@ void MultiBatcher::add(const std::string& filename)
                             "out_srs",
                             pdal::SpatialReference("EPSG:3857")));
 
-                pdal::Filter& reprojRef(*reproj.get());
+                pdal::Filter& reprojRef(*reproj);
 
                 pdal::FilterWrapper::initialize(reproj, pointTable);
-                pdal::FilterWrapper::processOptions(
-                        reprojRef,
-                        *reprojOptions.get());
+                pdal::FilterWrapper::processOptions(reprojRef, *reprojOptions);
                 pdal::FilterWrapper::ready(reprojRef, pointTable);
 
                 std::unique_ptr<Clipper> clipper(new Clipper(m_sleepyTree));
@@ -183,27 +161,18 @@ void MultiBatcher::add(const std::string& filename)
                         [this, &pointTable, &reprojRef, origin, clipperPtr]
                         (pdal::PointView& view, pdal::PointId index)
                 {
-                    if (pointTable.size() >= pointBatchSize)
-                    {
-                        insertPoints(
-                                m_sleepyTree,
-                                reprojRef,
-                                pointTable,
-                                origin,
-                                clipperPtr);
-                    }
+                    // TODO This won't work for dimension-oriented readers that
+                    // have partially written points after the given PointId.
+                    std::unique_ptr<LinkingPointView> link(
+                        new LinkingPointView(pointTable));
+                    pdal::FilterWrapper::filter(reprojRef, *link);
+
+                    m_sleepyTree.insert(*link, origin, clipperPtr);
+                    pointTable.clear();
                 });
 
                 reader->prepare(pointTable);
                 reader->execute(pointTable);
-
-                // Insert the leftover points that didn't reach the batch size.
-                insertPoints(
-                        m_sleepyTree,
-                        reprojRef,
-                        pointTable,
-                        origin,
-                        clipperPtr);
 
                 std::cout << "\tDone " << filename << std::endl;
                 if (!fs::removeFile(localPath))
