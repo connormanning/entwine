@@ -106,20 +106,18 @@ public:
     virtual void clip(Clipper* clipper, std::size_t index);
 
 private:
-    void init();
+    void initChunkManagers();
 
     ChunkManager& getChunkManager(std::size_t index);
-    std::size_t getChunkIndex(std::size_t index) const;
 
     virtual void saveImpl(const std::string& path, Json::Value& meta);
 
     const std::string& m_path;
 
     std::set<std::size_t> m_ids;
-    std::mutex m_mutex;
 
     const std::size_t m_pointsPerChunk;
-    std::vector<std::unique_ptr<ChunkManager>> m_mappers;
+    std::vector<std::unique_ptr<ChunkManager>> m_chunkManagers;
 
     const std::vector<char> m_emptyChunk;
 };

@@ -75,6 +75,9 @@ public:
     void grow(Clipper* clipper, std::size_t index);
     void clip(Clipper* clipper, std::size_t index);
 
+    // Not safe to call during modification - assumes a static state.
+    std::vector<std::size_t> ids() const;
+
 private:
     const Schema& m_schema;
     FileDescriptor m_fd;
@@ -83,6 +86,7 @@ private:
 
     std::vector<ElasticAtomic<Slot*>> m_slots;
     std::vector<std::set<const Clipper*>> m_refs;
+    std::vector<std::set<std::size_t>> m_ids;
     std::vector<std::mutex> m_locks;
 };
 

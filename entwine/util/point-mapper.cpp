@@ -209,6 +209,7 @@ PointMapper::PointMapper(
     , m_firstPoint(firstPoint)
     , m_slots(numPoints / pointsPerSlot, {0})
     , m_refs(m_slots.size())
+    , m_ids(m_slots.size())
     , m_locks(m_slots.size())
 {
     if (!fs::fileExists(filename))
@@ -237,6 +238,8 @@ PointMapper::~PointMapper()
 
 bool PointMapper::addPoint(PointInfo** toAddPtr, const Roller& roller)
 {
+    bool added(false);
+
     const std::size_t index(roller.pos());
     assert(index >= m_firstPoint);
 
@@ -244,10 +247,21 @@ bool PointMapper::addPoint(PointInfo** toAddPtr, const Roller& roller)
     const std::size_t slotIndex (localOffset / pointsPerSlot);
     const std::size_t slotOffset(localOffset % pointsPerSlot);
 
-    return m_slots[slotIndex].atom.load()->addPoint(
+    if (m_slots[slotIndex].atom.load()->addPoint(
             toAddPtr,
             roller,
-            slotOffset);
+            slotOffset))
+    {
+        added = true;
+
+        // Mark this slot as populated.
+        const std::size_t globalSlot(m_firstPoint + slotIndex * pointsPerSlot);
+
+        std::lock_guard<std::mutex> lock(m_locks[slotIndex]);
+        m_ids[slotIndex].insert(globalSlot);
+    }
+
+    return added;
 }
 
 bool PointMapper::hasPoint(const std::size_t index)
@@ -290,10 +304,7 @@ void PointMapper::grow(Clipper* clipper, const std::size_t index)
 
     if (!slot.load())
     {
-        if (!slot.load())
-        {
-            slot.store(new Slot(m_schema, m_fd, slotIndex * pointsPerSlot));
-        }
+        slot.store(new Slot(m_schema, m_fd, slotIndex * pointsPerSlot));
     }
 
     if (clipper && clipper->insert(globalSlot))
@@ -324,6 +335,21 @@ void PointMapper::clip(Clipper* clipper, const std::size_t globalSlot)
         delete mySlot.load();
         mySlot.store(0);
     }
+}
+
+std::vector<std::size_t> PointMapper::ids() const
+{
+    std::vector<std::size_t> ids;
+
+    for (const auto& slotIdList : m_ids)
+    {
+        for (const auto slotId : slotIdList)
+        {
+            ids.push_back(slotId);
+        }
+    }
+
+    return ids;
 }
 
 } // namespace fs

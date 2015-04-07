@@ -160,10 +160,10 @@ DiskBranch::DiskBranch(
     , m_path(path)
     , m_ids()
     , m_pointsPerChunk(pointsPerChunk(depthBegin, dimensions))
-    , m_mappers()
+    , m_chunkManagers()
     , m_emptyChunk(makeEmptyChunk(schema))
 {
-    init();
+    initChunkManagers();
 }
 
 DiskBranch::DiskBranch(
@@ -175,26 +175,37 @@ DiskBranch::DiskBranch(
     , m_path(path)
     , m_ids()
     , m_pointsPerChunk(pointsPerChunk(depthBegin(), dimensions))
-    , m_mappers()
+    , m_chunkManagers()
     , m_emptyChunk(makeEmptyChunk(schema))
 {
-    init();
+    initChunkManagers();
+
+    const Json::Value& metaIds(meta["ids"]);
+
+    if (metaIds.isArray())
+    {
+        for (Json::ArrayIndex i(0); i < metaIds.size(); ++i)
+        {
+            m_ids.insert(metaIds[i].asUInt64());
+        }
+    }
 }
 
-void DiskBranch::init()
+void DiskBranch::initChunkManagers()
 {
     if (depthBegin() < 6)
     {
         throw std::runtime_error("DiskBranch needs depthBegin >= 6");
     }
 
-    const std::size_t mappers(numChunks(depthBegin(), depthEnd(), dimensions()));
+    const std::size_t mappers(
+            numChunks(depthBegin(), depthEnd(), dimensions()));
 
     const std::size_t chunkSize(m_pointsPerChunk * schema().pointSize());
 
     for (std::size_t i(0); i < mappers; ++i)
     {
-        m_mappers.emplace_back(
+        m_chunkManagers.emplace_back(
                 std::unique_ptr<ChunkManager>(
                     new ChunkManager(
                         m_path,
@@ -206,9 +217,9 @@ void DiskBranch::init()
 
 bool DiskBranch::addPoint(PointInfo** toAddPtr, const Roller& roller)
 {
-    ChunkManager& mapperManager(getChunkManager(roller.pos()));
+    ChunkManager& chunkManager(getChunkManager(roller.pos()));
 
-    if (fs::PointMapper* mapper = mapperManager.getMapper())
+    if (fs::PointMapper* mapper = chunkManager.getMapper())
     {
         return mapper->addPoint(toAddPtr, roller);
     }
@@ -222,9 +233,9 @@ bool DiskBranch::hasPoint(std::size_t index)
 {
     bool result(false);
 
-    ChunkManager& mapperManager(getChunkManager(index));
+    ChunkManager& chunkManager(getChunkManager(index));
 
-    if (fs::PointMapper* mapper = mapperManager.getMapper())
+    if (fs::PointMapper* mapper = chunkManager.getMapper())
     {
         return mapper->hasPoint(index);
     }
@@ -236,9 +247,9 @@ Point DiskBranch::getPoint(std::size_t index)
 {
     Point point(INFINITY, INFINITY);
 
-    ChunkManager& mapperManager(getChunkManager(index));
+    ChunkManager& chunkManager(getChunkManager(index));
 
-    if (fs::PointMapper* mapper = mapperManager.getMapper())
+    if (fs::PointMapper* mapper = chunkManager.getMapper())
     {
         point = mapper->getPoint(index);
     }
@@ -250,9 +261,9 @@ std::vector<char> DiskBranch::getPointData(std::size_t index)
 {
     std::vector<char> data;
 
-    ChunkManager& mapperManager(getChunkManager(index));
+    ChunkManager& chunkManager(getChunkManager(index));
 
-    if (fs::PointMapper* mapper = mapperManager.getMapper())
+    if (fs::PointMapper* mapper = chunkManager.getMapper())
     {
         data = mapper->getPointData(index);
     }
@@ -262,15 +273,10 @@ std::vector<char> DiskBranch::getPointData(std::size_t index)
 
 void DiskBranch::grow(Clipper* clipper, std::size_t index)
 {
-    ChunkManager& mapperManager(getChunkManager(index));
+    ChunkManager& chunkManager(getChunkManager(index));
+    chunkManager.create(m_emptyChunk);
 
-    if (mapperManager.create(m_emptyChunk))
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_ids.insert(mapperManager.id());
-    }
-
-    if (fs::PointMapper* mapper = mapperManager.getMapper())
+    if (fs::PointMapper* mapper = chunkManager.getMapper())
     {
         mapper->grow(clipper, index);
     }
@@ -278,9 +284,9 @@ void DiskBranch::grow(Clipper* clipper, std::size_t index)
 
 void DiskBranch::clip(Clipper* clipper, std::size_t index)
 {
-    ChunkManager& mapperManager(getChunkManager(index));
+    ChunkManager& chunkManager(getChunkManager(index));
 
-    if (fs::PointMapper* mapper = mapperManager.getMapper())
+    if (fs::PointMapper* mapper = chunkManager.getMapper())
     {
         mapper->clip(clipper, index);
     }
@@ -288,19 +294,25 @@ void DiskBranch::clip(Clipper* clipper, std::size_t index)
 
 ChunkManager& DiskBranch::getChunkManager(const std::size_t index)
 {
-    return *m_mappers[getChunkIndex(index)].get();
-}
-
-std::size_t DiskBranch::getChunkIndex(std::size_t index) const
-{
     assert(index >= indexBegin() && index < indexEnd());
-
-    return (index - indexBegin()) / m_pointsPerChunk;
+    const std::size_t normalized((index - indexBegin()) / m_pointsPerChunk);
+    return *m_chunkManagers[normalized].get();
 }
 
 void DiskBranch::saveImpl(const std::string& path, Json::Value& meta)
 {
-    for (const auto& id : m_ids)
+    for (std::size_t i(0); i < m_chunkManagers.size(); ++i)
+    {
+        ChunkManager& chunkManager(*m_chunkManagers[i].get());
+
+        if (fs::PointMapper* mapper = chunkManager.getMapper())
+        {
+            std::vector<std::size_t> mapperIds(mapper->ids());
+            m_ids.insert(mapperIds.begin(), mapperIds.end());
+        }
+    }
+
+    for (const auto id : m_ids)
     {
         meta["ids"].append(static_cast<Json::UInt64>(id));
     }
