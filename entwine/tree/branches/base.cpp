@@ -203,34 +203,35 @@ void BaseBranch::finalizeImpl(
 
         if (populated)
         {
+            std::cout << "Base ID " << id << std::endl;
             ids.push_back(id);
 
-            pool.add([this, &output, id, chunkPoints, pointSize, &emptyPoint]()
-            {
+            //pool.add([this, &output, id, chunkPoints, pointSize, &emptyPoint]()
+            //{
                 std::size_t offset(0);
-                std::vector<char> data;
+                std::vector<char> data(chunkPoints * pointSize);
 
                 for (std::size_t i(id); i < id + chunkPoints; ++i)
                 {
-                    data.resize(data.size() + pointSize);
                     std::vector<char> point(getPointData(i));
 
                     std::memcpy(
                             data.data() + offset,
-                            data.size() ? data.data() : emptyPoint.data(),
+                            point.size() ? point.data() : emptyPoint.data(),
                             pointSize);
 
                     offset += pointSize;
                 }
 
-                std::shared_ptr<std::vector<char>> compressed(
-                        Compression::compress(data, schema()).release());
-                output.put(std::to_string(id), compressed);
-            });
+                output.put(
+                        std::to_string(id),
+                        std::shared_ptr<std::vector<char>>(
+                            Compression::compress(data, schema()).release()));
+            //});
         }
     }
 
-    pool.join();
+    // pool.join();
 
     m_points.clear();
     m_data.clear();

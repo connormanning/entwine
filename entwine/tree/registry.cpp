@@ -253,9 +253,9 @@ void Registry::finalize(
         std::size_t start,
         std::size_t chunk)
 {
-    if (m_diskBranch) m_diskBranch->finalize(output, pool, ids, start, chunk);
-    if (m_flatBranch) m_flatBranch->finalize(output, pool, ids, start, chunk);
     if (m_baseBranch) m_baseBranch->finalize(output, pool, ids, start, chunk);
+    if (m_flatBranch) m_flatBranch->finalize(output, pool, ids, start, chunk);
+    if (m_diskBranch) m_diskBranch->finalize(output, pool, ids, start, chunk);
 }
 
 Branch* Registry::getBranch(Clipper* clipper, const std::size_t index) const

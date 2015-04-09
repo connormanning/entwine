@@ -418,7 +418,10 @@ void PointMapper::finalize(
             if (populated)
             {
                 const std::size_t id(m_firstPoint + pos / pointSize);
-                ids.push_back(id);
+                {
+                    std::lock_guard<std::mutex> lock(m_locks[0]);
+                    ids.push_back(id);
+                }
 
                 std::shared_ptr<std::vector<char>> compressed(
                         Compression::compress(
