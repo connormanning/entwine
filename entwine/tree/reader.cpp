@@ -41,6 +41,7 @@ Reader::Reader(const S3Info& s3Info, std::size_t cacheSize)
     Json::Reader reader;
     std::size_t numIds(0);
 
+
     {
         HttpResponse res(m_s3->get("entwine"));
 
@@ -76,7 +77,7 @@ Reader::Reader(const S3Info& s3Info, std::size_t cacheSize)
 
         if (res.code() != 200)
         {
-            throw std::runtime_error("Couldn't fetch meta");
+            throw std::runtime_error("Couldn't fetch ids");
         }
 
         Json::Value ids;
@@ -248,9 +249,12 @@ bool Reader::hasPoint(const std::size_t index)
 {
     if (index >= m_firstChunk)
     {
-        const std::size_t chunk((index - m_firstChunk) / m_chunkPoints);
+        const std::size_t chunk(
+                m_firstChunk +
+                ((index - m_firstChunk) / m_chunkPoints) * m_chunkPoints);
         if (!m_ids.count(chunk))
         {
+            std::cout << "No good: " << chunk << std::endl;
             return false;
         }
     }
@@ -270,7 +274,9 @@ Point Reader::getPoint(const std::size_t index)
     }
     else
     {
-        const std::size_t chunk((index - m_firstChunk) / m_chunkPoints);
+        const std::size_t chunk(
+                m_firstChunk +
+                ((index - m_firstChunk) / m_chunkPoints) * m_chunkPoints);
         const std::size_t offset(
                 ((index - m_firstChunk) % m_chunkPoints) *
                     m_schema->pointSize());
@@ -278,6 +284,7 @@ Point Reader::getPoint(const std::size_t index)
         std::unique_lock<std::mutex> lock(m_mutex);
         if (!m_chunks.count(chunk) && !m_outstanding.count(chunk))
         {
+            std::cout << "Fetching " << chunk << std::endl;
             m_outstanding.insert(chunk);
             lock.unlock();
 
@@ -321,7 +328,9 @@ std::vector<char> Reader::getPointData(const std::size_t index)
     }
     else
     {
-        const std::size_t chunk((index - m_firstChunk) / m_chunkPoints);
+        const std::size_t chunk(
+                m_firstChunk +
+                ((index - m_firstChunk) / m_chunkPoints) * m_chunkPoints);
         const std::size_t offset(
                 ((index - m_firstChunk) % m_chunkPoints) *
                     m_schema->pointSize());
