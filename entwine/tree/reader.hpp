@@ -43,7 +43,7 @@ public:
     std::vector<char> getPointData(std::size_t index, const Schema& schema);
 
     std::size_t numPoints() const { return m_numPoints; }
-    const Schema& schema() const { return m_schema; }
+    const Schema& schema() const { return *m_schema; }
 
 private:
     void query(
