@@ -10,6 +10,7 @@
 
 #include <entwine/util/pool.hpp>
 
+#include <algorithm>
 #include <iostream>
 
 namespace entwine
