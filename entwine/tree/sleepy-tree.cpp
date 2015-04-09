@@ -18,6 +18,7 @@
 #include <pdal/StageWrapper.hpp>
 #include <pdal/Utils.hpp>
 
+#include <entwine/compression/util.hpp>
 #include <entwine/http/s3.hpp>
 #include <entwine/tree/branch.hpp>
 #include <entwine/tree/roller.hpp>
@@ -34,6 +35,17 @@
 namespace
 {
     const std::size_t httpAttempts(3);
+
+    std::vector<char> makeEmptyPoint(const entwine::Schema& schema)
+    {
+        entwine::SimplePointTable table(schema);
+        pdal::PointView view(table);
+
+        view.setField(pdal::Dimension::Id::X, 0, 0);//INFINITY);
+        view.setField(pdal::Dimension::Id::Y, 0, 0);//INFINITY);
+
+        return table.data();
+    }
 }
 
 namespace entwine
@@ -295,15 +307,22 @@ void SleepyTree::finalize(
     {
         std::unique_ptr<Clipper> clipper(new Clipper(*this));
 
-        std::shared_ptr<std::vector<char>> data(new std::vector<char>());
+        std::vector<char> data;
+        std::vector<char> emptyPoint(makeEmptyPoint(schema()));
 
         for (std::size_t i(0); i < baseEnd; ++i)
         {
             std::vector<char> point(getPointData(clipper.get(), i, schema()));
-            data->insert(data->end(), point.begin(), point.end());
+            if (point.size())
+                data.insert(data.end(), point.begin(), point.end());
+            else
+                data.insert(data.end(), emptyPoint.begin(), emptyPoint.end());
         }
 
-        output->put(std::to_string(0), data);
+        output->put(
+                std::to_string(0),
+                std::shared_ptr<std::vector<char>>(
+                    Compression::compress(data, schema()).release()));
     }
 
     m_registry->finalize(*output, *m_pool, *ids, baseEnd, chunkPoints);

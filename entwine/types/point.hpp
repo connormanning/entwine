@@ -32,7 +32,9 @@ public:
 
     static bool exists(Point p)
     {
-        return (p.x != INFINITY && p.y != INFINITY);
+        return
+            (p.x != INFINITY && p.y != INFINITY) &&
+            (p.x != 0 && p.y != 0);
     }
 
     static bool exists(double x, double y)

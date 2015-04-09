@@ -35,8 +35,8 @@ namespace
         entwine::SimplePointTable table(schema);
         pdal::PointView view(table);
 
-        view.setField(pdal::Dimension::Id::X, 0, INFINITY);
-        view.setField(pdal::Dimension::Id::Y, 0, INFINITY);
+        view.setField(pdal::Dimension::Id::X, 0, 0);//INFINITY);
+        view.setField(pdal::Dimension::Id::Y, 0, 0);//INFINITY);
 
         return table.data();
     }
@@ -59,8 +59,8 @@ BaseBranch::BaseBranch(
 
     for (std::size_t i(0); i < size(); ++i)
     {
-        view.setField(pdal::Dimension::Id::X, i, INFINITY);
-        view.setField(pdal::Dimension::Id::Y, i, INFINITY);
+        view.setField(pdal::Dimension::Id::X, i, 0);//INFINITY);
+        view.setField(pdal::Dimension::Id::Y, i, 0);//INFINITY);
     }
 
     m_data = table.data();
@@ -155,7 +155,7 @@ bool BaseBranch::hasPoint(const std::size_t index)
 
 Point BaseBranch::getPoint(const std::size_t index)
 {
-    Point point(INFINITY, INFINITY);
+    Point point;//(INFINITY, INFINITY);
 
     if (hasPoint(index))
     {

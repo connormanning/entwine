@@ -178,7 +178,7 @@ bool Slot::hasPoint(const std::size_t index)
 
 Point Slot::getPoint(const std::size_t index)
 {
-    Point point(INFINITY, INFINITY);
+    Point point;//(INFINITY, INFINITY);
 
     if (hasPoint(index))
     {

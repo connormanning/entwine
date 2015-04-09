@@ -61,8 +61,8 @@ namespace
         // there will always be a multiple of 4096 points per chunk.
         for (std::size_t i(0); i < 4096; ++i)
         {
-            view.setField(pdal::Dimension::Id::X, i, INFINITY);
-            view.setField(pdal::Dimension::Id::Y, i, INFINITY);
+            view.setField(pdal::Dimension::Id::X, i, 0);//INFINITY);
+            view.setField(pdal::Dimension::Id::Y, i, 0);//INFINITY);
         }
 
         return table.data();
@@ -246,7 +246,7 @@ bool DiskBranch::hasPoint(std::size_t index)
 
 Point DiskBranch::getPoint(std::size_t index)
 {
-    Point point(INFINITY, INFINITY);
+    Point point;//(INFINITY, INFINITY);
 
     ChunkManager& chunkManager(getChunkManager(index));
 
