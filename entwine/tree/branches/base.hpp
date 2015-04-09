@@ -54,6 +54,13 @@ public:
     virtual std::vector<char> getPointData(std::size_t index);
 
 private:
+    virtual void finalizeImpl(
+            S3& output,
+            Pool& pool,
+            std::vector<std::size_t>& ids,
+            std::size_t start,
+            std::size_t chunkSize);
+
     virtual void saveImpl(const std::string& path, Json::Value& meta);
     void load(const std::string& path, const Json::Value& meta);
 

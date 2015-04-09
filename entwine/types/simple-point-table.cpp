@@ -73,7 +73,7 @@ void SimplePointTable::clear()
 
 std::size_t SimplePointTable::size() const
 {
-    return m_data.size();
+    return m_numPoints;
 }
 
 std::vector<char> SimplePointTable::data() const

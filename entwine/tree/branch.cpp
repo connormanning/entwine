@@ -10,6 +10,7 @@
 
 #include <entwine/tree/branch.hpp>
 
+#include <entwine/http/s3.hpp>
 #include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
 
@@ -68,6 +69,26 @@ void Branch::save(const std::string& path, Json::Value& meta)
     meta["depthEnd"] = static_cast<Json::UInt64>(m_depthEnd);
 
     saveImpl(path, meta);
+}
+
+void Branch::finalize(
+        S3& output,
+        Pool& pool,
+        std::vector<std::size_t>& ids,
+        const std::size_t start,
+        const std::size_t chunkSize)
+{
+    const std::size_t ourStart(std::max(indexBegin(), start));
+
+    if (ourStart < indexEnd())
+    {
+        if ((indexEnd() - ourStart) % chunkSize != 0)
+        {
+            throw std::runtime_error("Invalid args to Branch::finalize");
+        }
+
+        finalizeImpl(output, pool, ids, ourStart, chunkSize);
+    }
 }
 
 std::size_t Branch::calcOffset(std::size_t depth, std::size_t dimensions)

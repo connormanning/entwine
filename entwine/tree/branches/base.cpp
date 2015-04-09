@@ -17,6 +17,7 @@
 #include <pdal/PointTable.hpp>
 
 #include <entwine/compression/util.hpp>
+#include <entwine/http/s3.hpp>
 #include <entwine/third/json/json.h>
 #include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/point.hpp>
@@ -25,6 +26,21 @@
 #include <entwine/types/single-point-table.hpp>
 #include <entwine/tree/roller.hpp>
 #include <entwine/tree/point-info.hpp>
+#include <entwine/util/pool.hpp>
+
+namespace
+{
+    std::vector<char> makeEmptyPoint(const entwine::Schema& schema)
+    {
+        entwine::SimplePointTable table(schema);
+        pdal::PointView view(table);
+
+        view.setField(pdal::Dimension::Id::X, 0, INFINITY);
+        view.setField(pdal::Dimension::Id::Y, 0, INFINITY);
+
+        return table.data();
+    }
+}
 
 namespace entwine
 {
@@ -159,6 +175,66 @@ std::vector<char> BaseBranch::getPointData(const std::size_t index)
     }
 
     return data;
+}
+
+void BaseBranch::finalizeImpl(
+        S3& output,
+        Pool& pool,
+        std::vector<std::size_t>& ids,
+        const std::size_t start,
+        const std::size_t chunkPoints)
+{
+    const std::size_t pointSize(schema().pointSize());
+    const std::vector<char> emptyPoint(makeEmptyPoint(schema()));
+
+    for (std::size_t id(start); id < indexEnd(); id += chunkPoints)
+    {
+        bool populated(false);
+        std::size_t current(id);
+        const std::size_t end(id + chunkPoints);
+
+        while (!populated && current < end)
+        {
+            if (hasPoint(current++))
+            {
+                populated = true;
+            }
+        }
+
+        if (populated)
+        {
+            ids.push_back(id);
+
+            pool.add([this, &output, id, chunkPoints, pointSize, &emptyPoint]()
+            {
+                std::size_t offset(0);
+                std::vector<char> data;
+
+                for (std::size_t i(id); i < id + chunkPoints; ++i)
+                {
+                    data.resize(data.size() + pointSize);
+                    std::vector<char> point(getPointData(i));
+
+                    std::memcpy(
+                            data.data() + offset,
+                            data.size() ? data.data() : emptyPoint.data(),
+                            pointSize);
+
+                    offset += pointSize;
+                }
+
+                std::shared_ptr<std::vector<char>> compressed(
+                        Compression::compress(data, schema()).release());
+                output.put(std::to_string(id), compressed);
+            });
+        }
+    }
+
+    pool.join();
+
+    m_points.clear();
+    m_data.clear();
+    m_locks.clear();
 }
 
 void BaseBranch::saveImpl(const std::string& path, Json::Value& meta)

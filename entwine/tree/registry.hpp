@@ -30,7 +30,9 @@ class Clipper;
 class DiskBranch;
 class FlatBranch;
 class PointInfo;
+class Pool;
 class Roller;
+class S3;
 class Schema;
 
 // Maintains mapping to house the data belonging to each virtual node.
@@ -72,6 +74,13 @@ public:
     std::vector<char> getPointData(Clipper* clipper, std::size_t index);
 
     void save(const std::string& path, Json::Value& meta) const;
+
+    void finalize(
+            S3& output,
+            Pool& pool,
+            std::vector<std::size_t>& ids,
+            std::size_t start,
+            std::size_t chunkSize);
 
 private:
     // This call will cause the Branch to wake up any serialized data needed

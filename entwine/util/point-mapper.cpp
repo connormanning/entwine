@@ -16,12 +16,15 @@
 #include <cstring>
 #include <iostream>
 
+#include <entwine/compression/util.hpp>
+#include <entwine/http/s3.hpp>
 #include <entwine/tree/point-info.hpp>
 #include <entwine/tree/branches/clipper.hpp>
 #include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/single-point-table.hpp>
 #include <entwine/util/fs.hpp>
+#include <entwine/util/pool.hpp>
 #include <entwine/util/platform.hpp>
 
 namespace
@@ -206,6 +209,7 @@ PointMapper::PointMapper(
         const std::size_t numPoints)
     : m_schema(schema)
     , m_fd(filename)
+    , m_fileSize(fileSize)
     , m_firstPoint(firstPoint)
     , m_slots(numPoints / pointsPerSlot, {0})
     , m_refs(m_slots.size())
@@ -350,6 +354,88 @@ std::vector<std::size_t> PointMapper::ids() const
     }
 
     return ids;
+}
+
+void PointMapper::finalize(
+        S3& output,
+        Pool& pool,
+        std::vector<std::size_t>& ids,
+        const std::size_t start,
+        const std::size_t chunkPoints)
+{
+    if (m_firstPoint < start)
+    {
+        throw std::runtime_error("Base must end before disk branch depth");
+    }
+
+    const std::size_t pointSize(m_schema.pointSize());
+    const std::size_t dataSize(chunkPoints * pointSize);
+
+    assert((m_fileSize / pointSize) % chunkPoints == 0);
+    assert((m_firstPoint - start) % chunkPoints == 0);
+
+    for (std::size_t pos(0); pos < m_fileSize; pos += dataSize)
+    {
+        pool.add([this, &output, &ids, chunkPoints, pointSize, dataSize, pos]()
+        {
+            char* mapping =
+                    static_cast<char*>(mmap(
+                        0,
+                        dataSize,
+                        PROT_READ | PROT_WRITE,
+                        MAP_PRIVATE,
+                        m_fd.id(),
+                        pos));
+
+            if (mapping == MAP_FAILED)
+            {
+                std::cout << "Mapping failed: " << strerror(errno) << std::endl;
+                throw std::runtime_error("Could not create mapping!");
+            }
+
+            double x(0);
+            double y(0);
+
+            bool populated(false);
+            std::size_t i(0);
+
+            while (!populated && i < chunkPoints)
+            {
+                char* point(mapping + pointSize * i++);
+
+                SinglePointTable table(m_schema, point);
+                LinkingPointView view(table);
+
+                x = view.getFieldAs<double>(pdal::Dimension::Id::X, 0);
+                y = view.getFieldAs<double>(pdal::Dimension::Id::Y, 0);
+
+                if (Point::exists(x, y))
+                {
+                    populated = true;
+                }
+            }
+
+            if (populated)
+            {
+                const std::size_t id(m_firstPoint + pos / pointSize);
+                ids.push_back(id);
+
+                std::shared_ptr<std::vector<char>> compressed(
+                        Compression::compress(
+                            mapping,
+                            dataSize,
+                            m_schema).release());
+                output.put(std::to_string(id), compressed);
+            }
+
+            if (
+                    msync(mapping, dataSize, MS_SYNC) == -1 ||
+                    munmap(mapping, dataSize) == -1)
+            {
+                throw std::runtime_error("Couldn't sync mapping");
+            }
+        });
+    }
 }
 
 } // namespace fs

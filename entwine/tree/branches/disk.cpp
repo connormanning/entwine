@@ -26,6 +26,7 @@
 #include <entwine/util/file-descriptor.hpp>
 #include <entwine/util/platform.hpp>
 #include <entwine/util/point-mapper.hpp>
+#include <entwine/util/pool.hpp>
 
 namespace entwine
 {
@@ -316,6 +317,26 @@ void DiskBranch::saveImpl(const std::string& path, Json::Value& meta)
     {
         meta["ids"].append(static_cast<Json::UInt64>(id));
     }
+}
+
+void DiskBranch::finalizeImpl(
+        S3& output,
+        Pool& pool,
+        std::vector<std::size_t>& ids,
+        const std::size_t start,
+        const std::size_t chunkSize)
+{
+    for (auto& c : m_chunkManagers)
+    {
+        ChunkManager& chunkManager(*c.get());
+
+        if (fs::PointMapper* mapper = chunkManager.getMapper())
+        {
+            mapper->finalize(output, pool, ids, start, chunkSize);
+        }
+    }
+
+    pool.join();
 }
 
 } // namespace entwine

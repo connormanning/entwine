@@ -111,6 +111,12 @@ private:
     ChunkManager& getChunkManager(std::size_t index);
 
     virtual void saveImpl(const std::string& path, Json::Value& meta);
+    virtual void finalizeImpl(
+            S3& output,
+            Pool& pool,
+            std::vector<std::size_t>& ids,
+            const std::size_t start,
+            const std::size_t chunkSize);
 
     const std::string& m_path;
 

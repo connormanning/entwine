@@ -19,6 +19,7 @@ LinkingPointView::LinkingPointView(SizedPointTable& table)
     for (std::size_t i(0); i < table.size(); ++i)
     {
         m_index.push_back(i);
+        ++m_size;
     }
 }
 

@@ -12,6 +12,7 @@
 
 #include <algorithm>
 
+#include <entwine/http/s3.hpp>
 #include <entwine/third/json/json.h>
 #include <entwine/tree/roller.hpp>
 #include <entwine/tree/point-info.hpp>
@@ -21,6 +22,7 @@
 #include <entwine/tree/branches/flat.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/util/pool.hpp>
 
 namespace entwine
 {
@@ -236,9 +238,24 @@ std::vector<char> Registry::getPointData(
 
 void Registry::save(const std::string& path, Json::Value& meta) const
 {
+    std::cout << "Saving base" << std::endl;
     if (m_baseBranch) m_baseBranch->save(path, meta["base"]);
+    std::cout << "Saving flat" << std::endl;
     if (m_flatBranch) m_flatBranch->save(path, meta["flat"]);
+    std::cout << "Saving disk" << std::endl;
     if (m_diskBranch) m_diskBranch->save(path, meta["disk"]);
+}
+
+void Registry::finalize(
+        S3& output,
+        Pool& pool,
+        std::vector<std::size_t>& ids,
+        std::size_t start,
+        std::size_t chunk)
+{
+    if (m_diskBranch) m_diskBranch->finalize(output, pool, ids, start, chunk);
+    if (m_flatBranch) m_flatBranch->finalize(output, pool, ids, start, chunk);
+    if (m_baseBranch) m_baseBranch->finalize(output, pool, ids, start, chunk);
 }
 
 Branch* Registry::getBranch(Clipper* clipper, const std::size_t index) const

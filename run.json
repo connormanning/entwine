@@ -1,7 +1,12 @@
 {
     // TODO Specify whether output is compressed.
     // TODO Allow FS/S3/HTTP/SQLite writer formats.
-    "output": "iowa",
+    "paths": {
+        "build":    "iowa",         // Local disk path.
+        "export":   "greyhound-pointclouds", // S3 bucket for results.
+        "baseDepth": 8,
+        "compress": true
+    },
     "tuning": {
         "snapshot": 3000,
         "threads": 24
@@ -46,9 +51,9 @@
         }
     ],
     "tree": {
-        "baseDepth": 12,
+        "baseDepth": 8,
         "flatDepth": 0,
-        "diskDepth": 0
+        "diskDepth": 10
     },
     "manifest": {
         "local": [

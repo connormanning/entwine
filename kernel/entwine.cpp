@@ -11,8 +11,12 @@
 #include <fstream>
 #include <iostream>
 
+#include <csignal>
+#include <cstdio>
+#include <execinfo.h>
+
+#include <entwine/http/s3.hpp>
 #include <entwine/third/json/json.h>
-#include <entwine/tree/multi-batcher.hpp>
 #include <entwine/tree/sleepy-tree.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
@@ -21,6 +25,19 @@
 namespace
 {
     Json::Reader reader;
+
+    void handler(int sig) {
+        void *array[16];
+        size_t size;
+
+        // get void*'s for all entries on the stack
+        size = backtrace(array, 16);
+
+        // print out all the frames to stderr
+        std::cout << "Got error " << sig << std::endl;
+        backtrace_symbols_fd(array, size, STDERR_FILENO);
+        exit(1);
+    }
 }
 
 using namespace entwine;
@@ -47,20 +64,22 @@ S3Info getCredentials()
     }
 }
 
-std::vector<std::string> getPaths(const Json::Value& jsonPaths)
+std::vector<std::string> getManifest(const Json::Value& jsonManifest)
 {
-    // TODO Support local and HTTP paths.
-    std::vector<std::string> paths(jsonPaths["s3"].size());
-    for (std::size_t i(0); i < jsonPaths["s3"].size(); ++i)
+    // TODO Support local and HTTP manifest.
+    std::vector<std::string> manifest(jsonManifest["s3"].size());
+
+    for (Json::ArrayIndex i(0); i < jsonManifest["s3"].size(); ++i)
     {
-        paths[i] = jsonPaths["s3"][static_cast<Json::ArrayIndex>(i)].asString();
+        manifest[i] = jsonManifest["s3"][i].asString();
     }
 
-    return paths;
+    return manifest;
 }
 
 int main(int argc, char** argv)
 {
+    signal(SIGSEGV, handler);
     if (argc < 2)
     {
         std::cout << "Input file required." << std::endl <<
@@ -80,14 +99,21 @@ int main(int argc, char** argv)
     Json::Value config;
     reader.parse(configStream, config, false);
 
+    // TODO Some of these values should be overridable via command line.
+
     // Parse configuration.
-    const std::vector<std::string> paths(getPaths(config["manifest"]));
+    const std::vector<std::string> manifest(getManifest(config["manifest"]));
     const BBox bbox(BBox::fromJson(config["bbox"]));
     DimList dimList(Schema::fromJson(config["schema"]));
     const S3Info s3Info(getCredentials());
 
-    // TODO These values should be overridable via command line.
-    const std::string outDir(config["output"].asString());
+    const Json::Value& paths(config["paths"]);
+    const std::string buildDir(paths["build"].asString());
+    const std::string exportPath(paths["export"].asString());
+    const std::size_t exportBase(paths["baseDepth"].asUInt64());
+    const bool exportCompress(paths["compress"].asBool());
+
+    const std::string finalStore(config["export"].asString());
     const std::size_t dimensions(config["dimensions"].asUInt64());
     const Json::Value& tuning(config["tuning"]);
     const std::size_t snapshot(tuning["snapshot"].asUInt64());
@@ -98,20 +124,20 @@ int main(int argc, char** argv)
     const std::size_t flatDepth(tree["flatDepth"].asUInt64());
     const std::size_t diskDepth(tree["diskDepth"].asUInt64());
 
-    if (!fs::mkdirp(outDir))
+    if (!fs::mkdirp(buildDir))
     {
-        std::cout << "Could not create output dir: " << outDir << std::endl;
+        std::cout << "Could not create output dir: " << buildDir << std::endl;
         return 1;
     }
 
     std::unique_ptr<SleepyTree> sleepyTree;
 
-    std::cout << "Building from " << paths.size() << " paths." << std::endl;
+    std::cout << "Building from " << manifest.size() << " paths." << std::endl;
 
-    if (fs::fileExists(outDir + "/meta"))
+    if (fs::fileExists(buildDir + "/meta"))
     {
         // Adding to a previous build.
-        sleepyTree.reset(new SleepyTree(outDir));
+        sleepyTree.reset(new SleepyTree(buildDir, s3Info, threads));
     }
     else
     {
@@ -127,33 +153,35 @@ int main(int argc, char** argv)
         std::cout << "Performance tuning:\n" <<
             "\tSnapshot: " << snapshot << "\n" <<
             "\tThreads:  " << threads << std::endl;
-        std::cout << "Saving to: " << outDir << std::endl;
+        std::cout << "Saving to: " << buildDir << std::endl;
         std::cout << "BBox: " << bbox.toJson().toStyledString() << std::endl;
 
         sleepyTree.reset(
                 new SleepyTree(
-                    outDir,
+                    buildDir,
                     bbox,
                     dimList,
+                    s3Info,
+                    threads,
                     dimensions,
                     baseDepth,
                     flatDepth,
                     diskDepth));
     }
 
-    MultiBatcher batcher(
-            s3Info,
-            *sleepyTree.get(),
-            threads,
-            snapshot);
-
     const auto start(std::chrono::high_resolution_clock::now());
-    for (const auto& path : paths)
+    for (std::size_t i(0); i < manifest.size(); ++i)
     {
-        batcher.add(path);
+        sleepyTree->insert(manifest[i]);
+
+        if (snapshot && ((i + 1) % snapshot) == 0)
+        {
+            sleepyTree->save();
+        }
     }
 
-    batcher.gather();
+    sleepyTree->join();
+
     const auto end(std::chrono::high_resolution_clock::now());
     const std::chrono::duration<double> d(end - start);
     std::cout << "Indexing complete - " <<
@@ -161,7 +189,17 @@ int main(int argc, char** argv)
             " seconds\n" << "Saving to disk..." << std::endl;
 
     sleepyTree->save();
-    std::cout << "Save complete." << std::endl;
+    std::cout << "Done.  Exporting..." << std::endl;
+
+    // TODO For now only S3 export supported.
+    S3Info exportInfo(
+            s3Info.baseAwsUrl,
+            exportPath,
+            s3Info.awsAccessKeyId,
+            s3Info.awsSecretAccessKey);
+
+    sleepyTree->finalize(exportInfo, exportBase, exportCompress);
+    std::cout << "Finished." << std::endl;
 
     return 0;
 }

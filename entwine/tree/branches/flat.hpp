@@ -37,6 +37,13 @@ public:
 
 private:
     virtual void saveImpl(const std::string& path, Json::Value& meta);
+
+    virtual void finalizeImpl(
+            S3& output,
+            Pool& pool,
+            std::vector<std::size_t>& ids,
+            std::size_t start,
+            std::size_t chunkSize);
 };
 
 } // namespace entwine

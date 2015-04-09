@@ -26,6 +26,8 @@ namespace entwine
 class Branch;
 class Clipper;
 class PointInfo;
+class Pool;
+class S3;
 
 namespace fs
 {
@@ -78,10 +80,18 @@ public:
     // Not safe to call during modification - assumes a static state.
     std::vector<std::size_t> ids() const;
 
+    void finalize(
+            S3& output,
+            Pool& pool,
+            std::vector<std::size_t>& ids,
+            const std::size_t start,
+            const std::size_t chunkSize);
+
 private:
     const Schema& m_schema;
     FileDescriptor m_fd;
 
+    const std::size_t m_fileSize;
     const std::size_t m_firstPoint;
 
     std::vector<ElasticAtomic<Slot*>> m_slots;

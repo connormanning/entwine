@@ -25,7 +25,9 @@ namespace entwine
 class Clipper;
 class Point;
 class PointInfo;
+class Pool;
 class Roller;
+class S3;
 class Schema;
 
 class Branch
@@ -76,10 +78,8 @@ public:
     // Returns true if there is a point at this index.
     virtual bool hasPoint(std::size_t index);
 
-    // Returns the point at this index or throws if there isn't one.
-    //
-    // TODO Return default constructed Point instead?  After hasPoint() returns
-    // true this call will always succeed so throwing might be ok.
+    // Returns the point at this index.  If no point exists here, then returns
+    // a point with X and Y set to INFINITY.
     virtual Point getPoint(std::size_t index) = 0;
 
     virtual void grow(Clipper* clipper, std::size_t index) { }
@@ -88,12 +88,26 @@ public:
     // Writes necessary metadata and point data to disk.
     void save(const std::string& path, Json::Value& meta);
 
+    // Export all populated chunks of the completed tree.
+    void finalize(
+            S3& output,
+            Pool& pool,
+            std::vector<std::size_t>& ids,
+            const std::size_t start,
+            const std::size_t chunkSize);
+
     static std::size_t calcOffset(
             std::size_t depth,
             std::size_t dimensions);
 
 protected:
     virtual void saveImpl(const std::string& path, Json::Value& meta) = 0;
+    virtual void finalizeImpl(
+            S3& output,
+            Pool& pool,
+            std::vector<std::size_t>& ids,
+            std::size_t start,
+            std::size_t chunkSize) = 0;
 
     const Schema& schema()      const;
     std::size_t depthBegin()    const;

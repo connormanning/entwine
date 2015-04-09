@@ -23,6 +23,7 @@
 namespace pdal
 {
     class PointView;
+    class StageFactory;
 }
 
 namespace Json
@@ -35,7 +36,10 @@ namespace entwine
 
 class BBox;
 class Clipper;
+class Pool;
 class Registry;
+class S3;
+struct S3Info;
 
 class SleepyTree
 {
@@ -44,30 +48,38 @@ public:
             const std::string& path,
             const BBox& bbox,
             const DimList& dimList,
+            const S3Info& s3Info,
+            std::size_t numThreads,
             std::size_t numDimensions,
             std::size_t baseDepth,
             std::size_t flatDepth,
             std::size_t diskDepth);
-    SleepyTree(const std::string& path);
+
+    SleepyTree(
+            const std::string& path,
+            const S3Info& s3Info,
+            std::size_t numThreads);
+
     ~SleepyTree();
 
-    Origin addOrigin(const std::string& filename);
-
-    // Insert the points from a PointView into this index.
-    void insert(
-            pdal::PointView& pointView,
-            Origin origin,
-            Clipper* clipper);
+    // Insert the points from a PointView into this index asynchronously.  To
+    // await the results of all outstanding inserts, call join().
+    void insert(const std::string& filename);
+    void join();
 
     // Remove resources that are no longer needed.
     void clip(Clipper* clipper, std::size_t index);
 
-    // Finalize the tree so it may be queried.  No more pipelines may be added.
+    // Save the current state of the tree.
     void save();
 
-    // Awaken the tree so more pipelines may be added.  After a load(), no
-    // queries should be made until save() is subsequently called.
+    // Awaken the tree from a saved state.  After a load(), no queries should
+    // be made until save() is subsequently called.
     void load();
+
+    // Write the tree to an export format independent from the specifics of how
+    // it was built.
+    void finalize(const S3Info& s3Info, std::size_t base, bool compress);
 
     // Get bounds of the quad tree.
     const BBox& getBounds() const;
@@ -104,7 +116,17 @@ public:
     std::string name() const;
 
 private:
+    void insert(
+            pdal::PointView& pointView,
+            Origin origin,
+            Clipper* clipper);
+
     std::string metaPath() const;
+    Json::Value getTreeMeta() const;
+
+    Origin addOrigin(const std::string& remote);
+    std::string inferDriver(const std::string& remote) const;
+    std::string fetchAndWriteFile(const std::string& remote, Origin origin);
 
     const std::string m_path;
     std::unique_ptr<BBox> m_bbox;
@@ -114,8 +136,11 @@ private:
     std::size_t m_numPoints;
     std::size_t m_numTossed;
 
-    std::mutex m_originMutex;
     std::vector<std::string> m_originList;
+
+    std::unique_ptr<Pool> m_pool;
+    std::unique_ptr<pdal::StageFactory> m_stageFactory;
+    std::unique_ptr<S3> m_s3;
 
     std::unique_ptr<Registry> m_registry;
 
