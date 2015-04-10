@@ -295,6 +295,7 @@ Point Reader::getPoint(const std::size_t index)
             if (m_accessMap.size() >= m_cacheSize)
             {
                 const std::size_t expired(m_accessList.back());
+                std::cout << "Erasing " << expired << std::endl;
 
                 if (m_chunks.count(expired))
                 {
@@ -323,7 +324,7 @@ Point Reader::getPoint(const std::size_t index)
                 m_chunkPoints * m_schema->pointSize());
 
             lock.lock();
-            m_chunks.at(chunk) = Compression::decompress(
+            m_chunks[chunk] = Compression::decompress(
                     *res.data(),
                     *m_schema,
                     chunkSize).release();
