@@ -11,6 +11,7 @@
 #pragma once
 
 #include <cstddef>
+#include <list>
 #include <set>
 #include <vector>
 
@@ -78,10 +79,15 @@ private:
     std::unique_ptr<Pool> m_pool;
     std::unique_ptr<S3> m_s3;
 
+    const std::size_t m_cacheSize;
     std::mutex m_mutex;
+    std::condition_variable m_cv;
     std::unique_ptr<std::vector<char>> m_base;
     std::map<std::size_t, std::vector<char>*> m_chunks;
     std::set<std::size_t> m_outstanding;
+
+    std::list<std::size_t> m_accessList;
+    std::map<std::size_t, std::list<std::size_t>::iterator> m_accessMap;
 };
 
 } // namespace entwine

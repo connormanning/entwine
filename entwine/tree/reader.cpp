@@ -33,10 +33,14 @@ Reader::Reader(const S3Info& s3Info, std::size_t cacheSize)
     , m_originList()
     , m_pool(new Pool(32))
     , m_s3(new S3(s3Info))
+    , m_cacheSize(cacheSize)
     , m_mutex()
+    , m_cv()
     , m_base()
     , m_chunks()
     , m_outstanding()
+    , m_accessList()
+    , m_accessMap()
 {
     Json::Reader reader;
     std::size_t numIds(0);
@@ -281,10 +285,30 @@ Point Reader::getPoint(const std::size_t index)
                 ((index - m_firstChunk) % m_chunkPoints) *
                     m_schema->pointSize());
 
+        // TODO Some highly unsafe/optimistic stuff here for cache management.
+        // One-off testing code only.
         std::unique_lock<std::mutex> lock(m_mutex);
         if (!m_chunks.count(chunk) && !m_outstanding.count(chunk))
         {
             std::cout << "Fetching " << chunk << std::endl;
+
+            if (m_accessMap.size() >= m_cacheSize)
+            {
+                const std::size_t expired(m_accessList.back());
+
+                if (m_chunks.count(expired))
+                {
+                    if (m_chunks[expired]) delete m_chunks[expired];
+                    m_chunks.erase(expired);
+                }
+
+                m_accessMap.erase(expired);
+                m_accessList.pop_back();
+            }
+
+            m_accessList.push_front(chunk);
+            m_accessMap[chunk] = m_accessList.begin();
+
             m_outstanding.insert(chunk);
             lock.unlock();
 
@@ -299,15 +323,33 @@ Point Reader::getPoint(const std::size_t index)
                 m_chunkPoints * m_schema->pointSize());
 
             lock.lock();
-            m_chunks[chunk] = Compression::decompress(
+            m_chunks.at(chunk) = Compression::decompress(
                     *res.data(),
                     *m_schema,
                     chunkSize).release();
             m_outstanding.erase(chunk);
         }
+        else if (m_chunks.count(chunk))
+        {
+            // Move chunk this to the front of the access list.
+            //
+            // Don't do this splice if the chunk was outstanding earlier, since
+            // the fetching thread will already do that.
+            m_accessList.splice(
+                    m_accessList.begin(),
+                    m_accessList,
+                    m_accessMap.at(chunk));
+        }
+
+        m_cv.wait(lock, [this, chunk]()->bool
+        {
+            return m_chunks.count(chunk);
+        });
 
         pos = m_chunks.at(chunk)->data() + offset;
     }
+
+    m_cv.notify_all();
 
     SinglePointTable table(*m_schema, pos);
     LinkingPointView view(table);
