@@ -61,6 +61,7 @@ private:
     void warm(
             const Roller& roller,
             Pool& pool,
+            std::set<std::size_t>& fetching,
             const BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd);

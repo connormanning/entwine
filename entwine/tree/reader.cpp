@@ -150,7 +150,8 @@ std::vector<std::size_t> Reader::query(
 
     // Pre-warm cache with necessary chunks for this query.
     std::unique_ptr<Pool> pool(new Pool(16));
-    warm(roller, *pool, bbox, depthBegin, depthEnd);
+    std::set<std::size_t> fetching;
+    warm(roller, *pool, fetching, bbox, depthBegin, depthEnd);
     pool->join();
 
     // Get query results.
@@ -162,6 +163,7 @@ std::vector<std::size_t> Reader::query(
 void Reader::warm(
         const Roller& roller,
         Pool& pool,
+        std::set<std::size_t>& fetching,
         const BBox& queryBBox,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
@@ -178,8 +180,9 @@ void Reader::warm(
     {
         const std::size_t chunkId(getChunkId(index));
 
-        if (chunkId == index)
+        if (!fetching.count(chunkId))
         {
+            fetching.insert(chunkId);
             pool.add([this, chunkId]()->void
             {
                 fetch(chunkId);
@@ -189,10 +192,10 @@ void Reader::warm(
 
     if (depth + 1 < depthEnd || !depthEnd)
     {
-        warm(roller.getNw(), pool, queryBBox, depthBegin, depthEnd);
-        warm(roller.getNe(), pool, queryBBox, depthBegin, depthEnd);
-        warm(roller.getSw(), pool, queryBBox, depthBegin, depthEnd);
-        warm(roller.getSe(), pool, queryBBox, depthBegin, depthEnd);
+        warm(roller.getNw(), pool, fetching, queryBBox, depthBegin, depthEnd);
+        warm(roller.getNe(), pool, fetching, queryBBox, depthBegin, depthEnd);
+        warm(roller.getSw(), pool, fetching, queryBBox, depthBegin, depthEnd);
+        warm(roller.getSe(), pool, fetching, queryBBox, depthBegin, depthEnd);
     }
 }
 
