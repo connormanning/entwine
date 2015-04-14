@@ -182,6 +182,8 @@ void Reader::warm(
 
         if (!fetching.count(chunkId))
         {
+            // TODO Checking fetching.size() here might be a good way to pre-
+            // validate/limit query sizes.
             fetching.insert(chunkId);
             pool.add([this, chunkId]()->void
             {
@@ -211,25 +213,21 @@ void Reader::query(
     const uint64_t index(roller.pos());
     const std::size_t depth(roller.depth());
 
-    Point point(getPoint(index));
-
-    if (Point::exists(point))
+    if (depth >= depthBegin && (depth < depthEnd || !depthEnd))
     {
-        if (
-                depth >= depthBegin &&
-                (depth < depthEnd || !depthEnd) &&
-                queryBBox.contains(point))
+        Point point(getPoint(index));
+        if (queryBBox.contains(point))
         {
             results.push_back(index);
         }
+    }
 
-        if (depth + 1 < depthEnd || !depthEnd)
-        {
-            query(roller.getNw(), results, queryBBox, depthBegin, depthEnd);
-            query(roller.getNe(), results, queryBBox, depthBegin, depthEnd);
-            query(roller.getSw(), results, queryBBox, depthBegin, depthEnd);
-            query(roller.getSe(), results, queryBBox, depthBegin, depthEnd);
-        }
+    if (depth + 1 < depthEnd || !depthEnd)
+    {
+        query(roller.getNw(), results, queryBBox, depthBegin, depthEnd);
+        query(roller.getNe(), results, queryBBox, depthBegin, depthEnd);
+        query(roller.getSw(), results, queryBBox, depthBegin, depthEnd);
+        query(roller.getSe(), results, queryBBox, depthBegin, depthEnd);
     }
 }
 
@@ -303,6 +301,8 @@ char* Reader::getPointData(const std::size_t index)
         }
         else if (m_ids.count(chunkId))
         {
+            std::cout << "Missing chunk " << chunkId << std::endl;
+            std::cout << "Cache size: " << m_chunks.size() << std::endl;
             throw std::runtime_error("Cache overrun or invalid point detected");
         }
     }
@@ -358,7 +358,8 @@ void Reader::fetch(const std::size_t chunkId)
                         *m_schema,
                         chunkSize));
 
-            if (m_accessMap.size() >= m_cacheSize)
+            assert(m_accessMap.size() == m_chunks.size());
+            if (m_chunks.size() >= m_cacheSize)
             {
                 const std::size_t expired(m_accessList.back());
                 std::cout << "Erasing " << expired << std::endl;
