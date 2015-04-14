@@ -148,12 +148,12 @@ std::vector<std::size_t> Reader::query(
     std::vector<std::size_t> results;
     Roller roller(*m_bbox);
 
-    {
-        std::unique_ptr<Pool> pool(new Pool(16));
-        warm(roller, *pool, bbox, depthBegin, depthEnd);
-        pool->join();
-    }
+    // Pre-warm cache with necessary chunks for this query.
+    std::unique_ptr<Pool> pool(new Pool(16));
+    warm(roller, *pool, bbox, depthBegin, depthEnd);
+    pool->join();
 
+    // Get query results.
     query(roller, results, bbox, depthBegin, depthEnd);
 
     return results;
@@ -180,20 +180,10 @@ void Reader::warm(
 
         if (chunkId == index)
         {
-            bool exists(false);
-
+            pool.add([this, chunkId]()->void
             {
-                std::lock_guard<std::mutex> lock(m_mutex);
-                exists = m_ids.count(chunkId);
-            }
-
-            if (exists)
-            {
-                pool.add([this, chunkId]()->void
-                {
-                    fetch(chunkId);
-                });
-            }
+                fetch(chunkId);
+            });
         }
     }
 
@@ -218,11 +208,14 @@ void Reader::query(
     const uint64_t index(roller.pos());
     const std::size_t depth(roller.depth());
 
-    if (hasPoint(index))
+    Point point(getPoint(index));
+
+    if (Point::exists(point))
     {
         if (
-                (depth >= depthBegin) && (depth < depthEnd || !depthEnd) &&
-                queryBBox.contains(getPoint(index)))
+                depth >= depthBegin &&
+                (depth < depthEnd || !depthEnd) &&
+                queryBBox.contains(point))
         {
             results.push_back(index);
         }
@@ -242,11 +235,17 @@ std::vector<char> Reader::getPointData(
         const Schema& reqSchema)
 {
     std::vector<char> schemaPoint;
+    std::vector<char> nativePoint;
 
+    std::unique_lock<std::mutex> lock(m_mutex);
     if (char* pos = getPointData(index))
     {
-        std::vector<char> nativePoint(pos, pos + m_schema->pointSize());
+        nativePoint.assign(pos, pos + m_schema->pointSize());
+    }
+    lock.unlock();
 
+    if (nativePoint.size())
+    {
         schemaPoint.resize(reqSchema.pointSize());
 
         SinglePointTable table(*m_schema, nativePoint.data());
@@ -264,15 +263,11 @@ std::vector<char> Reader::getPointData(
     return schemaPoint;
 }
 
-bool Reader::hasPoint(const std::size_t index)
-{
-    return Point::exists(getPoint(index));
-}
-
 Point Reader::getPoint(const std::size_t index)
 {
     Point point(INFINITY, INFINITY);
 
+    std::lock_guard<std::mutex> lock(m_mutex);
     if (char* pos = getPointData(index))
     {
         SinglePointTable table(*m_schema, pos);
@@ -298,11 +293,14 @@ char* Reader::getPointData(const std::size_t index)
         const std::size_t chunkId(getChunkId(index));
         const std::size_t offset((index - chunkId) * m_schema->pointSize());
 
-        std::lock_guard<std::mutex> lock(m_mutex);
         auto it(m_chunks.find(chunkId));
         if (it != m_chunks.end())
         {
             pos = it->second->data() + offset;
+        }
+        else if (m_ids.count(chunkId))
+        {
+            throw std::runtime_error("Cache overrun or invalid point detected");
         }
     }
 
@@ -339,40 +337,44 @@ void Reader::fetch(const std::size_t chunkId)
     {
         std::cout << "Fetching " << chunkId << std::endl;
 
-        if (m_accessMap.size() >= m_cacheSize)
-        {
-            const std::size_t expired(m_accessList.back());
-            std::cout << "Erasing " << expired << std::endl;
-
-            if (m_chunks.count(expired))
-            {
-                m_chunks.erase(expired);
-            }
-
-            m_accessMap.erase(expired);
-            m_accessList.pop_back();
-        }
-
-        m_accessList.push_front(chunkId);
-        m_accessMap[chunkId] = m_accessList.begin();
-
         m_outstanding.insert(chunkId);
 
         lock.unlock();
         HttpResponse res(m_s3->get(std::to_string(chunkId)));
         lock.lock();
 
+        m_outstanding.erase(chunkId);
+
         if (res.code() == 200)
         {
             const std::size_t chunkSize(m_chunkPoints * m_schema->pointSize());
-            m_chunks[chunkId].reset(
+
+            std::unique_ptr<std::vector<char>> chunk(
                     Compression::decompress(
                         *res.data(),
                         *m_schema,
-                        chunkSize).release());
+                        chunkSize));
+
+            if (m_accessMap.size() >= m_cacheSize)
+            {
+                const std::size_t expired(m_accessList.back());
+                std::cout << "Erasing " << expired << std::endl;
+
+                if (m_chunks.count(expired))
+                {
+                    m_chunks.erase(expired);
+                }
+
+                m_accessMap.erase(expired);
+                m_accessList.pop_back();
+            }
+
+            m_chunks.insert(std::make_pair(chunkId, std::move(chunk)));
+            m_accessList.push_front(chunkId);
+            m_accessMap[chunkId] = m_accessList.begin();
         }
 
-        m_outstanding.erase(chunkId);
+        lock.unlock();
         m_cv.notify_all();
 
         if (res.code() != 200)
@@ -391,8 +393,9 @@ void Reader::fetch(const std::size_t chunkId)
     }
     else
     {
-        // Another thread is already fetching this chunk.  Wait for it
-        // to finish.
+        // Another thread is already fetching this chunk.  Wait for it to
+        // finish.  No need to splice the access list here, since the fetching
+        // thread will place it at the front.
         m_cv.wait(lock, [this, chunkId]()->bool
         {
             bool has(false);

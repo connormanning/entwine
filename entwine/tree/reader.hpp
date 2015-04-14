@@ -31,6 +31,7 @@ class Reader
 public:
     Reader(const S3Info& s3Info, std::size_t cacheSize);
 
+    // Query calls may throw if a cache overrun is detected.
     std::vector<std::size_t> query(
             std::size_t depthBegin,
             std::size_t depthEnd);
@@ -40,7 +41,17 @@ public:
             std::size_t depthBegin,
             std::size_t depthEnd);
 
-    // Returns an empty vector if there is no point at this index.
+    // This should only be called on indices that have previously been returned
+    // from a call to Reader::query(), which means that a point does exist at
+    // this index in the tree and that the source data necessary to retrieve
+    // this point has been fetched successfully.
+    //
+    // This method may throw in at least two cases:
+    //      1) There is no point at this index.  A user should only call this
+    //         function with an index previously returned by a call to query().
+    //      2) There may be a valid point at this index, but this Reader is
+    //         experiencing cache overrun.  Clients should limit their query
+    //         rate.
     std::vector<char> getPointData(std::size_t index, const Schema& schema);
 
     std::size_t numPoints() const { return m_numPoints; }
@@ -62,9 +73,8 @@ private:
             std::size_t depthEnd);
 
     // These queries require the chunk for this index to be pre-fetched.
-    bool hasPoint(std::size_t index);
-    Point getPoint(std::size_t index);
-    char* getPointData(std::size_t index);  // Returns 0 if no point here.
+    Point getPoint(std::size_t index);      // Caller must NOT lock.
+    char* getPointData(std::size_t index);  // Caller must lock.
 
     std::size_t maxId() const;
     std::size_t getChunkId(std::size_t index) const;
