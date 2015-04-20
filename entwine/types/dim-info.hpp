@@ -41,10 +41,10 @@ public:
     void setId(pdal::Dimension::Id::Enum id);
 
 private:
-    const std::string m_name;
+    std::string m_name;
     pdal::Dimension::Id::Enum m_id;
-    const pdal::Dimension::Type::Enum m_type;
-    const std::string m_typeString;
+    pdal::Dimension::Type::Enum m_type;
+    std::string m_typeString;
 };
 
 typedef std::vector<DimInfo> DimList;
