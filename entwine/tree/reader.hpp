@@ -56,6 +56,7 @@ public:
 
     std::size_t numPoints() const { return m_numPoints; }
     const Schema& schema() const { return *m_schema; }
+    const BBox& bbox() const { return *m_bbox; }
 
 private:
     void warm(
