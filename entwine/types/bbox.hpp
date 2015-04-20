@@ -47,6 +47,8 @@ public:
     // would not be included because of the [min, max) convention used here.
     BBox encapsulate() const;
 
+    bool exists() const;
+
     Json::Value toJson() const;
     static BBox fromJson(const Json::Value& json);
 

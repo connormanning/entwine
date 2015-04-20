@@ -93,6 +93,11 @@ BBox BBox::encapsulate() const
                 m_max.y + std::numeric_limits<double>::min()));
 }
 
+bool BBox::exists() const
+{
+    return Point::exists(m_min) && Point::exists(m_max);
+}
+
 Json::Value BBox::toJson() const
 {
     Json::Value json;
