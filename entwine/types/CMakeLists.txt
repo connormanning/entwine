@@ -23,6 +23,7 @@ set(
     "${BASE}/simple-point-layout.hpp"
     "${BASE}/simple-point-table.hpp"
     "${BASE}/single-point-table.hpp"
+    "${BASE}/sized-point-table.hpp"
 )
 
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})
