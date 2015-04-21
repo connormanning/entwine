@@ -22,7 +22,6 @@ class Schema;
 class SimplePointTable : public SizedPointTable
 {
 public:
-    SimplePointTable();
     explicit SimplePointTable(const Schema& schema);
     SimplePointTable(const Schema& schema, const std::vector<char>& data);
 

@@ -20,6 +20,7 @@ namespace
             std::vector<entwine::DimInfo>& dims)
     {
         std::unique_ptr<pdal::PointLayout> layout(new SimplePointLayout());
+
         for (auto& dim : dims)
         {
             dim.setId(layout->registerOrAssignDim(dim.name(), dim.type()));
@@ -29,42 +30,37 @@ namespace
 
         return layout;
     }
-
-    /*
-    std::vector<entwine::DimInfo> makeDims(const pdal::PointLayout& layout)
-    {
-        std::vector<entwine::DimInfo> dims;
-        for (const auto& id : layout.dims())
-        {
-            dims.push_back(
-                    entwine::DimInfo(
-                        layout.dimName(id),
-                        id,
-                        layout.dimType(id)));
-
-        }
-        return dims;
-    }
-    */
 }
 
 namespace entwine
 {
+
+Schema::Schema()
+    : m_layout(new SimplePointLayout())
+    , m_dims()
+{ }
 
 Schema::Schema(std::vector<DimInfo> dims)
     : m_layout(makePointLayout(dims))
     , m_dims(dims)
 { }
 
-/*
-Schema::Schema(const pdal::PointLayoutPtr layout)
-    : m_dims(makeDims(*layout.get()))
-    , m_layout(layout)
-{ }
-*/
-
 Schema::~Schema()
 { }
+
+void Schema::finalize()
+{
+    m_layout->finalize();
+
+    for (const auto& id : m_layout->dims())
+    {
+        m_dims.push_back(
+                entwine::DimInfo(
+                    m_layout->dimName(id),
+                    id,
+                    m_layout->dimType(id)));
+    }
+}
 
 std::size_t Schema::pointSize() const
 {

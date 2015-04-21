@@ -27,9 +27,16 @@ namespace entwine
 class Schema
 {
 public:
+    // Populate this schema later.  Call finalize() when done populating the
+    // layout.
+    Schema();
+
+    // Schema layout will be finalized with these dims.
     explicit Schema(std::vector<DimInfo> dims);
-    // explicit Schema(const pdal::PointLayoutPtr layout);
+
     ~Schema();
+
+    void finalize();
 
     const std::vector<DimInfo>& dims() const;
     pdal::PointLayout& pdalLayout() const;
@@ -40,8 +47,8 @@ public:
     static DimList fromJson(const Json::Value& json);
 
 private:
-    const std::unique_ptr<pdal::PointLayout> m_layout;
-    const DimList m_dims;
+    std::unique_ptr<pdal::PointLayout> m_layout;
+    DimList m_dims;
 };
 
 } // namespace entwine
