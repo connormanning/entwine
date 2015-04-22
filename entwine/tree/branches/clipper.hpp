@@ -17,12 +17,12 @@ namespace entwine
 {
 
 class Branch;
-class SleepyTree;
+class Builder;
 
 class Clipper
 {
 public:
-    Clipper(SleepyTree& tree);
+    Clipper(Builder& builder);
     ~Clipper();
 
     bool insert(std::size_t index);
@@ -30,7 +30,7 @@ public:
     void clip();
 
 private:
-    SleepyTree& m_tree;
+    Builder& m_builder;
     std::set<std::size_t> m_clips;
 };
 

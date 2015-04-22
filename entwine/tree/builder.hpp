@@ -42,10 +42,10 @@ class Reprojection;
 class S3;
 struct S3Info;
 
-class SleepyTree
+class Builder
 {
 public:
-    SleepyTree(
+    Builder(
             std::string buildPath,
             std::string tmpPath,
             const BBox& bbox,
@@ -58,14 +58,14 @@ public:
             std::size_t flatDepth,
             std::size_t diskDepth);
 
-    SleepyTree(
+    Builder(
             std::string buildPath,
             std::string tmpPath,
             const Reprojection& reprojection,
             const S3Info& s3Info,
             std::size_t numThreads);
 
-    ~SleepyTree();
+    ~Builder();
 
     // Insert the points from a PointView into this index asynchronously.  To
     // await the results of all outstanding inserts, call join().
@@ -152,8 +152,8 @@ private:
 
     std::unique_ptr<Registry> m_registry;
 
-    SleepyTree(const SleepyTree&);
-    SleepyTree& operator=(const SleepyTree&);
+    Builder(const Builder&);
+    Builder& operator=(const Builder&);
 };
 
 } // namespace entwine

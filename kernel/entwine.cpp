@@ -18,7 +18,7 @@
 
 #include <entwine/http/s3.hpp>
 #include <entwine/third/json/json.h>
-#include <entwine/tree/sleepy-tree.hpp>
+#include <entwine/tree/builder.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
@@ -182,7 +182,7 @@ int main(int argc, char** argv)
 
     const S3Info s3Info(getCredentials());
 
-    std::unique_ptr<SleepyTree> sleepyTree;
+    std::unique_ptr<Builder> builder;
 
     if (fs::fileExists(buildPath + "/meta"))
     {
@@ -195,8 +195,8 @@ int main(int argc, char** argv)
             "\tSnapshot: " << snapshot << "\n" <<
             "\tThreads:  " << threads << std::endl;
 
-        sleepyTree.reset(
-                new SleepyTree(
+        builder.reset(
+                new Builder(
                     buildPath,
                     tmpPath,
                     reprojection,
@@ -224,8 +224,8 @@ int main(int argc, char** argv)
             "\tSnapshot: " << snapshot << "\n" <<
             "\tThreads: " << threads << std::endl;
 
-        sleepyTree.reset(
-                new SleepyTree(
+        builder.reset(
+                new Builder(
                     buildPath,
                     tmpPath,
                     bbox,
@@ -242,15 +242,15 @@ int main(int argc, char** argv)
     const auto start(std::chrono::high_resolution_clock::now());
     for (std::size_t i(0); i < input.size(); ++i)
     {
-        sleepyTree->insert(input[i]);
+        builder->insert(input[i]);
 
         if (snapshot && ((i + 1) % snapshot) == 0)
         {
-            sleepyTree->save();
+            builder->save();
         }
     }
 
-    sleepyTree->join();
+    builder->join();
 
     const auto end(std::chrono::high_resolution_clock::now());
     const std::chrono::duration<double> d(end - start);
@@ -258,7 +258,7 @@ int main(int argc, char** argv)
             std::chrono::duration_cast<std::chrono::seconds>(d).count() <<
             " seconds\n" << "Saving to disk..." << std::endl;
 
-    sleepyTree->save();
+    builder->save();
     std::cout << "Done.  Exporting..." << std::endl;
 
     // TODO For now only S3 export supported.
@@ -268,7 +268,7 @@ int main(int argc, char** argv)
             s3Info.awsAccessKeyId,
             s3Info.awsSecretAccessKey);
 
-    sleepyTree->finalize(exportInfo, exportBase, exportCompress);
+    builder->finalize(exportInfo, exportBase, exportCompress);
     std::cout << "Finished." << std::endl;
 
     return 0;
