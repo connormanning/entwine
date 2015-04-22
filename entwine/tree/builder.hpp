@@ -41,10 +41,10 @@ class Registry;
 class S3;
 struct S3Info;
 
-class SleepyTree
+class Builder
 {
 public:
-    SleepyTree(
+    Builder(
             const std::string& path,
             const BBox& bbox,
             const DimList& dimList,
@@ -55,12 +55,12 @@ public:
             std::size_t flatDepth,
             std::size_t diskDepth);
 
-    SleepyTree(
+    Builder(
             const std::string& path,
             const S3Info& s3Info,
             std::size_t numThreads);
 
-    ~SleepyTree();
+    ~Builder();
 
     // Insert the points from a PointView into this index asynchronously.  To
     // await the results of all outstanding inserts, call join().
@@ -144,8 +144,8 @@ private:
 
     std::unique_ptr<Registry> m_registry;
 
-    SleepyTree(const SleepyTree&);
-    SleepyTree& operator=(const SleepyTree&);
+    Builder(const Builder&);
+    Builder& operator=(const Builder&);
 };
 
 } // namespace entwine

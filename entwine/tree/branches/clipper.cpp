@@ -11,13 +11,13 @@
 #include <entwine/tree/branches/clipper.hpp>
 
 #include <entwine/tree/branch.hpp>
-#include <entwine/tree/sleepy-tree.hpp>
+#include <entwine/tree/builder.hpp>
 
 namespace entwine
 {
 
-Clipper::Clipper(SleepyTree& tree)
-    : m_tree(tree)
+Clipper::Clipper(Builder& builder)
+    : m_builder(builder)
     , m_clips()
 { }
 
@@ -35,7 +35,7 @@ void Clipper::clip()
 {
     for (auto index : m_clips)
     {
-        m_tree.clip(this, index);
+        m_builder.clip(this, index);
     }
 
     m_clips.clear();

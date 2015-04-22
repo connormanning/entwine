@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include <entwine/tree/sleepy-tree.hpp>
+#include <entwine/tree/builder.hpp>
 
 #include <pdal/Dimension.hpp>
 #include <pdal/Filter.hpp>
@@ -51,7 +51,7 @@ namespace
 namespace entwine
 {
 
-SleepyTree::SleepyTree(
+Builder::Builder(
         const std::string& path,
         const BBox& bbox,
         const DimList& dimList,
@@ -87,7 +87,7 @@ SleepyTree::SleepyTree(
     }
 }
 
-SleepyTree::SleepyTree(
+Builder::Builder(
         const std::string& path,
         const S3Info& s3Info,
         const std::size_t numThreads)
@@ -105,10 +105,10 @@ SleepyTree::SleepyTree(
     load();
 }
 
-SleepyTree::~SleepyTree()
+Builder::~Builder()
 { }
 
-void SleepyTree::insert(const std::string& filename)
+void Builder::insert(const std::string& filename)
 {
     const Origin origin(addOrigin(filename));
     std::cout << "Adding " << origin << " - " << filename << std::endl;
@@ -185,7 +185,7 @@ void SleepyTree::insert(const std::string& filename)
     });
 }
 
-void SleepyTree::insert(
+void Builder::insert(
         pdal::PointView& pointView,
         Origin origin,
         Clipper* clipper)
@@ -225,17 +225,17 @@ void SleepyTree::insert(
     }
 }
 
-void SleepyTree::join()
+void Builder::join()
 {
     m_pool->join();
 }
 
-void SleepyTree::clip(Clipper* clipper, std::size_t index)
+void Builder::clip(Clipper* clipper, std::size_t index)
 {
     m_registry->clip(clipper, index);
 }
 
-void SleepyTree::save()
+void Builder::save()
 {
     // Ensure static state.
     join();
@@ -253,7 +253,7 @@ void SleepyTree::save()
             std::ofstream::out | std::ofstream::trunc);
 }
 
-void SleepyTree::load()
+void Builder::load()
 {
     Json::Value meta;
 
@@ -289,7 +289,7 @@ void SleepyTree::load()
                 meta["registry"]));
 }
 
-void SleepyTree::finalize(
+void Builder::finalize(
         const S3Info& s3Info,
         const std::size_t base,
         const bool compress)
@@ -344,12 +344,12 @@ void SleepyTree::finalize(
     output->put("ids", jsonIds.toStyledString());
 }
 
-const BBox& SleepyTree::getBounds() const
+const BBox& Builder::getBounds() const
 {
     return *m_bbox.get();
 }
 
-std::vector<std::size_t> SleepyTree::query(
+std::vector<std::size_t> Builder::query(
         Clipper* clipper,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
@@ -360,7 +360,7 @@ std::vector<std::size_t> SleepyTree::query(
     return results;
 }
 
-std::vector<std::size_t> SleepyTree::query(
+std::vector<std::size_t> Builder::query(
         Clipper* clipper,
         const BBox& bbox,
         const std::size_t depthBegin,
@@ -372,7 +372,7 @@ std::vector<std::size_t> SleepyTree::query(
     return results;
 }
 
-std::vector<char> SleepyTree::getPointData(
+std::vector<char> Builder::getPointData(
         Clipper* clipper,
         const std::size_t index,
         const Schema& reqSchema)
@@ -399,22 +399,22 @@ std::vector<char> SleepyTree::getPointData(
     return schemaPoint;
 }
 
-const Schema& SleepyTree::schema() const
+const Schema& Builder::schema() const
 {
     return *m_schema.get();
 }
 
-std::size_t SleepyTree::numPoints() const
+std::size_t Builder::numPoints() const
 {
     return m_numPoints;
 }
 
-std::string SleepyTree::path() const
+std::string Builder::path() const
 {
     return m_path;
 }
 
-std::string SleepyTree::name() const
+std::string Builder::name() const
 {
     std::string name;
 
@@ -433,12 +433,12 @@ std::string SleepyTree::name() const
     return name;
 }
 
-std::string SleepyTree::metaPath() const
+std::string Builder::metaPath() const
 {
     return m_path + "/meta";
 }
 
-Json::Value SleepyTree::getTreeMeta() const
+Json::Value Builder::getTreeMeta() const
 {
     Json::Value jsonMeta;
     jsonMeta["bbox"] = m_bbox->toJson();
@@ -457,14 +457,14 @@ Json::Value SleepyTree::getTreeMeta() const
     return jsonMeta;
 }
 
-Origin SleepyTree::addOrigin(const std::string& remote)
+Origin Builder::addOrigin(const std::string& remote)
 {
     const Origin origin(m_originList.size());
     m_originList.push_back(remote);
     return origin;
 }
 
-std::string SleepyTree::inferDriver(const std::string& remote) const
+std::string Builder::inferDriver(const std::string& remote) const
 {
     const std::string driver(m_stageFactory->inferReaderDriver(remote));
 
@@ -476,7 +476,7 @@ std::string SleepyTree::inferDriver(const std::string& remote) const
     return driver;
 }
 
-std::string SleepyTree::fetchAndWriteFile(
+std::string Builder::fetchAndWriteFile(
         const std::string& remote,
         const Origin origin)
 {
