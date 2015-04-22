@@ -16,8 +16,6 @@
 
 #include <openssl/hmac.h>
 
-#include <entwine/http/collector.hpp>
-
 namespace
 {
     // TODO Configure.
@@ -108,18 +106,7 @@ HttpResponse S3::get(std::string file)
     return m_curlBatch->get(endpoint, getHeaders(filePath));
 }
 
-void S3::get(uint64_t id, std::string file, GetCollector* collector)
-{
-    std::thread t([this, id, file, collector]() {
-        collector->insert(id, file, get(file));
-    });
-
-    t.detach();
-}
-
-HttpResponse S3::put(
-        std::string file,
-        const std::shared_ptr<std::vector<char>> data)
+HttpResponse S3::put(std::string file, const std::vector<char>& data)
 {
     const std::string filePath(m_bucketName + prefixSlash(file));
     const std::string endpoint("http://" + m_baseAwsUrl + filePath);
@@ -129,22 +116,9 @@ HttpResponse S3::put(
 
 HttpResponse S3::put(std::string file, const std::string& data)
 {
-    std::shared_ptr<std::vector<char>> vec(
+    std::unique_ptr<std::vector<char>> vec(
             new std::vector<char>(data.begin(), data.end()));
-    return put(file, vec);
-}
-
-void S3::put(
-        uint64_t id,
-        std::string file,
-        const std::shared_ptr<std::vector<char>> data,
-        PutCollector* collector)
-{
-    std::thread t([this, id, file, data, collector]() {
-        collector->insert(id, put(file, data), data);
-    });
-
-    t.detach();
+    return put(file, *vec);
 }
 
 std::string S3::getHttpDate() const

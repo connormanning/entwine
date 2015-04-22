@@ -97,8 +97,8 @@ namespace entwine
 Builder::Builder(
         const std::string buildPath,
         const std::string tmpPath,
-        const BBox& bbox,
         const Reprojection& reprojection,
+        const BBox& bbox,
         const DimList& dimList,
         const S3Info& s3Info,
         const std::size_t numThreads,
@@ -108,8 +108,8 @@ Builder::Builder(
         const std::size_t diskDepth)
     : m_buildPath(buildPath)
     , m_tmpPath(tmpPath)
-    , m_bbox(new BBox(bbox))
     , m_reprojection(reprojection.valid() ? new Reprojection(reprojection) : 0)
+    , m_bbox(new BBox(bbox))
     , m_schema(new Schema(dimList))
     , m_originId(m_schema->pdalLayout().findDim("Origin"))
     , m_dimensions(numDimensions)
@@ -142,8 +142,8 @@ Builder::Builder(
         const std::size_t numThreads)
     : m_buildPath(buildPath)
     , m_tmpPath(tmpPath)
-    , m_bbox()
     , m_reprojection(reprojection.valid() ? new Reprojection(reprojection) : 0)
+    , m_bbox()
     , m_schema()
     , m_dimensions(0)
     , m_numPoints(0)
@@ -312,7 +312,7 @@ void Builder::load()
     m_dimensions = meta["dimensions"].asUInt64();
     m_numPoints = meta["numPoints"].asUInt64();
     m_numTossed = meta["numTossed"].asUInt64();
-    const Json::Value& metaManifest(meta["manifest"]);
+    const Json::Value& metaManifest(meta["input"]);
 
     for (Json::ArrayIndex i(0); i < metaManifest.size(); ++i)
     {
@@ -357,10 +357,8 @@ void Builder::finalize(
                 data.insert(data.end(), emptyPoint.begin(), emptyPoint.end());
         }
 
-        output->put(
-                std::to_string(0),
-                std::shared_ptr<std::vector<char>>(
-                    Compression::compress(data, schema()).release()));
+        auto compressed(Compression::compress(data, schema()));
+        output->put(std::to_string(0), *compressed);
     }
 
     m_registry->finalize(*output, *m_pool, *ids, baseEnd, chunkPoints);
@@ -486,7 +484,7 @@ Json::Value Builder::getTreeMeta() const
     jsonMeta["numTossed"] = static_cast<Json::UInt64>(m_numTossed);
 
     // Add origin list to meta.
-    Json::Value& jsonManifest(jsonMeta["manifest"]);
+    Json::Value& jsonManifest(jsonMeta["input"]);
     for (Json::ArrayIndex i(0); i < m_originList.size(); ++i)
     {
         jsonManifest.append(m_originList[i]);
@@ -523,25 +521,22 @@ std::string Builder::fetchAndWriteFile(
             std::to_string(origin));
 
     std::size_t tries(0);
-    HttpResponse res;
+    std::unique_ptr<HttpResponse> res;
 
     do
     {
-        res = m_s3->get(remote);
+        res.reset(new HttpResponse(m_s3->get(remote)));
     }
-    while (res.code() != 200 && ++tries < httpAttempts);
+    while (res->code() != 200 && ++tries < httpAttempts);
 
-    if (res.code() != 200)
+    if (res->code() != 200)
     {
         std::cout << "Couldn't fetch " + remote <<
-                " - Got: " << res.code() << std::endl;
+                " - Got: " << res->code() << std::endl;
         throw std::runtime_error("Couldn't fetch " + remote);
     }
 
-    if (!fs::writeFile(
-                localPath,
-                *res.data(),
-                fs::binaryTruncMode))
+    if (!fs::writeFile(localPath, res->data(), fs::binaryTruncMode))
     {
         throw std::runtime_error("Couldn't write " + localPath);
     }

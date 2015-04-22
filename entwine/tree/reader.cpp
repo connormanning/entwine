@@ -71,7 +71,7 @@ Reader::Reader(const S3Info& s3Info, std::size_t cacheSize)
         }
 
         Json::Value meta;
-        std::string metaString(res.data()->begin(), res.data()->end());
+        std::string metaString(res.data().begin(), res.data().end());
 
         reader.parse(metaString, meta, false);
 
@@ -101,7 +101,7 @@ Reader::Reader(const S3Info& s3Info, std::size_t cacheSize)
         }
 
         Json::Value ids;
-        std::string idsString(res.data()->begin(), res.data()->end());
+        std::string idsString(res.data().begin(), res.data().end());
 
         reader.parse(idsString, ids, false);
 
@@ -125,7 +125,7 @@ Reader::Reader(const S3Info& s3Info, std::size_t cacheSize)
         }
 
         const std::size_t baseSize(m_firstChunk * m_schema->pointSize());
-        m_base = Compression::decompress(*res.data(), *m_schema, baseSize);
+        m_base = Compression::decompress(res.data(), *m_schema, baseSize);
     }
 }
 
@@ -354,7 +354,7 @@ void Reader::fetch(const std::size_t chunkId)
 
             std::unique_ptr<std::vector<char>> chunk(
                     Compression::decompress(
-                        *res.data(),
+                        res.data(),
                         *m_schema,
                         chunkSize));
 

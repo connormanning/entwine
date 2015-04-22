@@ -428,7 +428,7 @@ void PointMapper::finalize(
                             mapping,
                             dataSize,
                             m_schema).release());
-                output.put(std::to_string(id), compressed);
+                output.put(std::to_string(id), *compressed);
             }
 
             if (

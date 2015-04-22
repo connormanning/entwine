@@ -206,6 +206,7 @@ void BaseBranch::finalizeImpl(
             std::cout << "Base ID " << id << std::endl;
             ids.push_back(id);
 
+            // TODO Pool.
             //pool.add([this, &output, id, chunkPoints, pointSize, &emptyPoint]()
             //{
                 std::size_t offset(0);
@@ -223,10 +224,9 @@ void BaseBranch::finalizeImpl(
                     offset += pointSize;
                 }
 
-                output.put(
-                        std::to_string(id),
-                        std::shared_ptr<std::vector<char>>(
-                            Compression::compress(data, schema()).release()));
+                auto compressed(Compression::compress(data, schema()));
+                output.put(std::to_string(id), *compressed);
+
             //});
         }
     }

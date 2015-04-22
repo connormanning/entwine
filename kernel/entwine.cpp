@@ -228,8 +228,8 @@ int main(int argc, char** argv)
                 new Builder(
                     buildPath,
                     tmpPath,
-                    bbox,
                     reprojection,
+                    bbox,
                     dims,
                     s3Info,
                     threads,

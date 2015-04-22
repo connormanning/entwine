@@ -17,12 +17,12 @@ namespace
 {
     struct PutData
     {
-        PutData(const std::shared_ptr<std::vector<char>> data)
+        PutData(const std::vector<char>& data)
             : data(data)
             , offset(0)
         { }
 
-        const std::shared_ptr<std::vector<char>> data;
+        const std::vector<char>& data;
         std::size_t offset;
     };
 
@@ -50,8 +50,8 @@ namespace
         const std::size_t fullBytes(
                 std::min(
                     size * num,
-                    in->data->size() - in->offset));
-        std::memcpy(out, in->data->data() + in->offset, fullBytes);
+                    in->data.size() - in->offset));
+        std::memcpy(out, in->data.data() + in->offset, fullBytes);
 
         in->offset += fullBytes;
         return fullBytes;
@@ -112,7 +112,7 @@ HttpResponse Curl::get(std::string url, std::vector<std::string> headers)
     init(url, headers);
 
     int httpCode(0);
-    std::shared_ptr<std::vector<char>> data(new std::vector<char>());
+    std::unique_ptr<std::vector<char>> data(new std::vector<char>());
 
     // Register callback function and date pointer to consume the result.
     curl_easy_setopt(m_curl, CURLOPT_WRITEFUNCTION, getCb);
@@ -125,7 +125,7 @@ HttpResponse Curl::get(std::string url, std::vector<std::string> headers)
     curl_easy_perform(m_curl);
     curl_easy_getinfo(m_curl, CURLINFO_RESPONSE_CODE, &httpCode);
 
-    HttpResponse res(httpCode, data);
+    HttpResponse res(httpCode, std::move(data));
     curl_easy_reset(m_curl);
     return res;
 }
@@ -133,7 +133,7 @@ HttpResponse Curl::get(std::string url, std::vector<std::string> headers)
 HttpResponse Curl::put(
         std::string url,
         std::vector<std::string> headers,
-        const std::shared_ptr<std::vector<char>> data)
+        const std::vector<char>& data)
 {
     init(url, headers);
 
@@ -153,7 +153,7 @@ HttpResponse Curl::put(
 
     // Must use this for binary data, otherwise curl will use strlen(), which
     // will likely be incorrect.
-    curl_easy_setopt(m_curl, CURLOPT_INFILESIZE_LARGE, data->size());
+    curl_easy_setopt(m_curl, CURLOPT_INFILESIZE_LARGE, data.size());
 
     // Run the command.
     curl_easy_perform(m_curl);
@@ -183,7 +183,7 @@ HttpResponse CurlBatch::get(
         std::string url,
         std::vector<std::string> headers)
 {
-    std::shared_ptr<Curl> curl(acquire());
+    auto curl(acquire());
     HttpResponse res(curl->get(url, headers));
     release(curl);
     return res;
@@ -192,9 +192,9 @@ HttpResponse CurlBatch::get(
 HttpResponse CurlBatch::put(
         std::string url,
         std::vector<std::string> headers,
-        const std::shared_ptr<std::vector<char>> data)
+        const std::vector<char>& data)
 {
-    std::shared_ptr<Curl> curl(acquire());
+    auto curl(acquire());
     HttpResponse res(curl->put(url, headers, data));
     release(curl);
     return res;
@@ -204,7 +204,7 @@ std::shared_ptr<Curl> CurlBatch::acquire()
 {
     std::unique_lock<std::mutex> lock(m_mutex);
     m_cv.wait(lock, [this]()->bool { return !m_available.empty(); });
-    std::shared_ptr<Curl> curl(m_curls[m_available.back()]);
+    auto curl(m_curls[m_available.back()]);
     m_available.pop_back();
     lock.unlock();
     return curl;

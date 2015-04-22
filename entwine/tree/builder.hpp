@@ -48,8 +48,8 @@ public:
     Builder(
             std::string buildPath,
             std::string tmpPath,
-            const BBox& bbox,
             const Reprojection& reprojection,
+            const BBox& bbox,
             const DimList& dimList,
             const S3Info& s3Info,
             std::size_t numThreads,
@@ -136,8 +136,9 @@ private:
     const std::string m_buildPath;
     const std::string m_tmpPath;
 
-    std::unique_ptr<BBox> m_bbox;
     std::unique_ptr<Reprojection> m_reprojection;
+
+    std::unique_ptr<BBox> m_bbox;
     std::unique_ptr<Schema> m_schema;
     pdal::Dimension::Id::Enum m_originId;
     std::size_t m_dimensions;
