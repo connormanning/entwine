@@ -38,6 +38,7 @@ class BBox;
 class Clipper;
 class Pool;
 class Registry;
+class Reprojection;
 class S3;
 struct S3Info;
 
@@ -45,8 +46,10 @@ class SleepyTree
 {
 public:
     SleepyTree(
-            const std::string& path,
+            std::string buildPath,
+            std::string tmpPath,
             const BBox& bbox,
+            const Reprojection& reprojection,
             const DimList& dimList,
             const S3Info& s3Info,
             std::size_t numThreads,
@@ -56,7 +59,9 @@ public:
             std::size_t diskDepth);
 
     SleepyTree(
-            const std::string& path,
+            std::string buildPath,
+            std::string tmpPath,
+            const Reprojection& reprojection,
             const S3Info& s3Info,
             std::size_t numThreads);
 
@@ -128,8 +133,11 @@ private:
     std::string inferDriver(const std::string& remote) const;
     std::string fetchAndWriteFile(const std::string& remote, Origin origin);
 
-    const std::string m_path;
+    const std::string m_buildPath;
+    const std::string m_tmpPath;
+
     std::unique_ptr<BBox> m_bbox;
+    std::unique_ptr<Reprojection> m_reprojection;
     std::unique_ptr<Schema> m_schema;
     pdal::Dimension::Id::Enum m_originId;
     std::size_t m_dimensions;

@@ -26,6 +26,7 @@
 #include <entwine/tree/branches/clipper.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/linking-point-view.hpp>
+#include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/simple-point-table.hpp>
 #include <entwine/types/single-point-table.hpp>
@@ -46,14 +47,58 @@ namespace
 
         return table.data();
     }
+
+    std::unique_ptr<pdal::Reader> createReader(
+            const pdal::StageFactory& stageFactory,
+            const std::string driver,
+            const std::string path)
+    {
+        std::unique_ptr<pdal::Reader> reader(
+                static_cast<pdal::Reader*>(
+                    stageFactory.createStage(driver)));
+
+        std::unique_ptr<pdal::Options> readerOptions(new pdal::Options());
+        readerOptions->add(pdal::Option("filename", path));
+        reader->setOptions(*readerOptions);
+
+        return reader;
+    }
+
+    std::shared_ptr<pdal::Filter> createReprojectionFilter(
+            const pdal::StageFactory& stageFactory,
+            const entwine::Reprojection& reproj,
+            pdal::BasePointTable& pointTable)
+    {
+        std::shared_ptr<pdal::Filter> filter(
+                static_cast<pdal::Filter*>(
+                    stageFactory.createStage("filters.reprojection")));
+
+        std::unique_ptr<pdal::Options> reprojOptions(new pdal::Options());
+        reprojOptions->add(
+                pdal::Option(
+                    "in_srs",
+                    pdal::SpatialReference(reproj.in())));
+        reprojOptions->add(
+                pdal::Option(
+                    "out_srs",
+                    pdal::SpatialReference(reproj.out())));
+
+        pdal::FilterWrapper::initialize(filter, pointTable);
+        pdal::FilterWrapper::processOptions(*filter, *reprojOptions);
+        pdal::FilterWrapper::ready(*filter, pointTable);
+
+        return filter;
+    }
 }
 
 namespace entwine
 {
 
 SleepyTree::SleepyTree(
-        const std::string& path,
+        const std::string buildPath,
+        const std::string tmpPath,
         const BBox& bbox,
+        const Reprojection& reprojection,
         const DimList& dimList,
         const S3Info& s3Info,
         const std::size_t numThreads,
@@ -61,8 +106,10 @@ SleepyTree::SleepyTree(
         const std::size_t baseDepth,
         const std::size_t flatDepth,
         const std::size_t diskDepth)
-    : m_path(path)
+    : m_buildPath(buildPath)
+    , m_tmpPath(tmpPath)
     , m_bbox(new BBox(bbox))
+    , m_reprojection(reprojection.valid() ? new Reprojection(reprojection) : 0)
     , m_schema(new Schema(dimList))
     , m_originId(m_schema->pdalLayout().findDim("Origin"))
     , m_dimensions(numDimensions)
@@ -73,7 +120,7 @@ SleepyTree::SleepyTree(
     , m_s3(new S3(s3Info))
     , m_registry(
             new Registry(
-                m_path,
+                m_buildPath,
                 *m_schema.get(),
                 m_dimensions,
                 baseDepth,
@@ -88,11 +135,15 @@ SleepyTree::SleepyTree(
 }
 
 SleepyTree::SleepyTree(
-        const std::string& path,
+        const std::string buildPath,
+        const std::string tmpPath,
+        const Reprojection& reprojection,
         const S3Info& s3Info,
         const std::size_t numThreads)
-    : m_path(path)
+    : m_buildPath(buildPath)
+    , m_tmpPath(tmpPath)
     , m_bbox()
+    , m_reprojection(reprojection.valid() ? new Reprojection(reprojection) : 0)
     , m_schema()
     , m_dimensions(0)
     , m_numPoints(0)
@@ -108,51 +159,38 @@ SleepyTree::SleepyTree(
 SleepyTree::~SleepyTree()
 { }
 
-void SleepyTree::insert(const std::string& filename)
+void SleepyTree::insert(const std::string& source)
 {
-    const Origin origin(addOrigin(filename));
-    std::cout << "Adding " << origin << " - " << filename << std::endl;
+    const Origin origin(addOrigin(source));
+    std::cout << "Adding " << origin << " - " << source << std::endl;
 
-    m_pool->add([this, origin, filename]()
+    m_pool->add([this, origin, source]()
     {
-        const std::string driver(inferDriver(filename));
-        const std::string localPath(fetchAndWriteFile(filename, origin));
+        const std::string driver(inferDriver(source));
+        const std::string localPath(fetchAndWriteFile(source, origin));
 
-        // Set up the file reader.
+        SimplePointTable pointTable(*m_schema);
+
         std::unique_ptr<pdal::Reader> reader(
-                static_cast<pdal::Reader*>(
-                    m_stageFactory->createStage(driver)));
+                createReader(
+                    *m_stageFactory,
+                    driver,
+                    localPath));
 
-        reader->setSpatialReference(pdal::SpatialReference("EPSG:26915"));
-        std::unique_ptr<pdal::Options> readerOptions(new pdal::Options());
-        readerOptions->add(pdal::Option("filename", localPath));
-        reader->setOptions(*readerOptions);
+        std::shared_ptr<pdal::Filter> sharedFilter;
 
-        // TODO Specify via config.
-        // Set up the reprojection filter.
-        std::shared_ptr<pdal::Filter> reproj(
-                static_cast<pdal::Filter*>(
-                    m_stageFactory->createStage("filters.reprojection")));
+        if (m_reprojection)
+        {
+            reader->setSpatialReference(
+                    pdal::SpatialReference(m_reprojection->in()));
 
-        std::unique_ptr<pdal::Options> reprojOptions(new pdal::Options());
-        reprojOptions->add(
-                pdal::Option(
-                    "in_srs",
-                    pdal::SpatialReference("EPSG:26915")));
-        reprojOptions->add(
-                pdal::Option(
-                    "out_srs",
-                    pdal::SpatialReference("EPSG:3857")));
+            sharedFilter = createReprojectionFilter(
+                    *m_stageFactory,
+                    *m_reprojection,
+                    pointTable);
+        }
 
-        std::unique_ptr<SimplePointTable> pointTablePtr(
-                new SimplePointTable(*m_schema));
-        SimplePointTable& pointTable(*pointTablePtr);
-
-        pdal::Filter& reprojRef(*reproj);
-
-        pdal::FilterWrapper::initialize(reproj, pointTable);
-        pdal::FilterWrapper::processOptions(reprojRef, *reprojOptions);
-        pdal::FilterWrapper::ready(reprojRef, pointTable);
+        pdal::Filter* filter(sharedFilter.get());
 
         // TODO Should pass to insert as reference, not ptr.
         std::unique_ptr<Clipper> clipper(new Clipper(*this));
@@ -160,23 +198,23 @@ void SleepyTree::insert(const std::string& filename)
 
         // Set up our per-point data handler.
         reader->setReadCb(
-                [this, &pointTable, &reprojRef, origin, clipperPtr]
+                [this, &pointTable, filter, origin, clipperPtr]
                 (pdal::PointView& view, pdal::PointId index)
         {
             // TODO This won't work for dimension-oriented readers that
             // have partially written points after the given PointId.
-            std::unique_ptr<LinkingPointView> link(
-                new LinkingPointView(pointTable));
-            pdal::FilterWrapper::filter(reprojRef, *link);
+            LinkingPointView link(pointTable);
 
-            insert(*link, origin, clipperPtr);
+            if (filter) pdal::FilterWrapper::filter(*filter, link);
+
+            insert(link, origin, clipperPtr);
             pointTable.clear();
         });
 
         reader->prepare(pointTable);
         reader->execute(pointTable);
 
-        std::cout << "\tDone " << origin << " - " << filename << std::endl;
+        std::cout << "\tDone " << origin << " - " << source << std::endl;
         if (!fs::removeFile(localPath))
         {
             std::cout << "Couldn't delete " << localPath << std::endl;
@@ -244,7 +282,7 @@ void SleepyTree::save()
     Json::Value jsonMeta(getTreeMeta());
 
     // Add the registry's metadata.
-    m_registry->save(m_path, jsonMeta["registry"]);
+    m_registry->save(m_buildPath, jsonMeta["registry"]);
 
     // Write to disk.
     fs::writeFile(
@@ -283,7 +321,7 @@ void SleepyTree::load()
 
     m_registry.reset(
             new Registry(
-                m_path,
+                m_buildPath,
                 *m_schema.get(),
                 m_dimensions,
                 meta["registry"]));
@@ -411,7 +449,7 @@ std::size_t SleepyTree::numPoints() const
 
 std::string SleepyTree::path() const
 {
-    return m_path;
+    return m_buildPath;
 }
 
 std::string SleepyTree::name() const
@@ -419,15 +457,15 @@ std::string SleepyTree::name() const
     std::string name;
 
     // TODO Temporary/hacky.
-    const std::size_t pos(m_path.find_last_of("/\\"));
+    const std::size_t pos(m_buildPath.find_last_of("/\\"));
 
     if (pos != std::string::npos)
     {
-        name = m_path.substr(pos + 1);
+        name = m_buildPath.substr(pos + 1);
     }
     else
     {
-        name = m_path;
+        name = m_buildPath;
     }
 
     return name;
@@ -435,7 +473,7 @@ std::string SleepyTree::name() const
 
 std::string SleepyTree::metaPath() const
 {
-    return m_path + "/meta";
+    return m_buildPath + "/meta";
 }
 
 Json::Value SleepyTree::getTreeMeta() const
@@ -481,8 +519,8 @@ std::string SleepyTree::fetchAndWriteFile(
         const Origin origin)
 {
     // Fetch remote file and write locally.
-    const std::string localPath("./tmp/" + name() + "-" +
-                std::to_string(origin));
+    const std::string localPath(m_tmpPath + "/" + name() + "-" +
+            std::to_string(origin));
 
     std::size_t tries(0);
     HttpResponse res;
@@ -490,7 +528,8 @@ std::string SleepyTree::fetchAndWriteFile(
     do
     {
         res = m_s3->get(remote);
-    } while (res.code() != 200 && ++tries < httpAttempts);
+    }
+    while (res.code() != 200 && ++tries < httpAttempts);
 
     if (res.code() != 200)
     {

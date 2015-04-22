@@ -14,13 +14,17 @@
 #include <csignal>
 #include <cstdio>
 #include <execinfo.h>
+#include <string>
 
 #include <entwine/http/s3.hpp>
 #include <entwine/third/json/json.h>
 #include <entwine/tree/sleepy-tree.hpp>
 #include <entwine/types/bbox.hpp>
+#include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/util/fs.hpp>
+
+using namespace entwine;
 
 namespace
 {
@@ -38,48 +42,94 @@ namespace
         backtrace_symbols_fd(array, size, STDERR_FILENO);
         exit(1);
     }
-}
 
-using namespace entwine;
-
-S3Info getCredentials()
-{
-    // TODO Accept flag to specify location of credentials file.
-    Json::Value credentials;
-    std::ifstream credFile("credentials.json", std::ifstream::binary);
-    if (credFile.good())
+    std::string getDimensionString(DimList dims)
     {
-        reader.parse(credFile, credentials, false);
-        return S3Info(
-                credentials["url"].asString(),
-                credentials["bucket"].asString(),
-                credentials["access"].asString(),
-                credentials["hidden"].asString());
-    }
-    else
-    {
-        // TODO Just until other data sources are supported.
-        std::cout << "S3 credentials not found - credentials.json" << std::endl;
-        exit(1);
-    }
-}
+        std::string results("[");
 
-std::vector<std::string> getManifest(const Json::Value& jsonManifest)
-{
-    // TODO Support local and HTTP manifest.
-    std::vector<std::string> manifest(jsonManifest["s3"].size());
+        for (std::size_t i(0); i < dims.size(); ++i)
+        {
+            results += dims[i].name();
+            if (i < dims.size() - 1) std::cout << ", ";
+        }
 
-    for (Json::ArrayIndex i(0); i < jsonManifest["s3"].size(); ++i)
-    {
-        manifest[i] = jsonManifest["s3"][i].asString();
+        results += "]";
+
+        return results;
     }
 
-    return manifest;
+    S3Info getCredentials()
+    {
+        // TODO Accept flag to specify location of credentials file.
+        Json::Value credentials;
+        std::ifstream credFile("credentials.json", std::ifstream::binary);
+        if (credFile.good())
+        {
+            reader.parse(credFile, credentials, false);
+            return S3Info(
+                    credentials["url"].asString(),
+                    credentials["bucket"].asString(),
+                    credentials["access"].asString(),
+                    credentials["hidden"].asString());
+        }
+        else
+        {
+            return S3Info();
+        }
+    }
+
+    std::vector<std::string> getInput(const Json::Value& jsonInput)
+    {
+        std::vector<std::string> input(jsonInput.size());
+
+        for (Json::ArrayIndex i(0); i < jsonInput.size(); ++i)
+        {
+            input[i] = jsonInput[i].asString();
+        }
+
+        return input;
+    }
+
+    std::size_t getDimensions(const Json::Value& jsonType)
+    {
+        const std::string typeString(jsonType.asString());
+
+        if (typeString == "quadtree") return 2;
+        else if (typeString == "octree") return 3;
+        else throw std::runtime_error("Invalid tree type");
+    }
+
+    Reprojection getReprojection(const Json::Value& jsonReproject)
+    {
+        Reprojection reprojection;
+
+        if (jsonReproject.isMember("in") && jsonReproject.isMember("out"))
+        {
+            reprojection = Reprojection(
+                    jsonReproject["in"].asString(),
+                    jsonReproject["out"].asString());
+        }
+
+        return reprojection;
+    }
+
+    std::string getReprojectionString(Reprojection reprojection)
+    {
+        if (reprojection.valid())
+        {
+            return reprojection.in() + " -> " + reprojection.out();
+        }
+        else
+        {
+            return "none";
+        }
+    }
 }
 
 int main(int argc, char** argv)
 {
     signal(SIGSEGV, handler);
+
     if (argc < 2)
     {
         std::cout << "Input file required." << std::endl <<
@@ -99,68 +149,88 @@ int main(int argc, char** argv)
     Json::Value config;
     reader.parse(configStream, config, false);
 
-    // TODO Some of these values should be overridable via command line.
+    // Input files to add to the index.
+    const std::vector<std::string> input(getInput(config["input"]));
 
-    // Parse configuration.
-    const std::vector<std::string> manifest(getManifest(config["manifest"]));
-    const BBox bbox(BBox::fromJson(config["bbox"]));
-    DimList dimList(Schema::fromJson(config["schema"]));
-    const S3Info s3Info(getCredentials());
+    // Build specifications and path info.
+    const Json::Value& build(config["build"]);
+    const std::string buildPath(build["path"].asString());
+    const std::string tmpPath(build["tmp"].asString());
 
-    const Json::Value& paths(config["paths"]);
-    const std::string buildDir(paths["build"].asString());
-    const std::string exportPath(paths["export"].asString());
-    const std::size_t exportBase(paths["baseDepth"].asUInt64());
-    const bool exportCompress(paths["compress"].asBool());
-
-    const std::string finalStore(config["export"].asString());
-    const std::size_t dimensions(config["dimensions"].asUInt64());
-    const Json::Value& tuning(config["tuning"]);
-    const std::size_t snapshot(tuning["snapshot"].asUInt64());
-    const std::size_t threads(tuning["threads"].asUInt64());
-
-    const Json::Value& tree(config["tree"]);
+    const Json::Value& tree(build["tree"]);
     const std::size_t baseDepth(tree["baseDepth"].asUInt64());
     const std::size_t flatDepth(tree["flatDepth"].asUInt64());
     const std::size_t diskDepth(tree["diskDepth"].asUInt64());
 
-    if (!fs::mkdirp(buildDir))
-    {
-        std::cout << "Could not create output dir: " << buildDir << std::endl;
-        return 1;
-    }
+    // Output info.
+    const Json::Value& output(config["output"]);
+    const std::string exportPath(output["export"].asString());
+    const std::size_t exportBase(output["baseDepth"].asUInt64());
+    const bool exportCompress(output["compress"].asBool());
+
+    // Performance tuning.
+    const Json::Value& tuning(config["tuning"]);
+    const std::size_t snapshot(tuning["snapshot"].asUInt64());
+    const std::size_t threads(tuning["threads"].asUInt64());
+
+    // Geometry and spatial info.
+    const Json::Value& geometry(config["geometry"]);
+    const std::size_t dimensions(getDimensions(geometry["type"]));
+    const BBox bbox(BBox::fromJson(geometry["bbox"]));
+    const Reprojection reprojection(getReprojection(geometry["reproject"]));
+    DimList dims(Schema::fromJson(geometry["schema"]));
+
+    const S3Info s3Info(getCredentials());
 
     std::unique_ptr<SleepyTree> sleepyTree;
 
-    std::cout << "Building from " << manifest.size() << " paths." << std::endl;
-
-    if (fs::fileExists(buildDir + "/meta"))
+    if (fs::fileExists(buildPath + "/meta"))
     {
-        // Adding to a previous build.
-        sleepyTree.reset(new SleepyTree(buildDir, s3Info, threads));
-    }
-    else
-    {
-        std::cout << "Storing dimensions: [";
-        for (std::size_t i(0); i < dimList.size(); ++i)
-        {
-            std::cout << dimList[i].name();
-            if (i < dimList.size() - 1) std::cout << ", ";
-        }
-        std::cout << "]" << std::endl;
-        std::cout << "S3 source: " << s3Info.baseAwsUrl <<
-            "/" << s3Info.bucketName << std::endl;
+        std::cout << "Continuing previous index..." << std::endl;
+        std::cout << "Paths:\n" <<
+            "\tBuilding from " << input.size() << " source files" << "\n" <<
+            "\tBuild path: " << buildPath << "\n" <<
+            "\tTmp path: " << tmpPath << std::endl;
         std::cout << "Performance tuning:\n" <<
             "\tSnapshot: " << snapshot << "\n" <<
             "\tThreads:  " << threads << std::endl;
-        std::cout << "Saving to: " << buildDir << std::endl;
-        std::cout << "BBox: " << bbox.toJson().toStyledString() << std::endl;
 
         sleepyTree.reset(
                 new SleepyTree(
-                    buildDir,
+                    buildPath,
+                    tmpPath,
+                    reprojection,
+                    s3Info,
+                    threads));
+    }
+    else
+    {
+        std::cout << "Paths:\n" <<
+            "\tBuilding from " << input.size() << " source files" << "\n" <<
+            "\tBuild path: " << buildPath << "\n" <<
+            "\t\tBuild tree: " << "\n" <<
+            "\t\t\tBase depth: " << baseDepth << "\n" <<
+            "\t\t\tFlat depth: " << flatDepth << "\n" <<
+            "\t\t\tDisk depth: " << diskDepth << "\n" <<
+            "\tTmp path: " << tmpPath << "\n" <<
+            "\tOutput path: " << exportPath << "\n" <<
+            "\t\tExport base depth: " << exportBase << std::endl;
+        std::cout << "Geometry:\n" <<
+            "\tBuild type: " << geometry["type"].asString() << "\n" <<
+            "\tBounds: " << bbox.toJson().toStyledString() << "\n" <<
+            "\tReprojection: " << getReprojectionString(reprojection) << "\n" <<
+            "\tStoring dimensions: " << getDimensionString(dims) << std::endl;
+        std::cout << "Performance tuning:\n" <<
+            "\tSnapshot: " << snapshot << "\n" <<
+            "\tThreads: " << threads << std::endl;
+
+        sleepyTree.reset(
+                new SleepyTree(
+                    buildPath,
+                    tmpPath,
                     bbox,
-                    dimList,
+                    reprojection,
+                    dims,
                     s3Info,
                     threads,
                     dimensions,
@@ -170,9 +240,9 @@ int main(int argc, char** argv)
     }
 
     const auto start(std::chrono::high_resolution_clock::now());
-    for (std::size_t i(0); i < manifest.size(); ++i)
+    for (std::size_t i(0); i < input.size(); ++i)
     {
-        sleepyTree->insert(manifest[i]);
+        sleepyTree->insert(input[i]);
 
         if (snapshot && ((i + 1) % snapshot) == 0)
         {
