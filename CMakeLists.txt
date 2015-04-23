@@ -14,6 +14,14 @@ add_definitions(${CMAKE_CXX_FLAGS} "-fPIC")
 
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}")
 
+set(PDAL_BASE "" CACHE STRING "PDAL installation base directory")
+
+if (PDAL_BASE)
+    message("PDAL_BASE: " ${PDAL_BASE})
+    include_directories("${PDAL_BASE}/include")
+    link_directories("${PDAL_BASE}/lib")
+endif()
+
 add_subdirectory(entwine)
 add_subdirectory(kernel)
 
