@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <condition_variable>
 #include <cstddef>
 #include <list>
 #include <map>

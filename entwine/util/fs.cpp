@@ -16,6 +16,7 @@
 #include <cstdio>
 #include <fstream>
 #include <iostream>
+#include <stdexcept>
 
 namespace entwine
 {

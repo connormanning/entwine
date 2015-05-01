@@ -10,6 +10,8 @@
 
 #include <entwine/drivers/fs.hpp>
 
+#include <stdexcept>
+
 #include <entwine/util/fs.hpp>
 
 namespace entwine
