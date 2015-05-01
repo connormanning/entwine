@@ -12,7 +12,7 @@
 
 #include <algorithm>
 
-#include <entwine/http/s3.hpp>
+#include <entwine/drivers/source.hpp>
 #include <entwine/third/json/json.h>
 #include <entwine/tree/roller.hpp>
 #include <entwine/tree/point-info.hpp>
@@ -28,7 +28,7 @@ namespace entwine
 {
 
 Registry::Registry(
-        const std::string& path,
+        Source& buildSource,
         const Schema& schema,
         const std::size_t dimensions,
         const std::size_t baseDepth,
@@ -46,7 +46,7 @@ Registry::Registry(
     {
         m_diskBranch.reset(
                 new DiskBranch(
-                    path,
+                    buildSource,
                     schema,
                     dimensions,
                     flatDepth,
@@ -57,6 +57,7 @@ Registry::Registry(
     {
         m_flatBranch.reset(
                 new FlatBranch(
+                    buildSource,
                     schema,
                     dimensions,
                     baseDepth,
@@ -67,6 +68,7 @@ Registry::Registry(
     {
         m_baseBranch.reset(
                 new BaseBranch(
+                    buildSource,
                     schema,
                     dimensions,
                     baseDepth));
@@ -74,7 +76,7 @@ Registry::Registry(
 }
 
 Registry::Registry(
-        const std::string& path,
+        Source& buildSource,
         const Schema& schema,
         const std::size_t dimensions,
         const Json::Value& meta)
@@ -86,7 +88,7 @@ Registry::Registry(
     {
         m_baseBranch.reset(
                 new BaseBranch(
-                    path,
+                    buildSource,
                     schema,
                     dimensions,
                     meta["base"]));
@@ -96,7 +98,7 @@ Registry::Registry(
     {
         m_flatBranch.reset(
                 new FlatBranch(
-                    path,
+                    buildSource,
                     schema,
                     dimensions,
                     meta["flat"]));
@@ -106,7 +108,7 @@ Registry::Registry(
     {
         m_diskBranch.reset(
                 new DiskBranch(
-                    path,
+                    buildSource,
                     schema,
                     dimensions,
                     meta["disk"]));
@@ -226,28 +228,28 @@ std::vector<char> Registry::getPointData(
         Clipper* clipper,
         const std::size_t index)
 {
+    std::vector<char> data;
+
     if (Branch* branch = getBranch(clipper, index))
     {
-        return branch->getPointData(index);
+        data = branch->getPointData(index);
     }
-    else
-    {
-        return std::vector<char>();
-    }
+
+    return data;
 }
 
-void Registry::save(const std::string& path, Json::Value& meta) const
+void Registry::save(Json::Value& meta) const
 {
     std::cout << "Saving base" << std::endl;
-    if (m_baseBranch) m_baseBranch->save(path, meta["base"]);
+    if (m_baseBranch) m_baseBranch->save(meta["base"]);
     std::cout << "Saving flat" << std::endl;
-    if (m_flatBranch) m_flatBranch->save(path, meta["flat"]);
+    if (m_flatBranch) m_flatBranch->save(meta["flat"]);
     std::cout << "Saving disk" << std::endl;
-    if (m_diskBranch) m_diskBranch->save(path, meta["disk"]);
+    if (m_diskBranch) m_diskBranch->save(meta["disk"]);
 }
 
 void Registry::finalize(
-        S3& output,
+        Source& output,
         Pool& pool,
         std::vector<std::size_t>& ids,
         std::size_t start,

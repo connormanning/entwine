@@ -19,12 +19,13 @@ class FlatBranch : public Branch
 {
 public:
     FlatBranch(
+            Source& source,
             const Schema& schema,
             std::size_t dimensions,
             std::size_t depthBegin,
             std::size_t depthEnd);
     FlatBranch(
-            const std::string& path,
+            Source& source,
             const Schema& schema,
             std::size_t dimensions,
             const Json::Value& meta);
@@ -36,10 +37,10 @@ public:
     virtual std::vector<char> getPointData(std::size_t index);
 
 private:
-    virtual void saveImpl(const std::string& path, Json::Value& meta);
+    virtual void saveImpl(Json::Value& meta);
 
     virtual void finalizeImpl(
-            S3& output,
+            Source& output,
             Pool& pool,
             std::vector<std::size_t>& ids,
             std::size_t start,

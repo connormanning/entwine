@@ -46,10 +46,11 @@ namespace entwine
 {
 
 BaseBranch::BaseBranch(
+        Source& source,
         const Schema& schema,
         const std::size_t dimensions,
         const std::size_t depthEnd)
-    : Branch(schema, dimensions, 0, depthEnd)
+    : Branch(source, schema, dimensions, 0, depthEnd)
     , m_points(size(), std::atomic<const Point*>(0))
     , m_data()
     , m_locks(size())
@@ -67,16 +68,16 @@ BaseBranch::BaseBranch(
 }
 
 BaseBranch::BaseBranch(
-        const std::string& path,
+        Source& source,
         const Schema& schema,
         const std::size_t dimensions,
         const Json::Value& meta)
-    : Branch(schema, dimensions, meta)
+    : Branch(source, schema, dimensions, meta)
     , m_points(size(), std::atomic<const Point*>(0))
     , m_data()
     , m_locks(size())
 {
-    load(path, meta);
+    load(meta);
 }
 
 BaseBranch::~BaseBranch()
@@ -178,7 +179,7 @@ std::vector<char> BaseBranch::getPointData(const std::size_t index)
 }
 
 void BaseBranch::finalizeImpl(
-        S3& output,
+        Source& output,
         Pool& pool,
         std::vector<std::size_t>& ids,
         const std::size_t start,
@@ -238,40 +239,28 @@ void BaseBranch::finalizeImpl(
     m_locks.clear();
 }
 
-void BaseBranch::saveImpl(const std::string& path, Json::Value& meta)
+void BaseBranch::saveImpl(Json::Value& meta)
 {
     meta["ids"].append(0);
 
-    const std::string dataPath(path + "/0");
-    std::ofstream dataStream(
-            dataPath,
-            std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
-    if (!dataStream.good())
-    {
-        throw std::runtime_error("Could not open for write: " + dataPath);
-    }
-
-    const uint64_t uncompressedSize(m_data.size());
+    const uint64_t uncSize(m_data.size());
 
     std::unique_ptr<std::vector<char>> compressed(
             Compression::compress(
                 m_data.data(),
-                uncompressedSize,
+                uncSize,
                 schema()));
 
-    const uint64_t compressedSize(compressed->size());
+    const uint64_t cmpSize(compressed->size());
+    compressed->insert(
+            compressed->end(),
+            &cmpSize,
+            &cmpSize + sizeof(uint64_t));
 
-    dataStream.write(
-            reinterpret_cast<const char*>(&uncompressedSize),
-            sizeof(uint64_t));
-    dataStream.write(
-            reinterpret_cast<const char*>(&compressedSize),
-            sizeof(uint64_t));
-    dataStream.write(compressed->data(), compressed->size());
-    dataStream.close();
+    m_source.put("0", *compressed);
 }
 
-void BaseBranch::load(const std::string& path, const Json::Value& meta)
+void BaseBranch::load(const Json::Value& meta)
 {
     const Json::Value jsonIds(meta["ids"]);
 
@@ -281,23 +270,21 @@ void BaseBranch::load(const std::string& path, const Json::Value& meta)
         throw std::runtime_error("Invalid serialized base branch.");
     }
 
-    const std::string dataPath(path + "/0");
-    std::ifstream dataStream(
-            dataPath,
-            std::ifstream::in | std::ifstream::binary);
-    if (!dataStream.good())
+    std::vector<char> data(m_source.get("0"));
+
+    if (data.size() < sizeof(uint64_t))
     {
-        throw std::runtime_error("Could not open for read: " + dataPath);
+        throw std::runtime_error("Invalid base branch data.");
     }
 
-    uint64_t uncSize(0), cmpSize(0);
-    dataStream.read(reinterpret_cast<char*>(&uncSize), sizeof(uint64_t));
-    dataStream.read(reinterpret_cast<char*>(&cmpSize), sizeof(uint64_t));
+    uint64_t uncSize(0);
+    std::memcpy(
+            &uncSize,
+            data.data() + data.size() - sizeof(uint64_t),
+            sizeof(uint64_t));
+    data.resize(data.size() - sizeof(uint64_t));
 
-    std::vector<char> compressed(cmpSize);
-    dataStream.read(compressed.data(), compressed.size());
-
-    m_data = *Compression::decompress(compressed, schema(), uncSize).release();
+    m_data = *Compression::decompress(data, schema(), uncSize).release();
 
     double x(0);
     double y(0);

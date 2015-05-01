@@ -38,11 +38,12 @@ class BaseBranch : public Branch
 {
 public:
     BaseBranch(
+            Source& source,
             const Schema& schema,
             std::size_t dimensions,
             std::size_t depthEnd);
     BaseBranch(
-            const std::string& path,
+            Source& source,
             const Schema& schema,
             std::size_t dimensions,
             const Json::Value& meta);
@@ -55,14 +56,14 @@ public:
 
 private:
     virtual void finalizeImpl(
-            S3& output,
+            Source& output,
             Pool& pool,
             std::vector<std::size_t>& ids,
             std::size_t start,
             std::size_t chunkSize);
 
-    virtual void saveImpl(const std::string& path, Json::Value& meta);
-    void load(const std::string& path, const Json::Value& meta);
+    virtual void saveImpl(Json::Value& meta);
+    void load(const Json::Value& meta);
 
     char* getLocation(std::size_t index);
 

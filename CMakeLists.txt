@@ -27,6 +27,7 @@ add_subdirectory(kernel)
 
 set(OBJS
     $<TARGET_OBJECTS:compression>
+    $<TARGET_OBJECTS:drivers>
     $<TARGET_OBJECTS:http>
     $<TARGET_OBJECTS:third>
     $<TARGET_OBJECTS:tree>

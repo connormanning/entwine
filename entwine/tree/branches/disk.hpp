@@ -86,13 +86,13 @@ class DiskBranch : public Branch
 {
 public:
     DiskBranch(
-            const std::string& path,
+            Source& source,
             const Schema& schema,
             std::size_t dimensions,
             std::size_t depthBegin,
             std::size_t depthEnd);
     DiskBranch(
-            const std::string& path,
+            Source& source,
             const Schema& schema,
             std::size_t dimensions,
             const Json::Value& meta);
@@ -110,15 +110,16 @@ private:
 
     ChunkManager& getChunkManager(std::size_t index);
 
-    virtual void saveImpl(const std::string& path, Json::Value& meta);
+    virtual void saveImpl(Json::Value& meta);
     virtual void finalizeImpl(
-            S3& output,
+            Source& output,
             Pool& pool,
             std::vector<std::size_t>& ids,
             const std::size_t start,
             const std::size_t chunkSize);
 
-    const std::string& m_path;
+    // Source& m_source;
+    std::string m_path;
 
     std::set<std::size_t> m_ids;
 

@@ -14,6 +14,8 @@
 #include <string>
 #include <vector>
 
+#include <entwine/drivers/source.hpp>
+
 namespace Json
 {
     class Value;
@@ -27,18 +29,19 @@ class Point;
 class PointInfo;
 class Pool;
 class Roller;
-class S3;
 class Schema;
 
 class Branch
 {
 public:
     Branch(
+            Source& source,
             const Schema& schema,
             std::size_t dimensions,
             std::size_t depthBegin,
             std::size_t depthEnd);
     Branch(
+            Source& source,
             const Schema& schema,
             std::size_t dimensions,
             const Json::Value& meta);
@@ -86,11 +89,11 @@ public:
     virtual void clip(Clipper* clipper, std::size_t index) { }
 
     // Writes necessary metadata and point data to disk.
-    void save(const std::string& path, Json::Value& meta);
+    void save(Json::Value& meta);
 
     // Export all populated chunks of the completed tree.
     void finalize(
-            S3& output,
+            Source& output,
             Pool& pool,
             std::vector<std::size_t>& ids,
             const std::size_t start,
@@ -101,9 +104,9 @@ public:
             std::size_t dimensions);
 
 protected:
-    virtual void saveImpl(const std::string& path, Json::Value& meta) = 0;
+    virtual void saveImpl(Json::Value& meta) = 0;
     virtual void finalizeImpl(
-            S3& output,
+            Source& output,
             Pool& pool,
             std::vector<std::size_t>& ids,
             std::size_t start,
@@ -116,6 +119,8 @@ protected:
     std::size_t indexEnd()      const;
     std::size_t size()          const;
     std::size_t dimensions()    const;
+
+    Source& m_source;
 
 private:
     const Schema& m_schema;

@@ -18,11 +18,13 @@ namespace entwine
 {
 
 Branch::Branch(
+        Source& source,
         const Schema& schema,
         const std::size_t dimensions,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
-    : m_schema(schema)
+    : m_source(source)
+    , m_schema(schema)
     , m_depthBegin(depthBegin)
     , m_depthEnd(depthEnd)
     , m_indexBegin(calcOffset(m_depthBegin, dimensions))
@@ -31,10 +33,12 @@ Branch::Branch(
 { }
 
 Branch::Branch(
+        Source& source,
         const Schema& schema,
         const std::size_t dimensions,
         const Json::Value& meta)
-    : m_schema(schema)
+    : m_source(source)
+    , m_schema(schema)
     , m_depthBegin(meta["depthBegin"].asUInt64())
     , m_depthEnd(meta["depthEnd"].asUInt64())
     , m_indexBegin(calcOffset(m_depthBegin, dimensions))
@@ -63,16 +67,16 @@ bool Branch::hasPoint(const std::size_t index)
     return Point::exists(getPoint(index));
 }
 
-void Branch::save(const std::string& path, Json::Value& meta)
+void Branch::save(Json::Value& meta)
 {
     meta["depthBegin"] = static_cast<Json::UInt64>(m_depthBegin);
     meta["depthEnd"] = static_cast<Json::UInt64>(m_depthEnd);
 
-    saveImpl(path, meta);
+    saveImpl(meta);
 }
 
 void Branch::finalize(
-        S3& output,
+        Source& output,
         Pool& pool,
         std::vector<std::size_t>& ids,
         const std::size_t start,

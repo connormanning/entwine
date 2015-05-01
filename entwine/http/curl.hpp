@@ -31,14 +31,9 @@ public:
         , m_data()
     { }
 
-    HttpResponse(int code, std::unique_ptr<std::vector<char>> data)
+    HttpResponse(int code, std::shared_ptr<std::vector<char>> data)
         : m_code(code)
         , m_data(std::move(data))
-    { }
-
-    HttpResponse(HttpResponse&& other)
-        : m_code(other.m_code)
-        , m_data(std::move(other.m_data))
     { }
 
     ~HttpResponse() { }
@@ -48,7 +43,7 @@ public:
 
 private:
     int m_code;
-    std::unique_ptr<std::vector<char>> m_data;
+    std::shared_ptr<std::vector<char>> m_data;
 };
 
 ///////////////////////////////////////////////////////////////////////////////

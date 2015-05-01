@@ -19,7 +19,7 @@
 #include <pdal/Utils.hpp>
 
 #include <entwine/compression/util.hpp>
-#include <entwine/http/s3.hpp>
+#include <entwine/drivers/arbiter.hpp>
 #include <entwine/tree/branch.hpp>
 #include <entwine/tree/roller.hpp>
 #include <entwine/tree/registry.hpp>
@@ -35,15 +35,13 @@
 
 namespace
 {
-    const std::size_t httpAttempts(3);
-
     std::vector<char> makeEmptyPoint(const entwine::Schema& schema)
     {
         entwine::SimplePointTable table(schema);
         pdal::PointView view(table);
 
-        view.setField(pdal::Dimension::Id::X, 0, 0);//INFINITY);
-        view.setField(pdal::Dimension::Id::Y, 0, 0);//INFINITY);
+        view.setField(pdal::Dimension::Id::X, 0, 0);
+        view.setField(pdal::Dimension::Id::Y, 0, 0);
 
         return table.data();
     }
@@ -53,13 +51,22 @@ namespace
             const std::string driver,
             const std::string path)
     {
-        std::unique_ptr<pdal::Reader> reader(
-                static_cast<pdal::Reader*>(
-                    stageFactory.createStage(driver)));
+        std::unique_ptr<pdal::Reader> reader;
 
-        std::unique_ptr<pdal::Options> readerOptions(new pdal::Options());
-        readerOptions->add(pdal::Option("filename", path));
-        reader->setOptions(*readerOptions);
+        if (driver.size())
+        {
+            reader.reset(
+                    static_cast<pdal::Reader*>(
+                        stageFactory.createStage(driver)));
+
+            std::unique_ptr<pdal::Options> readerOptions(new pdal::Options());
+            readerOptions->add(pdal::Option("filename", path));
+            reader->setOptions(*readerOptions);
+        }
+        else
+        {
+            // TODO Try executing as pipeline.
+        }
 
         return reader;
     }
@@ -100,15 +107,13 @@ Builder::Builder(
         const Reprojection& reprojection,
         const BBox& bbox,
         const DimList& dimList,
-        const S3Info& s3Info,
         const std::size_t numThreads,
         const std::size_t numDimensions,
         const std::size_t baseDepth,
         const std::size_t flatDepth,
-        const std::size_t diskDepth)
-    : m_buildPath(buildPath)
-    , m_tmpPath(tmpPath)
-    , m_reprojection(reprojection.valid() ? new Reprojection(reprojection) : 0)
+        const std::size_t diskDepth,
+        std::shared_ptr<Arbiter> arbiter)
+    : m_reprojection(reprojection.valid() ? new Reprojection(reprojection) : 0)
     , m_bbox(new BBox(bbox))
     , m_schema(new Schema(dimList))
     , m_originId(m_schema->pdalLayout().findDim("Origin"))
@@ -116,17 +121,21 @@ Builder::Builder(
     , m_numPoints(0)
     , m_numTossed(0)
     , m_pool(new Pool(numThreads))
+    , m_arbiter(arbiter ? arbiter : std::make_shared<Arbiter>(Arbiter()))
+    , m_buildSource(m_arbiter->getSource(buildPath))
+    , m_tmpSource  (m_arbiter->getSource(tmpPath))
     , m_stageFactory(new pdal::StageFactory())
-    , m_s3(new S3(s3Info))
     , m_registry(
             new Registry(
-                m_buildPath,
+                m_buildSource,
                 *m_schema.get(),
                 m_dimensions,
                 baseDepth,
                 flatDepth,
                 diskDepth))
 {
+    prep();
+
     if (m_dimensions != 2)
     {
         // TODO
@@ -138,84 +147,127 @@ Builder::Builder(
         const std::string buildPath,
         const std::string tmpPath,
         const Reprojection& reprojection,
-        const S3Info& s3Info,
-        const std::size_t numThreads)
-    : m_buildPath(buildPath)
-    , m_tmpPath(tmpPath)
-    , m_reprojection(reprojection.valid() ? new Reprojection(reprojection) : 0)
+        const std::size_t numThreads,
+        std::shared_ptr<Arbiter> arbiter)
+    : m_reprojection(reprojection.valid() ? new Reprojection(reprojection) : 0)
     , m_bbox()
     , m_schema()
     , m_dimensions(0)
     , m_numPoints(0)
     , m_numTossed(0)
     , m_pool(new Pool(numThreads))
+    , m_arbiter(arbiter ? arbiter : std::make_shared<Arbiter>(Arbiter()))
+    , m_buildSource(m_arbiter->getSource(buildPath))
+    , m_tmpSource  (m_arbiter->getSource(tmpPath))
     , m_stageFactory(new pdal::StageFactory())
-    , m_s3(new S3(s3Info))
     , m_registry()
 {
+    prep();
     load();
 }
+
 
 Builder::~Builder()
 { }
 
-void Builder::insert(const std::string& source)
+void Builder::prep()
 {
-    const Origin origin(addOrigin(source));
-    std::cout << "Adding " << origin << " - " << source << std::endl;
-
-    m_pool->add([this, origin, source]()
+    if (m_tmpSource.isRemote())
     {
-        const std::string driver(inferDriver(source));
-        const std::string localPath(fetchAndWriteFile(source, origin));
+        throw std::runtime_error("Tmp path must be local");
+    }
+
+    if (!fs::mkdirp(m_tmpSource.path()))
+    {
+        throw std::runtime_error("Couldn't create tmp directory");
+    }
+
+    if (!m_buildSource.isRemote() && !fs::mkdirp(m_buildSource.path()))
+    {
+        throw std::runtime_error("Couldn't create local build directory");
+    }
+}
+
+void Builder::insert(const std::string path)
+{
+    // TODO Check for duplicates to allow continuation without modding config.
+    const Origin origin(addOrigin(path));
+    std::cout << "Adding " << origin << " - " << path << std::endl;
+
+    m_pool->add([this, origin, path]()
+    {
+        Source source(m_arbiter->getSource(path));
+        const bool isRemote(source.isRemote());
+        std::string localPath(source.path());
+
+        if (isRemote)
+        {
+            const std::string subpath(name() + "-" + std::to_string(origin));
+
+            localPath = m_tmpSource.resolve(subpath);
+            m_tmpSource.put(subpath, source.getRoot());
+        }
 
         SimplePointTable pointTable(*m_schema);
 
         std::unique_ptr<pdal::Reader> reader(
                 createReader(
                     *m_stageFactory,
-                    driver,
+                    inferPdalDriver(path),
                     localPath));
 
-        std::shared_ptr<pdal::Filter> sharedFilter;
-
-        if (m_reprojection)
+        if (reader)
         {
-            reader->setSpatialReference(
-                    pdal::SpatialReference(m_reprojection->in()));
+            // TODO Watch for errors during insertion.  If any occur, mark as
+            // a partial or failed insertion.
 
-            sharedFilter = createReprojectionFilter(
-                    *m_stageFactory,
-                    *m_reprojection,
-                    pointTable);
+            std::shared_ptr<pdal::Filter> sharedFilter;
+
+            if (m_reprojection)
+            {
+                reader->setSpatialReference(
+                        pdal::SpatialReference(m_reprojection->in()));
+
+                sharedFilter = createReprojectionFilter(
+                        *m_stageFactory,
+                        *m_reprojection,
+                        pointTable);
+            }
+
+            pdal::Filter* filter(sharedFilter.get());
+
+            // TODO Should pass to insert as reference, not ptr.
+            std::unique_ptr<Clipper> clipper(new Clipper(*this));
+            Clipper* clipperPtr(clipper.get());
+
+            // Set up our per-point data handler.
+            reader->setReadCb(
+                    [this, &pointTable, filter, origin, clipperPtr]
+                    (pdal::PointView& view, pdal::PointId index)
+            {
+                // TODO This won't work for dimension-oriented readers that
+                // have partially written points after the given PointId.
+                LinkingPointView link(pointTable);
+
+                if (filter) pdal::FilterWrapper::filter(*filter, link);
+
+                insert(link, origin, clipperPtr);
+                pointTable.clear();
+            });
+
+            reader->prepare(pointTable);
+            reader->execute(pointTable);
+
+        }
+        else
+        {
+            // TODO Mark this file as not inserted.  This is not exceptional,
+            // especially if we're inserting from a globbed path which may
+            // contain non-point-cloud files.
         }
 
-        pdal::Filter* filter(sharedFilter.get());
-
-        // TODO Should pass to insert as reference, not ptr.
-        std::unique_ptr<Clipper> clipper(new Clipper(*this));
-        Clipper* clipperPtr(clipper.get());
-
-        // Set up our per-point data handler.
-        reader->setReadCb(
-                [this, &pointTable, filter, origin, clipperPtr]
-                (pdal::PointView& view, pdal::PointId index)
-        {
-            // TODO This won't work for dimension-oriented readers that
-            // have partially written points after the given PointId.
-            LinkingPointView link(pointTable);
-
-            if (filter) pdal::FilterWrapper::filter(*filter, link);
-
-            insert(link, origin, clipperPtr);
-            pointTable.clear();
-        });
-
-        reader->prepare(pointTable);
-        reader->execute(pointTable);
-
-        std::cout << "\tDone " << origin << " - " << source << std::endl;
-        if (!fs::removeFile(localPath))
+        std::cout << "\tDone " << origin << " - " << path << std::endl;
+        if (isRemote && !fs::removeFile(localPath))
         {
             std::cout << "Couldn't delete " << localPath << std::endl;
             throw std::runtime_error("Couldn't delete tmp file");
@@ -282,13 +334,10 @@ void Builder::save()
     Json::Value jsonMeta(getTreeMeta());
 
     // Add the registry's metadata.
-    m_registry->save(m_buildPath, jsonMeta["registry"]);
+    m_registry->save(jsonMeta["registry"]);
 
     // Write to disk.
-    fs::writeFile(
-            metaPath(),
-            jsonMeta.toStyledString(),
-            std::ofstream::out | std::ofstream::trunc);
+    m_buildSource.put("meta", jsonMeta.toStyledString());
 }
 
 void Builder::load()
@@ -297,13 +346,8 @@ void Builder::load()
 
     {
         Json::Reader reader;
-        std::ifstream metaStream(metaPath());
-        if (!metaStream.good())
-        {
-            throw std::runtime_error("Could not open " + metaPath());
-        }
-
-        reader.parse(metaStream, meta, false);
+        const std::string data(m_buildSource.getAsString("meta"));
+        reader.parse(data, meta, false);
     }
 
     m_bbox.reset(new BBox(BBox::fromJson(meta["bbox"])));
@@ -321,20 +365,25 @@ void Builder::load()
 
     m_registry.reset(
             new Registry(
-                m_buildPath,
+                m_buildSource,
                 *m_schema.get(),
                 m_dimensions,
                 meta["registry"]));
 }
 
 void Builder::finalize(
-        const S3Info& s3Info,
+        const std::string path,
         const std::size_t base,
         const bool compress)
 {
     join();
 
-    std::unique_ptr<S3> output(new S3(s3Info));
+    Source outputSource(m_arbiter->getSource(path));
+    if (!outputSource.isRemote() && !fs::mkdirp(outputSource.path()))
+    {
+        throw std::runtime_error("Could not create " + outputSource.path());
+    }
+
     std::unique_ptr<std::vector<std::size_t>> ids(
             new std::vector<std::size_t>());
 
@@ -346,22 +395,21 @@ void Builder::finalize(
         std::unique_ptr<Clipper> clipper(new Clipper(*this));
 
         std::vector<char> data;
-        std::vector<char> emptyPoint(makeEmptyPoint(schema()));
+        std::vector<char> empty(makeEmptyPoint(schema()));
 
         for (std::size_t i(0); i < baseEnd; ++i)
         {
             std::vector<char> point(getPointData(clipper.get(), i, schema()));
-            if (point.size())
-                data.insert(data.end(), point.begin(), point.end());
-            else
-                data.insert(data.end(), emptyPoint.begin(), emptyPoint.end());
+
+            std::vector<char>& which(point.size() ? point : empty);
+            data.insert(data.end(), which.begin(), which.end());
         }
 
         auto compressed(Compression::compress(data, schema()));
-        output->put(std::to_string(0), *compressed);
+        outputSource.put("0", *Compression::compress(data, schema()));
     }
 
-    m_registry->finalize(*output, *m_pool, *ids, baseEnd, chunkPoints);
+    m_registry->finalize(outputSource, *m_pool, *ids, baseEnd, chunkPoints);
 
     {
         // Get our own metadata.
@@ -369,7 +417,7 @@ void Builder::finalize(
         jsonMeta["numIds"] = static_cast<Json::UInt64>(ids->size());
         jsonMeta["firstChunk"] = static_cast<Json::UInt64>(baseEnd);
         jsonMeta["chunkPoints"] = static_cast<Json::UInt64>(chunkPoints);
-        output->put("entwine", jsonMeta.toStyledString());
+        outputSource.put("entwine", jsonMeta.toStyledString());
     }
 
     Json::Value jsonIds;
@@ -377,7 +425,8 @@ void Builder::finalize(
     {
         jsonIds.append(static_cast<Json::UInt64>(ids->at(i)));
     }
-    output->put("ids", jsonIds.toStyledString());
+
+    outputSource.put("ids", jsonIds.toStyledString());
 }
 
 const BBox& Builder::getBounds() const
@@ -445,33 +494,19 @@ std::size_t Builder::numPoints() const
     return m_numPoints;
 }
 
-std::string Builder::path() const
-{
-    return m_buildPath;
-}
-
 std::string Builder::name() const
 {
-    std::string name;
+    std::string name(m_buildSource.path());
 
     // TODO Temporary/hacky.
-    const std::size_t pos(m_buildPath.find_last_of("/\\"));
+    const std::size_t pos(name.find_last_of("/\\"));
 
     if (pos != std::string::npos)
     {
-        name = m_buildPath.substr(pos + 1);
-    }
-    else
-    {
-        name = m_buildPath;
+        name = name.substr(pos + 1);
     }
 
     return name;
-}
-
-std::string Builder::metaPath() const
-{
-    return m_buildPath + "/meta";
 }
 
 Json::Value Builder::getTreeMeta() const
@@ -500,48 +535,16 @@ Origin Builder::addOrigin(const std::string& remote)
     return origin;
 }
 
-std::string Builder::inferDriver(const std::string& remote) const
+std::string Builder::inferPdalDriver(const std::string& path) const
 {
-    const std::string driver(m_stageFactory->inferReaderDriver(remote));
+    const std::string driver(m_stageFactory->inferReaderDriver(path));
 
     if (!driver.size())
     {
-        throw std::runtime_error("No driver found - " + remote);
+        throw std::runtime_error("No driver found - " + path);
     }
 
     return driver;
-}
-
-std::string Builder::fetchAndWriteFile(
-        const std::string& remote,
-        const Origin origin)
-{
-    // Fetch remote file and write locally.
-    const std::string localPath(m_tmpPath + "/" + name() + "-" +
-            std::to_string(origin));
-
-    std::size_t tries(0);
-    std::unique_ptr<HttpResponse> res;
-
-    do
-    {
-        res.reset(new HttpResponse(m_s3->get(remote)));
-    }
-    while (res->code() != 200 && ++tries < httpAttempts);
-
-    if (res->code() != 200)
-    {
-        std::cout << "Couldn't fetch " + remote <<
-                " - Got: " << res->code() << std::endl;
-        throw std::runtime_error("Couldn't fetch " + remote);
-    }
-
-    if (!fs::writeFile(localPath, res->data(), fs::binaryTruncMode))
-    {
-        throw std::runtime_error("Couldn't write " + localPath);
-    }
-
-    return localPath;
 }
 
 } // namespace entwine

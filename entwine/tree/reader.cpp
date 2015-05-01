@@ -11,6 +11,7 @@
 #include <entwine/tree/reader.hpp>
 
 #include <entwine/compression/util.hpp>
+#include <entwine/drivers/source.hpp>
 #include <entwine/tree/roller.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/linking-point-view.hpp>
@@ -35,11 +36,9 @@ namespace
             throw std::runtime_error("Invalid query depths");
         }
     }
-
-    const std::size_t baseClamp(12);
 }
 
-Reader::Reader(const S3Info& s3Info, std::size_t cacheSize)
+Reader::Reader(Source source, std::size_t cacheSize)
     : m_firstChunk(0)
     , m_chunkPoints(0)
     , m_ids()
@@ -49,7 +48,7 @@ Reader::Reader(const S3Info& s3Info, std::size_t cacheSize)
     , m_numPoints(0)
     , m_numTossed(0)
     , m_originList()
-    , m_s3(new S3(s3Info))
+    , m_source(source)
     , m_cacheSize(cacheSize)
     , m_mutex()
     , m_cv()
@@ -63,16 +62,9 @@ Reader::Reader(const S3Info& s3Info, std::size_t cacheSize)
     std::size_t numIds(0);
 
     {
-        HttpResponse res(m_s3->get("entwine"));
-
-        if (res.code() != 200)
-        {
-            throw std::runtime_error("Couldn't fetch meta");
-        }
+        const std::string metaString(m_source.getAsString("entwine"));
 
         Json::Value meta;
-        std::string metaString(res.data().begin(), res.data().end());
-
         reader.parse(metaString, meta, false);
 
         m_firstChunk = meta["firstChunk"].asUInt64();
@@ -93,16 +85,9 @@ Reader::Reader(const S3Info& s3Info, std::size_t cacheSize)
     }
 
     {
-        HttpResponse res(m_s3->get("ids"));
-
-        if (res.code() != 200)
-        {
-            throw std::runtime_error("Couldn't fetch ids");
-        }
+        const std::string idsString(m_source.getAsString("ids"));
 
         Json::Value ids;
-        std::string idsString(res.data().begin(), res.data().end());
-
         reader.parse(idsString, ids, false);
 
         if (ids.size() != numIds)
@@ -117,15 +102,10 @@ Reader::Reader(const S3Info& s3Info, std::size_t cacheSize)
     }
 
     {
-        HttpResponse res(m_s3->get("0"));
-
-        if (res.code() != 200)
-        {
-            throw std::runtime_error("Couldn't fetch base data");
-        }
+        std::vector<char> data(m_source.get("0"));
 
         const std::size_t baseSize(m_firstChunk * m_schema->pointSize());
-        m_base = Compression::decompress(res.data(), *m_schema, baseSize);
+        m_base = Compression::decompress(data, *m_schema, baseSize);
     }
 }
 
@@ -133,9 +113,7 @@ std::vector<std::size_t> Reader::query(
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
-    // TODO Handle clamping in the other query() call with a max point size
-    // instead of this clamp.
-    return query(*m_bbox, depthBegin, std::min(depthEnd, baseClamp));
+    return query(*m_bbox, depthBegin, depthEnd);
 }
 
 std::vector<std::size_t> Reader::query(
@@ -339,52 +317,56 @@ void Reader::fetch(const std::size_t chunkId)
     if (!has && !awaiting)
     {
         std::cout << "Fetching " << chunkId << std::endl;
-
         m_outstanding.insert(chunkId);
 
         lock.unlock();
-        HttpResponse res(m_s3->get(std::to_string(chunkId)));
+
+        std::vector<char> data;
+
+        try
+        {
+            data = m_source.get(std::to_string(chunkId));
+        }
+        catch (...)
+        {
+            lock.lock();
+            m_outstanding.erase(chunkId);
+            lock.unlock();
+            m_cv.notify_all();
+            throw std::runtime_error(
+                    "Could not fetch chunk " + std::to_string(chunkId));
+        }
+
         lock.lock();
 
         m_outstanding.erase(chunkId);
 
-        if (res.code() == 200)
+        const std::size_t chunkSize(m_chunkPoints * m_schema->pointSize());
+
+        std::unique_ptr<std::vector<char>> chunk(
+                Compression::decompress(data, *m_schema, chunkSize));
+
+        assert(m_accessMap.size() == m_chunks.size());
+        if (m_chunks.size() >= m_cacheSize)
         {
-            const std::size_t chunkSize(m_chunkPoints * m_schema->pointSize());
+            const std::size_t expired(m_accessList.back());
+            std::cout << "Erasing " << expired << std::endl;
 
-            std::unique_ptr<std::vector<char>> chunk(
-                    Compression::decompress(
-                        res.data(),
-                        *m_schema,
-                        chunkSize));
-
-            assert(m_accessMap.size() == m_chunks.size());
-            if (m_chunks.size() >= m_cacheSize)
+            if (m_chunks.count(expired))
             {
-                const std::size_t expired(m_accessList.back());
-                std::cout << "Erasing " << expired << std::endl;
-
-                if (m_chunks.count(expired))
-                {
-                    m_chunks.erase(expired);
-                }
-
-                m_accessMap.erase(expired);
-                m_accessList.pop_back();
+                m_chunks.erase(expired);
             }
 
-            m_chunks.insert(std::make_pair(chunkId, std::move(chunk)));
-            m_accessList.push_front(chunkId);
-            m_accessMap[chunkId] = m_accessList.begin();
+            m_accessMap.erase(expired);
+            m_accessList.pop_back();
         }
+
+        m_chunks.insert(std::make_pair(chunkId, std::move(chunk)));
+        m_accessList.push_front(chunkId);
+        m_accessMap[chunkId] = m_accessList.begin();
 
         lock.unlock();
         m_cv.notify_all();
-
-        if (res.code() != 200)
-        {
-            throw std::runtime_error("Couldn't fetch chunk");
-        }
     }
     else if (has)
     {

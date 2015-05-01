@@ -18,19 +18,20 @@ namespace entwine
 {
 
 FlatBranch::FlatBranch(
+        Source& source,
         const Schema& schema,
         const std::size_t dimensions,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
-    : Branch(schema, dimensions, depthBegin, depthEnd)
+    : Branch(source, schema, dimensions, depthBegin, depthEnd)
 { }
 
 FlatBranch::FlatBranch(
-        const std::string& path,
+        Source& source,
         const Schema& schema,
         const std::size_t dimensions,
         const Json::Value& meta)
-    : Branch(schema, dimensions, meta)
+    : Branch(source, schema, dimensions, meta)
 {
     // TODO Load from disk.
 }
@@ -58,7 +59,7 @@ std::vector<char> FlatBranch::getPointData(std::size_t index)
     return std::vector<char>();
 }
 
-void FlatBranch::saveImpl(const std::string& path, Json::Value& meta)
+void FlatBranch::saveImpl(Json::Value& meta)
 {
     // TODO Write data to disk.
 
@@ -66,7 +67,7 @@ void FlatBranch::saveImpl(const std::string& path, Json::Value& meta)
 }
 
 void FlatBranch::finalizeImpl(
-        S3& output,
+        Source& output,
         Pool& pool,
         std::vector<std::size_t>& ids,
         std::size_t start,

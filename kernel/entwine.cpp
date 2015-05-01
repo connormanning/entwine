@@ -9,6 +9,7 @@
 ******************************************************************************/
 
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 
 #include <csignal>
@@ -16,7 +17,9 @@
 #include <execinfo.h>
 #include <string>
 
-#include <entwine/http/s3.hpp>
+#include <entwine/drivers/arbiter.hpp>
+#include <entwine/drivers/s3.hpp>
+#include <entwine/drivers/source.hpp>
 #include <entwine/third/json/json.h>
 #include <entwine/tree/builder.hpp>
 #include <entwine/types/bbox.hpp>
@@ -31,13 +34,9 @@ namespace
     Json::Reader reader;
 
     void handler(int sig) {
-        void *array[16];
-        size_t size;
+        void* array[16];
+        const std::size_t size(backtrace(array, 16));
 
-        // get void*'s for all entries on the stack
-        size = backtrace(array, 16);
-
-        // print out all the frames to stderr
         std::cout << "Got error " << sig << std::endl;
         backtrace_symbols_fd(array, size, STDERR_FILENO);
         exit(1);
@@ -49,8 +48,8 @@ namespace
 
         for (std::size_t i(0); i < dims.size(); ++i)
         {
+            if (i) results += ", ";
             results += dims[i].name();
-            if (i < dims.size() - 1) std::cout << ", ";
         }
 
         results += "]";
@@ -58,24 +57,34 @@ namespace
         return results;
     }
 
-    S3Info getCredentials()
+    std::string getBBoxString(const BBox& bbox)
     {
-        // TODO Accept flag to specify location of credentials file.
+        std::ostringstream oss;
+
+        oss << "[(" <<
+            bbox.min().x << ", " << bbox.min().y << "), (" <<
+            bbox.max().x << ", " << bbox.max().y << ")]";
+
+        return oss.str();
+    }
+
+    std::unique_ptr<AwsAuth> getCredentials(const std::string credPath)
+    {
+        std::unique_ptr<AwsAuth> auth;
+
         Json::Value credentials;
-        std::ifstream credFile("credentials.json", std::ifstream::binary);
+        std::ifstream credFile(credPath, std::ifstream::binary);
         if (credFile.good())
         {
             reader.parse(credFile, credentials, false);
-            return S3Info(
-                    credentials["url"].asString(),
-                    credentials["bucket"].asString(),
-                    credentials["access"].asString(),
-                    credentials["hidden"].asString());
+
+            auth.reset(
+                    new AwsAuth(
+                        credentials["access"].asString(),
+                        credentials["hidden"].asString()));
         }
-        else
-        {
-            return S3Info();
-        }
+
+        return auth;
     }
 
     std::vector<std::string> getInput(const Json::Value& jsonInput)
@@ -146,6 +155,15 @@ int main(int argc, char** argv)
         exit(1);
     }
 
+    std::string credPath("credentials.json");
+    if (argc == 4)
+    {
+        if (std::string(argv[2]) == "-c")
+        {
+            credPath = argv[3];
+        }
+    }
+
     Json::Value config;
     reader.parse(configStream, config, false);
 
@@ -180,7 +198,17 @@ int main(int argc, char** argv)
     const Reprojection reprojection(getReprojection(geometry["reproject"]));
     DimList dims(Schema::fromJson(geometry["schema"]));
 
-    const S3Info s3Info(getCredentials());
+    DriverMap drivers;
+
+    {
+        std::unique_ptr<AwsAuth> auth(getCredentials(credPath));
+        if (auth)
+        {
+            drivers.insert({ "s3", std::make_shared<S3Driver>(*auth) });
+        }
+    }
+
+    std::shared_ptr<Arbiter> arbiter(std::make_shared<Arbiter>(drivers));
 
     std::unique_ptr<Builder> builder;
 
@@ -193,15 +221,15 @@ int main(int argc, char** argv)
             "\tTmp path: " << tmpPath << std::endl;
         std::cout << "Performance tuning:\n" <<
             "\tSnapshot: " << snapshot << "\n" <<
-            "\tThreads:  " << threads << std::endl;
+            "\tThreads:  " << threads << "\n" << std::endl;
 
         builder.reset(
                 new Builder(
                     buildPath,
                     tmpPath,
                     reprojection,
-                    s3Info,
-                    threads));
+                    threads,
+                    arbiter));
     }
     else
     {
@@ -217,12 +245,12 @@ int main(int argc, char** argv)
             "\t\tExport base depth: " << exportBase << std::endl;
         std::cout << "Geometry:\n" <<
             "\tBuild type: " << geometry["type"].asString() << "\n" <<
-            "\tBounds: " << bbox.toJson().toStyledString() << "\n" <<
+            "\tBounds: " << getBBoxString(bbox) << "\n" <<
             "\tReprojection: " << getReprojectionString(reprojection) << "\n" <<
             "\tStoring dimensions: " << getDimensionString(dims) << std::endl;
         std::cout << "Performance tuning:\n" <<
             "\tSnapshot: " << snapshot << "\n" <<
-            "\tThreads: " << threads << std::endl;
+            "\tThreads: " << threads << "\n" << std::endl;
 
         builder.reset(
                 new Builder(
@@ -231,12 +259,12 @@ int main(int argc, char** argv)
                     reprojection,
                     bbox,
                     dims,
-                    s3Info,
                     threads,
                     dimensions,
                     baseDepth,
                     flatDepth,
-                    diskDepth));
+                    diskDepth,
+                    arbiter));
     }
 
     const auto start(std::chrono::high_resolution_clock::now());
@@ -256,21 +284,15 @@ int main(int argc, char** argv)
     const std::chrono::duration<double> d(end - start);
     std::cout << "Indexing complete - " <<
             std::chrono::duration_cast<std::chrono::seconds>(d).count() <<
-            " seconds\n" << "Saving to disk..." << std::endl;
+            " seconds\n" << std::endl;
 
+    std::cout << "Saving to build location..." << std::endl;
     builder->save();
-    std::cout << "Done.  Exporting..." << std::endl;
 
-    // TODO For now only S3 export supported.
-    S3Info exportInfo(
-            s3Info.baseAwsUrl,
-            exportPath,
-            s3Info.awsAccessKeyId,
-            s3Info.awsSecretAccessKey);
+    std::cout << "Saved.  Exporting..." << std::endl;
+    builder->finalize(exportPath, exportBase, exportCompress);
 
-    builder->finalize(exportInfo, exportBase, exportCompress);
     std::cout << "Finished." << std::endl;
-
     return 0;
 }
 

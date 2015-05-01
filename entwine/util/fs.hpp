@@ -38,6 +38,9 @@ bool fileExists(const std::string& filename);
 // Returns true if file successfully removed.
 bool removeFile(const std::string& filename);
 
+std::string readFile(const std::string& filename);
+std::vector<char> readBinaryFile(const std::string& filename);
+
 // Returns true if successfully written.
 bool writeFile(
         const std::string& filename,

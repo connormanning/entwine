@@ -17,6 +17,7 @@
 #include <iostream>
 
 #include <entwine/compression/util.hpp>
+#include <entwine/drivers/source.hpp>
 #include <entwine/http/s3.hpp>
 #include <entwine/tree/point-info.hpp>
 #include <entwine/tree/branches/clipper.hpp>
@@ -357,7 +358,7 @@ std::vector<std::size_t> PointMapper::ids() const
 }
 
 void PointMapper::finalize(
-        S3& output,
+        Source& output,
         Pool& pool,
         std::vector<std::size_t>& ids,
         const std::size_t start,
@@ -423,11 +424,11 @@ void PointMapper::finalize(
                     ids.push_back(id);
                 }
 
-                std::shared_ptr<std::vector<char>> compressed(
+                std::unique_ptr<std::vector<char>> compressed(
                         Compression::compress(
                             mapping,
                             dataSize,
-                            m_schema).release());
+                            m_schema));
                 output.put(std::to_string(id), *compressed);
             }
 

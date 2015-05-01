@@ -152,13 +152,13 @@ bool ChunkManager::live() const
 }
 
 DiskBranch::DiskBranch(
-        const std::string& path,
+        Source& source,
         const Schema& schema,
         const std::size_t dimensions,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
-    : Branch(schema, dimensions, depthBegin, depthEnd)
-    , m_path(path)
+    : Branch(source, schema, dimensions, depthBegin, depthEnd)
+    , m_path(source.path())
     , m_ids()
     , m_pointsPerChunk(pointsPerChunk(depthBegin, dimensions))
     , m_chunkManagers()
@@ -168,12 +168,12 @@ DiskBranch::DiskBranch(
 }
 
 DiskBranch::DiskBranch(
-        const std::string& path,
+        Source& source,
         const Schema& schema,
         const std::size_t dimensions,
         const Json::Value& meta)
-    : Branch(schema, dimensions, meta)
-    , m_path(path)
+    : Branch(source, schema, dimensions, meta)
+    , m_path(source.path())
     , m_ids()
     , m_pointsPerChunk(pointsPerChunk(depthBegin(), dimensions))
     , m_chunkManagers()
@@ -246,7 +246,7 @@ bool DiskBranch::hasPoint(std::size_t index)
 
 Point DiskBranch::getPoint(std::size_t index)
 {
-    Point point;//(INFINITY, INFINITY);
+    Point point;
 
     ChunkManager& chunkManager(getChunkManager(index));
 
@@ -300,8 +300,9 @@ ChunkManager& DiskBranch::getChunkManager(const std::size_t index)
     return *m_chunkManagers[normalized].get();
 }
 
-void DiskBranch::saveImpl(const std::string& path, Json::Value& meta)
+void DiskBranch::saveImpl(Json::Value& meta)
 {
+    /*
     for (std::size_t i(0); i < m_chunkManagers.size(); ++i)
     {
         ChunkManager& chunkManager(*m_chunkManagers[i].get());
@@ -317,15 +318,17 @@ void DiskBranch::saveImpl(const std::string& path, Json::Value& meta)
     {
         meta["ids"].append(static_cast<Json::UInt64>(id));
     }
+    */
 }
 
 void DiskBranch::finalizeImpl(
-        S3& output,
+        Source& output,
         Pool& pool,
         std::vector<std::size_t>& ids,
         const std::size_t start,
         const std::size_t chunkSize)
 {
+    /*
     for (auto& c : m_chunkManagers)
     {
         ChunkManager& chunkManager(*c.get());
@@ -337,6 +340,7 @@ void DiskBranch::finalizeImpl(
     }
 
     pool.join();
+    */
 }
 
 } // namespace entwine

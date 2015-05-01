@@ -27,7 +27,7 @@ class Branch;
 class Clipper;
 class PointInfo;
 class Pool;
-class S3;
+class Source;
 
 namespace fs
 {
@@ -81,7 +81,7 @@ public:
     std::vector<std::size_t> ids() const;
 
     void finalize(
-            S3& output,
+            Source& output,
             Pool& pool,
             std::vector<std::size_t>& ids,
             const std::size_t start,

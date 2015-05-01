@@ -12,15 +12,19 @@
 
 #include <cstddef>
 #include <list>
+#include <map>
+#include <memory>
+#include <mutex>
 #include <set>
 #include <vector>
 
-#include <entwine/http/s3.hpp>
+#include <entwine/drivers/source.hpp>
 
 namespace entwine
 {
 
 class BBox;
+class Driver;
 class Point;
 class Pool;
 class Roller;
@@ -29,7 +33,7 @@ class Schema;
 class Reader
 {
 public:
-    Reader(const S3Info& s3Info, std::size_t cacheSize);
+    Reader(Source source, std::size_t cacheSize);
 
     // Query calls may throw if a cache overrun is detected.
     std::vector<std::size_t> query(
@@ -95,7 +99,7 @@ private:
 
     std::vector<std::string> m_originList;
 
-    std::unique_ptr<S3> m_s3;
+    Source m_source;
 
     const std::size_t m_cacheSize;
     std::mutex m_mutex;

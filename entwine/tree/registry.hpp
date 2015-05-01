@@ -32,7 +32,7 @@ class FlatBranch;
 class PointInfo;
 class Pool;
 class Roller;
-class S3;
+class Source;
 class Schema;
 
 // Maintains mapping to house the data belonging to each virtual node.
@@ -40,17 +40,19 @@ class Registry
 {
 public:
     Registry(
-            const std::string& path,
+            Source& buildSource,
             const Schema& schema,
             std::size_t dimensions,
             std::size_t baseDepth,
             std::size_t flatDepth,
             std::size_t diskDepth);
+
     Registry(
-            const std::string& path,
+            Source& buildSource,
             const Schema& schema,
             std::size_t dimensions,
             const Json::Value& meta);
+
     ~Registry();
 
     bool addPoint(PointInfo** toAddPtr, Roller& roller, Clipper* clipper);
@@ -73,10 +75,10 @@ public:
 
     std::vector<char> getPointData(Clipper* clipper, std::size_t index);
 
-    void save(const std::string& path, Json::Value& meta) const;
+    void save(Json::Value& meta) const;
 
     void finalize(
-            S3& output,
+            Source& output,
             Pool& pool,
             std::vector<std::size_t>& ids,
             std::size_t start,

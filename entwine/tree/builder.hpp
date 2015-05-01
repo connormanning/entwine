@@ -17,6 +17,7 @@
 
 #include <pdal/Dimension.hpp>
 
+#include <entwine/drivers/source.hpp>
 #include <entwine/tree/point-info.hpp>
 #include <entwine/types/dim-info.hpp>
 
@@ -34,13 +35,13 @@ namespace Json
 namespace entwine
 {
 
+class Arbiter;
 class BBox;
 class Clipper;
+class Driver;
 class Pool;
 class Registry;
 class Reprojection;
-class S3;
-struct S3Info;
 
 class Builder
 {
@@ -51,25 +52,25 @@ public:
             const Reprojection& reprojection,
             const BBox& bbox,
             const DimList& dimList,
-            const S3Info& s3Info,
             std::size_t numThreads,
             std::size_t numDimensions,
             std::size_t baseDepth,
             std::size_t flatDepth,
-            std::size_t diskDepth);
+            std::size_t diskDepth,
+            std::shared_ptr<Arbiter> arbiter = 0);
 
     Builder(
             std::string buildPath,
             std::string tmpPath,
             const Reprojection& reprojection,
-            const S3Info& s3Info,
-            std::size_t numThreads);
+            std::size_t numThreads,
+            std::shared_ptr<Arbiter> arbiter = 0);
 
     ~Builder();
 
     // Insert the points from a PointView into this index asynchronously.  To
     // await the results of all outstanding inserts, call join().
-    void insert(const std::string& filename);
+    void insert(std::string filename);
     void join();
 
     // Remove resources that are no longer needed.
@@ -84,7 +85,7 @@ public:
 
     // Write the tree to an export format independent from the specifics of how
     // it was built.
-    void finalize(const S3Info& s3Info, std::size_t base, bool compress);
+    void finalize(std::string path, std::size_t base, bool compress);
 
     // Get bounds of the quad tree.
     const BBox& getBounds() const;
@@ -117,24 +118,22 @@ public:
     const Schema& schema() const;
 
     std::size_t numPoints() const;
-    std::string path() const;
     std::string name() const;
 
 private:
+    void prep();
+
     void insert(
             pdal::PointView& pointView,
             Origin origin,
             Clipper* clipper);
 
-    std::string metaPath() const;
     Json::Value getTreeMeta() const;
 
     Origin addOrigin(const std::string& remote);
-    std::string inferDriver(const std::string& remote) const;
-    std::string fetchAndWriteFile(const std::string& remote, Origin origin);
+    std::string inferPdalDriver(const std::string& path) const;
 
-    const std::string m_buildPath;
-    const std::string m_tmpPath;
+    //
 
     std::unique_ptr<Reprojection> m_reprojection;
 
@@ -148,9 +147,12 @@ private:
     std::vector<std::string> m_originList;
 
     std::unique_ptr<Pool> m_pool;
-    std::unique_ptr<pdal::StageFactory> m_stageFactory;
-    std::unique_ptr<S3> m_s3;
 
+    std::shared_ptr<Arbiter> m_arbiter;
+    Source m_buildSource;
+    Source m_tmpSource;
+
+    std::unique_ptr<pdal::StageFactory> m_stageFactory;
     std::unique_ptr<Registry> m_registry;
 
     Builder(const Builder&);

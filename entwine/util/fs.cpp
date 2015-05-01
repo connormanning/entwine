@@ -45,6 +45,30 @@ bool removeFile(const std::string& filename)
     return remove(filename.c_str()) == 0;
 }
 
+std::string readFile(const std::string& filename)
+{
+    auto raw(readBinaryFile(filename));
+    return std::string(raw.begin(), raw.end());
+}
+
+std::vector<char> readBinaryFile(const std::string& filename)
+{
+    std::ifstream stream(filename, std::ios::in | std::ios::binary);
+
+    if (!stream.good())
+    {
+        throw std::runtime_error("Could not read file " + filename);
+    }
+
+    stream.seekg(0, std::ios::end);
+    std::vector<char> data(static_cast<std::size_t>(stream.tellg()));
+    stream.seekg(0, std::ios::beg);
+    stream.read(data.data(), data.size());
+    stream.close();
+
+    return data;
+}
+
 bool writeFile(
         const std::string& filename,
         const std::vector<char>& contents,
