@@ -25,7 +25,6 @@ class Arbiter
 {
 public:
     Arbiter(DriverMap drivers = DriverMap());
-    Arbiter(const Arbiter& other);
     ~Arbiter();
 
     Source getSource(std::string path);

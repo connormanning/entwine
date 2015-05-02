@@ -34,7 +34,7 @@ class Schema;
 class Reader
 {
 public:
-    Reader(Source source, std::size_t cacheSize);
+    Reader(Source source, std::size_t cacheSize, std::size_t queryLimit);
 
     // Query calls may throw if a cache overrun is detected.
     std::vector<std::size_t> query(
@@ -103,6 +103,7 @@ private:
     Source m_source;
 
     const std::size_t m_cacheSize;
+    const std::size_t m_queryLimit;
     std::mutex m_mutex;
     std::condition_variable m_cv;
     std::unique_ptr<std::vector<char>> m_base;

@@ -38,7 +38,10 @@ namespace
     }
 }
 
-Reader::Reader(Source source, std::size_t cacheSize)
+Reader::Reader(
+        Source source,
+        const std::size_t cacheSize,
+        const std::size_t queryLimit)
     : m_firstChunk(0)
     , m_chunkPoints(0)
     , m_ids()
@@ -50,6 +53,7 @@ Reader::Reader(Source source, std::size_t cacheSize)
     , m_originList()
     , m_source(source)
     , m_cacheSize(cacheSize)
+    , m_queryLimit(queryLimit)
     , m_mutex()
     , m_cv()
     , m_base()
@@ -160,9 +164,14 @@ void Reader::warm(
 
         if (!fetching.count(chunkId))
         {
-            // TODO Checking fetching.size() here might be a good way to pre-
-            // validate/limit query sizes.
             fetching.insert(chunkId);
+
+            if (fetching.size() > m_queryLimit)
+            {
+                pool.join();
+                throw std::runtime_error("Max query size exceeded");
+            }
+
             pool.add([this, chunkId]()->void
             {
                 fetch(chunkId);

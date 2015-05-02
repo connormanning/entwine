@@ -22,11 +22,6 @@ Arbiter::Arbiter(DriverMap drivers)
     m_drivers.insert(drivers.begin(), drivers.end());
 }
 
-Arbiter::Arbiter(const Arbiter& other)
-{
-    m_drivers.insert(other.m_drivers.begin(), other.m_drivers.end());
-}
-
 Arbiter::~Arbiter()
 { }
 
