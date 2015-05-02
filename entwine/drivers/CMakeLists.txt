@@ -12,6 +12,7 @@ set(
 set(
     HEADERS
     "${BASE}/arbiter.hpp"
+    "${BASE}/driver.hpp"
     "${BASE}/fs.hpp"
     "${BASE}/s3.hpp"
     "${BASE}/source.hpp"
