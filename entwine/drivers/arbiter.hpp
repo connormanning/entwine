@@ -10,7 +10,6 @@
 
 #pragma once
 
-#include <memory>
 #include <string>
 
 #include <entwine/drivers/source.hpp>
