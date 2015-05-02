@@ -9,6 +9,7 @@ add_definitions(${CMAKE_CXX_FLAGS} "-Wno-deprecated-declarations")
 add_definitions(${CMAKE_CXX_FLAGS} "-Wall")
 add_definitions(${CMAKE_CXX_FLAGS} "-Werror")
 add_definitions(${CMAKE_CXX_FLAGS} "-pedantic")
+add_definitions(${CMAKE_CXX_FLAGS} "-pthread")
 add_definitions(${CMAKE_CXX_FLAGS} "-fexceptions")
 add_definitions(${CMAKE_CXX_FLAGS} "-fPIC")
 
@@ -36,6 +37,6 @@ set(OBJS
 )
 
 add_library(entwine SHARED ${OBJS})
-target_link_libraries(entwine pdalcpp curl crypto)
+target_link_libraries(entwine pdalcpp curl crypto pthread)
 install(TARGETS entwine DESTINATION lib)
 
