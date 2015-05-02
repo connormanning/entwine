@@ -10,7 +10,6 @@
 
 #pragma once
 
-#include <map>
 #include <memory>
 #include <string>
 
@@ -18,8 +17,6 @@
 
 namespace entwine
 {
-
-typedef std::map<std::string, std::shared_ptr<Driver>> DriverMap;
 
 class Arbiter
 {

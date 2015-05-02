@@ -23,13 +23,37 @@ namespace
 {
     const std::size_t httpAttempts(3);
 
-    // TODO Remove in favor of virtual host access.
-    const std::string baseUrl("s3.amazonaws.com/");
+    const std::string baseUrl(".s3.amazonaws.com/");
 
     // TODO Configure.  Also move this elsewhere.
     const std::size_t curlNumBatches(16);
     const std::size_t curlBatchSize(64);
     entwine::CurlPool curlPool(curlNumBatches, curlBatchSize);
+
+    std::size_t split(std::string fullPath)
+    {
+        if (fullPath.back() == '/') fullPath.pop_back();
+
+        const std::size_t pos(fullPath.find("/"));
+
+        if (pos == std::string::npos || pos + 1 >= fullPath.size())
+        {
+            throw std::runtime_error("Invalid bucket specification");
+        }
+
+        return pos;
+    }
+
+    // Return value includes trailing "/".
+    std::string getBucket(std::string fullPath)
+    {
+        return fullPath.substr(0, split(fullPath));
+    }
+
+    std::string getObject(std::string fullPath)
+    {
+        return fullPath.substr(split(fullPath) + 1);
+    }
 }
 
 AwsAuth::AwsAuth(const std::string access, const std::string hidden)
@@ -65,7 +89,9 @@ std::vector<char> S3Driver::get(const std::string path)
 
     if (res.code() != 200)
     {
-        std::cout << std::string(res.data().begin(), res.data().end()) <<
+        std::cout <<
+            res.code() << ": " <<
+            std::string(res.data().begin(), res.data().end()) <<
             std::endl;
         throw std::runtime_error("Couldn't fetch " + path);
     }
@@ -104,13 +130,15 @@ HttpResponse S3Driver::httpExec(
 
 HttpResponse S3Driver::tryGet(std::string path)
 {
-    const std::string endpoint("http://" + baseUrl + path);
+    const std::string endpoint(
+            "http://" + getBucket(path) + baseUrl + getObject(path));
     return m_curlBatch->get(endpoint, httpGetHeaders(path));
 }
 
 HttpResponse S3Driver::tryPut(std::string path, const std::vector<char>& data)
 {
-    const std::string endpoint("http://" + baseUrl + path);
+    const std::string endpoint(
+            "http://" + getBucket(path) + baseUrl + getObject(path));
     return m_curlBatch->put(endpoint, httpPutHeaders(path), data);
 }
 

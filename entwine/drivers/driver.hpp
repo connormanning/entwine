@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -31,6 +32,8 @@ public:
 
     virtual bool isRemote() const { return true; }
 };
+
+typedef std::map<std::string, std::shared_ptr<Driver>> DriverMap;
 
 } // namespace entwine
 
