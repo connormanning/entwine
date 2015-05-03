@@ -44,7 +44,6 @@ namespace
         return pos;
     }
 
-    // Return value includes trailing "/".
     std::string getBucket(std::string fullPath)
     {
         return fullPath.substr(0, split(fullPath));
