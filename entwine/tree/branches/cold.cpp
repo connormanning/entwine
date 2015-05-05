@@ -218,4 +218,3 @@ void ColdBranch::clip(Clipper* clipper, const std::size_t chunkId)
 
 } // namespace entwine
 
-
