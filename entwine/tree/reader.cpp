@@ -152,7 +152,7 @@ void Reader::warm(
 {
     if (!roller.bbox().overlaps(queryBBox)) return;
 
-    const uint64_t index(roller.pos());
+    const uint64_t index(roller.index());
     const std::size_t depth(roller.depth());
 
     if (
@@ -168,7 +168,9 @@ void Reader::warm(
 
             if (fetching.size() > m_queryLimit)
             {
+                std::cout << "Query limit exceeded.  Joining..." << std::endl;
                 pool.join();
+                std::cout << "Joined.  Throwing." << std::endl;
                 throw std::runtime_error("Max query size exceeded");
             }
 
@@ -197,7 +199,7 @@ void Reader::query(
 {
     if (!roller.bbox().overlaps(queryBBox)) return;
 
-    const uint64_t index(roller.pos());
+    const uint64_t index(roller.index());
     const std::size_t depth(roller.depth());
 
     if (depth >= depthBegin && (depth < depthEnd || !depthEnd))
@@ -346,14 +348,12 @@ void Reader::fetch(const std::size_t chunkId)
                     "Could not fetch chunk " + std::to_string(chunkId));
         }
 
-        lock.lock();
-
-        m_outstanding.erase(chunkId);
-
         const std::size_t chunkSize(m_chunkPoints * m_schema->pointSize());
 
         std::unique_ptr<std::vector<char>> chunk(
                 Compression::decompress(data, *m_schema, chunkSize));
+
+        lock.lock();
 
         assert(m_accessMap.size() == m_chunks.size());
         if (m_chunks.size() >= m_cacheSize)
@@ -370,6 +370,7 @@ void Reader::fetch(const std::size_t chunkId)
             m_accessList.pop_back();
         }
 
+        m_outstanding.erase(chunkId);
         m_chunks.insert(std::make_pair(chunkId, std::move(chunk)));
         m_accessList.push_front(chunkId);
         m_accessMap[chunkId] = m_accessList.begin();
@@ -393,19 +394,14 @@ void Reader::fetch(const std::size_t chunkId)
         // thread will place it at the front.
         m_cv.wait(lock, [this, chunkId]()->bool
         {
-            bool has(false);
-
-            if (m_chunks.count(chunkId))
-            {
-                has = true;
-            }
-            else if (!m_outstanding.count(chunkId))
-            {
-                throw std::runtime_error("Couldn't fetch chunk");
-            }
-
-            return has;
+            return m_chunks.count(chunkId) || !m_outstanding.count(chunkId);
         });
+
+        if (!m_chunks.count(chunkId))
+        {
+            throw std::runtime_error(
+                    "Could not fetch chunk " + std::to_string(chunkId));
+        }
     }
 }
 

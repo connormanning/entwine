@@ -18,7 +18,7 @@
 #include <entwine/tree/point-info.hpp>
 #include <entwine/tree/branches/base.hpp>
 #include <entwine/tree/branches/clipper.hpp>
-#include <entwine/tree/branches/disk.hpp>
+#include <entwine/tree/branches/cold.hpp>
 #include <entwine/tree/branches/flat.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
@@ -31,37 +31,33 @@ Registry::Registry(
         Source& buildSource,
         const Schema& schema,
         const std::size_t dimensions,
+        const std::size_t chunkPoints,
         const std::size_t baseDepth,
         const std::size_t rawFlatDepth,
-        const std::size_t rawDiskDepth)
+        const std::size_t rawColdDepth)
     : m_baseBranch()
     , m_flatBranch()
-    , m_diskBranch()
+    , m_coldBranch()
 {
     // Ensure ascending order.
     const std::size_t flatDepth(std::max(baseDepth, rawFlatDepth));
-    const std::size_t diskDepth(std::max(flatDepth, rawDiskDepth));
+    const std::size_t coldDepth(std::max(flatDepth, rawColdDepth));
 
-    if (diskDepth > flatDepth)
+    if (coldDepth > flatDepth)
     {
-        m_diskBranch.reset(
-                new DiskBranch(
+        m_coldBranch.reset(
+                new ColdBranch(
                     buildSource,
                     schema,
                     dimensions,
+                    chunkPoints,
                     flatDepth,
-                    diskDepth));
+                    coldDepth));
     }
 
     if (flatDepth > baseDepth)
     {
-        m_flatBranch.reset(
-                new FlatBranch(
-                    buildSource,
-                    schema,
-                    dimensions,
-                    baseDepth,
-                    flatDepth));
+        throw std::runtime_error("Flat branch unsupported");
     }
 
     if (baseDepth)
@@ -79,10 +75,11 @@ Registry::Registry(
         Source& buildSource,
         const Schema& schema,
         const std::size_t dimensions,
+        const std::size_t chunkPoints,
         const Json::Value& meta)
     : m_baseBranch()
     , m_flatBranch()
-    , m_diskBranch()
+    , m_coldBranch()
 {
     if (meta.isMember("base"))
     {
@@ -96,22 +93,18 @@ Registry::Registry(
 
     if (meta.isMember("flat"))
     {
-        m_flatBranch.reset(
-                new FlatBranch(
-                    buildSource,
-                    schema,
-                    dimensions,
-                    meta["flat"]));
+        throw std::runtime_error("Flat branch unsupported");
     }
 
-    if (meta.isMember("disk"))
+    if (meta.isMember("cold"))
     {
-        m_diskBranch.reset(
-                new DiskBranch(
+        m_coldBranch.reset(
+                new ColdBranch(
                     buildSource,
                     schema,
                     dimensions,
-                    meta["disk"]));
+                    chunkPoints,
+                    meta["cold"]));
     }
 }
 
@@ -122,7 +115,7 @@ bool Registry::addPoint(PointInfo** toAddPtr, Roller& roller, Clipper* clipper)
 {
     bool accepted(false);
 
-    if (Branch* branch = getBranch(clipper, roller.pos()))
+    if (Branch* branch = getBranch(clipper, roller.index()))
     {
         if (!branch->addPoint(toAddPtr, roller))
         {
@@ -151,101 +144,14 @@ void Registry::clip(Clipper* clipper, std::size_t index)
     }
 }
 
-void Registry::query(
-        const Roller& roller,
-        Clipper* clipper,
-        std::vector<std::size_t>& results,
-        const std::size_t depthBegin,
-        const std::size_t depthEnd)
-{
-    const uint64_t index(roller.pos());
-
-    if (Branch* branch = getBranch(clipper, index))
-    {
-        if (branch->hasPoint(index))
-        {
-            if (
-                    (roller.depth() >= depthBegin) &&
-                    (roller.depth() < depthEnd || !depthEnd))
-            {
-                results.push_back(index);
-            }
-
-            if (roller.depth() + 1 < depthEnd || !depthEnd)
-            {
-                query(roller.getNw(), clipper, results, depthBegin, depthEnd);
-                query(roller.getNe(), clipper, results, depthBegin, depthEnd);
-                query(roller.getSw(), clipper, results, depthBegin, depthEnd);
-                query(roller.getSe(), clipper, results, depthBegin, depthEnd);
-            }
-        }
-    }
-}
-
-void Registry::query(
-        const Roller& roller,
-        Clipper* clipper,
-        std::vector<std::size_t>& results,
-        const BBox& queryBBox,
-        const std::size_t depthBegin,
-        const std::size_t depthEnd)
-{
-    if (!roller.bbox().overlaps(queryBBox)) return;
-
-    const uint64_t index(roller.pos());
-
-    if (Branch* branch = getBranch(clipper, index))
-    {
-        if (branch->hasPoint(index))
-        {
-            const Point point(branch->getPoint(index));
-
-            if (
-                    (roller.depth() >= depthBegin) &&
-                    (roller.depth() < depthEnd || !depthEnd) &&
-                    (queryBBox.contains(point)))
-            {
-                results.push_back(index);
-            }
-
-            if (roller.depth() + 1 < depthEnd || !depthEnd)
-            {
-                const auto nw(roller.getNw());
-                const auto ne(roller.getNe());
-                const auto sw(roller.getSw());
-                const auto se(roller.getSe());
-
-                query(nw, clipper, results, queryBBox, depthBegin, depthEnd);
-                query(ne, clipper, results, queryBBox, depthBegin, depthEnd);
-                query(sw, clipper, results, queryBBox, depthBegin, depthEnd);
-                query(se, clipper, results, queryBBox, depthBegin, depthEnd);
-            }
-        }
-    }
-}
-
-std::vector<char> Registry::getPointData(
-        Clipper* clipper,
-        const std::size_t index)
-{
-    std::vector<char> data;
-
-    if (Branch* branch = getBranch(clipper, index))
-    {
-        data = branch->getPointData(index);
-    }
-
-    return data;
-}
-
 void Registry::save(Json::Value& meta) const
 {
     std::cout << "Saving base" << std::endl;
     if (m_baseBranch) m_baseBranch->save(meta["base"]);
     std::cout << "Saving flat" << std::endl;
     if (m_flatBranch) m_flatBranch->save(meta["flat"]);
-    std::cout << "Saving disk" << std::endl;
-    if (m_diskBranch) m_diskBranch->save(meta["disk"]);
+    std::cout << "Saving cold" << std::endl;
+    if (m_coldBranch) m_coldBranch->save(meta["cold"]);
 }
 
 void Registry::finalize(
@@ -257,7 +163,7 @@ void Registry::finalize(
 {
     if (m_baseBranch) m_baseBranch->finalize(output, pool, ids, start, chunk);
     if (m_flatBranch) m_flatBranch->finalize(output, pool, ids, start, chunk);
-    if (m_diskBranch) m_diskBranch->finalize(output, pool, ids, start, chunk);
+    if (m_coldBranch) m_coldBranch->finalize(output, pool, ids, start, chunk);
 }
 
 Branch* Registry::getBranch(Clipper* clipper, const std::size_t index) const
@@ -272,9 +178,9 @@ Branch* Registry::getBranch(Clipper* clipper, const std::size_t index) const
     {
         branch = m_flatBranch.get();
     }
-    else if (m_diskBranch && m_diskBranch->accepts(clipper, index))
+    else if (m_coldBranch && m_coldBranch->accepts(clipper, index))
     {
-        branch = m_diskBranch.get();
+        branch = m_coldBranch.get();
     }
 
     return branch;

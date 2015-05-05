@@ -10,53 +10,46 @@
 
 #pragma once
 
+#include <cstddef>
 #include <memory>
 #include <mutex>
-#include <string>
-#include <vector>
+#include <set>
 
 #include <entwine/tree/branch.hpp>
-#include <entwine/types/elastic-atomic.hpp>
-
-namespace Json
-{
-    class Value;
-}
-
-namespace pdal
-{
-    class PointView;
-}
 
 namespace entwine
 {
 
 class Chunk;
+struct Entry;
 class Schema;
-class SimplePointTable;
 
-class BaseBranch : public Branch
+class ColdBranch : public Branch
 {
 public:
-    BaseBranch(
+    ColdBranch(
             Source& source,
             const Schema& schema,
             std::size_t dimensions,
+            std::size_t chunkPoints,
+            std::size_t depthBegin,
             std::size_t depthEnd);
 
-    BaseBranch(
+    ColdBranch(
             Source& source,
             const Schema& schema,
             std::size_t dimensions,
+            std::size_t chunkPoints,
             const Json::Value& meta);
 
-    ~BaseBranch();
+    ~ColdBranch();
 
 private:
-    virtual std::unique_ptr<Entry> getEntry(std::size_t index);
+    std::size_t getChunkId(std::size_t index) const;    // Global point index.
+    std::size_t getSlotId(std::size_t chunkId) const;   // Local zero-based.
+    std::unique_ptr<std::vector<char>> fetch(std::size_t chunkId) const;
 
-    virtual void saveImpl(Json::Value& meta);
-    void load(const Json::Value& meta);
+    virtual std::unique_ptr<Entry> getEntry(std::size_t index);
 
     virtual void finalizeImpl(
             Source& output,
@@ -65,7 +58,22 @@ private:
             std::size_t start,
             std::size_t chunkSize);
 
-    std::unique_ptr<Chunk> m_chunk;
+    virtual void grow(Clipper* clipper, std::size_t index);
+    virtual void clip(Clipper* clipper, std::size_t index);
+
+    //
+
+    const std::size_t m_chunkPoints;
+
+    struct ChunkInfo
+    {
+        std::unique_ptr<Chunk> chunk;
+        std::set<const Clipper*> refs;
+        std::mutex mutex;
+    };
+
+    std::mutex m_mutex;
+    std::map<std::size_t, ChunkInfo> m_chunks;
 };
 
 } // namespace entwine

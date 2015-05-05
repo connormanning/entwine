@@ -20,7 +20,7 @@ class Schema;
 class Point
 {
 public:
-    Point() : x(0), y(0) { }
+    Point() : x(Point::emptyCoord()), y(Point::emptyCoord()) { }
     Point(double x, double y) : x(x), y(y) { }
     Point(const Point& other) : x(other.x), y(other.y) { }
 
@@ -32,14 +32,17 @@ public:
 
     static bool exists(Point p)
     {
-        return
-            (p.x != INFINITY && p.y != INFINITY) &&
-            (p.x != 0 && p.y != 0);
+        return p.x != Point::emptyCoord() && p.y != Point::emptyCoord();
     }
 
     static bool exists(double x, double y)
     {
         return exists(Point(x, y));
+    }
+
+    static double emptyCoord()
+    {
+        return 0;
     }
 
     double x;

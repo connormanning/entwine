@@ -11,6 +11,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -35,6 +36,10 @@ public:
             const std::vector<char>& data,
             const Schema& schema,
             std::size_t decompressedSize);
+
+    // Append/remove the uncompressed size marker from this data chunk.
+    static void pushSize(std::vector<char>& data, uint64_t size);
+    static uint64_t popSize(std::vector<char>& data);
 };
 
 } // namespace entwine

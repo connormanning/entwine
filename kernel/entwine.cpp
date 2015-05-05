@@ -176,13 +176,15 @@ int main(int argc, char** argv)
     const std::string tmpPath(build["tmp"].asString());
 
     const Json::Value& tree(build["tree"]);
+    const std::size_t buildChunkPoints(tree["pointsPerChunk"].asUInt64());
     const std::size_t baseDepth(tree["baseDepth"].asUInt64());
-    const std::size_t flatDepth(tree["flatDepth"].asUInt64());
-    const std::size_t diskDepth(tree["diskDepth"].asUInt64());
+    const std::size_t flatDepth(0);
+    const std::size_t coldDepth(tree["coldDepth"].asUInt64());
 
     // Output info.
     const Json::Value& output(config["output"]);
-    const std::string exportPath(output["export"].asString());
+    const std::string exportPath(output["path"].asString());
+    const std::size_t exportChunkPoints(output["pointsPerChunk"].asUInt64());
     const std::size_t exportBase(output["baseDepth"].asUInt64());
     const bool exportCompress(output["compress"].asBool());
 
@@ -236,12 +238,14 @@ int main(int argc, char** argv)
         std::cout << "Paths:\n" <<
             "\tBuilding from " << input.size() << " source files" << "\n" <<
             "\tBuild path: " << buildPath << "\n" <<
-            "\t\tBuild tree: " << "\n" <<
-            "\t\t\tBase depth: " << baseDepth << "\n" <<
-            "\t\t\tFlat depth: " << flatDepth << "\n" <<
-            "\t\t\tDisk depth: " << diskDepth << "\n" <<
+            "\tBuild tree: " << "\n" <<
+            "\t\tChunk size: " << buildChunkPoints << " points\n" <<
+            "\t\tBase depth: " << baseDepth << "\n" <<
+            // "\t\tFlat depth: " << flatDepth << "\n" <<
+            "\t\tCold depth: " << coldDepth << "\n" <<
             "\tTmp path: " << tmpPath << "\n" <<
             "\tOutput path: " << exportPath << "\n" <<
+            "\t\tExport chunk size: " << exportChunkPoints << " points\n" <<
             "\t\tExport base depth: " << exportBase << std::endl;
         std::cout << "Geometry:\n" <<
             "\tBuild type: " << geometry["type"].asString() << "\n" <<
@@ -261,9 +265,10 @@ int main(int argc, char** argv)
                     dims,
                     threads,
                     dimensions,
+                    buildChunkPoints,
                     baseDepth,
                     flatDepth,
-                    diskDepth,
+                    coldDepth,
                     arbiter));
     }
 
@@ -290,7 +295,11 @@ int main(int argc, char** argv)
     builder->save();
 
     std::cout << "Saved.  Exporting..." << std::endl;
-    builder->finalize(exportPath, exportBase, exportCompress);
+    builder->finalize(
+            exportPath,
+            exportChunkPoints,
+            exportBase,
+            exportCompress);
 
     std::cout << "Finished." << std::endl;
     return 0;

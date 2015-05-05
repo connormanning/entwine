@@ -28,7 +28,7 @@ public:
 
     void magnify(const Point* point);
     std::size_t depth() const;
-    uint64_t pos() const;
+    uint64_t index() const;
     const BBox& bbox() const;
 
     void goNw();
@@ -58,7 +58,7 @@ public:
     };
 
 private:
-    uint64_t m_pos;
+    uint64_t m_index;
     BBox m_bbox;
 
     std::size_t m_depth;

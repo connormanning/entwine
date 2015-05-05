@@ -245,7 +245,7 @@ bool PointMapper::addPoint(PointInfo** toAddPtr, const Roller& roller)
 {
     bool added(false);
 
-    const std::size_t index(roller.pos());
+    const std::size_t index(roller.index());
     assert(index >= m_firstPoint);
 
     const std::size_t localOffset(index - m_firstPoint);

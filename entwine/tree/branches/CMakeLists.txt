@@ -4,16 +4,18 @@ set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 set(
     SOURCES
     "${BASE}/base.cpp"
+    "${BASE}/cold.cpp"
+    "${BASE}/chunk.cpp"
     "${BASE}/flat.cpp"
-    "${BASE}/disk.cpp"
     "${BASE}/clipper.cpp"
 )
 
 set(
     HEADERS
     "${BASE}/base.hpp"
+    "${BASE}/cold.hpp"
+    "${BASE}/chunk.hpp"
     "${BASE}/flat.hpp"
-    "${BASE}/disk.hpp"
     "${BASE}/clipper.hpp"
 )
 

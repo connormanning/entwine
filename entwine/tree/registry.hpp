@@ -27,7 +27,7 @@ class BBox;
 class BaseBranch;
 class Branch;
 class Clipper;
-class DiskBranch;
+class ColdBranch;
 class FlatBranch;
 class PointInfo;
 class Pool;
@@ -43,6 +43,7 @@ public:
             Source& buildSource,
             const Schema& schema,
             std::size_t dimensions,
+            std::size_t chunkPoints,
             std::size_t baseDepth,
             std::size_t flatDepth,
             std::size_t diskDepth);
@@ -51,29 +52,13 @@ public:
             Source& buildSource,
             const Schema& schema,
             std::size_t dimensions,
+            std::size_t chunkPoints,
             const Json::Value& meta);
 
     ~Registry();
 
     bool addPoint(PointInfo** toAddPtr, Roller& roller, Clipper* clipper);
     void clip(Clipper* clipper, std::size_t index);
-
-    void query(
-            const Roller& roller,
-            Clipper* clipper,
-            std::vector<std::size_t>& results,
-            std::size_t depthBegin,
-            std::size_t depthEnd);
-
-    void query(
-            const Roller& roller,
-            Clipper* clipper,
-            std::vector<std::size_t>& results,
-            const BBox& queryBBox,
-            std::size_t depthBegin,
-            std::size_t depthEnd);
-
-    std::vector<char> getPointData(Clipper* clipper, std::size_t index);
 
     void save(Json::Value& meta) const;
 
@@ -93,7 +78,7 @@ private:
 
     std::unique_ptr<BaseBranch> m_baseBranch;
     std::unique_ptr<FlatBranch> m_flatBranch;
-    std::unique_ptr<DiskBranch> m_diskBranch;
+    std::unique_ptr<ColdBranch> m_coldBranch;
 };
 
 } // namespace entwine

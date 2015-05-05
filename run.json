@@ -9,14 +9,15 @@
         "path": "progress",
         "tmp":  "tmp",
         "tree": {
-            "baseDepth": 8,
-            "flatDepth": 0,
-            "diskDepth": 0
+            "pointsPerChunk": 65536,
+            "baseDepth": 9,
+            "coldDepth": 11
         }
     },
     "output": {
-        "export": "s3://entwine-test",
-        "baseDepth": 10,
+        "path": "s3://entwine-test",
+        "pointsPerChunk": 65536,
+        "baseDepth": 8,
         "compress": true
     },
     "tuning": {

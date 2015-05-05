@@ -35,17 +35,6 @@
 
 namespace
 {
-    std::vector<char> makeEmptyPoint(const entwine::Schema& schema)
-    {
-        entwine::SimplePointTable table(schema);
-        pdal::PointView view(table);
-
-        view.setField(pdal::Dimension::Id::X, 0, 0);
-        view.setField(pdal::Dimension::Id::Y, 0, 0);
-
-        return table.data();
-    }
-
     std::unique_ptr<pdal::Reader> createReader(
             const pdal::StageFactory& stageFactory,
             const std::string driver,
@@ -109,6 +98,7 @@ Builder::Builder(
         const DimList& dimList,
         const std::size_t numThreads,
         const std::size_t numDimensions,
+        const std::size_t chunkPoints,
         const std::size_t baseDepth,
         const std::size_t flatDepth,
         const std::size_t diskDepth,
@@ -118,6 +108,7 @@ Builder::Builder(
     , m_schema(new Schema(dimList))
     , m_originId(m_schema->pdalLayout().findDim("Origin"))
     , m_dimensions(numDimensions)
+    , m_chunkPoints(chunkPoints)
     , m_numPoints(0)
     , m_numTossed(0)
     , m_pool(new Pool(numThreads))
@@ -130,6 +121,7 @@ Builder::Builder(
                 m_buildSource,
                 *m_schema.get(),
                 m_dimensions,
+                m_chunkPoints,
                 baseDepth,
                 flatDepth,
                 diskDepth))
@@ -340,6 +332,26 @@ void Builder::save()
     m_buildSource.put("meta", jsonMeta.toStyledString());
 }
 
+Json::Value Builder::getTreeMeta() const
+{
+    Json::Value jsonMeta;
+    jsonMeta["bbox"] = m_bbox->toJson();
+    jsonMeta["schema"] = m_schema->toJson();
+    jsonMeta["dimensions"] = static_cast<Json::UInt64>(m_dimensions);
+    jsonMeta["chunkPoints"] = static_cast<Json::UInt64>(m_chunkPoints);
+    jsonMeta["numPoints"] = static_cast<Json::UInt64>(m_numPoints);
+    jsonMeta["numTossed"] = static_cast<Json::UInt64>(m_numTossed);
+
+    // Add origin list to meta.
+    Json::Value& jsonManifest(jsonMeta["input"]);
+    for (Json::ArrayIndex i(0); i < m_originList.size(); ++i)
+    {
+        jsonManifest.append(m_originList[i]);
+    }
+
+    return jsonMeta;
+}
+
 void Builder::load()
 {
     Json::Value meta;
@@ -350,12 +362,15 @@ void Builder::load()
         reader.parse(data, meta, false);
     }
 
+    m_originId = m_schema->pdalLayout().findDim("Origin");
+
     m_bbox.reset(new BBox(BBox::fromJson(meta["bbox"])));
     m_schema.reset(new Schema(Schema::fromJson(meta["schema"])));
-    m_originId = m_schema->pdalLayout().findDim("Origin");
     m_dimensions = meta["dimensions"].asUInt64();
+    m_chunkPoints = meta["chunkPoints"].asUInt64();
     m_numPoints = meta["numPoints"].asUInt64();
     m_numTossed = meta["numTossed"].asUInt64();
+
     const Json::Value& metaManifest(meta["input"]);
 
     for (Json::ArrayIndex i(0); i < metaManifest.size(); ++i)
@@ -368,11 +383,13 @@ void Builder::load()
                 m_buildSource,
                 *m_schema.get(),
                 m_dimensions,
+                m_chunkPoints,
                 meta["registry"]));
 }
 
 void Builder::finalize(
         const std::string path,
+        const std::size_t chunkPoints,
         const std::size_t base,
         const bool compress)
 {
@@ -388,28 +405,9 @@ void Builder::finalize(
             new std::vector<std::size_t>());
 
     const std::size_t baseEnd(Branch::calcOffset(base, m_dimensions));
-    const std::size_t chunkPoints(
-            baseEnd - Branch::calcOffset(base - 1, m_dimensions));
-
-    {
-        std::unique_ptr<Clipper> clipper(new Clipper(*this));
-
-        std::vector<char> data;
-        std::vector<char> empty(makeEmptyPoint(schema()));
-
-        for (std::size_t i(0); i < baseEnd; ++i)
-        {
-            std::vector<char> point(getPointData(clipper.get(), i, schema()));
-
-            std::vector<char>& which(point.size() ? point : empty);
-            data.insert(data.end(), which.begin(), which.end());
-        }
-
-        auto compressed(Compression::compress(data, schema()));
-        outputSource.put("0", *Compression::compress(data, schema()));
-    }
 
     m_registry->finalize(outputSource, *m_pool, *ids, baseEnd, chunkPoints);
+    m_pool->join();
 
     {
         // Get our own metadata.
@@ -432,56 +430,6 @@ void Builder::finalize(
 const BBox& Builder::getBounds() const
 {
     return *m_bbox.get();
-}
-
-std::vector<std::size_t> Builder::query(
-        Clipper* clipper,
-        const std::size_t depthBegin,
-        const std::size_t depthEnd)
-{
-    Roller roller(*m_bbox.get());
-    std::vector<std::size_t> results;
-    m_registry->query(roller, clipper, results, depthBegin, depthEnd);
-    return results;
-}
-
-std::vector<std::size_t> Builder::query(
-        Clipper* clipper,
-        const BBox& bbox,
-        const std::size_t depthBegin,
-        const std::size_t depthEnd)
-{
-    Roller roller(*m_bbox.get());
-    std::vector<std::size_t> results;
-    m_registry->query(roller, clipper, results, bbox, depthBegin, depthEnd);
-    return results;
-}
-
-std::vector<char> Builder::getPointData(
-        Clipper* clipper,
-        const std::size_t index,
-        const Schema& reqSchema)
-{
-    std::vector<char> schemaPoint;
-    std::vector<char> nativePoint(m_registry->getPointData(clipper, index));
-
-    if (nativePoint.size())
-    {
-        schemaPoint.resize(reqSchema.pointSize());
-
-        SinglePointTable table(schema(), nativePoint.data());
-        LinkingPointView view(table);
-
-        char* pos(schemaPoint.data());
-
-        for (const auto& reqDim : reqSchema.dims())
-        {
-            view.getField(pos, reqDim.id(), reqDim.type(), 0);
-            pos += reqDim.size();
-        }
-    }
-
-    return schemaPoint;
 }
 
 const Schema& Builder::schema() const
@@ -507,25 +455,6 @@ std::string Builder::name() const
     }
 
     return name;
-}
-
-Json::Value Builder::getTreeMeta() const
-{
-    Json::Value jsonMeta;
-    jsonMeta["bbox"] = m_bbox->toJson();
-    jsonMeta["schema"] = m_schema->toJson();
-    jsonMeta["dimensions"] = static_cast<Json::UInt64>(m_dimensions);
-    jsonMeta["numPoints"] = static_cast<Json::UInt64>(m_numPoints);
-    jsonMeta["numTossed"] = static_cast<Json::UInt64>(m_numTossed);
-
-    // Add origin list to meta.
-    Json::Value& jsonManifest(jsonMeta["input"]);
-    for (Json::ArrayIndex i(0); i < m_originList.size(); ++i)
-    {
-        jsonManifest.append(m_originList[i]);
-    }
-
-    return jsonMeta;
 }
 
 Origin Builder::addOrigin(const std::string& remote)

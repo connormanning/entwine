@@ -16,13 +16,13 @@ namespace entwine
 {
 
 Roller::Roller(const BBox& bbox)
-    : m_pos(0)
+    : m_index(0)
     , m_bbox(bbox)
     , m_depth(0)
 { }
 
 Roller::Roller(const Roller& other)
-    : m_pos(other.m_pos)
+    : m_index(other.m_index)
     , m_bbox(other.m_bbox)
     , m_depth(other.m_depth)
 { }
@@ -48,9 +48,9 @@ std::size_t Roller::depth() const
     return m_depth;
 }
 
-uint64_t Roller::pos() const
+uint64_t Roller::index() const
 {
-    return m_pos;
+    return m_index;
 }
 
 const BBox& Roller::bbox() const
@@ -113,7 +113,7 @@ Roller Roller::getSe() const
 void Roller::step(const Dir dir)
 {
     // TODO Hard-coded to quad-tree.
-    m_pos = (m_pos << 2) + 1 + dir;
+    m_index = (m_index << 2) + 1 + dir;
     ++m_depth;
 }
 
