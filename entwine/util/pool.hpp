@@ -10,10 +10,12 @@
 
 #pragma once
 
+#include <atomic>
 #include <condition_variable>
 #include <cstddef>
 #include <functional>
 #include <mutex>
+#include <queue>
 #include <thread>
 #include <vector>
 
@@ -26,24 +28,37 @@ public:
     Pool(std::size_t numThreads);
     ~Pool();
 
-    // Add a threaded task, blocking until a thread is available.
-    void add(std::function<void()> task);
+    // Start worker threads
+    void go();
 
     // Wait for all currently running tasks to complete.
     void join();
 
+    // Add a threaded task, blocking until a thread is available.  If join() is
+    // called, add() may not be called again until go() is called and completes.
+    void add(std::function<void()> task);
+
 private:
-    // Returns the index of the acquired thread.
-    std::size_t acquire();
+    // Worker thread function.  Wait for a task and run it - or if stop() is
+    // called, complete any outstanding task and return.
+    void work();
 
-    // Release the thread at the specified index back into the pool.
-    void release(std::size_t index);
+    // Atomically set/get the stop flag.
+    bool stop();
+    void stop(bool val);
 
+    std::size_t m_numThreads;
     std::vector<std::thread> m_threads;
-    std::vector<std::size_t> m_available;
+    std::queue<std::function<void()>> m_tasks;
 
+    std::atomic<bool> m_stop;
     std::mutex m_mutex;
-    std::condition_variable m_cv;
+    std::condition_variable m_produceCv;
+    std::condition_variable m_consumeCv;
+
+    // Disable copy/assignment.
+    Pool(const Pool& other);
+    Pool& operator=(const Pool& other);
 };
 
 } // namespace entwine

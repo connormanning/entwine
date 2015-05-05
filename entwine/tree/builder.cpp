@@ -307,11 +307,6 @@ void Builder::insert(
     }
 }
 
-void Builder::join()
-{
-    m_pool->join();
-}
-
 void Builder::clip(Clipper* clipper, std::size_t index)
 {
     m_registry->clip(clipper, index);
@@ -320,7 +315,9 @@ void Builder::clip(Clipper* clipper, std::size_t index)
 void Builder::save()
 {
     // Ensure static state.
-    join();
+    m_pool->join();
+
+    std::cout << "Indexing complete.  Saving..." << std::endl;
 
     // Get our own metadata.
     Json::Value jsonMeta(getTreeMeta());
@@ -330,6 +327,11 @@ void Builder::save()
 
     // Write to disk.
     m_buildSource.put("meta", jsonMeta.toStyledString());
+
+    std::cout << "Save complete." << std::endl;
+
+    // Re-allow inserts.
+    m_pool->go();
 }
 
 Json::Value Builder::getTreeMeta() const
@@ -393,8 +395,6 @@ void Builder::finalize(
         const std::size_t base,
         const bool compress)
 {
-    join();
-
     Source outputSource(m_arbiter->getSource(path));
     if (!outputSource.isRemote() && !fs::mkdirp(outputSource.path()))
     {

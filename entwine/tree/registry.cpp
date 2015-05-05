@@ -146,11 +146,8 @@ void Registry::clip(Clipper* clipper, std::size_t index)
 
 void Registry::save(Json::Value& meta) const
 {
-    std::cout << "Saving base" << std::endl;
     if (m_baseBranch) m_baseBranch->save(meta["base"]);
-    std::cout << "Saving flat" << std::endl;
     if (m_flatBranch) m_flatBranch->save(meta["flat"]);
-    std::cout << "Saving cold" << std::endl;
     if (m_coldBranch) m_coldBranch->save(meta["cold"]);
 }
 

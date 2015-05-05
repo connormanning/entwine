@@ -283,18 +283,15 @@ int main(int argc, char** argv)
         }
     }
 
-    builder->join();
+    builder->save();
 
     const auto end(std::chrono::high_resolution_clock::now());
     const std::chrono::duration<double> d(end - start);
-    std::cout << "Indexing complete - " <<
+    std::cout << "Index/save completed in " <<
             std::chrono::duration_cast<std::chrono::seconds>(d).count() <<
             " seconds\n" << std::endl;
 
-    std::cout << "Saving to build location..." << std::endl;
-    builder->save();
-
-    std::cout << "Saved.  Exporting..." << std::endl;
+    std::cout << "Exporting..." << std::endl;
     builder->finalize(
             exportPath,
             exportChunkPoints,

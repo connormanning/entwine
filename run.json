@@ -3,7 +3,9 @@
         "s3://iowa-lidar/IA_LAZlib/02004736.laz",
         "s3://iowa-lidar/IA_LAZlib/03224572.laz",
         "s3://iowa-lidar/IA_LAZlib/04124630.laz",
-        "s3://iowa-lidar/IA_LAZlib/05024744.laz"
+        "s3://iowa-lidar/IA_LAZlib/05024744.laz",
+        "s3://iowa-lidar/IA_LAZlib/05124560.laz",
+        "s3://iowa-lidar/IA_LAZlib/06024746.laz"
     ],
     "build": {
         "path": "progress",

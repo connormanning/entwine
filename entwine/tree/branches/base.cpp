@@ -132,7 +132,6 @@ void BaseBranch::finalizeImpl(
 
     for (std::size_t id(start); id < indexEnd(); id += chunkPoints)
     {
-        std::cout << "Base ID " << id << std::endl;
         ids.push_back(id);
 
         const char* pos(m_chunk->data().data() + id * pointSize);

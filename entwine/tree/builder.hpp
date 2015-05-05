@@ -69,10 +69,8 @@ public:
 
     ~Builder();
 
-    // Insert the points from a PointView into this index asynchronously.  To
-    // await the results of all outstanding inserts, call join().
+    // Insert the points from a PointView into this index asynchronously.
     void insert(std::string filename);
-    void join();
 
     // Remove resources that are no longer needed.
     void clip(Clipper* clipper, std::size_t index);
