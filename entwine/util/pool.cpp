@@ -116,7 +116,22 @@ void Pool::work()
             m_produceCv.notify_one();
 
             lock.unlock();
-            task();
+
+            try
+            {
+                task();
+            }
+            catch (std::runtime_error& e)
+            {
+                std::cout <<
+                    "Exception caught in pool task: " << e.what() << std::endl;
+            }
+            catch (...)
+            {
+                std::cout <<
+                    "Unknown exception caught in pool task." << std::endl;
+            }
+
             lock.lock();
         }
     }
