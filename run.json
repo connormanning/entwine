@@ -1,38 +1,41 @@
 {
-    "input": [
-        "s3://iowa-lidar/IA_LAZlib/02004736.laz",
-        "s3://iowa-lidar/IA_LAZlib/03224572.laz",
-        "s3://iowa-lidar/IA_LAZlib/04124630.laz",
-        "s3://iowa-lidar/IA_LAZlib/05024744.laz",
-        "s3://iowa-lidar/IA_LAZlib/05124560.laz",
-        "s3://iowa-lidar/IA_LAZlib/06024746.laz"
-    ],
+    "input": {
+        "run": 0,
+        "manifest": [
+            // TODO Globbing.
+            "s3://iowa-lidar/IA_LAZlib/02004736.laz",
+            "s3://iowa-lidar/IA_LAZlib/03224572.laz",
+            "s3://iowa-lidar/IA_LAZlib/04124630.laz",
+            "s3://iowa-lidar/IA_LAZlib/05024744.laz",
+            "s3://iowa-lidar/IA_LAZlib/05124560.laz",
+            "s3://iowa-lidar/IA_LAZlib/06024746.laz"
+        ]
+    },
     "build": {
         "path": "progress",
         "tmp":  "tmp",
+        "threads": 24,
         "tree": {
             "pointsPerChunk": 65536,
-            "baseDepth": 9,
-            "coldDepth": 11
+            "baseDepth": 8,
+            "coldDepth": 10
         }
     },
     "output": {
         "path": "s3://entwine-test",
-        "pointsPerChunk": 65536,
+        "pointsPerChunk": 65536,    // TODO Must be <= build.tree.pointsPerChunk.
         "baseDepth": 8,
-        "compress": true
-    },
-    "tuning": {
-        "snapshot": 0,
-        "threads": 24
+        "compress": true    // TODO Currently ignored.
     },
     "geometry": {
+        // TODO Allow octree.
         "type": "quadtree",
         "bbox": [
             -10796577.371225, 4902908.135781,
             -10015953.953824, 5375808.896799
         ],
         "reproject": {
+            // TODO Allow omission of this node.
             "in": "EPSG:26915",
             "out": "EPSG:3857"
         },
@@ -52,6 +55,7 @@
                 "type": "floating",
                 "size": 8
             },
+            // TODO Allow disabling Origin tracking.
             {
                 "name": "Origin",
                 "type": "unsigned",

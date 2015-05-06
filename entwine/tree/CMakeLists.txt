@@ -5,6 +5,7 @@ set(
     SOURCES
     "${BASE}/branch.cpp"
     "${BASE}/builder.cpp"
+    "${BASE}/manifest.cpp"
     "${BASE}/point-info.cpp"
     "${BASE}/reader.cpp"
     "${BASE}/registry.cpp"
@@ -15,6 +16,7 @@ set(
     HEADERS
     "${BASE}/branch.hpp"
     "${BASE}/builder.hpp"
+    "${BASE}/manifest.hpp"
     "${BASE}/point-info.hpp"
     "${BASE}/reader.hpp"
     "${BASE}/registry.hpp"

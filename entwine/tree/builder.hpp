@@ -18,6 +18,7 @@
 #include <pdal/Dimension.hpp>
 
 #include <entwine/drivers/source.hpp>
+#include <entwine/tree/manifest.hpp>
 #include <entwine/tree/point-info.hpp>
 #include <entwine/types/dim-info.hpp>
 
@@ -49,7 +50,7 @@ public:
     Builder(
             std::string buildPath,
             std::string tmpPath,
-            const Reprojection& reprojection,
+            const Reprojection* reprojection,
             const BBox& bbox,
             const DimList& dimList,
             std::size_t numThreads,
@@ -63,24 +64,24 @@ public:
     Builder(
             std::string buildPath,
             std::string tmpPath,
-            const Reprojection& reprojection,
+            const Reprojection* reprojection,
             std::size_t numThreads,
             std::shared_ptr<Arbiter> arbiter = 0);
 
     ~Builder();
 
     // Insert the points from a PointView into this index asynchronously.
-    void insert(std::string filename);
+    // Returns true if this file has not already been inserted, and this file
+    // has been successfully identified as a readable point cloud file.  When
+    // this function returns true, the file will be enqueued for point
+    // insertion into the index.
+    bool insert(std::string filename);
 
     // Remove resources that are no longer needed.
     void clip(Clipper* clipper, std::size_t index);
 
     // Save the current state of the tree.
     void save();
-
-    // Awaken the tree from a saved state.  After a load(), no queries should
-    // be made until save() is subsequently called.
-    void load();
 
     // Write the tree to an export format independent from the specifics of how
     // it was built.
@@ -90,26 +91,22 @@ public:
             std::size_t base,
             bool compress);
 
-    // Get bounds of the quad tree.
-    const BBox& getBounds() const;
-
-    const Schema& schema() const;
-
-    std::size_t numPoints() const;
-    std::string name() const;
-
 private:
+    // Awaken the tree from a saved state.  After a load(), no queries should
+    // be made until save() is subsequently called.
+    void load();
+
+    // Validate sources.
     void prep();
 
-    void insert(
-            pdal::PointView& pointView,
-            Origin origin,
-            Clipper* clipper);
+    // Insert each point from a pdal::PointView into the Registry.
+    void insert(pdal::PointView& pointView, Origin origin, Clipper* clipper);
 
-    Json::Value getTreeMeta() const;
+    // Get metadata properties, and load from those serialized properties.
+    Json::Value saveProps() const;
+    void loadProps(const Json::Value& props);
 
-    Origin addOrigin(const std::string& remote);
-    std::string inferPdalDriver(const std::string& path) const;
+    std::string name() const;
 
     //
 
@@ -123,10 +120,8 @@ private:
     std::size_t m_numPoints;
     std::size_t m_numTossed;
 
-    std::vector<std::string> m_originList;
-
+    Manifest m_manifest;
     std::unique_ptr<Pool> m_pool;
-
     std::shared_ptr<Arbiter> m_arbiter;
     Source m_buildSource;
     Source m_tmpSource;

@@ -22,8 +22,6 @@ namespace pdal
 namespace entwine
 {
 
-typedef uint64_t Origin;
-
 class Point;
 class Schema;
 

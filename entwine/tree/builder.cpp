@@ -93,7 +93,7 @@ namespace entwine
 Builder::Builder(
         const std::string buildPath,
         const std::string tmpPath,
-        const Reprojection& reprojection,
+        const Reprojection* reprojection,
         const BBox& bbox,
         const DimList& dimList,
         const std::size_t numThreads,
@@ -103,7 +103,7 @@ Builder::Builder(
         const std::size_t flatDepth,
         const std::size_t diskDepth,
         std::shared_ptr<Arbiter> arbiter)
-    : m_reprojection(reprojection.valid() ? new Reprojection(reprojection) : 0)
+    : m_reprojection(reprojection ? new Reprojection(*reprojection) : 0)
     , m_bbox(new BBox(bbox))
     , m_schema(new Schema(dimList))
     , m_originId(m_schema->pdalLayout().findDim("Origin"))
@@ -111,6 +111,7 @@ Builder::Builder(
     , m_chunkPoints(chunkPoints)
     , m_numPoints(0)
     , m_numTossed(0)
+    , m_manifest()
     , m_pool(new Pool(numThreads))
     , m_arbiter(arbiter ? arbiter : std::make_shared<Arbiter>(Arbiter()))
     , m_buildSource(m_arbiter->getSource(buildPath))
@@ -138,15 +139,16 @@ Builder::Builder(
 Builder::Builder(
         const std::string buildPath,
         const std::string tmpPath,
-        const Reprojection& reprojection,
+        const Reprojection* reprojection,
         const std::size_t numThreads,
         std::shared_ptr<Arbiter> arbiter)
-    : m_reprojection(reprojection.valid() ? new Reprojection(reprojection) : 0)
+    : m_reprojection(reprojection ? new Reprojection(*reprojection) : 0)
     , m_bbox()
     , m_schema()
     , m_dimensions(0)
     , m_numPoints(0)
     , m_numTossed(0)
+    , m_manifest()
     , m_pool(new Pool(numThreads))
     , m_arbiter(arbiter ? arbiter : std::make_shared<Arbiter>(Arbiter()))
     , m_buildSource(m_arbiter->getSource(buildPath))
@@ -180,13 +182,28 @@ void Builder::prep()
     }
 }
 
-void Builder::insert(const std::string path)
+bool Builder::insert(const std::string path)
 {
     // TODO Check for duplicates to allow continuation without modding config.
-    const Origin origin(addOrigin(path));
+
+    const std::string driver(m_stageFactory->inferReaderDriver(path));
+
+    if (driver.empty())
+    {
+        m_manifest.addOmission(path);
+        return false;
+    }
+
+    const Origin origin(m_manifest.addOrigin(path));
+
+    if (origin == Manifest::invalidOrigin())
+    {
+        return false;
+    }
+
     std::cout << "Adding " << origin << " - " << path << std::endl;
 
-    m_pool->add([this, origin, path]()
+    m_pool->add([this, driver, origin, path]()
     {
         Source source(m_arbiter->getSource(path));
         const bool isRemote(source.isRemote());
@@ -203,10 +220,7 @@ void Builder::insert(const std::string path)
         SimplePointTable pointTable(*m_schema);
 
         std::unique_ptr<pdal::Reader> reader(
-                createReader(
-                    *m_stageFactory,
-                    inferPdalDriver(path),
-                    localPath));
+                createReader(*m_stageFactory, driver, localPath));
 
         if (reader)
         {
@@ -249,7 +263,6 @@ void Builder::insert(const std::string path)
 
             reader->prepare(pointTable);
             reader->execute(pointTable);
-
         }
         else
         {
@@ -265,6 +278,8 @@ void Builder::insert(const std::string path)
             throw std::runtime_error("Couldn't delete tmp file");
         }
     });
+
+    return true;
 }
 
 void Builder::insert(
@@ -314,44 +329,20 @@ void Builder::clip(Clipper* clipper, std::size_t index)
 
 void Builder::save()
 {
-    // Ensure static state.
+    // Ensure constant state, waiting for all worker threads to complete.
     m_pool->join();
 
-    std::cout << "Indexing complete.  Saving..." << std::endl;
+    std::cout << "Saving build state..." << std::endl;
 
-    // Get our own metadata.
-    Json::Value jsonMeta(getTreeMeta());
-
-    // Add the registry's metadata.
+    // Get our own metadata and the registry's - then serialize.
+    Json::Value jsonMeta(saveProps());
     m_registry->save(jsonMeta["registry"]);
-
-    // Write to disk.
     m_buildSource.put("meta", jsonMeta.toStyledString());
 
     std::cout << "Save complete." << std::endl;
 
     // Re-allow inserts.
     m_pool->go();
-}
-
-Json::Value Builder::getTreeMeta() const
-{
-    Json::Value jsonMeta;
-    jsonMeta["bbox"] = m_bbox->toJson();
-    jsonMeta["schema"] = m_schema->toJson();
-    jsonMeta["dimensions"] = static_cast<Json::UInt64>(m_dimensions);
-    jsonMeta["chunkPoints"] = static_cast<Json::UInt64>(m_chunkPoints);
-    jsonMeta["numPoints"] = static_cast<Json::UInt64>(m_numPoints);
-    jsonMeta["numTossed"] = static_cast<Json::UInt64>(m_numTossed);
-
-    // Add origin list to meta.
-    Json::Value& jsonManifest(jsonMeta["input"]);
-    for (Json::ArrayIndex i(0); i < m_originList.size(); ++i)
-    {
-        jsonManifest.append(m_originList[i]);
-    }
-
-    return jsonMeta;
 }
 
 void Builder::load()
@@ -364,21 +355,9 @@ void Builder::load()
         reader.parse(data, meta, false);
     }
 
+    loadProps(meta);
+
     m_originId = m_schema->pdalLayout().findDim("Origin");
-
-    m_bbox.reset(new BBox(BBox::fromJson(meta["bbox"])));
-    m_schema.reset(new Schema(Schema::fromJson(meta["schema"])));
-    m_dimensions = meta["dimensions"].asUInt64();
-    m_chunkPoints = meta["chunkPoints"].asUInt64();
-    m_numPoints = meta["numPoints"].asUInt64();
-    m_numTossed = meta["numTossed"].asUInt64();
-
-    const Json::Value& metaManifest(meta["input"]);
-
-    for (Json::ArrayIndex i(0); i < metaManifest.size(); ++i)
-    {
-        m_originList.push_back(metaManifest[i].asString());
-    }
 
     m_registry.reset(
             new Registry(
@@ -387,6 +366,37 @@ void Builder::load()
                 m_dimensions,
                 m_chunkPoints,
                 meta["registry"]));
+}
+
+Json::Value Builder::saveProps() const
+{
+    // Reprojection info is intentionally omitted here, for now.  This would
+    // allow a saved build that was reprojected from A->B to be continued with
+    // a different set of files needing projection from X->Y, without requiring
+    // this to be set per-file in the configuration.
+
+    Json::Value props;
+
+    props["bbox"] = m_bbox->toJson();
+    props["schema"] = m_schema->toJson();
+    props["dimensions"] = static_cast<Json::UInt64>(m_dimensions);
+    props["chunkPoints"] = static_cast<Json::UInt64>(m_chunkPoints);
+    props["numPoints"] = static_cast<Json::UInt64>(m_numPoints);
+    props["numTossed"] = static_cast<Json::UInt64>(m_numTossed);
+    props["manifest"] = m_manifest.getJson();
+
+    return props;
+}
+
+void Builder::loadProps(const Json::Value& props)
+{
+    m_bbox.reset(new BBox(BBox::fromJson(props["bbox"])));
+    m_schema.reset(new Schema(Schema::fromJson(props["schema"])));
+    m_dimensions = props["dimensions"].asUInt64();
+    m_chunkPoints = props["chunkPoints"].asUInt64();
+    m_numPoints = props["numPoints"].asUInt64();
+    m_numTossed = props["numTossed"].asUInt64();
+    m_manifest = Manifest(props["manifest"]);
 }
 
 void Builder::finalize(
@@ -411,7 +421,7 @@ void Builder::finalize(
 
     {
         // Get our own metadata.
-        Json::Value jsonMeta(getTreeMeta());
+        Json::Value jsonMeta(saveProps());
         jsonMeta["numIds"] = static_cast<Json::UInt64>(ids->size());
         jsonMeta["firstChunk"] = static_cast<Json::UInt64>(baseEnd);
         jsonMeta["chunkPoints"] = static_cast<Json::UInt64>(chunkPoints);
@@ -427,21 +437,6 @@ void Builder::finalize(
     outputSource.put("ids", jsonIds.toStyledString());
 }
 
-const BBox& Builder::getBounds() const
-{
-    return *m_bbox.get();
-}
-
-const Schema& Builder::schema() const
-{
-    return *m_schema.get();
-}
-
-std::size_t Builder::numPoints() const
-{
-    return m_numPoints;
-}
-
 std::string Builder::name() const
 {
     std::string name(m_buildSource.path());
@@ -455,25 +450,6 @@ std::string Builder::name() const
     }
 
     return name;
-}
-
-Origin Builder::addOrigin(const std::string& remote)
-{
-    const Origin origin(m_originList.size());
-    m_originList.push_back(remote);
-    return origin;
-}
-
-std::string Builder::inferPdalDriver(const std::string& path) const
-{
-    const std::string driver(m_stageFactory->inferReaderDriver(path));
-
-    if (!driver.size())
-    {
-        throw std::runtime_error("No driver found - " + path);
-    }
-
-    return driver;
 }
 
 } // namespace entwine

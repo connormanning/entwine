@@ -80,7 +80,7 @@ Reader::Reader(
         m_numPoints = meta["numPoints"].asUInt64();
         m_numTossed = meta["numTossed"].asUInt64();
         numIds = meta["numIds"].asUInt64();
-        const Json::Value& metaManifest(meta["manifest"]);
+        const Json::Value& metaManifest(meta["manifest"]["input"]);
 
         for (Json::ArrayIndex i(0); i < metaManifest.size(); ++i)
         {

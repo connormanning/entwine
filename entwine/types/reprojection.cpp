@@ -13,16 +13,9 @@
 namespace entwine
 {
 
-Reprojection::Reprojection()
-    : m_in()
-    , m_out()
-    , m_valid(false)
-{ }
-
 Reprojection::Reprojection(const std::string in, const std::string out)
     : m_in(in)
     , m_out(out)
-    , m_valid(true)
 { }
 
 std::string Reprojection::in() const
@@ -33,11 +26,6 @@ std::string Reprojection::in() const
 std::string Reprojection::out() const
 {
     return m_out;
-}
-
-bool Reprojection::valid() const
-{
-    return m_valid;
 }
 
 } // namespace entwine

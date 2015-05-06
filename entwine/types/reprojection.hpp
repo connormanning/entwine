@@ -18,17 +18,14 @@ namespace entwine
 class Reprojection
 {
 public:
-    Reprojection();
     Reprojection(std::string in, std::string out);
 
     std::string in() const;
     std::string out() const;
-    bool valid() const;
 
 private:
     std::string m_in;
     std::string m_out;
-    bool m_valid;
 };
 
 } // namespace entwine

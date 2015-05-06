@@ -42,6 +42,20 @@ namespace
         exit(1);
     }
 
+    std::size_t getRunCount(const Json::Value& input, std::size_t manifestSize)
+    {
+        std::size_t runCount(manifestSize);
+
+        if (input.isMember("run") && input["run"].asUInt64() != 0)
+        {
+            runCount = std::min<std::size_t>(
+                    input["run"].asUInt64(),
+                    manifestSize);
+        }
+
+        return runCount;
+    }
+
     std::string getDimensionString(DimList dims)
     {
         std::string results("[");
@@ -87,16 +101,16 @@ namespace
         return auth;
     }
 
-    std::vector<std::string> getInput(const Json::Value& jsonInput)
+    std::vector<std::string> getManifest(const Json::Value& jsonInput)
     {
-        std::vector<std::string> input(jsonInput.size());
+        std::vector<std::string> manifest(jsonInput.size());
 
         for (Json::ArrayIndex i(0); i < jsonInput.size(); ++i)
         {
-            input[i] = jsonInput[i].asString();
+            manifest[i] = jsonInput[i].asString();
         }
 
-        return input;
+        return manifest;
     }
 
     std::size_t getDimensions(const Json::Value& jsonType)
@@ -108,29 +122,31 @@ namespace
         else throw std::runtime_error("Invalid tree type");
     }
 
-    Reprojection getReprojection(const Json::Value& jsonReproject)
+    std::unique_ptr<Reprojection> getReprojection(
+            const Json::Value& jsonReproject)
     {
-        Reprojection reprojection;
+        std::unique_ptr<Reprojection> reprojection;
 
-        if (jsonReproject.isMember("in") && jsonReproject.isMember("out"))
+        if (!jsonReproject.empty())
         {
-            reprojection = Reprojection(
-                    jsonReproject["in"].asString(),
-                    jsonReproject["out"].asString());
+            reprojection.reset(
+                    new Reprojection(
+                        jsonReproject["in"].asString(),
+                        jsonReproject["out"].asString()));
         }
 
         return reprojection;
     }
 
-    std::string getReprojectionString(Reprojection reprojection)
+    std::string getReprojString(const Reprojection* reprojection)
     {
-        if (reprojection.valid())
+        if (reprojection)
         {
-            return reprojection.in() + " -> " + reprojection.out();
+            return reprojection->in() + " -> " + reprojection->out();
         }
         else
         {
-            return "none";
+            return "(none)";
         }
     }
 }
@@ -168,13 +184,17 @@ int main(int argc, char** argv)
     reader.parse(configStream, config, false);
 
     // Input files to add to the index.
-    const std::vector<std::string> input(getInput(config["input"]));
+    const Json::Value input(config["input"]);
+    const std::vector<std::string> manifest(getManifest(input["manifest"]));
+    const std::size_t runCount(getRunCount(input, manifest.size()));
 
     // Build specifications and path info.
     const Json::Value& build(config["build"]);
     const std::string buildPath(build["path"].asString());
     const std::string tmpPath(build["tmp"].asString());
+    const std::size_t threads(build["threads"].asUInt64());
 
+    // Tree structure.
     const Json::Value& tree(build["tree"]);
     const std::size_t buildChunkPoints(tree["pointsPerChunk"].asUInt64());
     const std::size_t baseDepth(tree["baseDepth"].asUInt64());
@@ -188,16 +208,12 @@ int main(int argc, char** argv)
     const std::size_t exportBase(output["baseDepth"].asUInt64());
     const bool exportCompress(output["compress"].asBool());
 
-    // Performance tuning.
-    const Json::Value& tuning(config["tuning"]);
-    const std::size_t snapshot(tuning["snapshot"].asUInt64());
-    const std::size_t threads(tuning["threads"].asUInt64());
-
     // Geometry and spatial info.
     const Json::Value& geometry(config["geometry"]);
     const std::size_t dimensions(getDimensions(geometry["type"]));
     const BBox bbox(BBox::fromJson(geometry["bbox"]));
-    const Reprojection reprojection(getReprojection(geometry["reproject"]));
+    std::unique_ptr<Reprojection> reprojection(
+            getReprojection(geometry["reproject"]));
     DimList dims(Schema::fromJson(geometry["schema"]));
 
     DriverMap drivers;
@@ -218,26 +234,27 @@ int main(int argc, char** argv)
     {
         std::cout << "Continuing previous index..." << std::endl;
         std::cout << "Paths:\n" <<
-            "\tBuilding from " << input.size() << " source files" << "\n" <<
+            "\tBuilding from " << manifest.size() << " source files" << "\n" <<
+            "\tInserting up to " << runCount << " files\n" <<
             "\tBuild path: " << buildPath << "\n" <<
-            "\tTmp path: " << tmpPath << std::endl;
-        std::cout << "Performance tuning:\n" <<
-            "\tSnapshot: " << snapshot << "\n" <<
-            "\tThreads:  " << threads << "\n" << std::endl;
+            "\tTmp path: " << tmpPath << "\n" <<
+            "\tBuild threads:  " << threads << "\n" << std::endl;
 
         builder.reset(
                 new Builder(
                     buildPath,
                     tmpPath,
-                    reprojection,
+                    reprojection.get(),
                     threads,
                     arbiter));
     }
     else
     {
         std::cout << "Paths:\n" <<
-            "\tBuilding from " << input.size() << " source files" << "\n" <<
+            "\tBuilding from " << manifest.size() << " source files\n" <<
+            "\tInserting up to " << runCount << " files\n" <<
             "\tBuild path: " << buildPath << "\n" <<
+            "\tBuild threads: " << threads << "\n" <<
             "\tBuild tree: " << "\n" <<
             "\t\tChunk size: " << buildChunkPoints << " points\n" <<
             "\t\tBase depth: " << baseDepth << "\n" <<
@@ -250,17 +267,14 @@ int main(int argc, char** argv)
         std::cout << "Geometry:\n" <<
             "\tBuild type: " << geometry["type"].asString() << "\n" <<
             "\tBounds: " << getBBoxString(bbox) << "\n" <<
-            "\tReprojection: " << getReprojectionString(reprojection) << "\n" <<
+            "\tReprojection: " << getReprojString(reprojection.get()) << "\n" <<
             "\tStoring dimensions: " << getDimensionString(dims) << std::endl;
-        std::cout << "Performance tuning:\n" <<
-            "\tSnapshot: " << snapshot << "\n" <<
-            "\tThreads: " << threads << "\n" << std::endl;
 
         builder.reset(
                 new Builder(
                     buildPath,
                     tmpPath,
-                    reprojection,
+                    reprojection.get(),
                     bbox,
                     dims,
                     threads,
@@ -273,13 +287,15 @@ int main(int argc, char** argv)
     }
 
     const auto start(std::chrono::high_resolution_clock::now());
-    for (std::size_t i(0); i < input.size(); ++i)
-    {
-        builder->insert(input[i]);
 
-        if (snapshot && ((i + 1) % snapshot) == 0)
+    std::size_t i(0);
+    std::size_t numInserted(0);
+
+    while (i < manifest.size() && (numInserted < runCount || !runCount))
+    {
+        if (builder->insert(manifest[i++]))
         {
-            builder->save();
+            ++numInserted;
         }
     }
 
