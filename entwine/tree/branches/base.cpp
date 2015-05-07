@@ -83,12 +83,8 @@ std::unique_ptr<Entry> BaseBranch::getEntry(const std::size_t index)
 
 void BaseBranch::saveImpl(Json::Value& meta)
 {
-    const uint64_t uncSize(m_chunk->data().size());
-
     std::unique_ptr<std::vector<char>> compressed(
             Compression::compress(m_chunk->data(), schema()));
-
-    Compression::pushSize(*compressed, uncSize);
 
     m_source.put(std::to_string(indexBegin()), *compressed);
 }
@@ -101,10 +97,11 @@ void BaseBranch::load(const Json::Value& meta)
     }
 
     std::vector<char> compressed(m_source.get(std::to_string(indexBegin())));
-    const std::size_t uncSize(Compression::popSize(compressed));
+
+    const std::size_t fullSize(indexSpan() * schema().pointSize());
 
     std::unique_ptr<std::vector<char>> uncompressed(
-            Compression::decompress(compressed, schema(), uncSize));
+            Compression::decompress(compressed, schema(), fullSize));
 
     m_chunk.reset(new Chunk(schema(), indexBegin(), *uncompressed));
 }
