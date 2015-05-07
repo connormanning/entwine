@@ -39,7 +39,7 @@ public:
     void clear();
     std::size_t size() const;
 
-    std::vector<char> data() const;
+    const std::vector<char>& data() const;
 
 private:
     char* getDimension(

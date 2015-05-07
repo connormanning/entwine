@@ -42,7 +42,7 @@ namespace
         view.setField(pdal::Dimension::Id::X, 0, Point::emptyCoord());
         view.setField(pdal::Dimension::Id::Y, 0, Point::emptyCoord());
 
-        return table.data();
+        return std::vector<char>(table.data());
     }
 }
 

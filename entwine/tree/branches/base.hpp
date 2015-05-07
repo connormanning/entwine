@@ -33,7 +33,6 @@ namespace entwine
 
 class Chunk;
 class Schema;
-class SimplePointTable;
 
 class BaseBranch : public Branch
 {
