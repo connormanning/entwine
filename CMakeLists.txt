@@ -14,6 +14,9 @@ add_definitions(${CMAKE_CXX_FLAGS} "-fexceptions")
 add_definitions(${CMAKE_CXX_FLAGS} "-fPIC")
 
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}")
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/entwine/third")
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/entwine/third/json")
+
 
 set(PDAL_BASE "" CACHE STRING "PDAL installation base directory")
 
