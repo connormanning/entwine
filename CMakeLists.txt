@@ -17,7 +17,7 @@ include_directories("${CMAKE_CURRENT_SOURCE_DIR}")
 
 set(PDAL_BASE "" CACHE STRING "PDAL installation base directory")
 
-if (${PDAL_BASE})
+if (PDAL_BASE)
     message("PDAL_BASE overridden: " ${PDAL_BASE})
     include_directories("${PDAL_BASE}/include")
     link_directories("${PDAL_BASE}/lib")
