@@ -96,7 +96,7 @@ void Pool::add(std::function<void()> task)
     lock.unlock();
 
     // Notify worker that a task is available.
-    m_consumeCv.notify_one();
+    m_consumeCv.notify_all();
 }
 
 void Pool::work()
@@ -112,10 +112,10 @@ void Pool::work()
             auto task(std::move(m_tasks.front()));
             m_tasks.pop();
 
-            // Notify add(), which may be waiting for a spot in the queue.
-            m_produceCv.notify_one();
-
             lock.unlock();
+
+            // Notify add(), which may be waiting for a spot in the queue.
+            m_produceCv.notify_all();
 
             try
             {
