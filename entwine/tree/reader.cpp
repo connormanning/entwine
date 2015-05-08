@@ -131,10 +131,9 @@ std::vector<std::size_t> Reader::query(
     Roller roller(*m_bbox);
 
     // Pre-warm cache with necessary chunks for this query.
-    std::unique_ptr<Pool> pool(new Pool(16));
-    std::set<std::size_t> fetching;
-    warm(roller, *pool, fetching, bbox, depthBegin, depthEnd);
-    pool->join();
+    std::set<std::size_t> toFetch;
+    traverse(toFetch, roller, bbox, depthBegin, depthEnd);
+    warm(toFetch);
 
     // Get query results.
     query(roller, results, bbox, depthBegin, depthEnd);
@@ -142,10 +141,9 @@ std::vector<std::size_t> Reader::query(
     return results;
 }
 
-void Reader::warm(
+void Reader::traverse(
+        std::set<std::size_t>& toFetch,
         const Roller& roller,
-        Pool& pool,
-        std::set<std::size_t>& fetching,
         const BBox& queryBBox,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
@@ -160,34 +158,38 @@ void Reader::warm(
             depth >= depthBegin &&
             (depth < depthEnd || !depthEnd))
     {
-        const std::size_t chunkId(getChunkId(index));
+        toFetch.insert(getChunkId(index));
 
-        if (!fetching.count(chunkId))
+        if (toFetch.size() > m_queryLimit)
         {
-            fetching.insert(chunkId);
-
-            if (fetching.size() > m_queryLimit)
-            {
-                std::cout << "Query limit exceeded.  Joining..." << std::endl;
-                pool.join();
-                std::cout << "Joined.  Throwing." << std::endl;
-                throw std::runtime_error("Max query size exceeded");
-            }
-
-            pool.add([this, chunkId]()->void
-            {
-                fetch(chunkId);
-            });
+            std::cout << "Query limit exceeded." << std::endl;
+            throw std::runtime_error("Max query size exceeded");
         }
     }
 
     if (depth + 1 < depthEnd || !depthEnd)
     {
-        warm(roller.getNw(), pool, fetching, queryBBox, depthBegin, depthEnd);
-        warm(roller.getNe(), pool, fetching, queryBBox, depthBegin, depthEnd);
-        warm(roller.getSw(), pool, fetching, queryBBox, depthBegin, depthEnd);
-        warm(roller.getSe(), pool, fetching, queryBBox, depthBegin, depthEnd);
+        traverse(toFetch, roller.getNw(), queryBBox, depthBegin, depthEnd);
+        traverse(toFetch, roller.getNe(), queryBBox, depthBegin, depthEnd);
+        traverse(toFetch, roller.getSw(), queryBBox, depthBegin, depthEnd);
+        traverse(toFetch, roller.getSe(), queryBBox, depthBegin, depthEnd);
     }
+}
+
+void Reader::warm(const std::set<std::size_t>& toFetch)
+{
+    std::unique_ptr<Pool> pool(
+            new Pool(std::min<std::size_t>(8, toFetch.size())));
+
+    for (const std::size_t chunkId : toFetch)
+    {
+        pool->add([this, chunkId]()->void
+        {
+            fetch(chunkId);
+        });
+    }
+
+    pool->join();
 }
 
 void Reader::query(

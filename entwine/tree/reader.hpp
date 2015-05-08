@@ -65,13 +65,14 @@ public:
     const BBox& bbox() const { return *m_bbox; }
 
 private:
-    void warm(
+    void traverse(
+            std::set<std::size_t>& toFetch,
             const Roller& roller,
-            Pool& pool,
-            std::set<std::size_t>& fetching,
             const BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd);
+
+    void warm(const std::set<std::size_t>& toFetch);
 
     void query(
             const Roller& roller,
