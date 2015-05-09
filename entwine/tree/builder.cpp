@@ -33,8 +33,13 @@
 #include <entwine/util/pool.hpp>
 #include <entwine/util/fs.hpp>
 
+namespace entwine
+{
+
 namespace
 {
+    const std::size_t chunkBytes(65536);
+
     std::unique_ptr<pdal::Reader> createReader(
             const pdal::StageFactory& stageFactory,
             const std::string driver,
@@ -62,7 +67,7 @@ namespace
 
     std::shared_ptr<pdal::Filter> createReprojectionFilter(
             const pdal::StageFactory& stageFactory,
-            const entwine::Reprojection& reproj,
+            const Reprojection& reproj,
             pdal::BasePointTable& pointTable)
     {
         std::shared_ptr<pdal::Filter> filter(
@@ -86,9 +91,6 @@ namespace
         return filter;
     }
 }
-
-namespace entwine
-{
 
 Builder::Builder(
         const std::string buildPath,
@@ -184,8 +186,6 @@ void Builder::prep()
 
 bool Builder::insert(const std::string path)
 {
-    // TODO Check for duplicates to allow continuation without modding config.
-
     const std::string driver(m_stageFactory->inferReaderDriver(path));
 
     if (driver.empty())
@@ -217,13 +217,13 @@ bool Builder::insert(const std::string path)
             m_tmpSource.put(subpath, source.getRoot());
         }
 
-        SimplePointTable pointTable(*m_schema);
-
         std::unique_ptr<pdal::Reader> reader(
                 createReader(*m_stageFactory, driver, localPath));
 
         if (reader)
         {
+            SimplePointTable pointTable(*m_schema);
+
             // TODO Watch for errors during insertion.  If any occur, mark as
             // a partial or failed insertion.
 
@@ -246,23 +246,46 @@ bool Builder::insert(const std::string path)
             std::unique_ptr<Clipper> clipper(new Clipper(*this));
             Clipper* clipperPtr(clipper.get());
 
+            std::size_t begin(0);
+            const std::size_t pointSize(m_schema->pointSize());
+
             // Set up our per-point data handler.
             reader->setReadCb(
-                    [this, &pointTable, filter, origin, clipperPtr]
+                    [
+                        this,
+                        &pointTable,
+                        &begin,
+                        pointSize,
+                        filter,
+                        origin,
+                        clipperPtr
+                    ]
                     (pdal::PointView& view, pdal::PointId index)
             {
-                // TODO This won't work for dimension-oriented readers that
-                // have partially written points after the given PointId.
-                LinkingPointView link(pointTable);
+                const std::size_t indexSpan(index - begin);
 
-                if (filter) pdal::FilterWrapper::filter(*filter, link);
+                if (
+                        pointTable.size() == indexSpan &&
+                        pointTable.data().size() > chunkBytes)
+                {
+                    LinkingPointView link(pointTable);
 
-                insert(link, origin, clipperPtr);
-                pointTable.clear();
+                    if (filter) pdal::FilterWrapper::filter(*filter, link);
+
+                    insert(link, origin, clipperPtr);
+
+                    pointTable.clear();
+                    begin += indexSpan;
+                }
             });
 
             reader->prepare(pointTable);
             reader->execute(pointTable);
+
+            // Insert leftover points.
+            LinkingPointView link(pointTable);
+            if (filter) pdal::FilterWrapper::filter(*filter, link);
+            insert(link, origin, clipperPtr);
         }
         else
         {
