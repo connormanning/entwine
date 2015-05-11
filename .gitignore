@@ -1,5 +1,8 @@
 credentials.json
 CMakeCache.txt
-iowa/*
+
+config/*
+progress/*
 
 .DS_Store
+

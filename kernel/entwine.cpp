@@ -122,17 +122,19 @@ namespace
         else throw std::runtime_error("Invalid tree type");
     }
 
-    std::unique_ptr<Reprojection> getReprojection(
-            const Json::Value& jsonReproject)
+    std::unique_ptr<Reprojection> getReprojection(const Json::Value& json)
     {
         std::unique_ptr<Reprojection> reprojection;
 
-        if (!jsonReproject.empty())
+        const Json::Value& in(json["in"]);
+        const Json::Value& out(json["out"]);
+
+        if (
+                !json.empty() &&
+                in.isString() && in.asString().size() &&
+                out.isString() && out.asString().size())
         {
-            reprojection.reset(
-                    new Reprojection(
-                        jsonReproject["in"].asString(),
-                        jsonReproject["out"].asString()));
+            reprojection.reset(new Reprojection(in.asString(), out.asString()));
         }
 
         return reprojection;

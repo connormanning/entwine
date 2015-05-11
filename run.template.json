@@ -1,0 +1,149 @@
+{
+    "input": {
+        // How many files specified in the manifest below to add to the build.
+        // Zero means that all files will be added.  If greater than zero,
+        // running with this configuration file multiple times will continue
+        // insertion from each previous run.
+        //
+        // This may be used to check the progress of the build without
+        // requiring configuration changes for each run.
+        "run": 0,
+
+        "manifest": [
+            // TODO Allow directory/bucket globbing.
+
+            // Absolute filesystem path (tilde expansion not supported).
+            "/Users/my-name/data/path.laz",
+
+            // Relative filesystem path.
+            "../data/country/place.bpf",
+
+            // Explicitly specified filesystem path.
+            "fs:///var/data/lidar/something.las",
+
+            // S3 bucket paths (do not include a bucket location).
+            "s3://my-bucket/iowa//johnson-county.sbet"
+        ]
+    },
+    "build": {
+        // Any path type show above supported.  In-progress builds will be
+        // stored here, and progress may be resumed/more files added later.
+        "path": "./progress",
+
+        // Path for temporary storage used by entwine.  Must be a local
+        // filesystem path.
+        "tmp":  "./tmp",
+
+        // Number of worker threads for simultaneous point insertion.
+        "threads": 24,
+
+        "tree": {
+            // TODO Abstract configuration of pointsPerChunk to something
+            // based on the desired base depth.
+
+            // Number of points per chunk for flat and cold tree branches.
+            // Must be a power of 4 and no less than 4096.
+            "pointsPerChunk": 65536,
+
+            // End depth level of pre-allocated base branch.
+            "baseDepth": 8,
+
+            // End depth level of on-demand allocated remote branch.
+            "coldDepth": 10
+        }
+    },
+    "output": {
+        // Final output location.
+        "path": "s3://entwine-bucket/path",
+
+        // Tree depth of the base chunk of the tree.
+        "baseDepth": 8,
+
+        // Number of points per chunk for remote serialization for tree levels
+        // greater than or equal to base depth.  Must be a power of 4, no less
+        // than 4096, and must not be greater than build.tree.pointsPerChunk,
+        // specified above.
+        "pointsPerChunk": 65536,
+
+        // TODO Currently ignored - always compressed.
+
+        // True to compress output.
+        "compress": true
+    },
+    "geometry": {
+        // TODO Allow octree.
+
+        // Valid values are "quadtree" and "octree".
+        "type": "quadtree",
+
+        // Bounding box for the entire dataset.  Points outside this box will
+        // be discarded from the resulting index.
+        //
+        // Format: [ x-min, y-min, x-max, y-max ].
+        "bbox": [
+            -10796577.371225, 4902908.135781,
+            -10015953.953824, 5375808.896799
+        ],
+
+        // If reprojection is required, in/out spatial reference systems must
+        // be specified.  If these are specified, then the "bbox" field above
+        // should be in the same coordinate system as "out" specified here.
+        "reproject": {
+            "in": "EPSG:26915",
+            "out": "EPSG:3857"
+
+            /*
+            "in": null,
+            "out": null
+            */
+        },
+
+        // Specify dimensions to capture in the resulting index.  If the type
+        // and size are not sufficiently large to store a dimension in any file,
+        // that file will be only partially inserted.
+        "schema": [
+            {
+                "name": "X",
+                "type": "floating",
+                "size": 8
+            },
+            {
+                "name": "Y",
+                "type": "floating",
+                "size": 8
+            },
+            {
+                "name": "Z",
+                "type": "floating",
+                "size": 8
+            },
+            {
+                "name": "Intensity",
+                "type": "unsigned",
+                "size": 2
+            },
+            {
+                "name": "Red",
+                "type": "unsigned",
+                "size": 2
+            },
+            {
+                "name": "Green",
+                "type": "unsigned",
+                "size": 2
+            },
+            {
+                "name": "Blue",
+                "type": "unsigned",
+                "size": 2
+            },
+            // TODO Allow disabling Origin tracking.
+            {
+                "name": "Origin",
+                "type": "unsigned",
+                "size": 4
+            }
+        ]
+    }
+}
+
