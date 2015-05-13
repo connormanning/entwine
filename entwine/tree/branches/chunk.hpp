@@ -61,21 +61,22 @@ public:
 
     std::size_t maxPoints() const { return m_maxPoints; }
 
-    virtual bool isSparse() const = 0;
-    virtual std::size_t numPoints() const { return m_maxPoints; }
+    void save(Source& source);
 
-    virtual Entry& getEntry(std::size_t rawIndex) = 0;
-
-    virtual void save(Source& source) = 0;
-
-    virtual void finalize(
+    void finalize(
             Source& source,
             std::vector<std::size_t>& ids,
             std::mutex& idsMutex,
             const std::size_t start,
-            const std::size_t chunkPoints) = 0;
+            const std::size_t chunkPoints);
+
+    virtual bool isSparse() const = 0;
+    virtual std::size_t numPoints() const = 0;
+    virtual Entry& getEntry(std::size_t rawIndex) = 0;
 
 protected:
+    virtual void write(Source& source, std::size_t begin, std::size_t end) = 0;
+
     std::size_t normalize(std::size_t rawIndex);
     std::size_t endId() const;
 
@@ -84,7 +85,6 @@ protected:
     const std::size_t m_maxPoints;
 };
 
-/*
 class SparseChunkData : public ChunkData
 {
 public:
@@ -101,32 +101,34 @@ public:
 
     virtual bool isSparse() const { return true; }
     virtual std::size_t numPoints() const { return m_entries.size(); }
-
     virtual Entry& getEntry(std::size_t rawIndex);
 
-    virtual void save(Source& source);
-
-    virtual void finalize(
-            Source& source,
-            std::vector<std::size_t>& ids,
-            std::mutex& idsMutex,
-            const std::size_t start,
-            const std::size_t chunkPoints);
-
-    std::map<std::size_t, SparseEntry>& entries() { return m_entries; }
-    std::mutex& mutex() { return m_mutex; }
-
 private:
-    std::map<std::size_t, Entry> m_entries;
-    std::map<std::size_t, std::vector<char>> m_data;
+    virtual void write(Source& source, std::size_t begin, std::size_t end);
 
-    void write(Source& source, std::size_t begin, std::size_t end);
+    struct SparseEntry
+    {
+        SparseEntry(const Schema& schema);
+        SparseEntry(const Schema& schema, char* pos);
+
+        std::vector<char> data;
+        std::unique_ptr<Entry> entry;
+    };
+
+    std::mutex m_mutex;
+    std::map<std::size_t, SparseEntry> m_entries;
+
+    // Creates a compact contiguous representation of this sparse chunk by
+    // prepending an "EntryId" field to the native schema and inserting each
+    // point from m_entries.
     std::vector<char> squash(
             const Schema& sparse,
             std::size_t begin,
             std::size_t end);
+
+    void pushNumPoints(std::vector<char>& data, std::size_t numPoints) const;
+    std::size_t popNumPoints(std::vector<char>& compressedData) const;
 };
-*/
 
 class ContiguousChunkData : public ChunkData
 {
@@ -145,23 +147,11 @@ public:
     // ContiguousChunkData(const SparseChunkData& other);
 
     virtual bool isSparse() const { return false; }
-
+    virtual std::size_t numPoints() const { return m_maxPoints; }
     virtual Entry& getEntry(std::size_t rawIndex);
 
-    virtual void save(Source& source);
-
-    virtual void finalize(
-            Source& source,
-            std::vector<std::size_t>& ids,
-            std::mutex& idsMutex,
-            const std::size_t start,
-            const std::size_t chunkPoints);
-
 private:
-    void write(
-            Source& source,
-            std::size_t begin,  // This corresponds with the name of the chunk.
-            std::size_t end);
+    virtual void write(Source& source, std::size_t begin, std::size_t end);
 
     void makeEmpty();
 

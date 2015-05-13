@@ -32,14 +32,12 @@ namespace
         return pointSize / (pointSize + sizeof(std::size_t));
     }
 
-    /*
     DimList makeSparse(const Schema& schema)
     {
         DimList dims(1, DimInfo("EntryId", "unsigned", 8));
         dims.insert(dims.end(), schema.dims().begin(), schema.dims().end());
         return dims;
     }
-    */
 }
 
 Entry::Entry(char* data)
@@ -77,6 +75,37 @@ ChunkData::ChunkData(const ChunkData& other)
 ChunkData::~ChunkData()
 { }
 
+void ChunkData::save(Source& source)
+{
+    write(source, m_id, endId());
+}
+
+void ChunkData::finalize(
+        Source& source,
+        std::vector<std::size_t>& ids,
+        std::mutex& idsMutex,
+        const std::size_t start,
+        const std::size_t chunkPoints)
+{
+    // This may only occur for the base branch's chunk, since the start of
+    // chunked data must occur within or at the end of the base branch.
+    if (start > m_id)
+    {
+        write(source, m_id, start);
+
+        std::lock_guard<std::mutex> lock(idsMutex);
+        ids.push_back(m_id);
+    }
+
+    for (std::size_t id(std::max(start, m_id)); id < endId(); id += chunkPoints)
+    {
+        write(source, id, id + chunkPoints);
+
+        std::lock_guard<std::mutex> lock(idsMutex);
+        ids.push_back(id);
+    }
+}
+
 std::size_t ChunkData::normalize(const std::size_t rawIndex)
 {
     assert(rawIndex >= m_id);
@@ -101,18 +130,33 @@ std::size_t ChunkData::endId() const
 
 
 
+SparseChunkData::SparseEntry::SparseEntry(const Schema& schema)
+    : data(schema.pointSize())
+    , entry(new Entry(data.data()))
+{ }
 
+SparseChunkData::SparseEntry::SparseEntry(const Schema& schema, char* pos)
+    : data(pos, pos + schema.pointSize())
+    , entry()
+{
+    SinglePointTable table(schema, pos);
+    LinkingPointView view(table);
 
+    const Point* point(
+            new Point(
+                view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
+                view.getFieldAs<double>(pdal::Dimension::Id::Y, 0)));
 
+    entry.reset(new Entry(point, data.data()));
+}
 
-/*
 SparseChunkData::SparseChunkData(
         const Schema& schema,
         const std::size_t id,
         const std::size_t maxPoints)
     : ChunkData(schema, id, maxPoints)
-    , m_entries()
     , m_mutex()
+    , m_entries()
 { }
 
 SparseChunkData::SparseChunkData(
@@ -121,23 +165,13 @@ SparseChunkData::SparseChunkData(
         const std::size_t maxPoints,
         std::vector<char>& compressedData)
     : ChunkData(schema, id, maxPoints)
-    , m_entries()
     , m_mutex()
+    , m_entries()
 {
-    uint64_t numPoints(0);
-    const std::size_t numPointsOffset(compressedData.size() - sizeof(uint64_t));
-
-    std::memcpy(
-            &numPoints,
-            compressedData.data() + numPointsOffset,
-            sizeof(uint64_t));
-
-    compressedData.resize(numPointsOffset);
+    const std::size_t numPoints(popNumPoints(compressedData));
 
     const Schema sparse(makeSparse(m_schema));
-
     const std::size_t sparsePointSize(sparse.pointSize());
-    const std::size_t nativePointSize(m_schema.pointSize());
 
     auto squashed(
             Compression::decompress(
@@ -145,68 +179,33 @@ SparseChunkData::SparseChunkData(
                 sparse,
                 numPoints * sparsePointSize));
 
-    uint64_t currentId(0);
+    uint64_t key(0);
+    char* pos(0);
 
     for (
             std::size_t offset(0);
             offset < squashed->size();
             offset += sparsePointSize)
     {
-        char* pos(squashed->data() + offset);
-        std::memcpy(&currentId, pos, sizeof(uint64_t));
+        pos = squashed->data() + offset;
+        std::memcpy(&key, pos, sizeof(uint64_t));
 
-        SparseEntry val(nativePointSize, m_schema, pos + sizeof(uint64_t));
-
-        m_entries.insert({ currentId, val });
+        m_entries.emplace(key, SparseEntry(schema, pos + sizeof(uint64_t)));
     }
 }
 
 Entry& SparseChunkData::getEntry(const std::size_t rawIndex)
 {
-    // TODO
-    lock!
-    m_entries.insert({ rawIndex, SparseEntry(m_schema.pointSize()) });
+    std::lock_guard<std::mutex> lock(m_mutex);
 
-    SparseEntry& sparse(m_entries.at(rawIndex));
+    auto it(m_entries.find(rawIndex));
 
-    return std::unique_ptr<Entry>(
-            new Entry(
-                sparse.point(),
-                sparse.data(),
-                m_mutex));
-}
-
-void SparseChunkData::save(Source& source)
-{
-    write(source, m_id, m_id + m_maxPoints);
-}
-
-void SparseChunkData::finalize(
-        Source& source,
-        std::vector<std::size_t>& ids,
-        std::mutex& idsMutex,
-        const std::size_t start,
-        const std::size_t chunkPoints)
-{
-    // TODO Duplicate code with Contiguous.
-
-    // This may only occur for the base branch's chunk, since the start of
-    // chunked data must occur within or at the end of the base branch.
-    if (start > m_id)
+    if (it == m_entries.end())
     {
-        write(source, m_id, start);
-
-        std::lock_guard<std::mutex> lock(idsMutex);
-        ids.push_back(m_id);
+        it = m_entries.emplace(rawIndex, SparseEntry(m_schema)).first;
     }
 
-    for (std::size_t id(std::max(start, m_id)); id < endId(); id += chunkPoints)
-    {
-        write(source, id, id + chunkPoints);
-
-        std::lock_guard<std::mutex> lock(idsMutex);
-        ids.push_back(id);
-    }
+    return *it->second.entry;
 }
 
 void SparseChunkData::write(
@@ -220,13 +219,7 @@ void SparseChunkData::write(
 
     auto compressed(Compression::compress(data.data(), data.size(), sparse));
 
-    const uint64_t numPoints(data.size() / sparse.pointSize());
-
-    compressed->insert(
-            compressed->end(),
-            &numPoints,
-            &numPoints + sizeof(uint64_t));
-
+    pushNumPoints(*compressed, m_entries.size());
     compressed->push_back(Sparse);
 
     source.put(std::to_string(begin), *compressed);
@@ -242,32 +235,58 @@ std::vector<char> SparseChunkData::squash(
     const std::size_t nativePointSize(m_schema.pointSize());
     const std::size_t sparsePointSize(sparse.pointSize());
 
+    assert(nativePointSize + sizeof(uint64_t) == sparsePointSize);
+
+    // std::map::upper_bound returns one greater than the searched element.
     const auto beginIt(m_entries.lower_bound(begin));
     const auto endIt(m_entries.upper_bound(end - 1));
 
-    char* pos(0);
+    std::vector<char> addition(sparsePointSize);
+    char* pos(addition.data());
 
     for (auto it(beginIt); it != endIt; ++it)
     {
-        const std::size_t startSize(squashed.size());
-        squashed.resize(startSize + sparsePointSize);
-
-        pos = squashed.data() + startSize;
-
         const std::size_t id(it->first);
-        const char* data(it->second.data());
+        const char* data(it->second.data.data());
 
         std::memcpy(pos, &id, sizeof(uint64_t));
-        pos += sizeof(uint64_t);
+        std::memcpy(pos + sizeof(uint64_t), data, nativePointSize);
 
-        std::memcpy(pos, data, nativePointSize);
-        pos += nativePointSize;
+        squashed.insert(squashed.end(), pos, pos + sparsePointSize);
     }
 
     return squashed;
 }
 
-*/
+void SparseChunkData::pushNumPoints(
+        std::vector<char>& data,
+        const std::size_t numPoints) const
+{
+    std::size_t startSize(data.size());
+    data.resize(startSize + sizeof(uint64_t));
+    std::memcpy(data.data() + startSize, &numPoints, sizeof(uint64_t));
+}
+
+std::size_t SparseChunkData::popNumPoints(
+        std::vector<char>& compressedData) const
+{
+    if (compressedData.size() < sizeof(uint64_t))
+    {
+        throw std::runtime_error("Invalid serialized sparse chunk");
+    }
+
+    uint64_t numPoints(0);
+    const std::size_t numPointsOffset(compressedData.size() - sizeof(uint64_t));
+
+    std::memcpy(
+            &numPoints,
+            compressedData.data() + numPointsOffset,
+            sizeof(uint64_t));
+
+    compressedData.resize(numPointsOffset);
+
+    return numPoints;
+}
 
 
 
@@ -342,48 +361,7 @@ ContiguousChunkData::ContiguousChunkData(const SparseChunkData& other)
 
 Entry& ContiguousChunkData::getEntry(std::size_t rawIndex)
 {
-    const std::size_t index(normalize(rawIndex));
-    auto& entry(m_entries[index]);
-
-    /*
-    if (!entry)
-    {
-        entry.reset(new Entry(m_data->data() + index * m_schema.pointSize()));
-    }
-    */
-
-    return *entry;
-}
-
-void ContiguousChunkData::save(Source& source)
-{
-    write(source, m_id, endId());
-}
-
-void ContiguousChunkData::finalize(
-        Source& source,
-        std::vector<std::size_t>& ids,
-        std::mutex& idsMutex,
-        const std::size_t start,
-        const std::size_t chunkPoints)
-{
-    // This may only occur for the base branch's chunk, since the start of
-    // chunked data must occur within or at the end of the base branch.
-    if (start > m_id)
-    {
-        write(source, m_id, start);
-
-        std::lock_guard<std::mutex> lock(idsMutex);
-        ids.push_back(m_id);
-    }
-
-    for (std::size_t id(std::max(start, m_id)); id < endId(); id += chunkPoints)
-    {
-        write(source, id, id + chunkPoints);
-
-        std::lock_guard<std::mutex> lock(idsMutex);
-        ids.push_back(id);
-    }
+    return *m_entries[normalize(rawIndex)];
 }
 
 void ContiguousChunkData::write(
@@ -455,7 +433,7 @@ std::unique_ptr<ChunkData> ChunkDataFactory::create(
 
         if (type == Sparse)
         {
-            // chunk.reset(new SparseChunkData(schema, id, maxPoints, data));
+            chunk.reset(new SparseChunkData(schema, id, maxPoints, data));
         }
         else if (type == Contiguous)
         {
@@ -491,8 +469,12 @@ Chunk::Chunk(
         const Schema& schema,
         const std::size_t id,
         const std::size_t maxPoints)
-    : m_chunkData(new ContiguousChunkData(schema, id, maxPoints))
-            // new SparseChunkData(schema, id, maxPoints)) TODO
+    : m_chunkData(
+            id ?
+                static_cast<ChunkData*>(
+                    new SparseChunkData(schema, id, maxPoints)) :
+                static_cast<ChunkData*>(
+                    new ContiguousChunkData(schema, id, maxPoints)))
     , m_threshold(getThreshold(schema))
 { }
 
@@ -507,7 +489,6 @@ Chunk::Chunk(
 
 Entry& Chunk::getEntry(std::size_t rawIndex)
 {
-    // TODO
     /*
     if (m_chunkData->isSparse())
     {
