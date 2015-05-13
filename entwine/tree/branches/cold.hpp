@@ -21,7 +21,6 @@ namespace entwine
 {
 
 class Chunk;
-struct Entry;
 class Schema;
 
 class ColdBranch : public Branch
@@ -49,7 +48,7 @@ private:
     std::size_t getSlotId(std::size_t chunkId) const;   // Local zero-based.
     std::unique_ptr<std::vector<char>> fetch(std::size_t chunkId) const;
 
-    virtual std::unique_ptr<Entry> getEntry(std::size_t index);
+    virtual Entry& getEntry(std::size_t index);
 
     virtual void finalizeImpl(
             Source& output,
@@ -61,10 +60,6 @@ private:
     virtual void grow(Clipper* clipper, std::size_t index);
     virtual void clip(Clipper* clipper, std::size_t index);
 
-    //
-
-    const std::size_t m_chunkPoints;
-
     struct ChunkInfo
     {
         std::unique_ptr<Chunk> chunk;
@@ -72,6 +67,7 @@ private:
         std::mutex mutex;
     };
 
+    const std::size_t m_chunkPoints;
     std::mutex m_mutex;
     std::map<std::size_t, ChunkInfo> m_chunks;
 };

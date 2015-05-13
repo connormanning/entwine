@@ -95,10 +95,9 @@ bool Branch::addPoint(PointInfo** toAddPtr, const Roller& roller)
     PointInfo* toAdd(*toAddPtr);
     const std::size_t index(roller.index());
 
-    std::unique_ptr<Entry> entryPtr(getEntry(index));
-    assert(entryPtr.get() != 0);
+    Entry& entry(getEntry(index));
 
-    std::atomic<const Point*>& myPoint(entryPtr->point);
+    std::atomic<const Point*>& myPoint(entry.point());
 
     if (myPoint.load())
     {
@@ -106,7 +105,7 @@ bool Branch::addPoint(PointInfo** toAddPtr, const Roller& roller)
 
         if (toAdd->point->sqDist(mid) < myPoint.load()->sqDist(mid))
         {
-            std::lock_guard<std::mutex> lock(entryPtr->mutex);
+            std::lock_guard<std::mutex> lock(entry.mutex());
             const Point* curPoint(myPoint.load());
 
             if (toAdd->point->sqDist(mid) < curPoint->sqDist(mid))
@@ -117,11 +116,11 @@ bool Branch::addPoint(PointInfo** toAddPtr, const Roller& roller)
                 PointInfo* old(
                         new PointInfo(
                             curPoint,
-                            entryPtr->pos,
+                            entry.data(),
                             schema().pointSize()));
 
                 // Store this point.
-                toAdd->write(entryPtr->pos);
+                toAdd->write(entry.data());
                 myPoint.store(toAdd->point);
                 delete toAdd;
 
@@ -132,10 +131,10 @@ bool Branch::addPoint(PointInfo** toAddPtr, const Roller& roller)
     }
     else
     {
-        std::unique_lock<std::mutex> lock(entryPtr->mutex);
+        std::unique_lock<std::mutex> lock(entry.mutex());
         if (!myPoint.load())
         {
-            toAdd->write(entryPtr->pos);
+            toAdd->write(entry.data());
             myPoint.store(toAdd->point);
             delete toAdd;
             done = true;

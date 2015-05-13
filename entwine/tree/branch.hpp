@@ -26,7 +26,7 @@ namespace entwine
 {
 
 class Clipper;
-struct Entry;
+class Entry;
 class Point;
 class PointInfo;
 class Pool;
@@ -79,7 +79,7 @@ public:
             std::size_t dimensions);
 
 protected:
-    virtual std::unique_ptr<Entry> getEntry(std::size_t index) = 0;
+    virtual Entry& getEntry(std::size_t index) = 0;
     virtual void saveImpl(Json::Value& meta) { }
     virtual void finalizeImpl(
             Source& output,

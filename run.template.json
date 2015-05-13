@@ -102,47 +102,18 @@
         // and size are not sufficiently large to store a dimension in any file,
         // that file will be only partially inserted.
         "schema": [
-            {
-                "name": "X",
-                "type": "floating",
-                "size": 8
-            },
-            {
-                "name": "Y",
-                "type": "floating",
-                "size": 8
-            },
-            {
-                "name": "Z",
-                "type": "floating",
-                "size": 8
-            },
-            {
-                "name": "Intensity",
-                "type": "unsigned",
-                "size": 2
-            },
-            {
-                "name": "Red",
-                "type": "unsigned",
-                "size": 2
-            },
-            {
-                "name": "Green",
-                "type": "unsigned",
-                "size": 2
-            },
-            {
-                "name": "Blue",
-                "type": "unsigned",
-                "size": 2
-            },
+            { "name": "X",          "type": "floating", "size": 8 },
+            { "name": "Y",          "type": "floating", "size": 8 },
+            { "name": "Z",          "type": "floating", "size": 8 },
+
+            { "name": "Intensity",  "type": "unsigned", "size": 2 },
+
+            { "name": "Red",        "type": "unsigned", "size": 2 },
+            { "name": "Green",      "type": "unsigned", "size": 2 },
+            { "name": "Blue",       "type": "unsigned", "size": 2 },
+
             // TODO Allow disabling Origin tracking.
-            {
-                "name": "Origin",
-                "type": "unsigned",
-                "size": 4
-            }
+            { "name": "Origin",     "type": "unsigned", "size": 4 }
         ]
     }
 }

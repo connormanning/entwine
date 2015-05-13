@@ -32,7 +32,7 @@ public:
     Schema();
 
     // Schema layout will be finalized with these dims.
-    explicit Schema(std::vector<DimInfo> dims);
+    explicit Schema(DimList dims);
 
     ~Schema();
 

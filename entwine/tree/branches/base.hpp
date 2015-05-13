@@ -52,7 +52,7 @@ public:
     ~BaseBranch();
 
 private:
-    virtual std::unique_ptr<Entry> getEntry(std::size_t index);
+    virtual Entry& getEntry(std::size_t index);
 
     virtual void saveImpl(Json::Value& meta);
     void load(const Json::Value& meta);

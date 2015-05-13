@@ -32,20 +32,6 @@
 namespace entwine
 {
 
-namespace
-{
-    std::vector<char> makeEmptyPoint(const entwine::Schema& schema)
-    {
-        entwine::SimplePointTable table(schema);
-        pdal::PointView view(table);
-
-        view.setField(pdal::Dimension::Id::X, 0, Point::emptyCoord());
-        view.setField(pdal::Dimension::Id::Y, 0, Point::emptyCoord());
-
-        return std::vector<char>(table.data());
-    }
-}
-
 BaseBranch::BaseBranch(
         Source& source,
         const Schema& schema,
@@ -76,17 +62,14 @@ BaseBranch::BaseBranch(
 BaseBranch::~BaseBranch()
 { }
 
-std::unique_ptr<Entry> BaseBranch::getEntry(const std::size_t index)
+Entry& BaseBranch::getEntry(const std::size_t index)
 {
     return m_chunk->getEntry(index);
 }
 
 void BaseBranch::saveImpl(Json::Value& meta)
 {
-    std::unique_ptr<std::vector<char>> compressed(
-            Compression::compress(m_chunk->data(), schema()));
-
-    m_source.put(std::to_string(indexBegin()), *compressed);
+    m_chunk->save(m_source);
 }
 
 void BaseBranch::load(const Json::Value& meta)
@@ -98,12 +81,7 @@ void BaseBranch::load(const Json::Value& meta)
 
     std::vector<char> compressed(m_source.get(std::to_string(indexBegin())));
 
-    const std::size_t fullSize(indexSpan() * schema().pointSize());
-
-    std::unique_ptr<std::vector<char>> uncompressed(
-            Compression::decompress(compressed, schema(), fullSize));
-
-    m_chunk.reset(new Chunk(schema(), indexBegin(), *uncompressed));
+    m_chunk.reset(new Chunk(schema(), indexBegin(), indexSpan(), compressed));
 }
 
 void BaseBranch::finalizeImpl(
@@ -113,31 +91,8 @@ void BaseBranch::finalizeImpl(
         const std::size_t start,
         const std::size_t chunkPoints)
 {
-    const std::size_t pointSize(schema().pointSize());
-    const std::vector<char> emptyPoint(makeEmptyPoint(schema()));
-
-    {
-        auto compressed(
-                Compression::compress(
-                    m_chunk->data().data(),
-                    start * schema().pointSize(),
-                    schema()));
-
-        ids.push_back(0);
-        output.put(std::to_string(0), *compressed);
-    }
-
-    for (std::size_t id(start); id < indexEnd(); id += chunkPoints)
-    {
-        ids.push_back(id);
-
-        const char* pos(m_chunk->data().data() + id * pointSize);
-        std::vector<char> data(pos, pos + chunkPoints * pointSize);
-
-        auto compressed(Compression::compress(data, schema()));
-        output.put(std::to_string(id), *compressed);
-    }
-
+    std::mutex mutex;
+    m_chunk->finalize(output, ids, mutex, start, chunkPoints);
     m_chunk.reset(0);
 }
 

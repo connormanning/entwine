@@ -40,7 +40,7 @@ Schema::Schema()
     , m_dims()
 { }
 
-Schema::Schema(std::vector<DimInfo> dims)
+Schema::Schema(DimList dims)
     : m_layout(makePointLayout(dims))
     , m_dims(dims)
 { }
@@ -67,7 +67,7 @@ std::size_t Schema::pointSize() const
     return m_layout->pointSize();
 }
 
-const std::vector<DimInfo>& Schema::dims() const
+const DimList& Schema::dims() const
 {
     return m_dims;
 }

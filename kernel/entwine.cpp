@@ -265,12 +265,13 @@ int main(int argc, char** argv)
             "\tTmp path: " << tmpPath << "\n" <<
             "\tOutput path: " << exportPath << "\n" <<
             "\t\tExport chunk size: " << exportChunkPoints << " points\n" <<
-            "\t\tExport base depth: " << exportBase << std::endl;
-        std::cout << "Geometry:\n" <<
+            "\t\tExport base depth: " << exportBase << "\n" <<
+            "Geometry:\n" <<
             "\tBuild type: " << geometry["type"].asString() << "\n" <<
             "\tBounds: " << getBBoxString(bbox) << "\n" <<
             "\tReprojection: " << getReprojString(reprojection.get()) << "\n" <<
-            "\tStoring dimensions: " << getDimensionString(dims) << std::endl;
+            "\tStoring dimensions: " << getDimensionString(dims) << "\n" <<
+            std::endl;
 
         builder.reset(
                 new Builder(

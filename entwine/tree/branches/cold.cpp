@@ -76,7 +76,7 @@ std::unique_ptr<std::vector<char>> ColdBranch::fetch(
     return Compression::decompress(cmp, schema(), uncSize);
 }
 
-std::unique_ptr<Entry> ColdBranch::getEntry(std::size_t index)
+Entry& ColdBranch::getEntry(std::size_t index)
 {
     const std::size_t chunkId(getChunkId(index));
 
@@ -105,48 +105,15 @@ void ColdBranch::finalizeImpl(
 
     for (const std::size_t chunkId : m_ids)
     {
-        pool.add([this, chunkId, &output, &ids, exportChunkPoints]()
+        pool.add([this, chunkId, &output, &ids, start, exportChunkPoints]()
         {
-            std::vector<char> compressed(
+            Chunk chunk(
+                    schema(),
+                    chunkId,
+                    m_chunkPoints,
                     m_source.get(std::to_string(chunkId)));
 
-            const std::size_t pointSize(schema().pointSize());
-            const std::size_t chunkBytes(exportChunkPoints * pointSize);
-
-            if (exportChunkPoints < m_chunkPoints)
-            {
-                std::unique_ptr<std::vector<char>> uncompressed(
-                        Compression::decompress(
-                            compressed,
-                            schema(),
-                            m_chunkPoints * schema().pointSize()));
-
-                for (
-                        std::size_t offset(0);
-                        offset < m_chunkPoints;
-                        offset += exportChunkPoints)
-                {
-                    const std::size_t curId(chunkId + offset);
-                    const char* pos(
-                            uncompressed->data() + offset * pointSize);
-
-                    std::unique_ptr<std::vector<char>> compressed(
-                            Compression::compress(
-                                pos,
-                                chunkBytes,
-                                schema()));
-
-                    output.put(std::to_string(curId), *compressed);
-
-                    std::lock_guard<std::mutex> lock(m_mutex);
-                    ids.push_back(curId);
-                }
-            }
-            else
-            {
-                output.put(std::to_string(chunkId), compressed);
-                ids.push_back(chunkId);
-            }
+            chunk.finalize(output, ids, m_mutex, start, exportChunkPoints);
         });
     }
 }
@@ -170,17 +137,12 @@ void ColdBranch::grow(Clipper* clipper, const std::size_t index)
         {
             if (exists)
             {
-                std::vector<char> compressed(
-                        m_source.get(std::to_string(chunkId)));
-
-                std::unique_ptr<std::vector<char>> uncompressed(
-                        Compression::decompress(
-                            compressed,
-                            schema(),
-                            m_chunkPoints * schema().pointSize()));
-
                 chunkInfo.chunk.reset(
-                        new Chunk(schema(), chunkId, *uncompressed));
+                        new Chunk(
+                            schema(),
+                            chunkId,
+                            m_chunkPoints,
+                            m_source.get(std::to_string(chunkId))));
             }
             else
             {
@@ -204,12 +166,7 @@ void ColdBranch::clip(Clipper* clipper, const std::size_t chunkId)
 
     if (chunkInfo.refs.empty())
     {
-        auto compressed(
-                Compression::compress(
-                    chunkInfo.chunk->data(),
-                    schema()));
-
-        m_source.put(std::to_string(chunkId), *compressed);
+        chunkInfo.chunk->save(m_source);
 
         mapLock.lock();
         m_chunks.erase(chunkId);
