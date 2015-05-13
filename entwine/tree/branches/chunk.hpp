@@ -103,6 +103,8 @@ public:
     virtual std::size_t numPoints() const { return m_entries.size(); }
     virtual Entry& getEntry(std::size_t rawIndex);
 
+    static std::size_t popNumPoints(std::vector<char>& compressedData);
+
 private:
     virtual void write(Source& source, std::size_t begin, std::size_t end);
 
@@ -127,7 +129,6 @@ private:
             std::size_t end);
 
     void pushNumPoints(std::vector<char>& data, std::size_t numPoints) const;
-    std::size_t popNumPoints(std::vector<char>& compressedData) const;
 };
 
 class ContiguousChunkData : public ChunkData
@@ -204,6 +205,61 @@ public:
 private:
     std::unique_ptr<ChunkData> m_chunkData;
     const double m_threshold;
+};
+
+
+
+
+
+
+
+
+
+
+
+class ChunkReader
+{
+public:
+    static std::unique_ptr<ChunkReader> create(
+            std::size_t id,
+            const Schema& schema,
+            std::unique_ptr<std::vector<char>> data);
+
+    virtual char* getData(std::size_t rawIndex) = 0;
+
+protected:
+    ChunkReader(std::size_t id, const Schema& schema);
+
+    const std::size_t m_id;
+    const Schema& m_schema;
+};
+
+class SparseReader : public ChunkReader
+{
+public:
+    SparseReader(
+            std::size_t id,
+            const Schema& schema,
+            std::unique_ptr<std::vector<char>> data);
+
+    virtual char* getData(std::size_t rawIndex);
+
+private:
+    std::map<std::size_t, std::vector<char>> m_data;
+};
+
+class ContiguousReader : public ChunkReader
+{
+public:
+    ContiguousReader(
+            std::size_t id,
+            const Schema& schema,
+            std::unique_ptr<std::vector<char>> data);
+
+    virtual char* getData(std::size_t rawIndex);
+
+private:
+    std::unique_ptr<std::vector<char>> m_data;
 };
 
 } // namespace entwine

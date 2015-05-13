@@ -25,6 +25,7 @@ namespace entwine
 {
 
 class BBox;
+class ChunkReader;
 class Driver;
 class Point;
 class Pool;
@@ -109,7 +110,7 @@ private:
     std::mutex m_mutex;
     std::condition_variable m_cv;
     std::unique_ptr<std::vector<char>> m_base;
-    std::map<std::size_t, std::unique_ptr<std::vector<char>>> m_chunks;
+    std::map<std::size_t, std::unique_ptr<ChunkReader>> m_chunks;
 
     // Currently being fetched.
     std::set<std::size_t> m_outstanding;

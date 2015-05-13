@@ -13,6 +13,7 @@
 #include <entwine/compression/util.hpp>
 #include <entwine/drivers/source.hpp>
 #include <entwine/tree/roller.hpp>
+#include <entwine/tree/branches/chunk.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/schema.hpp>
@@ -283,12 +284,11 @@ char* Reader::getPointData(const std::size_t index)
     else
     {
         const std::size_t chunkId(getChunkId(index));
-        const std::size_t offset((index - chunkId) * m_schema->pointSize());
 
         auto it(m_chunks.find(chunkId));
         if (it != m_chunks.end())
         {
-            pos = it->second->data() + offset;
+            pos = it->second->getData(index);
         }
         else if (m_ids.count(chunkId))
         {
@@ -373,7 +373,13 @@ void Reader::fetch(const std::size_t chunkId)
         }
 
         m_outstanding.erase(chunkId);
-        m_chunks.insert(std::make_pair(chunkId, std::move(chunk)));
+        m_chunks.insert(
+                std::make_pair(
+                    chunkId,
+                    ChunkReader::create(
+                        chunkId,
+                        *m_schema,
+                        std::move(chunk))));
         m_accessList.push_front(chunkId);
         m_accessMap[chunkId] = m_accessList.begin();
 
