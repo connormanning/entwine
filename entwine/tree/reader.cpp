@@ -337,11 +337,12 @@ void Reader::fetch(const std::size_t chunkId)
 
         lock.unlock();
 
-        std::vector<char> data;
+        std::unique_ptr<std::vector<char>> data;
 
         try
         {
-            data = m_source.get(std::to_string(chunkId));
+            data.reset(new std::vector<char>(
+                        m_source.get(std::to_string(chunkId))));
         }
         catch (...)
         {
@@ -353,10 +354,7 @@ void Reader::fetch(const std::size_t chunkId)
                     "Could not fetch chunk " + std::to_string(chunkId));
         }
 
-        const std::size_t chunkSize(m_chunkPoints * m_schema->pointSize());
-
-        std::unique_ptr<std::vector<char>> chunk(
-                Compression::decompress(data, *m_schema, chunkSize));
+        auto chunk(ChunkReader::create(chunkId, *m_schema, std::move(data)));
 
         lock.lock();
 
@@ -376,13 +374,7 @@ void Reader::fetch(const std::size_t chunkId)
         }
 
         m_outstanding.erase(chunkId);
-        m_chunks.insert(
-                std::make_pair(
-                    chunkId,
-                    ChunkReader::create(
-                        chunkId,
-                        *m_schema,
-                        std::move(chunk))));
+        m_chunks.insert(std::make_pair(chunkId, std::move(chunk)));
         m_accessList.push_front(chunkId);
         m_accessMap[chunkId] = m_accessList.begin();
 
