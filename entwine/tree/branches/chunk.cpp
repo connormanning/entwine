@@ -127,19 +127,10 @@ void ChunkData::finalize(
     }
 }
 
-std::size_t ChunkData::normalize(const std::size_t rawIndex)
-{
-    assert(rawIndex >= m_id);
-    assert(rawIndex < m_id + m_maxPoints);
-
-    return rawIndex - m_id;
-}
-
 std::size_t ChunkData::endId() const
 {
     return m_id + m_maxPoints;
 }
-
 
 
 
@@ -363,22 +354,32 @@ ContiguousChunkData::ContiguousChunkData(
     }
 }
 
-/*
-ContiguousChunkData::ContiguousChunkData(const SparseChunkData& other)
-    : ChunkData(other)
-    , m_entries()
+ContiguousChunkData::ContiguousChunkData(SparseChunkData& sparse)
+    : ChunkData(sparse)
+    , m_entries(m_maxPoints)
     , m_data()
 {
     makeEmpty();
+    const std::size_t pointSize(m_schema.pointSize());
 
-    std::lock_guard<std::mutex> lock(other.mutex());
+    std::lock_guard<std::mutex> lock(sparse.m_mutex);
 
-    for (std::size_t id : other.entries())
+    for (auto& p : sparse.m_entries)
     {
-        // TODO
+        const std::size_t id(normalize(p.first));
+        auto& sparseEntry(p.second);
+        auto& myEntry(m_entries[id]);
+
+        char* pos(m_data->data() + id * pointSize);
+
+        myEntry = std::move(sparseEntry.entry);
+        myEntry->setData(pos);
+
+        std::memcpy(pos, sparseEntry.data.data(), pointSize);
     }
+
+    sparse.m_entries.clear();
 }
-*/
 
 Entry& ContiguousChunkData::getEntry(std::size_t rawIndex)
 {
@@ -426,6 +427,13 @@ void ContiguousChunkData::makeEmpty()
     }
 }
 
+std::size_t ContiguousChunkData::normalize(const std::size_t rawIndex)
+{
+    assert(rawIndex >= m_id);
+    assert(rawIndex < m_id + m_maxPoints);
+
+    return rawIndex - m_id;
+}
 
 
 
@@ -501,7 +509,6 @@ Chunk::Chunk(
 
 Entry& Chunk::getEntry(std::size_t rawIndex)
 {
-    /*
     if (m_chunkData->isSparse())
     {
         const double ratio(
@@ -510,13 +517,22 @@ Entry& Chunk::getEntry(std::size_t rawIndex)
 
         if (ratio > m_threshold)
         {
-            SparseChunkData& sparse(
-                    reinterpret_cast<SparseChunkData&>(*m_chunkData));
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (!m_converting && m_chunkData->isSparse())
+            {
+                m_converting = true;
 
-            m_chunkData.reset(new ContiguousChunkData(sparse));
+                m_chunkData.reset(
+                        new ContiguousChunkData(
+                            reinterpret_cast<SparseChunkData&>(*m_chunkData)));
+
+                m_converting = false;
+            }
         }
     }
-    */
+
+    while (m_converting)
+        ;
 
     return m_chunkData->getEntry(rawIndex);
 }

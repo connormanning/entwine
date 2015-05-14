@@ -28,6 +28,8 @@ class Source;
 
 class Entry
 {
+    friend class ContiguousChunkData;
+
 public:
     Entry(char* data);
     Entry(const Point* point, char* data);
@@ -38,7 +40,7 @@ public:
     char* data() { return m_data; } // Must hold lock on mutex for access.
 
 private:
-    void setData(char* pos) { }     // TODO
+    void setData(char* pos) { m_data = pos; }
 
     ElasticAtomic<const Point*> m_point;
     std::mutex m_mutex;
@@ -77,7 +79,6 @@ public:
 protected:
     virtual void write(Source& source, std::size_t begin, std::size_t end) = 0;
 
-    std::size_t normalize(std::size_t rawIndex);
     std::size_t endId() const;
 
     const Schema& m_schema;
@@ -87,6 +88,8 @@ protected:
 
 class SparseChunkData : public ChunkData
 {
+    friend class ContiguousChunkData;
+
 public:
     SparseChunkData(
             const Schema& schema,
@@ -145,7 +148,7 @@ public:
             std::size_t maxPoints,
             std::vector<char>& compressedData);
 
-    // ContiguousChunkData(const SparseChunkData& other);
+    ContiguousChunkData(SparseChunkData& sparse);
 
     virtual bool isSparse() const { return false; }
     virtual std::size_t numPoints() const { return m_maxPoints; }
@@ -155,6 +158,7 @@ private:
     virtual void write(Source& source, std::size_t begin, std::size_t end);
 
     void makeEmpty();
+    std::size_t normalize(std::size_t rawIndex);
 
     std::vector<std::unique_ptr<Entry>> m_entries;
     std::unique_ptr<std::vector<char>> m_data;
@@ -205,6 +209,9 @@ public:
 private:
     std::unique_ptr<ChunkData> m_chunkData;
     const double m_threshold;
+
+    std::mutex m_mutex;
+    bool m_converting;
 };
 
 
