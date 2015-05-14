@@ -29,7 +29,9 @@ namespace
     {
         const std::size_t pointSize(schema.pointSize());
 
-        return pointSize / (pointSize + sizeof(std::size_t));
+        return
+            static_cast<double>(pointSize) /
+            static_cast<double>(pointSize + sizeof(std::size_t));
     }
 
     DimList makeSparse(const Schema& schema)
@@ -496,6 +498,8 @@ Chunk::Chunk(
                 static_cast<ChunkData*>(
                     new ContiguousChunkData(schema, id, maxPoints)))
     , m_threshold(getThreshold(schema))
+    , m_mutex()
+    , m_converting(false)
 { }
 
 Chunk::Chunk(
@@ -505,6 +509,8 @@ Chunk::Chunk(
         std::vector<char> data)
     : m_chunkData(ChunkDataFactory::create(schema, id, maxPoints, data))
     , m_threshold(getThreshold(schema))
+    , m_mutex()
+    , m_converting(false)
 { }
 
 Entry& Chunk::getEntry(std::size_t rawIndex)
@@ -518,20 +524,21 @@ Entry& Chunk::getEntry(std::size_t rawIndex)
         if (ratio > m_threshold)
         {
             std::lock_guard<std::mutex> lock(m_mutex);
-            if (!m_converting && m_chunkData->isSparse())
+
+            if (!m_converting.load() && m_chunkData->isSparse())
             {
-                m_converting = true;
+                m_converting.store(true);
 
                 m_chunkData.reset(
                         new ContiguousChunkData(
                             reinterpret_cast<SparseChunkData&>(*m_chunkData)));
 
-                m_converting = false;
+                m_converting.store(false);
             }
         }
     }
 
-    while (m_converting)
+    while (m_converting.load())
         ;
 
     return m_chunkData->getEntry(rawIndex);
@@ -638,7 +645,6 @@ SparseReader::SparseReader(
 
 char* SparseReader::getData(const std::size_t rawIndex)
 {
-    std::cout << "\t\tGDS" << std::endl;
     char* pos(0);
 
     auto it(m_data.find(rawIndex));

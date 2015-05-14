@@ -211,7 +211,7 @@ private:
     const double m_threshold;
 
     std::mutex m_mutex;
-    bool m_converting;
+    std::atomic<bool> m_converting;
 };
 
 
