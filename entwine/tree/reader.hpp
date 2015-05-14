@@ -37,6 +37,7 @@ class Reader
 public:
     // Will throw if entwine's meta files cannot be fetched from this source.
     Reader(Source source, std::size_t cacheSize, std::size_t queryLimit);
+    ~Reader();
 
     // Query calls may throw if a cache overrun is detected.
     std::vector<std::size_t> query(

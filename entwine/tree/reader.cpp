@@ -114,6 +114,9 @@ Reader::Reader(
     }
 }
 
+Reader::~Reader()
+{ }
+
 std::vector<std::size_t> Reader::query(
         const std::size_t depthBegin,
         const std::size_t depthEnd)
