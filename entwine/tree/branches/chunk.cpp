@@ -564,15 +564,22 @@ void Chunk::finalize(
 
 
 
+// TODO The Readers and the ChunkData classes should probably derive from
+// something common.
 
-ChunkReader::ChunkReader(const std::size_t id, const Schema& schema)
-    : m_id(id)
-    , m_schema(schema)
+ChunkReader::ChunkReader(
+        const Schema& schema,
+        const std::size_t id,
+        const std::size_t maxPoints)
+    : m_schema(schema)
+    , m_id(id)
+    , m_maxPoints(maxPoints)
 { }
 
 std::unique_ptr<ChunkReader> ChunkReader::create(
-        const std::size_t id,
         const Schema& schema,
+        const std::size_t id,
+        const std::size_t maxPoints,
         std::unique_ptr<std::vector<char>> data)
 {
     std::unique_ptr<ChunkReader> reader;
@@ -581,21 +588,23 @@ std::unique_ptr<ChunkReader> ChunkReader::create(
 
     if (type == Sparse)
     {
-        reader.reset(new SparseReader(id, schema, std::move(data)));
+        reader.reset(new SparseReader(schema, id, maxPoints, std::move(data)));
     }
     else if (type == Contiguous)
     {
-        reader.reset(new ContiguousReader(id, schema, std::move(data)));
+        reader.reset(
+                new ContiguousReader(schema, id, maxPoints, std::move(data)));
     }
 
     return reader;
 }
 
 SparseReader::SparseReader(
-        std::size_t id,
         const Schema& schema,
+        const std::size_t id,
+        const std::size_t maxPoints,
         std::unique_ptr<std::vector<char>> data)
-    : ChunkReader(id, schema)
+    : ChunkReader(schema, id, maxPoints)
     , m_data()
 {
     // TODO Direct copy/paste from SparseChunkData ctor.
@@ -629,13 +638,14 @@ SparseReader::SparseReader(
 
 char* SparseReader::getData(const std::size_t rawIndex)
 {
+    std::cout << "\t\tGDS" << std::endl;
     char* pos(0);
 
     auto it(m_data.find(rawIndex));
 
     if (it != m_data.end())
     {
-        return it->second.data();
+        pos = it->second.data();
     }
 
     return pos;
@@ -654,11 +664,16 @@ char* SparseReader::getData(const std::size_t rawIndex)
 
 
 ContiguousReader::ContiguousReader(
-        std::size_t id,
         const Schema& schema,
-        std::unique_ptr<std::vector<char>> data)
-    : ChunkReader(id, schema)
-    , m_data(std::move(data))
+        const std::size_t id,
+        const std::size_t maxPoints,
+        std::unique_ptr<std::vector<char>> compressed)
+    : ChunkReader(schema, id, maxPoints)
+    , m_data(
+            Compression::decompress(
+                *compressed,
+                m_schema,
+                m_maxPoints * m_schema.pointSize()))
 { }
 
 char* ContiguousReader::getData(const std::size_t rawIndex)

@@ -107,10 +107,14 @@ Reader::Reader(
     }
 
     {
-        std::vector<char> data(m_source.get("0"));
+        std::unique_ptr<std::vector<char>> data(
+                new std::vector<char>(m_source.get("0")));
 
-        const std::size_t baseSize(m_firstChunk * m_schema->pointSize());
-        m_base = Compression::decompress(data, *m_schema, baseSize);
+        m_base = ChunkReader::create(
+                *m_schema,
+                0,
+                m_firstChunk,
+                std::move(data));
     }
 }
 
@@ -282,7 +286,7 @@ char* Reader::getPointData(const std::size_t index)
 
     if (index < m_firstChunk)
     {
-        pos = m_base->data() + index * m_schema->pointSize();
+        pos = m_base->getData(index);
     }
     else
     {
@@ -354,7 +358,14 @@ void Reader::fetch(const std::size_t chunkId)
                     "Could not fetch chunk " + std::to_string(chunkId));
         }
 
-        auto chunk(ChunkReader::create(chunkId, *m_schema, std::move(data)));
+        std::cout << "Making chunk " << chunkId << std::endl;
+        auto chunk(
+                ChunkReader::create(
+                    *m_schema,
+                    chunkId,
+                    m_chunkPoints,
+                    std::move(data)));
+        std::cout << "\tDone" << std::endl;
 
         lock.lock();
 

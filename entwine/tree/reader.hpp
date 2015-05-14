@@ -110,7 +110,7 @@ private:
     const std::size_t m_queryLimit;
     std::mutex m_mutex;
     std::condition_variable m_cv;
-    std::unique_ptr<std::vector<char>> m_base;
+    std::unique_ptr<ChunkReader> m_base;
     std::map<std::size_t, std::unique_ptr<ChunkReader>> m_chunks;
 
     // Currently being fetched.

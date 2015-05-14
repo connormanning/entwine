@@ -228,25 +228,28 @@ class ChunkReader
 {
 public:
     static std::unique_ptr<ChunkReader> create(
-            std::size_t id,
             const Schema& schema,
+            std::size_t id,
+            std::size_t maxPoints,
             std::unique_ptr<std::vector<char>> data);
 
     virtual char* getData(std::size_t rawIndex) = 0;
 
 protected:
-    ChunkReader(std::size_t id, const Schema& schema);
+    ChunkReader(const Schema& schema, std::size_t id, std::size_t maxPoints);
 
-    const std::size_t m_id;
     const Schema& m_schema;
+    const std::size_t m_id;
+    const std::size_t m_maxPoints;
 };
 
 class SparseReader : public ChunkReader
 {
 public:
     SparseReader(
-            std::size_t id,
             const Schema& schema,
+            std::size_t id,
+            std::size_t maxPoints,
             std::unique_ptr<std::vector<char>> data);
 
     virtual char* getData(std::size_t rawIndex);
@@ -259,8 +262,9 @@ class ContiguousReader : public ChunkReader
 {
 public:
     ContiguousReader(
-            std::size_t id,
             const Schema& schema,
+            std::size_t id,
+            std::size_t maxPoints,
             std::unique_ptr<std::vector<char>> data);
 
     virtual char* getData(std::size_t rawIndex);
