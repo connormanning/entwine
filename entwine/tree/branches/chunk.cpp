@@ -375,6 +375,8 @@ ContiguousChunkData::ContiguousChunkData(SparseChunkData& sparse)
         char* pos(m_data->data() + id * pointSize);
 
         myEntry = std::move(sparseEntry.entry);
+
+        std::lock_guard<std::mutex> dataLock(myEntry->mutex());
         myEntry->setData(pos);
 
         std::memcpy(pos, sparseEntry.data.data(), pointSize);

@@ -358,14 +358,12 @@ void Reader::fetch(const std::size_t chunkId)
                     "Could not fetch chunk " + std::to_string(chunkId));
         }
 
-        std::cout << "Making chunk " << chunkId << std::endl;
         auto chunk(
                 ChunkReader::create(
                     *m_schema,
                     chunkId,
                     m_chunkPoints,
                     std::move(data)));
-        std::cout << "\tDone" << std::endl;
 
         lock.lock();
 

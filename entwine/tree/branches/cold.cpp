@@ -161,7 +161,7 @@ void ColdBranch::clip(Clipper* clipper, const std::size_t chunkId)
     ChunkInfo& chunkInfo(m_chunks.at(chunkId));
     mapLock.unlock();
 
-    std::lock_guard<std::mutex> lock(chunkInfo.mutex);
+    std::unique_lock<std::mutex> lock(chunkInfo.mutex);
     chunkInfo.refs.erase(clipper);
 
     if (chunkInfo.refs.empty())
@@ -169,6 +169,8 @@ void ColdBranch::clip(Clipper* clipper, const std::size_t chunkId)
         chunkInfo.chunk->save(m_source);
 
         mapLock.lock();
+        lock.unlock();
+
         m_chunks.erase(chunkId);
     }
 }

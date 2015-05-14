@@ -91,6 +91,9 @@ public:
             std::size_t base,
             bool compress);
 
+    // Block until all current tasks are finished.
+    void join();
+
 private:
     // Awaken the tree from a saved state.  After a load(), no queries should
     // be made until save() is subsequently called.

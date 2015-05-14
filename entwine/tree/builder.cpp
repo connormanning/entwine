@@ -350,19 +350,20 @@ void Builder::clip(Clipper* clipper, std::size_t index)
     m_registry->clip(clipper, index);
 }
 
+void Builder::join()
+{
+    m_pool->join();
+}
+
 void Builder::save()
 {
     // Ensure constant state, waiting for all worker threads to complete.
-    m_pool->join();
-
-    std::cout << "Saving build state..." << std::endl;
+    join();
 
     // Get our own metadata and the registry's - then serialize.
     Json::Value jsonMeta(saveProps());
     m_registry->save(jsonMeta["registry"]);
     m_buildSource.put("meta", jsonMeta.toStyledString());
-
-    std::cout << "Save complete." << std::endl;
 
     // Re-allow inserts.
     m_pool->go();

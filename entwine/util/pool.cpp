@@ -61,23 +61,20 @@ void Pool::go()
 
 void Pool::join()
 {
-    if (stop())
+    if (!stop())
     {
-        throw std::runtime_error(
-                "Attempted to call Pool::join on an already joined Pool");
+        stop(true);
+        m_consumeCv.notify_all();
+
+        for (auto& t : m_threads)
+        {
+            t.join();
+        }
+
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_threads.clear();
+        assert(m_tasks.empty());
     }
-
-    stop(true);
-    m_consumeCv.notify_all();
-
-    for (auto& t : m_threads)
-    {
-        t.join();
-    }
-
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_threads.clear();
-    assert(m_tasks.empty());
 }
 
 void Pool::add(std::function<void()> task)

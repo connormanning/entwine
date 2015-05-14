@@ -10,9 +10,11 @@
 
 #include <entwine/drivers/s3.hpp>
 
+#include <chrono>
 #include <cstring>
-#include <iostream>
 #include <functional>
+#include <iostream>
+#include <thread>
 
 #include <openssl/hmac.h>
 
@@ -21,7 +23,8 @@ namespace entwine
 
 namespace
 {
-    const std::size_t httpAttempts(3);
+    const std::size_t httpAttempts(5);
+    const auto httpSleepTime(std::chrono::milliseconds(20));
 
     const std::string baseUrl(".s3.amazonaws.com/");
 
@@ -121,6 +124,8 @@ HttpResponse S3Driver::httpExec(
     do
     {
         res = f();
+
+        if (res.code() != 200) std::this_thread::sleep_for(httpSleepTime);
     }
     while (res.code() != 200 && ++fails < tries);
 

@@ -151,6 +151,17 @@ namespace
             return "(none)";
         }
     }
+
+    std::chrono::high_resolution_clock::time_point now()
+    {
+        return std::chrono::high_resolution_clock::now();
+    }
+
+    int secondsSince(const std::chrono::high_resolution_clock::time_point start)
+    {
+        std::chrono::duration<double> d(now() - start);
+        return std::chrono::duration_cast<std::chrono::seconds>(d).count();
+    }
 }
 
 int main(int argc, char** argv)
@@ -289,10 +300,11 @@ int main(int argc, char** argv)
                     arbiter));
     }
 
-    const auto start(std::chrono::high_resolution_clock::now());
-
+    // Index.
     std::size_t i(0);
     std::size_t numInserted(0);
+
+    auto start = now();
 
     while (i < manifest.size() && (numInserted < runCount || !runCount))
     {
@@ -302,22 +314,32 @@ int main(int argc, char** argv)
         }
     }
 
+    std::cout << "Joining..." << std::endl;
+    builder->join();
+
+    std::cout << "Index completed in " << secondsSince(start) <<
+            " seconds.  Saving...\n" << std::endl;
+
+    // Save.
+    start = now();
+
     builder->save();
 
-    const auto end(std::chrono::high_resolution_clock::now());
-    const std::chrono::duration<double> d(end - start);
-    std::cout << "Index/save completed in " <<
-            std::chrono::duration_cast<std::chrono::seconds>(d).count() <<
-            " seconds\n" << std::endl;
+    std::cout << "Save completed in " << secondsSince(start) <<
+            " seconds.  Exporting...\n" << std::endl;
 
-    std::cout << "Exporting..." << std::endl;
+    // Export.
+    start = now();
+
     builder->finalize(
             exportPath,
             exportChunkPoints,
             exportBase,
             exportCompress);
 
-    std::cout << "Finished." << std::endl;
+    std::cout << "Export completed in " << secondsSince(start) <<
+            " seconds.\nAll tasks complete." << std::endl;
+
     return 0;
 }
 
