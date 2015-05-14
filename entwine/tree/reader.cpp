@@ -211,7 +211,7 @@ void Reader::query(
     if (depth >= depthBegin && (depth < depthEnd || !depthEnd))
     {
         Point point(getPoint(index));
-        if (queryBBox.contains(point))
+        if (Point::exists(point) && queryBBox.contains(point))
         {
             results.push_back(index);
         }
@@ -261,7 +261,7 @@ std::vector<char> Reader::getPointData(
 
 Point Reader::getPoint(const std::size_t index)
 {
-    Point point(INFINITY, INFINITY);
+    Point point;
 
     std::lock_guard<std::mutex> lock(m_mutex);
     if (char* pos = getPointData(index))
