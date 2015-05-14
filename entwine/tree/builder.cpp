@@ -265,7 +265,7 @@ bool Builder::insert(const std::string path)
                 const std::size_t indexSpan(index - begin);
 
                 if (
-                        pointTable.size() == indexSpan &&
+                        pointTable.size() == indexSpan + 1 &&
                         pointTable.data().size() > chunkBytes)
                 {
                     LinkingPointView link(pointTable);
@@ -275,7 +275,7 @@ bool Builder::insert(const std::string path)
                     insert(link, origin, clipperPtr);
 
                     pointTable.clear();
-                    begin += indexSpan;
+                    begin = index + 1;
                 }
             });
 
