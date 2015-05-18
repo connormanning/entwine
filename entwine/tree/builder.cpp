@@ -41,7 +41,7 @@ namespace
     const std::size_t chunkBytes(65536);
 
     std::unique_ptr<pdal::Reader> createReader(
-            const pdal::StageFactory& stageFactory,
+            pdal::StageFactory& stageFactory,
             const std::string driver,
             const std::string path)
     {
@@ -66,7 +66,7 @@ namespace
     }
 
     std::shared_ptr<pdal::Filter> createReprojectionFilter(
-            const pdal::StageFactory& stageFactory,
+            pdal::StageFactory& stageFactory,
             const Reprojection& reproj,
             pdal::BasePointTable& pointTable)
     {

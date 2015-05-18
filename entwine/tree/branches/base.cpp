@@ -37,7 +37,7 @@ BaseBranch::BaseBranch(
         const Schema& schema,
         const std::size_t dimensions,
         const std::size_t depthEnd)
-    : Branch(source, schema, dimensions, depthBegin(), depthEnd)
+    : Branch(source, schema, dimensions, 0, depthEnd)
     , m_chunk(new Chunk(schema, depthBegin(), indexSpan()))
 {
     // TODO
