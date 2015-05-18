@@ -10,7 +10,6 @@
 
 #include <entwine/tree/branch.hpp>
 
-#include <entwine/http/s3.hpp>
 #include <entwine/tree/point-info.hpp>
 #include <entwine/tree/roller.hpp>
 #include <entwine/tree/branches/chunk.hpp>

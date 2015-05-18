@@ -3,6 +3,7 @@ set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 set(
     SOURCES
+    "${BASE}/executor.cpp"
     "${BASE}/fs.cpp"
     "${BASE}/pool.cpp"
     "${BASE}/platform.cpp"
@@ -10,6 +11,7 @@ set(
 
 set(
     HEADERS
+    "${BASE}/executor.hpp"
     "${BASE}/fs.hpp"
     "${BASE}/pool.hpp"
     "${BASE}/platform.hpp"

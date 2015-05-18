@@ -22,17 +22,20 @@ Origin Manifest::invalidOrigin()
 
 Manifest::Manifest()
     : m_originList()
-    , m_missedList()
+    , m_omissionList()
+    , m_errorSet()
     , m_reverseLookup()
 { }
 
 Manifest::Manifest(const Json::Value& json)
     : m_originList()
-    , m_missedList()
+    , m_omissionList()
+    , m_errorSet()
     , m_reverseLookup()
 {
     const Json::Value& originJson(json["input"]);
-    const Json::Value& missedJson(json["missed"]);
+    const Json::Value& omissionJson(json["omissions"]);
+    // const Json::Value& errorJson(json["errors"]);
 
     for (Json::ArrayIndex i(0); i < originJson.size(); ++i)
     {
@@ -40,9 +43,9 @@ Manifest::Manifest(const Json::Value& json)
         m_reverseLookup.insert(originJson[i].asString());
     }
 
-    for (Json::ArrayIndex i(0); i < missedJson.size(); ++i)
+    for (Json::ArrayIndex i(0); i < omissionJson.size(); ++i)
     {
-        m_missedList.push_back(missedJson[i].asString());
+        m_omissionList.push_back(omissionJson[i].asString());
     }
 }
 
@@ -51,16 +54,17 @@ Json::Value Manifest::getJson() const
     Json::Value json;
 
     Json::Value& originJson(json["input"]);
-    Json::Value& missedJson(json["missed"]);
+    Json::Value& omissionJson(json["omissions"]);
+    // Json::Value& errorJson(json["errors"]);
 
     for (Json::ArrayIndex i(0); i < m_originList.size(); ++i)
     {
         originJson.append(m_originList[i]);
     }
 
-    for (Json::ArrayIndex i(0); i < m_missedList.size(); ++i)
+    for (Json::ArrayIndex i(0); i < m_omissionList.size(); ++i)
     {
-        missedJson.append(m_missedList[i]);
+        omissionJson.append(m_omissionList[i]);
     }
 
     return json;
@@ -83,7 +87,12 @@ Origin Manifest::addOrigin(const std::string& path)
 
 void Manifest::addOmission(const std::string& path)
 {
-    m_missedList.push_back(path);
+    m_omissionList.push_back(path);
+}
+
+void Manifest::addError(const Origin origin)
+{
+    // TODO
 }
 
 } // namespace entwine

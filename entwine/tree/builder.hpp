@@ -25,7 +25,6 @@
 namespace pdal
 {
     class PointView;
-    class StageFactory;
 }
 
 namespace Json
@@ -40,6 +39,7 @@ class Arbiter;
 class BBox;
 class Clipper;
 class Driver;
+class Executor;
 class Pool;
 class Registry;
 class Reprojection;
@@ -51,7 +51,7 @@ public:
             std::string buildPath,
             std::string tmpPath,
             const Reprojection* reprojection,
-            const BBox& bbox,
+            const BBox* bbox,
             const DimList& dimList,
             std::size_t numThreads,
             std::size_t numDimensions,
@@ -91,7 +91,7 @@ public:
             std::size_t base,
             bool compress);
 
-    // Block until all current tasks are finished.
+    // Block until all running insertion tasks are finished.
     void join();
 
 private:
@@ -101,6 +101,13 @@ private:
 
     // Validate sources.
     void prep();
+
+    // Ensure that the file at this path is accessible locally for execution.
+    // Return the local path.
+    std::string localize(std::string path, Origin origin);
+
+    // Initialize our bounds from a path.
+    void inferBBox(std::string path);
 
     // Insert each point from a pdal::PointView into the Registry.
     void insert(pdal::PointView& pointView, Origin origin, Clipper* clipper);
@@ -125,11 +132,11 @@ private:
 
     Manifest m_manifest;
     std::unique_ptr<Pool> m_pool;
+    std::unique_ptr<Executor> m_executor;
     std::shared_ptr<Arbiter> m_arbiter;
     Source m_buildSource;
     Source m_tmpSource;
 
-    std::unique_ptr<pdal::StageFactory> m_stageFactory;
     std::unique_ptr<Registry> m_registry;
 
     Builder(const Builder&);

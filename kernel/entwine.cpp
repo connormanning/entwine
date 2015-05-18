@@ -71,13 +71,20 @@ namespace
         return results;
     }
 
-    std::string getBBoxString(const BBox& bbox)
+    std::string getBBoxString(const BBox* bbox)
     {
         std::ostringstream oss;
 
-        oss << "[(" <<
-            bbox.min().x << ", " << bbox.min().y << "), (" <<
-            bbox.max().x << ", " << bbox.max().y << ")]";
+        if (bbox)
+        {
+            oss << "[(" <<
+                bbox->min().x << ", " << bbox->min().y << "), (" <<
+                bbox->max().x << ", " << bbox->max().y << ")]";
+        }
+        else
+        {
+            oss << "(Inferring from source)";
+        }
 
         return oss.str();
     }
@@ -101,13 +108,22 @@ namespace
         return auth;
     }
 
-    std::vector<std::string> getManifest(const Json::Value& jsonInput)
+    std::vector<std::string> getManifest(const Json::Value& json)
     {
-        std::vector<std::string> manifest(jsonInput.size());
+        std::vector<std::string> manifest;
 
-        for (Json::ArrayIndex i(0); i < jsonInput.size(); ++i)
+        if (json.isArray())
         {
-            manifest[i] = jsonInput[i].asString();
+            manifest.resize(json.size());
+
+            for (Json::ArrayIndex i(0); i < json.size(); ++i)
+            {
+                manifest[i] = json[i].asString();
+            }
+        }
+        else
+        {
+            manifest.push_back(json.asString());
         }
 
         return manifest;
@@ -224,7 +240,8 @@ int main(int argc, char** argv)
     // Geometry and spatial info.
     const Json::Value& geometry(config["geometry"]);
     const std::size_t dimensions(getDimensions(geometry["type"]));
-    const BBox bbox(BBox::fromJson(geometry["bbox"]));
+    std::unique_ptr<BBox> bbox(geometry["bbox"].isArray() ?
+            new BBox(BBox::fromJson(geometry["bbox"])) : 0);
     std::unique_ptr<Reprojection> reprojection(
             getReprojection(geometry["reproject"]));
     DimList dims(Schema::fromJson(geometry["schema"]));
@@ -263,6 +280,12 @@ int main(int argc, char** argv)
     }
     else
     {
+        if (!bbox && manifest.size() > 1)
+        {
+            std::cout << "Can't infer bounds from multiple inputs" << std::endl;
+            exit(1);
+        }
+
         std::cout << "Paths:\n" <<
             "\tBuilding from " << manifest.size() << " source files\n" <<
             "\tInserting up to " << runCount << " files\n" <<
@@ -279,7 +302,7 @@ int main(int argc, char** argv)
             "\t\tExport base depth: " << exportBase << "\n" <<
             "Geometry:\n" <<
             "\tBuild type: " << geometry["type"].asString() << "\n" <<
-            "\tBounds: " << getBBoxString(bbox) << "\n" <<
+            "\tBounds: " << getBBoxString(bbox.get()) << "\n" <<
             "\tReprojection: " << getReprojString(reprojection.get()) << "\n" <<
             "\tStoring dimensions: " << getDimensionString(dims) << "\n" <<
             std::endl;
@@ -289,7 +312,7 @@ int main(int argc, char** argv)
                     buildPath,
                     tmpPath,
                     reprojection.get(),
-                    bbox,
+                    bbox.get(),
                     dims,
                     threads,
                     dimensions,
@@ -314,7 +337,6 @@ int main(int argc, char** argv)
         }
     }
 
-    std::cout << "Joining..." << std::endl;
     builder->join();
 
     std::cout << "Index completed in " << secondsSince(start) <<

@@ -33,15 +33,21 @@ public:
     // registered already, in which case invalidOrigin is returned.
     Origin addOrigin(const std::string& path);
 
-    // Note this file as unindexed.
+    // Note this file as not indexed.  Primarily intended for insertion of
+    // globbed directories, which may contain some non-point-cloud files.
     void addOmission(const std::string& path);
+
+    // Mark a partial insertion of a file that was previously registered with
+    // addOrigin() due to an error during insertion.
+    void addError(Origin origin);
 
     static Origin invalidOrigin();
 
 private:
     std::vector<std::string> m_originList;
-    std::vector<std::string> m_missedList;
+    std::vector<std::string> m_omissionList;
 
+    std::set<std::string> m_errorSet;
     std::set<std::string> m_reverseLookup;
 };
 

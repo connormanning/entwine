@@ -19,7 +19,7 @@ namespace entwine
 
 BBox::BBox() : m_min(), m_max() { }
 
-BBox::BBox(Point min, Point max)
+BBox::BBox(const Point min, const Point max)
     : m_min(std::min(min.x, max.x), std::min(min.y, max.y))
     , m_max(std::max(min.x, max.x), std::max(min.y, max.y))
 {
@@ -30,6 +30,12 @@ BBox::BBox(const BBox& other)
     : m_min(other.min())
     , m_max(other.max())
 { }
+
+void BBox::set(const Point min, const Point max)
+{
+    m_min = min;
+    m_max = max;
+}
 
 Point BBox::min() const { return m_min; }
 Point BBox::max() const { return m_max; }
@@ -84,15 +90,6 @@ BBox BBox::getSe() const
     return BBox(Point(middle.x, m_min.y), Point(m_max.x, middle.y));
 }
 
-BBox BBox::encapsulate() const
-{
-    return BBox(
-            m_min,
-            Point(
-                m_max.x + std::numeric_limits<double>::min(),
-                m_max.y + std::numeric_limits<double>::min()));
-}
-
 bool BBox::exists() const
 {
     return Point::exists(m_min) && Point::exists(m_max);
@@ -125,6 +122,14 @@ void BBox::check(const Point& min, const Point& max) const
     {
         std::cout << "Correcting malformed BBox" << std::endl;
     }
+}
+
+void BBox::grow(const Point& p)
+{
+    m_min.x = std::min(m_min.x, p.x);
+    m_min.y = std::min(m_min.y, p.y);
+    m_max.x = std::max(m_max.x, p.x);
+    m_max.y = std::max(m_max.y, p.y);
 }
 
 } // namespace entwine

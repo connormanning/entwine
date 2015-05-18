@@ -23,6 +23,8 @@ public:
     BBox(Point min, Point max);
     BBox(const BBox& other);
 
+    void set(Point min, Point max);
+
     Point min() const;
     Point max() const;
     Point mid() const;
@@ -41,16 +43,12 @@ public:
     BBox getSw() const;
     BBox getSe() const;
 
-    // Add an epsilon to the maxes.  Useful when bounds are set by specifying
-    // the min/max bounds encountered in a specific file - when a bbox is
-    // created with those bounds, the points that constituted the max bounds
-    // would not be included because of the [min, max) convention used here.
-    BBox encapsulate() const;
-
     bool exists() const;
 
     Json::Value toJson() const;
     static BBox fromJson(const Json::Value& json);
+
+    void grow(const Point& p);
 
 private:
     Point m_min;

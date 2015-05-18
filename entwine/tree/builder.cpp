@@ -11,11 +11,7 @@
 #include <entwine/tree/builder.hpp>
 
 #include <pdal/Dimension.hpp>
-#include <pdal/Filter.hpp>
 #include <pdal/PointView.hpp>
-#include <pdal/Reader.hpp>
-#include <pdal/StageFactory.hpp>
-#include <pdal/StageWrapper.hpp>
 #include <pdal/Utils.hpp>
 
 #include <entwine/compression/util.hpp>
@@ -30,73 +26,18 @@
 #include <entwine/types/schema.hpp>
 #include <entwine/types/simple-point-table.hpp>
 #include <entwine/types/single-point-table.hpp>
-#include <entwine/util/pool.hpp>
+#include <entwine/util/executor.hpp>
 #include <entwine/util/fs.hpp>
+#include <entwine/util/pool.hpp>
 
 namespace entwine
 {
-
-namespace
-{
-    const std::size_t chunkBytes(65536);
-
-    std::unique_ptr<pdal::Reader> createReader(
-            const pdal::StageFactory& stageFactory,
-            const std::string driver,
-            const std::string path)
-    {
-        std::unique_ptr<pdal::Reader> reader;
-
-        if (driver.size())
-        {
-            reader.reset(
-                    static_cast<pdal::Reader*>(
-                        stageFactory.createStage(driver)));
-
-            std::unique_ptr<pdal::Options> readerOptions(new pdal::Options());
-            readerOptions->add(pdal::Option("filename", path));
-            reader->setOptions(*readerOptions);
-        }
-        else
-        {
-            // TODO Try executing as pipeline.
-        }
-
-        return reader;
-    }
-
-    std::shared_ptr<pdal::Filter> createReprojectionFilter(
-            const pdal::StageFactory& stageFactory,
-            const Reprojection& reproj,
-            pdal::BasePointTable& pointTable)
-    {
-        std::shared_ptr<pdal::Filter> filter(
-                static_cast<pdal::Filter*>(
-                    stageFactory.createStage("filters.reprojection")));
-
-        std::unique_ptr<pdal::Options> reprojOptions(new pdal::Options());
-        reprojOptions->add(
-                pdal::Option(
-                    "in_srs",
-                    pdal::SpatialReference(reproj.in())));
-        reprojOptions->add(
-                pdal::Option(
-                    "out_srs",
-                    pdal::SpatialReference(reproj.out())));
-
-        pdal::FilterWrapper::initialize(filter, pointTable);
-        pdal::FilterWrapper::processOptions(*filter, *reprojOptions);
-        pdal::FilterWrapper::ready(*filter, pointTable);
-
-        return filter;
-    }
-}
 
 Builder::Builder(
         const std::string buildPath,
         const std::string tmpPath,
         const Reprojection* reprojection,
-        const BBox& bbox,
+        const BBox* bbox,
         const DimList& dimList,
         const std::size_t numThreads,
         const std::size_t numDimensions,
@@ -106,7 +47,7 @@ Builder::Builder(
         const std::size_t diskDepth,
         std::shared_ptr<Arbiter> arbiter)
     : m_reprojection(reprojection ? new Reprojection(*reprojection) : 0)
-    , m_bbox(new BBox(bbox))
+    , m_bbox(bbox ? new BBox(*bbox) : 0)
     , m_schema(new Schema(dimList))
     , m_originId(m_schema->pdalLayout().findDim("Origin"))
     , m_dimensions(numDimensions)
@@ -115,10 +56,10 @@ Builder::Builder(
     , m_numTossed(0)
     , m_manifest()
     , m_pool(new Pool(numThreads))
+    , m_executor(new Executor(*m_schema))
     , m_arbiter(arbiter ? arbiter : std::make_shared<Arbiter>(Arbiter()))
     , m_buildSource(m_arbiter->getSource(buildPath))
     , m_tmpSource  (m_arbiter->getSource(tmpPath))
-    , m_stageFactory(new pdal::StageFactory())
     , m_registry(
             new Registry(
                 m_buildSource,
@@ -152,43 +93,22 @@ Builder::Builder(
     , m_numTossed(0)
     , m_manifest()
     , m_pool(new Pool(numThreads))
+    , m_executor()
     , m_arbiter(arbiter ? arbiter : std::make_shared<Arbiter>(Arbiter()))
     , m_buildSource(m_arbiter->getSource(buildPath))
     , m_tmpSource  (m_arbiter->getSource(tmpPath))
-    , m_stageFactory(new pdal::StageFactory())
     , m_registry()
 {
     prep();
     load();
 }
 
-
 Builder::~Builder()
 { }
 
-void Builder::prep()
-{
-    if (m_tmpSource.isRemote())
-    {
-        throw std::runtime_error("Tmp path must be local");
-    }
-
-    if (!fs::mkdirp(m_tmpSource.path()))
-    {
-        throw std::runtime_error("Couldn't create tmp directory");
-    }
-
-    if (!m_buildSource.isRemote() && !fs::mkdirp(m_buildSource.path()))
-    {
-        throw std::runtime_error("Couldn't create local build directory");
-    }
-}
-
 bool Builder::insert(const std::string path)
 {
-    const std::string driver(m_stageFactory->inferReaderDriver(path));
-
-    if (driver.empty())
+    if (!m_executor->good(path))
     {
         m_manifest.addOmission(path);
         return false;
@@ -196,105 +116,48 @@ bool Builder::insert(const std::string path)
 
     const Origin origin(m_manifest.addOrigin(path));
 
-    if (origin == Manifest::invalidOrigin())
+    if (origin == Manifest::invalidOrigin()) return false;  // Already inserted.
+
+    if (!m_bbox && origin == 0)
     {
-        return false;
+        inferBBox(path);
     }
 
     std::cout << "Adding " << origin << " - " << path << std::endl;
 
-    m_pool->add([this, driver, origin, path]()
+    m_pool->add([this, origin, path]()
     {
-        Source source(m_arbiter->getSource(path));
-        const bool isRemote(source.isRemote());
-        std::string localPath(source.path());
+        const bool isRemote(m_arbiter->getSource(path).isRemote());
+        const std::string localPath(localize(path, origin));
 
-        if (isRemote)
+        std::unique_ptr<Clipper> clipperPtr(new Clipper(*this));
+        Clipper* clipper(clipperPtr.get());
+
+        auto inserter([this, origin, clipper](pdal::PointView& view)->void
         {
-            const std::string subpath(name() + "-" + std::to_string(origin));
+            insert(view, origin, clipper);
+        });
 
-            localPath = m_tmpSource.resolve(subpath);
-            m_tmpSource.put(subpath, source.getRoot());
-        }
-
-        std::unique_ptr<pdal::Reader> reader(
-                createReader(*m_stageFactory, driver, localPath));
-
-        if (reader)
+        try
         {
-            SimplePointTable pointTable(*m_schema);
-
-            // TODO Watch for errors during insertion.  If any occur, mark as
-            // a partial or failed insertion.
-
-            std::shared_ptr<pdal::Filter> sharedFilter;
-
-            if (m_reprojection)
+            if (!m_executor->run(localPath, m_reprojection.get(), inserter))
             {
-                reader->setSpatialReference(
-                        pdal::SpatialReference(m_reprojection->in()));
-
-                sharedFilter = createReprojectionFilter(
-                        *m_stageFactory,
-                        *m_reprojection,
-                        pointTable);
+                m_manifest.addError(origin);
             }
-
-            pdal::Filter* filter(sharedFilter.get());
-
-            // TODO Should pass to insert as reference, not ptr.
-            std::unique_ptr<Clipper> clipper(new Clipper(*this));
-            Clipper* clipperPtr(clipper.get());
-
-            std::size_t begin(0);
-            const std::size_t pointSize(m_schema->pointSize());
-
-            // Set up our per-point data handler.
-            reader->setReadCb(
-                    [
-                        this,
-                        &pointTable,
-                        &begin,
-                        pointSize,
-                        filter,
-                        origin,
-                        clipperPtr
-                    ]
-                    (pdal::PointView& view, pdal::PointId index)
-            {
-                const std::size_t indexSpan(index - begin);
-
-                if (
-                        pointTable.size() == indexSpan + 1 &&
-                        pointTable.data().size() > chunkBytes)
-                {
-                    LinkingPointView link(pointTable);
-
-                    if (filter) pdal::FilterWrapper::filter(*filter, link);
-
-                    insert(link, origin, clipperPtr);
-
-                    pointTable.clear();
-                    begin = index + 1;
-                }
-            });
-
-            reader->prepare(pointTable);
-            reader->execute(pointTable);
-
-            // Insert leftover points.
-            LinkingPointView link(pointTable);
-            if (filter) pdal::FilterWrapper::filter(*filter, link);
-            insert(link, origin, clipperPtr);
         }
-        else
+        catch (std::runtime_error e)
         {
-            // TODO Mark this file as not inserted.  This is not exceptional,
-            // especially if we're inserting from a globbed path which may
-            // contain non-point-cloud files.
+            std::cout << "During " << path << ": " << e.what() << std::endl;
+            m_manifest.addError(origin);
+        }
+        catch (...)
+        {
+            std::cout << "Caught unknown error during " << path << std::endl;
+            m_manifest.addError(origin);
         }
 
         std::cout << "\tDone " << origin << " - " << path << std::endl;
+
         if (isRemote && !fs::removeFile(localPath))
         {
             std::cout << "Couldn't delete " << localPath << std::endl;
@@ -345,6 +208,62 @@ void Builder::insert(
     }
 }
 
+void Builder::inferBBox(const std::string path)
+{
+    std::cout << "Inferring bounds from " << path << "..." << std::endl;
+
+    // Use BBox::set() to avoid malformed BBox warning.
+    BBox bbox;
+    bbox.set(
+            Point(
+                std::numeric_limits<double>::max(),
+                std::numeric_limits<double>::max()),
+            Point(
+                std::numeric_limits<double>::lowest(),
+                std::numeric_limits<double>::lowest()));
+
+    const std::string localPath(localize(path, 0));
+
+    auto bounder([this, &bbox](pdal::PointView& view)->void
+    {
+        for (std::size_t i = 0; i < view.size(); ++i)
+        {
+            bbox.grow(
+                    Point(
+                        view.getFieldAs<double>(pdal::Dimension::Id::X, i),
+                        view.getFieldAs<double>(pdal::Dimension::Id::Y, i)));
+        }
+    });
+
+    if (!m_executor->run(localPath, m_reprojection.get(), bounder))
+    {
+        throw std::runtime_error("Error inferring bounds");
+    }
+
+    m_bbox.reset(
+            new BBox(
+                Point(std::floor(bbox.min().x), std::floor(bbox.min().y)),
+                Point(std::ceil(bbox.max().x),  std::ceil(bbox.max().y))));
+
+    std::cout << "Got: " << m_bbox->toJson().toStyledString() << std::endl;
+}
+
+std::string Builder::localize(const std::string path, const Origin origin)
+{
+    Source source(m_arbiter->getSource(path));
+    std::string localPath(source.path());
+
+    if (source.isRemote())
+    {
+        const std::string subpath(name() + "-" + std::to_string(origin));
+
+        localPath = m_tmpSource.resolve(subpath);
+        m_tmpSource.put(subpath, source.getRoot());
+    }
+
+    return localPath;
+}
+
 void Builder::clip(Clipper* clipper, std::size_t index)
 {
     m_registry->clip(clipper, index);
@@ -392,37 +311,6 @@ void Builder::load()
                 meta["registry"]));
 }
 
-Json::Value Builder::saveProps() const
-{
-    // Reprojection info is intentionally omitted here, for now.  This would
-    // allow a saved build that was reprojected from A->B to be continued with
-    // a different set of files needing projection from X->Y, without requiring
-    // this to be set per-file in the configuration.
-
-    Json::Value props;
-
-    props["bbox"] = m_bbox->toJson();
-    props["schema"] = m_schema->toJson();
-    props["dimensions"] = static_cast<Json::UInt64>(m_dimensions);
-    props["chunkPoints"] = static_cast<Json::UInt64>(m_chunkPoints);
-    props["numPoints"] = static_cast<Json::UInt64>(m_numPoints);
-    props["numTossed"] = static_cast<Json::UInt64>(m_numTossed);
-    props["manifest"] = m_manifest.getJson();
-
-    return props;
-}
-
-void Builder::loadProps(const Json::Value& props)
-{
-    m_bbox.reset(new BBox(BBox::fromJson(props["bbox"])));
-    m_schema.reset(new Schema(Schema::fromJson(props["schema"])));
-    m_dimensions = props["dimensions"].asUInt64();
-    m_chunkPoints = props["chunkPoints"].asUInt64();
-    m_numPoints = props["numPoints"].asUInt64();
-    m_numTossed = props["numTossed"].asUInt64();
-    m_manifest = Manifest(props["manifest"]);
-}
-
 void Builder::finalize(
         const std::string path,
         const std::size_t chunkPoints,
@@ -459,6 +347,56 @@ void Builder::finalize(
     }
 
     outputSource.put("ids", jsonIds.toStyledString());
+}
+
+Json::Value Builder::saveProps() const
+{
+    // Reprojection info is intentionally omitted here, for now.  This would
+    // allow a saved build that was reprojected from A->B to be continued with
+    // a different set of files needing projection from X->Y, without requiring
+    // this to be set per-file in the configuration.
+
+    Json::Value props;
+
+    props["bbox"] = m_bbox->toJson();
+    props["schema"] = m_schema->toJson();
+    props["dimensions"] = static_cast<Json::UInt64>(m_dimensions);
+    props["chunkPoints"] = static_cast<Json::UInt64>(m_chunkPoints);
+    props["numPoints"] = static_cast<Json::UInt64>(m_numPoints);
+    props["numTossed"] = static_cast<Json::UInt64>(m_numTossed);
+    props["manifest"] = m_manifest.getJson();
+
+    return props;
+}
+
+void Builder::loadProps(const Json::Value& props)
+{
+    m_bbox.reset(new BBox(BBox::fromJson(props["bbox"])));
+    m_schema.reset(new Schema(Schema::fromJson(props["schema"])));
+    m_executor.reset(new Executor(*m_schema));
+    m_dimensions = props["dimensions"].asUInt64();
+    m_chunkPoints = props["chunkPoints"].asUInt64();
+    m_numPoints = props["numPoints"].asUInt64();
+    m_numTossed = props["numTossed"].asUInt64();
+    m_manifest = Manifest(props["manifest"]);
+}
+
+void Builder::prep()
+{
+    if (m_tmpSource.isRemote())
+    {
+        throw std::runtime_error("Tmp path must be local");
+    }
+
+    if (!fs::mkdirp(m_tmpSource.path()))
+    {
+        throw std::runtime_error("Couldn't create tmp directory");
+    }
+
+    if (!m_buildSource.isRemote() && !fs::mkdirp(m_buildSource.path()))
+    {
+        throw std::runtime_error("Couldn't create local build directory");
+    }
 }
 
 std::string Builder::name() const

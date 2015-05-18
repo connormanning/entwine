@@ -17,7 +17,6 @@
 #include <pdal/PointTable.hpp>
 
 #include <entwine/compression/util.hpp>
-#include <entwine/http/s3.hpp>
 #include <entwine/third/json/json.h>
 #include <entwine/tree/branches/chunk.hpp>
 #include <entwine/types/linking-point-view.hpp>
@@ -37,7 +36,8 @@ BaseBranch::BaseBranch(
         const Schema& schema,
         const std::size_t dimensions,
         const std::size_t depthEnd)
-    : Branch(source, schema, dimensions, depthBegin(), depthEnd)
+    // TODO Take depthBegin as parameter.
+    : Branch(source, schema, dimensions, 0, depthEnd)
     , m_chunk(new Chunk(schema, depthBegin(), indexSpan()))
 {
     // TODO
