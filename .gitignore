@@ -1,8 +1,5 @@
 credentials.json
 CMakeCache.txt
 
-config/*
-progress/*
-
 .DS_Store
 
