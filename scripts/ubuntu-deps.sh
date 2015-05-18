@@ -37,20 +37,25 @@ pkg=(
 
 apt-get install -q -y -V ${pkg[@]}
 
+# Install las-zip.
+git clone https://github.com/LASzip/LASzip.git laszip
+cd laszip
+cmake . -DCMAKE_INSTALL_PREFIX=/usr && make && make install
+cd -
+
 # Install laz-perf.
 git clone https://github.com/verma/laz-perf.git laz-perf
 cd laz-perf
 git checkout c3d9de3b148a2f4a1ea0844021040addcfccb24f
-cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX=/usr .
-make
-make install
+cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX=/usr . && make && make install
 cd -
 
 # Install PDAL.
 NUMTHREADS=2
 if [[ -f /sys/devices/system/cpu/online ]]; then
 	# Calculates 1.5 times physical threads
-	NUMTHREADS=$(( ( $(cut -f 2 -d '-' /sys/devices/system/cpu/online) + 1 ) * 15 / 10  ))
+	NUMTHREADS= \
+        $((($(cut -f 2 -d '-' /sys/devices/system/cpu/online) + 1) * 15 / 10))
 fi
 export NUMTHREADS
 git clone https://github.com/PDAL/PDAL.git pdal
@@ -62,7 +67,6 @@ cmake   -G "Unix Makefiles" \
         -DWITH_LASZIP=ON \
         -DWITH_LAZPERF=ON \
         -DWITH_TESTS=OFF
-make -j $NUMTHREADS
-make install
+make -j $NUMTHREADS && make install
 cd -
 
