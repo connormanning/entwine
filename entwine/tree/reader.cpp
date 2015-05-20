@@ -76,7 +76,8 @@ Reader::Reader(
         m_bbox.reset(new BBox(props["bbox"]));
         m_schema.reset(new Schema(props["schema"]));
         m_structure.reset(new Structure(props["structure"]));
-        m_reprojection.reset(new Reprojection(props["reprojection"]));
+        if (props.isMember("reprojection"))
+            m_reprojection.reset(new Reprojection(props["reprojection"]));
         m_manifest.reset(new Manifest(props["manifest"]));
 
         m_numPoints = props["numPoints"].asUInt64();
