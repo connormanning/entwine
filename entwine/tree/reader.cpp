@@ -98,7 +98,9 @@ Reader::Reader(
 
     {
         std::unique_ptr<std::vector<char>> data(
-                new std::vector<char>(m_source.get("0")));
+                new std::vector<char>(
+                    m_source.get(
+                        std::to_string(m_structure->baseIndexBegin()))));
 
         m_base = ChunkReader::create(
                 *m_schema,
