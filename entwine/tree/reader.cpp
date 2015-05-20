@@ -105,7 +105,7 @@ Reader::Reader(
         m_base = ChunkReader::create(
                 *m_schema,
                 m_structure->baseIndexBegin(),
-                m_structure->chunkPoints(),
+                m_structure->baseIndexSpan(),
                 std::move(data));
     }
 }
