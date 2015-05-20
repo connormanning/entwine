@@ -216,7 +216,7 @@ int main(int argc, char** argv)
     std::string credPath("credentials.json");
     bool force(false);
 
-    std::size_t argNum(2);
+    int argNum(2);
 
     while (argNum < argc)
     {
