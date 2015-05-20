@@ -311,7 +311,7 @@ Json::Value Builder::saveProps() const
     props["bbox"] = m_bbox->toJson();
     props["schema"] = m_schema->toJson();
     props["structure"] = m_structure->toJson();
-    props["reprojection"] = m_reprojection->toJson();
+    if (m_reprojection) props["reprojection"] = m_reprojection->toJson();
     props["manifest"] = m_manifest->toJson();
 
     props["numPoints"] = static_cast<Json::UInt64>(m_numPoints);
@@ -325,7 +325,8 @@ void Builder::loadProps(const Json::Value& props)
     m_bbox.reset(new BBox(props["bbox"]));
     m_schema.reset(new Schema(props["schema"]));
     m_structure.reset(new Structure(props["structure"]));
-    m_reprojection.reset(new Reprojection(props["reprojection"]));
+    if (props.isMember("reprojection"))
+        m_reprojection.reset(new Reprojection(props["reprojection"]));
     m_manifest.reset(new Manifest(props["manifest"]));
 
     m_numPoints = props["numPoints"].asUInt64();
