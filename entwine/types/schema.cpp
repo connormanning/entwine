@@ -45,6 +45,24 @@ Schema::Schema(DimList dims)
     , m_dims(dims)
 { }
 
+Schema::Schema(const Json::Value& json)
+    : m_layout()
+    , m_dims()
+{
+    for (Json::ArrayIndex i(0); i < json.size(); ++i)
+    {
+        const Json::Value& jsonDim(json[i]);
+        m_dims.push_back(
+                DimInfo(
+                    jsonDim["name"].asString(),
+                    jsonDim["type"].asString(),
+                    jsonDim["size"].asUInt64()));
+    }
+
+    m_layout = makePointLayout(m_dims);
+}
+
+
 Schema::~Schema()
 { }
 
@@ -89,21 +107,6 @@ Json::Value Schema::toJson() const
         json.append(cur);
     }
     return json;
-}
-
-DimList Schema::fromJson(const Json::Value& json)
-{
-    std::vector<DimInfo> dims;
-    for (Json::ArrayIndex i(0); i < json.size(); ++i)
-    {
-        const Json::Value& jsonDim(json[i]);
-        dims.push_back(
-                DimInfo(
-                    jsonDim["name"].asString(),
-                    jsonDim["type"].asString(),
-                    jsonDim["size"].asUInt64()));
-    }
-    return dims;
 }
 
 } // namespace entwine

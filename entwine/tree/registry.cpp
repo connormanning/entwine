@@ -16,95 +16,68 @@
 #include <entwine/third/json/json.h>
 #include <entwine/tree/roller.hpp>
 #include <entwine/tree/point-info.hpp>
-#include <entwine/tree/branches/base.hpp>
-#include <entwine/tree/branches/clipper.hpp>
-#include <entwine/tree/branches/cold.hpp>
-#include <entwine/tree/branches/flat.hpp>
+#include <entwine/tree/chunk.hpp>
+#include <entwine/tree/clipper.hpp>
+#include <entwine/tree/cold.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/structure.hpp>
 #include <entwine/util/pool.hpp>
 
 namespace entwine
 {
 
 Registry::Registry(
-        Source& buildSource,
+        Source& source,
         const Schema& schema,
-        const std::size_t dimensions,
-        const std::size_t chunkPoints,
-        const std::size_t baseDepth,
-        const std::size_t rawFlatDepth,
-        const std::size_t rawColdDepth)
-    : m_baseBranch()
-    , m_flatBranch()
-    , m_coldBranch()
+        const Structure& structure)
+    : m_source(source)
+    , m_schema(schema)
+    , m_structure(structure)
+    , m_base()
+    , m_cold()
 {
-    // Ensure ascending order.
-    const std::size_t flatDepth(std::max(baseDepth, rawFlatDepth));
-    const std::size_t coldDepth(std::max(flatDepth, rawColdDepth));
-
-    if (coldDepth > flatDepth)
+    if (m_structure.baseIndexSpan())
     {
-        m_coldBranch.reset(
-                new ColdBranch(
-                    buildSource,
-                    schema,
-                    dimensions,
-                    chunkPoints,
-                    flatDepth,
-                    coldDepth));
+        m_base.reset(
+                new Chunk(
+                    m_schema,
+                    m_structure.baseIndexBegin(),
+                    m_structure.baseIndexEnd(),
+                    true));
     }
 
-    if (flatDepth > baseDepth)
+    if (m_structure.coldIndexSpan())
     {
-        throw std::runtime_error("Flat branch unsupported");
-    }
-
-    if (baseDepth)
-    {
-        m_baseBranch.reset(
-                new BaseBranch(
-                    buildSource,
-                    schema,
-                    dimensions,
-                    baseDepth));
+        m_cold.reset(new Cold(source, schema, m_structure));
     }
 }
 
 Registry::Registry(
-        Source& buildSource,
+        Source& source,
         const Schema& schema,
-        const std::size_t dimensions,
-        const std::size_t chunkPoints,
+        const Structure& structure,
         const Json::Value& meta)
-    : m_baseBranch()
-    , m_flatBranch()
-    , m_coldBranch()
+    : m_source(source)
+    , m_schema(schema)
+    , m_structure(structure)
+    , m_base()
+    , m_cold()
 {
-    if (meta.isMember("base"))
+    if (m_structure.baseIndexSpan())
     {
-        m_baseBranch.reset(
-                new BaseBranch(
-                    buildSource,
-                    schema,
-                    dimensions,
-                    meta["base"]));
+        m_base.reset(
+                new Chunk(
+                    m_schema,
+                    m_structure.baseIndexBegin(),
+                    m_structure.baseIndexEnd(),
+                    m_source.get(std::to_string(
+                            m_structure.baseIndexBegin()))));
     }
 
-    if (meta.isMember("flat"))
+    if (m_structure.coldIndexSpan())
     {
-        throw std::runtime_error("Flat branch unsupported");
-    }
-
-    if (meta.isMember("cold"))
-    {
-        m_coldBranch.reset(
-                new ColdBranch(
-                    buildSource,
-                    schema,
-                    dimensions,
-                    chunkPoints,
-                    meta["cold"]));
+        m_cold.reset(new Cold(source, schema, m_structure, meta));
     }
 }
 
@@ -115,72 +88,123 @@ bool Registry::addPoint(PointInfo** toAddPtr, Roller& roller, Clipper* clipper)
 {
     bool accepted(false);
 
-    if (Branch* branch = getBranch(clipper, roller.index()))
+    if (tryAdd(toAddPtr, roller, clipper))
     {
-        if (!branch->addPoint(toAddPtr, roller))
+        accepted = true;
+    }
+    else
+    {
+        roller.magnify((*toAddPtr)->point);
+
+        if (m_structure.inRange(roller.index()))
         {
-            roller.magnify((*toAddPtr)->point);
             accepted = addPoint(toAddPtr, roller, clipper);
         }
         else
         {
-            accepted = true;
+            // This point fell beyond the bottom of the tree.
+            delete (*toAddPtr)->point;
+            delete (*toAddPtr);
         }
-    }
-    else
-    {
-        delete (*toAddPtr)->point;
-        delete (*toAddPtr);
     }
 
     return accepted;
 }
 
-void Registry::clip(Clipper* clipper, std::size_t index)
+bool Registry::tryAdd(
+        PointInfo** toAddPtr,
+        const Roller& roller,
+        Clipper* clipper)
 {
-    if (Branch* branch = getBranch(clipper, index))
+    bool done(false);
+
+    const std::size_t index(roller.index());
+
+    if (Entry* entry = getEntry(index, clipper))
     {
-        branch->clip(clipper, index);
+        PointInfo* toAdd(*toAddPtr);
+        std::atomic<const Point*>& myPoint(entry->point());
+
+        if (myPoint.load())
+        {
+            const Point mid(roller.bbox().mid());
+
+            if (toAdd->point->sqDist(mid) < myPoint.load()->sqDist(mid))
+            {
+                std::lock_guard<std::mutex> lock(entry->mutex());
+                const Point* curPoint(myPoint.load());
+
+                if (toAdd->point->sqDist(mid) < curPoint->sqDist(mid))
+                {
+                    // Pull out the old stored value and store the Point that
+                    // was in our atomic member, so we can overwrite that with
+                    // the new one.
+                    PointInfo* old(
+                            new PointInfo(
+                                curPoint,
+                                entry->data(),
+                                m_schema.pointSize()));
+
+                    // Store this point.
+                    toAdd->write(entry->data());
+                    myPoint.store(toAdd->point);
+                    delete toAdd;
+
+                    // Send our old stored value downstream.
+                    *toAddPtr = old;
+                }
+            }
+        }
+        else
+        {
+            std::unique_lock<std::mutex> lock(entry->mutex());
+            if (!myPoint.load())
+            {
+                toAdd->write(entry->data());
+                myPoint.store(toAdd->point);
+                delete toAdd;
+                done = true;
+            }
+            else
+            {
+                // Someone beat us here, call again to enter the other branch.
+                // Be sure to unlock our mutex first.
+                lock.unlock();
+                done = tryAdd(toAddPtr, roller, clipper);
+            }
+        }
     }
+
+    return done;
 }
 
-void Registry::save(Json::Value& meta) const
+
+void Registry::save(Json::Value& meta)
 {
-    if (m_baseBranch) m_baseBranch->save(meta["base"]);
-    if (m_flatBranch) m_flatBranch->save(meta["flat"]);
-    if (m_coldBranch) m_coldBranch->save(meta["cold"]);
+    m_base->save(m_source);
+
+    if (m_cold) meta["ids"] = m_cold->toJson();
 }
 
-void Registry::finalize(
-        Source& output,
-        Pool& pool,
-        std::vector<std::size_t>& ids,
-        std::size_t start,
-        std::size_t chunk)
+Entry* Registry::getEntry(const std::size_t index, Clipper* clipper)
 {
-    if (m_baseBranch) m_baseBranch->finalize(output, pool, ids, start, chunk);
-    if (m_flatBranch) m_flatBranch->finalize(output, pool, ids, start, chunk);
-    if (m_coldBranch) m_coldBranch->finalize(output, pool, ids, start, chunk);
+    Entry* entry(0);
+
+    if (m_structure.isWithinBase(index))
+    {
+        entry = m_base->getEntry(index);
+    }
+    else if (m_structure.isWithinCold(index))
+    {
+        entry = m_cold->getEntry(index, clipper);
+    }
+
+    return entry;
 }
 
-Branch* Registry::getBranch(Clipper* clipper, const std::size_t index) const
+void Registry::clip(const std::size_t index, Clipper* clipper)
 {
-    Branch* branch(0);
-
-    if (m_baseBranch && m_baseBranch->accepts(clipper, index))
-    {
-        branch = m_baseBranch.get();
-    }
-    else if (m_flatBranch && m_flatBranch->accepts(clipper, index))
-    {
-        branch = m_flatBranch.get();
-    }
-    else if (m_coldBranch && m_coldBranch->accepts(clipper, index))
-    {
-        branch = m_coldBranch.get();
-    }
-
-    return branch;
+    m_cold->clip(index, clipper);
 }
 
 } // namespace entwine

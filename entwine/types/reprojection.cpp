@@ -10,6 +10,8 @@
 
 #include <entwine/types/reprojection.hpp>
 
+#include <entwine/third/json/json.h>
+
 namespace entwine
 {
 
@@ -17,6 +19,19 @@ Reprojection::Reprojection(const std::string in, const std::string out)
     : m_in(in)
     , m_out(out)
 { }
+
+Reprojection::Reprojection(const Json::Value& json)
+    : m_in(json["in"].asString())
+    , m_out(json["out"].asString())
+{ }
+
+Json::Value Reprojection::toJson() const
+{
+    Json::Value json;
+    json["in"] = in();
+    json["out"] = out();
+    return json;
+}
 
 std::string Reprojection::in() const
 {

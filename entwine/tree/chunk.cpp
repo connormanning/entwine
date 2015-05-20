@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include <entwine/tree/branches/chunk.hpp>
+#include <entwine/tree/chunk.hpp>
 
 #include <pdal/Dimension.hpp>
 #include <pdal/PointView.hpp>
@@ -103,32 +103,6 @@ void ChunkData::save(Source& source)
     write(source, m_id, endId());
 }
 
-void ChunkData::finalize(
-        Source& source,
-        std::vector<std::size_t>& ids,
-        std::mutex& idsMutex,
-        const std::size_t start,
-        const std::size_t chunkPoints)
-{
-    // This may only occur for the base branch's chunk, since the start of
-    // chunked data must occur within or at the end of the base branch.
-    if (start > m_id)
-    {
-        write(source, m_id, start);
-
-        std::lock_guard<std::mutex> lock(idsMutex);
-        ids.push_back(m_id);
-    }
-
-    for (std::size_t id(std::max(start, m_id)); id < endId(); id += chunkPoints)
-    {
-        write(source, id, id + chunkPoints);
-
-        std::lock_guard<std::mutex> lock(idsMutex);
-        ids.push_back(id);
-    }
-}
-
 std::size_t ChunkData::endId() const
 {
     return m_id + m_maxPoints;
@@ -208,7 +182,7 @@ SparseChunkData::SparseChunkData(
     }
 }
 
-Entry& SparseChunkData::getEntry(const std::size_t rawIndex)
+Entry* SparseChunkData::getEntry(const std::size_t rawIndex)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -219,7 +193,7 @@ Entry& SparseChunkData::getEntry(const std::size_t rawIndex)
         it = m_entries.emplace(rawIndex, SparseEntry(m_schema)).first;
     }
 
-    return *it->second.entry;
+    return it->second.entry.get();
 }
 
 void SparseChunkData::write(
@@ -385,9 +359,9 @@ ContiguousChunkData::ContiguousChunkData(SparseChunkData& sparse)
     sparse.m_entries.clear();
 }
 
-Entry& ContiguousChunkData::getEntry(std::size_t rawIndex)
+Entry* ContiguousChunkData::getEntry(std::size_t rawIndex)
 {
-    return *m_entries[normalize(rawIndex)];
+    return m_entries[normalize(rawIndex)].get();
 }
 
 void ContiguousChunkData::write(
@@ -492,13 +466,14 @@ std::unique_ptr<ChunkData> ChunkDataFactory::create(
 Chunk::Chunk(
         const Schema& schema,
         const std::size_t id,
-        const std::size_t maxPoints)
+        const std::size_t maxPoints,
+        const bool forceContiguous)
     : m_chunkData(
-            id ?
+            forceContiguous ?
                 static_cast<ChunkData*>(
-                    new SparseChunkData(schema, id, maxPoints)) :
+                    new ContiguousChunkData(schema, id, maxPoints)) :
                 static_cast<ChunkData*>(
-                    new ContiguousChunkData(schema, id, maxPoints)))
+                    new SparseChunkData(schema, id, maxPoints)))
     , m_threshold(getThreshold(schema))
     , m_mutex()
     , m_converting(false)
@@ -515,7 +490,7 @@ Chunk::Chunk(
     , m_converting(false)
 { }
 
-Entry& Chunk::getEntry(std::size_t rawIndex)
+Entry* Chunk::getEntry(std::size_t rawIndex)
 {
     if (m_chunkData->isSparse())
     {
@@ -550,17 +525,6 @@ void Chunk::save(Source& source)
 {
     m_chunkData->save(source);
 }
-
-void Chunk::finalize(
-        Source& source,
-        std::vector<std::size_t>& ids,
-        std::mutex& idsMutex,
-        const std::size_t start,
-        const std::size_t chunkPoints)
-{
-    m_chunkData->finalize(source, ids, idsMutex, start, chunkPoints);
-}
-
 
 
 

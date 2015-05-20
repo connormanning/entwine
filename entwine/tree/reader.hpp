@@ -27,10 +27,13 @@ namespace entwine
 class BBox;
 class ChunkReader;
 class Driver;
+class Manifest;
 class Point;
 class Pool;
 class Roller;
+class Reprojection;
 class Schema;
+class Structure;
 
 class Reader
 {
@@ -92,17 +95,16 @@ private:
 
     void fetch(std::size_t chunkId);
 
-    std::size_t m_firstChunk;
-    std::size_t m_chunkPoints;
-    std::set<std::size_t> m_ids;
     std::unique_ptr<BBox> m_bbox;
     std::unique_ptr<Schema> m_schema;
+    std::unique_ptr<Structure> m_structure;
+    std::unique_ptr<Reprojection> m_reprojection;
+    std::unique_ptr<Manifest> m_manifest;
 
-    std::size_t m_dimensions;
     std::size_t m_numPoints;
     std::size_t m_numTossed;
 
-    std::vector<std::string> m_originList;
+    std::set<std::size_t> m_ids;
 
     Source m_source;
 

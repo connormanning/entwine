@@ -3,8 +3,10 @@ set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 set(
     SOURCES
-    "${BASE}/branch.cpp"
     "${BASE}/builder.cpp"
+    "${BASE}/cold.cpp"
+    "${BASE}/chunk.cpp"
+    "${BASE}/clipper.cpp"
     "${BASE}/manifest.cpp"
     "${BASE}/point-info.cpp"
     "${BASE}/reader.cpp"
@@ -14,16 +16,16 @@ set(
 
 set(
     HEADERS
-    "${BASE}/branch.hpp"
     "${BASE}/builder.hpp"
+    "${BASE}/cold.hpp"
+    "${BASE}/chunk.hpp"
+    "${BASE}/clipper.hpp"
     "${BASE}/manifest.hpp"
     "${BASE}/point-info.hpp"
     "${BASE}/reader.hpp"
     "${BASE}/registry.hpp"
     "${BASE}/roller.hpp"
 )
-
-add_subdirectory(branches)
 
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})
 add_library(${MODULE} OBJECT ${SOURCES} ${BRANCHES_SOURCES})

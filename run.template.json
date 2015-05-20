@@ -9,6 +9,9 @@
         // requiring configuration changes for each run.
         "run": 0,
 
+        // Number of worker threads for simultaneous point insertion.
+        "threads": 24,
+
         "manifest": [
             // TODO Allow directory/bucket globbing.
 
@@ -25,59 +28,47 @@
             "s3://my-bucket/iowa//johnson-county.sbet"
         ]
     },
-    "build": {
-        // Any path type show above supported.  In-progress builds will be
-        // stored here, and progress may be resumed/more files added later.
-        "path": "./progress",
+    "output": {
+        // Final output location.
+        "path": "./usa/il/chicago/index",
 
         // Path for temporary storage used by entwine.  Must be a local
         // filesystem path.
         "tmp":  "./tmp",
 
-        // Number of worker threads for simultaneous point insertion.
-        "threads": 24,
-
-        "tree": {
-            // TODO Abstract configuration of pointsPerChunk to something
-            // based on the desired base depth.
-
-            // Number of points per chunk for flat and cold tree branches.
-            // Must be a power of 4 and no less than 4096.
-            "pointsPerChunk": 65536,
-
-            // End depth level of pre-allocated base branch.
-            "baseDepth": 8,
-
-            // End depth level of on-demand allocated remote branch.
-            "coldDepth": 10
-        }
-    },
-    "output": {
-        // Final output location.
-        "path": "s3://entwine-bucket/path",
-
-        // Tree depth of the base chunk of the tree.
-        "baseDepth": 8,
-
-        // Number of points per chunk for remote serialization for tree levels
-        // greater than or equal to base depth.  Must be a power of 4, no less
-        // than 4096, and must not be greater than build.tree.pointsPerChunk,
-        // specified above.
-        "pointsPerChunk": 65536,
-
         // TODO Currently ignored - always compressed.
-
         // True to compress output.
         "compress": true
     },
-    "geometry": {
+    "structure": {
+        // TODO Currently ignored.
+        // Starting depth level of the base of the tree.
+        "nullDepth": 0,
+
+        // End depth level of pre-allocated base chunk.
+        "baseDepth": 8,
+
+        // End depth level of on-demand allocated set of data chunks.
+        "coldDepth": 10,
+
+        // Number of points per chunk for the tree depths from baseDepth up to,
+        // but not including, coldDepth.
+        //
+        // (4 ^ baseDepth) / pointsPerChunk must be a whole number.
+        "pointsPerChunk": 65536,
+
         // TODO Allow octree.
 
         // Valid values are "quadtree" and "octree".
-        "type": "quadtree",
-
+        "type": "quadtree"
+    },
+    "geometry": {
         // Bounding box for the entire dataset.  Points outside this box will
         // be discarded from the resulting index.
+        //
+        // In the case that there is only a single source file for the input,
+        // this may be set to null, in which case the bounding box will be
+        // inferred from the bounds of the sole contributing file.
         //
         // Format: [ x-min, y-min, x-max, y-max ].
         "bbox": [

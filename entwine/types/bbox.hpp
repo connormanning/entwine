@@ -22,6 +22,7 @@ public:
     BBox();
     BBox(Point min, Point max);
     BBox(const BBox& other);
+    BBox(const Json::Value& json);
 
     void set(Point min, Point max);
 
@@ -46,7 +47,6 @@ public:
     bool exists() const;
 
     Json::Value toJson() const;
-    static BBox fromJson(const Json::Value& json);
 
     void grow(const Point& p);
 

@@ -16,10 +16,9 @@
 
 #include <entwine/compression/util.hpp>
 #include <entwine/drivers/arbiter.hpp>
-#include <entwine/tree/branch.hpp>
 #include <entwine/tree/roller.hpp>
 #include <entwine/tree/registry.hpp>
-#include <entwine/tree/branches/clipper.hpp>
+#include <entwine/tree/clipper.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/reprojection.hpp>
@@ -34,69 +33,53 @@ namespace entwine
 {
 
 Builder::Builder(
-        const std::string buildPath,
+        const std::string outPath,
         const std::string tmpPath,
         const Reprojection* reprojection,
         const BBox* bbox,
         const DimList& dimList,
         const std::size_t numThreads,
-        const std::size_t numDimensions,
-        const std::size_t chunkPoints,
-        const std::size_t baseDepth,
-        const std::size_t flatDepth,
-        const std::size_t diskDepth,
+        const Structure& structure,
         std::shared_ptr<Arbiter> arbiter)
-    : m_reprojection(reprojection ? new Reprojection(*reprojection) : 0)
-    , m_bbox(bbox ? new BBox(*bbox) : 0)
+    : m_bbox(bbox ? new BBox(*bbox) : 0)
     , m_schema(new Schema(dimList))
-    , m_originId(m_schema->pdalLayout().findDim("Origin"))
-    , m_dimensions(numDimensions)
-    , m_chunkPoints(chunkPoints)
+    , m_structure(new Structure(structure))
+    , m_reprojection(reprojection ? new Reprojection(*reprojection) : 0)
+    , m_manifest(new Manifest())
     , m_numPoints(0)
     , m_numTossed(0)
-    , m_manifest()
     , m_pool(new Pool(numThreads))
     , m_executor(new Executor(*m_schema))
+    , m_originId(m_schema->pdalLayout().findDim("Origin"))
     , m_arbiter(arbiter ? arbiter : std::make_shared<Arbiter>(Arbiter()))
-    , m_buildSource(m_arbiter->getSource(buildPath))
-    , m_tmpSource  (m_arbiter->getSource(tmpPath))
+    , m_outSource(m_arbiter->getSource(outPath))
+    , m_tmpSource(m_arbiter->getSource(tmpPath))
     , m_registry(
             new Registry(
-                m_buildSource,
-                *m_schema.get(),
-                m_dimensions,
-                m_chunkPoints,
-                baseDepth,
-                flatDepth,
-                diskDepth))
+                m_outSource,
+                *m_schema,
+                *m_structure))
 {
     prep();
-
-    if (m_dimensions != 2)
-    {
-        // TODO
-        throw std::runtime_error("TODO - Only 2 dimensions so far");
-    }
 }
 
 Builder::Builder(
-        const std::string buildPath,
+        const std::string outPath,
         const std::string tmpPath,
-        const Reprojection* reprojection,
         const std::size_t numThreads,
         std::shared_ptr<Arbiter> arbiter)
-    : m_reprojection(reprojection ? new Reprojection(*reprojection) : 0)
-    , m_bbox()
+    : m_bbox()
     , m_schema()
-    , m_dimensions(0)
+    , m_structure()
+    , m_reprojection()
+    , m_manifest()
     , m_numPoints(0)
     , m_numTossed(0)
-    , m_manifest()
     , m_pool(new Pool(numThreads))
     , m_executor()
     , m_arbiter(arbiter ? arbiter : std::make_shared<Arbiter>(Arbiter()))
-    , m_buildSource(m_arbiter->getSource(buildPath))
-    , m_tmpSource  (m_arbiter->getSource(tmpPath))
+    , m_outSource(m_arbiter->getSource(outPath))
+    , m_tmpSource(m_arbiter->getSource(tmpPath))
     , m_registry()
 {
     prep();
@@ -110,11 +93,11 @@ bool Builder::insert(const std::string path)
 {
     if (!m_executor->good(path))
     {
-        m_manifest.addOmission(path);
+        m_manifest->addOmission(path);
         return false;
     }
 
-    const Origin origin(m_manifest.addOrigin(path));
+    const Origin origin(m_manifest->addOrigin(path));
 
     if (origin == Manifest::invalidOrigin()) return false;  // Already inserted.
 
@@ -127,41 +110,41 @@ bool Builder::insert(const std::string path)
 
     m_pool->add([this, origin, path]()
     {
-        const bool isRemote(m_arbiter->getSource(path).isRemote());
-        const std::string localPath(localize(path, origin));
-
-        std::unique_ptr<Clipper> clipperPtr(new Clipper(*this));
-        Clipper* clipper(clipperPtr.get());
-
-        auto inserter([this, origin, clipper](pdal::PointView& view)->void
-        {
-            insert(view, origin, clipper);
-        });
-
         try
         {
+            const bool isRemote(m_arbiter->getSource(path).isRemote());
+            const std::string localPath(localize(path, origin));
+
+            std::unique_ptr<Clipper> clipperPtr(new Clipper(*this));
+            Clipper* clipper(clipperPtr.get());
+
+            auto inserter([this, origin, clipper](pdal::PointView& view)->void
+            {
+                insert(view, origin, clipper);
+            });
+
             if (!m_executor->run(localPath, m_reprojection.get(), inserter))
             {
-                m_manifest.addError(origin);
+                m_manifest->addError(origin);
+            }
+
+            std::cout << "\tDone " << origin << " - " << path << std::endl;
+
+            if (isRemote && !fs::removeFile(localPath))
+            {
+                std::cout << "Couldn't delete " << localPath << std::endl;
+                throw std::runtime_error("Couldn't delete tmp file");
             }
         }
         catch (std::runtime_error e)
         {
             std::cout << "During " << path << ": " << e.what() << std::endl;
-            m_manifest.addError(origin);
+            m_manifest->addError(origin);
         }
         catch (...)
         {
             std::cout << "Caught unknown error during " << path << std::endl;
-            m_manifest.addError(origin);
-        }
-
-        std::cout << "\tDone " << origin << " - " << path << std::endl;
-
-        if (isRemote && !fs::removeFile(localPath))
-        {
-            std::cout << "Couldn't delete " << localPath << std::endl;
-            throw std::runtime_error("Couldn't delete tmp file");
+            m_manifest->addError(origin);
         }
     });
 
@@ -255,23 +238,56 @@ std::string Builder::localize(const std::string path, const Origin origin)
 
     if (source.isRemote())
     {
-        const std::string subpath(name() + "-" + std::to_string(origin));
+        std::size_t dot(path.find_last_of("."));
 
-        localPath = m_tmpSource.resolve(subpath);
-        m_tmpSource.put(subpath, source.getRoot());
+        if (dot != std::string::npos)
+        {
+            const std::string subpath(
+                    name() + "-" + std::to_string(origin) + path.substr(dot));
+
+            localPath = m_tmpSource.resolve(subpath);
+            m_tmpSource.put(subpath, source.getRoot());
+        }
+        else
+        {
+            throw std::runtime_error("Bad extension on: " + path);
+        }
     }
 
     return localPath;
 }
 
-void Builder::clip(Clipper* clipper, std::size_t index)
+void Builder::clip(std::size_t index, Clipper* clipper)
 {
-    m_registry->clip(clipper, index);
+    m_registry->clip(index, clipper);
 }
 
 void Builder::join()
 {
     m_pool->join();
+}
+
+void Builder::load()
+{
+    Json::Value meta;
+
+    {
+        Json::Reader reader;
+        const std::string data(m_outSource.getAsString("entwine"));
+        reader.parse(data, meta, false);
+    }
+
+    loadProps(meta);
+
+    m_executor.reset(new Executor(*m_schema));
+    m_originId = m_schema->pdalLayout().findDim("Origin");
+
+    m_registry.reset(
+            new Registry(
+                m_outSource,
+                *m_schema,
+                *m_structure,
+                meta));
 }
 
 void Builder::save()
@@ -281,104 +297,39 @@ void Builder::save()
 
     // Get our own metadata and the registry's - then serialize.
     Json::Value jsonMeta(saveProps());
-    m_registry->save(jsonMeta["registry"]);
-    m_buildSource.put("meta", jsonMeta.toStyledString());
+    m_registry->save(jsonMeta);
+    m_outSource.put("entwine", jsonMeta.toStyledString());
 
     // Re-allow inserts.
     m_pool->go();
 }
 
-void Builder::load()
-{
-    Json::Value meta;
-
-    {
-        Json::Reader reader;
-        const std::string data(m_buildSource.getAsString("meta"));
-        reader.parse(data, meta, false);
-    }
-
-    loadProps(meta);
-
-    m_originId = m_schema->pdalLayout().findDim("Origin");
-
-    m_registry.reset(
-            new Registry(
-                m_buildSource,
-                *m_schema.get(),
-                m_dimensions,
-                m_chunkPoints,
-                meta["registry"]));
-}
-
-void Builder::finalize(
-        const std::string path,
-        const std::size_t chunkPoints,
-        const std::size_t base,
-        const bool compress)
-{
-    Source outputSource(m_arbiter->getSource(path));
-    if (!outputSource.isRemote() && !fs::mkdirp(outputSource.path()))
-    {
-        throw std::runtime_error("Could not create " + outputSource.path());
-    }
-
-    std::unique_ptr<std::vector<std::size_t>> ids(
-            new std::vector<std::size_t>());
-
-    const std::size_t baseEnd(Branch::calcOffset(base, m_dimensions));
-
-    m_registry->finalize(outputSource, *m_pool, *ids, baseEnd, chunkPoints);
-    m_pool->join();
-
-    {
-        // Get our own metadata.
-        Json::Value jsonMeta(saveProps());
-        jsonMeta["numIds"] = static_cast<Json::UInt64>(ids->size());
-        jsonMeta["firstChunk"] = static_cast<Json::UInt64>(baseEnd);
-        jsonMeta["chunkPoints"] = static_cast<Json::UInt64>(chunkPoints);
-        outputSource.put("entwine", jsonMeta.toStyledString());
-    }
-
-    Json::Value jsonIds;
-    for (Json::ArrayIndex i(0); i < ids->size(); ++i)
-    {
-        jsonIds.append(static_cast<Json::UInt64>(ids->at(i)));
-    }
-
-    outputSource.put("ids", jsonIds.toStyledString());
-}
-
 Json::Value Builder::saveProps() const
 {
-    // Reprojection info is intentionally omitted here, for now.  This would
-    // allow a saved build that was reprojected from A->B to be continued with
-    // a different set of files needing projection from X->Y, without requiring
-    // this to be set per-file in the configuration.
-
     Json::Value props;
 
     props["bbox"] = m_bbox->toJson();
     props["schema"] = m_schema->toJson();
-    props["dimensions"] = static_cast<Json::UInt64>(m_dimensions);
-    props["chunkPoints"] = static_cast<Json::UInt64>(m_chunkPoints);
+    props["structure"] = m_structure->toJson();
+    props["reprojection"] = m_reprojection->toJson();
+    props["manifest"] = m_manifest->toJson();
+
     props["numPoints"] = static_cast<Json::UInt64>(m_numPoints);
     props["numTossed"] = static_cast<Json::UInt64>(m_numTossed);
-    props["manifest"] = m_manifest.getJson();
 
     return props;
 }
 
 void Builder::loadProps(const Json::Value& props)
 {
-    m_bbox.reset(new BBox(BBox::fromJson(props["bbox"])));
-    m_schema.reset(new Schema(Schema::fromJson(props["schema"])));
-    m_executor.reset(new Executor(*m_schema));
-    m_dimensions = props["dimensions"].asUInt64();
-    m_chunkPoints = props["chunkPoints"].asUInt64();
+    m_bbox.reset(new BBox(props["bbox"]));
+    m_schema.reset(new Schema(props["schema"]));
+    m_structure.reset(new Structure(props["structure"]));
+    m_reprojection.reset(new Reprojection(props["reprojection"]));
+    m_manifest.reset(new Manifest(props["manifest"]));
+
     m_numPoints = props["numPoints"].asUInt64();
     m_numTossed = props["numTossed"].asUInt64();
-    m_manifest = Manifest(props["manifest"]);
 }
 
 void Builder::prep()
@@ -393,7 +344,7 @@ void Builder::prep()
         throw std::runtime_error("Couldn't create tmp directory");
     }
 
-    if (!m_buildSource.isRemote() && !fs::mkdirp(m_buildSource.path()))
+    if (!m_outSource.isRemote() && !fs::mkdirp(m_outSource.path()))
     {
         throw std::runtime_error("Couldn't create local build directory");
     }
@@ -401,7 +352,7 @@ void Builder::prep()
 
 std::string Builder::name() const
 {
-    std::string name(m_buildSource.path());
+    std::string name(m_outSource.path());
 
     // TODO Temporary/hacky.
     const std::size_t pos(name.find_last_of("/\\"));

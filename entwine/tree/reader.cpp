@@ -12,12 +12,15 @@
 
 #include <entwine/compression/util.hpp>
 #include <entwine/drivers/source.hpp>
+#include <entwine/tree/chunk.hpp>
+#include <entwine/tree/manifest.hpp>
 #include <entwine/tree/roller.hpp>
-#include <entwine/tree/branches/chunk.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/linking-point-view.hpp>
+#include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/single-point-table.hpp>
+#include <entwine/types/structure.hpp>
 #include <entwine/util/pool.hpp>
 
 namespace entwine
@@ -43,15 +46,14 @@ Reader::Reader(
         Source source,
         const std::size_t cacheSize,
         const std::size_t queryLimit)
-    : m_firstChunk(0)
-    , m_chunkPoints(0)
-    , m_ids()
-    , m_bbox()
+    : m_bbox()
     , m_schema()
-    , m_dimensions(0)
+    , m_structure()
+    , m_reprojection()
+    , m_manifest()
     , m_numPoints(0)
     , m_numTossed(0)
-    , m_originList()
+    , m_ids()
     , m_source(source)
     , m_cacheSize(cacheSize)
     , m_queryLimit(queryLimit)
@@ -63,46 +65,33 @@ Reader::Reader(
     , m_accessList()
     , m_accessMap()
 {
-    Json::Reader reader;
-    std::size_t numIds(0);
-
     {
+        Json::Reader reader;
+
         const std::string metaString(m_source.getAsString("entwine"));
 
-        Json::Value meta;
-        reader.parse(metaString, meta, false);
+        Json::Value props;
+        reader.parse(metaString, props, false);
 
-        m_firstChunk = meta["firstChunk"].asUInt64();
-        m_chunkPoints = meta["chunkPoints"].asUInt64();
+        m_bbox.reset(new BBox(props["bbox"]));
+        m_schema.reset(new Schema(props["schema"]));
+        m_structure.reset(new Structure(props["structure"]));
+        m_reprojection.reset(new Reprojection(props["reprojection"]));
+        m_manifest.reset(new Manifest(props["manifest"]));
 
-        m_bbox.reset(new BBox(BBox::fromJson(meta["bbox"])));
-        m_schema.reset(new Schema(Schema::fromJson(meta["schema"])));
-        m_dimensions = meta["dimensions"].asUInt64();
-        m_numPoints = meta["numPoints"].asUInt64();
-        m_numTossed = meta["numTossed"].asUInt64();
-        numIds = meta["numIds"].asUInt64();
-        const Json::Value& metaManifest(meta["manifest"]["input"]);
+        m_numPoints = props["numPoints"].asUInt64();
+        m_numTossed = props["numTossed"].asUInt64();
 
-        for (Json::ArrayIndex i(0); i < metaManifest.size(); ++i)
+        const Json::Value& jsonIds(props["ids"]);
+
+        if (!jsonIds.isArray())
         {
-            m_originList.push_back(metaManifest[i].asString());
-        }
-    }
-
-    {
-        const std::string idsString(m_source.getAsString("ids"));
-
-        Json::Value ids;
-        reader.parse(idsString, ids, false);
-
-        if (ids.size() != numIds)
-        {
-            throw std::runtime_error("ID count mismatch");
+            throw std::runtime_error("Invalid saved state.");
         }
 
-        for (Json::ArrayIndex i(0); i < ids.size(); ++i)
+        for (std::size_t i(0); i < jsonIds.size(); ++i)
         {
-            m_ids.insert(ids[i].asUInt64());
+            m_ids.insert(jsonIds[static_cast<Json::ArrayIndex>(i)].asUInt64());
         }
     }
 
@@ -112,8 +101,8 @@ Reader::Reader(
 
         m_base = ChunkReader::create(
                 *m_schema,
-                0,
-                m_firstChunk,
+                m_structure->baseIndexBegin(),
+                m_structure->chunkPoints(),
                 std::move(data));
     }
 }
@@ -162,7 +151,7 @@ void Reader::traverse(
     const std::size_t depth(roller.depth());
 
     if (
-            index >= m_firstChunk &&    // Base data always exists.
+            m_structure->isWithinCold(index) &&
             depth >= depthBegin &&
             (depth < depthEnd || !depthEnd))
     {
@@ -284,11 +273,11 @@ char* Reader::getPointData(const std::size_t index)
 {
     char* pos(0);
 
-    if (index < m_firstChunk)
+    if (m_structure->isWithinBase(index))
     {
         pos = m_base->getData(index);
     }
-    else
+    else if (m_structure->isWithinCold(index))
     {
         const std::size_t chunkId(getChunkId(index));
 
@@ -315,16 +304,19 @@ std::size_t Reader::maxId() const
 
 std::size_t Reader::getChunkId(const std::size_t index) const
 {
-    if (index < m_firstChunk) return 0;
+    assert(m_structure->isWithinCold(index));
+
+    const std::size_t firstChunk(m_structure->coldIndexBegin());
+    const std::size_t chunkPoints(m_structure->chunkPoints());
 
     // Zero-based chunk number.
-    const std::size_t chunkNum((index - m_firstChunk) / m_chunkPoints);
-    return m_firstChunk + chunkNum * m_chunkPoints;
+    const std::size_t chunkNum((index - firstChunk) / chunkPoints);
+    return firstChunk + chunkNum * chunkPoints;
 }
 
 void Reader::fetch(const std::size_t chunkId)
 {
-    if (chunkId > maxId() || chunkId < m_firstChunk || !m_ids.count(chunkId))
+    if (!m_structure->isWithinCold(chunkId) || !m_ids.count(chunkId))
     {
         return;
     }
@@ -362,7 +354,7 @@ void Reader::fetch(const std::size_t chunkId)
                 ChunkReader::create(
                     *m_schema,
                     chunkId,
-                    m_chunkPoints,
+                    m_structure->chunkPoints(),
                     std::move(data)));
 
         lock.lock();

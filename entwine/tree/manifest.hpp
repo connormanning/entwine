@@ -27,7 +27,7 @@ public:
     Manifest();
     explicit Manifest(const Json::Value& meta);
 
-    Json::Value getJson() const;
+    Json::Value toJson() const;
 
     // Register a new Origin ID for this path, if this path has not been
     // registered already, in which case invalidOrigin is returned.

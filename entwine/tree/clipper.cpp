@@ -8,9 +8,8 @@
 *
 ******************************************************************************/
 
-#include <entwine/tree/branches/clipper.hpp>
+#include <entwine/tree/clipper.hpp>
 
-#include <entwine/tree/branch.hpp>
 #include <entwine/tree/builder.hpp>
 
 namespace entwine
@@ -35,7 +34,7 @@ void Clipper::clip()
 {
     for (auto index : m_clips)
     {
-        m_builder.clip(this, index);
+        m_builder.clip(index, this);
     }
 
     m_clips.clear();

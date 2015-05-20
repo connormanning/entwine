@@ -11,57 +11,63 @@
 #pragma once
 
 #include <cstddef>
+#include <map>
 #include <memory>
 #include <mutex>
-#include <vector>
+#include <set>
 
-namespace Json
-{
-    class Value;
-}
+#include <entwine/third/json/json.h>
 
 namespace entwine
 {
 
 class Chunk;
 class Clipper;
-class Cold;
 class Entry;
-class PointInfo;
-class Roller;
-class Source;
 class Schema;
+class Source;
 class Structure;
 
-class Registry
+class Cold
 {
 public:
-    Registry(Source& source, const Schema& schema, const Structure& structure);
-    Registry(
+    Cold(
+            Source& source,
+            const Schema& schema,
+            const Structure& structure);
+
+    Cold(
             Source& source,
             const Schema& schema,
             const Structure& structure,
             const Json::Value& meta);
 
-    ~Registry();
-
-    bool addPoint(PointInfo** toAddPtr, Roller& roller, Clipper* clipper);
-
-    void save(Json::Value& meta);
+    ~Cold();
 
     Entry* getEntry(std::size_t index, Clipper* clipper);
 
-    void clip(std::size_t index, Clipper* clipper);
+    Json::Value toJson() const;
+    void clip(std::size_t chunkId, Clipper* clipper);
 
 private:
-    bool tryAdd(PointInfo** toAddPtr, const Roller& roller, Clipper* clipper);
+    std::size_t getChunkId(std::size_t index) const;
+
+    void grow(std::size_t chunkId, Clipper* clipper);
+
+    struct ChunkInfo
+    {
+        std::unique_ptr<Chunk> chunk;
+        std::set<const Clipper*> refs;
+        std::mutex mutex;
+    };
 
     Source& m_source;
     const Schema& m_schema;
     const Structure& m_structure;
 
-    std::unique_ptr<Chunk> m_base;
-    std::unique_ptr<Cold> m_cold;
+    mutable std::mutex m_mutex;
+    std::set<std::size_t> m_ids;
+    std::map<std::size_t, ChunkInfo> m_chunks;
 };
 
 } // namespace entwine

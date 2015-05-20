@@ -11,6 +11,7 @@ set(
     "${BASE}/simple-point-layout.cpp"
     "${BASE}/simple-point-table.cpp"
     "${BASE}/single-point-table.cpp"
+    "${BASE}/structure.cpp"
 )
 
 set(
@@ -26,6 +27,7 @@ set(
     "${BASE}/simple-point-table.hpp"
     "${BASE}/single-point-table.hpp"
     "${BASE}/sized-point-table.hpp"
+    "${BASE}/structure.hpp"
 )
 
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})

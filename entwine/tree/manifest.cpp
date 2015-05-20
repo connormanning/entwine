@@ -10,6 +10,7 @@
 
 #include <entwine/tree/manifest.hpp>
 
+#include <iostream>
 #include <limits>
 
 namespace entwine
@@ -49,7 +50,7 @@ Manifest::Manifest(const Json::Value& json)
     }
 }
 
-Json::Value Manifest::getJson() const
+Json::Value Manifest::toJson() const
 {
     Json::Value json;
 
@@ -93,6 +94,7 @@ void Manifest::addOmission(const std::string& path)
 void Manifest::addError(const Origin origin)
 {
     // TODO
+    std::cout << "Got error: " << origin << std::endl;
 }
 
 } // namespace entwine

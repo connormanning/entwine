@@ -65,16 +65,9 @@ public:
 
     void save(Source& source);
 
-    void finalize(
-            Source& source,
-            std::vector<std::size_t>& ids,
-            std::mutex& idsMutex,
-            const std::size_t start,
-            const std::size_t chunkPoints);
-
     virtual bool isSparse() const = 0;
     virtual std::size_t numPoints() const = 0;
-    virtual Entry& getEntry(std::size_t rawIndex) = 0;
+    virtual Entry* getEntry(std::size_t rawIndex) = 0;
 
 protected:
     virtual void write(Source& source, std::size_t begin, std::size_t end) = 0;
@@ -104,7 +97,7 @@ public:
 
     virtual bool isSparse() const { return true; }
     virtual std::size_t numPoints() const { return m_entries.size(); }
-    virtual Entry& getEntry(std::size_t rawIndex);
+    virtual Entry* getEntry(std::size_t rawIndex);
 
     static std::size_t popNumPoints(std::vector<char>& compressedData);
 
@@ -152,7 +145,7 @@ public:
 
     virtual bool isSparse() const { return false; }
     virtual std::size_t numPoints() const { return m_maxPoints; }
-    virtual Entry& getEntry(std::size_t rawIndex);
+    virtual Entry* getEntry(std::size_t rawIndex);
 
 private:
     virtual void write(Source& source, std::size_t begin, std::size_t end);
@@ -187,7 +180,8 @@ public:
     Chunk(
             const Schema& schema,
             std::size_t id,
-            std::size_t maxPoints);
+            std::size_t maxPoints,
+            bool forceContiguous = false);
 
     Chunk(
             const Schema& schema,
@@ -195,16 +189,9 @@ public:
             std::size_t maxPoints,
             std::vector<char> data);
 
-    Entry& getEntry(std::size_t rawIndex);
+    Entry* getEntry(std::size_t rawIndex);
 
     void save(Source& source);
-
-    void finalize(
-            Source& source,
-            std::vector<std::size_t>& ids,
-            std::mutex& idsMutex,
-            std::size_t start,
-            std::size_t chunkPoints);
 
 private:
     std::unique_ptr<ChunkData> m_chunkData;

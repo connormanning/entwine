@@ -31,6 +31,17 @@ BBox::BBox(const BBox& other)
     , m_max(other.max())
 { }
 
+BBox::BBox(const Json::Value& json)
+    : m_min(
+            Point(
+                json.get(Json::ArrayIndex(0), 0).asDouble(),
+                json.get(Json::ArrayIndex(1), 0).asDouble()))
+    , m_max(
+            Point(
+                json.get(Json::ArrayIndex(2), 0).asDouble(),
+                json.get(Json::ArrayIndex(3), 0).asDouble()))
+{ }
+
 void BBox::set(const Point min, const Point max)
 {
     m_min = min;
@@ -103,17 +114,6 @@ Json::Value BBox::toJson() const
     json.append(m_max.x);
     json.append(m_max.y);
     return json;
-}
-
-BBox BBox::fromJson(const Json::Value& json)
-{
-    return BBox(
-            Point(
-                json.get(Json::ArrayIndex(0), 0).asDouble(),
-                json.get(Json::ArrayIndex(1), 0).asDouble()),
-            Point(
-                json.get(Json::ArrayIndex(2), 0).asDouble(),
-                json.get(Json::ArrayIndex(3), 0).asDouble()));
 }
 
 void BBox::check(const Point& min, const Point& max) const

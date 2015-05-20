@@ -33,6 +33,7 @@ public:
 
     // Schema layout will be finalized with these dims.
     explicit Schema(DimList dims);
+    Schema(const Json::Value& json);
 
     ~Schema();
 
@@ -44,7 +45,6 @@ public:
     std::size_t pointSize() const;
 
     Json::Value toJson() const;
-    static DimList fromJson(const Json::Value& json);
 
 private:
     std::unique_ptr<pdal::PointLayout> m_layout;

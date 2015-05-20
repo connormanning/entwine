@@ -56,8 +56,9 @@ namespace
         return runCount;
     }
 
-    std::string getDimensionString(DimList dims)
+    std::string getDimensionString(const Schema& schema)
     {
+        const DimList dims(schema.dims());
         std::string results("[");
 
         for (std::size_t i(0); i < dims.size(); ++i)
@@ -138,6 +139,18 @@ namespace
         else throw std::runtime_error("Invalid tree type");
     }
 
+    std::unique_ptr<BBox> getBBox(const Json::Value& json)
+    {
+        std::unique_ptr<BBox> bbox;
+
+        if (json.isArray())
+        {
+            bbox.reset(new BBox(json));
+        }
+
+        return bbox;
+    }
+
     std::unique_ptr<Reprojection> getReprojection(const Json::Value& json)
     {
         std::unique_ptr<Reprojection> reprojection;
@@ -213,38 +226,36 @@ int main(int argc, char** argv)
     reader.parse(configStream, config, false);
 
     // Input files to add to the index.
-    const Json::Value input(config["input"]);
-    const std::vector<std::string> manifest(getManifest(input["manifest"]));
-    const std::size_t runCount(getRunCount(input, manifest.size()));
+    const Json::Value jsonInput(config["input"]);
+    const std::vector<std::string> manifest(getManifest(jsonInput["manifest"]));
+    const std::size_t runCount(getRunCount(jsonInput, manifest.size()));
+    const std::size_t threads(jsonInput["threads"].asUInt64());
 
     // Build specifications and path info.
-    const Json::Value& build(config["build"]);
-    const std::string buildPath(build["path"].asString());
-    const std::string tmpPath(build["tmp"].asString());
-    const std::size_t threads(build["threads"].asUInt64());
+    const Json::Value& jsonOutput(config["output"]);
+    const std::string outPath(jsonOutput["path"].asString());
+    const std::string tmpPath(jsonOutput["tmp"].asString());
+    const bool outCompress(jsonOutput["compress"].asUInt64());
 
     // Tree structure.
-    const Json::Value& tree(build["tree"]);
-    const std::size_t buildChunkPoints(tree["pointsPerChunk"].asUInt64());
-    const std::size_t baseDepth(tree["baseDepth"].asUInt64());
-    const std::size_t flatDepth(0);
-    const std::size_t coldDepth(tree["coldDepth"].asUInt64());
-
-    // Output info.
-    const Json::Value& output(config["output"]);
-    const std::string exportPath(output["path"].asString());
-    const std::size_t exportChunkPoints(output["pointsPerChunk"].asUInt64());
-    const std::size_t exportBase(output["baseDepth"].asUInt64());
-    const bool exportCompress(output["compress"].asBool());
+    const Json::Value& jsonStructure(config["structure"]);
+    const std::size_t nullDepth(jsonStructure["nullDepth"].asUInt64());
+    const std::size_t baseDepth(jsonStructure["baseDepth"].asUInt64());
+    const std::size_t coldDepth(jsonStructure["coldDepth"].asUInt64());
+    const std::size_t chunkPoints(jsonStructure["pointsPerChunk"].asUInt64());
+    const std::size_t dimensions(getDimensions(jsonStructure["type"]));
+    const Structure structure(
+            nullDepth,
+            baseDepth,
+            coldDepth,
+            chunkPoints,
+            dimensions);
 
     // Geometry and spatial info.
     const Json::Value& geometry(config["geometry"]);
-    const std::size_t dimensions(getDimensions(geometry["type"]));
-    std::unique_ptr<BBox> bbox(geometry["bbox"].isArray() ?
-            new BBox(BBox::fromJson(geometry["bbox"])) : 0);
-    std::unique_ptr<Reprojection> reprojection(
-            getReprojection(geometry["reproject"]));
-    DimList dims(Schema::fromJson(geometry["schema"]));
+    auto bbox(getBBox(geometry["bbox"]));
+    auto reprojection(getReprojection(geometry["reproject"]));
+    Schema schema(geometry["schema"]);
 
     DriverMap drivers;
 
@@ -260,23 +271,27 @@ int main(int argc, char** argv)
 
     std::unique_ptr<Builder> builder;
 
-    if (fs::fileExists(buildPath + "/meta"))
+    if (fs::fileExists(outPath + "/entwine")) // TODO Fetch from arbiter source.
     {
         std::cout << "Continuing previous index..." << std::endl;
-        std::cout << "Paths:\n" <<
-            "\tBuilding from " << manifest.size() << " source files" << "\n" <<
+        std::cout <<
+            "Input:\n" <<
+            "\tBuilding from " << manifest.size() << " source files\n" <<
             "\tInserting up to " << runCount << " files\n" <<
-            "\tBuild path: " << buildPath << "\n" <<
-            "\tTmp path: " << tmpPath << "\n" <<
-            "\tBuild threads:  " << threads << "\n" << std::endl;
+            "\tBuild threads: " << threads << "\n" <<
+            "Output:\n" <<
+            "\tContinuing from output path: " << outPath << "\n" <<
+            "\tTemporary path: " << tmpPath << "\n" <<
+            "\tCompressed output: (inferring from previous build)\n" <<
+            "Tree structure:\n" <<
+            "\t(inferring from previous build)\n" <<
+            "Geometry:\n" <<
+            "\tBounds: (inferring from previous build)\n" <<
+            "\tReprojection: " << getReprojString(reprojection.get()) << "\n" <<
+            "\tStoring dimensions: (inferring from previous build)\n" <<
+            std::endl;
 
-        builder.reset(
-                new Builder(
-                    buildPath,
-                    tmpPath,
-                    reprojection.get(),
-                    threads,
-                    arbiter));
+        builder.reset(new Builder(outPath, tmpPath, threads, arbiter));
     }
     else
     {
@@ -286,40 +301,36 @@ int main(int argc, char** argv)
             exit(1);
         }
 
-        std::cout << "Paths:\n" <<
+        std::cout <<
+            "Input:\n" <<
             "\tBuilding from " << manifest.size() << " source files\n" <<
             "\tInserting up to " << runCount << " files\n" <<
-            "\tBuild path: " << buildPath << "\n" <<
             "\tBuild threads: " << threads << "\n" <<
-            "\tBuild tree: " << "\n" <<
-            "\t\tChunk size: " << buildChunkPoints << " points\n" <<
-            "\t\tBase depth: " << baseDepth << "\n" <<
-            // "\t\tFlat depth: " << flatDepth << "\n" <<
-            "\t\tCold depth: " << coldDepth << "\n" <<
-            "\tTmp path: " << tmpPath << "\n" <<
-            "\tOutput path: " << exportPath << "\n" <<
-            "\t\tExport chunk size: " << exportChunkPoints << " points\n" <<
-            "\t\tExport base depth: " << exportBase << "\n" <<
+            "Output:\n" <<
+            "\tOutput path: " << outPath << "\n" <<
+            "\tTemporary path: " << tmpPath << "\n" <<
+            "\tCompressed output: " << outCompress << "\n" <<
+            "Tree structure:\n" <<
+            "\tNull depth: " << nullDepth << "\n" <<
+            "\tBase depth: " << baseDepth << "\n" <<
+            "\tCold depth: " << coldDepth << "\n" <<
+            "\tChunk size: " << chunkPoints << " points\n" <<
+            "\tBuild type: " << jsonStructure["type"].asString() << "\n" <<
             "Geometry:\n" <<
-            "\tBuild type: " << geometry["type"].asString() << "\n" <<
             "\tBounds: " << getBBoxString(bbox.get()) << "\n" <<
             "\tReprojection: " << getReprojString(reprojection.get()) << "\n" <<
-            "\tStoring dimensions: " << getDimensionString(dims) << "\n" <<
+            "\tStoring dimensions: " << getDimensionString(schema) << "\n" <<
             std::endl;
 
         builder.reset(
                 new Builder(
-                    buildPath,
+                    outPath,
                     tmpPath,
                     reprojection.get(),
                     bbox.get(),
-                    dims,
+                    schema.dims(),
                     threads,
-                    dimensions,
-                    buildChunkPoints,
-                    baseDepth,
-                    flatDepth,
-                    coldDepth,
+                    structure,
                     arbiter));
     }
 
@@ -342,25 +353,9 @@ int main(int argc, char** argv)
     std::cout << "Index completed in " << secondsSince(start) <<
             " seconds.  Saving...\n" << std::endl;
 
-    // Save.
-    start = now();
-
     builder->save();
 
-    std::cout << "Save completed in " << secondsSince(start) <<
-            " seconds.  Exporting...\n" << std::endl;
-
-    // Export.
-    start = now();
-
-    builder->finalize(
-            exportPath,
-            exportChunkPoints,
-            exportBase,
-            exportCompress);
-
-    std::cout << "Export completed in " << secondsSince(start) <<
-            " seconds.\nAll tasks complete." << std::endl;
+    std::cout << "Save complete.  Exiting." << std::endl;
 
     return 0;
 }

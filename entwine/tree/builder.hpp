@@ -21,6 +21,7 @@
 #include <entwine/tree/manifest.hpp>
 #include <entwine/tree/point-info.hpp>
 #include <entwine/types/dim-info.hpp>
+#include <entwine/types/structure.hpp>
 
 namespace pdal
 {
@@ -48,23 +49,18 @@ class Builder
 {
 public:
     Builder(
-            std::string buildPath,
+            std::string outPath,
             std::string tmpPath,
             const Reprojection* reprojection,
             const BBox* bbox,
             const DimList& dimList,
             std::size_t numThreads,
-            std::size_t numDimensions,
-            std::size_t chunkPoints,
-            std::size_t baseDepth,
-            std::size_t flatDepth,
-            std::size_t diskDepth,
+            const Structure& structure,
             std::shared_ptr<Arbiter> arbiter = 0);
 
     Builder(
             std::string buildPath,
             std::string tmpPath,
-            const Reprojection* reprojection,
             std::size_t numThreads,
             std::shared_ptr<Arbiter> arbiter = 0);
 
@@ -78,18 +74,10 @@ public:
     bool insert(std::string filename);
 
     // Remove resources that are no longer needed.
-    void clip(Clipper* clipper, std::size_t index);
+    void clip(std::size_t index, Clipper* clipper);
 
     // Save the current state of the tree.
     void save();
-
-    // Write the tree to an export format independent from the specifics of how
-    // it was built.
-    void finalize(
-            std::string path,
-            std::size_t chunkPoints,
-            std::size_t base,
-            bool compress);
 
     // Block until all running insertion tasks are finished.
     void join();
@@ -120,21 +108,22 @@ private:
 
     //
 
-    std::unique_ptr<Reprojection> m_reprojection;
-
     std::unique_ptr<BBox> m_bbox;
     std::unique_ptr<Schema> m_schema;
-    pdal::Dimension::Id::Enum m_originId;
-    std::size_t m_dimensions;
-    std::size_t m_chunkPoints;
+    std::unique_ptr<Structure> m_structure;
+    std::unique_ptr<Reprojection> m_reprojection;
+    std::unique_ptr<Manifest> m_manifest;
+
     std::size_t m_numPoints;
     std::size_t m_numTossed;
 
-    Manifest m_manifest;
     std::unique_ptr<Pool> m_pool;
     std::unique_ptr<Executor> m_executor;
+
+    pdal::Dimension::Id::Enum m_originId;
+
     std::shared_ptr<Arbiter> m_arbiter;
-    Source m_buildSource;
+    Source m_outSource;
     Source m_tmpSource;
 
     std::unique_ptr<Registry> m_registry;

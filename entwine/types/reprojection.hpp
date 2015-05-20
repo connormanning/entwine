@@ -12,6 +12,8 @@
 
 #include <string>
 
+#include <entwine/third/json/json.h>
+
 namespace entwine
 {
 
@@ -19,6 +21,9 @@ class Reprojection
 {
 public:
     Reprojection(std::string in, std::string out);
+    Reprojection(const Json::Value& json);
+
+    Json::Value toJson() const;
 
     std::string in() const;
     std::string out() const;
