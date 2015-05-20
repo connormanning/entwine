@@ -33,6 +33,7 @@ Executor::Executor(const Schema& schema)
     : m_schema(schema)
     , m_stageFactory(new pdal::StageFactory())
     , m_fs(new FsDriver())
+    , m_factoryMutex()
 { }
 
 Executor::~Executor()
@@ -43,7 +44,10 @@ bool Executor::run(
         const Reprojection* reprojection,
         std::function<void(pdal::PointView&)> f)
 {
+    auto lock(getLock());
     const std::string driver(m_stageFactory->inferReaderDriver(path));
+    lock.unlock();
+
     if (driver.empty()) return false;
 
     std::unique_ptr<pdal::Reader> reader(createReader(driver, path));
@@ -99,6 +103,7 @@ bool Executor::run(
 
 bool Executor::good(const std::string path) const
 {
+    auto lock(getLock());
     return !m_stageFactory->inferReaderDriver(path).empty();
 }
 
@@ -111,9 +116,11 @@ std::unique_ptr<pdal::Reader> Executor::createReader(
 
     if (driver.size())
     {
+        auto lock(getLock());
         reader.reset(
                 static_cast<pdal::Reader*>(
                     m_stageFactory->createStage(driver)));
+        lock.unlock();
 
         std::unique_ptr<pdal::Options> readerOptions(new pdal::Options());
         readerOptions->add(pdal::Option("filename", path));
@@ -131,9 +138,11 @@ std::shared_ptr<pdal::Filter> Executor::createReprojectionFilter(
         const Reprojection& reproj,
         pdal::BasePointTable& pointTable) const
 {
+    auto lock(getLock());
     std::shared_ptr<pdal::Filter> filter(
             static_cast<pdal::Filter*>(
                 m_stageFactory->createStage("filters.reprojection")));
+    lock.unlock();
 
     std::unique_ptr<pdal::Options> reprojOptions(new pdal::Options());
     reprojOptions->add(
@@ -150,6 +159,11 @@ std::shared_ptr<pdal::Filter> Executor::createReprojectionFilter(
     pdal::FilterWrapper::ready(*filter, pointTable);
 
     return filter;
+}
+
+std::unique_lock<std::mutex> Executor::getLock() const
+{
+    return std::unique_lock<std::mutex>(m_factoryMutex);
 }
 
 } // namespace entwine

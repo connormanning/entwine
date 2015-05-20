@@ -12,6 +12,7 @@
 
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 
 namespace pdal
@@ -54,9 +55,13 @@ private:
             const Reprojection& reprojection,
             pdal::BasePointTable& pointTable) const;
 
+    std::unique_lock<std::mutex> getLock() const;
+
     const Schema& m_schema;
     std::unique_ptr<pdal::StageFactory> m_stageFactory;
     std::unique_ptr<FsDriver> m_fs;
+
+    mutable std::mutex m_factoryMutex;
 };
 
 } // namespace entwine
