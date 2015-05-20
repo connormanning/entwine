@@ -37,6 +37,20 @@ pkg=(
 
 apt-get install -q -y -V ${pkg[@]}
 
+# Install node.
+nodeVersion="0.10.33"
+nodeUrl="http://nodejs.org/dist/v$nodeVersion/node-v$nodeVersion-linux-x64.tar.gz"
+echo Provisioning node.js version $nodeVersion...
+mkdir -p /tmp/nodejs
+wget -qO - $nodeUrl | tar zxf - --strip-components 1 -C /tmp/nodejs
+cd /tmp/nodejs
+cp -r * /usr
+cd -
+
+npm install -g nodeunit node-gyp
+npm update npm -g
+npm cache clean
+
 # Install las-zip.
 git clone https://github.com/LASzip/LASzip.git laszip
 cd laszip
