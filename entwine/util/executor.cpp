@@ -91,6 +91,7 @@ bool Executor::run(
 
     // Insert leftover points.
     LinkingPointView link(pointTable);
+    if (filter) pdal::FilterWrapper::filter(*filter, link);
     f(link);
 
     return true;
