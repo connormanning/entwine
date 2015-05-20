@@ -214,11 +214,25 @@ int main(int argc, char** argv)
     }
 
     std::string credPath("credentials.json");
-    if (argc == 4)
+    bool force(false);
+
+    std::size_t argNum(2);
+
+    while (argNum < argc)
     {
-        if (std::string(argv[2]) == "-c")
+        std::string arg(argv[argNum++]);
+
+        if (arg == "-c")
         {
-            credPath = argv[3];
+            credPath = argv[argNum++];
+        }
+        else if (arg.size() > 2 && arg.substr(0, 2) == "-c")
+        {
+            credPath = arg.substr(2);
+        }
+        else if (arg == "-f")
+        {
+            force = true;
         }
     }
 
@@ -271,7 +285,8 @@ int main(int argc, char** argv)
 
     std::unique_ptr<Builder> builder;
 
-    if (fs::fileExists(outPath + "/entwine")) // TODO Fetch from arbiter source.
+    // TODO Fetch from arbiter source - don't assume local.
+    if (!force && fs::fileExists(outPath + "/entwine"))
     {
         std::cout << "Continuing previous index..." << std::endl;
         std::cout <<
@@ -309,7 +324,7 @@ int main(int argc, char** argv)
             "Output:\n" <<
             "\tOutput path: " << outPath << "\n" <<
             "\tTemporary path: " << tmpPath << "\n" <<
-            "\tCompressed output: " << outCompress << "\n" <<
+            "\tCompressed output: " << std::boolalpha << outCompress << "\n" <<
             "Tree structure:\n" <<
             "\tNull depth: " << nullDepth << "\n" <<
             "\tBase depth: " << baseDepth << "\n" <<
