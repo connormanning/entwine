@@ -54,8 +54,6 @@ public:
     void clip(std::size_t index, Clipper* clipper);
 
 private:
-    bool tryAdd(PointInfo** toAddPtr, const Roller& roller, Clipper* clipper);
-
     Source& m_source;
     const Schema& m_schema;
     const Structure& m_structure;

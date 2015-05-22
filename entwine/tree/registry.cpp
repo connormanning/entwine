@@ -114,36 +114,6 @@ bool Registry::addPoint(PointInfo** toAddPtr, Roller& roller, Clipper* clipper)
 {
     bool accepted(false);
 
-    if (tryAdd(toAddPtr, roller, clipper))
-    {
-        accepted = true;
-    }
-    else
-    {
-        roller.magnify((*toAddPtr)->point);
-
-        if (m_structure.inRange(roller.index()))
-        {
-            accepted = addPoint(toAddPtr, roller, clipper);
-        }
-        else
-        {
-            // This point fell beyond the bottom of the tree.
-            delete (*toAddPtr)->point;
-            delete (*toAddPtr);
-        }
-    }
-
-    return accepted;
-}
-
-bool Registry::tryAdd(
-        PointInfo** toAddPtr,
-        const Roller& roller,
-        Clipper* clipper)
-{
-    bool done(false);
-
     const std::size_t index(roller.index());
 
     if (Entry* entry = getEntry(index, clipper))
@@ -173,9 +143,6 @@ bool Registry::tryAdd(
                                 entry->data(),
                                 pointSize));
 
-                    // TODO Could recurse here and avoid the deep copy.  Would
-                    // need to consolidate this and addPoint().
-
                     // Store this point.
                     toAdd->write(entry->data(), pointSize);
                     myPoint.store(toAdd->point);
@@ -194,19 +161,35 @@ bool Registry::tryAdd(
                 toAdd->write(entry->data(), m_schema.pointSize());
                 myPoint.store(toAdd->point);
                 delete toAdd;
-                done = true;
+                accepted = true;
             }
             else
             {
                 // Someone beat us here, call again to enter the other branch.
                 // Be sure to unlock our mutex first.
                 lock.unlock();
-                done = tryAdd(toAddPtr, roller, clipper);
+                accepted = addPoint(toAddPtr, roller, clipper);
             }
         }
     }
 
-    return done;
+    if (!accepted)
+    {
+        roller.magnify((*toAddPtr)->point);
+
+        if (m_structure.inRange(roller.index()))
+        {
+            accepted = addPoint(toAddPtr, roller, clipper);
+        }
+        else
+        {
+            // This point fell beyond the bottom of the tree.
+            delete (*toAddPtr)->point;
+            delete (*toAddPtr);
+        }
+    }
+
+    return accepted;
 }
 
 
