@@ -66,7 +66,7 @@ Registry::Registry(
                 new Chunk(
                     m_schema,
                     m_structure.baseIndexBegin(),
-                    m_structure.baseIndexEnd(),
+                    m_structure.baseIndexSpan(),
                     true,
                     m_empty));
     }
@@ -95,7 +95,7 @@ Registry::Registry(
                 new Chunk(
                     m_schema,
                     m_structure.baseIndexBegin(),
-                    m_structure.baseIndexEnd(),
+                    m_structure.baseIndexSpan(),
                     m_source.get(std::to_string(
                             m_structure.baseIndexBegin())),
                     m_empty));

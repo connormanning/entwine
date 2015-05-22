@@ -278,6 +278,28 @@ ContiguousChunkData::ContiguousChunkData(
     , m_entries(m_maxPoints)
     , m_data(new std::vector<char>(empty))
 {
+    const std::size_t pointSize(m_schema.pointSize());
+    const std::size_t emptyPoints(empty.size() / pointSize);
+
+    if (emptyPoints == m_maxPoints)
+    {
+        // Cold chunk.
+        m_data.reset(new std::vector<char>(empty));
+    }
+    else
+    {
+        // Base chunk.
+        m_data.reset(new std::vector<char>(m_maxPoints * pointSize));
+
+        for (std::size_t i(0); i < m_maxPoints; ++i)
+        {
+            std::memcpy(
+                    m_data->data() + i * pointSize,
+                    empty.data(),
+                    pointSize);
+        }
+    }
+
     emptyEntries();
 }
 
