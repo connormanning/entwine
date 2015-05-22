@@ -18,6 +18,7 @@
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/reprojection.hpp>
+#include <entwine/types/stats.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/single-point-table.hpp>
 #include <entwine/types/structure.hpp>
@@ -46,8 +47,7 @@ Reader::Reader(
     , m_structure()
     , m_reprojection()
     , m_manifest()
-    , m_numPoints(0)
-    , m_numTossed(0)
+    , m_stats()
     , m_ids()
     , m_source(source)
     , m_cacheSize(cacheSize)
@@ -74,9 +74,7 @@ Reader::Reader(
         if (props.isMember("reprojection"))
             m_reprojection.reset(new Reprojection(props["reprojection"]));
         m_manifest.reset(new Manifest(props["manifest"]));
-
-        m_numPoints = props["numPoints"].asUInt64();
-        m_numTossed = props["numTossed"].asUInt64();
+        m_stats.reset(new Stats(props["stats"]));
 
         const Json::Value& jsonIds(props["ids"]);
 
@@ -405,6 +403,11 @@ void Reader::fetch(const std::size_t chunkId)
                     "Could not fetch chunk " + std::to_string(chunkId));
         }
     }
+}
+
+std::size_t Reader::numPoints() const
+{
+    return m_stats->getNumPoints();
 }
 
 } // namespace entwine

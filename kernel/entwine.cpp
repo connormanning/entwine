@@ -371,12 +371,20 @@ int main(int argc, char** argv)
 
     builder->join();
 
-    std::cout << "Index completed in " << secondsSince(start) <<
+    std::cout << "\nIndex completed in " << secondsSince(start) <<
             " seconds.  Saving...\n" << std::endl;
 
     builder->save();
 
-    std::cout << "Save complete.  Exiting." << std::endl;
+    const Stats stats(builder->stats());
+    std::cout <<
+        "Save complete.  Indexing stats:\n" <<
+        "\tPoints inserted: " << stats.getNumPoints() << "\n" <<
+        "\tPoints discarded:\n" <<
+        "\t\tOutside specified bounds: " << stats.getNumOutOfBounds() << "\n" <<
+        "\t\tOverflow past max depth: " << stats.getNumFallThroughs() << "\n" <<
+        std::endl;
+
 
     return 0;
 }

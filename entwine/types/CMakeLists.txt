@@ -11,6 +11,7 @@ set(
     "${BASE}/simple-point-layout.cpp"
     "${BASE}/simple-point-table.cpp"
     "${BASE}/single-point-table.cpp"
+    "${BASE}/stats.cpp"
     "${BASE}/structure.cpp"
 )
 
@@ -27,6 +28,7 @@ set(
     "${BASE}/simple-point-table.hpp"
     "${BASE}/single-point-table.hpp"
     "${BASE}/sized-point-table.hpp"
+    "${BASE}/stats.hpp"
     "${BASE}/structure.hpp"
 )
 

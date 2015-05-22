@@ -46,8 +46,7 @@ Builder::Builder(
     , m_structure(new Structure(structure))
     , m_reprojection(reprojection ? new Reprojection(*reprojection) : 0)
     , m_manifest(new Manifest())
-    , m_numPoints(0)
-    , m_numTossed(0)
+    , m_stats()
     , m_pool(new Pool(numThreads))
     , m_executor(new Executor(*m_schema))
     , m_originId(m_schema->pdalLayout().findDim("Origin"))
@@ -73,8 +72,7 @@ Builder::Builder(
     , m_structure()
     , m_reprojection()
     , m_manifest()
-    , m_numPoints(0)
-    , m_numTossed(0)
+    , m_stats()
     , m_pool(new Pool(numThreads))
     , m_executor()
     , m_arbiter(arbiter ? arbiter : std::make_shared<Arbiter>(Arbiter()))
@@ -176,16 +174,16 @@ void Builder::insert(
 
             if (m_registry->addPoint(&pointInfo, roller, clipper))
             {
-                ++m_numPoints;
+                m_stats.addPoint();
             }
             else
             {
-                ++m_numTossed;
+                m_stats.addFallThrough();
             }
         }
         else
         {
-            ++m_numTossed;
+            m_stats.addOutOfBounds();
         }
     }
 }
@@ -303,6 +301,11 @@ void Builder::save()
     m_pool->go();
 }
 
+Stats Builder::stats() const
+{
+    return m_stats;
+}
+
 Json::Value Builder::saveProps() const
 {
     Json::Value props;
@@ -312,9 +315,7 @@ Json::Value Builder::saveProps() const
     props["structure"] = m_structure->toJson();
     if (m_reprojection) props["reprojection"] = m_reprojection->toJson();
     props["manifest"] = m_manifest->toJson();
-
-    props["numPoints"] = static_cast<Json::UInt64>(m_numPoints);
-    props["numTossed"] = static_cast<Json::UInt64>(m_numTossed);
+    props["stats"] = m_stats.toJson();
 
     return props;
 }
@@ -327,9 +328,7 @@ void Builder::loadProps(const Json::Value& props)
     if (props.isMember("reprojection"))
         m_reprojection.reset(new Reprojection(props["reprojection"]));
     m_manifest.reset(new Manifest(props["manifest"]));
-
-    m_numPoints = props["numPoints"].asUInt64();
-    m_numTossed = props["numTossed"].asUInt64();
+    m_stats = Stats(props["stats"]);
 }
 
 void Builder::prep()

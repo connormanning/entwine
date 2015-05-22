@@ -33,6 +33,7 @@ class Pool;
 class Roller;
 class Reprojection;
 class Schema;
+class Stats;
 class Structure;
 
 class Reader
@@ -65,7 +66,7 @@ public:
     //         rate.
     std::vector<char> getPointData(std::size_t index, const Schema& schema);
 
-    std::size_t numPoints() const { return m_numPoints; }
+    std::size_t numPoints() const;
     const Schema& schema() const { return *m_schema; }
     const BBox& bbox() const { return *m_bbox; }
 
@@ -100,9 +101,7 @@ private:
     std::unique_ptr<Structure> m_structure;
     std::unique_ptr<Reprojection> m_reprojection;
     std::unique_ptr<Manifest> m_manifest;
-
-    std::size_t m_numPoints;
-    std::size_t m_numTossed;
+    std::unique_ptr<Stats> m_stats;
 
     std::set<std::size_t> m_ids;
 

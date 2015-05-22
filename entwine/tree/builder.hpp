@@ -21,6 +21,7 @@
 #include <entwine/tree/manifest.hpp>
 #include <entwine/tree/point-info.hpp>
 #include <entwine/types/dim-info.hpp>
+#include <entwine/types/stats.hpp>
 #include <entwine/types/structure.hpp>
 
 namespace pdal
@@ -82,6 +83,8 @@ public:
     // Block until all running insertion tasks are finished.
     void join();
 
+    Stats stats() const;
+
 private:
     // Awaken the tree from a saved state.  After a load(), no queries should
     // be made until save() is subsequently called.
@@ -114,8 +117,7 @@ private:
     std::unique_ptr<Reprojection> m_reprojection;
     std::unique_ptr<Manifest> m_manifest;
 
-    std::size_t m_numPoints;
-    std::size_t m_numTossed;
+    Stats m_stats;
 
     std::unique_ptr<Pool> m_pool;
     std::unique_ptr<Executor> m_executor;
