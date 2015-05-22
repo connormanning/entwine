@@ -11,11 +11,9 @@
 #pragma once
 
 #include <cstddef>
-#include <map>
 #include <memory>
 #include <mutex>
 #include <set>
-
 #include <unordered_map>
 
 #include <entwine/third/json/json.h>

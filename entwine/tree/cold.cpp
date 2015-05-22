@@ -119,33 +119,36 @@ void Cold::grow(const std::size_t chunkId, Clipper* clipper)
 
         const bool exists(m_chunks.count(chunkId));
         auto& chunkInfo(m_chunks[chunkId]);
+
         if (!exists) chunkInfo.reset(new ChunkInfo());
+
         std::lock_guard<std::mutex> chunkLock(chunkInfo->mutex);
         mapLock.unlock();
 
-        // We are holding the lock for this entry now, so this condition will
-        // hold through the rest of this function.
         chunkInfo->refs.insert(clipper);
 
-        if (exists)
+        if (!chunkInfo->chunk)
         {
-            chunkInfo->chunk.reset(
-                    new Chunk(
-                        m_schema,
-                        chunkId,
-                        m_structure.chunkPoints(),
-                        m_source.get(std::to_string(chunkId)),
-                        m_empty));
-        }
-        else
-        {
-            chunkInfo->chunk.reset(
-                    new Chunk(
-                        m_schema,
-                        chunkId,
-                        m_structure.chunkPoints(),
-                        chunkId < m_structure.sparseIndexBegin(),
-                        m_empty));
+            if (exists)
+            {
+                chunkInfo->chunk.reset(
+                        new Chunk(
+                            m_schema,
+                            chunkId,
+                            m_structure.chunkPoints(),
+                            m_source.get(std::to_string(chunkId)),
+                            m_empty));
+            }
+            else
+            {
+                chunkInfo->chunk.reset(
+                        new Chunk(
+                            m_schema,
+                            chunkId,
+                            m_structure.chunkPoints(),
+                            chunkId < m_structure.sparseIndexBegin(),
+                            m_empty));
+            }
         }
     }
 }
