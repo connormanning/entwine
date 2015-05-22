@@ -30,11 +30,6 @@ namespace
 {
     void checkQuery(std::size_t depthBegin, std::size_t depthEnd)
     {
-        if (depthEnd >= 25)
-        {
-            throw std::runtime_error("Over a quadrillion points unsupported");
-        }
-
         if (depthBegin >= depthEnd)
         {
             throw std::runtime_error("Invalid query depths");

@@ -22,7 +22,7 @@ class Schema;
 class SimplePointTable : public SizedPointTable
 {
 public:
-    explicit SimplePointTable(const Schema& schema);
+    explicit SimplePointTable(const Schema& schema, std::size_t reserve = 0);
     SimplePointTable(const Schema& schema, const std::vector<char>& data);
 
     virtual pdal::PointId addPoint();

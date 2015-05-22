@@ -11,7 +11,7 @@
 #pragma once
 
 #include <cstddef>
-#include <set>
+#include <unordered_set>
 
 namespace entwine
 {
@@ -31,7 +31,7 @@ public:
 
 private:
     Builder& m_builder;
-    std::set<std::size_t> m_clips;
+    std::unordered_set<std::size_t> m_clips;
 };
 
 } // namespace entwine

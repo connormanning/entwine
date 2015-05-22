@@ -18,7 +18,8 @@ Structure::Structure(
         const std::size_t baseDepth,
         const std::size_t coldDepth,
         const std::size_t chunkPoints,
-        const std::size_t dimensions)
+        const std::size_t dimensions,
+        const std::size_t numPointsHint)
     : m_nullDepth(nullDepth)
     , m_baseDepth(0)
     , m_coldDepth(0)
@@ -30,6 +31,8 @@ Structure::Structure(
     , m_coldIndexEnd(0)
     , m_chunkPoints(chunkPoints)
     , m_dimensions(dimensions)
+    , m_numPointsHint(numPointsHint)
+    , m_sparseIndexBegin(0)
 {
     if (m_dimensions != 2)
     {
@@ -55,6 +58,8 @@ Structure::Structure(const Json::Value& json)
     , m_coldIndexEnd(0)
     , m_chunkPoints(json["chunkPoints"].asUInt64())
     , m_dimensions(json["dimensions"].asUInt64())
+    , m_numPointsHint(json["numPointsHint"].asUInt64())
+    , m_sparseIndexBegin(0)
 {
     loadIndexValues();
 }
@@ -75,6 +80,13 @@ void Structure::loadIndexValues()
             throw std::runtime_error("Invalid chunk specification");
         }
     }
+
+    std::size_t depth(0);
+
+    while (calcOffset(depth, m_dimensions) < m_numPointsHint)
+    {
+        m_sparseIndexBegin = calcOffset(depth++, m_dimensions);
+    }
 }
 
 Json::Value Structure::toJson() const
@@ -86,6 +98,7 @@ Json::Value Structure::toJson() const
     json["coldDepth"] = static_cast<Json::UInt64>(coldDepth());
     json["chunkPoints"] = static_cast<Json::UInt64>(chunkPoints());
     json["dimensions"] = static_cast<Json::UInt64>(dimensions());
+    json["numPointsHint"] = static_cast<Json::UInt64>(numPointsHint());
 
     return json;
 }
@@ -156,6 +169,16 @@ std::size_t Structure::chunkPoints() const
 std::size_t Structure::dimensions() const
 {
     return m_dimensions;
+}
+
+std::size_t Structure::numPointsHint() const
+{
+    return m_numPointsHint;
+}
+
+std::size_t Structure::sparseIndexBegin() const
+{
+    return m_sparseIndexBegin;
 }
 
 } // namespace entwine

@@ -258,12 +258,17 @@ int main(int argc, char** argv)
     const std::size_t coldDepth(jsonStructure["coldDepth"].asUInt64());
     const std::size_t chunkPoints(jsonStructure["pointsPerChunk"].asUInt64());
     const std::size_t dimensions(getDimensions(jsonStructure["type"]));
+    const std::size_t numPointsHint(
+            jsonStructure.isMember("numPointsHint") ?
+                jsonStructure["numPointsHint"].asUInt64() : 0);
+
     const Structure structure(
             nullDepth,
             baseDepth,
             coldDepth,
             chunkPoints,
-            dimensions);
+            dimensions,
+            numPointsHint);
 
     // Geometry and spatial info.
     const Json::Value& geometry(config["geometry"]);
@@ -331,6 +336,7 @@ int main(int argc, char** argv)
             "\tCold depth: " << coldDepth << "\n" <<
             "\tChunk size: " << chunkPoints << " points\n" <<
             "\tBuild type: " << jsonStructure["type"].asString() << "\n" <<
+            "\tPoint count hint: " << numPointsHint << " points\n" <<
             "Geometry:\n" <<
             "\tBounds: " << getBBoxString(bbox.get()) << "\n" <<
             "\tReprojection: " << getReprojString(reprojection.get()) << "\n" <<

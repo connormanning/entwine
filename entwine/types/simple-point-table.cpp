@@ -15,11 +15,18 @@
 namespace entwine
 {
 
-SimplePointTable::SimplePointTable(const Schema& schema)
+SimplePointTable::SimplePointTable(
+        const Schema& schema,
+        const std::size_t reserve)
     : SizedPointTable(schema.pdalLayout())
     , m_data()
     , m_numPoints(0)
-{ }
+{
+    if (reserve)
+    {
+        m_data.reserve(reserve);
+    }
+}
 
 SimplePointTable::SimplePointTable(
         const Schema& schema,

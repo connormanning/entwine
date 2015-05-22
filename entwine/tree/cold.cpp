@@ -24,50 +24,31 @@
 namespace entwine
 {
 
-namespace
-{
-    std::set<std::size_t> loadIds(const Json::Value& meta)
-    {
-        std::set<std::size_t> ids;
-        const Json::Value jsonIds(meta["ids"]);
-
-        if (!jsonIds.isArray())
-        {
-            throw std::runtime_error("Invalid saved state.");
-        }
-
-        for (std::size_t i(0); i < jsonIds.size(); ++i)
-        {
-            ids.insert(jsonIds[static_cast<Json::ArrayIndex>(i)].asUInt64());
-        }
-
-        return ids;
-    }
-}
-
 Cold::Cold(
         Source& source,
         const Schema& schema,
-        const Structure& structure)
+        const Structure& structure,
+        const std::vector<char>& empty)
     : m_source(source)
     , m_schema(schema)
     , m_structure(structure)
     , m_mutex()
-    , m_ids()
     , m_chunks()
+    , m_empty(empty)
 { }
 
 Cold::Cold(
         Source& source,
         const Schema& schema,
         const Structure& structure,
+        const std::vector<char>& empty,
         const Json::Value& meta)
     : m_source(source)
     , m_schema(schema)
     , m_structure(structure)
     , m_mutex()
-    , m_ids(loadIds(meta))
     , m_chunks()
+    , m_empty(empty)
 {
     const Json::Value& jsonIds(meta["ids"]);
 
@@ -78,7 +59,10 @@ Cold::Cold(
 
     for (std::size_t i(0); i < jsonIds.size(); ++i)
     {
-        m_ids.insert(jsonIds[static_cast<Json::ArrayIndex>(i)].asUInt64());
+        m_chunks.insert(
+                std::make_pair(
+                    jsonIds[static_cast<Json::ArrayIndex>(i)].asUInt64(),
+                    std::unique_ptr<ChunkInfo>()));
     }
 }
 
@@ -91,11 +75,9 @@ Entry* Cold::getEntry(std::size_t index, Clipper* clipper)
 
     grow(chunkId, clipper);
 
-    std::unique_lock<std::mutex> mapLock(m_mutex);
+    std::lock_guard<std::mutex> mapLock(m_mutex);
 
-    assert(m_ids.count(chunkId));
-    ChunkInfo& chunkInfo(m_chunks.at(chunkId));
-
+    ChunkInfo& chunkInfo(*m_chunks.at(chunkId));
     return chunkInfo.chunk->getEntry(index);
 }
 
@@ -106,12 +88,11 @@ Json::Value Cold::toJson() const
 
     std::lock_guard<std::mutex> lock(m_mutex);
 
-    json.resize(m_ids.size());
-    assert(m_chunks.empty());
+    json.resize(m_chunks.size());
 
-    for (const auto id : m_ids)
+    for (const auto& p : m_chunks)
     {
-        json[i++] = static_cast<Json::UInt64>(id);
+        json[i++] = static_cast<Json::UInt64>(p.first);
     }
 
     return json;
@@ -131,46 +112,39 @@ std::size_t Cold::getChunkId(const std::size_t index) const
 
 void Cold::grow(const std::size_t chunkId, Clipper* clipper)
 {
-    // TODO Check locking here.
     if (clipper && clipper->insert(chunkId))
     {
-        std::unique_lock<std::mutex> lock(m_mutex);
+        std::unique_lock<std::mutex> mapLock(m_mutex);
 
-        ChunkInfo& chunkInfo(m_chunks[chunkId]);
+        const bool exists(m_chunks.count(chunkId));
+        auto& chunkInfo(m_chunks[chunkId]);
+        if (!exists) chunkInfo.reset(new ChunkInfo());
+        std::lock_guard<std::mutex> chunkLock(chunkInfo->mutex);
+        mapLock.unlock();
 
-        std::lock_guard<std::mutex> chunkLock(chunkInfo.mutex);
-
-        // We are holding the lock for this chunknow, so this condition will
+        // We are holding the lock for this entry now, so this condition will
         // hold through the rest of this function.
-        const bool exists(m_ids.count(chunkId));
+        chunkInfo->refs.insert(clipper);
 
-        lock.unlock();
-
-        chunkInfo.refs.insert(clipper);
-
-        if (!chunkInfo.chunk)
+        if (exists)
         {
-            if (exists)
-            {
-                chunkInfo.chunk.reset(
-                        new Chunk(
-                            m_schema,
-                            chunkId,
-                            m_structure.chunkPoints(),
-                            m_source.get(std::to_string(chunkId))));
-            }
-            else
-            {
-                lock.lock();
-                m_ids.insert(chunkId);
-                lock.unlock();
-
-                chunkInfo.chunk.reset(
-                        new Chunk(
-                            m_schema,
-                            chunkId,
-                            m_structure.chunkPoints()));
-            }
+            chunkInfo->chunk.reset(
+                    new Chunk(
+                        m_schema,
+                        chunkId,
+                        m_structure.chunkPoints(),
+                        m_source.get(std::to_string(chunkId)),
+                        m_empty));
+        }
+        else
+        {
+            chunkInfo->chunk.reset(
+                    new Chunk(
+                        m_schema,
+                        chunkId,
+                        m_structure.chunkPoints(),
+                        chunkId < m_structure.sparseIndexBegin(),
+                        m_empty));
         }
     }
 }
@@ -178,7 +152,7 @@ void Cold::grow(const std::size_t chunkId, Clipper* clipper)
 void Cold::clip(const std::size_t chunkId, Clipper* clipper)
 {
     std::unique_lock<std::mutex> mapLock(m_mutex);
-    ChunkInfo& chunkInfo(m_chunks.at(chunkId));
+    ChunkInfo& chunkInfo(*m_chunks.at(chunkId));
     mapLock.unlock();
 
     std::unique_lock<std::mutex> lock(chunkInfo.mutex);
@@ -191,7 +165,7 @@ void Cold::clip(const std::size_t chunkId, Clipper* clipper)
         mapLock.lock();
         lock.unlock();
 
-        m_chunks.erase(chunkId);
+        chunkInfo.chunk.reset(0);
     }
 }
 

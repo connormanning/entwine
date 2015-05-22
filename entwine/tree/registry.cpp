@@ -12,6 +12,8 @@
 
 #include <algorithm>
 
+#include <pdal/PointView.hpp>
+
 #include <entwine/drivers/source.hpp>
 #include <entwine/third/json/json.h>
 #include <entwine/tree/roller.hpp>
@@ -21,11 +23,31 @@
 #include <entwine/tree/cold.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/simple-point-table.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/util/pool.hpp>
 
 namespace entwine
 {
+
+namespace
+{
+    std::vector<char> makeEmpty(const Schema& schema, std::size_t numPoints)
+    {
+        SimplePointTable table(schema);
+        pdal::PointView view(table);
+
+        const auto emptyCoord(Point::emptyCoord());
+
+        for (std::size_t i(0); i < numPoints; ++i)
+        {
+            view.setField(pdal::Dimension::Id::X, i, emptyCoord);
+            view.setField(pdal::Dimension::Id::Y, i, emptyCoord);
+        }
+
+        return table.data();
+    }
+}
 
 Registry::Registry(
         Source& source,
@@ -36,6 +58,7 @@ Registry::Registry(
     , m_structure(structure)
     , m_base()
     , m_cold()
+    , m_empty(makeEmpty(m_schema, m_structure.chunkPoints()))
 {
     if (m_structure.baseIndexSpan())
     {
@@ -44,12 +67,13 @@ Registry::Registry(
                     m_schema,
                     m_structure.baseIndexBegin(),
                     m_structure.baseIndexEnd(),
-                    true));
+                    true,
+                    m_empty));
     }
 
     if (m_structure.coldIndexSpan())
     {
-        m_cold.reset(new Cold(source, schema, m_structure));
+        m_cold.reset(new Cold(source, schema, m_structure, m_empty));
     }
 }
 
@@ -63,6 +87,7 @@ Registry::Registry(
     , m_structure(structure)
     , m_base()
     , m_cold()
+    , m_empty(makeEmpty(m_schema, m_structure.chunkPoints()))
 {
     if (m_structure.baseIndexSpan())
     {
@@ -72,12 +97,13 @@ Registry::Registry(
                     m_structure.baseIndexBegin(),
                     m_structure.baseIndexEnd(),
                     m_source.get(std::to_string(
-                            m_structure.baseIndexBegin()))));
+                            m_structure.baseIndexBegin())),
+                    m_empty));
     }
 
     if (m_structure.coldIndexSpan())
     {
-        m_cold.reset(new Cold(source, schema, m_structure, meta));
+        m_cold.reset(new Cold(source, schema, m_structure, m_empty, meta));
     }
 }
 
@@ -127,7 +153,7 @@ bool Registry::tryAdd(
 
         if (myPoint.load())
         {
-            const Point mid(roller.bbox().mid());
+            const Point& mid(roller.bbox().mid());
 
             if (toAdd->point->sqDist(mid) < myPoint.load()->sqDist(mid))
             {
@@ -136,17 +162,22 @@ bool Registry::tryAdd(
 
                 if (toAdd->point->sqDist(mid) < curPoint->sqDist(mid))
                 {
+                    const std::size_t pointSize(m_schema.pointSize());
+
                     // Pull out the old stored value and store the Point that
                     // was in our atomic member, so we can overwrite that with
                     // the new one.
                     PointInfo* old(
-                            new PointInfo(
+                            new PointInfoDeep(
                                 curPoint,
                                 entry->data(),
-                                m_schema.pointSize()));
+                                pointSize));
+
+                    // TODO Could recurse here and avoid the deep copy.  Would
+                    // need to consolidate this and addPoint().
 
                     // Store this point.
-                    toAdd->write(entry->data());
+                    toAdd->write(entry->data(), pointSize);
                     myPoint.store(toAdd->point);
                     delete toAdd;
 
@@ -160,7 +191,7 @@ bool Registry::tryAdd(
             std::unique_lock<std::mutex> lock(entry->mutex());
             if (!myPoint.load())
             {
-                toAdd->write(entry->data());
+                toAdd->write(entry->data(), m_schema.pointSize());
                 myPoint.store(toAdd->point);
                 delete toAdd;
                 done = true;

@@ -26,7 +26,7 @@ namespace entwine
 
 namespace
 {
-    const std::size_t chunkBytes(65536);
+    const std::size_t chunkBytes(65536 * 32);
 }
 
 Executor::Executor(const Schema& schema)
@@ -53,7 +53,7 @@ bool Executor::run(
     std::unique_ptr<pdal::Reader> reader(createReader(driver, path));
     if (!reader) return false;
 
-    SimplePointTable pointTable(m_schema);
+    SimplePointTable pointTable(m_schema, chunkBytes + m_schema.pointSize());
 
     std::shared_ptr<pdal::Filter> sharedFilter;
 

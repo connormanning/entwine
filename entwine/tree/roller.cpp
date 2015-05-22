@@ -29,7 +29,7 @@ Roller::Roller(const Roller& other)
 
 void Roller::magnify(const Point* point)
 {
-    const Point mid(m_bbox.mid());
+    const Point& mid(m_bbox.mid());
 
     if (point->x < mid.x)
         if (point->y < mid.y)
@@ -61,25 +61,25 @@ const BBox& Roller::bbox() const
 void Roller::goNw()
 {
     step(Dir::nw);
-    m_bbox = m_bbox.getNw();
+    m_bbox.goNw();
 }
 
 void Roller::goNe()
 {
     step(Dir::ne);
-    m_bbox = m_bbox.getNe();
+    m_bbox.goNe();
 }
 
 void Roller::goSw()
 {
     step(Dir::sw);
-    m_bbox = m_bbox.getSw();
+    m_bbox.goSw();
 }
 
 void Roller::goSe()
 {
     step(Dir::se);
-    m_bbox = m_bbox.getSe();
+    m_bbox.goSe();
 }
 
 Roller Roller::getNw() const

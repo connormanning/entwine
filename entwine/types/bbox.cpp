@@ -22,14 +22,19 @@ BBox::BBox() : m_min(), m_max() { }
 BBox::BBox(const Point min, const Point max)
     : m_min(std::min(min.x, max.x), std::min(min.y, max.y))
     , m_max(std::max(min.x, max.x), std::max(min.y, max.y))
+    , m_mid()
 {
+    setMid();
     check(min, max);
 }
 
 BBox::BBox(const BBox& other)
     : m_min(other.min())
     , m_max(other.max())
-{ }
+    , m_mid()
+{
+    setMid();
+}
 
 BBox::BBox(const Json::Value& json)
     : m_min(
@@ -40,32 +45,30 @@ BBox::BBox(const Json::Value& json)
             Point(
                 json.get(Json::ArrayIndex(2), 0).asDouble(),
                 json.get(Json::ArrayIndex(3), 0).asDouble()))
-{ }
+    , m_mid()
+{
+    setMid();
+}
 
 void BBox::set(const Point min, const Point max)
 {
     m_min = min;
     m_max = max;
+    setMid();
 }
 
-Point BBox::min() const { return m_min; }
-Point BBox::max() const { return m_max; }
-Point BBox::mid() const
-{
-    return Point(
-            m_min.x + (m_max.x - m_min.x) / 2.0,
-            m_min.y + (m_max.y - m_min.y) / 2.0);
-}
+const Point& BBox::min() const { return m_min; }
+const Point& BBox::max() const { return m_max; }
+const Point& BBox::mid() const { return m_mid; }
 
 bool BBox::overlaps(const BBox& other) const
 {
-    Point middle(mid());
-    Point otherMiddle(other.mid());
+    Point otherMid(other.mid());
 
     return
-        std::abs(middle.x - otherMiddle.x) <
+        std::abs(m_mid.x - otherMid.x) <
             width() / 2.0  + other.width() / 2.0 &&
-        std::abs(middle.y - otherMiddle.y) <
+        std::abs(m_mid.y - otherMid.y) <
             height() / 2.0 + other.height() / 2.0;
 }
 
@@ -77,28 +80,32 @@ bool BBox::contains(const Point& p) const
 double BBox::width()  const { return m_max.x - m_min.x; }
 double BBox::height() const { return m_max.y - m_min.y; }
 
-BBox BBox::getNw() const
+void BBox::goNw()
 {
-    const Point middle(mid());
-    return BBox(Point(m_min.x, middle.y), Point(middle.x, m_max.y));
+    m_max.x = m_mid.x;
+    m_min.y = m_mid.y;
+    setMid();
 }
 
-BBox BBox::getNe() const
+void BBox::goNe()
 {
-    const Point middle(mid());
-    return BBox(Point(middle.x, middle.y), Point(m_max.x, m_max.y));
+    m_min.x = m_mid.x;
+    m_min.y = m_mid.y;
+    setMid();
 }
 
-BBox BBox::getSw() const
+void BBox::goSw()
 {
-    const Point middle(mid());
-    return BBox(Point(m_min.x, m_min.y), Point(middle.x, middle.y));
+    m_max.x = m_mid.x;
+    m_max.y = m_mid.y;
+    setMid();
 }
 
-BBox BBox::getSe() const
+void BBox::goSe()
 {
-    const Point middle(mid());
-    return BBox(Point(middle.x, m_min.y), Point(m_max.x, middle.y));
+    m_min.x = m_mid.x;
+    m_max.y = m_mid.y;
+    setMid();
 }
 
 bool BBox::exists() const
@@ -124,12 +131,19 @@ void BBox::check(const Point& min, const Point& max) const
     }
 }
 
+void BBox::setMid()
+{
+    m_mid.x = m_min.x + (m_max.x - m_min.x) / 2.0;
+    m_mid.y = m_min.y + (m_max.y - m_min.y) / 2.0;
+}
+
 void BBox::grow(const Point& p)
 {
     m_min.x = std::min(m_min.x, p.x);
     m_min.y = std::min(m_min.y, p.y);
     m_max.x = std::max(m_max.x, p.x);
     m_max.y = std::max(m_max.y, p.y);
+    setMid();
 }
 
 } // namespace entwine

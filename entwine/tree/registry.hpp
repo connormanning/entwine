@@ -62,6 +62,8 @@ private:
 
     std::unique_ptr<Chunk> m_base;
     std::unique_ptr<Cold> m_cold;
+
+    const std::vector<char> m_empty;
 };
 
 } // namespace entwine

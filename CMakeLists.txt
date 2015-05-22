@@ -4,7 +4,7 @@ project(entwine)
 
 add_definitions(${CMAKE_CXX_FLAGS} "-std=c++11")
 add_definitions(${CMAKE_CXX_FLAGS} "-g")
-add_definitions(${CMAKE_CXX_FLAGS} "-O2")
+add_definitions(${CMAKE_CXX_FLAGS} "-O3")
 add_definitions(${CMAKE_CXX_FLAGS} "-Wno-deprecated-declarations")
 add_definitions(${CMAKE_CXX_FLAGS} "-Wall")
 add_definitions(${CMAKE_CXX_FLAGS} "-Werror")

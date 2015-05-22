@@ -25,7 +25,8 @@ public:
             std::size_t baseDepth,
             std::size_t coldDepth,
             std::size_t chunkPoints,
-            std::size_t dimensions);
+            std::size_t dimensions,
+            std::size_t numPointsHint = 0);
 
     Structure(const Json::Value& json);
 
@@ -56,6 +57,9 @@ public:
     std::size_t chunkPoints() const;
     std::size_t dimensions() const;
 
+    std::size_t numPointsHint() const;
+    std::size_t sparseIndexBegin() const;
+
 private:
     void loadIndexValues();
 
@@ -72,6 +76,9 @@ private:
 
     std::size_t m_chunkPoints;
     std::size_t m_dimensions;
+
+    std::size_t m_numPointsHint;
+    std::size_t m_sparseIndexBegin;
 };
 
 } // namespace entwine

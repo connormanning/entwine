@@ -170,10 +170,9 @@ void Builder::insert(
             pointView.setField(m_originId, i, origin);
 
             PointInfo* pointInfo(
-                    new PointInfo(
+                    new PointInfoShallow(
                         new Point(point),
-                        pointView.getPoint(i),
-                        m_schema->pointSize()));
+                        pointView.getPoint(i)));
 
             if (m_registry->addPoint(&pointInfo, roller, clipper))
             {

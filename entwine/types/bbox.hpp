@@ -26,9 +26,9 @@ public:
 
     void set(Point min, Point max);
 
-    Point min() const;
-    Point max() const;
-    Point mid() const;
+    const Point& min() const;
+    const Point& max() const;
+    const Point& mid() const;
 
     // Returns true if this BBox shares any area in common with another.
     bool overlaps(const BBox& other) const;
@@ -39,10 +39,10 @@ public:
     double width() const;
     double height() const;
 
-    BBox getNe() const;
-    BBox getNw() const;
-    BBox getSw() const;
-    BBox getSe() const;
+    void goNw();
+    void goNe();
+    void goSw();
+    void goSe();
 
     bool exists() const;
 
@@ -53,6 +53,9 @@ public:
 private:
     Point m_min;
     Point m_max;
+    Point m_mid;
+
+    void setMid();
 
     void check(const Point& min, const Point& max) const;
 };

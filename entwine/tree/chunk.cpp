@@ -17,7 +17,6 @@
 #include <entwine/drivers/source.hpp>
 #include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/schema.hpp>
-#include <entwine/types/simple-point-table.hpp>
 #include <entwine/types/single-point-table.hpp>
 
 namespace entwine
@@ -97,11 +96,6 @@ ChunkData::ChunkData(const ChunkData& other)
 
 ChunkData::~ChunkData()
 { }
-
-void ChunkData::save(Source& source)
-{
-    write(source, m_id, endId());
-}
 
 std::size_t ChunkData::endId() const
 {
@@ -196,27 +190,21 @@ Entry* SparseChunkData::getEntry(const std::size_t rawIndex)
     return it->second.entry.get();
 }
 
-void SparseChunkData::write(
-        Source& source,
-        const std::size_t begin,
-        const std::size_t end)
+void SparseChunkData::save(Source& source)
 {
     Schema sparse(makeSparse(m_schema));
 
-    std::vector<char> data(squash(sparse, begin, end));
+    std::vector<char> data(squash(sparse));
 
     auto compressed(Compression::compress(data.data(), data.size(), sparse));
 
     pushNumPoints(*compressed, m_entries.size());
     compressed->push_back(Sparse);
 
-    source.put(std::to_string(begin), *compressed);
+    source.put(std::to_string(m_id), *compressed);
 }
 
-std::vector<char> SparseChunkData::squash(
-        const Schema& sparse,
-        const std::size_t begin,
-        const std::size_t end)
+std::vector<char> SparseChunkData::squash(const Schema& sparse)
 {
     std::vector<char> squashed;
 
@@ -225,9 +213,8 @@ std::vector<char> SparseChunkData::squash(
 
     assert(nativePointSize + sizeof(uint64_t) == sparsePointSize);
 
-    // std::map::upper_bound returns one greater than the searched element.
-    const auto beginIt(m_entries.lower_bound(begin));
-    const auto endIt(m_entries.upper_bound(end - 1));
+    const auto beginIt(m_entries.begin());
+    const auto endIt(m_entries.end());
 
     std::vector<char> addition(sparsePointSize);
     char* pos(addition.data());
@@ -285,12 +272,13 @@ std::size_t SparseChunkData::popNumPoints(
 ContiguousChunkData::ContiguousChunkData(
         const Schema& schema,
         const std::size_t id,
-        const std::size_t maxPoints)
+        const std::size_t maxPoints,
+        const std::vector<char>& empty)
     : ChunkData(schema, id, maxPoints)
     , m_entries(m_maxPoints)
-    , m_data()
+    , m_data(new std::vector<char>(empty))
 {
-    makeEmpty();
+    emptyEntries();
 }
 
 ContiguousChunkData::ContiguousChunkData(
@@ -330,12 +318,15 @@ ContiguousChunkData::ContiguousChunkData(
     }
 }
 
-ContiguousChunkData::ContiguousChunkData(SparseChunkData& sparse)
+ContiguousChunkData::ContiguousChunkData(
+        SparseChunkData& sparse,
+        const std::vector<char>& empty)
     : ChunkData(sparse)
     , m_entries(m_maxPoints)
-    , m_data()
+    , m_data(new std::vector<char>(empty))
 {
-    makeEmpty();
+    emptyEntries();
+
     const std::size_t pointSize(m_schema.pointSize());
 
     std::lock_guard<std::mutex> lock(sparse.m_mutex);
@@ -364,40 +355,24 @@ Entry* ContiguousChunkData::getEntry(std::size_t rawIndex)
     return m_entries[normalize(rawIndex)].get();
 }
 
-void ContiguousChunkData::write(
-        Source& source,
-        const std::size_t begin,
-        const std::size_t end)
+void ContiguousChunkData::save(Source& source)
 {
-    const std::size_t normalized(normalize(begin));
     const std::size_t pointSize(m_schema.pointSize());
 
     auto compressed(
             Compression::compress(
-                m_data->data() + normalized * pointSize,
-                (end - begin) * pointSize,
+                m_data->data(),
+                m_maxPoints * pointSize,
                 m_schema));
 
     compressed->push_back(Contiguous);
 
-    source.put(std::to_string(begin), *compressed);
+    source.put(std::to_string(m_id), *compressed);
 }
 
-void ContiguousChunkData::makeEmpty()
+void ContiguousChunkData::emptyEntries()
 {
-    std::unique_ptr<SimplePointTable> table(new SimplePointTable(m_schema));
-    pdal::PointView view(*table);
-
-    const auto emptyCoord(Point::emptyCoord());
     const std::size_t pointSize(m_schema.pointSize());
-
-    for (std::size_t i(0); i < m_maxPoints; ++i)
-    {
-        view.setField(pdal::Dimension::Id::X, i, emptyCoord);
-        view.setField(pdal::Dimension::Id::Y, i, emptyCoord);
-    }
-
-    m_data.reset(new std::vector<char>(table->data()));
 
     for (std::size_t i(0); i < m_maxPoints; ++i)
     {
@@ -467,27 +442,31 @@ Chunk::Chunk(
         const Schema& schema,
         const std::size_t id,
         const std::size_t maxPoints,
-        const bool forceContiguous)
+        const bool forceContiguous,
+        const std::vector<char>& empty)
     : m_chunkData(
             forceContiguous ?
                 static_cast<ChunkData*>(
-                    new ContiguousChunkData(schema, id, maxPoints)) :
+                    new ContiguousChunkData(schema, id, maxPoints, empty)) :
                 static_cast<ChunkData*>(
                     new SparseChunkData(schema, id, maxPoints)))
     , m_threshold(getThreshold(schema))
     , m_mutex()
     , m_converting(false)
+    , m_empty(empty)
 { }
 
 Chunk::Chunk(
         const Schema& schema,
         const std::size_t id,
         const std::size_t maxPoints,
-        std::vector<char> data)
+        std::vector<char> data,
+        const std::vector<char>& empty)
     : m_chunkData(ChunkDataFactory::create(schema, id, maxPoints, data))
     , m_threshold(getThreshold(schema))
     , m_mutex()
     , m_converting(false)
+    , m_empty(empty)
 { }
 
 Entry* Chunk::getEntry(std::size_t rawIndex)
@@ -508,7 +487,8 @@ Entry* Chunk::getEntry(std::size_t rawIndex)
 
                 m_chunkData.reset(
                         new ContiguousChunkData(
-                            reinterpret_cast<SparseChunkData&>(*m_chunkData)));
+                            reinterpret_cast<SparseChunkData&>(*m_chunkData),
+                            m_empty));
 
                 m_converting.store(false);
             }

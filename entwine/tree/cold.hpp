@@ -16,6 +16,8 @@
 #include <mutex>
 #include <set>
 
+#include <unordered_map>
+
 #include <entwine/third/json/json.h>
 
 namespace entwine
@@ -34,12 +36,14 @@ public:
     Cold(
             Source& source,
             const Schema& schema,
-            const Structure& structure);
+            const Structure& structure,
+            const std::vector<char>& empty);
 
     Cold(
             Source& source,
             const Schema& schema,
             const Structure& structure,
+            const std::vector<char>& empty,
             const Json::Value& meta);
 
     ~Cold();
@@ -61,13 +65,17 @@ private:
         std::mutex mutex;
     };
 
+    typedef
+        std::unordered_map<std::size_t, std::unique_ptr<ChunkInfo>> ChunkMap;
+
     Source& m_source;
     const Schema& m_schema;
     const Structure& m_structure;
 
     mutable std::mutex m_mutex;
-    std::set<std::size_t> m_ids;
-    std::map<std::size_t, ChunkInfo> m_chunks;
+    ChunkMap m_chunks;
+
+    const std::vector<char>& m_empty;
 };
 
 } // namespace entwine

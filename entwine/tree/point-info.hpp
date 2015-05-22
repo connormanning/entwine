@@ -28,12 +28,36 @@ class Schema;
 class PointInfo
 {
 public:
-    PointInfo(const Point* point, char* pos, std::size_t len);
+    virtual ~PointInfo() { }
 
-    void write(char* pos);
+    virtual void write(char* dst, std::size_t length) = 0;
 
     const Point* point;
-    std::vector<char> bytes;
+
+protected:
+    explicit PointInfo(const Point* point);
+};
+
+class PointInfoShallow : public PointInfo
+{
+public:
+    PointInfoShallow(const Point* point, char* pos);
+
+    virtual void write(char* dst, std::size_t length);
+
+private:
+    char* m_data;
+};
+
+class PointInfoDeep : public PointInfo
+{
+public:
+    PointInfoDeep(const Point* point, char* pos, std::size_t length);
+
+    virtual void write(char* dst, std::size_t length);
+
+private:
+    std::vector<char> m_bytes;
 };
 
 } // namespace entwine

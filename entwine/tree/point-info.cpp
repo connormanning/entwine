@@ -19,16 +19,31 @@
 namespace entwine
 {
 
-PointInfo::PointInfo(const Point* point, char* pos, const std::size_t len)
+PointInfo::PointInfo(const Point* point)
     : point(point)
-    , bytes(len)
+{ }
+
+PointInfoShallow::PointInfoShallow(const Point* point, char* pos)
+    : PointInfo(point)
+    , m_data(pos)
+{ }
+
+void PointInfoShallow::write(char* dst, std::size_t length)
 {
-    std::memcpy(bytes.data(), pos, len);
+    std::memcpy(dst, m_data, length);
 }
 
-void PointInfo::write(char* pos)
+PointInfoDeep::PointInfoDeep(
+        const Point* point,
+        char* pos,
+        const std::size_t length)
+    : PointInfo(point)
+    , m_bytes(pos, pos + length)
+{ }
+
+void PointInfoDeep::write(char* dst, std::size_t length)
 {
-    std::memcpy(pos, bytes.data(), bytes.size());
+    std::memcpy(dst, m_bytes.data(), length);
 }
 
 } // namespace entwine
