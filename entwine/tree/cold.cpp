@@ -75,9 +75,10 @@ Entry* Cold::getEntry(std::size_t index, Clipper* clipper)
 
     grow(chunkId, clipper);
 
-    std::lock_guard<std::mutex> mapLock(m_mutex);
-
+    std::unique_lock<std::mutex> mapLock(m_mutex);
     ChunkInfo& chunkInfo(*m_chunks.at(chunkId));
+    mapLock.unlock();
+
     return chunkInfo.chunk->getEntry(index);
 }
 
