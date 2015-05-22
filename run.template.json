@@ -12,6 +12,7 @@
         // Number of worker threads for simultaneous point insertion.
         "threads": 24,
 
+        // Input file list.
         "manifest": [
             // TODO Allow directory/bucket globbing.
 
@@ -41,6 +42,12 @@
         "compress": true
     },
     "structure": {
+        // A hint as to the total number of points that the resulting index
+        // will contain.  A value that is accurate within approximately a
+        // factor four can greatly speed up indexing time without increasing
+        // run-time resources.
+        "numPointsHint": 160000000000,
+
         // TODO Currently ignored.
         // Starting depth level of the base of the tree.
         "nullDepth": 0,
