@@ -25,7 +25,11 @@ namespace entwine
 class Pool
 {
 public:
-    Pool(std::size_t numThreads);
+    // After numThreads tasks are actively running, and queueSize tasks have
+    // been enqueued to wait for an available worker thread, subsequent calls
+    // to Pool::add will block until an enqueued task has been popped from the
+    // queue.
+    Pool(std::size_t numThreads, std::size_t queueSize = 1);
     ~Pool();
 
     // Start worker threads
@@ -48,6 +52,7 @@ private:
     void stop(bool val);
 
     std::size_t m_numThreads;
+    std::size_t m_queueSize;
     std::vector<std::thread> m_threads;
     std::queue<std::function<void()>> m_tasks;
 

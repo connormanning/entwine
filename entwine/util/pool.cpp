@@ -16,16 +16,9 @@
 namespace entwine
 {
 
-namespace
-{
-    // Currently this isn't really much of a queue - after a task is enqueued
-    // for which there is no current worker available, subsequent tasks will
-    // block until it is consumed.
-    const std::size_t queueSize(1);
-}
-
-Pool::Pool(const std::size_t numThreads)
+Pool::Pool(const std::size_t numThreads, const std::size_t queueSize)
     : m_numThreads(numThreads)
+    , m_queueSize(queueSize)
     , m_threads()
     , m_tasks()
     , m_stop(true)
@@ -87,7 +80,7 @@ void Pool::add(std::function<void()> task)
 
     std::unique_lock<std::mutex> lock(m_mutex);
 
-    m_produceCv.wait(lock, [this]() { return m_tasks.size() < queueSize; });
+    m_produceCv.wait(lock, [this]() { return m_tasks.size() < m_queueSize; });
     m_tasks.emplace(task);
 
     lock.unlock();

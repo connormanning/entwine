@@ -47,6 +47,9 @@ namespace
 
         return table.data();
     }
+
+    const std::size_t clipPoolSize(32);
+    const std::size_t clipQueueSize(16);
 }
 
 Registry::Registry(
@@ -58,6 +61,7 @@ Registry::Registry(
     , m_structure(structure)
     , m_base()
     , m_cold()
+    , m_pool(new Pool(clipPoolSize, clipQueueSize))
     , m_empty(makeEmpty(m_schema, m_structure.chunkPoints()))
 {
     if (m_structure.baseIndexSpan())
@@ -87,6 +91,7 @@ Registry::Registry(
     , m_structure(structure)
     , m_base()
     , m_cold()
+    , m_pool(new Pool(clipPoolSize, clipQueueSize))
     , m_empty(makeEmpty(m_schema, m_structure.chunkPoints()))
 {
     if (m_structure.baseIndexSpan())
@@ -218,7 +223,7 @@ Entry* Registry::getEntry(const std::size_t index, Clipper* clipper)
 
 void Registry::clip(const std::size_t index, Clipper* clipper)
 {
-    m_cold->clip(index, clipper);
+    m_cold->clip(index, clipper, *m_pool);
 }
 
 } // namespace entwine

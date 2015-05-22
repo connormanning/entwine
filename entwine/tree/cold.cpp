@@ -150,24 +150,23 @@ void Cold::grow(const std::size_t chunkId, Clipper* clipper)
     }
 }
 
-void Cold::clip(const std::size_t chunkId, Clipper* clipper)
+void Cold::clip(const std::size_t chunkId, Clipper* clipper, Pool& pool)
 {
     std::unique_lock<std::mutex> mapLock(m_mutex);
     ChunkInfo& chunkInfo(*m_chunks.at(chunkId));
     mapLock.unlock();
 
-    std::unique_lock<std::mutex> lock(chunkInfo.mutex);
-    chunkInfo.refs.erase(clipper);
-
-    if (chunkInfo.refs.empty())
+    pool.add([this, clipper, &chunkInfo]()
     {
-        chunkInfo.chunk->save(m_source);
+        std::unique_lock<std::mutex> chunkLock(chunkInfo.mutex);
+        chunkInfo.refs.erase(clipper);
 
-        mapLock.lock();
-        lock.unlock();
-
-        chunkInfo.chunk.reset(0);
-    }
+        if (chunkInfo.refs.empty())
+        {
+            chunkInfo.chunk->save(m_source);
+            chunkInfo.chunk.reset(0);
+        }
+    });
 }
 
 } // namespace entwine

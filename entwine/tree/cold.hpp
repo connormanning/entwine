@@ -26,6 +26,7 @@ namespace entwine
 class Chunk;
 class Clipper;
 class Entry;
+class Pool;
 class Schema;
 class Source;
 class Structure;
@@ -51,7 +52,7 @@ public:
     Entry* getEntry(std::size_t index, Clipper* clipper);
 
     Json::Value toJson() const;
-    void clip(std::size_t chunkId, Clipper* clipper);
+    void clip(std::size_t chunkId, Clipper* clipper, Pool& pool);
 
 private:
     std::size_t getChunkId(std::size_t index) const;

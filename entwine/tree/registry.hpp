@@ -28,6 +28,7 @@ class Clipper;
 class Cold;
 class Entry;
 class PointInfo;
+class Pool;
 class Roller;
 class Source;
 class Schema;
@@ -60,6 +61,8 @@ private:
 
     std::unique_ptr<Chunk> m_base;
     std::unique_ptr<Cold> m_cold;
+
+    std::unique_ptr<Pool> m_pool;
 
     const std::vector<char> m_empty;
 };
