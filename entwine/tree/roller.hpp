@@ -43,14 +43,6 @@ public:
 
     enum Dir
     {
-        // TODO Use these ones.
-        /*
-        sw = 0,
-        nw = 1,
-        se = 2,
-        ne = 3
-        */
-
         nw = 0,
         ne = 1,
         sw = 2,
