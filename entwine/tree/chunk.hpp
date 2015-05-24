@@ -142,11 +142,14 @@ public:
             SparseChunkData& sparse,
             const std::vector<char>& empty);
 
+    void save(Source& source, std::string postfix);
     virtual void save(Source& source);
 
     virtual bool isSparse() const { return false; }
     virtual std::size_t numPoints() const { return m_maxPoints; }
     virtual Entry* getEntry(std::size_t rawIndex);
+
+    void merge(ContiguousChunkData& other);
 
 private:
     void emptyEntries();
@@ -193,6 +196,8 @@ public:
     Entry* getEntry(std::size_t rawIndex);
 
     void save(Source& source);
+
+    static ChunkType getType(std::vector<char>& data);
 
 private:
     std::unique_ptr<ChunkData> m_chunkData;

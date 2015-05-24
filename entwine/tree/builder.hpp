@@ -60,10 +60,13 @@ public:
             std::shared_ptr<Arbiter> arbiter = 0);
 
     Builder(
-            std::string buildPath,
+            std::string outPath,
             std::string tmpPath,
             std::size_t numThreads,
             std::shared_ptr<Arbiter> arbiter = 0);
+
+    // Only used for merging.
+    Builder(std::string path, std::shared_ptr<Arbiter> arbiter = 0);
 
     ~Builder();
 
@@ -82,6 +85,9 @@ public:
 
     // Block until all running insertion tasks are finished.
     void join();
+
+    // Aggregate segmented build.
+    void merge();
 
     Stats stats() const;
 
@@ -112,6 +118,7 @@ private:
     //
 
     std::unique_ptr<BBox> m_bbox;
+    std::unique_ptr<BBox> m_subBBox;
     std::unique_ptr<Schema> m_schema;
     std::unique_ptr<Structure> m_structure;
     std::unique_ptr<Reprojection> m_reprojection;
@@ -125,8 +132,8 @@ private:
     pdal::Dimension::Id::Enum m_originId;
 
     std::shared_ptr<Arbiter> m_arbiter;
-    Source m_outSource;
-    Source m_tmpSource;
+    std::unique_ptr<Source> m_outSource;
+    std::unique_ptr<Source> m_tmpSource;
 
     std::unique_ptr<Registry> m_registry;
 

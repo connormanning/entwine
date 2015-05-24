@@ -78,7 +78,7 @@ namespace
 
         if (bbox)
         {
-            oss << "[(" <<
+            oss << "[(" << std::fixed <<
                 bbox->min().x << ", " << bbox->min().y << "), (" <<
                 bbox->max().x << ", " << bbox->max().y << ")]";
         }
@@ -215,6 +215,7 @@ int main(int argc, char** argv)
 
     std::string credPath("credentials.json");
     bool force(false);
+    std::pair<std::size_t, std::size_t> subset({ 0, 0 });
 
     int argNum(2);
 
@@ -233,6 +234,22 @@ int main(int argc, char** argv)
         else if (arg == "-f")
         {
             force = true;
+        }
+        else if (arg == "-s")
+        {
+            if (argNum + 1 < argc)
+            {
+                subset = {
+                    std::stoul(argv[argNum++]) - 1,
+                    std::stoul(argv[argNum++]) };
+
+                if (subset.first >= subset.second)
+                    throw std::runtime_error("Invalid subset parameters.");
+            }
+            else
+            {
+                throw std::runtime_error("Invalid subset parameters.");
+            }
         }
     }
 
@@ -268,7 +285,8 @@ int main(int argc, char** argv)
             coldDepth,
             chunkPoints,
             dimensions,
-            numPointsHint);
+            numPointsHint,
+            subset);
 
     // Geometry and spatial info.
     const Json::Value& geometry(config["geometry"]);
@@ -342,6 +360,13 @@ int main(int argc, char** argv)
             "\tReprojection: " << getReprojString(reprojection.get()) << "\n" <<
             "\tStoring dimensions: " << getDimensionString(schema) << "\n" <<
             std::endl;
+
+        if (structure.isSubset())
+        {
+            std::cout << "Subset:" <<
+                subset.first + 1 << " of " << subset.second << "\n" <<
+                std::endl;
+        }
 
         builder.reset(
                 new Builder(

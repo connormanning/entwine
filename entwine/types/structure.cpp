@@ -10,6 +10,10 @@
 
 #include <entwine/types/structure.hpp>
 
+#include <cmath>
+
+#include <entwine/tree/roller.hpp>
+
 namespace entwine
 {
 
@@ -19,7 +23,8 @@ Structure::Structure(
         const std::size_t coldDepth,
         const std::size_t chunkPoints,
         const std::size_t dimensions,
-        const std::size_t numPointsHint)
+        const std::size_t numPointsHint,
+        const std::pair<std::size_t, std::size_t> subset)
     : m_nullDepth(nullDepth)
     , m_baseDepth(0)
     , m_coldDepth(0)
@@ -33,6 +38,7 @@ Structure::Structure(
     , m_dimensions(dimensions)
     , m_numPointsHint(numPointsHint)
     , m_sparseIndexBegin(0)
+    , m_subset(subset)
 {
     if (m_dimensions != 2)
     {
@@ -60,6 +66,7 @@ Structure::Structure(const Json::Value& json)
     , m_dimensions(json["dimensions"].asUInt64())
     , m_numPointsHint(json["numPointsHint"].asUInt64())
     , m_sparseIndexBegin(0)
+    , m_subset({ json["subset"][0].asUInt64(), json["subset"][1].asUInt64() })
 {
     loadIndexValues();
 }
@@ -87,6 +94,25 @@ void Structure::loadIndexValues()
     {
         m_sparseIndexBegin = calcOffset(depth++, m_dimensions);
     }
+
+    const std::size_t splits(m_subset.second);
+    if (splits)
+    {
+        if (!m_nullDepth || std::pow(4, m_nullDepth) < splits)
+        {
+            throw std::runtime_error("Invalid null depth for requested subset");
+        }
+
+        if (!(splits == 4 || splits == 16 || splits == 64))
+        {
+            throw std::runtime_error("Invalid subset split");
+        }
+
+        if (m_subset.first >= m_subset.second)
+        {
+            throw std::runtime_error("Invalid subset identifier");
+        }
+    }
 }
 
 Json::Value Structure::toJson() const
@@ -99,6 +125,8 @@ Json::Value Structure::toJson() const
     json["chunkPoints"] = static_cast<Json::UInt64>(chunkPoints());
     json["dimensions"] = static_cast<Json::UInt64>(dimensions());
     json["numPointsHint"] = static_cast<Json::UInt64>(numPointsHint());
+    json["subset"].append(static_cast<Json::UInt64>(m_subset.first));
+    json["subset"].append(static_cast<Json::UInt64>(m_subset.second));
 
     return json;
 }
@@ -179,6 +207,66 @@ std::size_t Structure::numPointsHint() const
 std::size_t Structure::sparseIndexBegin() const
 {
     return m_sparseIndexBegin;
+}
+
+bool Structure::isSubset() const
+{
+    return m_subset.second != 0;
+}
+
+std::pair<std::size_t, std::size_t> Structure::subset() const
+{
+    return m_subset;
+}
+
+void Structure::makeWhole()
+{
+    m_subset = { 0, 0 };
+}
+
+std::unique_ptr<BBox> Structure::subsetBBox(const BBox& full) const
+{
+    std::unique_ptr<BBox> result;
+
+    Roller roller(full);
+    std::size_t times(0);
+
+    // TODO Very temporary.
+    if (m_subset.second == 4) times = 1;
+    else if (m_subset.second == 16) times = 2;
+    else if (m_subset.second == 64) times = 3;
+    else throw std::runtime_error("Invalid subset split");
+
+    if (times)
+    {
+        for (std::size_t i(0); i < times; ++i)
+        {
+            Roller::Dir dir(
+                    static_cast<Roller::Dir>(m_subset.first >> (i * 2) & 0x03));
+
+            if (dir == Roller::Dir::nw) roller.goNw();
+            else if (dir == Roller::Dir::ne) roller.goNe();
+            else if (dir == Roller::Dir::sw) roller.goSw();
+            else roller.goSe();
+        }
+
+        result.reset(new BBox(roller.bbox()));
+    }
+    else
+    {
+        throw std::runtime_error("Invalid magnification subset");
+    }
+
+    return result;
+}
+
+std::string Structure::subsetPostfix() const
+{
+    std::string postfix("");
+
+    if (isSubset()) postfix += "-" + std::to_string(m_subset.first);
+
+    return postfix;
 }
 
 } // namespace entwine

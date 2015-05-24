@@ -16,9 +16,10 @@
 
 #include <entwine/compression/util.hpp>
 #include <entwine/drivers/arbiter.hpp>
-#include <entwine/tree/roller.hpp>
-#include <entwine/tree/registry.hpp>
+#include <entwine/tree/chunk.hpp>
 #include <entwine/tree/clipper.hpp>
+#include <entwine/tree/registry.hpp>
+#include <entwine/tree/roller.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/reprojection.hpp>
@@ -42,6 +43,7 @@ Builder::Builder(
         const Structure& structure,
         std::shared_ptr<Arbiter> arbiter)
     : m_bbox(bbox ? new BBox(*bbox) : 0)
+    , m_subBBox(bbox && structure.isSubset() ? structure.subsetBBox(*bbox) : 0)
     , m_schema(new Schema(dimList))
     , m_structure(new Structure(structure))
     , m_reprojection(reprojection ? new Reprojection(*reprojection) : 0)
@@ -51,11 +53,11 @@ Builder::Builder(
     , m_executor(new Executor(*m_schema))
     , m_originId(m_schema->pdalLayout().findDim("Origin"))
     , m_arbiter(arbiter ? arbiter : std::make_shared<Arbiter>(Arbiter()))
-    , m_outSource(m_arbiter->getSource(outPath))
-    , m_tmpSource(m_arbiter->getSource(tmpPath))
+    , m_outSource(new Source(m_arbiter->getSource(outPath)))
+    , m_tmpSource(new Source(m_arbiter->getSource(tmpPath)))
     , m_registry(
             new Registry(
-                m_outSource,
+                *m_outSource,
                 *m_schema,
                 *m_structure))
 {
@@ -68,6 +70,7 @@ Builder::Builder(
         const std::size_t numThreads,
         std::shared_ptr<Arbiter> arbiter)
     : m_bbox()
+    , m_subBBox()
     , m_schema()
     , m_structure()
     , m_reprojection()
@@ -76,13 +79,29 @@ Builder::Builder(
     , m_pool(new Pool(numThreads))
     , m_executor()
     , m_arbiter(arbiter ? arbiter : std::make_shared<Arbiter>(Arbiter()))
-    , m_outSource(m_arbiter->getSource(outPath))
-    , m_tmpSource(m_arbiter->getSource(tmpPath))
+    , m_outSource(new Source(m_arbiter->getSource(outPath)))
+    , m_tmpSource(new Source(m_arbiter->getSource(tmpPath)))
     , m_registry()
 {
     prep();
     load();
 }
+
+Builder::Builder(const std::string path, std::shared_ptr<Arbiter> arbiter)
+    : m_bbox()
+    , m_subBBox()
+    , m_schema()
+    , m_structure()
+    , m_reprojection()
+    , m_manifest()
+    , m_stats()
+    , m_pool()
+    , m_executor()
+    , m_arbiter(arbiter ? arbiter : std::make_shared<Arbiter>(Arbiter()))
+    , m_outSource(new Source(m_arbiter->getSource(path)))
+    , m_tmpSource()
+    , m_registry()
+{ }
 
 Builder::~Builder()
 { }
@@ -163,22 +182,25 @@ void Builder::insert(
 
         if (m_bbox->contains(point))
         {
-            Roller roller(*m_bbox.get());
-
-            pointView.setField(m_originId, i, origin);
-
-            PointInfo* pointInfo(
-                    new PointInfoShallow(
-                        new Point(point),
-                        pointView.getPoint(i)));
-
-            if (m_registry->addPoint(&pointInfo, roller, clipper))
+            if (!m_subBBox || m_subBBox->contains(point))
             {
-                m_stats.addPoint();
-            }
-            else
-            {
-                m_stats.addFallThrough();
+                Roller roller(*m_bbox.get());
+
+                pointView.setField(m_originId, i, origin);
+
+                PointInfo* pointInfo(
+                        new PointInfoShallow(
+                            new Point(point),
+                            pointView.getPoint(i)));
+
+                if (m_registry->addPoint(&pointInfo, roller, clipper))
+                {
+                    m_stats.addPoint();
+                }
+                else
+                {
+                    m_stats.addFallThrough();
+                }
             }
         }
         else
@@ -242,8 +264,8 @@ std::string Builder::localize(const std::string path, const Origin origin)
             const std::string subpath(
                     name() + "-" + std::to_string(origin) + path.substr(dot));
 
-            localPath = m_tmpSource.resolve(subpath);
-            m_tmpSource.put(subpath, source.getRoot());
+            localPath = m_tmpSource->resolve(subpath);
+            m_tmpSource->put(subpath, source.getRoot());
         }
         else
         {
@@ -270,7 +292,7 @@ void Builder::load()
 
     {
         Json::Reader reader;
-        const std::string data(m_outSource.getAsString("entwine"));
+        const std::string data(m_outSource->getAsString("entwine"));
         reader.parse(data, meta, false);
     }
 
@@ -281,10 +303,125 @@ void Builder::load()
 
     m_registry.reset(
             new Registry(
-                m_outSource,
+                *m_outSource,
                 *m_schema,
                 *m_structure,
                 meta));
+}
+
+void Builder::merge()
+{
+    std::unique_ptr<ContiguousChunkData> result;
+    std::vector<std::size_t> ids;
+    const std::size_t baseCount([this]()->std::size_t
+    {
+        Json::Value meta;
+        Json::Reader reader;
+        const std::string metaString(m_outSource->getAsString("entwine-0"));
+        reader.parse(metaString, meta, false);
+
+        loadProps(meta);
+        const std::size_t baseCount(meta["structure"]["subset"][1].asUInt64());
+
+        if (!baseCount) throw std::runtime_error("Cannot merge this path");
+
+        return baseCount;
+    }());
+
+    for (std::size_t i(0); i < baseCount; ++i)
+    {
+        const std::string postfix("-" + std::to_string(i));
+
+        // Fetch metadata for this segment.
+        Json::Value meta;
+
+        {
+            Json::Reader reader;
+            const std::string metaString(
+                    m_outSource->getAsString("entwine" + postfix));
+            reader.parse(metaString, meta, false);
+        }
+
+        // Append IDs from this segment.
+        const Json::Value& jsonIds(meta["ids"]);
+        if (jsonIds.isArray())
+        {
+            for (std::size_t i(0); i < jsonIds.size(); ++i)
+            {
+                ids.push_back(
+                        jsonIds[static_cast<Json::ArrayIndex>(i)].asUInt64());
+            }
+        }
+        else
+        {
+            throw std::runtime_error("Invalid IDs.");
+        }
+
+        std::vector<char> data(m_outSource->get(
+                std::to_string(m_structure->baseIndexBegin()) + postfix));
+
+        if (!data.empty() || data.back() == Contiguous)
+        {
+            data.pop_back();
+
+            if (i == 0)
+            {
+                std::cout << "\t1 / " << baseCount << std::endl;
+                result.reset(
+                        new ContiguousChunkData(
+                            *m_schema,
+                            m_structure->baseIndexBegin(),
+                            m_structure->baseIndexSpan(),
+                            data));
+            }
+            else
+            {
+                std::cout << "\t" << i + 1 << " / " << baseCount << std::endl;
+
+                std::unique_ptr<ContiguousChunkData> chunkData(
+                        new ContiguousChunkData(
+                            *m_schema,
+                            m_structure->baseIndexBegin(),
+                            m_structure->baseIndexSpan(),
+                            data));
+
+
+                // Update stats.  Don't add numOutOfBounds, since those are
+                // based on the global bounds, so every segment's out-of-bounds
+                // count should be equal.
+                Stats stats(meta["stats"]);
+                m_stats.addPoint(stats.getNumPoints());
+                m_stats.addFallThrough(stats.getNumFallThroughs());
+                if (m_stats.getNumOutOfBounds() != stats.getNumOutOfBounds())
+                {
+                    throw std::runtime_error("Invalid stats in segment.");
+                }
+
+                result->merge(*chunkData);
+            }
+        }
+        else
+        {
+            throw std::runtime_error("Invalid base segment.");
+        }
+    }
+
+    m_structure->makeWhole();
+    m_subBBox.reset();
+
+    Json::Value jsonMeta(saveProps());
+    Json::Value& jsonIds(jsonMeta["ids"]);
+
+    for (auto id : ids)
+    {
+        jsonIds.append(static_cast<Json::UInt64>(id));
+    }
+
+    m_outSource->put(
+            "entwine" + m_structure->subsetPostfix(),
+            jsonMeta.toStyledString());
+
+    result->save(*m_outSource);
 }
 
 void Builder::save()
@@ -295,7 +432,9 @@ void Builder::save()
     // Get our own metadata and the registry's - then serialize.
     Json::Value jsonMeta(saveProps());
     m_registry->save(jsonMeta);
-    m_outSource.put("entwine", jsonMeta.toStyledString());
+    m_outSource->put(
+            "entwine" + m_structure->subsetPostfix(),
+            jsonMeta.toStyledString());
 
     // Re-allow inserts.
     m_pool->go();
@@ -311,6 +450,7 @@ Json::Value Builder::saveProps() const
     Json::Value props;
 
     props["bbox"] = m_bbox->toJson();
+    if (m_subBBox) props["sub"] = m_subBBox->toJson();
     props["schema"] = m_schema->toJson();
     props["structure"] = m_structure->toJson();
     if (m_reprojection) props["reprojection"] = m_reprojection->toJson();
@@ -323,27 +463,32 @@ Json::Value Builder::saveProps() const
 void Builder::loadProps(const Json::Value& props)
 {
     m_bbox.reset(new BBox(props["bbox"]));
+    if (props.isMember("sub"))
+        m_subBBox.reset(new BBox(props["sub"]));
+
     m_schema.reset(new Schema(props["schema"]));
     m_structure.reset(new Structure(props["structure"]));
+
     if (props.isMember("reprojection"))
         m_reprojection.reset(new Reprojection(props["reprojection"]));
+
     m_manifest.reset(new Manifest(props["manifest"]));
     m_stats = Stats(props["stats"]);
 }
 
 void Builder::prep()
 {
-    if (m_tmpSource.isRemote())
+    if (m_tmpSource->isRemote())
     {
         throw std::runtime_error("Tmp path must be local");
     }
 
-    if (!fs::mkdirp(m_tmpSource.path()))
+    if (!fs::mkdirp(m_tmpSource->path()))
     {
         throw std::runtime_error("Couldn't create tmp directory");
     }
 
-    if (!m_outSource.isRemote() && !fs::mkdirp(m_outSource.path()))
+    if (!m_outSource->isRemote() && !fs::mkdirp(m_outSource->path()))
     {
         throw std::runtime_error("Couldn't create local build directory");
     }
@@ -351,7 +496,7 @@ void Builder::prep()
 
 std::string Builder::name() const
 {
-    std::string name(m_outSource.path());
+    std::string name(m_outSource->path());
 
     // TODO Temporary/hacky.
     const std::size_t pos(name.find_last_of("/\\"));

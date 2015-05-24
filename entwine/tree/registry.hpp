@@ -26,6 +26,7 @@ namespace entwine
 class Chunk;
 class Clipper;
 class Cold;
+class ContiguousChunkData;
 class Entry;
 class PointInfo;
 class Pool;
@@ -59,7 +60,7 @@ private:
     const Schema& m_schema;
     const Structure& m_structure;
 
-    std::unique_ptr<Chunk> m_base;
+    std::unique_ptr<ContiguousChunkData> m_base;
     std::unique_ptr<Cold> m_cold;
 
     std::unique_ptr<Pool> m_pool;

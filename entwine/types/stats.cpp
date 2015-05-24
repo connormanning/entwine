@@ -39,19 +39,19 @@ Stats& Stats::operator=(const Stats& other)
     return *this;
 }
 
-void Stats::addPoint()
+void Stats::addPoint(const std::size_t inc)
 {
-    m_numPoints.fetch_add(1);
+    m_numPoints.fetch_add(inc);
 }
 
-void Stats::addOutOfBounds()
+void Stats::addOutOfBounds(const std::size_t inc)
 {
-    m_numOutOfBounds.fetch_add(1);
+    m_numOutOfBounds.fetch_add(inc);
 }
 
-void Stats::addFallThrough()
+void Stats::addFallThrough(const std::size_t inc)
 {
-    m_numFallThroughs.fetch_add(1);
+    m_numFallThroughs.fetch_add(inc);
 }
 
 std::size_t Stats::getNumPoints() const

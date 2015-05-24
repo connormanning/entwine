@@ -39,27 +39,6 @@ namespace
         dims.insert(dims.end(), schema.dims().begin(), schema.dims().end());
         return dims;
     }
-
-    ChunkType getChunkType(std::vector<char>& data)
-    {
-        ChunkType chunkType;
-
-        if (!data.empty())
-        {
-            const char marker(data.back());
-            data.pop_back();
-
-            if (marker == Sparse) chunkType = Sparse;
-            else if (marker == Contiguous) chunkType = Contiguous;
-            else throw std::runtime_error("Invalid chunk type detected");
-        }
-        else
-        {
-            throw std::runtime_error("Invalid chunk data detected");
-        }
-
-        return chunkType;
-    }
 }
 
 Entry::Entry(char* data)
@@ -377,7 +356,7 @@ Entry* ContiguousChunkData::getEntry(std::size_t rawIndex)
     return m_entries[normalize(rawIndex)].get();
 }
 
-void ContiguousChunkData::save(Source& source)
+void ContiguousChunkData::save(Source& source, const std::string postfix)
 {
     const std::size_t pointSize(m_schema.pointSize());
 
@@ -389,7 +368,12 @@ void ContiguousChunkData::save(Source& source)
 
     compressed->push_back(Contiguous);
 
-    source.put(std::to_string(m_id), *compressed);
+    source.put(std::to_string(m_id) + postfix, *compressed);
+}
+
+void ContiguousChunkData::save(Source& source)
+{
+    save(source, "");
 }
 
 void ContiguousChunkData::emptyEntries()
@@ -408,6 +392,35 @@ std::size_t ContiguousChunkData::normalize(const std::size_t rawIndex)
     assert(rawIndex < m_id + m_maxPoints);
 
     return rawIndex - m_id;
+}
+
+void ContiguousChunkData::merge(ContiguousChunkData& other)
+{
+    const std::size_t pointSize(m_schema.pointSize());
+
+    for (std::size_t i(m_id); i < m_id + m_maxPoints; ++i)
+    {
+        Entry* ours(getEntry(i));
+        Entry* theirs(other.getEntry(i));
+
+        // Can't overlap - these are distinct subsets.
+        assert(!ours->point().load() || !theirs->point().load());
+
+        if (const Point* theirPoint = theirs->point().load())
+        {
+            if (!ours->point().load())
+            {
+                ours->point().store(theirPoint);
+                theirs->point().store(0);
+
+                std::memcpy(ours->data(), theirs->data(), pointSize);
+            }
+            else
+            {
+                throw std::runtime_error("Trying to merge invalid chunks.");
+            }
+        }
+    }
 }
 
 
@@ -430,7 +443,7 @@ std::unique_ptr<ChunkData> ChunkDataFactory::create(
 {
     std::unique_ptr<ChunkData> chunk;
 
-    const ChunkType type(getChunkType(data));
+    const ChunkType type(Chunk::getType(data));
 
     if (type == Sparse)
     {
@@ -528,6 +541,26 @@ void Chunk::save(Source& source)
     m_chunkData->save(source);
 }
 
+ChunkType Chunk::getType(std::vector<char>& data)
+{
+    ChunkType chunkType;
+
+    if (!data.empty())
+    {
+        const char marker(data.back());
+        data.pop_back();
+
+        if (marker == Sparse) chunkType = Sparse;
+        else if (marker == Contiguous) chunkType = Contiguous;
+        else throw std::runtime_error("Invalid chunk type detected");
+    }
+    else
+    {
+        throw std::runtime_error("Invalid chunk data detected");
+    }
+
+    return chunkType;
+}
 
 
 
@@ -559,7 +592,7 @@ std::unique_ptr<ChunkReader> ChunkReader::create(
 {
     std::unique_ptr<ChunkReader> reader;
 
-    const ChunkType type(getChunkType(*data));
+    const ChunkType type(Chunk::getType(*data));
 
     if (type == Sparse)
     {

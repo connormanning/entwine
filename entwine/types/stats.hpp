@@ -25,9 +25,9 @@ public:
     explicit Stats(const Json::Value& json);
     Stats& operator=(const Stats& other);
 
-    void addPoint();
-    void addOutOfBounds();
-    void addFallThrough();
+    void addPoint(std::size_t inc = 1);
+    void addOutOfBounds(std::size_t inc = 1);
+    void addFallThrough(std::size_t inc = 1);
 
     std::size_t getNumPoints() const;
     std::size_t getNumOutOfBounds() const;

@@ -17,6 +17,8 @@
 namespace entwine
 {
 
+class BBox;
+
 class Structure
 {
 public:
@@ -26,7 +28,8 @@ public:
             std::size_t coldDepth,
             std::size_t chunkPoints,
             std::size_t dimensions,
-            std::size_t numPointsHint = 0);
+            std::size_t numPointsHint,
+            std::pair<std::size_t, std::size_t> subset = { 0, 0 });
 
     Structure(const Json::Value& json);
 
@@ -60,6 +63,13 @@ public:
     std::size_t numPointsHint() const;
     std::size_t sparseIndexBegin() const;
 
+    bool isSubset() const;
+    std::pair<std::size_t, std::size_t> subset() const;
+    void makeWhole();
+
+    std::unique_ptr<BBox> subsetBBox(const BBox& full) const;
+    std::string subsetPostfix() const;
+
 private:
     void loadIndexValues();
 
@@ -79,6 +89,8 @@ private:
 
     std::size_t m_numPointsHint;
     std::size_t m_sparseIndexBegin;
+
+    std::pair<std::size_t, std::size_t> m_subset;
 };
 
 } // namespace entwine

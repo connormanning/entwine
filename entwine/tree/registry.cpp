@@ -67,11 +67,10 @@ Registry::Registry(
     if (m_structure.baseIndexSpan())
     {
         m_base.reset(
-                new Chunk(
+                new ContiguousChunkData(
                     m_schema,
                     m_structure.baseIndexBegin(),
                     m_structure.baseIndexSpan(),
-                    true,
                     m_empty));
     }
 
@@ -96,14 +95,24 @@ Registry::Registry(
 {
     if (m_structure.baseIndexSpan())
     {
+        const std::string basePath(
+                std::to_string(m_structure.baseIndexBegin()) +
+                m_structure.subsetPostfix());
+
+        std::vector<char> data(m_source.get(basePath));
+        ChunkType type(Chunk::getType(data));
+
+        if (type != Contiguous)
+        {
+            throw std::runtime_error("Invalid base chunk type");
+        }
+
         m_base.reset(
-                new Chunk(
+                new ContiguousChunkData(
                     m_schema,
                     m_structure.baseIndexBegin(),
                     m_structure.baseIndexSpan(),
-                    m_source.get(std::to_string(
-                            m_structure.baseIndexBegin())),
-                    m_empty));
+                    data));
     }
 
     if (m_structure.coldIndexSpan())
@@ -197,10 +206,9 @@ bool Registry::addPoint(PointInfo** toAddPtr, Roller& roller, Clipper* clipper)
     return accepted;
 }
 
-
 void Registry::save(Json::Value& meta)
 {
-    m_base->save(m_source);
+    m_base->save(m_source, m_structure.subsetPostfix());
 
     if (m_cold) meta["ids"] = m_cold->toJson();
 }
