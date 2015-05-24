@@ -11,6 +11,7 @@
 #pragma once
 
 #include <cstddef>
+#include <memory>
 
 #include <entwine/third/json/json.h>
 
