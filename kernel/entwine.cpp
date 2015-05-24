@@ -221,7 +221,8 @@ int main(int argc, char** argv)
 
     while (argNum < argc)
     {
-        std::string arg(argv[argNum++]);
+        std::string arg(argv[argNum]);
+        ++argNum;
 
         if (arg == "-c")
         {
@@ -240,8 +241,10 @@ int main(int argc, char** argv)
             if (argNum + 1 < argc)
             {
                 subset = {
-                    std::stoul(argv[argNum++]) - 1,
-                    std::stoul(argv[argNum++]) };
+                    std::stoul(argv[argNum]) - 1,
+                    std::stoul(argv[argNum + 1]) };
+
+                argNum += 2;
 
                 if (subset.first >= subset.second)
                     throw std::runtime_error("Invalid subset parameters.");
@@ -363,7 +366,7 @@ int main(int argc, char** argv)
 
         if (structure.isSubset())
         {
-            std::cout << "Subset:" <<
+            std::cout << "Subset: " <<
                 subset.first + 1 << " of " << subset.second << "\n" <<
                 std::endl;
         }

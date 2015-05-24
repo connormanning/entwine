@@ -57,11 +57,12 @@ int main(int argc, char** argv)
 
     while (argNum < argc)
     {
-        std::string arg(argv[argNum++]);
+        std::string arg(argv[argNum]);
+        ++argNum;
 
         if (arg == "-c")
         {
-            credPath = argv[argNum++];
+            credPath = argv[argNum];
         }
         else if (arg.size() > 2 && arg.substr(0, 2) == "-c")
         {
