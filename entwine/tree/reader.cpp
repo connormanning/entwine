@@ -78,14 +78,13 @@ Reader::Reader(
 
         const Json::Value& jsonIds(props["ids"]);
 
-        if (!jsonIds.isArray())
+        if (jsonIds.isArray())
         {
-            throw std::runtime_error("Invalid saved state.");
-        }
-
-        for (std::size_t i(0); i < jsonIds.size(); ++i)
-        {
-            m_ids.insert(jsonIds[static_cast<Json::ArrayIndex>(i)].asUInt64());
+            for (std::size_t i(0); i < jsonIds.size(); ++i)
+            {
+                m_ids.insert(
+                        jsonIds[static_cast<Json::ArrayIndex>(i)].asUInt64());
+            }
         }
     }
 

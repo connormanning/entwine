@@ -8,14 +8,15 @@
 *
 ******************************************************************************/
 
+#include <csignal>
+#include <cstdio>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-
-#include <csignal>
-#include <cstdio>
-#include <execinfo.h>
 #include <string>
+
+#include <execinfo.h>
+#include <glob.h>
 
 #include <entwine/drivers/arbiter.hpp>
 #include <entwine/drivers/s3.hpp>
@@ -109,22 +110,51 @@ namespace
         return auth;
     }
 
+    std::vector<std::string> resolve(const std::string& path)
+    {
+        std::vector<std::string> results;
+
+        if (path.size() && path.back() == '*')
+        {
+            glob_t buffer;
+
+            glob(path.c_str(), GLOB_NOSORT | GLOB_TILDE, 0, &buffer);
+
+            for (std::size_t i(0); i < buffer.gl_pathc; ++i)
+            {
+                results.push_back(buffer.gl_pathv[i]);
+            }
+
+            globfree(&buffer);
+        }
+        else
+        {
+            results.push_back(path);
+        }
+
+        return results;
+    }
+
     std::vector<std::string> getManifest(const Json::Value& json)
     {
         std::vector<std::string> manifest;
 
+        auto insert([&manifest](std::string in)
+        {
+            std::vector<std::string> paths(resolve(in));
+            manifest.insert(manifest.end(), paths.begin(), paths.end());
+        });
+
         if (json.isArray())
         {
-            manifest.resize(json.size());
-
             for (Json::ArrayIndex i(0); i < json.size(); ++i)
             {
-                manifest[i] = json[i].asString();
+                insert(json[i].asString());
             }
         }
         else
         {
-            manifest.push_back(json.asString());
+            insert(json.asString());
         }
 
         return manifest;
