@@ -57,10 +57,10 @@ void Pool::join()
     if (!stop())
     {
         stop(true);
-        m_consumeCv.notify_all();
 
         for (auto& t : m_threads)
         {
+            m_consumeCv.notify_all();
             t.join();
         }
 
@@ -75,7 +75,7 @@ void Pool::add(std::function<void()> task)
     if (stop())
     {
         throw std::runtime_error(
-                "Attempted to add a task to a non-running Pool");
+                "Attempted to add a task to a stopped Pool");
     }
 
     std::unique_lock<std::mutex> lock(m_mutex);

@@ -397,6 +397,8 @@ int main(int argc, char** argv)
         }
     }
 
+    std::cout << "Joining..." << std::endl;
+
     builder->join();
 
     std::cout << "\nIndex completed in " << secondsSince(start) <<

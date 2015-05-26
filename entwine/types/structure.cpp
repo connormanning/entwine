@@ -80,9 +80,11 @@ void Structure::loadIndexValues()
     m_coldIndexBegin = m_baseIndexEnd;
     m_coldIndexEnd = calcOffset(m_coldDepth, m_dimensions);
 
+    const std::size_t coldFirstSpan(std::pow(4, m_baseDepth));
+
     if (coldIndexSpan())
     {
-        if (!m_chunkPoints || (coldIndexSpan() % m_chunkPoints))
+        if (!m_chunkPoints || (coldFirstSpan % m_chunkPoints))
         {
             throw std::runtime_error("Invalid chunk specification");
         }
@@ -111,6 +113,16 @@ void Structure::loadIndexValues()
         if (m_subset.first >= m_subset.second)
         {
             throw std::runtime_error("Invalid subset identifier");
+        }
+
+        if (coldIndexSpan())
+        {
+            if (
+                    (coldFirstSpan / m_chunkPoints) < splits ||
+                    (coldFirstSpan / m_chunkPoints) % splits)
+            {
+                throw std::runtime_error("Invalid chunk size for this subset");
+            }
         }
     }
 }
