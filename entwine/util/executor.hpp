@@ -27,6 +27,7 @@ namespace pdal
 namespace entwine
 {
 
+class BBox;
 class FsDriver;
 class Reprojection;
 class Schema;
@@ -45,6 +46,12 @@ public:
 
     // True if this path is recognized as a point cloud file.
     bool good(std::string path) const;
+
+    // If available, return the bounds specified in the file header without
+    // reading the whole file.
+    std::unique_ptr<BBox> bounds(
+            std::string path,
+            const Reprojection* reprojection);
 
 private:
     std::unique_ptr<pdal::Reader> createReader(

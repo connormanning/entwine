@@ -11,14 +11,17 @@
 #include <entwine/util/executor.hpp>
 
 #include <pdal/Filter.hpp>
+#include <pdal/QuickInfo.hpp>
 #include <pdal/Reader.hpp>
 #include <pdal/StageFactory.hpp>
 #include <pdal/StageWrapper.hpp>
 
 #include <entwine/drivers/fs.hpp>
+#include <entwine/types/bbox.hpp>
 #include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/simple-point-layout.hpp>
 #include <entwine/types/simple-point-table.hpp>
 
 namespace entwine
@@ -107,6 +110,73 @@ bool Executor::good(const std::string path) const
     return !m_stageFactory->inferReaderDriver(path).empty();
 }
 
+std::unique_ptr<BBox> Executor::bounds(
+        const std::string path,
+        const Reprojection* reprojection)
+{
+    using namespace pdal::Dimension;
+
+    std::unique_ptr<BBox> bbox;
+
+    auto lock(getLock());
+    const std::string driver(m_stageFactory->inferReaderDriver(path));
+    lock.unlock();
+
+    if (!driver.empty())
+    {
+        std::unique_ptr<pdal::Reader> reader(createReader(driver, path));
+        if (reader)
+        {
+            pdal::PointTable table;
+
+            auto layout(table.layout());
+            layout->registerDim(Id::X);
+            layout->registerDim(Id::Y);
+            layout->registerDim(Id::Z);
+
+            reader->prepare(table);
+            const pdal::QuickInfo preview(reader->preview());
+
+            if (preview.valid())
+            {
+                bbox.reset(
+                        new BBox(
+                            Point(
+                                preview.m_bounds.minx,
+                                preview.m_bounds.miny),
+                            Point(
+                                preview.m_bounds.maxx,
+                                preview.m_bounds.maxy)));
+
+                if (reprojection)
+                {
+                    auto filter(
+                            createReprojectionFilter(*reprojection, table));
+
+                    pdal::PointView view(table);
+
+                    view.setField(Id::X, 0, bbox->min().x);
+                    view.setField(Id::Y, 0, bbox->min().y);
+                    view.setField(Id::X, 1, bbox->max().x);
+                    view.setField(Id::Y, 1, bbox->max().y);
+
+                    pdal::FilterWrapper::filter(*filter, view);
+
+                    bbox.reset(
+                            new BBox(
+                                Point(
+                                    view.getFieldAs<double>(Id::X, 0),
+                                    view.getFieldAs<double>(Id::Y, 0)),
+                                Point(
+                                    view.getFieldAs<double>(Id::X, 1),
+                                    view.getFieldAs<double>(Id::Y, 1))));
+                }
+            }
+        }
+    }
+
+    return bbox;
+}
 
 std::unique_ptr<pdal::Reader> Executor::createReader(
         const std::string driver,

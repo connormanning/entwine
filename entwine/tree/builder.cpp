@@ -140,7 +140,29 @@ bool Builder::insert(const std::string path)
                 insert(view, origin, clipper);
             });
 
-            if (!m_executor->run(localPath, m_reprojection.get(), inserter))
+            bool doInsert(true);
+
+            if (m_trustHeaders)
+            {
+                auto preBBox(
+                    m_executor->bounds(localPath, m_reprojection.get()));
+
+                if (preBBox)
+                {
+                    if (!preBBox->overlaps(*m_bbox))
+                    {
+                        doInsert = false;
+                    }
+                    else if (m_subBBox && !preBBox->overlaps(*m_subBBox))
+                    {
+                        doInsert = false;
+                    }
+                }
+            }
+
+            if (
+                    doInsert &&
+                    !m_executor->run(localPath, m_reprojection.get(), inserter))
             {
                 m_manifest->addError(origin);
             }
@@ -184,7 +206,7 @@ void Builder::insert(
         {
             if (!m_subBBox || m_subBBox->contains(point))
             {
-                Roller roller(*m_bbox.get());
+                Roller roller(*m_bbox);
 
                 pointView.setField(m_originId, i, origin);
 
