@@ -14,7 +14,8 @@
 
         // Input file list.
         "manifest": [
-            // TODO Allow directory/bucket globbing.
+            // Globbed filesystem path (TODO Add s3 glob support).
+            "/Users/my-name/data/data-directory/*",
 
             // Absolute filesystem path (tilde expansion not supported).
             "/Users/my-name/data/path.laz",
@@ -26,7 +27,7 @@
             "fs:///var/data/lidar/something.las",
 
             // S3 bucket paths (do not include a bucket location).
-            "s3://my-bucket/iowa//johnson-county.sbet"
+            "s3://my-bucket/iowa/johnson-county.sbet"
         ]
     },
     "output": {
