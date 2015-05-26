@@ -125,6 +125,9 @@ namespace
                 results.push_back(buffer.gl_pathv[i]);
             }
 
+            std::cout << "Resolved " << path << " to " << results.size() <<
+                " source files." << std::endl;
+
             globfree(&buffer);
         }
         else

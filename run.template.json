@@ -49,7 +49,6 @@
         // run-time resources.
         "numPointsHint": 160000000000,
 
-        // TODO Currently ignored.
         // Starting depth level of the base of the tree.
         "nullDepth": 0,
 
