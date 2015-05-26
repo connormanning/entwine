@@ -277,13 +277,13 @@ void Cold::clip(const std::size_t chunkId, Clipper* clipper, Pool& pool)
             FastSlot& slot(m_chunkVec[getChunkNum(chunkId)]);
             ChunkInfo& chunkInfo(*slot.chunk);
 
-            std::lock_guard<std::mutex> chunkLock(slot.chunk->mutex);
+            std::unique_lock<std::mutex> chunkLock(chunkInfo.mutex);
             chunkInfo.refs.erase(clipper);
 
             if (chunkInfo.refs.empty())
             {
                 chunkInfo.chunk->save(m_source);
-                slot.chunk.reset(0);
+                chunkInfo.chunk.reset(0);
             }
         });
     }
