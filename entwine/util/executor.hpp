@@ -15,6 +15,8 @@
 #include <mutex>
 #include <string>
 
+#include <entwine/types/bbox.hpp>
+
 namespace pdal
 {
     class BasePointTable;
@@ -27,10 +29,21 @@ namespace pdal
 namespace entwine
 {
 
-class BBox;
 class FsDriver;
 class Reprojection;
 class Schema;
+
+class Preview
+{
+public:
+    Preview(BBox bbox, std::size_t numPoints)
+        : bbox(bbox)
+        , numPoints(numPoints)
+    { }
+
+    BBox bbox;
+    std::size_t numPoints;
+};
 
 class Executor
 {
@@ -49,7 +62,7 @@ public:
 
     // If available, return the bounds specified in the file header without
     // reading the whole file.
-    std::unique_ptr<BBox> bounds(
+    std::unique_ptr<Preview> preview(
             std::string path,
             const Reprojection* reprojection);
 

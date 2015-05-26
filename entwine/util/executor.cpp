@@ -110,13 +110,13 @@ bool Executor::good(const std::string path) const
     return !m_stageFactory->inferReaderDriver(path).empty();
 }
 
-std::unique_ptr<BBox> Executor::bounds(
+std::unique_ptr<Preview> Executor::preview(
         const std::string path,
         const Reprojection* reprojection)
 {
     using namespace pdal::Dimension;
 
-    std::unique_ptr<BBox> bbox;
+    std::unique_ptr<Preview> result;
 
     auto lock(getLock());
     const std::string driver(m_stageFactory->inferReaderDriver(path));
@@ -135,18 +135,13 @@ std::unique_ptr<BBox> Executor::bounds(
             layout->registerDim(Id::Z);
 
             reader->prepare(table);
-            const pdal::QuickInfo preview(reader->preview());
+            const pdal::QuickInfo quick(reader->preview());
 
-            if (preview.valid())
+            if (quick.valid())
             {
-                bbox.reset(
-                        new BBox(
-                            Point(
-                                preview.m_bounds.minx,
-                                preview.m_bounds.miny),
-                            Point(
-                                preview.m_bounds.maxx,
-                                preview.m_bounds.maxy)));
+                BBox bbox(
+                        Point(quick.m_bounds.minx, quick.m_bounds.miny),
+                        Point(quick.m_bounds.maxx, quick.m_bounds.maxy));
 
                 if (reprojection)
                 {
@@ -155,27 +150,28 @@ std::unique_ptr<BBox> Executor::bounds(
 
                     pdal::PointView view(table);
 
-                    view.setField(Id::X, 0, bbox->min().x);
-                    view.setField(Id::Y, 0, bbox->min().y);
-                    view.setField(Id::X, 1, bbox->max().x);
-                    view.setField(Id::Y, 1, bbox->max().y);
+                    view.setField(Id::X, 0, bbox.min().x);
+                    view.setField(Id::Y, 0, bbox.min().y);
+                    view.setField(Id::X, 1, bbox.max().x);
+                    view.setField(Id::Y, 1, bbox.max().y);
 
                     pdal::FilterWrapper::filter(*filter, view);
 
-                    bbox.reset(
-                            new BBox(
-                                Point(
-                                    view.getFieldAs<double>(Id::X, 0),
-                                    view.getFieldAs<double>(Id::Y, 0)),
-                                Point(
-                                    view.getFieldAs<double>(Id::X, 1),
-                                    view.getFieldAs<double>(Id::Y, 1))));
+                    bbox = BBox(
+                            Point(
+                                view.getFieldAs<double>(Id::X, 0),
+                                view.getFieldAs<double>(Id::Y, 0)),
+                            Point(
+                                view.getFieldAs<double>(Id::X, 1),
+                                view.getFieldAs<double>(Id::Y, 1)));
                 }
+
+                result.reset(new Preview(bbox, quick.m_pointCount));
             }
         }
     }
 
-    return bbox;
+    return result;
 }
 
 std::unique_ptr<pdal::Reader> Executor::createReader(

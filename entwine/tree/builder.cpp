@@ -144,16 +144,17 @@ bool Builder::insert(const std::string path)
 
             if (m_trustHeaders)
             {
-                auto preBBox(
-                    m_executor->bounds(localPath, m_reprojection.get()));
+                auto preview(
+                    m_executor->preview(localPath, m_reprojection.get()));
 
-                if (preBBox)
+                if (preview)
                 {
-                    if (!preBBox->overlaps(*m_bbox))
+                    if (!preview->bbox.overlaps(*m_bbox))
                     {
+                        m_stats.addOutOfBounds(preview->numPoints);
                         doInsert = false;
                     }
-                    else if (m_subBBox && !preBBox->overlaps(*m_subBBox))
+                    else if (m_subBBox && !preview->bbox.overlaps(*m_subBBox))
                     {
                         doInsert = false;
                     }
