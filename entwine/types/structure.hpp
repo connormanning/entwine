@@ -53,6 +53,8 @@ public:
     std::size_t baseIndexSpan() const;
     std::size_t coldIndexSpan() const;
 
+    std::size_t coldFirstSpan() const;
+
     bool isWithinNull(std::size_t index) const;
     bool isWithinBase(std::size_t index) const;
     bool isWithinCold(std::size_t index) const;

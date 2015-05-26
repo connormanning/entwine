@@ -54,14 +54,25 @@ public:
 
 private:
     std::size_t getChunkId(std::size_t index) const;
+    std::size_t getChunkNum(std::size_t index) const;
 
-    void grow(std::size_t chunkId, Clipper* clipper);
+    void growFast(std::size_t chunkId, Clipper* clipper);
+    void growSlow(std::size_t chunkId, Clipper* clipper);
+
+    std::size_t slowTrackedStart() const;
 
     struct ChunkInfo
     {
         std::unique_ptr<Chunk> chunk;
         std::set<const Clipper*> refs;
         std::mutex mutex;
+    };
+
+    struct FastSlot
+    {
+        std::atomic_bool mark;  // Data exists?
+        std::atomic_flag flag;  // Lock.
+        std::unique_ptr<ChunkInfo> chunk;
     };
 
     typedef
@@ -71,8 +82,12 @@ private:
     const Schema& m_schema;
     const Structure& m_structure;
 
-    mutable std::mutex m_mutex;
-    ChunkMap m_chunks;
+    std::vector<FastSlot> m_chunkVec;
+
+    ChunkMap m_chunkMap;
+    mutable std::mutex m_mapMutex;
+
+    std::size_t m_slowStart;
 
     const std::vector<char>& m_empty;
 };

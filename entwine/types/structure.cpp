@@ -80,11 +80,11 @@ void Structure::loadIndexValues()
     m_coldIndexBegin = m_baseIndexEnd;
     m_coldIndexEnd = calcOffset(m_coldDepth, m_dimensions);
 
-    const std::size_t coldFirstSpan(std::pow(4, m_baseDepth));
+    const std::size_t coldFirst(coldFirstSpan());
 
     if (coldIndexSpan())
     {
-        if (!m_chunkPoints || (coldFirstSpan % m_chunkPoints))
+        if (!m_chunkPoints || (coldFirst % m_chunkPoints))
         {
             throw std::runtime_error("Invalid chunk specification");
         }
@@ -118,8 +118,8 @@ void Structure::loadIndexValues()
         if (coldIndexSpan())
         {
             if (
-                    (coldFirstSpan / m_chunkPoints) < splits ||
-                    (coldFirstSpan / m_chunkPoints) % splits)
+                    (coldFirst / m_chunkPoints) < splits ||
+                    (coldFirst / m_chunkPoints) % splits)
             {
                 throw std::runtime_error("Invalid chunk size for this subset");
             }
@@ -165,6 +165,11 @@ std::size_t Structure::baseIndexBegin() const   { return m_baseIndexBegin; }
 std::size_t Structure::baseIndexEnd() const     { return m_baseIndexEnd; }
 std::size_t Structure::coldIndexBegin() const   { return m_coldIndexBegin; }
 std::size_t Structure::coldIndexEnd() const     { return m_coldIndexEnd; }
+
+std::size_t Structure::coldFirstSpan() const
+{
+    return std::pow(4, m_baseDepth);
+}
 
 std::size_t Structure::nullIndexSpan() const
 {
