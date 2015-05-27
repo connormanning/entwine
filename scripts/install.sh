@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-./scripts/ubuntu-deps.sh
-mkdir build && cd build
+./entwine/scripts/ubuntu-deps.sh
+mkdir ./entwine/build && cd ./entwine/build
 
 cmake -G "Unix Makefiles" \
     -DCMAKE_INSTALL_PREFIX=/usr \
