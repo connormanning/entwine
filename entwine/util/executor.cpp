@@ -134,7 +134,6 @@ std::unique_ptr<Preview> Executor::preview(
             layout->registerDim(Id::Y);
             layout->registerDim(Id::Z);
 
-            reader->prepare(table);
             const pdal::QuickInfo quick(reader->preview());
 
             if (quick.valid())
