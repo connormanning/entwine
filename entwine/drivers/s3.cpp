@@ -23,8 +23,9 @@ namespace entwine
 
 namespace
 {
-    const std::size_t httpAttempts(5);
-    const auto httpSleepTime(std::chrono::milliseconds(20));
+    const std::size_t httpAttempts(20);
+    const auto baseSleepTime(std::chrono::milliseconds(1));
+    const auto maxSleepTime (std::chrono::milliseconds(1024));
 
     const std::string baseUrl(".s3.amazonaws.com/");
 
@@ -120,12 +121,18 @@ HttpResponse S3Driver::httpExec(
 {
     std::size_t fails(0);
     HttpResponse res;
+    auto sleepTime(baseSleepTime);
 
     do
     {
         res = f();
 
-        if (res.code() != 200) std::this_thread::sleep_for(httpSleepTime);
+        if (res.code() != 200)
+        {
+            std::this_thread::sleep_for(sleepTime);
+            sleepTime *= 2;
+            if (sleepTime > maxSleepTime) sleepTime = maxSleepTime;
+        }
     }
     while (res.code() != 200 && ++fails < tries);
 
