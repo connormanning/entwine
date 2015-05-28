@@ -23,7 +23,7 @@ namespace entwine
 
 namespace
 {
-    const std::size_t httpAttempts(60);
+    const std::size_t httpAttempts(200);
     const auto baseSleepTime(std::chrono::milliseconds(1));
     const auto maxSleepTime (std::chrono::milliseconds(4096));
 
