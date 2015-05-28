@@ -23,9 +23,9 @@ namespace entwine
 
 namespace
 {
-    const std::size_t httpAttempts(40);
+    const std::size_t httpAttempts(60);
     const auto baseSleepTime(std::chrono::milliseconds(1));
-    const auto maxSleepTime (std::chrono::milliseconds(1024));
+    const auto maxSleepTime (std::chrono::milliseconds(4096));
 
     const std::string baseUrl(".s3.amazonaws.com/");
 
