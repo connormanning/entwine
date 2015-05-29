@@ -76,6 +76,8 @@ Curl::Curl(std::size_t id)
 Curl::~Curl()
 {
     curl_easy_cleanup(m_curl);
+    curl_slist_free_all(m_headers);
+    m_headers = 0;
 }
 
 void Curl::init(std::string url, const std::vector<std::string>& headers)
@@ -112,7 +114,7 @@ HttpResponse Curl::get(std::string url, std::vector<std::string> headers)
     init(url, headers);
 
     int httpCode(0);
-    std::unique_ptr<std::vector<char>> data(new std::vector<char>());
+    std::shared_ptr<std::vector<char>> data(new std::vector<char>());
 
     // Register callback function and date pointer to consume the result.
     curl_easy_setopt(m_curl, CURLOPT_WRITEFUNCTION, getCb);
@@ -125,7 +127,7 @@ HttpResponse Curl::get(std::string url, std::vector<std::string> headers)
     curl_easy_perform(m_curl);
     curl_easy_getinfo(m_curl, CURLINFO_RESPONSE_CODE, &httpCode);
 
-    HttpResponse res(httpCode, std::move(data));
+    HttpResponse res(httpCode, data);
     curl_easy_reset(m_curl);
     return res;
 }

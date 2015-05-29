@@ -33,7 +33,7 @@ public:
 
     HttpResponse(int code, std::shared_ptr<std::vector<char>> data)
         : m_code(code)
-        , m_data(std::move(data))
+        , m_data(data)
     { }
 
     ~HttpResponse() { }
