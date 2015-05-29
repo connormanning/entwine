@@ -25,6 +25,7 @@ namespace entwine
 namespace
 {
     std::atomic_size_t chunkMem(0);
+    std::atomic_size_t chunkCnt(0);
 
     double getThreshold(const Schema& schema)
     {
@@ -120,7 +121,9 @@ SparseChunkData::SparseChunkData(
     : ChunkData(schema, id, maxPoints)
     , m_mutex()
     , m_entries()
-{ }
+{
+    chunkCnt.fetch_add(1);
+}
 
 SparseChunkData::SparseChunkData(
         const Schema& schema,
@@ -134,6 +137,7 @@ SparseChunkData::SparseChunkData(
     const std::size_t numPoints(popNumPoints(compressedData));
 
     chunkMem.fetch_add(numPoints * m_schema.pointSize());
+    chunkCnt.fetch_add(1);
 
     const Schema sparse(makeSparse(m_schema));
     const std::size_t sparsePointSize(sparse.pointSize());
@@ -162,6 +166,7 @@ SparseChunkData::SparseChunkData(
 SparseChunkData::~SparseChunkData()
 {
     chunkMem.fetch_sub(numPoints() * m_schema.pointSize());
+    chunkCnt.fetch_sub(1);
 }
 
 Entry* SparseChunkData::getEntry(const std::size_t rawIndex)
@@ -271,6 +276,7 @@ ContiguousChunkData::ContiguousChunkData(
     const std::size_t emptyPoints(empty.size() / pointSize);
 
     chunkMem.fetch_add(m_maxPoints * pointSize);
+    chunkCnt.fetch_add(1);
 
     if (emptyPoints == m_maxPoints)
     {
@@ -315,6 +321,7 @@ ContiguousChunkData::ContiguousChunkData(
     const std::size_t pointSize(m_schema.pointSize());
 
     chunkMem.fetch_add(m_maxPoints * pointSize);
+    chunkCnt.fetch_add(1);
 
     for (std::size_t i(0); i < maxPoints; ++i)
     {
@@ -370,6 +377,7 @@ ContiguousChunkData::ContiguousChunkData(
 ContiguousChunkData::~ContiguousChunkData()
 {
     chunkMem.fetch_sub(numPoints() * m_schema.pointSize());
+    chunkCnt.fetch_sub(1);
 }
 
 Entry* ContiguousChunkData::getEntry(std::size_t rawIndex)
@@ -586,6 +594,11 @@ ChunkType Chunk::getType(std::vector<char>& data)
 std::size_t Chunk::getChunkMem()
 {
     return chunkMem.load();
+}
+
+std::size_t Chunk::getChunkCnt()
+{
+    return chunkCnt.load();
 }
 
 

@@ -174,7 +174,9 @@ bool Builder::insert(const std::string path)
             const std::size_t div(1000000000);
 
             std::cout << "\tDone " << origin << " - " << path <<
-                "\tUsage: " << mem / div << "." << mem % div << std::endl;
+                "\tUsage: " << mem / div << "." << mem % div <<
+                " GB in " << Chunk::getChunkCnt() << " chunks." <<
+                std::endl;
 
             if (
                     m_arbiter->getSource(path).isRemote() &&

@@ -204,6 +204,7 @@ public:
     static ChunkType getType(std::vector<char>& data);
 
     static std::size_t getChunkMem();
+    static std::size_t getChunkCnt();
 
 private:
     std::unique_ptr<ChunkData> m_chunkData;
