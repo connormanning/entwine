@@ -132,7 +132,6 @@ bool Builder::insert(const std::string path)
     {
         try
         {
-            const bool isRemote(m_arbiter->getSource(path).isRemote());
             const std::string localPath(localize(path, origin));
 
             std::unique_ptr<Clipper> clipperPtr(new Clipper(*this));
@@ -173,7 +172,9 @@ bool Builder::insert(const std::string path)
 
             std::cout << "\tDone " << origin << " - " << path << std::endl;
 
-            if (isRemote && !fs::removeFile(localPath))
+            if (
+                    m_arbiter->getSource(path).isRemote() &&
+                    !fs::removeFile(localPath))
             {
                 std::cout << "Couldn't delete " << localPath << std::endl;
                 throw std::runtime_error("Couldn't delete tmp file");
