@@ -188,6 +188,7 @@ void SparseChunkData::save(Source& source)
 {
     Schema sparse(makeSparse(m_schema));
 
+    std::lock_guard<std::mutex> lock(m_mutex);
     std::vector<char> data(squash(sparse));
 
     auto compressed(Compression::compress(data.data(), data.size(), sparse));

@@ -182,7 +182,7 @@ bool Registry::addPoint(PointInfo** toAddPtr, Roller& roller, Clipper* clipper)
                 // Someone beat us here, call again to enter the other branch.
                 // Be sure to unlock our mutex first.
                 lock.unlock();
-                accepted = addPoint(toAddPtr, roller, clipper);
+                return addPoint(toAddPtr, roller, clipper);
             }
         }
     }
