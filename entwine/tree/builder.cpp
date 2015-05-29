@@ -170,7 +170,11 @@ bool Builder::insert(const std::string path)
                 m_manifest->addError(origin);
             }
 
-            std::cout << "\tDone " << origin << " - " << path << std::endl;
+            const std::size_t mem(Chunk::getChunkMem());
+            const std::size_t div(1000000000);
+
+            std::cout << "\tDone " << origin << " - " << path <<
+                "\tUsage: " << mem / div << "." << mem % div << std::endl;
 
             if (
                     m_arbiter->getSource(path).isRemote() &&

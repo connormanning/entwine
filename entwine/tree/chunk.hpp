@@ -94,6 +94,8 @@ public:
             std::size_t maxPoints,
             std::vector<char>& compressedData);
 
+    ~SparseChunkData();
+
     virtual void save(Source& source);
 
     virtual bool isSparse() const { return true; }
@@ -141,6 +143,8 @@ public:
     ContiguousChunkData(
             SparseChunkData& sparse,
             const std::vector<char>& empty);
+
+    ~ContiguousChunkData();
 
     void save(Source& source, std::string postfix);
     virtual void save(Source& source);
@@ -198,6 +202,8 @@ public:
     void save(Source& source);
 
     static ChunkType getType(std::vector<char>& data);
+
+    static std::size_t getChunkMem();
 
 private:
     std::unique_ptr<ChunkData> m_chunkData;

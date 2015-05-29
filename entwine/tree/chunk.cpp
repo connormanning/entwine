@@ -24,6 +24,8 @@ namespace entwine
 
 namespace
 {
+    std::atomic_size_t chunkMem(0);
+
     double getThreshold(const Schema& schema)
     {
         const std::size_t pointSize(schema.pointSize());
@@ -131,6 +133,8 @@ SparseChunkData::SparseChunkData(
 {
     const std::size_t numPoints(popNumPoints(compressedData));
 
+    chunkMem.fetch_add(numPoints * m_schema.pointSize());
+
     const Schema sparse(makeSparse(m_schema));
     const std::size_t sparsePointSize(sparse.pointSize());
 
@@ -155,6 +159,11 @@ SparseChunkData::SparseChunkData(
     }
 }
 
+SparseChunkData::~SparseChunkData()
+{
+    chunkMem.fetch_sub(numPoints() * m_schema.pointSize());
+}
+
 Entry* SparseChunkData::getEntry(const std::size_t rawIndex)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -163,6 +172,7 @@ Entry* SparseChunkData::getEntry(const std::size_t rawIndex)
 
     if (it == m_entries.end())
     {
+        chunkMem.fetch_add(m_schema.pointSize());
         it = m_entries.emplace(rawIndex, SparseEntry(m_schema)).first;
     }
 
@@ -260,6 +270,8 @@ ContiguousChunkData::ContiguousChunkData(
     const std::size_t pointSize(m_schema.pointSize());
     const std::size_t emptyPoints(empty.size() / pointSize);
 
+    chunkMem.fetch_add(m_maxPoints * pointSize);
+
     if (emptyPoints == m_maxPoints)
     {
         // Cold chunk.
@@ -302,6 +314,8 @@ ContiguousChunkData::ContiguousChunkData(
 
     const std::size_t pointSize(m_schema.pointSize());
 
+    chunkMem.fetch_add(m_maxPoints * pointSize);
+
     for (std::size_t i(0); i < maxPoints; ++i)
     {
         char* pos(m_data->data() + i * pointSize);
@@ -330,6 +344,8 @@ ContiguousChunkData::ContiguousChunkData(
 
     const std::size_t pointSize(m_schema.pointSize());
 
+    chunkMem.fetch_add(m_maxPoints * pointSize);
+
     std::lock_guard<std::mutex> lock(sparse.m_mutex);
 
     for (auto& p : sparse.m_entries)
@@ -349,6 +365,11 @@ ContiguousChunkData::ContiguousChunkData(
     }
 
     sparse.m_entries.clear();
+}
+
+ContiguousChunkData::~ContiguousChunkData()
+{
+    chunkMem.fetch_sub(numPoints() * m_schema.pointSize());
 }
 
 Entry* ContiguousChunkData::getEntry(std::size_t rawIndex)
@@ -560,6 +581,11 @@ ChunkType Chunk::getType(std::vector<char>& data)
     }
 
     return chunkType;
+}
+
+std::size_t Chunk::getChunkMem()
+{
+    return chunkMem.load();
 }
 
 
