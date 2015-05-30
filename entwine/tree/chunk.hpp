@@ -32,19 +32,34 @@ class Entry
     friend class ContiguousChunkData;
 
 public:
+    class Locker
+    {
+    public:
+        explicit Locker(std::atomic_flag& flag) : m_flag(flag)
+        {
+            while (m_flag.test_and_set())
+                ;
+        }
+
+        ~Locker() { m_flag.clear(); }
+
+    private:
+        std::atomic_flag& m_flag;
+    };
+
     Entry(char* data);
     Entry(const Point* point, char* data);
     ~Entry();
 
     std::atomic<const Point*>& point() { return m_point.atom; }
-    std::mutex& mutex() { return m_mutex; }
-    char* data() { return m_data; } // Must hold lock on mutex for access.
+    Locker getLocker() { return Locker(m_flag); }
+    char* data() { return m_data; } // Must fetch a Locker to access.
 
 private:
     void setData(char* pos) { m_data = pos; }
 
     ElasticAtomic<const Point*> m_point;
-    std::mutex m_mutex;
+    std::atomic_flag m_flag;
     char* m_data;
 };
 

@@ -46,18 +46,23 @@ namespace
 
 Entry::Entry(char* data)
     : m_point(0)
-    , m_mutex()
+    , m_flag()
     , m_data(data)
-{ }
+{
+    m_flag.clear();
+}
 
 Entry::Entry(const Point* point, char* data)
     : m_point(point)
-    , m_mutex()
+    , m_flag()
     , m_data(data)
-{ }
+{
+    m_flag.clear();
+}
 
 Entry::~Entry()
 {
+    auto locker(getLocker());
     if (m_point.atom.load()) delete m_point.atom.load();
 }
 
@@ -366,7 +371,7 @@ ContiguousChunkData::ContiguousChunkData(
 
         myEntry = std::move(sparseEntry.entry);
 
-        std::lock_guard<std::mutex> dataLock(myEntry->mutex());
+        auto locker(myEntry->getLocker());
         myEntry->setData(pos);
 
         std::memcpy(pos, sparseEntry.data.data(), pointSize);

@@ -141,7 +141,7 @@ bool Registry::addPoint(PointInfo** toAddPtr, Roller& roller, Clipper* clipper)
 
             if (toAdd->point->sqDist(mid) < myPoint.load()->sqDist(mid))
             {
-                std::lock_guard<std::mutex> lock(entry->mutex());
+                auto locker(entry->getLocker());
                 const Point* curPoint(myPoint.load());
 
                 if (toAdd->point->sqDist(mid) < curPoint->sqDist(mid))
@@ -169,7 +169,9 @@ bool Registry::addPoint(PointInfo** toAddPtr, Roller& roller, Clipper* clipper)
         }
         else
         {
-            std::unique_lock<std::mutex> lock(entry->mutex());
+            std::unique_ptr<Entry::Locker> locker(
+                    new Entry::Locker(entry->getLocker()));
+
             if (!myPoint.load())
             {
                 toAdd->write(entry->data(), m_schema.pointSize());
@@ -180,8 +182,8 @@ bool Registry::addPoint(PointInfo** toAddPtr, Roller& roller, Clipper* clipper)
             else
             {
                 // Someone beat us here, call again to enter the other branch.
-                // Be sure to unlock our mutex first.
-                lock.unlock();
+                // Be sure to release our lock first.
+                locker.reset(0);
                 return addPoint(toAddPtr, roller, clipper);
             }
         }
