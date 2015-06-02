@@ -32,6 +32,7 @@ class Entry
     friend class ContiguousChunkData;
 
 public:
+    Entry();
     Entry(char* data);
     Entry(const Point& point, char* data);
 
@@ -42,9 +43,9 @@ public:
     Locker getLocker();
     char* data();           // Must fetch a Locker to access.
 
-private:
     void setData(char* pos) { m_data = pos; }
 
+private:
     std::atomic<Point> m_point;
     std::atomic_flag m_flag;
     char* m_data;
@@ -112,12 +113,12 @@ private:
         SparseEntry(const Schema& schema);
         SparseEntry(const Schema& schema, char* pos);
 
-        std::vector<char> data;
         Entry entry;
+        std::vector<char> data;
     };
 
     std::mutex m_mutex;
-    std::unordered_map<std::size_t, SparseEntry> m_entries;
+    std::unordered_map<std::size_t, std::unique_ptr<SparseEntry>> m_entries;
 
     // Creates a compact contiguous representation of this sparse chunk by
     // prepending an "EntryId" field to the native schema and inserting each
