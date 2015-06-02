@@ -12,6 +12,11 @@
         // Number of worker threads for simultaneous point insertion.
         "threads": 24,
 
+        // Set to true if the headers for all files are known to be accurate.
+        // If accurate, this information can be used to greatly speed up
+        // parallelized builds.
+        "trustHeaders": false,
+
         // Input file list.
         "manifest": [
             // Globbed filesystem path (TODO Add s3 glob support).

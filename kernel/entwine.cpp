@@ -295,6 +295,7 @@ int main(int argc, char** argv)
     // Input files to add to the index.
     const Json::Value jsonInput(config["input"]);
     const std::vector<std::string> manifest(getManifest(jsonInput["manifest"]));
+    const bool trustHeaders(jsonInput["trustHeaders"].asBool());
     const std::size_t runCount(getRunCount(jsonInput, manifest.size()));
     const std::size_t threads(jsonInput["threads"].asUInt64());
 
@@ -344,8 +345,25 @@ int main(int argc, char** argv)
 
     std::unique_ptr<Builder> builder;
 
-    // TODO Fetch from arbiter source - don't assume local.
-    if (!force && fs::fileExists(outPath + "/entwine"))
+    bool exists(false);
+
+    if (!force)
+    {
+        try
+        {
+            Source source(arbiter->getSource(outPath));
+            if (source.getAsString("entwine").size())
+            {
+                exists = true;
+            }
+        }
+        catch (...)
+        {
+            // Hacky...
+        }
+    }
+
+    if (!force && exists)
     {
         std::cout << "Continuing previous index..." << std::endl;
         std::cout <<
@@ -375,15 +393,16 @@ int main(int argc, char** argv)
             exit(1);
         }
 
-        std::cout <<
+        std::cout << std::boolalpha <<
             "Input:\n" <<
             "\tBuilding from " << manifest.size() << " source files\n" <<
             "\tInserting up to " << runCount << " files\n" <<
+            "\tTrust file headers? " << (trustHeaders ? "Yes" : "No") << "\n" <<
             "\tBuild threads: " << threads << "\n" <<
             "Output:\n" <<
             "\tOutput path: " << outPath << "\n" <<
             "\tTemporary path: " << tmpPath << "\n" <<
-            "\tCompressed output: " << std::boolalpha << outCompress << "\n" <<
+            "\tCompressed output? " << (outCompress ? "Yes" : "No") << "\n" <<
             "Tree structure:\n" <<
             "\tNull depth: " << nullDepth << "\n" <<
             "\tBase depth: " << baseDepth << "\n" <<
@@ -408,6 +427,7 @@ int main(int argc, char** argv)
                 new Builder(
                     outPath,
                     tmpPath,
+                    trustHeaders,
                     reprojection.get(),
                     bbox.get(),
                     schema.dims(),

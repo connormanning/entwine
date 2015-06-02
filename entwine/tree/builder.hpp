@@ -52,6 +52,7 @@ public:
     Builder(
             std::string outPath,
             std::string tmpPath,
+            bool trustHeaders,
             const Reprojection* reprojection,
             const BBox* bbox,
             const DimList& dimList,
@@ -125,7 +126,7 @@ private:
     std::unique_ptr<Manifest> m_manifest;
 
     Stats m_stats;
-    bool m_trustHeaders;    // TODO Configure.
+    bool m_trustHeaders;
 
     std::unique_ptr<Pool> m_pool;
     std::unique_ptr<Executor> m_executor;

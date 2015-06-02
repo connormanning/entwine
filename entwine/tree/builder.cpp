@@ -36,6 +36,7 @@ namespace entwine
 Builder::Builder(
         const std::string outPath,
         const std::string tmpPath,
+        const bool trustHeaders,
         const Reprojection* reprojection,
         const BBox* bbox,
         const DimList& dimList,
@@ -49,7 +50,7 @@ Builder::Builder(
     , m_reprojection(reprojection ? new Reprojection(*reprojection) : 0)
     , m_manifest(new Manifest())
     , m_stats()
-    , m_trustHeaders(true)
+    , m_trustHeaders(trustHeaders)
     , m_pool(new Pool(numThreads))
     , m_executor(new Executor(*m_schema))
     , m_originId(m_schema->pdalLayout().findDim("Origin"))
@@ -77,7 +78,7 @@ Builder::Builder(
     , m_reprojection()
     , m_manifest()
     , m_stats()
-    , m_trustHeaders(true)
+    , m_trustHeaders(false)
     , m_pool(new Pool(numThreads))
     , m_executor()
     , m_arbiter(arbiter ? arbiter : std::make_shared<Arbiter>(Arbiter()))
@@ -484,6 +485,7 @@ Json::Value Builder::saveProps() const
     if (m_reprojection) props["reprojection"] = m_reprojection->toJson();
     props["manifest"] = m_manifest->toJson();
     props["stats"] = m_stats.toJson();
+    props["trustHeaders"] = m_trustHeaders;
 
     return props;
 }
@@ -502,6 +504,7 @@ void Builder::loadProps(const Json::Value& props)
 
     m_manifest.reset(new Manifest(props["manifest"]));
     m_stats = Stats(props["stats"]);
+    m_trustHeaders = props["trustHeaders"].asBool();
 }
 
 void Builder::prep()

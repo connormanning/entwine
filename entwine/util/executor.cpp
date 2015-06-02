@@ -187,9 +187,9 @@ std::unique_ptr<pdal::Reader> Executor::createReader(
                     m_stageFactory->createStage(driver)));
         lock.unlock();
 
-        std::unique_ptr<pdal::Options> readerOptions(new pdal::Options());
-        readerOptions->add(pdal::Option("filename", path));
-        reader->setOptions(*readerOptions);
+        pdal::Options options;
+        options.add(pdal::Option("filename", path));
+        reader->setOptions(options);
     }
     else
     {
