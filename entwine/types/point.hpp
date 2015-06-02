@@ -20,7 +20,7 @@ class Schema;
 class Point
 {
 public:
-    Point() : x(Point::emptyCoord()), y(Point::emptyCoord()) { }
+    Point() noexcept : x(Point::emptyCoord()), y(Point::emptyCoord()) { }
     Point(double x, double y) : x(x), y(y) { }
 
     // Calculates the distance-squared to another point.
@@ -31,7 +31,7 @@ public:
 
     static bool exists(Point p)
     {
-        return p.x != Point::emptyCoord() && p.y != Point::emptyCoord();
+        return p.x != Point::emptyCoord() || p.y != Point::emptyCoord();
     }
 
     static bool exists(double x, double y)

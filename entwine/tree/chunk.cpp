@@ -462,7 +462,9 @@ void ContiguousChunkData::merge(ContiguousChunkData& other)
         Entry* theirs(other.getEntry(i));
 
         // Can't overlap - these are distinct subsets.
-        assert(!ours->point().load() || !theirs->point().load());
+        assert(
+                !Point::exists(ours->point().load()) ||
+                !Point::exists(theirs->point().load()));
 
         const Point theirPoint(theirs->point().load());
 
