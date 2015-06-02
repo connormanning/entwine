@@ -49,7 +49,7 @@ Entry::Entry(char* data)
     , m_flag()
     , m_data(data)
 {
-    std::atomic_init(&m_point, Point());
+    m_point = Point();
     m_flag.clear();
 }
 
@@ -58,7 +58,7 @@ Entry::Entry(const Point& point, char* data)
     , m_flag()
     , m_data(data)
 {
-    std::atomic_init(&m_point, point);
+    m_point = point;
     m_flag.clear();
 }
 
@@ -67,7 +67,7 @@ Entry::Entry(const Entry& other)
     , m_flag()
     , m_data(other.m_data)
 {
-    std::atomic_init(&m_point, other.m_point.load());
+    m_point = other.m_point.load();
     m_flag.clear();
 }
 
