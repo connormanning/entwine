@@ -41,5 +41,10 @@ set(OBJS
 
 add_library(entwine SHARED ${OBJS})
 target_link_libraries(entwine pdalcpp curl crypto pthread)
+
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    target_link_libraries(entwine atomic)
+endif()
+
 install(TARGETS entwine DESTINATION lib)
 
