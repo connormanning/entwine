@@ -18,8 +18,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include <entwine/types/elastic-atomic.hpp>
 #include <entwine/types/point.hpp>
+#include <entwine/util/locker.hpp>
 
 namespace entwine
 {
@@ -32,33 +32,20 @@ class Entry
     friend class ContiguousChunkData;
 
 public:
-    class Locker
-    {
-    public:
-        explicit Locker(std::atomic_flag& flag) : m_flag(flag)
-        {
-            while (m_flag.test_and_set())
-                ;
-        }
-
-        ~Locker() { m_flag.clear(); }
-
-    private:
-        std::atomic_flag& m_flag;
-    };
-
     Entry(char* data);
-    Entry(const Point* point, char* data);
-    ~Entry();
+    Entry(const Point& point, char* data);
 
-    std::atomic<const Point*>& point() { return m_point.atom; }
-    Locker getLocker() { return Locker(m_flag); }
-    char* data() { return m_data; } // Must fetch a Locker to access.
+    Entry(const Entry& other);
+    Entry& operator=(const Entry& other);
+
+    std::atomic<Point>& point();
+    Locker getLocker();
+    char* data();           // Must fetch a Locker to access.
 
 private:
     void setData(char* pos) { m_data = pos; }
 
-    ElasticAtomic<const Point*> m_point;
+    std::atomic<Point> m_point;
     std::atomic_flag m_flag;
     char* m_data;
 };
@@ -126,7 +113,7 @@ private:
         SparseEntry(const Schema& schema, char* pos);
 
         std::vector<char> data;
-        std::unique_ptr<Entry> entry;
+        Entry entry;
     };
 
     std::mutex m_mutex;
@@ -174,7 +161,7 @@ private:
     void emptyEntries();
     std::size_t normalize(std::size_t rawIndex);
 
-    std::vector<std::unique_ptr<Entry>> m_entries;
+    std::vector<Entry> m_entries;
     std::unique_ptr<std::vector<char>> m_data;
 };
 

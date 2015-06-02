@@ -26,7 +26,7 @@ public:
     Roller(const BBox& bbox);
     Roller(const Roller& other);
 
-    void magnify(const Point* point);
+    void magnify(const Point& point);
     std::size_t depth() const;
     uint64_t index() const;
     const BBox& bbox() const;

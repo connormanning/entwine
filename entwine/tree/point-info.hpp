@@ -14,6 +14,8 @@
 #include <cstdint>
 #include <vector>
 
+#include <entwine/types/point.hpp>
+
 namespace pdal
 {
     class PointView;
@@ -22,7 +24,6 @@ namespace pdal
 namespace entwine
 {
 
-class Point;
 class Schema;
 
 class PointInfo
@@ -32,16 +33,16 @@ public:
 
     virtual void write(char* dst, std::size_t length) = 0;
 
-    const Point* point;
+    Point point;
 
 protected:
-    explicit PointInfo(const Point* point);
+    explicit PointInfo(const Point& point);
 };
 
 class PointInfoShallow : public PointInfo
 {
 public:
-    PointInfoShallow(const Point* point, char* pos);
+    PointInfoShallow(const Point& point, char* pos);
 
     virtual void write(char* dst, std::size_t length);
 
@@ -52,7 +53,7 @@ private:
 class PointInfoDeep : public PointInfo
 {
 public:
-    PointInfoDeep(const Point* point, char* pos, std::size_t length);
+    PointInfoDeep(const Point& point, char* pos, std::size_t length);
 
     virtual void write(char* dst, std::size_t length);
 

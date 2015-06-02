@@ -27,17 +27,17 @@ Roller::Roller(const Roller& other)
     , m_depth(other.m_depth)
 { }
 
-void Roller::magnify(const Point* point)
+void Roller::magnify(const Point& point)
 {
     const Point& mid(m_bbox.mid());
 
-    if (point->x < mid.x)
-        if (point->y < mid.y)
+    if (point.x < mid.x)
+        if (point.y < mid.y)
             goSw();
         else
             goNw();
     else
-        if (point->y < mid.y)
+        if (point.y < mid.y)
             goSe();
         else
             goNe();

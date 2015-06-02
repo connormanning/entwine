@@ -124,7 +124,7 @@ Registry::Registry(
 Registry::~Registry()
 { }
 
-bool Registry::addPoint(PointInfo** toAddPtr, Roller& roller, Clipper* clipper)
+bool Registry::addPoint(PointInfo& toAdd, Roller& roller, Clipper* clipper)
 {
     bool accepted(false);
 
@@ -132,51 +132,40 @@ bool Registry::addPoint(PointInfo** toAddPtr, Roller& roller, Clipper* clipper)
 
     if (Entry* entry = getEntry(index, clipper))
     {
-        PointInfo* toAdd(*toAddPtr);
-        std::atomic<const Point*>& myPoint(entry->point());
+        std::atomic<Point>& myPoint(entry->point());
 
-        if (myPoint.load())
+        if (Point::exists(myPoint.load()))
         {
             const Point& mid(roller.bbox().mid());
 
-            if (toAdd->point->sqDist(mid) < myPoint.load()->sqDist(mid))
+            if (toAdd.point.sqDist(mid) < myPoint.load().sqDist(mid))
             {
-                auto locker(entry->getLocker());
-                const Point* curPoint(myPoint.load());
+                Locker locker(entry->getLocker());
+                const Point& curPoint(myPoint.load());
 
-                if (toAdd->point->sqDist(mid) < curPoint->sqDist(mid))
+                if (toAdd.point.sqDist(mid) < curPoint.sqDist(mid))
                 {
                     const std::size_t pointSize(m_schema.pointSize());
 
-                    // Pull out the old stored value and store the Point that
-                    // was in our atomic member, so we can overwrite that with
-                    // the new one.
-                    PointInfo* old(
-                            new PointInfoDeep(
-                                curPoint,
-                                entry->data(),
-                                pointSize));
+                    PointInfoDeep old(curPoint, entry->data(), pointSize);
 
                     // Store this point.
-                    toAdd->write(entry->data(), pointSize);
-                    myPoint.store(toAdd->point);
-                    delete toAdd;
+                    toAdd.write(entry->data(), pointSize);
+                    myPoint.store(toAdd.point);
 
                     // Send our old stored value downstream.
-                    *toAddPtr = old;
+                    toAdd = old;
                 }
             }
         }
         else
         {
-            std::unique_ptr<Entry::Locker> locker(
-                    new Entry::Locker(entry->getLocker()));
+            std::unique_ptr<Locker> locker(new Locker(entry->getLocker()));
 
-            if (!myPoint.load())
+            if (!Point::exists(myPoint.load()))
             {
-                toAdd->write(entry->data(), m_schema.pointSize());
-                myPoint.store(toAdd->point);
-                delete toAdd;
+                toAdd.write(entry->data(), m_schema.pointSize());
+                myPoint.store(toAdd.point);
                 accepted = true;
             }
             else
@@ -184,24 +173,18 @@ bool Registry::addPoint(PointInfo** toAddPtr, Roller& roller, Clipper* clipper)
                 // Someone beat us here, call again to enter the other branch.
                 // Be sure to release our lock first.
                 locker.reset(0);
-                return addPoint(toAddPtr, roller, clipper);
+                return addPoint(toAdd, roller, clipper);
             }
         }
     }
 
     if (!accepted)
     {
-        roller.magnify((*toAddPtr)->point);
+        roller.magnify(toAdd.point);
 
         if (m_structure.inRange(roller.index()))
         {
-            accepted = addPoint(toAddPtr, roller, clipper);
-        }
-        else
-        {
-            // This point fell beyond the bottom of the tree.
-            delete (*toAddPtr)->point;
-            delete (*toAddPtr);
+            accepted = addPoint(toAdd, roller, clipper);
         }
     }
 

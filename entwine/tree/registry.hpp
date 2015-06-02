@@ -47,7 +47,7 @@ public:
 
     ~Registry();
 
-    bool addPoint(PointInfo** toAddPtr, Roller& roller, Clipper* clipper);
+    bool addPoint(PointInfo& toAdd, Roller& roller, Clipper* clipper);
 
     void save(Json::Value& meta);
 

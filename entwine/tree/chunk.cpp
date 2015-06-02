@@ -45,25 +45,52 @@ namespace
 }
 
 Entry::Entry(char* data)
-    : m_point(0)
+    : m_point()
     , m_flag()
     , m_data(data)
 {
     m_flag.clear();
 }
 
-Entry::Entry(const Point* point, char* data)
-    : m_point(point)
+Entry::Entry(const Point& point, char* data)
+    : m_point()
     , m_flag()
     , m_data(data)
 {
+    m_point.store(point);
     m_flag.clear();
 }
 
-Entry::~Entry()
+Entry::Entry(const Entry& other)
+    : m_point()
+    , m_flag()
+    , m_data(other.m_data)
 {
-    auto locker(getLocker());
-    if (m_point.atom.load()) delete m_point.atom.load();
+    m_point.store(other.m_point.load());
+    m_flag.clear();
+}
+
+Entry& Entry::operator=(const Entry& other)
+{
+    m_point.store(other.m_point.load());
+    m_data = other.m_data;
+    m_flag.clear();
+    return *this;
+}
+
+std::atomic<Point>& Entry::point()
+{
+    return m_point;
+}
+
+Locker Entry::getLocker()
+{
+    return Locker(m_flag);
+}
+
+char* Entry::data()
+{
+    return m_data;
 }
 
 ChunkData::ChunkData(
@@ -101,22 +128,20 @@ std::size_t ChunkData::endId() const
 
 SparseChunkData::SparseEntry::SparseEntry(const Schema& schema)
     : data(schema.pointSize())
-    , entry(new Entry(data.data()))
+    , entry(data.data())
 { }
 
 SparseChunkData::SparseEntry::SparseEntry(const Schema& schema, char* pos)
     : data(pos, pos + schema.pointSize())
-    , entry()
+    , entry(data.data())
 {
     SinglePointTable table(schema, pos);
     LinkingPointView view(table);
 
-    const Point* point(
-            new Point(
+    entry.point().store(
+            Point(
                 view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
                 view.getFieldAs<double>(pdal::Dimension::Id::Y, 0)));
-
-    entry.reset(new Entry(point, data.data()));
 }
 
 SparseChunkData::SparseChunkData(
@@ -186,7 +211,7 @@ Entry* SparseChunkData::getEntry(const std::size_t rawIndex)
         it = m_entries.emplace(rawIndex, SparseEntry(m_schema)).first;
     }
 
-    return it->second.entry.get();
+    return &it->second.entry;
 }
 
 void SparseChunkData::save(Source& source)
@@ -275,8 +300,8 @@ ContiguousChunkData::ContiguousChunkData(
         const std::size_t maxPoints,
         const std::vector<char>& empty)
     : ChunkData(schema, id, maxPoints)
-    , m_entries(m_maxPoints)
-    , m_data(new std::vector<char>(empty))
+    , m_entries()
+    , m_data()
 {
     const std::size_t pointSize(m_schema.pointSize());
     const std::size_t emptyPoints(empty.size() / pointSize);
@@ -312,7 +337,7 @@ ContiguousChunkData::ContiguousChunkData(
         const std::size_t maxPoints,
         std::vector<char>& compressedData)
     : ChunkData(schema, id, maxPoints)
-    , m_entries(m_maxPoints)
+    , m_entries()
     , m_data()
 {
     m_data =
@@ -321,8 +346,7 @@ ContiguousChunkData::ContiguousChunkData(
                 m_schema,
                 m_maxPoints * m_schema.pointSize());
 
-    double x(0);
-    double y(0);
+    Point p;
 
     const std::size_t pointSize(m_schema.pointSize());
 
@@ -336,13 +360,10 @@ ContiguousChunkData::ContiguousChunkData(
         SinglePointTable table(m_schema, pos);
         LinkingPointView view(table);
 
-        x = view.getFieldAs<double>(pdal::Dimension::Id::X, 0);
-        y = view.getFieldAs<double>(pdal::Dimension::Id::Y, 0);
+        p.x = view.getFieldAs<double>(pdal::Dimension::Id::X, 0);
+        p.y = view.getFieldAs<double>(pdal::Dimension::Id::Y, 0);
 
-        m_entries[i].reset(
-                new Entry(
-                    Point::exists(x, y) ? new Point(x, y) : 0,
-                    m_data->data() + pointSize * i));
+        m_entries.emplace_back(Entry(p, m_data->data() + pointSize * i));
     }
 }
 
@@ -350,7 +371,7 @@ ContiguousChunkData::ContiguousChunkData(
         SparseChunkData& sparse,
         const std::vector<char>& empty)
     : ChunkData(sparse)
-    , m_entries(m_maxPoints)
+    , m_entries()
     , m_data(new std::vector<char>(empty))
 {
     emptyEntries();
@@ -369,10 +390,9 @@ ContiguousChunkData::ContiguousChunkData(
 
         char* pos(m_data->data() + id * pointSize);
 
-        myEntry = std::move(sparseEntry.entry);
-
-        auto locker(myEntry->getLocker());
-        myEntry->setData(pos);
+        auto locker(myEntry.getLocker());
+        myEntry = sparseEntry.entry;
+        myEntry.setData(pos);
 
         std::memcpy(pos, sparseEntry.data.data(), pointSize);
     }
@@ -388,7 +408,7 @@ ContiguousChunkData::~ContiguousChunkData()
 
 Entry* ContiguousChunkData::getEntry(std::size_t rawIndex)
 {
-    return m_entries[normalize(rawIndex)].get();
+    return &m_entries[normalize(rawIndex)];
 }
 
 void ContiguousChunkData::save(Source& source, const std::string postfix)
@@ -414,10 +434,13 @@ void ContiguousChunkData::save(Source& source)
 void ContiguousChunkData::emptyEntries()
 {
     const std::size_t pointSize(m_schema.pointSize());
+    const std::size_t numPoints(m_data->size() / pointSize);
 
-    for (std::size_t i(0); i < m_maxPoints; ++i)
+    m_entries.reserve(numPoints);
+
+    for (std::size_t i(0); i < numPoints; ++i)
     {
-        m_entries[i].reset(new Entry(m_data->data() + pointSize * i));
+        m_entries.emplace_back(Entry(m_data->data() + pointSize * i));
     }
 }
 
@@ -441,12 +464,13 @@ void ContiguousChunkData::merge(ContiguousChunkData& other)
         // Can't overlap - these are distinct subsets.
         assert(!ours->point().load() || !theirs->point().load());
 
-        if (const Point* theirPoint = theirs->point().load())
+        const Point theirPoint(theirs->point().load());
+
+        if (Point::exists(theirPoint))
         {
-            if (!ours->point().load())
+            if (!Point::exists(ours->point().load()))
             {
                 ours->point().store(theirPoint);
-                theirs->point().store(0);
 
                 std::memcpy(ours->data(), theirs->data(), pointSize);
             }

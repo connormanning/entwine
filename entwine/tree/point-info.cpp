@@ -13,17 +13,16 @@
 #include <pdal/Dimension.hpp>
 #include <pdal/PointView.hpp>
 
-#include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
 
 namespace entwine
 {
 
-PointInfo::PointInfo(const Point* point)
+PointInfo::PointInfo(const Point& point)
     : point(point)
 { }
 
-PointInfoShallow::PointInfoShallow(const Point* point, char* pos)
+PointInfoShallow::PointInfoShallow(const Point& point, char* pos)
     : PointInfo(point)
     , m_data(pos)
 { }
@@ -34,7 +33,7 @@ void PointInfoShallow::write(char* dst, std::size_t length)
 }
 
 PointInfoDeep::PointInfoDeep(
-        const Point* point,
+        const Point& point,
         char* pos,
         const std::size_t length)
     : PointInfo(point)

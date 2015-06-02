@@ -218,15 +218,10 @@ void Builder::insert(
             if (!m_subBBox || m_subBBox->contains(point))
             {
                 Roller roller(*m_bbox);
-
                 pointView.setField(m_originId, i, origin);
+                PointInfoShallow pointInfo(point, pointView.getPoint(i));
 
-                PointInfo* pointInfo(
-                        new PointInfoShallow(
-                            new Point(point),
-                            pointView.getPoint(i)));
-
-                if (m_registry->addPoint(&pointInfo, roller, clipper))
+                if (m_registry->addPoint(pointInfo, roller, clipper))
                 {
                     m_stats.addPoint();
                 }

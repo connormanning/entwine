@@ -22,7 +22,6 @@ class Point
 public:
     Point() : x(Point::emptyCoord()), y(Point::emptyCoord()) { }
     Point(double x, double y) : x(x), y(y) { }
-    Point(const Point& other) : x(other.x), y(other.y) { }
 
     // Calculates the distance-squared to another point.
     double sqDist(const Point& other) const
