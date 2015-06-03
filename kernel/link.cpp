@@ -13,6 +13,9 @@
 #include <fstream>
 #include <iostream>
 
+#include <entwine/drivers/arbiter.hpp>
+#include <entwine/drivers/s3.hpp>
+#include <entwine/third/json/json.h>
 #include <entwine/tree/builder.hpp>
 
 using namespace entwine;
@@ -22,7 +25,8 @@ namespace
     std::string getUsageString()
     {
         return
-            "\tUsage: entwine merge <path> <options>\n"
+            "\tUsage: entwine link <output path> <subset path 1> ... "
+                "<subset path N> <options>\n"
             "\tOptions:\n"
 
             "\t\t-c <credentials-path.json>\n"
@@ -30,7 +34,7 @@ namespace
     }
 }
 
-void Kernel::merge(std::vector<std::string> args)
+void Kernel::link(std::vector<std::string> args)
 {
     if (args.size() != 1)
     {
@@ -72,11 +76,5 @@ void Kernel::merge(std::vector<std::string> args)
     }
 
     std::shared_ptr<Arbiter> arbiter(std::make_shared<Arbiter>(drivers));
-
-    Builder builder(path, arbiter);
-
-    std::cout << "Merging " << path << "..." << std::endl;
-    builder.merge();
-    std::cout << "Done." << std::endl;
 }
 

@@ -5,6 +5,7 @@ set(
     SOURCES
     "${BASE}/arbiter.cpp"
     "${BASE}/fs.cpp"
+    "${BASE}/http.cpp"
     "${BASE}/s3.cpp"
     "${BASE}/source.cpp"
 )
@@ -14,6 +15,7 @@ set(
     "${BASE}/arbiter.hpp"
     "${BASE}/driver.hpp"
     "${BASE}/fs.hpp"
+    "${BASE}/http.hpp"
     "${BASE}/s3.hpp"
     "${BASE}/source.hpp"
 )

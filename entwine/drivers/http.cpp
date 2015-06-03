@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include <entwine/http/curl.hpp>
+#include <entwine/drivers/http.hpp>
 
 #include <cstring>
 #include <iostream>
