@@ -47,7 +47,7 @@ void Kernel::link(std::vector<std::string> args)
 
     std::string credPath("credentials.json");
 
-    int a(1);
+    std::size_t a(1);
 
     while (a < args.size())
     {
