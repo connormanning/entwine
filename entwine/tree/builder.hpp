@@ -90,6 +90,9 @@ public:
     // Aggregate segmented build.
     void merge();
 
+    // Link non-colocated subsets.
+    void link(std::vector<std::string> subsets);
+
     Stats stats() const;
 
 private:

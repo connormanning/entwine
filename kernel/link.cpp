@@ -36,13 +36,14 @@ namespace
 
 void Kernel::link(std::vector<std::string> args)
 {
-    if (args.size() != 1)
+    if (args.size() < 5)
     {
         std::cout << getUsageString() << std::endl;
-        throw std::runtime_error("Merge path required");
+        throw std::runtime_error("Not enough arguments");
     }
 
     const std::string path(args[0]);
+    std::vector<std::string> subs;
 
     std::string credPath("credentials.json");
 
@@ -63,6 +64,17 @@ void Kernel::link(std::vector<std::string> args)
                 throw std::runtime_error("Invalid credential path argument");
             }
         }
+        else
+        {
+            subs.push_back(arg);
+        }
+
+        ++a;
+    }
+
+    if (!(subs.size() == 4 || subs.size() == 16 || subs.size() == 64))
+    {
+        throw std::runtime_error("Invalid number of subsets");
     }
 
     DriverMap drivers;
@@ -76,5 +88,11 @@ void Kernel::link(std::vector<std::string> args)
     }
 
     std::shared_ptr<Arbiter> arbiter(std::make_shared<Arbiter>(drivers));
+
+    Builder builder(path, arbiter);
+
+    std::cout << "Linking " << subs.size() << " paths..." << std::endl;
+    builder.link(subs);
+    std::cout << "Done." << std::endl;
 }
 

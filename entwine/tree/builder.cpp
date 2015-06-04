@@ -340,7 +340,7 @@ void Builder::load()
 
 void Builder::merge()
 {
-    std::unique_ptr<ContiguousChunkData> result;
+    std::unique_ptr<ContiguousChunkData> base;
     std::vector<std::size_t> ids;
     const std::size_t baseCount([this]()->std::size_t
     {
@@ -396,7 +396,7 @@ void Builder::merge()
             if (i == 0)
             {
                 std::cout << "\t1 / " << baseCount << std::endl;
-                result.reset(
+                base.reset(
                         new ContiguousChunkData(
                             *m_schema,
                             m_structure->baseIndexBegin(),
@@ -426,7 +426,7 @@ void Builder::merge()
                     throw std::runtime_error("Invalid stats in segment.");
                 }
 
-                result->merge(*chunkData);
+                base->merge(*chunkData);
             }
         }
         else
@@ -446,11 +446,144 @@ void Builder::merge()
         jsonIds.append(static_cast<Json::UInt64>(id));
     }
 
-    m_outSource->put(
-            "entwine" + m_structure->subsetPostfix(),
-            jsonMeta.toStyledString());
+    m_outSource->put("entwine", jsonMeta.toStyledString());
 
-    result->save(*m_outSource);
+    base->save(*m_outSource);
+}
+
+void Builder::link(std::vector<std::string> subsetPaths)
+{
+    std::unique_ptr<ContiguousChunkData> base;
+    std::vector<Source> subs;
+    std::map<std::string, std::vector<std::size_t>> ids;
+
+    for (std::size_t i(0); i < subsetPaths.size(); ++i)
+    {
+        subs.push_back(m_arbiter->getSource(subsetPaths[i]));
+    }
+
+    const std::size_t baseCount([this, &subs]()->std::size_t
+    {
+        Json::Value meta;
+        Json::Reader reader;
+        const std::string metaString(subs[0].getAsString("entwine-0"));
+        reader.parse(metaString, meta, false);
+
+        loadProps(meta);
+        const std::size_t baseCount(meta["structure"]["subset"][1].asUInt64());
+
+        if (!baseCount)
+        {
+            throw std::runtime_error("Cannot link this path");
+        }
+        else if (baseCount != subs.size())
+        {
+            throw std::runtime_error("Invalid number of subsets to link");
+        }
+
+        return baseCount;
+    }());
+
+    for (std::size_t i(0); i < baseCount; ++i)
+    {
+        const std::string postfix("-" + std::to_string(i));
+
+        // Fetch metadata for this segment.
+        Json::Value meta;
+
+        {
+            Json::Reader reader;
+            const std::string metaString(
+                    subs[i].getAsString("entwine" + postfix));
+            reader.parse(metaString, meta, false);
+        }
+
+        // Append IDs from this segment.
+        const Json::Value& jsonIds(meta["ids"]);
+        std::vector<std::size_t>& subIds(ids[subsetPaths[i]]);
+
+        if (jsonIds.isArray())
+        {
+            for (std::size_t i(0); i < jsonIds.size(); ++i)
+            {
+                subIds.push_back(
+                        jsonIds[static_cast<Json::ArrayIndex>(i)].asUInt64());
+            }
+        }
+        else
+        {
+            throw std::runtime_error("Invalid IDs.");
+        }
+
+        std::vector<char> data(subs[i].get(
+                std::to_string(m_structure->baseIndexBegin()) + postfix));
+
+        if (!data.empty() || data.back() == Contiguous)
+        {
+            data.pop_back();
+
+            if (i == 0)
+            {
+                std::cout << "\t1 / " << baseCount << std::endl;
+                base.reset(
+                        new ContiguousChunkData(
+                            *m_schema,
+                            m_structure->baseIndexBegin(),
+                            m_structure->baseIndexSpan(),
+                            data));
+            }
+            else
+            {
+                std::cout << "\t" << i + 1 << " / " << baseCount << std::endl;
+
+                std::unique_ptr<ContiguousChunkData> chunkData(
+                        new ContiguousChunkData(
+                            *m_schema,
+                            m_structure->baseIndexBegin(),
+                            m_structure->baseIndexSpan(),
+                            data));
+
+                // Update stats.  Don't add numOutOfBounds, since those are
+                // based on the global bounds, so every segment's out-of-bounds
+                // count should be equal.
+                Stats stats(meta["stats"]);
+                m_stats.addPoint(stats.getNumPoints());
+                m_stats.addFallThrough(stats.getNumFallThroughs());
+                if (m_stats.getNumOutOfBounds() != stats.getNumOutOfBounds())
+                {
+                    throw std::runtime_error("Invalid stats in segment.");
+                }
+
+                base->merge(*chunkData);
+            }
+        }
+        else
+        {
+            throw std::runtime_error("Invalid base segment.");
+        }
+    }
+
+    m_structure->makeWhole();
+    m_subBBox.reset();
+
+    Json::Value jsonMeta(saveProps());
+    Json::Value& jsonIds(jsonMeta["ids"]);
+
+    for (const auto& sub : ids)
+    {
+        std::string path(sub.first);
+        const std::vector<std::size_t>& subIds(sub.second);
+        Json::Value& jsonSubIds(jsonIds[path]);
+
+        for (auto id : subIds)
+        {
+            jsonSubIds.append(static_cast<Json::UInt64>(id));
+        }
+    }
+
+    m_outSource->put("entwine", jsonMeta.toStyledString());
+
+    base->save(*m_outSource);
 }
 
 void Builder::save()
