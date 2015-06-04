@@ -11,6 +11,7 @@
 #include <entwine/tree/reader.hpp>
 
 #include <entwine/compression/util.hpp>
+#include <entwine/drivers/arbiter.hpp>
 #include <entwine/drivers/source.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/manifest.hpp>
@@ -41,7 +42,8 @@ namespace
 Reader::Reader(
         Source source,
         const std::size_t cacheSize,
-        const std::size_t queryLimit)
+        const std::size_t queryLimit,
+        std::shared_ptr<Arbiter> arbiter)
     : m_bbox()
     , m_schema()
     , m_structure()
@@ -49,7 +51,7 @@ Reader::Reader(
     , m_manifest()
     , m_stats()
     , m_ids()
-    , m_source(source)
+    , m_arbiter(arbiter)
     , m_cacheSize(cacheSize)
     , m_queryLimit(queryLimit)
     , m_mutex()
@@ -63,10 +65,19 @@ Reader::Reader(
     {
         Json::Reader reader;
 
-        const std::string metaString(m_source.getAsString("entwine"));
+        const std::string metaString(source.getAsString("entwine"));
 
         Json::Value props;
         reader.parse(metaString, props, false);
+
+        {
+            const std::string err(reader.getFormattedErrorMessages());
+
+            if (!err.empty())
+            {
+                throw std::runtime_error("Invalid JSON: " + err);
+            }
+        }
 
         m_bbox.reset(new BBox(props["bbox"]));
         m_schema.reset(new Schema(props["schema"]));
@@ -80,18 +91,51 @@ Reader::Reader(
 
         if (jsonIds.isArray())
         {
+            std::set<std::size_t>& ids(
+                    m_ids.insert(
+                        std::make_pair(
+                            std::unique_ptr<Source>(new Source(source)),
+                            std::set<std::size_t>())).first->second);
+
             for (std::size_t i(0); i < jsonIds.size(); ++i)
             {
-                m_ids.insert(
+                ids.insert(
                         jsonIds[static_cast<Json::ArrayIndex>(i)].asUInt64());
             }
+        }
+        else if (jsonIds.isObject())
+        {
+            const auto subs(jsonIds.getMemberNames());
+
+            for (const auto path : subs)
+            {
+                Source subSrc(m_arbiter->getSource(path));
+                std::set<std::size_t>& ids(
+                        m_ids.insert(
+                            std::make_pair(
+                                std::unique_ptr<Source>(new Source(subSrc)),
+                                std::set<std::size_t>())).first->second);
+
+                const Json::Value& subIds(jsonIds[path]);
+
+                for (std::size_t i(0); i < subIds.size(); ++i)
+                {
+                    ids.insert(
+                            subIds[static_cast<Json::ArrayIndex>(i)]
+                            .asUInt64());
+                }
+            }
+        }
+        else
+        {
+            throw std::runtime_error("Meta member 'ids' is the wrong type");
         }
     }
 
     {
         std::unique_ptr<std::vector<char>> data(
                 new std::vector<char>(
-                    m_source.get(
+                    source.get(
                         std::to_string(m_structure->baseIndexBegin()))));
 
         m_base = ChunkReader::create(
@@ -281,7 +325,7 @@ char* Reader::getPointData(const std::size_t index)
         {
             pos = it->second->getData(index);
         }
-        else if (m_ids.count(chunkId))
+        else if (getSource(chunkId) != 0)
         {
             std::cout << "Missing chunk " << chunkId << std::endl;
             std::cout << "Cache size: " << m_chunks.size() << std::endl;
@@ -290,11 +334,6 @@ char* Reader::getPointData(const std::size_t index)
     }
 
     return pos;
-}
-
-std::size_t Reader::maxId() const
-{
-    return *m_ids.rbegin();
 }
 
 std::size_t Reader::getChunkId(const std::size_t index) const
@@ -309,97 +348,120 @@ std::size_t Reader::getChunkId(const std::size_t index) const
     return firstChunk + chunkNum * chunkPoints;
 }
 
+Source* Reader::getSource(const std::size_t chunkId)
+{
+    Source* source(0);
+
+    auto it(m_ids.begin());
+    const auto end(m_ids.end());
+
+    while (!source && it != end)
+    {
+        if (it->second.count(chunkId))
+        {
+            source = it->first.get();
+        }
+
+        ++it;
+    }
+
+    return source;
+}
+
 void Reader::fetch(const std::size_t chunkId)
 {
-    if (!m_structure->isWithinCold(chunkId) || !m_ids.count(chunkId))
+    if (!m_structure->isWithinCold(chunkId))
     {
         return;
     }
 
-    std::unique_lock<std::mutex> lock(m_mutex);
-
-    const bool has(m_chunks.count(chunkId));
-    const bool awaiting(m_outstanding.count(chunkId));
-
-    if (!has && !awaiting)
+    if (Source* source = getSource(chunkId))
     {
-        std::cout << "Fetching " << chunkId << std::endl;
-        m_outstanding.insert(chunkId);
+        std::unique_lock<std::mutex> lock(m_mutex);
 
-        lock.unlock();
+        const bool has(m_chunks.count(chunkId));
+        const bool awaiting(m_outstanding.count(chunkId));
 
-        std::unique_ptr<std::vector<char>> data;
-
-        try
+        if (!has && !awaiting)
         {
-            data.reset(new std::vector<char>(
-                        m_source.get(std::to_string(chunkId))));
-        }
-        catch (...)
-        {
-            lock.lock();
-            m_outstanding.erase(chunkId);
+            std::cout << "Fetching " << chunkId << std::endl;
+            m_outstanding.insert(chunkId);
+
             lock.unlock();
-            m_cv.notify_all();
-            throw std::runtime_error(
-                    "Could not fetch chunk " + std::to_string(chunkId));
-        }
 
-        auto chunk(
-                ChunkReader::create(
-                    *m_schema,
-                    chunkId,
-                    m_structure->chunkPoints(),
-                    std::move(data)));
+            std::unique_ptr<std::vector<char>> data;
 
-        lock.lock();
-
-        assert(m_accessMap.size() == m_chunks.size());
-        if (m_chunks.size() >= m_cacheSize)
-        {
-            const std::size_t expired(m_accessList.back());
-            std::cout << "Erasing " << expired << std::endl;
-
-            if (m_chunks.count(expired))
+            try
             {
-                m_chunks.erase(expired);
+                data.reset(new std::vector<char>(
+                            source->get(std::to_string(chunkId))));
+            }
+            catch (...)
+            {
+                lock.lock();
+                m_outstanding.erase(chunkId);
+                lock.unlock();
+                m_cv.notify_all();
+                throw std::runtime_error(
+                        "Could not fetch chunk " + std::to_string(chunkId));
             }
 
-            m_accessMap.erase(expired);
-            m_accessList.pop_back();
+            auto chunk(
+                    ChunkReader::create(
+                        *m_schema,
+                        chunkId,
+                        m_structure->chunkPoints(),
+                        std::move(data)));
+
+            lock.lock();
+
+            assert(m_accessMap.size() == m_chunks.size());
+            if (m_chunks.size() >= m_cacheSize)
+            {
+                const std::size_t expired(m_accessList.back());
+                std::cout << "Erasing " << expired << std::endl;
+
+                if (m_chunks.count(expired))
+                {
+                    m_chunks.erase(expired);
+                }
+
+                m_accessMap.erase(expired);
+                m_accessList.pop_back();
+            }
+
+            m_outstanding.erase(chunkId);
+            m_chunks.insert(std::make_pair(chunkId, std::move(chunk)));
+            m_accessList.push_front(chunkId);
+            m_accessMap[chunkId] = m_accessList.begin();
+
+            lock.unlock();
+            m_cv.notify_all();
         }
-
-        m_outstanding.erase(chunkId);
-        m_chunks.insert(std::make_pair(chunkId, std::move(chunk)));
-        m_accessList.push_front(chunkId);
-        m_accessMap[chunkId] = m_accessList.begin();
-
-        lock.unlock();
-        m_cv.notify_all();
-    }
-    else if (has)
-    {
-        // Touching a previously fetched chunk.  Move it to the front of the
-        // access list.
-        m_accessList.splice(
-                m_accessList.begin(),
-                m_accessList,
-                m_accessMap.at(chunkId));
-    }
-    else
-    {
-        // Another thread is already fetching this chunk.  Wait for it to
-        // finish.  No need to splice the access list here, since the fetching
-        // thread will place it at the front.
-        m_cv.wait(lock, [this, chunkId]()->bool
+        else if (has)
         {
-            return m_chunks.count(chunkId) || !m_outstanding.count(chunkId);
-        });
-
-        if (!m_chunks.count(chunkId))
+            // Touching a previously fetched chunk.  Move it to the front of
+            // the access list.
+            m_accessList.splice(
+                    m_accessList.begin(),
+                    m_accessList,
+                    m_accessMap.at(chunkId));
+        }
+        else
         {
-            throw std::runtime_error(
-                    "Could not fetch chunk " + std::to_string(chunkId));
+            // Another thread is already fetching this chunk.  Wait for it to
+            // finish.  No need to splice the access list here, since the
+            // fetching thread will place it at the front.
+            m_cv.wait(lock, [this, chunkId]()->bool
+            {
+                return m_chunks.count(chunkId) || !m_outstanding.count(chunkId);
+            });
+
+            if (!m_chunks.count(chunkId))
+            {
+                throw std::runtime_error(
+                        "Could not fetch chunk " + std::to_string(chunkId));
+            }
         }
     }
 }

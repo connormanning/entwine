@@ -24,6 +24,7 @@
 namespace entwine
 {
 
+class Arbiter;
 class BBox;
 class ChunkReader;
 class Driver;
@@ -40,7 +41,12 @@ class Reader
 {
 public:
     // Will throw if entwine's meta files cannot be fetched from this source.
-    Reader(Source source, std::size_t cacheSize, std::size_t queryLimit);
+    Reader(
+            Source source,
+            std::size_t cacheSize,
+            std::size_t queryLimit,
+            std::shared_ptr<Arbiter> arbiter);
+
     ~Reader();
 
     // Query calls may throw if a cache overrun is detected.
@@ -91,9 +97,10 @@ private:
     Point getPoint(std::size_t index);      // Caller must NOT lock.
     char* getPointData(std::size_t index);  // Caller must lock.
 
-    std::size_t maxId() const;
     std::size_t getChunkId(std::size_t index) const;
 
+    // Returns 0 if chunk doesn't exist.
+    Source* getSource(std::size_t chunkId);
     void fetch(std::size_t chunkId);
 
     std::unique_ptr<BBox> m_bbox;
@@ -103,9 +110,8 @@ private:
     std::unique_ptr<Manifest> m_manifest;
     std::unique_ptr<Stats> m_stats;
 
-    std::set<std::size_t> m_ids;
-
-    Source m_source;
+    std::map<std::unique_ptr<Source>, std::set<std::size_t>> m_ids;
+    std::shared_ptr<Arbiter> m_arbiter;
 
     const std::size_t m_cacheSize;
     const std::size_t m_queryLimit;
