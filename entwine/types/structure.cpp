@@ -17,6 +17,12 @@
 namespace entwine
 {
 
+namespace
+{
+    // TODO Without using a big-integer type, we can't go beyond depth 32.
+    const std::size_t maxDepth(32);
+}
+
 Structure::Structure(
         const std::size_t nullDepth,
         const std::size_t baseDepth,
@@ -48,6 +54,10 @@ Structure::Structure(
     // Ensure ascending order.
     m_baseDepth = std::max(m_nullDepth, baseDepth);
     m_coldDepth = std::max(m_baseDepth, coldDepth);
+
+    // TODO Use a big-integer for always-lossless trees.
+    m_baseDepth = std::min(m_baseDepth, maxDepth);
+    m_coldDepth = std::min(m_coldDepth, maxDepth);
 
     loadIndexValues();
 }
