@@ -226,6 +226,11 @@ std::size_t Structure::dimensions() const
     return m_dimensions;
 }
 
+bool Structure::is3d() const
+{
+    return m_dimensions == 3;
+}
+
 std::size_t Structure::numPointsHint() const
 {
     return m_numPointsHint;

@@ -48,7 +48,7 @@ public:
 class Executor
 {
 public:
-    Executor(const Schema& schema);
+    Executor(const Schema& schema, bool is3d);
     ~Executor();
 
     // Returns true if no errors occurred during insertion.
@@ -78,6 +78,8 @@ private:
     std::unique_lock<std::mutex> getLock() const;
 
     const Schema& m_schema;
+    bool m_is3d;
+
     std::unique_ptr<pdal::StageFactory> m_stageFactory;
     std::unique_ptr<FsDriver> m_fs;
 

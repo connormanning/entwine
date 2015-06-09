@@ -22,11 +22,11 @@ class BBox
 {
 public:
     BBox();
-    BBox(Point min, Point max);
+    BBox(Point min, Point max, bool is3d);
     BBox(const BBox& other);
     BBox(const Json::Value& json);
 
-    void set(Point min, Point max);
+    void set(Point min, Point max, bool is3d);
 
     const Point& min() const;
     const Point& max() const;
@@ -67,6 +67,8 @@ private:
     Point m_min;
     Point m_max;
     Point m_mid;
+
+    bool m_is3d;
 
     void setMid();
 

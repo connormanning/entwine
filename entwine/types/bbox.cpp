@@ -19,9 +19,9 @@
 namespace entwine
 {
 
-BBox::BBox() : m_min(), m_max() { }
+BBox::BBox() : m_min(), m_max(), m_mid(), m_is3d(false) { }
 
-BBox::BBox(const Point min, const Point max)
+BBox::BBox(const Point min, const Point max, const bool is3d)
     : m_min(
             std::min(min.x, max.x),
             std::min(min.y, max.y),
@@ -31,6 +31,7 @@ BBox::BBox(const Point min, const Point max)
             std::max(min.y, max.y),
             std::max(min.z, max.z))
     , m_mid()
+    , m_is3d(is3d)
 {
     setMid();
     check(min, max);
@@ -40,6 +41,7 @@ BBox::BBox(const BBox& other)
     : m_min(other.min())
     , m_max(other.max())
     , m_mid()
+    , m_is3d(other.m_is3d)
 {
     setMid();
 }
@@ -47,23 +49,25 @@ BBox::BBox(const BBox& other)
 BBox::BBox(const Json::Value& json)
     : m_min(
             Point(
-                json.get(Json::ArrayIndex(0), 0).asDouble(),
-                json.get(Json::ArrayIndex(1), 0).asDouble(),
-                json.get(Json::ArrayIndex(2), 0).asDouble()))
+                json["bounds"].get(Json::ArrayIndex(0), 0).asDouble(),
+                json["bounds"].get(Json::ArrayIndex(1), 0).asDouble(),
+                json["bounds"].get(Json::ArrayIndex(2), 0).asDouble()))
     , m_max(
             Point(
-                json.get(Json::ArrayIndex(3), 0).asDouble(),
-                json.get(Json::ArrayIndex(4), 0).asDouble(),
-                json.get(Json::ArrayIndex(5), 0).asDouble()))
+                json["bounds"].get(Json::ArrayIndex(3), 0).asDouble(),
+                json["bounds"].get(Json::ArrayIndex(4), 0).asDouble(),
+                json["bounds"].get(Json::ArrayIndex(5), 0).asDouble()))
     , m_mid()
+    , m_is3d(json["is3d"].asBool())
 {
     setMid();
 }
 
-void BBox::set(const Point min, const Point max)
+void BBox::set(const Point min, const Point max, const bool is3d)
 {
     m_min = min;
     m_max = max;
+    m_is3d = is3d;
     setMid();
 }
 
@@ -80,14 +84,19 @@ bool BBox::overlaps(const BBox& other) const
             width() / 2.0  + other.width() / 2.0 &&
         std::abs(m_mid.y - otherMid.y) <=
             depth() / 2.0 + other.depth() / 2.0 &&
-        std::abs(m_mid.z - otherMid.z) <=
-            height() / 2.0 + other.height() / 2.0;
-
+        (
+            !m_is3d ||
+            std::abs(m_mid.z - otherMid.z) <=
+                height() / 2.0 + other.height() / 2.0);
 }
 
 bool BBox::contains(const Point& p) const
 {
-    return p.x >= m_min.x && p.y >= m_min.y && p.x < m_max.x && p.y < m_max.y;
+    return
+        p.x >= m_min.x && p.x < m_max.x &&
+        p.y >= m_min.y && p.y < m_max.y &&
+        (!m_is3d || (p.z >= m_min.z && p.z < m_max.z));
+
 }
 
 double BBox::width()    const { return m_max.x - m_min.x; }
@@ -197,12 +206,17 @@ bool BBox::exists() const
 Json::Value BBox::toJson() const
 {
     Json::Value json;
-    json.append(m_min.x);
-    json.append(m_min.y);
-    json.append(m_min.z);
-    json.append(m_max.x);
-    json.append(m_max.y);
-    json.append(m_max.z);
+
+    Json::Value& bounds(json["bounds"]);
+    bounds.append(m_min.x);
+    bounds.append(m_min.y);
+    bounds.append(m_min.z);
+    bounds.append(m_max.x);
+    bounds.append(m_max.y);
+    bounds.append(m_max.z);
+
+    json["is3d"] = m_is3d;
+
     return json;
 }
 
@@ -218,7 +232,7 @@ void BBox::setMid()
 {
     m_mid.x = m_min.x + (m_max.x - m_min.x) / 2.0;
     m_mid.y = m_min.y + (m_max.y - m_min.y) / 2.0;
-    m_mid.z = m_min.z + (m_max.z - m_min.z) / 2.0;
+    if (m_is3d) m_mid.z = m_min.z + (m_max.z - m_min.z) / 2.0;
 }
 
 void BBox::grow(const Point& p)

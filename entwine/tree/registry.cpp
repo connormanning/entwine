@@ -48,6 +48,22 @@ namespace
         return table.data();
     }
 
+    bool better(
+            const Point& candidate,
+            const Point& current,
+            const Point& goal,
+            const bool is3d)
+    {
+        if (is3d)
+        {
+            return candidate.sqDist3d(goal) < current.sqDist3d(goal);
+        }
+        else
+        {
+            return candidate.sqDist2d(goal) < current.sqDist2d(goal);
+        }
+    }
+
     const std::size_t clipPoolSize(32);
     const std::size_t clipQueueSize(16);
 }
@@ -59,6 +75,7 @@ Registry::Registry(
     : m_source(source)
     , m_schema(schema)
     , m_structure(structure)
+    , m_is3d(structure.is3d())
     , m_base()
     , m_cold()
     , m_pool(new Pool(clipPoolSize, clipQueueSize))
@@ -88,6 +105,7 @@ Registry::Registry(
     : m_source(source)
     , m_schema(schema)
     , m_structure(structure)
+    , m_is3d(structure.is3d())
     , m_base()
     , m_cold()
     , m_pool(new Pool(clipPoolSize, clipQueueSize))
@@ -138,12 +156,12 @@ bool Registry::addPoint(PointInfo& toAdd, Roller& roller, Clipper* clipper)
         {
             const Point& mid(roller.bbox().mid());
 
-            if (toAdd.point.sqDist(mid) < myPoint.load().sqDist(mid))
+            if (better(toAdd.point, myPoint.load(), mid, m_is3d))
             {
                 Locker locker(entry->getLocker());
                 const Point& curPoint(myPoint.load());
 
-                if (toAdd.point.sqDist(mid) < curPoint.sqDist(mid))
+                if (better(toAdd.point, curPoint, mid, m_is3d))
                 {
                     const std::size_t pointSize(m_schema.pointSize());
 

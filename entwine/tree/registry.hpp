@@ -59,6 +59,7 @@ private:
     Source& m_source;
     const Schema& m_schema;
     const Structure& m_structure;
+    bool m_is3d;
 
     std::unique_ptr<ContiguousChunkData> m_base;
     std::unique_ptr<Cold> m_cold;

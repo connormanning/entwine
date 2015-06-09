@@ -139,28 +139,32 @@ namespace
     }
 
     std::unique_ptr<BBox> getBBox(
-            const Json::Value& json,
+            Json::Value& json,
             const std::size_t dimensions)
     {
         std::unique_ptr<BBox> bbox;
 
-        if (json.isArray())
+        if (!json.empty())
         {
             if (json.size() == 4 && dimensions == 2)
             {
                 Json::Value expanded;
+                Json::Value& bounds(expanded["bounds"]);
 
-                expanded.append(json[0].asDouble());
-                expanded.append(json[1].asDouble());
-                expanded.append(std::numeric_limits<double>::max());
-                expanded.append(json[2].asDouble());
-                expanded.append(json[3].asDouble());
-                expanded.append(std::numeric_limits<double>::lowest());
+                bounds.append(json[0].asDouble());
+                bounds.append(json[1].asDouble());
+                bounds.append(std::numeric_limits<double>::max());
+                bounds.append(json[2].asDouble());
+                bounds.append(json[3].asDouble());
+                bounds.append(std::numeric_limits<double>::lowest());
+
+                expanded["is3d"] = false;
 
                 bbox.reset(new BBox(expanded));
             }
             else if (dimensions == 3)
             {
+                json["is3d"] = true;
                 bbox.reset(new BBox(json));
             }
             else
@@ -357,7 +361,7 @@ void Kernel::build(std::vector<std::string> args)
             subset);
 
     // Geometry and spatial info.
-    const Json::Value& geometry(config["geometry"]);
+    Json::Value& geometry(config["geometry"]);
     auto bbox(getBBox(geometry["bbox"], dimensions));
     auto reprojection(getReprojection(geometry["reproject"]));
     Schema schema(geometry["schema"]);

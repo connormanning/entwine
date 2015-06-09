@@ -32,8 +32,9 @@ namespace
     const std::size_t chunkBytes(65536 * 32);
 }
 
-Executor::Executor(const Schema& schema)
+Executor::Executor(const Schema& schema, bool is3d)
     : m_schema(schema)
+    , m_is3d(is3d)
     , m_stageFactory(new pdal::StageFactory())
     , m_fs(new FsDriver())
     , m_factoryMutex()
@@ -146,7 +147,8 @@ std::unique_ptr<Preview> Executor::preview(
                         Point(
                             quick.m_bounds.maxx,
                             quick.m_bounds.maxy,
-                            quick.m_bounds.maxz));
+                            quick.m_bounds.maxz),
+                        m_is3d);
 
                 if (reprojection)
                 {
@@ -172,7 +174,8 @@ std::unique_ptr<Preview> Executor::preview(
                             Point(
                                 view.getFieldAs<double>(Id::X, 1),
                                 view.getFieldAs<double>(Id::Y, 1),
-                                view.getFieldAs<double>(Id::Z, 1)));
+                                view.getFieldAs<double>(Id::Z, 1)),
+                            m_is3d);
                 }
 
                 result.reset(new Preview(bbox, quick.m_pointCount));

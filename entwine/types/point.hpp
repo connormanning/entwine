@@ -28,14 +28,19 @@ public:
 
     Point(double x, double y, double z) noexcept : x(x), y(y), z(z) { }
 
-    // Calculates the distance-squared to another point.
-    double sqDist(const Point& other) const
+    double sqDist2d(const Point& other) const
     {
         const double xDelta(x - other.x);
         const double yDelta(y - other.y);
-        const double zDelta(z - other.z);
 
-        return xDelta * xDelta + yDelta * yDelta + zDelta * zDelta;
+        return xDelta * xDelta + yDelta * yDelta;
+    }
+
+    // Calculates the distance-squared to another point.
+    double sqDist3d(const Point& other) const
+    {
+        const double zDelta(z - other.z);
+        return sqDist2d(other) + zDelta * zDelta;
     }
 
     static bool exists(Point p)

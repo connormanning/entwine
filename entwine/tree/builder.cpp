@@ -55,7 +55,7 @@ Builder::Builder(
     , m_stats()
     , m_trustHeaders(trustHeaders)
     , m_pool(new Pool(numThreads))
-    , m_executor(new Executor(*m_schema))
+    , m_executor(new Executor(*m_schema, m_structure->is3d()))
     , m_originId(m_schema->pdalLayout().findDim("Origin"))
     , m_arbiter(arbiter ? arbiter : std::make_shared<Arbiter>(Arbiter()))
     , m_outSource(new Source(m_arbiter->getSource(outPath)))
@@ -278,7 +278,8 @@ void Builder::inferBBox(const std::string path)
             Point(
                 std::numeric_limits<double>::lowest(),
                 std::numeric_limits<double>::lowest(),
-                std::numeric_limits<double>::lowest()));
+                std::numeric_limits<double>::lowest()),
+            m_structure->is3d());
 
     const std::string localPath(localize(path, 0));
 
@@ -308,7 +309,8 @@ void Builder::inferBBox(const std::string path)
                 Point(
                     std::ceil(bbox.max().x),
                     std::ceil(bbox.max().y),
-                    std::ceil(bbox.max().z))));
+                    std::ceil(bbox.max().z)),
+                m_structure->is3d()));
 
     std::cout << "Got: " << m_bbox->toJson().toStyledString() << std::endl;
 }
@@ -361,7 +363,7 @@ void Builder::load()
 
     loadProps(meta);
 
-    m_executor.reset(new Executor(*m_schema));
+    m_executor.reset(new Executor(*m_schema, m_structure->is3d()));
     m_originId = m_schema->pdalLayout().findDim("Origin");
 
     m_registry.reset(

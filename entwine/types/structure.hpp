@@ -62,6 +62,7 @@ public:
 
     std::size_t chunkPoints() const;
     std::size_t dimensions() const;
+    bool is3d() const;
 
     std::size_t numPointsHint() const;
     std::size_t sparseIndexBegin() const;
