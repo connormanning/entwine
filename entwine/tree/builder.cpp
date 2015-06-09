@@ -10,6 +10,8 @@
 
 #include <entwine/tree/builder.hpp>
 
+#include <limits>
+
 #include <pdal/Dimension.hpp>
 #include <pdal/PointView.hpp>
 #include <pdal/Utils.hpp>
@@ -49,6 +51,7 @@ Builder::Builder(
     , m_structure(new Structure(structure))
     , m_reprojection(reprojection ? new Reprojection(*reprojection) : 0)
     , m_manifest(new Manifest())
+    , m_mutex()
     , m_stats()
     , m_trustHeaders(trustHeaders)
     , m_pool(new Pool(numThreads))
@@ -77,6 +80,7 @@ Builder::Builder(
     , m_structure()
     , m_reprojection()
     , m_manifest()
+    , m_mutex()
     , m_stats()
     , m_trustHeaders(false)
     , m_pool(new Pool(numThreads))
@@ -97,6 +101,7 @@ Builder::Builder(const std::string path, std::shared_ptr<Arbiter> arbiter)
     , m_structure()
     , m_reprojection()
     , m_manifest()
+    , m_mutex()
     , m_stats()
     , m_trustHeaders(true)
     , m_pool()
@@ -138,9 +143,15 @@ bool Builder::insert(const std::string path)
             std::unique_ptr<Clipper> clipperPtr(new Clipper(*this));
             Clipper* clipper(clipperPtr.get());
 
-            auto inserter([this, origin, clipper](pdal::PointView& view)->void
+            std::unique_ptr<Range> zRangePtr(
+                    m_structure->dimensions() == 2 ? new Range() : 0);
+            Range* zRange(zRangePtr.get());
+
+            auto inserter(
+                    [this, origin, clipper, zRange]
+                    (pdal::PointView& view)->void
             {
-                insert(view, origin, clipper);
+                insert(view, origin, clipper, zRange);
             });
 
             bool doInsert(true);
@@ -164,18 +175,27 @@ bool Builder::insert(const std::string path)
                 }
             }
 
-            if (
-                    doInsert &&
-                    !m_executor->run(localPath, m_reprojection.get(), inserter))
+            if (doInsert)
             {
-                m_manifest->addError(origin);
+                if (m_executor->run(localPath, m_reprojection.get(), inserter))
+                {
+                    if (zRange)
+                    {
+                        std::lock_guard<std::mutex> lock(m_mutex);
+                        m_bbox->growZ(*zRange);
+                    }
+                }
+                else
+                {
+                    m_manifest->addError(origin);
+                }
             }
 
             const std::size_t mem(Chunk::getChunkMem());
             const std::size_t div(1000000000);
 
             std::cout << "\tDone " << origin << " - " << path <<
-                "\tUsage: " << mem / div << "." << mem % div <<
+                "\tGlobal usage: " << mem / div << "." << mem % div <<
                 " GB in " << Chunk::getChunkCnt() << " chunks." <<
                 std::endl;
 
@@ -205,26 +225,31 @@ bool Builder::insert(const std::string path)
 void Builder::insert(
         pdal::PointView& pointView,
         Origin origin,
-        Clipper* clipper)
+        Clipper* clipper,
+        Range* zRange)
 {
     Point point;
+    const std::size_t dimensions(m_structure->dimensions());
 
     for (std::size_t i = 0; i < pointView.size(); ++i)
     {
         point.x = pointView.getFieldAs<double>(pdal::Dimension::Id::X, i);
         point.y = pointView.getFieldAs<double>(pdal::Dimension::Id::Y, i);
+        point.z = pointView.getFieldAs<double>(pdal::Dimension::Id::Z, i);
 
         if (m_bbox->contains(point))
         {
             if (!m_subBBox || m_subBBox->contains(point))
             {
-                Roller roller(*m_bbox);
+                Roller roller(*m_bbox, dimensions);
                 pointView.setField(m_originId, i, origin);
                 PointInfoShallow pointInfo(point, pointView.getPoint(i));
 
                 if (m_registry->addPoint(pointInfo, roller, clipper))
                 {
                     m_stats.addPoint();
+
+                    if (zRange) zRange->grow(point.z);
                 }
                 else
                 {
@@ -248,8 +273,10 @@ void Builder::inferBBox(const std::string path)
     bbox.set(
             Point(
                 std::numeric_limits<double>::max(),
+                std::numeric_limits<double>::max(),
                 std::numeric_limits<double>::max()),
             Point(
+                std::numeric_limits<double>::lowest(),
                 std::numeric_limits<double>::lowest(),
                 std::numeric_limits<double>::lowest()));
 
@@ -262,7 +289,8 @@ void Builder::inferBBox(const std::string path)
             bbox.grow(
                     Point(
                         view.getFieldAs<double>(pdal::Dimension::Id::X, i),
-                        view.getFieldAs<double>(pdal::Dimension::Id::Y, i)));
+                        view.getFieldAs<double>(pdal::Dimension::Id::Y, i),
+                        view.getFieldAs<double>(pdal::Dimension::Id::Z, i)));
         }
     });
 
@@ -273,8 +301,14 @@ void Builder::inferBBox(const std::string path)
 
     m_bbox.reset(
             new BBox(
-                Point(std::floor(bbox.min().x), std::floor(bbox.min().y)),
-                Point(std::ceil(bbox.max().x),  std::ceil(bbox.max().y))));
+                Point(
+                    std::floor(bbox.min().x),
+                    std::floor(bbox.min().y),
+                    std::floor(bbox.min().z)),
+                Point(
+                    std::ceil(bbox.max().x),
+                    std::ceil(bbox.max().y),
+                    std::ceil(bbox.max().z))));
 
     std::cout << "Got: " << m_bbox->toJson().toStyledString() << std::endl;
 }
@@ -551,7 +585,7 @@ void Builder::link(std::vector<std::string> subsetPaths)
                 m_stats.addFallThrough(stats.getNumFallThroughs());
                 if (m_stats.getNumOutOfBounds() != stats.getNumOutOfBounds())
                 {
-                    throw std::runtime_error("Invalid stats in segment.");
+                    std::cout << "\t\tFound conflicting stats." << std::endl;
                 }
 
                 base->merge(*chunkData);
@@ -562,6 +596,8 @@ void Builder::link(std::vector<std::string> subsetPaths)
             throw std::runtime_error("Invalid base segment.");
         }
     }
+
+    std::cout << "Building aggregated meta..." << std::endl;
 
     m_structure->makeWhole();
     m_subBBox.reset();
@@ -581,8 +617,10 @@ void Builder::link(std::vector<std::string> subsetPaths)
         }
     }
 
+    std::cout << "Saving aggregated meta..." << std::endl;
     m_outSource->put("entwine", jsonMeta.toStyledString());
 
+    std::cout << "Saving base data..." << std::endl;
     base->save(*m_outSource);
 }
 

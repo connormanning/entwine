@@ -155,7 +155,8 @@ SparseChunkData::SparseEntry::SparseEntry(const Schema& schema, char* pos)
     entry.point().store(
             Point(
                 view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
-                view.getFieldAs<double>(pdal::Dimension::Id::Y, 0)));
+                view.getFieldAs<double>(pdal::Dimension::Id::Y, 0),
+                view.getFieldAs<double>(pdal::Dimension::Id::Z, 0)));
 }
 
 SparseChunkData::SparseChunkData(
@@ -381,6 +382,7 @@ ContiguousChunkData::ContiguousChunkData(
 
         p.x = view.getFieldAs<double>(pdal::Dimension::Id::X, 0);
         p.y = view.getFieldAs<double>(pdal::Dimension::Id::Y, 0);
+        p.z = view.getFieldAs<double>(pdal::Dimension::Id::Z, 0);
 
         m_entries.emplace_back(Entry(p, m_data->data() + pointSize * i));
     }

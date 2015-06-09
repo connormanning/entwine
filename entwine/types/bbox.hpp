@@ -16,6 +16,8 @@
 namespace entwine
 {
 
+class Range;
+
 class BBox
 {
 public:
@@ -36,19 +38,30 @@ public:
     // Returns true if the requested point is contained within this BBox.
     bool contains(const Point& p) const;
 
-    double width() const;
-    double height() const;
+    double width() const;   // Length in X.
+    double depth() const;   // Length in Y.
+    double height() const;  // Length in Z.
 
     void goNw();
     void goNe();
     void goSw();
     void goSe();
 
+    void goNwu();
+    void goNwd();
+    void goNeu();
+    void goNed();
+    void goSwu();
+    void goSwd();
+    void goSeu();
+    void goSed();
+
     bool exists() const;
 
     Json::Value toJson() const;
 
     void grow(const Point& p);
+    void growZ(const Range& range);
 
 private:
     Point m_min;

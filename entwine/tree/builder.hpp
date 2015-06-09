@@ -12,6 +12,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -21,6 +22,7 @@
 #include <entwine/tree/manifest.hpp>
 #include <entwine/tree/point-info.hpp>
 #include <entwine/types/dim-info.hpp>
+#include <entwine/types/range.hpp>
 #include <entwine/types/stats.hpp>
 #include <entwine/types/structure.hpp>
 
@@ -111,7 +113,11 @@ private:
     void inferBBox(std::string path);
 
     // Insert each point from a pdal::PointView into the Registry.
-    void insert(pdal::PointView& pointView, Origin origin, Clipper* clipper);
+    void insert(
+            pdal::PointView& pointView,
+            Origin origin,
+            Clipper* clipper,
+            Range* zRange);
 
     // Get metadata properties, and load from those serialized properties.
     Json::Value saveProps() const;
@@ -127,6 +133,8 @@ private:
     std::unique_ptr<Structure> m_structure;
     std::unique_ptr<Reprojection> m_reprojection;
     std::unique_ptr<Manifest> m_manifest;
+
+    std::mutex m_mutex;
 
     Stats m_stats;
     bool m_trustHeaders;

@@ -164,7 +164,7 @@ std::vector<std::size_t> Reader::query(
     checkQuery(depthBegin, depthEnd);
 
     std::vector<std::size_t> results;
-    Roller roller(*m_bbox);
+    Roller roller(*m_bbox, m_structure->dimensions());
 
     // Pre-warm cache with necessary chunks for this query.
     std::set<std::size_t> toFetch;

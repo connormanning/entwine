@@ -255,7 +255,7 @@ std::unique_ptr<BBox> Structure::subsetBBox(const BBox& full) const
 {
     std::unique_ptr<BBox> result;
 
-    Roller roller(full);
+    Roller roller(full, m_dimensions);
     std::size_t times(0);
 
     // TODO Very temporary.

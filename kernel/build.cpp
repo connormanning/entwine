@@ -138,13 +138,36 @@ namespace
         else throw std::runtime_error("Invalid tree type");
     }
 
-    std::unique_ptr<BBox> getBBox(const Json::Value& json)
+    std::unique_ptr<BBox> getBBox(
+            const Json::Value& json,
+            const std::size_t dimensions)
     {
         std::unique_ptr<BBox> bbox;
 
         if (json.isArray())
         {
-            bbox.reset(new BBox(json));
+            if (json.size() == 4 && dimensions == 2)
+            {
+                Json::Value expanded;
+
+                expanded.append(json[0].asDouble());
+                expanded.append(json[1].asDouble());
+                expanded.append(std::numeric_limits<double>::max());
+                expanded.append(json[2].asDouble());
+                expanded.append(json[3].asDouble());
+                expanded.append(std::numeric_limits<double>::lowest());
+
+                bbox.reset(new BBox(expanded));
+            }
+            else if (dimensions == 3)
+            {
+                bbox.reset(new BBox(json));
+            }
+            else
+            {
+                throw std::runtime_error(
+                        "Invalid bbox for the requested tree type.");
+            }
         }
 
         return bbox;
@@ -335,7 +358,7 @@ void Kernel::build(std::vector<std::string> args)
 
     // Geometry and spatial info.
     const Json::Value& geometry(config["geometry"]);
-    auto bbox(getBBox(geometry["bbox"]));
+    auto bbox(getBBox(geometry["bbox"], dimensions));
     auto reprojection(getReprojection(geometry["reproject"]));
     Schema schema(geometry["schema"]);
 

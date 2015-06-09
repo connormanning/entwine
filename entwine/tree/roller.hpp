@@ -23,7 +23,7 @@ class Point;
 class Roller
 {
 public:
-    Roller(const BBox& bbox);
+    Roller(const BBox& bbox, std::size_t dimensions);
     Roller(const Roller& other);
 
     void magnify(const Point& point);
@@ -35,6 +35,15 @@ public:
     void goNe();
     void goSw();
     void goSe();
+
+    void goNwu();
+    void goNwd();
+    void goNeu();
+    void goNed();
+    void goSwu();
+    void goSwd();
+    void goSeu();
+    void goSed();
 
     Roller getNw() const;
     Roller getNe() const;
@@ -50,6 +59,8 @@ public:
     };
 
 private:
+    std::size_t m_dimensions;
+
     uint64_t m_index;
     BBox m_bbox;
 

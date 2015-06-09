@@ -15,14 +15,21 @@
 namespace entwine
 {
 
-Roller::Roller(const BBox& bbox)
-    : m_index(0)
+Roller::Roller(const BBox& bbox, const std::size_t dimensions)
+    : m_dimensions(dimensions)
+    , m_index(0)
     , m_bbox(bbox)
     , m_depth(0)
-{ }
+{
+    if (m_dimensions != 2)
+    {
+        throw std::runtime_error("Octree not yet supported");
+    }
+}
 
 Roller::Roller(const Roller& other)
-    : m_index(other.m_index)
+    : m_dimensions(other.m_dimensions)
+    , m_index(other.m_index)
     , m_bbox(other.m_bbox)
     , m_depth(other.m_depth)
 { }
@@ -31,16 +38,23 @@ void Roller::magnify(const Point& point)
 {
     const Point& mid(m_bbox.mid());
 
-    if (point.x < mid.x)
-        if (point.y < mid.y)
-            goSw();
+    if (m_dimensions == 2)
+    {
+        if (point.x < mid.x)
+            if (point.y < mid.y)
+                goSw();
+            else
+                goNw();
         else
-            goNw();
+            if (point.y < mid.y)
+                goSe();
+            else
+                goNe();
+    }
     else
-        if (point.y < mid.y)
-            goSe();
-        else
-            goNe();
+    {
+        // TODO
+    }
 }
 
 std::size_t Roller::depth() const
@@ -112,8 +126,7 @@ Roller Roller::getSe() const
 
 void Roller::step(const Dir dir)
 {
-    // TODO Hard-coded to quad-tree.
-    m_index = (m_index << 2) + 1 + dir;
+    m_index = (m_index << m_dimensions) + 1 + dir;
     ++m_depth;
 }
 

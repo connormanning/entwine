@@ -139,8 +139,14 @@ std::unique_ptr<Preview> Executor::preview(
             if (quick.valid())
             {
                 BBox bbox(
-                        Point(quick.m_bounds.minx, quick.m_bounds.miny),
-                        Point(quick.m_bounds.maxx, quick.m_bounds.maxy));
+                        Point(
+                            quick.m_bounds.minx,
+                            quick.m_bounds.miny,
+                            quick.m_bounds.minz),
+                        Point(
+                            quick.m_bounds.maxx,
+                            quick.m_bounds.maxy,
+                            quick.m_bounds.maxz));
 
                 if (reprojection)
                 {
@@ -151,18 +157,22 @@ std::unique_ptr<Preview> Executor::preview(
 
                     view.setField(Id::X, 0, bbox.min().x);
                     view.setField(Id::Y, 0, bbox.min().y);
+                    view.setField(Id::Z, 0, bbox.min().y);
                     view.setField(Id::X, 1, bbox.max().x);
                     view.setField(Id::Y, 1, bbox.max().y);
+                    view.setField(Id::Z, 1, bbox.max().y);
 
                     pdal::FilterWrapper::filter(*filter, view);
 
                     bbox = BBox(
                             Point(
                                 view.getFieldAs<double>(Id::X, 0),
-                                view.getFieldAs<double>(Id::Y, 0)),
+                                view.getFieldAs<double>(Id::Y, 0),
+                                view.getFieldAs<double>(Id::Z, 0)),
                             Point(
                                 view.getFieldAs<double>(Id::X, 1),
-                                view.getFieldAs<double>(Id::Y, 1)));
+                                view.getFieldAs<double>(Id::Y, 1),
+                                view.getFieldAs<double>(Id::Z, 1)));
                 }
 
                 result.reset(new Preview(bbox, quick.m_pointCount));
