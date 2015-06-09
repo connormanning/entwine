@@ -182,6 +182,8 @@ bool Builder::insert(const std::string path)
                     if (zRange)
                     {
                         std::lock_guard<std::mutex> lock(m_mutex);
+                        zRange->min = std::floor(zRange->min);
+                        zRange->max = std::ceil(zRange->max);
                         m_bbox->growZ(*zRange);
                     }
                 }
