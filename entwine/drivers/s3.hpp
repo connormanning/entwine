@@ -15,7 +15,7 @@
 #include <vector>
 
 #include <entwine/drivers/driver.hpp>
-#include <entwine/http/curl.hpp>
+#include <entwine/drivers/http.hpp>
 
 namespace entwine
 {
