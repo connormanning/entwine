@@ -21,10 +21,6 @@ Roller::Roller(const BBox& bbox, const Structure& structure)
     , m_dimensions(structure.dimensions())
     , m_index(0)
     , m_depth(0)
-    , m_currentChunkPoints(structure.baseChunkPoints())
-    , m_currentLevelNumPoints(1)
-    , m_currentLevelBeginIndex(0)
-    , m_currentLevelBeginNum(0)
     , m_bbox(bbox)
 {
     if (m_dimensions != 2)
@@ -150,6 +146,9 @@ std::size_t Roller::currentLevelOffset() const
 
 void Roller::step(const Dir dir)
 {
+    // TODO Might get some speed benefits from tracking this here, which would
+    // avoid calculating them from scratch at each level in Structure::getInfo.
+    /*
     // Strictly greater-than, the first cold level has a numBegin of zero.
     if (m_currentLevelBeginIndex > m_structure.coldIndexBegin())
     {
@@ -164,6 +163,7 @@ void Roller::step(const Dir dir)
 
     m_currentLevelBeginIndex = (m_currentLevelBeginIndex << m_dimensions) + 1;
     m_currentLevelNumPoints *= m_structure.factor();
+    */
 
     m_index = (m_index << m_dimensions) + 1 + dir;
     ++m_depth;

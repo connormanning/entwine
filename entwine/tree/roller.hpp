@@ -66,13 +66,6 @@ private:
     std::size_t m_index;
     std::size_t m_depth;
 
-    std::size_t m_currentChunkPoints;
-    std::size_t m_currentLevelNumPoints;
-    std::size_t m_currentLevelBeginIndex;
-    std::size_t m_currentLevelBeginNum;
-
-    std::size_t currentLevelOffset() const;
-
     BBox m_bbox;
 
     void step(Dir dir);
