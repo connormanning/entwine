@@ -11,28 +11,27 @@
 #include <entwine/tree/roller.hpp>
 
 #include <entwine/types/point.hpp>
+#include <entwine/types/structure.hpp>
 
 namespace entwine
 {
 
-Roller::Roller(const BBox& bbox, const std::size_t dimensions)
-    : m_dimensions(dimensions)
+Roller::Roller(const BBox& bbox, const Structure& structure)
+    : m_structure(structure)
+    , m_dimensions(structure.dimensions())
     , m_index(0)
-    , m_bbox(bbox)
     , m_depth(0)
+    , m_currentChunkPoints(structure.baseChunkPoints())
+    , m_currentLevelNumPoints(1)
+    , m_currentLevelBeginIndex(0)
+    , m_currentLevelBeginNum(0)
+    , m_bbox(bbox)
 {
     if (m_dimensions != 2)
     {
         throw std::runtime_error("Octree not yet supported");
     }
 }
-
-Roller::Roller(const Roller& other)
-    : m_dimensions(other.m_dimensions)
-    , m_index(other.m_index)
-    , m_bbox(other.m_bbox)
-    , m_depth(other.m_depth)
-{ }
 
 void Roller::magnify(const Point& point)
 {
@@ -57,14 +56,14 @@ void Roller::magnify(const Point& point)
     }
 }
 
+std::size_t Roller::index() const
+{
+    return m_index;
+}
+
 std::size_t Roller::depth() const
 {
     return m_depth;
-}
-
-uint64_t Roller::index() const
-{
-    return m_index;
 }
 
 const BBox& Roller::bbox() const
@@ -124,8 +123,48 @@ Roller Roller::getSe() const
     return roller;
 }
 
+/*
+std::size_t Roller::chunkId() const
+{
+    return
+        m_currentLevelBeginIndex +
+        m_currentChunkPoints * (currentLevelOffset() / m_currentChunkPoints);
+}
+
+std::size_t Roller::chunkOffset() const
+{
+    return currentLevelOffset() % m_currentChunkPoints;
+}
+
+std::size_t Roller::chunkNum() const
+{
+    return
+        m_currentLevelBeginNum + currentLevelOffset() / m_currentChunkPoints;
+}
+
+std::size_t Roller::currentLevelOffset() const
+{
+    return m_index - m_currentLevelBeginIndex;
+}
+*/
+
 void Roller::step(const Dir dir)
 {
+    // Strictly greater-than, the first cold level has a numBegin of zero.
+    if (m_currentLevelBeginIndex > m_structure.coldIndexBegin())
+    {
+        m_currentLevelBeginNum +=
+            m_currentLevelNumPoints / m_currentChunkPoints;
+    }
+
+    if (m_index >= m_structure.sparseIndexBegin())
+    {
+        m_currentChunkPoints *= m_structure.factor();
+    }
+
+    m_currentLevelBeginIndex = (m_currentLevelBeginIndex << m_dimensions) + 1;
+    m_currentLevelNumPoints *= m_structure.factor();
+
     m_index = (m_index << m_dimensions) + 1 + dir;
     ++m_depth;
 }

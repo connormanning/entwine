@@ -231,7 +231,6 @@ void Builder::insert(
         Range* zRange)
 {
     Point point;
-    const std::size_t dimensions(m_structure->dimensions());
 
     for (std::size_t i = 0; i < pointView.size(); ++i)
     {
@@ -243,7 +242,7 @@ void Builder::insert(
         {
             if (!m_subBBox || m_subBBox->contains(point))
             {
-                Roller roller(*m_bbox, dimensions);
+                Roller roller(*m_bbox, *m_structure);
                 pointView.setField(m_originId, i, origin);
                 PointInfoShallow pointInfo(point, pointView.getPoint(i));
 

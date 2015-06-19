@@ -79,7 +79,7 @@ Registry::Registry(
     , m_base()
     , m_cold()
     , m_pool(new Pool(clipPoolSize, clipQueueSize))
-    , m_empty(makeEmpty(m_schema, m_structure.chunkPoints()))
+    , m_empty(makeEmpty(m_schema, m_structure.baseChunkPoints()))
 {
     if (m_structure.baseIndexSpan())
     {
@@ -91,7 +91,7 @@ Registry::Registry(
                     m_empty));
     }
 
-    if (m_structure.coldIndexSpan())
+    if (m_structure.hasCold())
     {
         m_cold.reset(new Cold(source, schema, m_structure, m_empty));
     }
@@ -109,7 +109,7 @@ Registry::Registry(
     , m_base()
     , m_cold()
     , m_pool(new Pool(clipPoolSize, clipQueueSize))
-    , m_empty(makeEmpty(m_schema, m_structure.chunkPoints()))
+    , m_empty(makeEmpty(m_schema, m_structure.baseChunkPoints()))
 {
     if (m_structure.baseIndexSpan())
     {
@@ -133,7 +133,7 @@ Registry::Registry(
                     data));
     }
 
-    if (m_structure.coldIndexSpan())
+    if (m_structure.hasCold())
     {
         m_cold.reset(new Cold(source, schema, m_structure, m_empty, meta));
     }
@@ -146,9 +146,7 @@ bool Registry::addPoint(PointInfo& toAdd, Roller& roller, Clipper* clipper)
 {
     bool accepted(false);
 
-    const std::size_t index(roller.index());
-
-    if (Entry* entry = getEntry(index, clipper))
+    if (Entry* entry = getEntry(roller, clipper))
     {
         std::atomic<Point>& myPoint(entry->point());
 
@@ -216,9 +214,11 @@ void Registry::save(Json::Value& meta)
     if (m_cold) meta["ids"] = m_cold->toJson();
 }
 
-Entry* Registry::getEntry(const std::size_t index, Clipper* clipper)
+Entry* Registry::getEntry(const Roller& roller, Clipper* clipper)
 {
     Entry* entry(0);
+
+    const std::size_t index(roller.index());
 
     if (m_structure.isWithinBase(index))
     {

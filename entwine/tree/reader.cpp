@@ -164,7 +164,7 @@ std::vector<std::size_t> Reader::query(
     checkQuery(depthBegin, depthEnd);
 
     std::vector<std::size_t> results;
-    Roller roller(*m_bbox, m_structure->dimensions());
+    Roller roller(*m_bbox, *m_structure);
 
     // Pre-warm cache with necessary chunks for this query.
     std::set<std::size_t> toFetch;
@@ -194,7 +194,7 @@ void Reader::traverse(
             depth >= depthBegin &&
             (depth < depthEnd || !depthEnd))
     {
-        toFetch.insert(getChunkId(index));
+        toFetch.insert(m_structure->getInfo(index).chunkId());
 
         if (toFetch.size() > m_queryLimit)
         {
@@ -318,7 +318,7 @@ char* Reader::getPointData(const std::size_t index)
     }
     else if (m_structure->isWithinCold(index))
     {
-        const std::size_t chunkId(getChunkId(index));
+        const std::size_t chunkId(m_structure->getInfo(index).chunkId());
 
         auto it(m_chunks.find(chunkId));
         if (it != m_chunks.end())
@@ -334,18 +334,6 @@ char* Reader::getPointData(const std::size_t index)
     }
 
     return pos;
-}
-
-std::size_t Reader::getChunkId(const std::size_t index) const
-{
-    assert(m_structure->isWithinCold(index));
-
-    const std::size_t firstChunk(m_structure->coldIndexBegin());
-    const std::size_t chunkPoints(m_structure->chunkPoints());
-
-    // Zero-based chunk number.
-    const std::size_t chunkNum((index - firstChunk) / chunkPoints);
-    return firstChunk + chunkNum * chunkPoints;
 }
 
 Source* Reader::getSource(const std::size_t chunkId)
@@ -410,7 +398,7 @@ void Reader::fetch(const std::size_t chunkId)
                     ChunkReader::create(
                         *m_schema,
                         chunkId,
-                        m_structure->chunkPoints(),
+                        m_structure->getInfo(chunkId).chunkPoints(),
                         std::move(data)));
 
             lock.lock();

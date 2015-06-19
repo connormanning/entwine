@@ -97,8 +97,6 @@ private:
     Point getPoint(std::size_t index);      // Caller must NOT lock.
     char* getPointData(std::size_t index);  // Caller must lock.
 
-    std::size_t getChunkId(std::size_t index) const;
-
     // Returns 0 if chunk doesn't exist.
     Source* getSource(std::size_t chunkId);
     void fetch(std::size_t chunkId);

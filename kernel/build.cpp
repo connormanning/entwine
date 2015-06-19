@@ -346,6 +346,7 @@ void Kernel::build(std::vector<std::string> args)
     const std::size_t baseDepth(jsonStructure["baseDepth"].asUInt64());
     const std::size_t coldDepth(jsonStructure["coldDepth"].asUInt64());
     const std::size_t chunkPoints(jsonStructure["pointsPerChunk"].asUInt64());
+    const std::size_t dynamicChunks(jsonStructure["dynamicChunks"].asBool());
     const std::size_t dimensions(getDimensions(jsonStructure["type"]));
     const std::size_t numPointsHint(
             jsonStructure.isMember("numPointsHint") ?
@@ -358,6 +359,7 @@ void Kernel::build(std::vector<std::string> args)
             chunkPoints,
             dimensions,
             numPointsHint,
+            dynamicChunks,
             subset);
 
     // Geometry and spatial info.

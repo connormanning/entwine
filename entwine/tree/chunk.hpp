@@ -66,12 +66,13 @@ public:
     virtual ~ChunkData();
 
     std::size_t maxPoints() const { return m_maxPoints; }
+    std::size_t id() const { return m_id; }
 
     virtual void save(Source& source) = 0;
 
     virtual bool isSparse() const = 0;
     virtual std::size_t numPoints() const = 0;
-    virtual Entry* getEntry(std::size_t rawIndex) = 0;
+    virtual Entry* getEntry(std::size_t index) = 0;
 
 protected:
     std::size_t endId() const;
@@ -103,7 +104,7 @@ public:
 
     virtual bool isSparse() const { return true; }
     virtual std::size_t numPoints() const { return m_entries.size(); }
-    virtual Entry* getEntry(std::size_t rawIndex);
+    virtual Entry* getEntry(std::size_t index);
 
     static std::size_t popNumPoints(std::vector<char>& compressedData);
 
@@ -154,7 +155,7 @@ public:
 
     virtual bool isSparse() const { return false; }
     virtual std::size_t numPoints() const { return m_maxPoints; }
-    virtual Entry* getEntry(std::size_t rawIndex);
+    virtual Entry* getEntry(std::size_t index);
 
     void merge(ContiguousChunkData& other);
 
@@ -200,7 +201,7 @@ public:
             std::vector<char> data,
             const std::vector<char>& empty);
 
-    Entry* getEntry(std::size_t rawIndex);
+    Entry* getEntry(std::size_t index);
 
     void save(Source& source);
 

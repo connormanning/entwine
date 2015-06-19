@@ -18,17 +18,17 @@ namespace entwine
 {
 
 class Point;
+class Structure;
 
 // Maintains the state of the current point as it traverses the virtual tree.
 class Roller
 {
 public:
-    Roller(const BBox& bbox, std::size_t dimensions);
-    Roller(const Roller& other);
+    Roller(const BBox& bbox, const Structure& structure);
 
     void magnify(const Point& point);
+    std::size_t index() const;
     std::size_t depth() const;
-    uint64_t index() const;
     const BBox& bbox() const;
 
     void goNw();
@@ -36,6 +36,7 @@ public:
     void goSw();
     void goSe();
 
+    // TODO Octree support.
     void goNwu();
     void goNwd();
     void goNeu();
@@ -59,12 +60,20 @@ public:
     };
 
 private:
+    const Structure& m_structure;
     std::size_t m_dimensions;
 
-    uint64_t m_index;
-    BBox m_bbox;
-
+    std::size_t m_index;
     std::size_t m_depth;
+
+    std::size_t m_currentChunkPoints;
+    std::size_t m_currentLevelNumPoints;
+    std::size_t m_currentLevelBeginIndex;
+    std::size_t m_currentLevelBeginNum;
+
+    std::size_t currentLevelOffset() const;
+
+    BBox m_bbox;
 
     void step(Dir dir);
 };

@@ -23,6 +23,7 @@ namespace entwine
 {
 
 class Chunk;
+class ChunkInfo;
 class Clipper;
 class Entry;
 class Pool;
@@ -54,15 +55,10 @@ public:
     void clip(std::size_t chunkId, Clipper* clipper, Pool& pool);
 
 private:
-    std::size_t getChunkId(std::size_t index) const;
-    std::size_t getChunkNum(std::size_t index) const;
+    void growFast(const ChunkInfo& info, Clipper* clipper);
+    void growSlow(const ChunkInfo& info, Clipper* clipper);
 
-    void growFast(std::size_t chunkId, Clipper* clipper);
-    void growSlow(std::size_t chunkId, Clipper* clipper);
-
-    std::size_t slowTrackedStart() const;
-
-    struct ChunkInfo
+    struct CountedChunk
     {
         std::unique_ptr<Chunk> chunk;
         std::set<const Clipper*> refs;
@@ -71,13 +67,18 @@ private:
 
     struct FastSlot
     {
+        FastSlot() : mark(false), flag(), chunk()
+        {
+            flag.clear();
+        }
+
         std::atomic_bool mark;  // Data exists?
         std::atomic_flag flag;  // Lock.
-        std::unique_ptr<ChunkInfo> chunk;
+        std::unique_ptr<CountedChunk> chunk;
     };
 
     typedef
-        std::unordered_map<std::size_t, std::unique_ptr<ChunkInfo>> ChunkMap;
+        std::unordered_map<std::size_t, std::unique_ptr<CountedChunk>> ChunkMap;
 
     Source& m_source;
     const Schema& m_schema;
@@ -87,8 +88,6 @@ private:
 
     ChunkMap m_chunkMap;
     mutable std::mutex m_mapMutex;
-
-    std::size_t m_slowStart;
 
     const std::vector<char>& m_empty;
 };

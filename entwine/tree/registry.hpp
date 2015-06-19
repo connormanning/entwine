@@ -51,7 +51,7 @@ public:
 
     void save(Json::Value& meta);
 
-    Entry* getEntry(std::size_t index, Clipper* clipper);
+    Entry* getEntry(const Roller& roller, Clipper* clipper);
 
     void clip(std::size_t index, Clipper* clipper);
 

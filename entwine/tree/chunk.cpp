@@ -427,7 +427,7 @@ ContiguousChunkData::~ContiguousChunkData()
     chunkCnt.fetch_sub(1);
 }
 
-Entry* ContiguousChunkData::getEntry(std::size_t rawIndex)
+Entry* ContiguousChunkData::getEntry(const std::size_t rawIndex)
 {
     return &m_entries[normalize(rawIndex)];
 }
@@ -586,7 +586,7 @@ Chunk::Chunk(
     , m_empty(empty)
 { }
 
-Entry* Chunk::getEntry(std::size_t rawIndex)
+Entry* Chunk::getEntry(const std::size_t rawIndex)
 {
     if (m_chunkData->isSparse())
     {
