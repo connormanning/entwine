@@ -445,6 +445,7 @@ void Kernel::build(std::vector<std::string> args)
             "\tBase depth: " << baseDepth << "\n" <<
             "\tCold depth: " << coldDepth << "\n" <<
             "\tChunk size: " << chunkPoints << " points\n" <<
+            "\tDynamic chunks? " << (dynamicChunks ? "Yes" : "No") << "\n" <<
             "\tBuild type: " << jsonStructure["type"].asString() << "\n" <<
             "\tPoint count hint: " << numPointsHint << " points\n" <<
             "Geometry:\n" <<

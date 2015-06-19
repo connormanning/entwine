@@ -201,7 +201,7 @@ void Structure::loadIndexValues()
     m_coldIndexBegin = m_baseIndexEnd;
     m_coldIndexEnd = ChunkInfo::calcLevelIndex(m_dimensions, m_coldDepthEnd);
 
-    if (m_numPointsHint && dynamicChunks())
+    if (m_numPointsHint)
     {
         m_sparseDepthBegin =
             std::max(
@@ -322,7 +322,7 @@ bool Structure::hasCold() const
 
 bool Structure::hasSparse() const
 {
-    return m_sparseIndexBegin != 0 && dynamicChunks();
+    return m_sparseIndexBegin != 0;
 }
 
 bool Structure::inRange(const std::size_t index) const
@@ -351,7 +351,7 @@ ChunkInfo Structure::getInfoFromNum(const std::size_t chunkNum) const
 
     if (hasCold())
     {
-        if (hasSparse())
+        if (hasSparse() && dynamicChunks())
         {
             const std::size_t endFixed(
                     ChunkInfo::calcLevelIndex(
@@ -402,7 +402,7 @@ std::size_t Structure::numChunksAtDepth(const std::size_t depth) const
 {
     std::size_t num(0);
 
-    if (!hasSparse() || depth <= m_sparseDepthBegin)
+    if (!hasSparse() || !dynamicChunks() || depth <= m_sparseDepthBegin)
     {
         const std::size_t depthSpan(
                 ChunkInfo::calcLevelIndex(m_dimensions, depth + 1) -
