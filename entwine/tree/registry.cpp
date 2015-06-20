@@ -148,26 +148,27 @@ bool Registry::addPoint(PointInfo& toAdd, Roller& roller, Clipper* clipper)
 
     if (Entry* entry = getEntry(roller, clipper))
     {
-        std::atomic<Point>& myPoint(entry->point());
+        Point myPoint(entry->getPoint());
 
-        if (Point::exists(myPoint.load()))
+        if (Point::exists(myPoint))
         {
             const Point& mid(roller.bbox().mid());
 
-            if (better(toAdd.point, myPoint.load(), mid, m_is3d))
+            if (better(toAdd.point, myPoint, mid, m_is3d))
             {
+                // Reload point after locking.
                 Locker locker(entry->getLocker());
-                const Point& curPoint(myPoint.load());
+                myPoint = entry->getPoint();
 
-                if (better(toAdd.point, curPoint, mid, m_is3d))
+                if (better(toAdd.point, myPoint, mid, m_is3d))
                 {
                     const std::size_t pointSize(m_schema.pointSize());
 
-                    PointInfoDeep old(curPoint, entry->data(), pointSize);
+                    PointInfoDeep old(myPoint, entry->data(), pointSize);
 
                     // Store this point.
                     toAdd.write(entry->data(), pointSize);
-                    myPoint.store(toAdd.point);
+                    entry->setPoint(toAdd.point);
 
                     // Send our old stored value downstream.
                     toAdd = old;
@@ -176,12 +177,14 @@ bool Registry::addPoint(PointInfo& toAdd, Roller& roller, Clipper* clipper)
         }
         else
         {
+            // Reload point after locking.
             std::unique_ptr<Locker> locker(new Locker(entry->getLocker()));
+            myPoint = entry->getPoint();
 
-            if (!Point::exists(myPoint.load()))
+            if (!Point::exists(myPoint))
             {
                 toAdd.write(entry->data(), m_schema.pointSize());
-                myPoint.store(toAdd.point);
+                entry->setPoint(toAdd.point);
                 accepted = true;
             }
             else

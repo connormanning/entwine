@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <array>
 #include <atomic>
 #include <cstddef>
 #include <map>
@@ -39,14 +40,20 @@ public:
     Entry(const Entry& other);
     Entry& operator=(const Entry& other);
 
-    std::atomic<Point>& point();
+    Point getPoint() const;
     Locker getLocker();
-    char* data();           // Must fetch a Locker to access.
+
+    // Must fetch a Locker before calling setPoint() or modifying data.
+    void setPoint(const Point& point);
+    char* data();
 
     void setData(char* pos) { m_data = pos; }
 
 private:
-    std::atomic<Point> m_point;
+    std::array<Point, 2> m_points;
+    std::atomic_size_t m_active;
+
+    std::atomic<Point*> m_atom;
     std::atomic_flag m_flag;
     char* m_data;
 };

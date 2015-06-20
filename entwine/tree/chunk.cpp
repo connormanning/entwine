@@ -45,52 +45,72 @@ namespace
 }
 
 Entry::Entry()
-    : m_point()
+    : m_points()
+    , m_active(0)
+    , m_atom(&m_points[0])
     , m_flag()
     , m_data(0)
 {
-    m_point.store(Point());
     m_flag.clear();
 }
 
 Entry::Entry(char* data)
-    : m_point()
+    : m_points()
+    , m_active(0)
+    , m_atom(&m_points[0])
     , m_flag()
     , m_data(data)
 {
-    m_point.store(Point());
     m_flag.clear();
 }
 
 Entry::Entry(const Point& point, char* data)
-    : m_point()
+    : m_points()
+    , m_active(0)
+    , m_atom(&m_points[0])
     , m_flag()
     , m_data(data)
 {
-    m_point.store(point);
     m_flag.clear();
+    m_points[0] = point;
 }
 
 Entry::Entry(const Entry& other)
-    : m_point()
+    : m_points()
+    , m_active(0)
+    , m_atom(&m_points[0])
     , m_flag()
     , m_data(other.m_data)
 {
-    m_point.store(other.m_point.load());
     m_flag.clear();
+    m_points[0] = other.getPoint();
 }
 
 Entry& Entry::operator=(const Entry& other)
 {
-    m_point.store(other.m_point.load());
-    m_data = other.m_data;
+    m_points[0] = other.getPoint();
+    m_active = 0;
+    m_atom.store(&m_points[0]);
     m_flag.clear();
+    m_data = other.m_data;
+
     return *this;
 }
 
-std::atomic<Point>& Entry::point()
+Point Entry::getPoint() const
 {
-    return m_point;
+    return m_points[m_active.load() % 2];
+}
+
+void Entry::setPoint(const Point& point)
+{
+    m_points[(m_active.load() + 1) % 2] = point;
+    m_active++;
+}
+
+char* Entry::data()
+{
+    return m_data;
 }
 
 Locker Entry::getLocker()
@@ -98,10 +118,7 @@ Locker Entry::getLocker()
     return Locker(m_flag);
 }
 
-char* Entry::data()
-{
-    return m_data;
-}
+
 
 ChunkData::ChunkData(
         const Schema& schema,
@@ -152,7 +169,7 @@ SparseChunkData::SparseEntry::SparseEntry(const Schema& schema, char* pos)
     SinglePointTable table(schema, pos);
     LinkingPointView view(table);
 
-    entry.point().store(
+    entry.setPoint(
             Point(
                 view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
                 view.getFieldAs<double>(pdal::Dimension::Id::Y, 0),
@@ -487,13 +504,13 @@ void ContiguousChunkData::merge(ContiguousChunkData& other)
                 !Point::exists(ours->point().load()) ||
                 !Point::exists(theirs->point().load()));
 
-        const Point theirPoint(theirs->point().load());
+        const Point theirPoint(theirs->getPoint());
 
         if (Point::exists(theirPoint))
         {
-            if (!Point::exists(ours->point().load()))
+            if (!Point::exists(ours->getPoint()))
             {
-                ours->point().store(theirPoint);
+                ours->setPoint(theirPoint);
 
                 std::memcpy(ours->data(), theirs->data(), pointSize);
             }
