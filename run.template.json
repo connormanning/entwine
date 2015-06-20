@@ -69,6 +69,11 @@
         // (4 ^ baseDepth) / pointsPerChunk must be a whole number.
         "pointsPerChunk": 65536,
 
+        // Highly recommended for medium to large (greater than a few billion
+        // points) sets, and in general for lossless or non-truncated index
+        // builds.
+        "dynamicChunks": true,
+
         // TODO Allow octree.
 
         // Valid values are "quadtree" and "octree".
