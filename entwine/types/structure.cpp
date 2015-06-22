@@ -28,13 +28,6 @@ namespace
         // TODO.
         return std::floor(std::log2(val));
     }
-
-    // Note: Expects to receive number of dimensions, not factor.  Result will
-    // be equal to std::pow(factor, exp), but we avoid a log2() call.
-    std::size_t binaryPow(const std::size_t baseLog2, const std::size_t exp)
-    {
-        return 1ULL << (exp * baseLog2);
-    }
 }
 
 ChunkInfo::ChunkInfo(const Structure& structure, const std::size_t index)
@@ -114,6 +107,13 @@ std::size_t ChunkInfo::pointsAtDepth(
         const std::size_t depth)
 {
     return binaryPow(dimensions, depth);
+}
+
+std::size_t ChunkInfo::binaryPow(
+        const std::size_t baseLog2,
+        const std::size_t exp)
+{
+    return 1ULL << (exp * baseLog2);
 }
 
 Structure::Structure(

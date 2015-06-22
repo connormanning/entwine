@@ -36,6 +36,10 @@ public:
             std::size_t dimensions,
             std::size_t depth);
 
+    // Note: Expects to receive number of dimensions, not factor.  Result will
+    // be equal to std::pow(factor, exp), but we avoid a log2() call.
+    static std::size_t binaryPow(std::size_t baseLog2, std::size_t exp);
+
     std::size_t depth()         const { return m_depth; }
     std::size_t chunkId()       const { return m_chunkId; }
     std::size_t chunkOffset()   const { return m_chunkOffset; }

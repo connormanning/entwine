@@ -194,7 +194,7 @@ void Reader::traverse(
             depth >= depthBegin &&
             (depth < depthEnd || !depthEnd))
     {
-        toFetch.insert(m_structure->getInfo(index).chunkId());
+        toFetch.insert(getChunkId(index, depth));
 
         if (toFetch.size() > m_queryLimit)
         {
@@ -318,7 +318,10 @@ char* Reader::getPointData(const std::size_t index)
     }
     else if (m_structure->isWithinCold(index))
     {
-        const std::size_t chunkId(m_structure->getInfo(index).chunkId());
+        const std::size_t chunkId(
+                getChunkId(
+                    index,
+                    ChunkInfo::calcDepth(m_structure->factor(), index)));
 
         auto it(m_chunks.find(chunkId));
         if (it != m_chunks.end())
@@ -354,6 +357,43 @@ Source* Reader::getSource(const std::size_t chunkId)
     }
 
     return source;
+}
+
+std::size_t Reader::getChunkId(
+        const std::size_t index,
+        const std::size_t depth) const
+{
+    const std::size_t baseChunkPoints(m_structure->baseChunkPoints());
+
+    if (
+            !m_structure->hasSparse() ||
+            !m_structure->dynamicChunks() ||
+            depth <= m_structure->sparseDepthBegin())
+    {
+        const std::size_t coldDelta(index - m_structure->coldIndexBegin());
+
+        return
+            m_structure->coldIndexBegin() +
+            (coldDelta / baseChunkPoints) * baseChunkPoints;
+    }
+    else
+    {
+        const std::size_t dimensions(m_structure->dimensions());
+
+        const std::size_t levelIndex(
+                ChunkInfo::calcLevelIndex(dimensions, depth));
+
+        const std::size_t sparseDepthCount(
+                depth - m_structure->sparseDepthBegin());
+
+        const std::size_t levelChunkPoints(
+                baseChunkPoints *
+                ChunkInfo::binaryPow(dimensions, sparseDepthCount));
+
+        return
+            levelIndex +
+            ((index - levelIndex) / levelChunkPoints) * levelChunkPoints;
+    }
 }
 
 void Reader::fetch(const std::size_t chunkId)

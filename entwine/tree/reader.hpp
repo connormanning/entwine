@@ -93,6 +93,8 @@ private:
             std::size_t depthBegin,
             std::size_t depthEnd);
 
+    std::size_t getChunkId(std::size_t index, std::size_t depth) const;
+
     // These queries require the chunk for this index to be pre-fetched.
     Point getPoint(std::size_t index);      // Caller must NOT lock.
     char* getPointData(std::size_t index);  // Caller must lock.
