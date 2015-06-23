@@ -50,6 +50,8 @@ Reader::Reader(
     , m_reprojection()
     , m_manifest()
     , m_stats()
+    , m_table()
+    , m_view()
     , m_ids()
     , m_arbiter(arbiter)
     , m_cacheSize(cacheSize)
@@ -86,6 +88,8 @@ Reader::Reader(
             m_reprojection.reset(new Reprojection(props["reprojection"]));
         m_manifest.reset(new Manifest(props["manifest"]));
         m_stats.reset(new Stats(props["stats"]));
+        m_table.reset(new SinglePointTable(*m_schema, 0));
+        m_view.reset(new LinkingPointView(*m_table));
 
         const Json::Value& jsonIds(props["ids"]);
 
@@ -298,11 +302,10 @@ Point Reader::getPoint(const std::size_t index)
     std::lock_guard<std::mutex> lock(m_mutex);
     if (char* pos = getPointData(index))
     {
-        SinglePointTable table(*m_schema, pos);
-        LinkingPointView view(table);
+        m_table->setData(pos);
 
-        point.x = view.getFieldAs<double>(pdal::Dimension::Id::X, 0);
-        point.y = view.getFieldAs<double>(pdal::Dimension::Id::Y, 0);
+        point.x = m_view->getFieldAs<double>(pdal::Dimension::Id::X, 0);
+        point.y = m_view->getFieldAs<double>(pdal::Dimension::Id::Y, 0);
     }
 
     return point;
