@@ -20,6 +20,8 @@
 #include <vector>
 
 #include <entwine/drivers/source.hpp>
+#include <entwine/types/linking-point-view.hpp>
+#include <entwine/types/single-point-table.hpp>
 
 namespace entwine
 {
@@ -28,14 +30,12 @@ class Arbiter;
 class BBox;
 class ChunkReader;
 class Driver;
-class LinkingPointView;
 class Manifest;
 class Point;
-class Pool;
-class Roller;
+class Reader;
 class Reprojection;
+class Roller;
 class Schema;
-class SinglePointTable;
 class Stats;
 class Structure;
 
@@ -43,6 +43,37 @@ class QueryLimitExceeded : public std::runtime_error
 {
 public:
     QueryLimitExceeded() : std::runtime_error("Query size limit exceeded") { }
+};
+
+typedef std::map<std::size_t, const ChunkReader*> ChunkMap;
+
+class Query
+{
+public:
+    Query(
+            Reader& reader,
+            const Schema& outSchema,
+            ChunkMap chunkMap);
+
+    // ~Query();
+
+    void addPoint(const char* pos);
+
+    Point unwrapPoint(const char* pos) const;
+    std::size_t size() const;
+    void getPointAt(std::size_t index, char* out) const;
+
+    const ChunkMap& chunkMap() const { return m_chunkMap; }
+
+private:
+    Reader& m_reader;
+    ChunkMap m_chunkMap;
+    const Schema& m_outSchema;
+
+    std::vector<const char*> m_points;
+
+    mutable SinglePointTable m_table;
+    mutable LinkingPointView m_view;
 };
 
 class Reader
@@ -57,59 +88,58 @@ public:
 
     ~Reader();
 
-    // Query calls may throw if a cache overrun is detected.
-    std::vector<std::size_t> query(
+    Query query(
+            const Schema& schema,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
-    std::vector<std::size_t> query(
+    Query query(
+            const Schema& schema,
             const BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd);
-
-    // This should only be called on indices that have previously been returned
-    // from a call to Reader::query(), which means that a point does exist at
-    // this index in the tree and that the source data necessary to retrieve
-    // this point has been fetched successfully.
-    //
-    // This method may throw in at least two cases:
-    //      1) There is no point at this index.  A user should only call this
-    //         function with an index previously returned by a call to query().
-    //      2) There may be a valid point at this index, but this Reader is
-    //         experiencing cache overrun.  Clients should limit their query
-    //         rate.
-    std::vector<char> getPointData(std::size_t index, const Schema& schema);
 
     std::size_t numPoints() const;
     const Schema& schema() const { return *m_schema; }
     const BBox& bbox() const { return *m_bbox; }
 
 private:
+    std::set<std::size_t> traverse(
+            const BBox& bbox,
+            std::size_t depthBegin,
+            std::size_t depthEnd) const;
+
     void traverse(
             std::set<std::size_t>& toFetch,
             const Roller& roller,
             const BBox& bbox,
             std::size_t depthBegin,
-            std::size_t depthEnd);
+            std::size_t depthEnd) const;
 
-    void warm(const std::set<std::size_t>& toFetch);
-
-    void query(
-            const Roller& roller,
-            std::vector<std::size_t>& results,
+    Query runQuery(
+            const ChunkMap& chunkMap,
+            const Schema& schema,
             const BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
+    void runQuery(
+            Query& query,
+            const Roller& roller,
+            const BBox& bbox,
+            std::size_t depthBegin,
+            std::size_t depthEnd) const;
+
+    const char* getPointPos(std::size_t index, const ChunkMap& chunkMap) const;
     std::size_t getChunkId(std::size_t index, std::size_t depth) const;
 
-    // These queries require the chunk for this index to be pre-fetched.
-    Point getPoint(std::size_t index);      // Caller must NOT lock.
-    char* getPointData(std::size_t index);  // Caller must lock.
-
     // Returns 0 if chunk doesn't exist.
-    Source* getSource(std::size_t chunkId);
-    void fetch(std::size_t chunkId);
+    Source* getSource(std::size_t chunkId) const;
+
+    ChunkMap warm(const std::set<std::size_t>& toFetch);
+
+    // This is the only place in which we mutate our state.
+    const ChunkReader* fetch(std::size_t chunkId);
 
     std::unique_ptr<BBox> m_bbox;
     std::unique_ptr<Schema> m_schema;

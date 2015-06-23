@@ -20,9 +20,9 @@ class Schema;
 class SinglePointTable : public SizedPointTable
 {
 public:
-    SinglePointTable(const Schema& schema, char* data);
+    SinglePointTable(const Schema& schema, const char* data);
 
-    void setData(char* data) { m_point = data; }
+    void setData(const char* data) { m_point = data; }
 
     virtual pdal::PointId addPoint();
     virtual char* getPoint(pdal::PointId index);
@@ -42,7 +42,7 @@ private:
             const pdal::Dimension::Detail* dimDetail,
             pdal::PointId index);
 
-    char* m_point;
+    const char* m_point;
 };
 
 } // namespace entwine

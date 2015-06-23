@@ -246,7 +246,7 @@ public:
             std::size_t maxPoints,
             std::unique_ptr<std::vector<char>> data);
 
-    virtual char* getData(std::size_t rawIndex) = 0;
+    virtual const char* getData(std::size_t rawIndex) const = 0;
 
 protected:
     ChunkReader(const Schema& schema, std::size_t id, std::size_t maxPoints);
@@ -265,7 +265,7 @@ public:
             std::size_t maxPoints,
             std::unique_ptr<std::vector<char>> data);
 
-    virtual char* getData(std::size_t rawIndex);
+    virtual const char* getData(std::size_t rawIndex) const;
 
 private:
     std::map<std::size_t, std::vector<char>> m_data;
@@ -280,7 +280,7 @@ public:
             std::size_t maxPoints,
             std::unique_ptr<std::vector<char>> data);
 
-    virtual char* getData(std::size_t rawIndex);
+    virtual const char* getData(std::size_t rawIndex) const;
 
 private:
     std::unique_ptr<std::vector<char>> m_data;

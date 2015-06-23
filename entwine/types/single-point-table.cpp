@@ -15,7 +15,7 @@
 namespace entwine
 {
 
-SinglePointTable::SinglePointTable(const Schema& schema, char* data)
+SinglePointTable::SinglePointTable(const Schema& schema, const char* data)
     : SizedPointTable(schema.pdalLayout())
     , m_point(data)
 { }
@@ -33,7 +33,7 @@ char* SinglePointTable::getPoint(pdal::PointId index)
         throw std::runtime_error("SinglePointTable only has one point");
     }
 
-    return m_point;
+    return const_cast<char*>(m_point);
 }
 
 void SinglePointTable::setField(

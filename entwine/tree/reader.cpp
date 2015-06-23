@@ -17,11 +17,9 @@
 #include <entwine/tree/manifest.hpp>
 #include <entwine/tree/roller.hpp>
 #include <entwine/types/bbox.hpp>
-#include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/stats.hpp>
 #include <entwine/types/schema.hpp>
-#include <entwine/types/single-point-table.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/util/pool.hpp>
 
@@ -36,6 +34,49 @@ namespace
         {
             throw std::runtime_error("Invalid query depths");
         }
+    }
+}
+
+Query::Query(
+        Reader& reader,
+        const Schema& outSchema,
+        ChunkMap chunkMap)
+    : m_reader(reader)
+    , m_chunkMap(chunkMap)
+    , m_outSchema(outSchema)
+    , m_points()
+    , m_table(m_reader.schema(), 0)
+    , m_view(m_table)
+{ }
+
+void Query::addPoint(const char* pos)
+{
+    m_points.push_back(pos);
+}
+
+Point Query::unwrapPoint(const char* pos) const
+{
+    m_table.setData(pos);
+
+    return Point(
+            m_view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
+            m_view.getFieldAs<double>(pdal::Dimension::Id::Y, 0),
+            m_view.getFieldAs<double>(pdal::Dimension::Id::Z, 0));
+}
+
+std::size_t Query::size() const
+{
+    return m_points.size();
+}
+
+void Query::getPointAt(const std::size_t index, char* out) const
+{
+    m_table.setData(m_points.at(index));
+
+    for (const auto& dim : m_outSchema.dims())
+    {
+        m_view.getField(out, dim.id(), dim.type(), 0);
+        out += dim.size();
     }
 }
 
@@ -153,30 +194,38 @@ Reader::Reader(
 Reader::~Reader()
 { }
 
-std::vector<std::size_t> Reader::query(
+Query Reader::query(
+        const Schema& schema,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
-    return query(*m_bbox, depthBegin, depthEnd);
+    return query(schema, *m_bbox, depthBegin, depthEnd);
 }
 
-std::vector<std::size_t> Reader::query(
+Query Reader::query(
+        const Schema& schema,
         const BBox& bbox,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
     checkQuery(depthBegin, depthEnd);
 
-    std::vector<std::size_t> results;
-    Roller roller(*m_bbox, *m_structure);
+    // Warm up cache and get the chunks necessary for this query.
+    const ChunkMap chunkMap(warm(traverse(bbox, depthBegin, depthEnd)));
 
-    // Pre-warm cache with necessary chunks for this query.
-    std::set<std::size_t> toFetch;
-    traverse(toFetch, roller, bbox, depthBegin, depthEnd);
-    warm(toFetch);
+    // Get the points selected by this query and all associated metadata.
+    return runQuery(chunkMap, schema, bbox, depthBegin, depthEnd);
+}
 
-    // Get query results.
-    query(roller, results, bbox, depthBegin, depthEnd);
+std::set<std::size_t> Reader::traverse(
+        const BBox& queryBBox,
+        const std::size_t depthBegin,
+        const std::size_t depthEnd) const
+{
+    std::set<std::size_t> results;
+    const Roller roller(*m_bbox, *m_structure);
+
+    traverse(results, roller, queryBBox, depthBegin, depthEnd);
 
     return results;
 }
@@ -186,7 +235,7 @@ void Reader::traverse(
         const Roller& roller,
         const BBox& queryBBox,
         const std::size_t depthBegin,
-        const std::size_t depthEnd)
+        const std::size_t depthEnd) const
 {
     if (!roller.bbox().overlaps(queryBBox)) return;
 
@@ -211,28 +260,50 @@ void Reader::traverse(
     }
 }
 
-void Reader::warm(const std::set<std::size_t>& toFetch)
+ChunkMap Reader::warm(const std::set<std::size_t>& toFetch)
 {
+    ChunkMap results;
+    results.insert(std::make_pair(m_structure->baseIndexBegin(), m_base.get()));
+
+    std::mutex mutex;
     std::unique_ptr<Pool> pool(
             new Pool(std::min<std::size_t>(8, toFetch.size())));
 
     for (const std::size_t chunkId : toFetch)
     {
-        pool->add([this, chunkId]()->void
+        pool->add([this, chunkId, &mutex, &results]()->void
         {
-            fetch(chunkId);
+            std::lock_guard<std::mutex> lock(mutex);
+            results.insert(std::make_pair(chunkId, fetch(chunkId)));
         });
     }
 
     pool->join();
+    return results;
 }
 
-void Reader::query(
+Query Reader::runQuery(
+        const ChunkMap& chunkMap,
+        const Schema& schema,
+        const BBox& bbox,
+        std::size_t depthBegin,
+        std::size_t depthEnd)
+{
+    std::vector<const char*> points;
+    const Roller roller(*m_bbox, *m_structure);
+
+    Query query(*this, schema, chunkMap);
+    runQuery(query, roller, bbox, depthBegin, depthEnd);
+
+    return query;
+}
+
+void Reader::runQuery(
+        Query& query,
         const Roller& roller,
-        std::vector<std::size_t>& results,
         const BBox& queryBBox,
         const std::size_t depthBegin,
-        const std::size_t depthEnd)
+        const std::size_t depthEnd) const
 {
     if (!roller.bbox().overlaps(queryBBox)) return;
 
@@ -241,74 +312,31 @@ void Reader::query(
 
     if (depth >= depthBegin && (depth < depthEnd || !depthEnd))
     {
-        Point point(getPoint(index));
-        if (Point::exists(point) && queryBBox.contains(point))
+        if (const char* pos = getPointPos(index, query.chunkMap()))
         {
-            results.push_back(index);
+            Point point(query.unwrapPoint(pos));
+
+            if (Point::exists(point) && queryBBox.contains(point))
+            {
+                query.addPoint(pos);
+            }
         }
     }
 
     if (depth + 1 < depthEnd || !depthEnd)
     {
-        query(roller.getNw(), results, queryBBox, depthBegin, depthEnd);
-        query(roller.getNe(), results, queryBBox, depthBegin, depthEnd);
-        query(roller.getSw(), results, queryBBox, depthBegin, depthEnd);
-        query(roller.getSe(), results, queryBBox, depthBegin, depthEnd);
+        runQuery(query, roller.getNw(), queryBBox, depthBegin, depthEnd);
+        runQuery(query, roller.getNe(), queryBBox, depthBegin, depthEnd);
+        runQuery(query, roller.getSw(), queryBBox, depthBegin, depthEnd);
+        runQuery(query, roller.getSe(), queryBBox, depthBegin, depthEnd);
     }
 }
 
-std::vector<char> Reader::getPointData(
+const char* Reader::getPointPos(
         const std::size_t index,
-        const Schema& reqSchema)
+        const ChunkMap& chunkMap) const
 {
-    std::vector<char> schemaPoint;
-    std::vector<char> nativePoint;
-
-    std::unique_lock<std::mutex> lock(m_mutex);
-    if (char* pos = getPointData(index))
-    {
-        nativePoint.assign(pos, pos + m_schema->pointSize());
-    }
-    lock.unlock();
-
-    if (nativePoint.size())
-    {
-        schemaPoint.resize(reqSchema.pointSize());
-
-        SinglePointTable table(*m_schema, nativePoint.data());
-        LinkingPointView view(table);
-
-        char* dst(schemaPoint.data());
-
-        for (const auto& reqDim : reqSchema.dims())
-        {
-            view.getField(dst, reqDim.id(), reqDim.type(), 0);
-            dst += reqDim.size();
-        }
-    }
-
-    return schemaPoint;
-}
-
-Point Reader::getPoint(const std::size_t index)
-{
-    Point point;
-
-    std::lock_guard<std::mutex> lock(m_mutex);
-    if (char* pos = getPointData(index))
-    {
-        m_table->setData(pos);
-
-        point.x = m_view->getFieldAs<double>(pdal::Dimension::Id::X, 0);
-        point.y = m_view->getFieldAs<double>(pdal::Dimension::Id::Y, 0);
-    }
-
-    return point;
-}
-
-char* Reader::getPointData(const std::size_t index)
-{
-    char* pos(0);
+    const char* pos(0);
 
     if (m_structure->isWithinBase(index))
     {
@@ -321,15 +349,13 @@ char* Reader::getPointData(const std::size_t index)
                     index,
                     ChunkInfo::calcDepth(m_structure->factor(), index)));
 
-        auto it(m_chunks.find(chunkId));
-        if (it != m_chunks.end())
+        auto it(chunkMap.find(chunkId));
+        if (it != chunkMap.end())
         {
             pos = it->second->getData(index);
         }
-        else if (getSource(chunkId) != 0)
+        else
         {
-            std::cout << "Missing chunk " << chunkId << std::endl;
-            std::cout << "Cache size: " << m_chunks.size() << std::endl;
             throw std::runtime_error("Cache overrun or invalid point detected");
         }
     }
@@ -337,7 +363,7 @@ char* Reader::getPointData(const std::size_t index)
     return pos;
 }
 
-Source* Reader::getSource(const std::size_t chunkId)
+Source* Reader::getSource(const std::size_t chunkId) const
 {
     Source* source(0);
 
@@ -394,18 +420,21 @@ std::size_t Reader::getChunkId(
     }
 }
 
-void Reader::fetch(const std::size_t chunkId)
+const ChunkReader* Reader::fetch(const std::size_t chunkId)
 {
+    ChunkReader* result(0);
+
     if (!m_structure->isWithinCold(chunkId))
     {
-        return;
+        throw std::runtime_error("ChunkId out of range for fetching.");
     }
 
     if (Source* source = getSource(chunkId))
     {
         std::unique_lock<std::mutex> lock(m_mutex);
 
-        const bool has(m_chunks.count(chunkId));
+        const auto initialIt(m_chunks.find(chunkId));
+        const bool has(initialIt != m_chunks.end());
         const bool awaiting(m_outstanding.count(chunkId));
 
         if (!has && !awaiting)
@@ -457,9 +486,13 @@ void Reader::fetch(const std::size_t chunkId)
             }
 
             m_outstanding.erase(chunkId);
-            m_chunks.insert(std::make_pair(chunkId, std::move(chunk)));
             m_accessList.push_front(chunkId);
             m_accessMap[chunkId] = m_accessList.begin();
+
+            const auto insertResult(
+                    m_chunks.insert(std::make_pair(chunkId, std::move(chunk))));
+            const auto it(insertResult.first);
+            result = it->second.get();
 
             lock.unlock();
             m_cv.notify_all();
@@ -472,6 +505,8 @@ void Reader::fetch(const std::size_t chunkId)
                     m_accessList.begin(),
                     m_accessList,
                     m_accessMap.at(chunkId));
+
+            result = initialIt->second.get();
         }
         else
         {
@@ -483,13 +518,20 @@ void Reader::fetch(const std::size_t chunkId)
                 return m_chunks.count(chunkId) || !m_outstanding.count(chunkId);
             });
 
-            if (!m_chunks.count(chunkId))
+            const auto it(m_chunks.find(chunkId));
+            if (it != m_chunks.end())
+            {
+                result = it->second.get();
+            }
+            else
             {
                 throw std::runtime_error(
                         "Could not fetch chunk " + std::to_string(chunkId));
             }
         }
     }
+
+    return result;
 }
 
 std::size_t Reader::numPoints() const

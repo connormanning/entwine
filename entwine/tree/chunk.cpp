@@ -753,9 +753,9 @@ SparseReader::SparseReader(
     }
 }
 
-char* SparseReader::getData(const std::size_t rawIndex)
+const char* SparseReader::getData(const std::size_t rawIndex) const
 {
-    char* pos(0);
+    const char* pos(0);
 
     auto it(m_data.find(rawIndex));
 
@@ -792,7 +792,7 @@ ContiguousReader::ContiguousReader(
                 m_maxPoints * m_schema.pointSize()))
 { }
 
-char* ContiguousReader::getData(const std::size_t rawIndex)
+const char* ContiguousReader::getData(const std::size_t rawIndex) const
 {
     const std::size_t normal(rawIndex - m_id);
 
