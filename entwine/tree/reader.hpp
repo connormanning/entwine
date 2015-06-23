@@ -39,6 +39,12 @@ class SinglePointTable;
 class Stats;
 class Structure;
 
+class QueryLimitExceeded : public std::runtime_error
+{
+public:
+    QueryLimitExceeded() : std::runtime_error("Query size limit exceeded") { }
+};
+
 class Reader
 {
 public:

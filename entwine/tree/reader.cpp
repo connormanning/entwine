@@ -199,12 +199,7 @@ void Reader::traverse(
             (depth < depthEnd || !depthEnd))
     {
         toFetch.insert(getChunkId(index, depth));
-
-        if (toFetch.size() > m_queryLimit)
-        {
-            std::cout << "Query limit exceeded." << std::endl;
-            throw std::runtime_error("Max query size exceeded");
-        }
+        if (toFetch.size() > m_queryLimit) throw QueryLimitExceeded();
     }
 
     if (depth + 1 < depthEnd || !depthEnd)
