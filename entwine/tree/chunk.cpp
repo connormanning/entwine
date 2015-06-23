@@ -796,6 +796,11 @@ char* ContiguousReader::getData(const std::size_t rawIndex)
 {
     const std::size_t normal(rawIndex - m_id);
 
+    if (normal >= m_maxPoints)
+    {
+        throw std::runtime_error("Invalid index to getData");
+    }
+
     return m_data->data() + normal * m_schema.pointSize();
 }
 

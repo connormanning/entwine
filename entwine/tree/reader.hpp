@@ -28,12 +28,14 @@ class Arbiter;
 class BBox;
 class ChunkReader;
 class Driver;
+class LinkingPointView;
 class Manifest;
 class Point;
 class Pool;
 class Roller;
 class Reprojection;
 class Schema;
+class SinglePointTable;
 class Stats;
 class Structure;
 
@@ -109,6 +111,8 @@ private:
     std::unique_ptr<Reprojection> m_reprojection;
     std::unique_ptr<Manifest> m_manifest;
     std::unique_ptr<Stats> m_stats;
+    std::unique_ptr<SinglePointTable> m_table;
+    std::unique_ptr<LinkingPointView> m_view;
 
     std::map<std::unique_ptr<Source>, std::set<std::size_t>> m_ids;
     std::shared_ptr<Arbiter> m_arbiter;

@@ -22,6 +22,8 @@ class SinglePointTable : public SizedPointTable
 public:
     SinglePointTable(const Schema& schema, char* data);
 
+    void setData(char* data) { m_point = data; }
+
     virtual pdal::PointId addPoint();
     virtual char* getPoint(pdal::PointId index);
     virtual void setField(
