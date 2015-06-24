@@ -269,19 +269,33 @@ ChunkMap Reader::warm(const std::set<std::size_t>& toFetch)
     results.insert(std::make_pair(m_structure->baseIndexBegin(), m_base.get()));
 
     std::mutex mutex;
+    bool err(false);
     std::unique_ptr<Pool> pool(
             new Pool(std::min<std::size_t>(8, toFetch.size())));
 
     for (const std::size_t chunkId : toFetch)
     {
-        pool->add([this, chunkId, &mutex, &results]()->void
+        pool->add([this, chunkId, &mutex, &results, &err]()->void
         {
-            std::lock_guard<std::mutex> lock(mutex);
-            results.insert(std::make_pair(chunkId, fetch(chunkId)));
+            if (const ChunkReader* chunkReader = fetch(chunkId))
+            {
+                std::lock_guard<std::mutex> lock(mutex);
+                results.insert(std::make_pair(chunkId, chunkReader));
+            }
+            else
+            {
+                err = true;
+            }
         });
     }
 
     pool->join();
+
+    if (err)
+    {
+        throw std::runtime_error("Invalid remote index state");
+    }
+
     return results;
 }
 
