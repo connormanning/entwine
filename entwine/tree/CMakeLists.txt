@@ -9,7 +9,6 @@ set(
     "${BASE}/clipper.cpp"
     "${BASE}/manifest.cpp"
     "${BASE}/point-info.cpp"
-    "${BASE}/reader.cpp"
     "${BASE}/registry.cpp"
     "${BASE}/roller.cpp"
 )
@@ -22,7 +21,6 @@ set(
     "${BASE}/clipper.hpp"
     "${BASE}/manifest.hpp"
     "${BASE}/point-info.hpp"
-    "${BASE}/reader.hpp"
     "${BASE}/registry.hpp"
     "${BASE}/roller.hpp"
 )

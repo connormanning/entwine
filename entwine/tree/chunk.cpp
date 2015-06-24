@@ -35,13 +35,6 @@ namespace
             static_cast<double>(pointSize) /
             static_cast<double>(pointSize + sizeof(std::size_t));
     }
-
-    DimList makeSparse(const Schema& schema)
-    {
-        DimList dims(1, DimInfo("EntryId", "unsigned", 8));
-        dims.insert(dims.end(), schema.dims().begin(), schema.dims().end());
-        return dims;
-    }
 }
 
 Entry::Entry()
@@ -325,7 +318,12 @@ std::size_t SparseChunkData::popNumPoints(
     return numPoints;
 }
 
-
+DimList SparseChunkData::makeSparse(const Schema& schema)
+{
+    DimList dims(1, DimInfo("EntryId", "unsigned", 8));
+    dims.insert(dims.end(), schema.dims().begin(), schema.dims().end());
+    return dims;
+}
 
 
 
@@ -669,139 +667,6 @@ std::size_t Chunk::getChunkMem()
 std::size_t Chunk::getChunkCnt()
 {
     return chunkCnt.load();
-}
-
-
-
-
-
-
-
-
-
-
-
-// TODO The Readers and the ChunkData classes should probably derive from
-// something common.
-
-ChunkReader::ChunkReader(
-        const Schema& schema,
-        const std::size_t id,
-        const std::size_t maxPoints)
-    : m_schema(schema)
-    , m_id(id)
-    , m_maxPoints(maxPoints)
-{ }
-
-std::unique_ptr<ChunkReader> ChunkReader::create(
-        const Schema& schema,
-        const std::size_t id,
-        const std::size_t maxPoints,
-        std::unique_ptr<std::vector<char>> data)
-{
-    std::unique_ptr<ChunkReader> reader;
-
-    const ChunkType type(Chunk::getType(*data));
-
-    if (type == Sparse)
-    {
-        reader.reset(new SparseReader(schema, id, maxPoints, std::move(data)));
-    }
-    else if (type == Contiguous)
-    {
-        reader.reset(
-                new ContiguousReader(schema, id, maxPoints, std::move(data)));
-    }
-
-    return reader;
-}
-
-SparseReader::SparseReader(
-        const Schema& schema,
-        const std::size_t id,
-        const std::size_t maxPoints,
-        std::unique_ptr<std::vector<char>> data)
-    : ChunkReader(schema, id, maxPoints)
-    , m_data()
-{
-    // TODO Direct copy/paste from SparseChunkData ctor.
-    const std::size_t numPoints(SparseChunkData::popNumPoints(*data));
-
-    const Schema sparse(makeSparse(m_schema));
-    const std::size_t sparsePointSize(sparse.pointSize());
-
-    auto squashed(
-            Compression::decompress(
-                *data,
-                sparse,
-                numPoints * sparsePointSize));
-
-    uint64_t key(0);
-    char* pos(0);
-
-    for (
-            std::size_t offset(0);
-            offset < squashed->size();
-            offset += sparsePointSize)
-    {
-        pos = squashed->data() + offset;
-        std::memcpy(&key, pos, sizeof(uint64_t));
-
-        std::vector<char> point(pos + sizeof(uint64_t), pos + sparsePointSize);
-
-        m_data.emplace(key, point);
-    }
-}
-
-const char* SparseReader::getData(const std::size_t rawIndex) const
-{
-    const char* pos(0);
-
-    auto it(m_data.find(rawIndex));
-
-    if (it != m_data.end())
-    {
-        pos = it->second.data();
-    }
-
-    return pos;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-ContiguousReader::ContiguousReader(
-        const Schema& schema,
-        const std::size_t id,
-        const std::size_t maxPoints,
-        std::unique_ptr<std::vector<char>> compressed)
-    : ChunkReader(schema, id, maxPoints)
-    , m_data(
-            Compression::decompress(
-                *compressed,
-                m_schema,
-                m_maxPoints * m_schema.pointSize()))
-{ }
-
-const char* ContiguousReader::getData(const std::size_t rawIndex) const
-{
-    const std::size_t normal(rawIndex - m_id);
-
-    if (normal >= m_maxPoints)
-    {
-        throw std::runtime_error("Invalid index to getData");
-    }
-
-    return m_data->data() + normal * m_schema.pointSize();
 }
 
 } // namespace entwine

@@ -8,11 +8,12 @@
 *
 ******************************************************************************/
 
-#include <entwine/tree/reader.hpp>
+#include <entwine/reader/reader.hpp>
 
 #include <entwine/compression/util.hpp>
 #include <entwine/drivers/arbiter.hpp>
 #include <entwine/drivers/source.hpp>
+#include <entwine/reader/query.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/manifest.hpp>
 #include <entwine/tree/roller.hpp>
@@ -35,56 +36,6 @@ namespace
             throw std::runtime_error("Invalid query depths");
         }
     }
-}
-
-Query::Query(
-        Reader& reader,
-        const Schema& outSchema,
-        ChunkMap chunkMap)
-    : m_reader(reader)
-    , m_outSchema(outSchema)
-    , m_chunkMap(chunkMap)
-    , m_points()
-    , m_table(m_reader.schema(), 0)
-    , m_view(m_table)
-{ }
-
-void Query::insert(const char* pos)
-{
-    m_points.push_back(pos);
-}
-
-Point Query::unwrapPoint(const char* pos) const
-{
-    m_table.setData(pos);
-
-    return Point(
-            m_view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
-            m_view.getFieldAs<double>(pdal::Dimension::Id::Y, 0),
-            m_view.getFieldAs<double>(pdal::Dimension::Id::Z, 0));
-}
-
-std::size_t Query::size() const
-{
-    return m_points.size();
-}
-
-void Query::get(const std::size_t index, char* out) const
-{
-    m_table.setData(m_points.at(index));
-
-    for (const auto& dim : m_outSchema.dims())
-    {
-        m_view.getField(out, dim.id(), dim.type(), 0);
-        out += dim.size();
-    }
-}
-
-std::vector<char> Query::get(const std::size_t index) const
-{
-    std::vector<char> data(m_outSchema.pointSize());
-    get(index, data.data());
-    return data;
 }
 
 Reader::Reader(

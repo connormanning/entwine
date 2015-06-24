@@ -20,19 +20,15 @@
 #include <vector>
 
 #include <entwine/drivers/source.hpp>
-#include <entwine/types/linking-point-view.hpp>
-#include <entwine/types/single-point-table.hpp>
+#include <entwine/reader/chunk-reader.hpp>
 
 namespace entwine
 {
 
 class Arbiter;
 class BBox;
-class ChunkReader;
-class Driver;
 class Manifest;
-class Point;
-class Reader;
+class Query;
 class Reprojection;
 class Roller;
 class Schema;
@@ -46,42 +42,6 @@ public:
 };
 
 typedef std::map<std::size_t, const ChunkReader*> ChunkMap;
-
-class Query
-{
-    friend class Reader;
-
-public:
-    Query(
-            Reader& reader,
-            const Schema& outSchema,
-            ChunkMap chunkMap);
-
-    // Returns the number of points in the query result.
-    std::size_t size() const;
-
-    // Get point data at the specified index.  Throws std::out_of_range if
-    // index is greater than or equal to Query::size().
-    //
-    // These operations are not thread-safe.
-    void get(std::size_t index, char* out) const;
-    std::vector<char> get(std::size_t index) const;
-
-private:
-    // For use by the Reader when populating this Query.
-    void insert(const char* pos);
-    Point unwrapPoint(const char* pos) const;
-    const ChunkMap& chunkMap() const { return m_chunkMap; }
-
-    Reader& m_reader;
-    const Schema& m_outSchema;
-
-    ChunkMap m_chunkMap;
-    std::vector<const char*> m_points;
-
-    mutable SinglePointTable m_table;
-    LinkingPointView m_view;
-};
 
 class Reader
 {

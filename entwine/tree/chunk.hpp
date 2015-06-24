@@ -19,6 +19,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include <entwine/types/dim-info.hpp>
 #include <entwine/types/point.hpp>
 #include <entwine/util/locker.hpp>
 
@@ -63,6 +64,7 @@ enum ChunkType
     Sparse = 0,
     Contiguous
 };
+
 
 
 class ChunkData
@@ -114,6 +116,7 @@ public:
     virtual Entry* getEntry(std::size_t index);
 
     static std::size_t popNumPoints(std::vector<char>& compressedData);
+    static DimList makeSparse(const Schema& schema);
 
 private:
     struct SparseEntry
@@ -225,65 +228,6 @@ private:
     std::atomic<bool> m_converting;
 
     const std::vector<char>& m_empty;
-};
-
-
-
-
-
-
-
-
-
-
-
-class ChunkReader
-{
-public:
-    static std::unique_ptr<ChunkReader> create(
-            const Schema& schema,
-            std::size_t id,
-            std::size_t maxPoints,
-            std::unique_ptr<std::vector<char>> data);
-
-    virtual const char* getData(std::size_t rawIndex) const = 0;
-
-protected:
-    ChunkReader(const Schema& schema, std::size_t id, std::size_t maxPoints);
-
-    const Schema& m_schema;
-    const std::size_t m_id;
-    const std::size_t m_maxPoints;
-};
-
-class SparseReader : public ChunkReader
-{
-public:
-    SparseReader(
-            const Schema& schema,
-            std::size_t id,
-            std::size_t maxPoints,
-            std::unique_ptr<std::vector<char>> data);
-
-    virtual const char* getData(std::size_t rawIndex) const;
-
-private:
-    std::map<std::size_t, std::vector<char>> m_data;
-};
-
-class ContiguousReader : public ChunkReader
-{
-public:
-    ContiguousReader(
-            const Schema& schema,
-            std::size_t id,
-            std::size_t maxPoints,
-            std::unique_ptr<std::vector<char>> data);
-
-    virtual const char* getData(std::size_t rawIndex) const;
-
-private:
-    std::unique_ptr<std::vector<char>> m_data;
 };
 
 } // namespace entwine
