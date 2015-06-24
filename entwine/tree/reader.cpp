@@ -72,7 +72,6 @@ std::size_t Query::size() const
 void Query::getPointAt(const std::size_t index, char* out)
 {
     m_table.setData(m_points.at(index));
-    // LinkingPointView view(m_table);
 
     for (const auto& dim : m_outSchema.dims())
     {
@@ -92,8 +91,6 @@ Reader::Reader(
     , m_reprojection()
     , m_manifest()
     , m_stats()
-    , m_table()
-    , m_view()
     , m_ids()
     , m_arbiter(arbiter)
     , m_cacheSize(cacheSize)
@@ -130,8 +127,6 @@ Reader::Reader(
             m_reprojection.reset(new Reprojection(props["reprojection"]));
         m_manifest.reset(new Manifest(props["manifest"]));
         m_stats.reset(new Stats(props["stats"]));
-        m_table.reset(new SinglePointTable(*m_schema, 0));
-        m_view.reset(new LinkingPointView(*m_table));
 
         const Json::Value& jsonIds(props["ids"]);
 
