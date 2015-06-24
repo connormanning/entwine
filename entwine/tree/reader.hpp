@@ -49,30 +49,37 @@ typedef std::map<std::size_t, const ChunkReader*> ChunkMap;
 
 class Query
 {
+    friend class Reader;
+
 public:
     Query(
             Reader& reader,
             const Schema& outSchema,
             ChunkMap chunkMap);
 
-    // ~Query();
-
-    void addPoint(const char* pos);
-
-    Point unwrapPoint(const char* pos);
+    // Returns the number of points in the query result.
     std::size_t size() const;
-    void getPointAt(std::size_t index, char* out);
 
-    const ChunkMap& chunkMap() const { return m_chunkMap; }
+    // Get point data at the specified index.  Throws std::out_of_range if
+    // index is greater than or equal to Query::size().
+    //
+    // These operations are not thread-safe.
+    void get(std::size_t index, char* out) const;
+    std::vector<char> get(std::size_t index) const;
 
 private:
+    // For use by the Reader when populating this Query.
+    void insert(const char* pos);
+    Point unwrapPoint(const char* pos) const;
+    const ChunkMap& chunkMap() const { return m_chunkMap; }
+
     Reader& m_reader;
-    ChunkMap m_chunkMap;
     const Schema& m_outSchema;
 
+    ChunkMap m_chunkMap;
     std::vector<const char*> m_points;
 
-    SinglePointTable m_table;
+    mutable SinglePointTable m_table;
     LinkingPointView m_view;
 };
 

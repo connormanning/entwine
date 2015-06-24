@@ -42,19 +42,19 @@ Query::Query(
         const Schema& outSchema,
         ChunkMap chunkMap)
     : m_reader(reader)
-    , m_chunkMap(chunkMap)
     , m_outSchema(outSchema)
+    , m_chunkMap(chunkMap)
     , m_points()
     , m_table(m_reader.schema(), 0)
     , m_view(m_table)
 { }
 
-void Query::addPoint(const char* pos)
+void Query::insert(const char* pos)
 {
     m_points.push_back(pos);
 }
 
-Point Query::unwrapPoint(const char* pos)
+Point Query::unwrapPoint(const char* pos) const
 {
     m_table.setData(pos);
 
@@ -69,7 +69,7 @@ std::size_t Query::size() const
     return m_points.size();
 }
 
-void Query::getPointAt(const std::size_t index, char* out)
+void Query::get(const std::size_t index, char* out) const
 {
     m_table.setData(m_points.at(index));
 
@@ -78,6 +78,13 @@ void Query::getPointAt(const std::size_t index, char* out)
         m_view.getField(out, dim.id(), dim.type(), 0);
         out += dim.size();
     }
+}
+
+std::vector<char> Query::get(const std::size_t index) const
+{
+    std::vector<char> data(m_outSchema.pointSize());
+    get(index, data.data());
+    return data;
 }
 
 Reader::Reader(
@@ -314,7 +321,7 @@ void Reader::runQuery(
 
             if (Point::exists(point) && queryBBox.contains(point))
             {
-                query.addPoint(pos);
+                query.insert(pos);
             }
         }
     }
