@@ -59,9 +59,9 @@ public:
 
     void addPoint(const char* pos);
 
-    Point unwrapPoint(const char* pos) const;
+    Point unwrapPoint(const char* pos);
     std::size_t size() const;
-    void getPointAt(std::size_t index, char* out) const;
+    void getPointAt(std::size_t index, char* out);
 
     const ChunkMap& chunkMap() const { return m_chunkMap; }
 
@@ -72,8 +72,8 @@ private:
 
     std::vector<const char*> m_points;
 
-    mutable SinglePointTable m_table;
-    mutable LinkingPointView m_view;
+    SinglePointTable m_table;
+    LinkingPointView m_view;
 };
 
 class Reader
@@ -88,12 +88,12 @@ public:
 
     ~Reader();
 
-    Query query(
+    std::unique_ptr<Query> query(
             const Schema& schema,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
-    Query query(
+    std::unique_ptr<Query> query(
             const Schema& schema,
             const BBox& bbox,
             std::size_t depthBegin,
@@ -116,7 +116,7 @@ private:
             std::size_t depthBegin,
             std::size_t depthEnd) const;
 
-    Query runQuery(
+    std::unique_ptr<Query> runQuery(
             const ChunkMap& chunkMap,
             const Schema& schema,
             const BBox& bbox,

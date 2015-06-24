@@ -54,7 +54,7 @@ void Query::addPoint(const char* pos)
     m_points.push_back(pos);
 }
 
-Point Query::unwrapPoint(const char* pos) const
+Point Query::unwrapPoint(const char* pos)
 {
     m_table.setData(pos);
 
@@ -69,9 +69,10 @@ std::size_t Query::size() const
     return m_points.size();
 }
 
-void Query::getPointAt(const std::size_t index, char* out) const
+void Query::getPointAt(const std::size_t index, char* out)
 {
     m_table.setData(m_points.at(index));
+    // LinkingPointView view(m_table);
 
     for (const auto& dim : m_outSchema.dims())
     {
@@ -194,7 +195,7 @@ Reader::Reader(
 Reader::~Reader()
 { }
 
-Query Reader::query(
+std::unique_ptr<Query> Reader::query(
         const Schema& schema,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
@@ -202,7 +203,7 @@ Query Reader::query(
     return query(schema, *m_bbox, depthBegin, depthEnd);
 }
 
-Query Reader::query(
+std::unique_ptr<Query> Reader::query(
         const Schema& schema,
         const BBox& bbox,
         const std::size_t depthBegin,
@@ -282,7 +283,7 @@ ChunkMap Reader::warm(const std::set<std::size_t>& toFetch)
     return results;
 }
 
-Query Reader::runQuery(
+std::unique_ptr<Query> Reader::runQuery(
         const ChunkMap& chunkMap,
         const Schema& schema,
         const BBox& bbox,
@@ -292,8 +293,8 @@ Query Reader::runQuery(
     std::vector<const char*> points;
     const Roller roller(*m_bbox, *m_structure);
 
-    Query query(*this, schema, chunkMap);
-    runQuery(query, roller, bbox, depthBegin, depthEnd);
+    std::unique_ptr<Query> query(new Query(*this, schema, chunkMap));
+    runQuery(*query, roller, bbox, depthBegin, depthEnd);
 
     return query;
 }
