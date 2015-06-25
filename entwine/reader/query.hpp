@@ -21,6 +21,7 @@
 namespace entwine
 {
 
+class Block;
 class Schema;
 
 class Query
@@ -28,7 +29,10 @@ class Query
     friend class Reader;
 
 public:
-    Query(Reader& reader, const Schema& outSchema, ChunkMap chunkMap);
+    Query(
+            Reader& reader,
+            const Schema& outSchema,
+            std::unique_ptr<Block> block);
 
     // Returns the number of points in the query result.
     std::size_t size() const;
@@ -44,12 +48,12 @@ private:
     // For use by the Reader when populating this Query.
     void insert(const char* pos);
     Point unwrapPoint(const char* pos) const;
-    const ChunkMap& chunkMap() const { return m_chunkMap; }
+    const ChunkMap& chunkMap() const { return m_block->chunkMap(); }
 
     Reader& m_reader;
     const Schema& m_outSchema;
 
-    ChunkMap m_chunkMap;
+    std::unique_ptr<Block> m_block;
     std::vector<const char*> m_points;
 
     mutable SinglePointTable m_table;

@@ -10,15 +10,19 @@
 
 #include <entwine/reader/query.hpp>
 
+#include <entwine/reader/cache.hpp>
 #include <entwine/types/schema.hpp>
 
 namespace entwine
 {
 
-Query::Query(Reader& reader, const Schema& outSchema, ChunkMap chunkMap)
+Query::Query(
+        Reader& reader,
+        const Schema& outSchema,
+        std::unique_ptr<Block> block)
     : m_reader(reader)
     , m_outSchema(outSchema)
-    , m_chunkMap(chunkMap)
+    , m_block(std::move(block))
     , m_points()
     , m_table(m_reader.schema(), 0)
     , m_view(m_table)

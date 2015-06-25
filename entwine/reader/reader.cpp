@@ -38,28 +38,17 @@ namespace
     }
 }
 
-Reader::Reader(
-        Source source,
-        const std::size_t cacheSize,
-        const std::size_t queryLimit,
-        std::shared_ptr<Arbiter> arbiter)
-    : m_bbox()
+Reader::Reader(Source source, Arbiter& arbiter, std::shared_ptr<Cache> cache)
+    : m_path(source.path())
+    , m_bbox()
     , m_schema()
     , m_structure()
     , m_reprojection()
     , m_manifest()
     , m_stats()
-    , m_ids()
-    , m_arbiter(arbiter)
-    , m_cacheSize(cacheSize)
-    , m_queryLimit(queryLimit)
-    , m_mutex()
-    , m_cv()
     , m_base()
-    , m_chunks()
-    , m_outstanding()
-    , m_accessList()
-    , m_accessMap()
+    , m_cache(cache)
+    , m_ids()
 {
     {
         Json::Reader reader;
@@ -108,7 +97,7 @@ Reader::Reader(
 
             for (const auto path : subs)
             {
-                Source subSrc(m_arbiter->getSource(path));
+                Source subSrc(arbiter.getSource(path));
                 std::set<std::size_t>& ids(
                         m_ids.insert(
                             std::make_pair(
@@ -164,28 +153,30 @@ std::unique_ptr<Query> Reader::query(
 {
     checkQuery(depthBegin, depthEnd);
 
-    // Warm up cache and get the chunks necessary for this query.
-    const ChunkMap chunkMap(warm(traverse(bbox, depthBegin, depthEnd)));
+    std::unique_ptr<Block> block(
+            m_cache->acquire(
+                m_path,
+                traverse(bbox, depthBegin, depthEnd)));
 
     // Get the points selected by this query and all associated metadata.
-    return runQuery(chunkMap, schema, bbox, depthBegin, depthEnd);
+    return runQuery(std::move(block), schema, bbox, depthBegin, depthEnd);
 }
 
-std::set<std::size_t> Reader::traverse(
+FetchInfoSet Reader::traverse(
         const BBox& queryBBox,
         const std::size_t depthBegin,
         const std::size_t depthEnd) const
 {
-    std::set<std::size_t> results;
+    FetchInfoSet toFetch;
     const Roller roller(*m_bbox, *m_structure);
 
-    traverse(results, roller, queryBBox, depthBegin, depthEnd);
+    traverse(toFetch, roller, queryBBox, depthBegin, depthEnd);
 
-    return results;
+    return toFetch;
 }
 
 void Reader::traverse(
-        std::set<std::size_t>& toFetch,
+        FetchInfoSet& toFetch,
         const Roller& roller,
         const BBox& queryBBox,
         const std::size_t depthBegin,
@@ -201,8 +192,22 @@ void Reader::traverse(
             depth >= depthBegin &&
             (depth < depthEnd || !depthEnd))
     {
-        toFetch.insert(getChunkId(index, depth));
-        if (toFetch.size() > m_queryLimit) throw QueryLimitExceeded();
+        const std::size_t chunkId(getChunkId(index, depth));
+
+        if (Source* source = getSource(chunkId))
+        {
+            if (toFetch.size() >= m_cache->queryLimit())
+            {
+                throw QueryLimitExceeded();
+            }
+
+            toFetch.insert(
+                    FetchInfo(
+                        *source,
+                        *m_schema,
+                        chunkId,
+                        m_structure->getInfo(chunkId).chunkPoints()));
+        }
     }
 
     if (depth + 1 < depthEnd || !depthEnd)
@@ -214,44 +219,8 @@ void Reader::traverse(
     }
 }
 
-ChunkMap Reader::warm(const std::set<std::size_t>& toFetch)
-{
-    ChunkMap results;
-    results.insert(std::make_pair(m_structure->baseIndexBegin(), m_base.get()));
-
-    std::mutex mutex;
-    bool err(false);
-    std::unique_ptr<Pool> pool(
-            new Pool(std::min<std::size_t>(8, toFetch.size())));
-
-    for (const std::size_t chunkId : toFetch)
-    {
-        pool->add([this, chunkId, &mutex, &results, &err]()->void
-        {
-            if (const ChunkReader* chunkReader = fetch(chunkId))
-            {
-                std::lock_guard<std::mutex> lock(mutex);
-                results.insert(std::make_pair(chunkId, chunkReader));
-            }
-            else
-            {
-                err = true;
-            }
-        });
-    }
-
-    pool->join();
-
-    if (err)
-    {
-        throw std::runtime_error("Invalid remote index state");
-    }
-
-    return results;
-}
-
 std::unique_ptr<Query> Reader::runQuery(
-        const ChunkMap& chunkMap,
+        std::unique_ptr<Block> block,
         const Schema& schema,
         const BBox& bbox,
         std::size_t depthBegin,
@@ -260,7 +229,7 @@ std::unique_ptr<Query> Reader::runQuery(
     std::vector<const char*> points;
     const Roller roller(*m_bbox, *m_structure);
 
-    std::unique_ptr<Query> query(new Query(*this, schema, chunkMap));
+    std::unique_ptr<Query> query(new Query(*this, schema, std::move(block)));
     runQuery(*query, roller, bbox, depthBegin, depthEnd);
 
     return query;
@@ -324,7 +293,7 @@ const char* Reader::getPointPos(
         }
         else
         {
-            throw std::runtime_error("Cache overrun or invalid point detected");
+            throw std::runtime_error("Invalid cache state");
         }
     }
 
@@ -386,120 +355,6 @@ std::size_t Reader::getChunkId(
             levelIndex +
             ((index - levelIndex) / levelChunkPoints) * levelChunkPoints;
     }
-}
-
-const ChunkReader* Reader::fetch(const std::size_t chunkId)
-{
-    ChunkReader* result(0);
-
-    if (!m_structure->isWithinCold(chunkId))
-    {
-        throw std::runtime_error("ChunkId out of range for fetching.");
-    }
-
-    if (Source* source = getSource(chunkId))
-    {
-        std::unique_lock<std::mutex> lock(m_mutex);
-
-        const auto initialIt(m_chunks.find(chunkId));
-        const bool has(initialIt != m_chunks.end());
-        const bool awaiting(m_outstanding.count(chunkId));
-
-        if (!has && !awaiting)
-        {
-            std::cout << "Fetching " << chunkId << std::endl;
-            m_outstanding.insert(chunkId);
-
-            lock.unlock();
-
-            std::unique_ptr<std::vector<char>> data;
-
-            try
-            {
-                data.reset(new std::vector<char>(
-                            source->get(std::to_string(chunkId))));
-            }
-            catch (...)
-            {
-                lock.lock();
-                m_outstanding.erase(chunkId);
-                lock.unlock();
-                m_cv.notify_all();
-                throw std::runtime_error(
-                        "Could not fetch chunk " + std::to_string(chunkId));
-            }
-
-            auto chunk(
-                    ChunkReader::create(
-                        *m_schema,
-                        chunkId,
-                        m_structure->getInfo(chunkId).chunkPoints(),
-                        std::move(data)));
-
-            lock.lock();
-
-            assert(m_accessMap.size() == m_chunks.size());
-            if (m_chunks.size() >= m_cacheSize)
-            {
-                const std::size_t expired(m_accessList.back());
-                std::cout << "Erasing " << expired << std::endl;
-
-                if (m_chunks.count(expired))
-                {
-                    m_chunks.erase(expired);
-                }
-
-                m_accessMap.erase(expired);
-                m_accessList.pop_back();
-            }
-
-            m_outstanding.erase(chunkId);
-            m_accessList.push_front(chunkId);
-            m_accessMap[chunkId] = m_accessList.begin();
-
-            const auto insertResult(
-                    m_chunks.insert(std::make_pair(chunkId, std::move(chunk))));
-            const auto it(insertResult.first);
-            result = it->second.get();
-
-            lock.unlock();
-            m_cv.notify_all();
-        }
-        else if (has)
-        {
-            // Touching a previously fetched chunk.  Move it to the front of
-            // the access list.
-            m_accessList.splice(
-                    m_accessList.begin(),
-                    m_accessList,
-                    m_accessMap.at(chunkId));
-
-            result = initialIt->second.get();
-        }
-        else
-        {
-            // Another thread is already fetching this chunk.  Wait for it to
-            // finish.  No need to splice the access list here, since the
-            // fetching thread will place it at the front.
-            m_cv.wait(lock, [this, chunkId]()->bool
-            {
-                return m_chunks.count(chunkId) || !m_outstanding.count(chunkId);
-            });
-
-            const auto it(m_chunks.find(chunkId));
-            if (it != m_chunks.end())
-            {
-                result = it->second.get();
-            }
-            else
-            {
-                throw std::runtime_error(
-                        "Could not fetch chunk " + std::to_string(chunkId));
-            }
-        }
-    }
-
-    return result;
 }
 
 std::size_t Reader::numPoints() const

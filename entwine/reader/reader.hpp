@@ -20,6 +20,7 @@
 #include <vector>
 
 #include <entwine/drivers/source.hpp>
+#include <entwine/reader/cache.hpp>
 #include <entwine/reader/chunk-reader.hpp>
 
 namespace entwine
@@ -41,17 +42,14 @@ public:
     QueryLimitExceeded() : std::runtime_error("Query size limit exceeded") { }
 };
 
-typedef std::map<std::size_t, const ChunkReader*> ChunkMap;
-
 class Reader
 {
 public:
     // Will throw if entwine's meta files cannot be fetched from this source.
     Reader(
             Source source,
-            std::size_t cacheSize,
-            std::size_t queryLimit,
-            std::shared_ptr<Arbiter> arbiter);
+            Arbiter& arbiter,
+            std::shared_ptr<Cache> = std::shared_ptr<Cache>(0));
 
     ~Reader();
 
@@ -71,20 +69,20 @@ public:
     const BBox& bbox() const { return *m_bbox; }
 
 private:
-    std::set<std::size_t> traverse(
+    FetchInfoSet traverse(
             const BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd) const;
 
     void traverse(
-            std::set<std::size_t>& toFetch,
+            FetchInfoSet& toFetch,
             const Roller& roller,
             const BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd) const;
 
     std::unique_ptr<Query> runQuery(
-            const ChunkMap& chunkMap,
+            std::unique_ptr<Block> block,
             const Schema& schema,
             const BBox& bbox,
             std::size_t depthBegin,
@@ -97,16 +95,13 @@ private:
             std::size_t depthBegin,
             std::size_t depthEnd) const;
 
-    const char* getPointPos(std::size_t index, const ChunkMap& chunkMap) const;
+    const char* getPointPos(std::size_t index, const ChunkMap& chunks) const;
     std::size_t getChunkId(std::size_t index, std::size_t depth) const;
 
     // Returns 0 if chunk doesn't exist.
     Source* getSource(std::size_t chunkId) const;
 
-    ChunkMap warm(const std::set<std::size_t>& toFetch);
-
-    // This is the only place in which we mutate our state.
-    const ChunkReader* fetch(std::size_t chunkId);
+    std::string m_path;
 
     std::unique_ptr<BBox> m_bbox;
     std::unique_ptr<Schema> m_schema;
@@ -114,23 +109,10 @@ private:
     std::unique_ptr<Reprojection> m_reprojection;
     std::unique_ptr<Manifest> m_manifest;
     std::unique_ptr<Stats> m_stats;
+    std::unique_ptr<ChunkReader> m_base;
+    std::shared_ptr<Cache> m_cache;
 
     std::map<std::unique_ptr<Source>, std::set<std::size_t>> m_ids;
-    std::shared_ptr<Arbiter> m_arbiter;
-
-    const std::size_t m_cacheSize;
-    const std::size_t m_queryLimit;
-    std::mutex m_mutex;
-    std::condition_variable m_cv;
-    std::unique_ptr<ChunkReader> m_base;
-    std::map<std::size_t, std::unique_ptr<ChunkReader>> m_chunks;
-
-    // Currently being fetched.
-    std::set<std::size_t> m_outstanding;
-
-    // Ordered by last-access time.
-    std::list<std::size_t> m_accessList;
-    std::map<std::size_t, std::list<std::size_t>::iterator> m_accessMap;
 };
 
 } // namespace entwine
