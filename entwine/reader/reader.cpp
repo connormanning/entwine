@@ -201,7 +201,7 @@ void Reader::traverse(
 
         if (Source* source = getSource(chunkId))
         {
-            if (toFetch.size() >= m_cache->queryLimit())
+            if (toFetch.size() + 1 >= m_cache->queryLimit())
             {
                 throw QueryLimitExceeded();
             }
