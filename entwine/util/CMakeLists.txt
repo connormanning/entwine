@@ -13,6 +13,7 @@ set(
     HEADERS
     "${BASE}/executor.hpp"
     "${BASE}/fs.hpp"
+    "${BASE}/locker.hpp"
     "${BASE}/pool.hpp"
     "${BASE}/platform.hpp"
 )
