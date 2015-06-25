@@ -46,11 +46,7 @@ class Reader
 {
 public:
     // Will throw if entwine's meta files cannot be fetched from this source.
-    Reader(
-            Source source,
-            Arbiter& arbiter,
-            std::shared_ptr<Cache> = std::shared_ptr<Cache>(0));
-
+    Reader(Source source, Arbiter& arbiter, std::shared_ptr<Cache> cache);
     ~Reader();
 
     std::unique_ptr<Query> query(

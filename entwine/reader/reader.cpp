@@ -50,6 +50,11 @@ Reader::Reader(Source source, Arbiter& arbiter, std::shared_ptr<Cache> cache)
     , m_cache(cache)
     , m_ids()
 {
+    if (!cache)
+    {
+        throw std::runtime_error("No cache supplied");
+    }
+
     {
         Json::Reader reader;
 
