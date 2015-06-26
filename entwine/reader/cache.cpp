@@ -138,7 +138,7 @@ std::unique_ptr<Block> Cache::reserve(
 {
     if (fetches.size() > m_maxChunksPerQuery)
     {
-        throw std::runtime_error("Requested query size too large");
+        throw QueryLimitExceeded();
     }
 
     if (m_activeCount > m_maxChunks)

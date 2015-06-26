@@ -28,6 +28,12 @@ class ChunkReader;
 class Schema;
 class Source;
 
+class QueryLimitExceeded : public std::runtime_error
+{
+public:
+    QueryLimitExceeded() : std::runtime_error("Query size limit exceeded") { }
+};
+
 struct FetchInfo
 {
     FetchInfo(
@@ -120,7 +126,7 @@ public:
             const std::string& readerPath,
             const FetchInfoSet& fetches);
 
-    std::size_t queryLimit() const { return m_maxChunks; }
+    std::size_t queryLimit() const { return m_maxChunksPerQuery; }
 
 private:
     void release(const Block& block);
