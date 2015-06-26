@@ -125,6 +125,11 @@ void Cache::release(const Block& block)
         }
     }
 
+    std::cout <<
+        "\tActive size: " << m_activeCount <<
+        "\tIdle size: " << m_inactiveList.size() <<
+        "\tFetched: " << block.chunkMap().size() << std::endl;
+
     if (notify)
     {
         lock.unlock();
@@ -152,8 +157,6 @@ std::unique_ptr<Block> Cache::reserve(
     {
         return m_activeCount + fetches.size() <= m_maxChunks;
     });
-
-    std::cout << "Fetching " << fetches.size() << " chunks" << std::endl;
 
     while (m_activeCount + fetches.size() + m_inactiveList.size() > m_maxChunks)
     {
