@@ -10,8 +10,6 @@
 
 #include <entwine/types/schema.hpp>
 
-#include <pdal/PointLayout.hpp>
-
 #include <entwine/types/simple-point-layout.hpp>
 
 namespace
