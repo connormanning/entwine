@@ -154,7 +154,7 @@ std::vector<std::string> S3Driver::glob(std::string path)
             return tryGet(bucket, "", query);
         });
 
-        res = httpExec(getFunc, 1);
+        res = httpExec(getFunc, httpAttempts);
 
         if (res.code() == 200)
         {
@@ -174,13 +174,12 @@ std::vector<std::string> S3Driver::glob(std::string path)
                     more = (t == "true");
                 }
 
-                for (
-                        XmlNode* conNode = topNode->first_node("Contents");
-                        conNode;
-                        conNode = conNode->next_sibling())
-                {
-                    if (!conNode) throw std::runtime_error(badResponse);
+                XmlNode* conNode(topNode->first_node("Contents"));
 
+                if (!conNode) throw std::runtime_error(badResponse);
+
+                for ( ; conNode; conNode = conNode->next_sibling())
+                {
                     if (XmlNode* keyNode = conNode->first_node("Key"))
                     {
                         std::string key(keyNode->value());
