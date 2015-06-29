@@ -41,12 +41,19 @@ public:
 
     virtual std::vector<char> get(std::string path);
     virtual void put(std::string path, const std::vector<char>& data);
+    virtual std::vector<std::string> glob(std::string path);
 
 private:
     // TODO Move somewhere else.
     HttpResponse httpExec(std::function<HttpResponse()> f, std::size_t tries);
 
-    HttpResponse tryGet(std::string file);
+    typedef std::map<std::string, std::string> Query;
+
+    HttpResponse tryGet(
+            std::string bucket,
+            std::string object,
+            Query query = Query());
+
     HttpResponse tryPut(std::string file, const std::vector<char>& data);
 
     std::vector<std::string> httpGetHeaders(std::string filePath) const;

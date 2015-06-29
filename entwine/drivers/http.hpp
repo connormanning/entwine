@@ -40,6 +40,7 @@ public:
 
     int code() const { return m_code; }
     const std::vector<char>& data() const { return *m_data; }
+    std::vector<char>& data() { return *m_data; }
 
 private:
     int m_code;

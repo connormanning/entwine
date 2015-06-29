@@ -14,8 +14,6 @@
 #include <iostream>
 #include <string>
 
-#include <glob.h>
-
 #include <entwine/drivers/source.hpp>
 #include <entwine/third/json/json.h>
 #include <entwine/tree/builder.hpp>
@@ -76,41 +74,15 @@ namespace
         return oss.str();
     }
 
-    std::vector<std::string> resolve(const std::string& path)
-    {
-        std::vector<std::string> results;
-
-        if (path.size() && path.back() == '*')
-        {
-            glob_t buffer;
-
-            glob(path.c_str(), GLOB_NOSORT | GLOB_TILDE, 0, &buffer);
-
-            for (std::size_t i(0); i < buffer.gl_pathc; ++i)
-            {
-                results.push_back(buffer.gl_pathv[i]);
-            }
-
-            std::cout << "Resolved " << path << " to " << results.size() <<
-                " source files." << std::endl;
-
-            globfree(&buffer);
-        }
-        else
-        {
-            results.push_back(path);
-        }
-
-        return results;
-    }
-
-    std::vector<std::string> getManifest(const Json::Value& json)
+    std::vector<std::string> getManifest(
+            const Json::Value& json,
+            Arbiter& arbiter)
     {
         std::vector<std::string> manifest;
 
-        auto insert([&manifest](std::string in)
+        auto insert([&manifest, &arbiter](std::string in)
         {
-            std::vector<std::string> paths(resolve(in));
+            std::vector<std::string> paths(arbiter.resolve(in));
             manifest.insert(manifest.end(), paths.begin(), paths.end());
         });
 
@@ -327,9 +299,22 @@ void Kernel::build(std::vector<std::string> args)
         throw std::runtime_error("Config parsing: " + jsonError);
     }
 
+    DriverMap drivers;
+
+    {
+        std::unique_ptr<AwsAuth> auth(getCredentials(credPath));
+        if (auth)
+        {
+            drivers.insert({ "s3", std::make_shared<S3Driver>(*auth) });
+        }
+    }
+
+    std::shared_ptr<Arbiter> arbiter(std::make_shared<Arbiter>(drivers));
+
     // Input files to add to the index.
     const Json::Value jsonInput(config["input"]);
-    const std::vector<std::string> manifest(getManifest(jsonInput["manifest"]));
+    const std::vector<std::string> manifest(
+            getManifest(jsonInput["manifest"], *arbiter));
     const bool trustHeaders(jsonInput["trustHeaders"].asBool());
     const std::size_t runCount(getRunCount(jsonInput, manifest.size()));
     const std::size_t threads(jsonInput["threads"].asUInt64());
@@ -368,18 +353,6 @@ void Kernel::build(std::vector<std::string> args)
     auto reprojection(getReprojection(geometry["reproject"]));
     Schema schema(geometry["schema"]);
 
-    DriverMap drivers;
-
-    {
-        std::unique_ptr<AwsAuth> auth(getCredentials(credPath));
-        if (auth)
-        {
-            drivers.insert({ "s3", std::make_shared<S3Driver>(*auth) });
-        }
-    }
-
-    std::shared_ptr<Arbiter> arbiter(std::make_shared<Arbiter>(drivers));
-
     std::unique_ptr<Builder> builder;
 
     bool exists(false);
@@ -404,7 +377,7 @@ void Kernel::build(std::vector<std::string> args)
     {
         std::cout << "Continuing previous index..." << std::endl;
         std::cout <<
-            "Input:\n" <<
+            "\nInput:\n" <<
             "\tBuilding from " << manifest.size() << " source files\n" <<
             "\tInserting up to " << runCount << " files\n" <<
             "\tBuild threads: " << threads << "\n" <<
@@ -430,8 +403,8 @@ void Kernel::build(std::vector<std::string> args)
                     "Can't infer bounds from multiple sources");
         }
 
-        std::cout << std::boolalpha <<
-            "Input:\n" <<
+        std::cout <<
+            "\nInput:\n" <<
             "\tBuilding from " << manifest.size() << " source files\n" <<
             "\tInserting up to " << runCount << " files\n" <<
             "\tTrust file headers? " << (trustHeaders ? "Yes" : "No") << "\n" <<

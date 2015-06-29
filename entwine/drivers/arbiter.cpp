@@ -25,12 +25,17 @@ Arbiter::Arbiter(DriverMap drivers)
 Arbiter::~Arbiter()
 { }
 
-Source Arbiter::getSource(const std::string path)
+Source Arbiter::getSource(const std::string path) const
 {
     return Source(path, getDriver(path));
 }
 
-Driver& Arbiter::getDriver(const std::string path)
+std::vector<std::string> Arbiter::resolve(const std::string path) const
+{
+    return getDriver(path).resolve(path);
+}
+
+Driver& Arbiter::getDriver(const std::string path) const
 {
     return *m_drivers.at(Source::getType(path));
 }

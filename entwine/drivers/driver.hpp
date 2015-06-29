@@ -10,10 +10,13 @@
 
 #pragma once
 
+#include <iostream>
 #include <map>
 #include <memory>
 #include <string>
 #include <vector>
+
+#include <entwine/drivers/source.hpp>
 
 namespace entwine
 {
@@ -29,6 +32,30 @@ public:
     void put(std::string path, const std::string& data)
     {
         put(path, std::vector<char>(data.begin(), data.end()));
+    }
+
+    std::vector<std::string> resolve(std::string path)
+    {
+        std::vector<std::string> results;
+
+        if (path.size() > 2 && path.substr(path.size() - 2) == "/*")
+        {
+            std::cout << "Resolving " << path << " ..." << std::endl;
+            results = glob(Source::stripType(path));
+            std::cout << "\tResolved to " << results.size() << " paths." <<
+                std::endl;
+        }
+        else
+        {
+            results.push_back(path);
+        }
+
+        return results;
+    }
+
+    virtual std::vector<std::string> glob(std::string path)
+    {
+        throw std::runtime_error("Cannot glob driver for: " + path);
     }
 
     virtual bool isRemote() const { return true; }

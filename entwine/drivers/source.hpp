@@ -13,10 +13,10 @@
 #include <string>
 #include <vector>
 
-#include <entwine/drivers/driver.hpp>
-
 namespace entwine
 {
+
+class Driver;
 
 class Source
 {
@@ -37,6 +37,7 @@ public:
     std::string path() const;
 
     static std::string getType(std::string path);
+    static std::string stripType(std::string path);
 
 private:
     std::string m_type;

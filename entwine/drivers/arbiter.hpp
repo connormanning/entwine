@@ -10,8 +10,10 @@
 
 #pragma once
 
+#include <vector>
 #include <string>
 
+#include <entwine/drivers/driver.hpp>
 #include <entwine/drivers/source.hpp>
 
 namespace entwine
@@ -23,10 +25,11 @@ public:
     Arbiter(DriverMap drivers = DriverMap());
     ~Arbiter();
 
-    Source getSource(std::string path);
+    Source getSource(std::string path) const;
+    std::vector<std::string> resolve(std::string path) const;
 
 private:
-    Driver& getDriver(std::string path);
+    Driver& getDriver(std::string path) const;
 
     DriverMap m_drivers;
 };

@@ -10,6 +10,8 @@
 
 #include <entwine/drivers/source.hpp>
 
+#include <entwine/drivers/driver.hpp>
+
 namespace entwine
 {
 
@@ -32,19 +34,6 @@ namespace
         }
 
         return type;
-    }
-
-    std::string stripType(const std::string raw)
-    {
-        std::string result(raw);
-        const std::size_t pos(raw.find(delimiter));
-
-        if (pos != std::string::npos)
-        {
-            result = raw.substr(pos + delimiter.size());
-        }
-
-        return result;
     }
 
     std::string postfixSlash(const std::string raw)
@@ -118,6 +107,19 @@ std::string Source::path() const
 std::string Source::getType(std::string rawPath)
 {
     return parseType(rawPath);
+}
+
+std::string Source::stripType(const std::string raw)
+{
+    std::string result(raw);
+    const std::size_t pos(raw.find(delimiter));
+
+    if (pos != std::string::npos)
+    {
+        result = raw.substr(pos + delimiter.size());
+    }
+
+    return result;
 }
 
 } // namespace entwine
