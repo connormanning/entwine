@@ -10,6 +10,7 @@
 
 #include <entwine/drivers/s3.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <cstring>
 #include <functional>
