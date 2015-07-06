@@ -102,6 +102,9 @@ private:
     std::unique_ptr<ChunkReader> m_base;
     std::shared_ptr<Cache> m_cache;
 
+    mutable std::mutex m_mutex;
+    mutable std::set<std::size_t> m_missing;
+
     std::map<std::unique_ptr<Source>, std::set<std::size_t>> m_ids;
 };
 

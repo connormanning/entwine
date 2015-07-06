@@ -298,7 +298,12 @@ const char* Reader::getPointPos(
         }
         else
         {
-            throw std::runtime_error("Invalid cache state");
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (m_missing.insert(chunkId).second)
+            {
+                std::cout << "\tMissing ID (" << m_path << "):" << chunkId <<
+                    std::endl;
+            }
         }
     }
 
