@@ -189,7 +189,8 @@ void Reader::traverse(
         const std::size_t depthBegin,
         const std::size_t depthEnd) const
 {
-    if (!r.bbox().overlaps(queryBBox)) return;
+    if (!r.bbox().overlaps(queryBBox) || !m_structure->inRange(r.index()))
+        return;
 
     const uint64_t index(r.index());
     const std::size_t depth(r.depth());
