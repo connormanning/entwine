@@ -66,6 +66,7 @@ private:
 
     void traverse(
             FetchInfoSet& toFetch,
+            std::size_t& tries,
             const Roller& roller,
             const BBox& bbox,
             std::size_t depthBegin,

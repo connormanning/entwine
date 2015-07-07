@@ -173,24 +173,26 @@ FetchInfoSet Reader::traverse(
         const std::size_t depthEnd) const
 {
     FetchInfoSet toFetch;
+    std::size_t tries(0);
     const Roller roller(*m_bbox, *m_structure);
 
-    traverse(toFetch, roller, queryBBox, depthBegin, depthEnd);
+    traverse(toFetch, tries, roller, queryBBox, depthBegin, depthEnd);
 
     return toFetch;
 }
 
 void Reader::traverse(
         FetchInfoSet& toFetch,
-        const Roller& roller,
+        std::size_t& tries,
+        const Roller& r,
         const BBox& queryBBox,
         const std::size_t depthBegin,
         const std::size_t depthEnd) const
 {
-    if (!roller.bbox().overlaps(queryBBox)) return;
+    if (!r.bbox().overlaps(queryBBox)) return;
 
-    const uint64_t index(roller.index());
-    const std::size_t depth(roller.depth());
+    const uint64_t index(r.index());
+    const std::size_t depth(r.depth());
 
     if (
             m_structure->isWithinCold(index) &&
@@ -213,14 +215,21 @@ void Reader::traverse(
                         chunkId,
                         m_structure->getInfo(chunkId).chunkPoints()));
         }
+        else
+        {
+            if (++tries > m_cache->queryLimit())
+            {
+                throw QueryLimitExceeded();
+            }
+        }
     }
 
     if (depth + 1 < depthEnd || !depthEnd)
     {
-        traverse(toFetch, roller.getNw(), queryBBox, depthBegin, depthEnd);
-        traverse(toFetch, roller.getNe(), queryBBox, depthBegin, depthEnd);
-        traverse(toFetch, roller.getSw(), queryBBox, depthBegin, depthEnd);
-        traverse(toFetch, roller.getSe(), queryBBox, depthBegin, depthEnd);
+        traverse(toFetch, tries, r.getNw(), queryBBox, depthBegin, depthEnd);
+        traverse(toFetch, tries, r.getNe(), queryBBox, depthBegin, depthEnd);
+        traverse(toFetch, tries, r.getSw(), queryBBox, depthBegin, depthEnd);
+        traverse(toFetch, tries, r.getSe(), queryBBox, depthBegin, depthEnd);
     }
 }
 
@@ -247,7 +256,10 @@ void Reader::runQuery(
         const std::size_t depthBegin,
         const std::size_t depthEnd) const
 {
-    if (!roller.bbox().overlaps(queryBBox)) return;
+    if (!roller.bbox().overlaps(queryBBox))
+    {
+        return;
+    }
 
     const uint64_t index(roller.index());
     const std::size_t depth(roller.depth());
@@ -310,26 +322,6 @@ const char* Reader::getPointPos(
     return pos;
 }
 
-Source* Reader::getSource(const std::size_t chunkId) const
-{
-    Source* source(0);
-
-    auto it(m_ids.begin());
-    const auto end(m_ids.end());
-
-    while (!source && it != end)
-    {
-        if (it->second.count(chunkId))
-        {
-            source = it->first.get();
-        }
-
-        ++it;
-    }
-
-    return source;
-}
-
 std::size_t Reader::getChunkId(
         const std::size_t index,
         const std::size_t depth) const
@@ -365,6 +357,26 @@ std::size_t Reader::getChunkId(
             levelIndex +
             ((index - levelIndex) / levelChunkPoints) * levelChunkPoints;
     }
+}
+
+Source* Reader::getSource(const std::size_t chunkId) const
+{
+    Source* source(0);
+
+    auto it(m_ids.begin());
+    const auto end(m_ids.end());
+
+    while (!source && it != end)
+    {
+        if (it->second.count(chunkId))
+        {
+            source = it->first.get();
+        }
+
+        ++it;
+    }
+
+    return source;
 }
 
 std::size_t Reader::numPoints() const
