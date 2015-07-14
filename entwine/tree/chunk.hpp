@@ -41,14 +41,14 @@ public:
     Entry(const Entry& other);
     Entry& operator=(const Entry& other);
 
-    Point getPoint() const;
+    Point point() const;
+    const char* data() const;
     Locker getLocker();
 
-    // Must fetch a Locker before calling setPoint() or modifying data.
+    // Must fetch a Locker before modifying.
     void setPoint(const Point& point);
-    char* data();
-
-    void setData(char* pos) { m_data = pos; }
+    void setData(char* pos);
+    void update(const Point& point, const char* data, std::size_t size);
 
 private:
     std::array<Point, 2> m_points;

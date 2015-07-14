@@ -150,6 +150,8 @@ std::vector<std::string> S3Driver::glob(std::string path)
 
     do
     {
+        std::cout << "." << std::flush;
+
         auto getFunc([this, &bucket, &query]()->HttpResponse
         {
             return tryGet(bucket, "", query);
@@ -194,7 +196,8 @@ std::vector<std::string> S3Driver::glob(std::string path)
                             if (more)
                             {
                                 query["marker"] =
-                                    object + "/" + key.substr(prefix.size());
+                                    (object.size() ? object + "/" : "") +
+                                    key.substr(prefix.size());
                             }
                         }
                     }
@@ -245,7 +248,8 @@ HttpResponse S3Driver::httpExec(
             }
         }
     }
-    while (res.code() != 200 && ++fails < tries);
+    // Only retry for server errors.
+    while ((res.code() / 100 == 5) && ++fails < tries);
 
     return res;
 }

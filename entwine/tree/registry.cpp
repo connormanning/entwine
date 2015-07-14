@@ -148,7 +148,7 @@ bool Registry::addPoint(PointInfo& toAdd, Roller& roller, Clipper* clipper)
 
     if (Entry* entry = getEntry(roller, clipper))
     {
-        Point myPoint(entry->getPoint());
+        Point myPoint(entry->point());
 
         if (Point::exists(myPoint))
         {
@@ -158,19 +158,15 @@ bool Registry::addPoint(PointInfo& toAdd, Roller& roller, Clipper* clipper)
             {
                 // Reload point after locking.
                 Locker locker(entry->getLocker());
-                myPoint = entry->getPoint();
+                myPoint = entry->point();
 
                 if (better(toAdd.point, myPoint, mid, m_is3d))
                 {
                     const std::size_t pointSize(m_schema.pointSize());
 
+                    // Store this point and send the old value downstream.
                     PointInfoDeep old(myPoint, entry->data(), pointSize);
-
-                    // Store this point.
-                    toAdd.write(entry->data(), pointSize);
-                    entry->setPoint(toAdd.point);
-
-                    // Send our old stored value downstream.
+                    entry->update(toAdd.point, toAdd.data, pointSize);
                     toAdd = old;
                 }
             }
@@ -179,16 +175,16 @@ bool Registry::addPoint(PointInfo& toAdd, Roller& roller, Clipper* clipper)
         {
             // Reload point after locking.
             std::unique_ptr<Locker> locker(new Locker(entry->getLocker()));
-            myPoint = entry->getPoint();
+            myPoint = entry->point();
 
             if (!Point::exists(myPoint))
             {
-                toAdd.write(entry->data(), m_schema.pointSize());
-                entry->setPoint(toAdd.point);
+                entry->update(toAdd.point, toAdd.data, m_schema.pointSize());
                 accepted = true;
             }
             else
             {
+                std::cout << "Racing..." << std::endl;
                 // Someone beat us here, call again to enter the other branch.
                 // Be sure to release our lock first.
                 locker.reset(0);

@@ -31,9 +31,8 @@ class PointInfo
 public:
     virtual ~PointInfo() { }
 
-    virtual void write(char* dst, std::size_t length) = 0;
-
     Point point;
+    const char* data;
 
 protected:
     explicit PointInfo(const Point& point);
@@ -43,19 +42,12 @@ class PointInfoShallow : public PointInfo
 {
 public:
     PointInfoShallow(const Point& point, char* pos);
-
-    virtual void write(char* dst, std::size_t length);
-
-private:
-    char* m_data;
 };
 
 class PointInfoDeep : public PointInfo
 {
 public:
-    PointInfoDeep(const Point& point, char* pos, std::size_t length);
-
-    virtual void write(char* dst, std::size_t length);
+    PointInfoDeep(const Point& point, const char* pos, std::size_t length);
 
 private:
     std::vector<char> m_bytes;

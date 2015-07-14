@@ -40,9 +40,9 @@ public:
 
         if (path.size() > 2 && path.substr(path.size() - 2) == "/*")
         {
-            std::cout << "Resolving " << path << " ..." << std::endl;
+            std::cout << "Resolving " << path << " ..." << std::flush;
             results = glob(Source::stripType(path));
-            std::cout << "\tResolved to " << results.size() << " paths." <<
+            std::cout << "\n\tResolved to " << results.size() << " paths." <<
                 std::endl;
         }
         else

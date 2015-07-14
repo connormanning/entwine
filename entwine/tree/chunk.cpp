@@ -76,12 +76,12 @@ Entry::Entry(const Entry& other)
     , m_data(other.m_data)
 {
     m_flag.clear();
-    m_points[0] = other.getPoint();
+    m_points[0] = other.point();
 }
 
 Entry& Entry::operator=(const Entry& other)
 {
-    m_points[0] = other.getPoint();
+    m_points[0] = other.point();
     m_active = 0;
     m_atom.store(&m_points[0]);
     m_flag.clear();
@@ -90,20 +90,37 @@ Entry& Entry::operator=(const Entry& other)
     return *this;
 }
 
-Point Entry::getPoint() const
+Point Entry::point() const
 {
-    return m_points[m_active.load() % 2];
+    return *m_atom.load();
+}
+
+const char* Entry::data() const
+{
+    return m_data;
 }
 
 void Entry::setPoint(const Point& point)
 {
-    m_points[(m_active.load() + 1) % 2] = point;
-    m_active++;
+    Point& update(m_points[++m_active % 2]);
+    update = point;
+    m_atom.store(&update);
 }
 
-char* Entry::data()
+void Entry::setData(char* pos)
 {
-    return m_data;
+    m_data = pos;
+}
+
+void Entry::update(
+        const Point& point,
+        const char* bytes,
+        const std::size_t size)
+{
+    // We are locked here, however reader threads may be calling point()
+    // concurrently with this - so make sure to keep states valid at all times.
+    setPoint(point);
+    std::memcpy(m_data, bytes, size);
 }
 
 Locker Entry::getLocker()
@@ -499,18 +516,16 @@ void ContiguousChunkData::merge(ContiguousChunkData& other)
 
         // Can't overlap - these are distinct subsets.
         assert(
-                !Point::exists(ours->getPoint()) ||
-                !Point::exists(theirs->getPoint()));
+                !Point::exists(ours->point()) ||
+                !Point::exists(theirs->point()));
 
-        const Point theirPoint(theirs->getPoint());
+        const Point theirPoint(theirs->point());
 
         if (Point::exists(theirPoint))
         {
-            if (!Point::exists(ours->getPoint()))
+            if (!Point::exists(ours->point()))
             {
-                ours->setPoint(theirPoint);
-
-                std::memcpy(ours->data(), theirs->data(), pointSize);
+                ours->update(theirPoint, theirs->data(), pointSize);
             }
             else
             {
