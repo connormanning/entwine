@@ -32,10 +32,10 @@ namespace entwine
 {
 
 class BBox;
+class Climber;
 class Manifest;
 class Query;
 class Reprojection;
-class Roller;
 class Schema;
 class Stats;
 class Structure;
@@ -74,7 +74,7 @@ private:
     void traverse(
             FetchInfoSet& toFetch,
             std::size_t& tries,
-            const Roller& roller,
+            const Climber& climber,
             const BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd) const;
@@ -88,7 +88,7 @@ private:
 
     void runQuery(
             Query& query,
-            const Roller& roller,
+            const Climber& climber,
             const BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd) const;

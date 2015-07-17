@@ -13,7 +13,7 @@
 #include <cmath>
 #include <iostream>
 
-#include <entwine/tree/roller.hpp>
+#include <entwine/tree/climber.hpp>
 
 namespace entwine
 {
@@ -465,7 +465,7 @@ std::unique_ptr<BBox> Structure::subsetBBox(const BBox& full) const
 {
     std::unique_ptr<BBox> result;
 
-    Roller roller(full, *this);
+    Climber climber(full, *this);
     std::size_t times(0);
 
     // TODO Very temporary.
@@ -478,16 +478,17 @@ std::unique_ptr<BBox> Structure::subsetBBox(const BBox& full) const
     {
         for (std::size_t i(0); i < times; ++i)
         {
-            Roller::Dir dir(
-                    static_cast<Roller::Dir>(m_subset.first >> (i * 2) & 0x03));
+            Climber::Dir dir(
+                    static_cast<Climber::Dir>(
+                        m_subset.first >> (i * 2) & 0x03));
 
-            if (dir == Roller::Dir::nw) roller.goNw();
-            else if (dir == Roller::Dir::ne) roller.goNe();
-            else if (dir == Roller::Dir::sw) roller.goSw();
-            else roller.goSe();
+            if (dir == Climber::Dir::nw) climber.goNw();
+            else if (dir == Climber::Dir::ne) climber.goNe();
+            else if (dir == Climber::Dir::sw) climber.goSw();
+            else climber.goSe();
         }
 
-        result.reset(new BBox(roller.bbox()));
+        result.reset(new BBox(climber.bbox()));
     }
     else
     {

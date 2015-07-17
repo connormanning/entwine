@@ -21,10 +21,10 @@ class Point;
 class Structure;
 
 // Maintains the state of the current point as it traverses the virtual tree.
-class Roller
+class Climber
 {
 public:
-    Roller(const BBox& bbox, const Structure& structure);
+    Climber(const BBox& bbox, const Structure& structure);
 
     void magnify(const Point& point);
     std::size_t index() const;
@@ -46,10 +46,10 @@ public:
     void goSeu();
     void goSed();
 
-    Roller getNw() const;
-    Roller getNe() const;
-    Roller getSw() const;
-    Roller getSe() const;
+    Climber getNw() const;
+    Climber getNe() const;
+    Climber getSw() const;
+    Climber getSe() const;
 
     enum Dir
     {

@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include <entwine/tree/roller.hpp>
+#include <entwine/tree/climber.hpp>
 
 #include <entwine/types/point.hpp>
 #include <entwine/types/structure.hpp>
@@ -16,7 +16,7 @@
 namespace entwine
 {
 
-Roller::Roller(const BBox& bbox, const Structure& structure)
+Climber::Climber(const BBox& bbox, const Structure& structure)
     : m_structure(structure)
     , m_dimensions(structure.dimensions())
     , m_index(0)
@@ -29,7 +29,7 @@ Roller::Roller(const BBox& bbox, const Structure& structure)
     }
 }
 
-void Roller::magnify(const Point& point)
+void Climber::magnify(const Point& point)
 {
     const Point& mid(m_bbox.mid());
 
@@ -52,99 +52,99 @@ void Roller::magnify(const Point& point)
     }
 }
 
-std::size_t Roller::index() const
+std::size_t Climber::index() const
 {
     return m_index;
 }
 
-std::size_t Roller::depth() const
+std::size_t Climber::depth() const
 {
     return m_depth;
 }
 
-const BBox& Roller::bbox() const
+const BBox& Climber::bbox() const
 {
     return m_bbox;
 }
 
-void Roller::goNw()
+void Climber::goNw()
 {
     step(Dir::nw);
     m_bbox.goNw();
 }
 
-void Roller::goNe()
+void Climber::goNe()
 {
     step(Dir::ne);
     m_bbox.goNe();
 }
 
-void Roller::goSw()
+void Climber::goSw()
 {
     step(Dir::sw);
     m_bbox.goSw();
 }
 
-void Roller::goSe()
+void Climber::goSe()
 {
     step(Dir::se);
     m_bbox.goSe();
 }
 
-Roller Roller::getNw() const
+Climber Climber::getNw() const
 {
-    Roller roller(*this);
-    roller.goNw();
-    return roller;
+    Climber climber(*this);
+    climber.goNw();
+    return climber;
 }
 
-Roller Roller::getNe() const
+Climber Climber::getNe() const
 {
-    Roller roller(*this);
-    roller.goNe();
-    return roller;
+    Climber climber(*this);
+    climber.goNe();
+    return climber;
 }
 
-Roller Roller::getSw() const
+Climber Climber::getSw() const
 {
-    Roller roller(*this);
-    roller.goSw();
-    return roller;
+    Climber climber(*this);
+    climber.goSw();
+    return climber;
 }
 
-Roller Roller::getSe() const
+Climber Climber::getSe() const
 {
-    Roller roller(*this);
-    roller.goSe();
-    return roller;
+    Climber climber(*this);
+    climber.goSe();
+    return climber;
 }
 
 /*
-std::size_t Roller::chunkId() const
+std::size_t Climber::chunkId() const
 {
     return
         m_currentLevelBeginIndex +
         m_currentChunkPoints * (currentLevelOffset() / m_currentChunkPoints);
 }
 
-std::size_t Roller::chunkOffset() const
+std::size_t Climber::chunkOffset() const
 {
     return currentLevelOffset() % m_currentChunkPoints;
 }
 
-std::size_t Roller::chunkNum() const
+std::size_t Climber::chunkNum() const
 {
     return
         m_currentLevelBeginNum + currentLevelOffset() / m_currentChunkPoints;
 }
 
-std::size_t Roller::currentLevelOffset() const
+std::size_t Climber::currentLevelOffset() const
 {
     return m_index - m_currentLevelBeginIndex;
 }
 */
 
-void Roller::step(const Dir dir)
+void Climber::step(const Dir dir)
 {
     // TODO Might get some speed benefits from tracking this here, which would
     // avoid calculating them from scratch at each level in Structure::getInfo.

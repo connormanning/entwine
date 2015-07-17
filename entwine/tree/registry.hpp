@@ -29,13 +29,13 @@ namespace entwine
 {
 
 class Chunk;
+class Climber;
 class Clipper;
 class Cold;
 class ContiguousChunkData;
 class Entry;
 class PointInfo;
 class Pool;
-class Roller;
 class Schema;
 class Structure;
 
@@ -55,11 +55,11 @@ public:
 
     ~Registry();
 
-    bool addPoint(PointInfo& toAdd, Roller& roller, Clipper* clipper);
+    bool addPoint(PointInfo& toAdd, Climber& climber, Clipper* clipper);
 
     void save(Json::Value& meta);
 
-    Entry* getEntry(const Roller& roller, Clipper* clipper);
+    Entry* getEntry(const Climber& climber, Clipper* clipper);
 
     void clip(std::size_t index, Clipper* clipper);
 

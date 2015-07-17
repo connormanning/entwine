@@ -6,11 +6,11 @@ set(
     "${BASE}/builder.cpp"
     "${BASE}/cold.cpp"
     "${BASE}/chunk.cpp"
+    "${BASE}/climber.cpp"
     "${BASE}/clipper.cpp"
     "${BASE}/manifest.cpp"
     "${BASE}/point-info.cpp"
     "${BASE}/registry.cpp"
-    "${BASE}/roller.cpp"
 )
 
 set(
@@ -18,11 +18,11 @@ set(
     "${BASE}/builder.hpp"
     "${BASE}/cold.hpp"
     "${BASE}/chunk.hpp"
+    "${BASE}/climber.hpp"
     "${BASE}/clipper.hpp"
     "${BASE}/manifest.hpp"
     "${BASE}/point-info.hpp"
     "${BASE}/registry.hpp"
-    "${BASE}/roller.hpp"
 )
 
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})

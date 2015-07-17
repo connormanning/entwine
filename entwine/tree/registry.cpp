@@ -16,11 +16,11 @@
 
 #include <entwine/third/json/json.h>
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/tree/roller.hpp>
-#include <entwine/tree/point-info.hpp>
 #include <entwine/tree/chunk.hpp>
+#include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
 #include <entwine/tree/cold.hpp>
+#include <entwine/tree/point-info.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/simple-point-table.hpp>
@@ -142,17 +142,17 @@ Registry::Registry(
 Registry::~Registry()
 { }
 
-bool Registry::addPoint(PointInfo& toAdd, Roller& roller, Clipper* clipper)
+bool Registry::addPoint(PointInfo& toAdd, Climber& climber, Clipper* clipper)
 {
     bool accepted(false);
 
-    if (Entry* entry = getEntry(roller, clipper))
+    if (Entry* entry = getEntry(climber, clipper))
     {
         Point myPoint(entry->point());
 
         if (Point::exists(myPoint))
         {
-            const Point& mid(roller.bbox().mid());
+            const Point& mid(climber.bbox().mid());
 
             if (better(toAdd.point, myPoint, mid, m_is3d))
             {
@@ -188,18 +188,18 @@ bool Registry::addPoint(PointInfo& toAdd, Roller& roller, Clipper* clipper)
                 // Someone beat us here, call again to enter the other branch.
                 // Be sure to release our lock first.
                 locker.reset(0);
-                return addPoint(toAdd, roller, clipper);
+                return addPoint(toAdd, climber, clipper);
             }
         }
     }
 
     if (!accepted)
     {
-        roller.magnify(toAdd.point);
+        climber.magnify(toAdd.point);
 
-        if (m_structure.inRange(roller.index()))
+        if (m_structure.inRange(climber.index()))
         {
-            accepted = addPoint(toAdd, roller, clipper);
+            accepted = addPoint(toAdd, climber, clipper);
         }
     }
 
@@ -213,11 +213,11 @@ void Registry::save(Json::Value& meta)
     if (m_cold) meta["ids"] = m_cold->toJson();
 }
 
-Entry* Registry::getEntry(const Roller& roller, Clipper* clipper)
+Entry* Registry::getEntry(const Climber& climber, Clipper* clipper)
 {
     Entry* entry(0);
 
-    const std::size_t index(roller.index());
+    const std::size_t index(climber.index());
 
     if (m_structure.isWithinBase(index))
     {

@@ -14,8 +14,8 @@
 #include <entwine/reader/query.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/chunk.hpp>
+#include <entwine/tree/climber.hpp>
 #include <entwine/tree/manifest.hpp>
-#include <entwine/tree/roller.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/stats.hpp>
@@ -178,9 +178,9 @@ FetchInfoSet Reader::traverse(
 {
     FetchInfoSet toFetch;
     std::size_t tries(0);
-    const Roller roller(*m_bbox, *m_structure);
+    const Climber climber(*m_bbox, *m_structure);
 
-    traverse(toFetch, tries, roller, queryBBox, depthBegin, depthEnd);
+    traverse(toFetch, tries, climber, queryBBox, depthBegin, depthEnd);
 
     return toFetch;
 }
@@ -188,7 +188,7 @@ FetchInfoSet Reader::traverse(
 void Reader::traverse(
         FetchInfoSet& toFetch,
         std::size_t& tries,
-        const Roller& r,
+        const Climber& r,
         const BBox& queryBBox,
         const std::size_t depthBegin,
         const std::size_t depthEnd) const
@@ -246,28 +246,28 @@ std::unique_ptr<Query> Reader::runQuery(
         std::size_t depthEnd)
 {
     std::vector<const char*> points;
-    const Roller roller(*m_bbox, *m_structure);
+    const Climber climber(*m_bbox, *m_structure);
 
     std::unique_ptr<Query> query(new Query(*this, schema, std::move(block)));
-    runQuery(*query, roller, bbox, depthBegin, depthEnd);
+    runQuery(*query, climber, bbox, depthBegin, depthEnd);
 
     return query;
 }
 
 void Reader::runQuery(
         Query& query,
-        const Roller& roller,
+        const Climber& climber,
         const BBox& queryBBox,
         const std::size_t depthBegin,
         const std::size_t depthEnd) const
 {
-    if (!roller.bbox().overlaps(queryBBox))
+    if (!climber.bbox().overlaps(queryBBox))
     {
         return;
     }
 
-    const uint64_t index(roller.index());
-    const std::size_t depth(roller.depth());
+    const uint64_t index(climber.index());
+    const std::size_t depth(climber.depth());
 
     if (depth >= depthBegin && (depth < depthEnd || !depthEnd))
     {
@@ -284,10 +284,10 @@ void Reader::runQuery(
 
     if (depth + 1 < depthEnd || !depthEnd)
     {
-        runQuery(query, roller.getNw(), queryBBox, depthBegin, depthEnd);
-        runQuery(query, roller.getNe(), queryBBox, depthBegin, depthEnd);
-        runQuery(query, roller.getSw(), queryBBox, depthBegin, depthEnd);
-        runQuery(query, roller.getSe(), queryBBox, depthBegin, depthEnd);
+        runQuery(query, climber.getNw(), queryBBox, depthBegin, depthEnd);
+        runQuery(query, climber.getNe(), queryBBox, depthBegin, depthEnd);
+        runQuery(query, climber.getSw(), queryBBox, depthBegin, depthEnd);
+        runQuery(query, climber.getSe(), queryBBox, depthBegin, depthEnd);
     }
 }
 

@@ -19,9 +19,9 @@
 #include <entwine/compression/util.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/chunk.hpp>
+#include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
 #include <entwine/tree/registry.hpp>
-#include <entwine/tree/roller.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/reprojection.hpp>
@@ -242,11 +242,11 @@ void Builder::insert(
         {
             if (!m_subBBox || m_subBBox->contains(point))
             {
-                Roller roller(*m_bbox, *m_structure);
+                Climber climber(*m_bbox, *m_structure);
                 pointView.setField(m_originId, i, origin);
                 PointInfoShallow pointInfo(point, pointView.getPoint(i));
 
-                if (m_registry->addPoint(pointInfo, roller, clipper))
+                if (m_registry->addPoint(pointInfo, climber, clipper))
                 {
                     m_stats.addPoint();
 
