@@ -135,8 +135,10 @@ namespace
             }
             else if (dimensions == 3)
             {
-                json["is3d"] = true;
-                bbox.reset(new BBox(json));
+                Json::Value expanded;
+                expanded["bounds"] = json;
+                expanded["is3d"] = true;
+                bbox.reset(new BBox(expanded));
             }
             else
             {

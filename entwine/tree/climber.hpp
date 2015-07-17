@@ -31,32 +31,34 @@ public:
     std::size_t depth() const;
     const BBox& bbox() const;
 
-    void goNw();
-    void goNe();
-    void goSw();
-    void goSe();
-
-    // TODO Octree support.
-    void goNwu();
     void goNwd();
-    void goNeu();
     void goNed();
-    void goSwu();
     void goSwd();
-    void goSeu();
     void goSed();
+    void goNwu();
+    void goNeu();
+    void goSwu();
+    void goSeu();
 
-    Climber getNw() const;
-    Climber getNe() const;
-    Climber getSw() const;
-    Climber getSe() const;
+    Climber getNwd() const;
+    Climber getNed() const;
+    Climber getSwd() const;
+    Climber getSed() const;
+    Climber getNwu() const;
+    Climber getNeu() const;
+    Climber getSwu() const;
+    Climber getSeu() const;
 
     enum Dir
     {
-        nw = 0,
-        ne = 1,
-        sw = 2,
-        se = 3
+        nwd = 0,
+        ned = 1,
+        swd = 2,
+        sed = 3,
+        nwu = 4,
+        neu = 5,
+        swu = 6,
+        seu = 7,
     };
 
 private:

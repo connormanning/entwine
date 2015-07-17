@@ -110,6 +110,8 @@ private:
     std::unique_ptr<ChunkReader> m_base;
     std::shared_ptr<Cache> m_cache;
 
+    bool m_is3d;
+
     mutable std::mutex m_mutex;
     mutable std::set<std::size_t> m_missing;
 

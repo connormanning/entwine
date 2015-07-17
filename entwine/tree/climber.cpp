@@ -22,33 +22,31 @@ Climber::Climber(const BBox& bbox, const Structure& structure)
     , m_index(0)
     , m_depth(0)
     , m_bbox(bbox)
-{
-    if (m_dimensions != 2)
-    {
-        throw std::runtime_error("Octree not yet supported");
-    }
-}
+{ }
 
 void Climber::magnify(const Point& point)
 {
     const Point& mid(m_bbox.mid());
 
-    if (m_dimensions == 2)
+    // Up: +4, Down: +0.
+    const int z(m_dimensions == 3 && point.z >= mid.z ? 4 : 0);
+
+    // North: +0, South: +2.
+    const int y(point.y >= mid.y ? 0 : 2);
+
+    // East: +1, West: +0.
+    const int x(point.x >= mid.x ? 1 : 0);
+
+    switch (x + y + z)
     {
-        if (point.x < mid.x)
-            if (point.y < mid.y)
-                goSw();
-            else
-                goNw();
-        else
-            if (point.y < mid.y)
-                goSe();
-            else
-                goNe();
-    }
-    else
-    {
-        // TODO
+        case Dir::nwd: goNwd(); break;
+        case Dir::ned: goNed(); break;
+        case Dir::swd: goSwd(); break;
+        case Dir::sed: goSed(); break;
+        case Dir::nwu: goNwu(); break;
+        case Dir::neu: goNeu(); break;
+        case Dir::swu: goSwu(); break;
+        case Dir::seu: goSeu(); break;
     }
 }
 
@@ -67,57 +65,23 @@ const BBox& Climber::bbox() const
     return m_bbox;
 }
 
-void Climber::goNw()
-{
-    step(Dir::nw);
-    m_bbox.goNw();
-}
+void Climber::goNwd() { step(Dir::nwd); m_bbox.goNwd(); }
+void Climber::goNed() { step(Dir::ned); m_bbox.goNed(); }
+void Climber::goSwd() { step(Dir::swd); m_bbox.goSwd(); }
+void Climber::goSed() { step(Dir::sed); m_bbox.goSed(); }
+void Climber::goNwu() { step(Dir::nwu); m_bbox.goNwu(); }
+void Climber::goNeu() { step(Dir::neu); m_bbox.goNeu(); }
+void Climber::goSwu() { step(Dir::swu); m_bbox.goSwu(); }
+void Climber::goSeu() { step(Dir::seu); m_bbox.goSeu(); }
 
-void Climber::goNe()
-{
-    step(Dir::ne);
-    m_bbox.goNe();
-}
-
-void Climber::goSw()
-{
-    step(Dir::sw);
-    m_bbox.goSw();
-}
-
-void Climber::goSe()
-{
-    step(Dir::se);
-    m_bbox.goSe();
-}
-
-Climber Climber::getNw() const
-{
-    Climber climber(*this);
-    climber.goNw();
-    return climber;
-}
-
-Climber Climber::getNe() const
-{
-    Climber climber(*this);
-    climber.goNe();
-    return climber;
-}
-
-Climber Climber::getSw() const
-{
-    Climber climber(*this);
-    climber.goSw();
-    return climber;
-}
-
-Climber Climber::getSe() const
-{
-    Climber climber(*this);
-    climber.goSe();
-    return climber;
-}
+Climber Climber::getNwd() const { Climber c(*this); c.goNwd(); return c; }
+Climber Climber::getNed() const { Climber c(*this); c.goNed(); return c; }
+Climber Climber::getSwd() const { Climber c(*this); c.goSwd(); return c; }
+Climber Climber::getSed() const { Climber c(*this); c.goSed(); return c; }
+Climber Climber::getNwu() const { Climber c(*this); c.goNwu(); return c; }
+Climber Climber::getNeu() const { Climber c(*this); c.goNeu(); return c; }
+Climber Climber::getSwu() const { Climber c(*this); c.goSwu(); return c; }
+Climber Climber::getSeu() const { Climber c(*this); c.goSeu(); return c; }
 
 /*
 std::size_t Climber::chunkId() const

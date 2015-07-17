@@ -42,11 +42,6 @@ public:
     double depth() const;   // Length in Y.
     double height() const;  // Length in Z.
 
-    void goNw();
-    void goNe();
-    void goSw();
-    void goSe();
-
     void goNwu();
     void goNwd();
     void goNeu();

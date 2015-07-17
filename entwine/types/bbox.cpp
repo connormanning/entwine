@@ -86,6 +86,7 @@ bool BBox::overlaps(const BBox& other) const
             depth() / 2.0 + other.depth() / 2.0 &&
         (
             !m_is3d ||
+            !other.m_is3d ||
             std::abs(m_mid.z - otherMid.z) <=
                 height() / 2.0 + other.height() / 2.0);
 }
@@ -103,42 +104,11 @@ double BBox::width()    const { return m_max.x - m_min.x; }
 double BBox::depth()    const { return m_max.y - m_min.y; }
 double BBox::height()   const { return m_max.z - m_min.z; }
 
-void BBox::goNw()
-{
-    m_max.x = m_mid.x;
-    m_min.y = m_mid.y;
-    setMid();
-}
-
-void BBox::goNe()
-{
-    m_min.x = m_mid.x;
-    m_min.y = m_mid.y;
-    setMid();
-}
-
-void BBox::goSw()
-{
-    m_max.x = m_mid.x;
-    m_max.y = m_mid.y;
-    setMid();
-}
-
-void BBox::goSe()
-{
-    m_min.x = m_mid.x;
-    m_max.y = m_mid.y;
-    setMid();
-}
-
-
-
-
 void BBox::goNwu()
 {
     m_max.x = m_mid.x;
     m_min.y = m_mid.y;
-    m_min.z = m_mid.z;
+    if (m_is3d) m_min.z = m_mid.z;
     setMid();
 }
 
@@ -146,7 +116,7 @@ void BBox::goNwd()
 {
     m_max.x = m_mid.x;
     m_min.y = m_mid.y;
-    m_max.z = m_mid.z;
+    if (m_is3d) m_max.z = m_mid.z;
     setMid();
 }
 
@@ -154,7 +124,7 @@ void BBox::goNeu()
 {
     m_min.x = m_mid.x;
     m_min.y = m_mid.y;
-    m_min.z = m_mid.z;
+    if (m_is3d) m_min.z = m_mid.z;
     setMid();
 }
 
@@ -162,7 +132,7 @@ void BBox::goNed()
 {
     m_min.x = m_mid.x;
     m_min.y = m_mid.y;
-    m_max.z = m_mid.z;
+    if (m_is3d) m_max.z = m_mid.z;
     setMid();
 }
 
@@ -170,7 +140,7 @@ void BBox::goSwu()
 {
     m_max.x = m_mid.x;
     m_max.y = m_mid.y;
-    m_min.z = m_mid.z;
+    if (m_is3d) m_min.z = m_mid.z;
     setMid();
 }
 
@@ -178,7 +148,7 @@ void BBox::goSwd()
 {
     m_max.x = m_mid.x;
     m_max.y = m_mid.y;
-    m_max.z = m_mid.z;
+    if (m_is3d) m_max.z = m_mid.z;
     setMid();
 }
 
@@ -186,7 +156,7 @@ void BBox::goSeu()
 {
     m_min.x = m_mid.x;
     m_max.y = m_mid.y;
-    m_min.z = m_mid.z;
+    if (m_is3d) m_min.z = m_mid.z;
     setMid();
 }
 
@@ -194,7 +164,7 @@ void BBox::goSed()
 {
     m_min.x = m_mid.x;
     m_max.y = m_mid.y;
-    m_max.z = m_mid.z;
+    if (m_is3d) m_max.z = m_mid.z;
     setMid();
 }
 

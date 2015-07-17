@@ -50,6 +50,7 @@ Reader::Reader(
     , m_stats()
     , m_base()
     , m_cache(cache)
+    , m_is3d(false)
     , m_ids()
 {
     using namespace arbiter;
@@ -79,6 +80,7 @@ Reader::Reader(
         m_bbox.reset(new BBox(props["bbox"]));
         m_schema.reset(new Schema(props["schema"]));
         m_structure.reset(new Structure(props["structure"]));
+        m_is3d = m_structure->is3d();
         if (props.isMember("reprojection"))
             m_reprojection.reset(new Reprojection(props["reprojection"]));
         m_manifest.reset(new Manifest(props["manifest"]));
@@ -231,10 +233,17 @@ void Reader::traverse(
 
     if (depth + 1 < depthEnd || !depthEnd)
     {
-        traverse(toFetch, tries, r.getNw(), queryBBox, depthBegin, depthEnd);
-        traverse(toFetch, tries, r.getNe(), queryBBox, depthBegin, depthEnd);
-        traverse(toFetch, tries, r.getSw(), queryBBox, depthBegin, depthEnd);
-        traverse(toFetch, tries, r.getSe(), queryBBox, depthBegin, depthEnd);
+        traverse(toFetch, tries, r.getNwd(), queryBBox, depthBegin, depthEnd);
+        traverse(toFetch, tries, r.getNed(), queryBBox, depthBegin, depthEnd);
+        traverse(toFetch, tries, r.getSwd(), queryBBox, depthBegin, depthEnd);
+        traverse(toFetch, tries, r.getSed(), queryBBox, depthBegin, depthEnd);
+
+        if (!m_is3d) return;
+
+        traverse(toFetch, tries, r.getNwu(), queryBBox, depthBegin, depthEnd);
+        traverse(toFetch, tries, r.getNeu(), queryBBox, depthBegin, depthEnd);
+        traverse(toFetch, tries, r.getSwu(), queryBBox, depthBegin, depthEnd);
+        traverse(toFetch, tries, r.getSeu(), queryBBox, depthBegin, depthEnd);
     }
 }
 
@@ -284,10 +293,17 @@ void Reader::runQuery(
 
     if (depth + 1 < depthEnd || !depthEnd)
     {
-        runQuery(query, climber.getNw(), queryBBox, depthBegin, depthEnd);
-        runQuery(query, climber.getNe(), queryBBox, depthBegin, depthEnd);
-        runQuery(query, climber.getSw(), queryBBox, depthBegin, depthEnd);
-        runQuery(query, climber.getSe(), queryBBox, depthBegin, depthEnd);
+        runQuery(query, climber.getNwd(), queryBBox, depthBegin, depthEnd);
+        runQuery(query, climber.getNed(), queryBBox, depthBegin, depthEnd);
+        runQuery(query, climber.getSwd(), queryBBox, depthBegin, depthEnd);
+        runQuery(query, climber.getSed(), queryBBox, depthBegin, depthEnd);
+
+        if (!m_is3d) return;
+
+        runQuery(query, climber.getNwu(), queryBBox, depthBegin, depthEnd);
+        runQuery(query, climber.getNeu(), queryBBox, depthBegin, depthEnd);
+        runQuery(query, climber.getSwu(), queryBBox, depthBegin, depthEnd);
+        runQuery(query, climber.getSeu(), queryBBox, depthBegin, depthEnd);
     }
 }
 

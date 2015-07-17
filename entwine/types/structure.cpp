@@ -140,11 +140,6 @@ Structure::Structure(
     , m_numPointsHint(numPointsHint)
     , m_subset(subset)
 {
-    if (m_dimensions != 2)
-    {
-        throw std::runtime_error("Only quadtree supported now");
-    }
-
     loadIndexValues();
 }
 
@@ -468,6 +463,9 @@ std::unique_ptr<BBox> Structure::subsetBBox(const BBox& full) const
     Climber climber(full, *this);
     std::size_t times(0);
 
+    // TODO
+    if (is3d()) throw std::runtime_error("Can't currently split octree");
+
     // TODO Very temporary.
     if (m_subset.second == 4) times = 1;
     else if (m_subset.second == 16) times = 2;
@@ -482,10 +480,10 @@ std::unique_ptr<BBox> Structure::subsetBBox(const BBox& full) const
                     static_cast<Climber::Dir>(
                         m_subset.first >> (i * 2) & 0x03));
 
-            if (dir == Climber::Dir::nw) climber.goNw();
-            else if (dir == Climber::Dir::ne) climber.goNe();
-            else if (dir == Climber::Dir::sw) climber.goSw();
-            else climber.goSe();
+            if (dir == Climber::Dir::nwd) climber.goNwd();
+            else if (dir == Climber::Dir::ned) climber.goNed();
+            else if (dir == Climber::Dir::swd) climber.goSwd();
+            else climber.goSed();
         }
 
         result.reset(new BBox(climber.bbox()));
