@@ -29,7 +29,6 @@ namespace pdal
 namespace entwine
 {
 
-class FsDriver;
 class Reprojection;
 class Schema;
 
@@ -81,7 +80,6 @@ private:
     bool m_is3d;
 
     std::unique_ptr<pdal::StageFactory> m_stageFactory;
-    std::unique_ptr<FsDriver> m_fs;
 
     mutable std::mutex m_factoryMutex;
 };

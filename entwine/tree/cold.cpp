@@ -10,8 +10,8 @@
 
 #include <entwine/tree/cold.hpp>
 
-#include <entwine/drivers/source.hpp>
 #include <entwine/third/json/json.h>
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/clipper.hpp>
 #include <entwine/types/linking-point-view.hpp>
@@ -44,11 +44,11 @@ namespace
 }
 
 Cold::Cold(
-        Source& source,
+        arbiter::Endpoint& endpoint,
         const Schema& schema,
         const Structure& structure,
         const std::vector<char>& empty)
-    : m_source(source)
+    : m_endpoint(endpoint)
     , m_schema(schema)
     , m_structure(structure)
     , m_chunkVec(getNumFastTrackers(m_structure))
@@ -58,12 +58,12 @@ Cold::Cold(
 { }
 
 Cold::Cold(
-        Source& source,
+        arbiter::Endpoint& endpoint,
         const Schema& schema,
         const Structure& structure,
         const std::vector<char>& empty,
         const Json::Value& meta)
-    : m_source(source)
+    : m_endpoint(endpoint)
     , m_schema(schema)
     , m_structure(structure)
     , m_chunkVec(getNumFastTrackers(m_structure))
@@ -185,7 +185,8 @@ void Cold::growFast(const ChunkInfo& info, Clipper* clipper)
                             m_schema,
                             chunkId,
                             info.chunkPoints(),
-                            m_source.get(std::to_string(chunkId)),
+                            m_endpoint.getSubpathBinary(
+                                std::to_string(chunkId)),
                             m_empty));
             }
             else
@@ -229,7 +230,8 @@ void Cold::growSlow(const ChunkInfo& info, Clipper* clipper)
                             m_schema,
                             chunkId,
                             info.chunkPoints(),
-                            m_source.get(std::to_string(chunkId)),
+                            m_endpoint.getSubpathBinary(
+                                std::to_string(chunkId)),
                             m_empty));
             }
             else
@@ -263,7 +265,7 @@ void Cold::clip(const std::size_t chunkId, Clipper* clipper, Pool& pool)
 
             if (countedChunk.refs.empty())
             {
-                countedChunk.chunk->save(m_source);
+                countedChunk.chunk->save(m_endpoint);
                 countedChunk.chunk.reset(0);
             }
         });
@@ -281,7 +283,7 @@ void Cold::clip(const std::size_t chunkId, Clipper* clipper, Pool& pool)
 
             if (countedChunk.refs.empty())
             {
-                countedChunk.chunk->save(m_source);
+                countedChunk.chunk->save(m_endpoint);
                 countedChunk.chunk.reset(0);
             }
         });

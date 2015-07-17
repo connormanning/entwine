@@ -14,8 +14,8 @@
 
 #include <pdal/PointView.hpp>
 
-#include <entwine/drivers/source.hpp>
 #include <entwine/third/json/json.h>
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/roller.hpp>
 #include <entwine/tree/point-info.hpp>
 #include <entwine/tree/chunk.hpp>
@@ -69,10 +69,10 @@ namespace
 }
 
 Registry::Registry(
-        Source& source,
+        arbiter::Endpoint& endpoint,
         const Schema& schema,
         const Structure& structure)
-    : m_source(source)
+    : m_endpoint(endpoint)
     , m_schema(schema)
     , m_structure(structure)
     , m_is3d(structure.is3d())
@@ -93,16 +93,16 @@ Registry::Registry(
 
     if (m_structure.hasCold())
     {
-        m_cold.reset(new Cold(source, schema, m_structure, m_empty));
+        m_cold.reset(new Cold(endpoint, schema, m_structure, m_empty));
     }
 }
 
 Registry::Registry(
-        Source& source,
+        arbiter::Endpoint& endpoint,
         const Schema& schema,
         const Structure& structure,
         const Json::Value& meta)
-    : m_source(source)
+    : m_endpoint(endpoint)
     , m_schema(schema)
     , m_structure(structure)
     , m_is3d(structure.is3d())
@@ -117,7 +117,7 @@ Registry::Registry(
                 std::to_string(m_structure.baseIndexBegin()) +
                 m_structure.subsetPostfix());
 
-        std::vector<char> data(m_source.get(basePath));
+        std::vector<char> data(m_endpoint.getSubpathBinary(basePath));
         ChunkType type(Chunk::getType(data));
 
         if (type != Contiguous)
@@ -135,7 +135,7 @@ Registry::Registry(
 
     if (m_structure.hasCold())
     {
-        m_cold.reset(new Cold(source, schema, m_structure, m_empty, meta));
+        m_cold.reset(new Cold(endpoint, schema, m_structure, m_empty, meta));
     }
 }
 
@@ -208,7 +208,7 @@ bool Registry::addPoint(PointInfo& toAdd, Roller& roller, Clipper* clipper)
 
 void Registry::save(Json::Value& meta)
 {
-    m_base->save(m_source, m_structure.subsetPostfix());
+    m_base->save(m_endpoint, m_structure.subsetPostfix());
 
     if (m_cold) meta["ids"] = m_cold->toJson();
 }

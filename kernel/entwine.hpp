@@ -13,8 +13,7 @@
 #include <string>
 #include <vector>
 
-#include <entwine/drivers/arbiter.hpp>
-#include <entwine/drivers/s3.hpp>
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/third/json/json.h>
 
 class Kernel
@@ -25,7 +24,6 @@ public:
     static void link(std::vector<std::string> args);
 
 private:
-    static std::unique_ptr<entwine::AwsAuth> getCredentials(
-            const std::string credPath);
+    static std::shared_ptr<arbiter::Arbiter> getArbiter(std::string credPath);
 };
 

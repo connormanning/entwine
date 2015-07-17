@@ -20,6 +20,11 @@ namespace Json
     class Value;
 }
 
+namespace arbiter
+{
+    class Endpoint;
+}
+
 namespace entwine
 {
 
@@ -31,16 +36,19 @@ class Entry;
 class PointInfo;
 class Pool;
 class Roller;
-class Source;
 class Schema;
 class Structure;
 
 class Registry
 {
 public:
-    Registry(Source& source, const Schema& schema, const Structure& structure);
     Registry(
-            Source& source,
+            arbiter::Endpoint& endpoint,
+            const Schema& schema,
+            const Structure& structure);
+
+    Registry(
+            arbiter::Endpoint& endpoint,
             const Schema& schema,
             const Structure& structure,
             const Json::Value& meta);
@@ -56,7 +64,7 @@ public:
     void clip(std::size_t index, Clipper* clipper);
 
 private:
-    Source& m_source;
+    arbiter::Endpoint & m_endpoint;
     const Schema& m_schema;
     const Structure& m_structure;
     bool m_is3d;

@@ -18,7 +18,6 @@
 
 #include <pdal/Dimension.hpp>
 
-#include <entwine/drivers/source.hpp>
 #include <entwine/tree/manifest.hpp>
 #include <entwine/tree/point-info.hpp>
 #include <entwine/types/dim-info.hpp>
@@ -36,10 +35,15 @@ namespace Json
     class Value;
 }
 
+namespace arbiter
+{
+    class Arbiter;
+    class Endpoint;
+}
+
 namespace entwine
 {
 
-class Arbiter;
 class BBox;
 class Clipper;
 class Driver;
@@ -60,16 +64,16 @@ public:
             const DimList& dimList,
             std::size_t numThreads,
             const Structure& structure,
-            std::shared_ptr<Arbiter> arbiter = 0);
+            std::shared_ptr<arbiter::Arbiter> arbiter = 0);
 
     Builder(
             std::string outPath,
             std::string tmpPath,
             std::size_t numThreads,
-            std::shared_ptr<Arbiter> arbiter = 0);
+            std::shared_ptr<arbiter::Arbiter> arbiter = 0);
 
     // Only used for merging.
-    Builder(std::string path, std::shared_ptr<Arbiter> arbiter = 0);
+    Builder(std::string path, std::shared_ptr<arbiter::Arbiter> arbiter = 0);
 
     ~Builder();
 
@@ -144,9 +148,9 @@ private:
 
     pdal::Dimension::Id::Enum m_originId;
 
-    std::shared_ptr<Arbiter> m_arbiter;
-    std::unique_ptr<Source> m_outSource;
-    std::unique_ptr<Source> m_tmpSource;
+    std::shared_ptr<arbiter::Arbiter> m_arbiter;
+    std::unique_ptr<arbiter::Endpoint> m_outEndpoint;
+    std::unique_ptr<arbiter::Endpoint> m_tmpEndpoint;
 
     std::unique_ptr<Registry> m_registry;
 

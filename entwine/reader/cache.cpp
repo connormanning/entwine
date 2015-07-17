@@ -10,20 +10,20 @@
 
 #include <entwine/reader/cache.hpp>
 
-#include <entwine/drivers/source.hpp>
-#include <entwine/types/schema.hpp>
 #include <entwine/reader/chunk-reader.hpp>
+#include <entwine/third/arbiter/arbiter.hpp>
+#include <entwine/types/schema.hpp>
 #include <entwine/util/pool.hpp>
 
 namespace entwine
 {
 
 FetchInfo::FetchInfo(
-        Source& source,
+        arbiter::Endpoint& endpoint,
         const Schema& schema,
         std::size_t id,
         std::size_t numPoints)
-    : source(source)
+    : endpoint(endpoint)
     , schema(schema)
     , id(id)
     , numPoints(numPoints)
@@ -246,7 +246,8 @@ const ChunkReader* Cache::fetch(
     {
         std::unique_ptr<std::vector<char>> rawData(
                 new std::vector<char>(
-                    fetchInfo.source.get(std::to_string(fetchInfo.id))));
+                    fetchInfo.endpoint.getSubpathBinary(
+                        std::to_string(fetchInfo.id))));
 
         chunkState.chunkReader =
                 ChunkReader::create(

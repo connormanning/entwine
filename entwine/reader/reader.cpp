@@ -11,9 +11,8 @@
 #include <entwine/reader/reader.hpp>
 
 #include <entwine/compression/util.hpp>
-#include <entwine/drivers/arbiter.hpp>
-#include <entwine/drivers/source.hpp>
 #include <entwine/reader/query.hpp>
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/manifest.hpp>
 #include <entwine/tree/roller.hpp>
@@ -38,8 +37,11 @@ namespace
     }
 }
 
-Reader::Reader(Source source, Arbiter& arbiter, std::shared_ptr<Cache> cache)
-    : m_path(source.path())
+Reader::Reader(
+        arbiter::Endpoint& endpoint,
+        arbiter::Arbiter& arbiter,
+        std::shared_ptr<Cache> cache)
+    : m_path(endpoint.root())
     , m_bbox()
     , m_schema()
     , m_structure()
@@ -50,6 +52,8 @@ Reader::Reader(Source source, Arbiter& arbiter, std::shared_ptr<Cache> cache)
     , m_cache(cache)
     , m_ids()
 {
+    using namespace arbiter;
+
     if (!cache)
     {
         throw std::runtime_error("No cache supplied");
@@ -58,7 +62,7 @@ Reader::Reader(Source source, Arbiter& arbiter, std::shared_ptr<Cache> cache)
     {
         Json::Reader reader;
 
-        const std::string metaString(source.getAsString("entwine"));
+        const std::string metaString(endpoint.getSubpath("entwine"));
 
         Json::Value props;
         reader.parse(metaString, props, false);
@@ -87,7 +91,7 @@ Reader::Reader(Source source, Arbiter& arbiter, std::shared_ptr<Cache> cache)
             std::set<std::size_t>& ids(
                     m_ids.insert(
                         std::make_pair(
-                            std::unique_ptr<Source>(new Source(source)),
+                            std::unique_ptr<Endpoint>(new Endpoint(endpoint)),
                             std::set<std::size_t>())).first->second);
 
             for (std::size_t i(0); i < jsonIds.size(); ++i)
@@ -102,11 +106,11 @@ Reader::Reader(Source source, Arbiter& arbiter, std::shared_ptr<Cache> cache)
 
             for (const auto path : subs)
             {
-                Source subSrc(arbiter.getSource(path));
+                Endpoint sub(arbiter.getEndpoint(path));
                 std::set<std::size_t>& ids(
                         m_ids.insert(
                             std::make_pair(
-                                std::unique_ptr<Source>(new Source(subSrc)),
+                                std::unique_ptr<Endpoint>(new Endpoint(sub)),
                                 std::set<std::size_t>())).first->second);
 
                 const Json::Value& subIds(jsonIds[path]);
@@ -128,7 +132,7 @@ Reader::Reader(Source source, Arbiter& arbiter, std::shared_ptr<Cache> cache)
     {
         std::unique_ptr<std::vector<char>> data(
                 new std::vector<char>(
-                    source.get(
+                    endpoint.getSubpathBinary(
                         std::to_string(m_structure->baseIndexBegin()))));
 
         m_base = ChunkReader::create(
@@ -202,7 +206,7 @@ void Reader::traverse(
     {
         const std::size_t chunkId(getChunkId(index, depth));
 
-        if (Source* source = getSource(chunkId))
+        if (arbiter::Endpoint* endpoint = getEndpoint(chunkId))
         {
             if (toFetch.size() + 1 >= m_cache->queryLimit())
             {
@@ -211,7 +215,7 @@ void Reader::traverse(
 
             toFetch.insert(
                     FetchInfo(
-                        *source,
+                        *endpoint,
                         *m_schema,
                         chunkId,
                         m_structure->getInfo(chunkId).chunkPoints()));
@@ -360,24 +364,24 @@ std::size_t Reader::getChunkId(
     }
 }
 
-Source* Reader::getSource(const std::size_t chunkId) const
+arbiter::Endpoint* Reader::getEndpoint(const std::size_t chunkId) const
 {
-    Source* source(0);
+    arbiter::Endpoint* endpoint(0);
 
     auto it(m_ids.begin());
     const auto end(m_ids.end());
 
-    while (!source && it != end)
+    while (!endpoint && it != end)
     {
         if (it->second.count(chunkId))
         {
-            source = it->first.get();
+            endpoint = it->first.get();
         }
 
         ++it;
     }
 
-    return source;
+    return endpoint;
 }
 
 std::size_t Reader::numPoints() const

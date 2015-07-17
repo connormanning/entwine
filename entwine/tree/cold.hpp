@@ -19,6 +19,11 @@
 
 #include <entwine/third/json/json.h>
 
+namespace arbiter
+{
+    class Endpoint;
+}
+
 namespace entwine
 {
 
@@ -28,20 +33,19 @@ class Clipper;
 class Entry;
 class Pool;
 class Schema;
-class Source;
 class Structure;
 
 class Cold
 {
 public:
     Cold(
-            Source& source,
+            arbiter::Endpoint& endpoint,
             const Schema& schema,
             const Structure& structure,
             const std::vector<char>& empty);
 
     Cold(
-            Source& source,
+            arbiter::Endpoint& endpoint,
             const Schema& schema,
             const Structure& structure,
             const std::vector<char>& empty,
@@ -80,7 +84,7 @@ private:
     typedef
         std::unordered_map<std::size_t, std::unique_ptr<CountedChunk>> ChunkMap;
 
-    Source& m_source;
+    arbiter::Endpoint& m_endpoint;
     const Schema& m_schema;
     const Structure& m_structure;
 

@@ -20,13 +20,17 @@
 #include <set>
 #include <string>
 
+namespace arbiter
+{
+    class Endpoint;
+}
+
 namespace entwine
 {
 
 class Cache;
 class ChunkReader;
 class Schema;
-class Source;
 
 class QueryLimitExceeded : public std::runtime_error
 {
@@ -37,12 +41,12 @@ public:
 struct FetchInfo
 {
     FetchInfo(
-            Source& source,
+            arbiter::Endpoint& endpoint,
             const Schema& schema,
             std::size_t id,
             std::size_t numPoints);
 
-    Source& source;
+    arbiter::Endpoint& endpoint;
     const Schema& schema;
     std::size_t id;
     std::size_t numPoints;

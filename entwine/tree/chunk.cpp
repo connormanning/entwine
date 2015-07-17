@@ -14,7 +14,7 @@
 #include <pdal/PointView.hpp>
 
 #include <entwine/compression/util.hpp>
-#include <entwine/drivers/source.hpp>
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/single-point-table.hpp>
@@ -261,7 +261,7 @@ Entry* SparseChunkData::getEntry(const std::size_t rawIndex)
     return &it->second->entry;
 }
 
-void SparseChunkData::save(Source& source)
+void SparseChunkData::save(arbiter::Endpoint& endpoint)
 {
     Schema sparse(makeSparse(m_schema));
 
@@ -273,7 +273,7 @@ void SparseChunkData::save(Source& source)
     pushNumPoints(*compressed, m_entries.size());
     compressed->push_back(Sparse);
 
-    source.put(std::to_string(m_id), *compressed);
+    endpoint.putSubpath(std::to_string(m_id), *compressed);
 }
 
 std::vector<char> SparseChunkData::squash(const Schema& sparse)
@@ -464,7 +464,9 @@ Entry* ContiguousChunkData::getEntry(const std::size_t rawIndex)
     return &m_entries[normalize(rawIndex)];
 }
 
-void ContiguousChunkData::save(Source& source, const std::string postfix)
+void ContiguousChunkData::save(
+        arbiter::Endpoint& endpoint,
+        const std::string postfix)
 {
     const std::size_t pointSize(m_schema.pointSize());
 
@@ -476,12 +478,12 @@ void ContiguousChunkData::save(Source& source, const std::string postfix)
 
     compressed->push_back(Contiguous);
 
-    source.put(std::to_string(m_id) + postfix, *compressed);
+    endpoint.putSubpath(std::to_string(m_id) + postfix, *compressed);
 }
 
-void ContiguousChunkData::save(Source& source)
+void ContiguousChunkData::save(arbiter::Endpoint& endpoint)
 {
-    save(source, "");
+    save(endpoint, "");
 }
 
 void ContiguousChunkData::emptyEntries()
@@ -648,9 +650,9 @@ Entry* Chunk::getEntry(const std::size_t rawIndex)
     return m_chunkData->getEntry(rawIndex);
 }
 
-void Chunk::save(Source& source)
+void Chunk::save(arbiter::Endpoint& endpoint)
 {
-    m_chunkData->save(source);
+    m_chunkData->save(endpoint);
 }
 
 ChunkType Chunk::getType(std::vector<char>& data)

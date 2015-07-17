@@ -17,7 +17,7 @@
 #include <pdal/Utils.hpp>
 
 #include <entwine/compression/util.hpp>
-#include <entwine/drivers/arbiter.hpp>
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/clipper.hpp>
 #include <entwine/tree/registry.hpp>
@@ -31,6 +31,8 @@
 #include <entwine/util/executor.hpp>
 #include <entwine/util/fs.hpp>
 #include <entwine/util/pool.hpp>
+
+using namespace arbiter;
 
 namespace entwine
 {
@@ -57,12 +59,12 @@ Builder::Builder(
     , m_pool(new Pool(numThreads))
     , m_executor(new Executor(*m_schema, m_structure->is3d()))
     , m_originId(m_schema->pdalLayout().findDim("Origin"))
-    , m_arbiter(arbiter ? arbiter : std::make_shared<Arbiter>(Arbiter()))
-    , m_outSource(new Source(m_arbiter->getSource(outPath)))
-    , m_tmpSource(new Source(m_arbiter->getSource(tmpPath)))
+    , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
+    , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(outPath)))
+    , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
     , m_registry(
             new Registry(
-                *m_outSource,
+                *m_outEndpoint,
                 *m_schema,
                 *m_structure))
 {
@@ -85,9 +87,9 @@ Builder::Builder(
     , m_trustHeaders(false)
     , m_pool(new Pool(numThreads))
     , m_executor()
-    , m_arbiter(arbiter ? arbiter : std::make_shared<Arbiter>(Arbiter()))
-    , m_outSource(new Source(m_arbiter->getSource(outPath)))
-    , m_tmpSource(new Source(m_arbiter->getSource(tmpPath)))
+    , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
+    , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(outPath)))
+    , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
     , m_registry()
 {
     prep();
@@ -106,9 +108,9 @@ Builder::Builder(const std::string path, std::shared_ptr<Arbiter> arbiter)
     , m_trustHeaders(true)
     , m_pool()
     , m_executor()
-    , m_arbiter(arbiter ? arbiter : std::make_shared<Arbiter>(Arbiter()))
-    , m_outSource(new Source(m_arbiter->getSource(path)))
-    , m_tmpSource()
+    , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
+    , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(path)))
+    , m_tmpEndpoint()
     , m_registry()
 { }
 
@@ -201,9 +203,7 @@ bool Builder::insert(const std::string path)
                 " GB in " << Chunk::getChunkCnt() << " chunks." <<
                 std::endl;
 
-            if (
-                    m_arbiter->getSource(path).isRemote() &&
-                    !fs::removeFile(localPath))
+            if (m_arbiter->isRemote(path) && !fs::removeFile(localPath))
             {
                 std::cout << "Couldn't delete " << localPath << std::endl;
                 throw std::runtime_error("Couldn't delete tmp file");
@@ -318,10 +318,9 @@ void Builder::inferBBox(const std::string path)
 
 std::string Builder::localize(const std::string path, const Origin origin)
 {
-    Source source(m_arbiter->getSource(path));
-    std::string localPath(source.path());
+    std::string localPath(arbiter::Arbiter::stripType(path));
 
-    if (source.isRemote())
+    if (m_arbiter->isRemote(path))
     {
         std::size_t dot(path.find_last_of("."));
 
@@ -330,8 +329,11 @@ std::string Builder::localize(const std::string path, const Origin origin)
             const std::string subpath(
                     name() + "-" + std::to_string(origin) + path.substr(dot));
 
-            localPath = m_tmpSource->resolve(subpath);
-            m_tmpSource->put(subpath, source.getRoot());
+            m_tmpEndpoint->putSubpath(
+                    subpath,
+                    m_arbiter->getBinary(path));
+
+            localPath = m_tmpEndpoint->fullPath(subpath);
         }
         else
         {
@@ -358,7 +360,7 @@ void Builder::load()
 
     {
         Json::Reader reader;
-        const std::string data(m_outSource->getAsString("entwine"));
+        const std::string data(m_outEndpoint->getSubpath("entwine"));
         reader.parse(data, meta, false);
     }
 
@@ -369,7 +371,7 @@ void Builder::load()
 
     m_registry.reset(
             new Registry(
-                *m_outSource,
+                *m_outEndpoint,
                 *m_schema,
                 *m_structure,
                 meta));
@@ -383,7 +385,7 @@ void Builder::merge()
     {
         Json::Value meta;
         Json::Reader reader;
-        const std::string metaString(m_outSource->getAsString("entwine-0"));
+        const std::string metaString(m_outEndpoint->getSubpath("entwine-0"));
         reader.parse(metaString, meta, false);
 
         loadProps(meta);
@@ -404,7 +406,7 @@ void Builder::merge()
         {
             Json::Reader reader;
             const std::string metaString(
-                    m_outSource->getAsString("entwine" + postfix));
+                    m_outEndpoint->getSubpath("entwine" + postfix));
             reader.parse(metaString, meta, false);
         }
 
@@ -423,8 +425,9 @@ void Builder::merge()
             throw std::runtime_error("Invalid IDs.");
         }
 
-        std::vector<char> data(m_outSource->get(
-                std::to_string(m_structure->baseIndexBegin()) + postfix));
+        std::vector<char> data(
+                m_outEndpoint->getSubpathBinary(
+                    std::to_string(m_structure->baseIndexBegin()) + postfix));
 
         if (!data.empty() || data.back() == Contiguous)
         {
@@ -483,27 +486,27 @@ void Builder::merge()
         jsonIds.append(static_cast<Json::UInt64>(id));
     }
 
-    m_outSource->put("entwine", jsonMeta.toStyledString());
+    m_outEndpoint->putSubpath("entwine", jsonMeta.toStyledString());
 
-    base->save(*m_outSource);
+    base->save(*m_outEndpoint);
 }
 
 void Builder::link(std::vector<std::string> subsetPaths)
 {
     std::unique_ptr<ContiguousChunkData> base;
-    std::vector<Source> subs;
+    std::vector<Endpoint> subs;
     std::map<std::string, std::vector<std::size_t>> ids;
 
     for (std::size_t i(0); i < subsetPaths.size(); ++i)
     {
-        subs.push_back(m_arbiter->getSource(subsetPaths[i]));
+        subs.push_back(m_arbiter->getEndpoint(subsetPaths[i]));
     }
 
     const std::size_t baseCount([this, &subs]()->std::size_t
     {
         Json::Value meta;
         Json::Reader reader;
-        const std::string metaString(subs[0].getAsString("entwine-0"));
+        const std::string metaString(subs[0].getSubpath("entwine-0"));
         reader.parse(metaString, meta, false);
 
         loadProps(meta);
@@ -531,7 +534,7 @@ void Builder::link(std::vector<std::string> subsetPaths)
         {
             Json::Reader reader;
             const std::string metaString(
-                    subs[i].getAsString("entwine" + postfix));
+                    subs[i].getSubpath("entwine" + postfix));
             reader.parse(metaString, meta, false);
         }
 
@@ -552,7 +555,7 @@ void Builder::link(std::vector<std::string> subsetPaths)
             throw std::runtime_error("Invalid IDs.");
         }
 
-        std::vector<char> data(subs[i].get(
+        std::vector<char> data(subs[i].getSubpathBinary(
                 std::to_string(m_structure->baseIndexBegin()) + postfix));
 
         if (!data.empty() || data.back() == Contiguous)
@@ -621,10 +624,10 @@ void Builder::link(std::vector<std::string> subsetPaths)
     }
 
     std::cout << "Saving aggregated meta..." << std::endl;
-    m_outSource->put("entwine", jsonMeta.toStyledString());
+    m_outEndpoint->putSubpath("entwine", jsonMeta.toStyledString());
 
     std::cout << "Saving base data..." << std::endl;
-    base->save(*m_outSource);
+    base->save(*m_outEndpoint);
 }
 
 void Builder::save()
@@ -635,7 +638,7 @@ void Builder::save()
     // Get our own metadata and the registry's - then serialize.
     Json::Value jsonMeta(saveProps());
     m_registry->save(jsonMeta);
-    m_outSource->put(
+    m_outEndpoint->putSubpath(
             "entwine" + m_structure->subsetPostfix(),
             jsonMeta.toStyledString());
 
@@ -683,17 +686,17 @@ void Builder::loadProps(const Json::Value& props)
 
 void Builder::prep()
 {
-    if (m_tmpSource->isRemote())
+    if (m_tmpEndpoint->isRemote())
     {
         throw std::runtime_error("Tmp path must be local");
     }
 
-    if (!fs::mkdirp(m_tmpSource->path()))
+    if (!fs::mkdirp(m_tmpEndpoint->root()))
     {
         throw std::runtime_error("Couldn't create tmp directory");
     }
 
-    if (!m_outSource->isRemote() && !fs::mkdirp(m_outSource->path()))
+    if (!m_outEndpoint->isRemote() && !fs::mkdirp(m_outEndpoint->root()))
     {
         throw std::runtime_error("Couldn't create local build directory");
     }
@@ -701,7 +704,7 @@ void Builder::prep()
 
 std::string Builder::name() const
 {
-    std::string name(m_outSource->path());
+    std::string name(m_outEndpoint->root());
 
     // TODO Temporary/hacky.
     const std::size_t pos(name.find_last_of("/\\"));

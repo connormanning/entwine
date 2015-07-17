@@ -23,11 +23,15 @@
 #include <entwine/types/point.hpp>
 #include <entwine/util/locker.hpp>
 
+namespace arbiter
+{
+    class Endpoint;
+}
+
 namespace entwine
 {
 
 class Schema;
-class Source;
 
 class Entry
 {
@@ -77,7 +81,7 @@ public:
     std::size_t maxPoints() const { return m_maxPoints; }
     std::size_t id() const { return m_id; }
 
-    virtual void save(Source& source) = 0;
+    virtual void save(arbiter::Endpoint& endpoint) = 0;
 
     virtual bool isSparse() const = 0;
     virtual std::size_t numPoints() const = 0;
@@ -109,7 +113,7 @@ public:
 
     ~SparseChunkData();
 
-    virtual void save(Source& source);
+    virtual void save(arbiter::Endpoint& endpoint);
 
     virtual bool isSparse() const { return true; }
     virtual std::size_t numPoints() const { return m_entries.size(); }
@@ -160,8 +164,8 @@ public:
 
     ~ContiguousChunkData();
 
-    void save(Source& source, std::string postfix);
-    virtual void save(Source& source);
+    void save(arbiter::Endpoint& endpoint, std::string postfix);
+    virtual void save(arbiter::Endpoint& endpoint);
 
     virtual bool isSparse() const { return false; }
     virtual std::size_t numPoints() const { return m_maxPoints; }
@@ -213,7 +217,7 @@ public:
 
     Entry* getEntry(std::size_t index);
 
-    void save(Source& source);
+    void save(arbiter::Endpoint& endpoint);
 
     static ChunkType getType(std::vector<char>& data);
 

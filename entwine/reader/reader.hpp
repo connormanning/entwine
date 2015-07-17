@@ -19,14 +19,18 @@
 #include <set>
 #include <vector>
 
-#include <entwine/drivers/source.hpp>
 #include <entwine/reader/cache.hpp>
 #include <entwine/reader/chunk-reader.hpp>
+
+namespace arbiter
+{
+    class Arbiter;
+    class Endpoint;
+}
 
 namespace entwine
 {
 
-class Arbiter;
 class BBox;
 class Manifest;
 class Query;
@@ -39,8 +43,11 @@ class Structure;
 class Reader
 {
 public:
-    // Will throw if entwine's meta files cannot be fetched from this source.
-    Reader(Source source, Arbiter& arbiter, std::shared_ptr<Cache> cache);
+    // Will throw if entwine's meta files cannot be fetched from this endpoint.
+    Reader(
+            arbiter::Endpoint& endpoint,
+            arbiter::Arbiter& arbiter,
+            std::shared_ptr<Cache> cache);
     ~Reader();
 
     std::unique_ptr<Query> query(
@@ -90,7 +97,7 @@ private:
     std::size_t getChunkId(std::size_t index, std::size_t depth) const;
 
     // Returns 0 if chunk doesn't exist.
-    Source* getSource(std::size_t chunkId) const;
+    arbiter::Endpoint* getEndpoint(std::size_t chunkId) const;
 
     std::string m_path;
 
@@ -106,7 +113,7 @@ private:
     mutable std::mutex m_mutex;
     mutable std::set<std::size_t> m_missing;
 
-    std::map<std::unique_ptr<Source>, std::set<std::size_t>> m_ids;
+    std::map<std::unique_ptr<arbiter::Endpoint>, std::set<std::size_t>> m_ids;
 };
 
 } // namespace entwine

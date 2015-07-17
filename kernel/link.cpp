@@ -13,9 +13,8 @@
 #include <fstream>
 #include <iostream>
 
-#include <entwine/drivers/arbiter.hpp>
-#include <entwine/drivers/s3.hpp>
 #include <entwine/third/json/json.h>
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
 
 using namespace entwine;
@@ -77,17 +76,7 @@ void Kernel::link(std::vector<std::string> args)
         throw std::runtime_error("Invalid number of subsets");
     }
 
-    DriverMap drivers;
-
-    {
-        std::unique_ptr<AwsAuth> auth(getCredentials(credPath));
-        if (auth)
-        {
-            drivers.insert({ "s3", std::make_shared<S3Driver>(*auth) });
-        }
-    }
-
-    std::shared_ptr<Arbiter> arbiter(std::make_shared<Arbiter>(drivers));
+    auto arbiter(getArbiter(credPath));
 
     Builder builder(path, arbiter);
 

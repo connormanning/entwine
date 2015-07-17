@@ -61,18 +61,7 @@ void Kernel::merge(std::vector<std::string> args)
         }
     }
 
-    DriverMap drivers;
-
-    {
-        std::unique_ptr<AwsAuth> auth(getCredentials(credPath));
-        if (auth)
-        {
-            drivers.insert({ "s3", std::make_shared<S3Driver>(*auth) });
-        }
-    }
-
-    std::shared_ptr<Arbiter> arbiter(std::make_shared<Arbiter>(drivers));
-
+    auto arbiter(getArbiter(credPath));
     Builder builder(path, arbiter);
 
     std::cout << "Merging " << path << "..." << std::endl;

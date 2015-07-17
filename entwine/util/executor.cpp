@@ -16,7 +16,6 @@
 #include <pdal/StageFactory.hpp>
 #include <pdal/StageWrapper.hpp>
 
-#include <entwine/drivers/fs.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/reprojection.hpp>
@@ -36,7 +35,6 @@ Executor::Executor(const Schema& schema, bool is3d)
     : m_schema(schema)
     , m_is3d(is3d)
     , m_stageFactory(new pdal::StageFactory())
-    , m_fs(new FsDriver())
     , m_factoryMutex()
 { }
 

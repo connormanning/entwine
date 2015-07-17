@@ -8,6 +8,8 @@
 *
 ******************************************************************************/
 
+#include "entwine.hpp"
+
 #include <csignal>
 #include <cstdio>
 #include <fstream>
@@ -18,10 +20,6 @@
 
 #include <execinfo.h>
 #include <unistd.h>
-
-#include "entwine.hpp"
-
-using namespace entwine;
 
 namespace
 {
@@ -49,9 +47,9 @@ namespace
     }
 }
 
-std::unique_ptr<AwsAuth> Kernel::getCredentials(const std::string credPath)
+std::shared_ptr<arbiter::Arbiter> Kernel::getArbiter(const std::string credPath)
 {
-    std::unique_ptr<AwsAuth> auth;
+    std::unique_ptr<arbiter::AwsAuth> auth;
 
     Json::Value credentials;
     std::ifstream credFile(credPath, std::ifstream::binary);
@@ -67,12 +65,12 @@ std::unique_ptr<AwsAuth> Kernel::getCredentials(const std::string credPath)
         }
 
         auth.reset(
-                new AwsAuth(
+                new arbiter::AwsAuth(
                     credentials["access"].asString(),
                     credentials["hidden"].asString()));
     }
 
-    return auth;
+    return std::make_shared<arbiter::Arbiter>(auth.get());
 }
 
 int main(int argc, char** argv)

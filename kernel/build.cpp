@@ -14,7 +14,6 @@
 #include <iostream>
 #include <string>
 
-#include <entwine/drivers/source.hpp>
 #include <entwine/third/json/json.h>
 #include <entwine/tree/builder.hpp>
 #include <entwine/types/bbox.hpp>
@@ -76,13 +75,13 @@ namespace
 
     std::vector<std::string> getManifest(
             const Json::Value& json,
-            Arbiter& arbiter)
+            arbiter::Arbiter& arbiter)
     {
         std::vector<std::string> manifest;
 
         auto insert([&manifest, &arbiter](std::string in)
         {
-            std::vector<std::string> paths(arbiter.resolve(in));
+            std::vector<std::string> paths(arbiter.resolve(in, true));
             manifest.insert(manifest.end(), paths.begin(), paths.end());
         });
 
@@ -299,17 +298,7 @@ void Kernel::build(std::vector<std::string> args)
         throw std::runtime_error("Config parsing: " + jsonError);
     }
 
-    DriverMap drivers;
-
-    {
-        std::unique_ptr<AwsAuth> auth(getCredentials(credPath));
-        if (auth)
-        {
-            drivers.insert({ "s3", std::make_shared<S3Driver>(*auth) });
-        }
-    }
-
-    std::shared_ptr<Arbiter> arbiter(std::make_shared<Arbiter>(drivers));
+    auto arbiter(getArbiter(credPath));
 
     // Input files to add to the index.
     const Json::Value jsonInput(config["input"]);
@@ -361,8 +350,8 @@ void Kernel::build(std::vector<std::string> args)
     {
         try
         {
-            Source source(arbiter->getSource(outPath));
-            if (source.getAsString("entwine").size())
+            arbiter::Endpoint endpoint(arbiter->getEndpoint(outPath));
+            if (endpoint.getSubpath("entwine").size())
             {
                 exists = true;
             }
