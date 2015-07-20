@@ -49,7 +49,7 @@ namespace
 
 std::shared_ptr<arbiter::Arbiter> Kernel::getArbiter(const std::string credPath)
 {
-    std::unique_ptr<arbiter::AwsAuth> auth;
+    std::shared_ptr<arbiter::Arbiter> arbiter(new arbiter::Arbiter());
 
     Json::Value credentials;
     std::ifstream credFile(credPath, std::ifstream::binary);
@@ -64,13 +64,14 @@ std::shared_ptr<arbiter::Arbiter> Kernel::getArbiter(const std::string credPath)
             throw std::runtime_error("Credential parsing: " + jsonError);
         }
 
-        auth.reset(
-                new arbiter::AwsAuth(
-                    credentials["access"].asString(),
-                    credentials["hidden"].asString()));
+        arbiter.reset(
+                new arbiter::Arbiter(
+                    arbiter::AwsAuth(
+                        credentials["access"].asString(),
+                        credentials["hidden"].asString())));
     }
 
-    return std::make_shared<arbiter::Arbiter>(auth.get());
+    return arbiter;
 }
 
 int main(int argc, char** argv)

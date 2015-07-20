@@ -63,20 +63,26 @@ namespace arbiter
 namespace
 {
     const std::string delimiter("://");
+
+    const std::size_t concurrentHttpReqs(32);
+    const std::size_t httpRetryCount(8);
 }
 
-Arbiter::Arbiter(AwsAuth* awsAuth)
+Arbiter::Arbiter()
     : m_drivers()
-    , m_pool(32, 8)
+    , m_pool(concurrentHttpReqs, httpRetryCount)
 {
-    m_drivers["fs"] = std::make_shared<FsDriver>(FsDriver());
+    m_drivers["fs"] =   std::make_shared<FsDriver>(FsDriver());
     m_drivers["http"] = std::make_shared<HttpDriver>(HttpDriver(m_pool));
+}
 
-    if (awsAuth)
-    {
-        m_drivers["s3"] =
-            std::make_shared<S3Driver>(S3Driver(m_pool, *awsAuth));
-    }
+Arbiter::Arbiter(AwsAuth awsAuth)
+    : m_drivers()
+    , m_pool(concurrentHttpReqs, httpRetryCount)
+{
+    m_drivers["fs"] =   std::make_shared<FsDriver>(FsDriver());
+    m_drivers["http"] = std::make_shared<HttpDriver>(HttpDriver(m_pool));
+    m_drivers["s3"] =   std::make_shared<S3Driver>(S3Driver(m_pool, awsAuth));
 }
 
 Arbiter::~Arbiter()
@@ -92,12 +98,12 @@ std::vector<char> Arbiter::getBinary(const std::string path) const
     return getDriver(path).getBinary(stripType(path));
 }
 
-void Arbiter::put(const std::string path, const std::string& data)
+void Arbiter::put(const std::string path, const std::string& data) const
 {
     return getDriver(path).put(stripType(path), data);
 }
 
-void Arbiter::put(const std::string path, const std::vector<char>& data)
+void Arbiter::put(const std::string path, const std::vector<char>& data) const
 {
     return getDriver(path).put(stripType(path), data);
 }
@@ -119,7 +125,7 @@ Endpoint Arbiter::getEndpoint(const std::string root) const
     return Endpoint(getDriver(root), stripType(root));
 }
 
-Driver& Arbiter::getDriver(const std::string path) const
+const Driver& Arbiter::getDriver(const std::string path) const
 {
     return *m_drivers.at(parseType(path));
 }
@@ -175,22 +181,25 @@ std::string Arbiter::stripType(const std::string raw)
 namespace arbiter
 {
 
-std::string Driver::get(std::string path)
+std::string Driver::get(std::string path) const
 {
     const std::vector<char> data(getBinary(path));
     return std::string(data.begin(), data.end());
 }
 
-void Driver::put(std::string path, const std::string& data)
+void Driver::put(std::string path, const std::string& data) const
 {
     put(path, std::vector<char>(data.begin(), data.end()));
 }
 
-std::vector<std::string> Driver::resolve(std::string path, bool verbose)
+std::vector<std::string> Driver::resolve(std::string path, bool verbose) const
 {
     std::vector<std::string> results;
 
-    if (path.size() > 2 && path.substr(path.size() - 2) == "/*")
+    if (
+            path.size() > 2 &&
+            path.back() == '*' &&
+            (path[path.size() - 2] == '/' || path[path.size() - 2] == '\\'))
     {
         if (verbose)
         {
@@ -249,7 +258,7 @@ namespace
     }
 }
 
-Endpoint::Endpoint(Driver& driver, const std::string root)
+Endpoint::Endpoint(const Driver& driver, const std::string root)
     : m_driver(driver)
     , m_root(postfixSlash(root))
 { }
@@ -269,24 +278,26 @@ bool Endpoint::isRemote() const
     return m_driver.isRemote();
 }
 
-std::string Endpoint::getSubpath(const std::string subpath)
+std::string Endpoint::getSubpath(const std::string subpath) const
 {
     return m_driver.get(fullPath(subpath));
 }
 
-std::vector<char> Endpoint::getSubpathBinary(const std::string subpath)
+std::vector<char> Endpoint::getSubpathBinary(const std::string subpath) const
 {
     return m_driver.getBinary(fullPath(subpath));
 }
 
-void Endpoint::putSubpath(const std::string subpath, const std::string& data)
+void Endpoint::putSubpath(
+        const std::string subpath,
+        const std::string& data) const
 {
     m_driver.put(fullPath(subpath), data);
 }
 
 void Endpoint::putSubpath(
         const std::string subpath,
-        const std::vector<char>& data)
+        const std::vector<char>& data) const
 {
     m_driver.put(fullPath(subpath), data);
 }
@@ -316,8 +327,16 @@ std::string Endpoint::fullPath(const std::string& subpath) const
 #include <arbiter/drivers/fs.hpp>
 #endif
 
-#include <fstream>
+#ifndef ARBITER_WINDOWS
 #include <glob.h>
+#include <sys/stat.h>
+#else
+#include <locale>
+#include <codecvt>
+#endif
+
+#include <cstdlib>
+#include <fstream>
 #include <stdexcept>
 
 namespace arbiter
@@ -330,10 +349,27 @@ namespace
             std::ofstream::binary |
             std::ofstream::out |
             std::ofstream::trunc);
+
+    const std::string home("HOME");
+
+    std::string expandTilde(std::string in)
+    {
+        std::string out(in);
+
+#ifndef ARBITER_WINDOWS
+        if (!in.empty() && in.front() == '~')
+        {
+            out = getenv(home.c_str()) + in.substr(1);
+        }
+#endif
+
+        return out;
+    }
 }
 
-std::vector<char> FsDriver::getBinary(const std::string path)
+std::vector<char> FsDriver::getBinary(std::string path) const
 {
+    path = expandTilde(path);
     std::ifstream stream(path, std::ios::in | std::ios::binary);
 
     if (!stream.good())
@@ -350,8 +386,9 @@ std::vector<char> FsDriver::getBinary(const std::string path)
     return data;
 }
 
-void FsDriver::put(const std::string path, const std::vector<char>& data)
+void FsDriver::put(std::string path, const std::vector<char>& data) const
 {
+    path = expandTilde(path);
     std::ofstream stream(path, binaryTruncMode);
 
     if (!stream.good())
@@ -367,21 +404,55 @@ void FsDriver::put(const std::string path, const std::vector<char>& data)
     }
 }
 
-std::vector<std::string> FsDriver::glob(const std::string path, bool)
+std::vector<std::string> FsDriver::glob(std::string path, bool) const
 {
-    // TODO Platform dependent.
     std::vector<std::string> results;
 
+#ifndef ARBITER_WINDOWS
+    path = expandTilde(path);
+
     glob_t buffer;
+    struct stat info;
 
     ::glob(path.c_str(), GLOB_NOSORT | GLOB_TILDE, 0, &buffer);
 
     for (std::size_t i(0); i < buffer.gl_pathc; ++i)
     {
-        results.push_back(buffer.gl_pathv[i]);
+        const std::string val(buffer.gl_pathv[i]);
+
+        if (stat(val.c_str(), &info) == 0)
+        {
+            if (S_ISREG(info.st_mode))
+            {
+                results.push_back(val);
+            }
+        }
+        else
+        {
+            throw std::runtime_error("Error globbing - POSIX stat failed");
+        }
     }
 
     globfree(&buffer);
+#else
+    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+    const std::wstring wide(converter.from_bytes(path));
+
+    WIN32_FIND_DATA data;
+    HANDLE hFind(FindFirstFile(wide.c_str(), &data));
+
+    if (hFind != INVALID_HANDLE_VALUE)
+    {
+        do
+        {
+            if ((data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+            {
+                results.push_back(converter.to_bytes(data.cFileName));
+            }
+        }
+        while (FindNextFile(hFind, &data));
+    }
+#endif
 
     return results;
 }
@@ -406,6 +477,12 @@ std::vector<std::string> FsDriver::glob(const std::string path, bool)
 #include <arbiter/drivers/http.hpp>
 #endif
 
+#ifdef ARBITER_WINDOWS
+#undef min
+#undef max
+#endif
+
+#include <algorithm>
 #include <cstring>
 #include <iostream>
 
@@ -472,7 +549,7 @@ HttpDriver::HttpDriver(HttpPool& pool)
     : m_pool(pool)
 { }
 
-std::vector<char> HttpDriver::getBinary(const std::string path)
+std::vector<char> HttpDriver::getBinary(const std::string path) const
 {
     auto http(m_pool.acquire());
     HttpResponse res(http.get(path));
@@ -481,7 +558,9 @@ std::vector<char> HttpDriver::getBinary(const std::string path)
     else throw std::runtime_error("Couldn't HTTP GET " + path);
 }
 
-void HttpDriver::put(const std::string path, const std::vector<char>& data)
+void HttpDriver::put(
+        const std::string path,
+        const std::vector<char>& data) const
 {
     auto http(m_pool.acquire());
 
@@ -580,7 +659,10 @@ HttpResponse Curl::put(
 
     // Must use this for binary data, otherwise curl will use strlen(), which
     // will likely be incorrect.
-    curl_easy_setopt(m_curl, CURLOPT_INFILESIZE_LARGE, data.size());
+    curl_easy_setopt(
+            m_curl,
+            CURLOPT_INFILESIZE_LARGE,
+            static_cast<curl_off_t>(data.size()));
 
     // Hide Curl's habit of printing things to console even with verbose set
     // to false.
@@ -718,9 +800,8 @@ void HttpPool::release(const std::size_t id)
 
 #ifndef ARBITER_IS_AMALGAMATION
 #include <arbiter/third/xml/xml.hpp>
+#include <arbiter/util/crypto.hpp>
 #endif
-
-#include <openssl/hmac.h>
 
 namespace arbiter
 {
@@ -792,12 +873,14 @@ S3Driver::S3Driver(HttpPool& pool, const AwsAuth auth)
     , m_auth(auth)
 { }
 
-std::vector<char> S3Driver::getBinary(const std::string rawPath)
+std::vector<char> S3Driver::getBinary(const std::string rawPath) const
 {
     return get(rawPath, Query());
 }
 
-std::vector<char> S3Driver::get(const std::string rawPath, const Query& query)
+std::vector<char> S3Driver::get(
+        const std::string rawPath,
+        const Query& query) const
 {
     const Resource resource(rawPath);
 
@@ -815,13 +898,13 @@ std::vector<char> S3Driver::get(const std::string rawPath, const Query& query)
     else
     {
         // TODO If verbose:
-        std::cout << std::string(res.data().begin(), res.data().end()) <<
-            std::endl;
+        // std::cout << std::string(res.data().begin(), res.data().end()) <<
+            // std::endl;
         throw std::runtime_error("Couldn't S3 GET " + rawPath);
     }
 }
 
-void S3Driver::put(std::string rawPath, const std::vector<char>& data)
+void S3Driver::put(std::string rawPath, const std::vector<char>& data) const
 {
     const Resource resource(rawPath);
 
@@ -836,7 +919,7 @@ void S3Driver::put(std::string rawPath, const std::vector<char>& data)
     }
 }
 
-std::vector<std::string> S3Driver::glob(std::string path, bool verbose)
+std::vector<std::string> S3Driver::glob(std::string path, bool verbose) const
 {
     std::vector<std::string> results;
 
@@ -976,9 +1059,16 @@ std::string S3Driver::getHttpDate() const
     char charBuf[80];
 
     time(&rawTime);
-    tm* timeInfo = localtime(&rawTime);
 
-    strftime(charBuf, 80, "%a, %d %b %Y %H:%M:%S %z", timeInfo);
+#ifndef ARBITER_WINDOWS
+    tm* timeInfoPtr = localtime(&rawTime);
+#else
+    tm timeInfo;
+    localtime_s(&timeInfo, &rawTime);
+    tm* timeInfoPtr(&timeInfo);
+#endif
+
+    strftime(charBuf, 80, "%a, %d %b %Y %H:%M:%S %z", timeInfoPtr);
     std::string stringBuf(charBuf);
 
     return stringBuf;
@@ -1016,28 +1106,7 @@ std::string S3Driver::getStringToSign(
 
 std::vector<char> S3Driver::signString(std::string input) const
 {
-    std::vector<char> hash(20, ' ');
-    unsigned int outLength(0);
-
-    HMAC_CTX ctx;
-    HMAC_CTX_init(&ctx);
-
-    HMAC_Init(
-            &ctx,
-            m_auth.hidden().data(),
-            m_auth.hidden().size(),
-            EVP_sha1());
-    HMAC_Update(
-            &ctx,
-            reinterpret_cast<const uint8_t*>(input.data()),
-            input.size());
-    HMAC_Final(
-            &ctx,
-            reinterpret_cast<uint8_t*>(hash.data()),
-            &outLength);
-    HMAC_CTX_cleanup(&ctx);
-
-    return hash;
+    return crypto::hmacSha1(m_auth.hidden(), input);
 }
 
 std::string S3Driver::encodeBase64(std::vector<char> data) const
@@ -1094,6 +1163,251 @@ std::string S3Driver::encodeBase64(std::vector<char> data) const
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/drivers/s3.cpp
+// //////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+// //////////////////////////////////////////////////////////////////////
+// Beginning of content of file: arbiter/util/crypto.cpp
+// //////////////////////////////////////////////////////////////////////
+
+#ifndef ARBITER_IS_AMALGAMATION
+#include <arbiter/util/crypto.hpp>
+#endif
+
+#include <cstdint>
+
+#define ROTLEFT(a, b) ((a << b) | (a >> (32 - b)))
+
+namespace arbiter
+{
+namespace crypto
+{
+namespace
+{
+    const std::size_t block(64);
+
+    std::vector<char> append(
+            const std::vector<char>& a,
+            const std::vector<char>& b)
+    {
+        std::vector<char> out(a);
+        out.insert(out.end(), b.begin(), b.end());
+        return out;
+    }
+
+    std::vector<char> append(
+            const std::vector<char>& a,
+            const std::string& b)
+    {
+        return append(a, std::vector<char>(b.begin(), b.end()));
+    }
+
+    // SHA1 implementation:
+    //      https://github.com/B-Con/crypto-algorithms
+    //
+    // HMAC:
+    //      https://en.wikipedia.org/wiki/Hash-based_message_authentication_code
+    //
+    typedef struct
+    {
+        uint8_t data[64];
+        uint32_t datalen;
+        unsigned long long bitlen;
+        uint32_t state[5];
+        uint32_t k[4];
+    } SHA1_CTX;
+
+    void sha1_transform(SHA1_CTX *ctx, const uint8_t* data)
+    {
+        uint32_t a, b, c, d, e, i, j, t, m[80];
+
+        for (i = 0, j = 0; i < 16; ++i, j += 4)
+        {
+            m[i] =
+                (data[j] << 24) + (data[j + 1] << 16) +
+                (data[j + 2] << 8) + (data[j + 3]);
+        }
+
+        for ( ; i < 80; ++i)
+        {
+            m[i] = (m[i - 3] ^ m[i - 8] ^ m[i - 14] ^ m[i - 16]);
+            m[i] = (m[i] << 1) | (m[i] >> 31);
+        }
+
+        a = ctx->state[0];
+        b = ctx->state[1];
+        c = ctx->state[2];
+        d = ctx->state[3];
+        e = ctx->state[4];
+
+        for (i = 0; i < 20; ++i) {
+            t = ROTLEFT(a, 5) + ((b & c) ^ (~b & d)) + e + ctx->k[0] + m[i];
+            e = d;
+            d = c;
+            c = ROTLEFT(b, 30);
+            b = a;
+            a = t;
+        }
+        for ( ; i < 40; ++i) {
+            t = ROTLEFT(a, 5) + (b ^ c ^ d) + e + ctx->k[1] + m[i];
+            e = d;
+            d = c;
+            c = ROTLEFT(b, 30);
+            b = a;
+            a = t;
+        }
+        for ( ; i < 60; ++i) {
+            t = ROTLEFT(a, 5) + ((b & c) ^ (b & d) ^ (c & d)) + e +
+                ctx->k[2] + m[i];
+            e = d;
+            d = c;
+            c = ROTLEFT(b, 30);
+            b = a;
+            a = t;
+        }
+        for ( ; i < 80; ++i) {
+            t = ROTLEFT(a, 5) + (b ^ c ^ d) + e + ctx->k[3] + m[i];
+            e = d;
+            d = c;
+            c = ROTLEFT(b, 30);
+            b = a;
+            a = t;
+        }
+
+        ctx->state[0] += a;
+        ctx->state[1] += b;
+        ctx->state[2] += c;
+        ctx->state[3] += d;
+        ctx->state[4] += e;
+    }
+
+    void sha1_init(SHA1_CTX *ctx)
+    {
+        ctx->datalen = 0;
+        ctx->bitlen = 0;
+        ctx->state[0] = 0x67452301;
+        ctx->state[1] = 0xEFCDAB89;
+        ctx->state[2] = 0x98BADCFE;
+        ctx->state[3] = 0x10325476;
+        ctx->state[4] = 0xc3d2e1f0;
+        ctx->k[0] = 0x5a827999;
+        ctx->k[1] = 0x6ed9eba1;
+        ctx->k[2] = 0x8f1bbcdc;
+        ctx->k[3] = 0xca62c1d6;
+    }
+
+    void sha1_update(SHA1_CTX *ctx, const uint8_t* data, size_t len)
+    {
+        for (std::size_t i(0); i < len; ++i)
+        {
+            ctx->data[ctx->datalen] = data[i];
+            ++ctx->datalen;
+            if (ctx->datalen == 64)
+            {
+                sha1_transform(ctx, ctx->data);
+                ctx->bitlen += 512;
+                ctx->datalen = 0;
+            }
+        }
+    }
+
+    void sha1_final(SHA1_CTX *ctx, uint8_t* hash)
+    {
+        uint32_t i;
+
+        i = ctx->datalen;
+
+        // Pad whatever data is left in the buffer.
+        if (ctx->datalen < 56)
+        {
+            ctx->data[i++] = 0x80;
+            while (i < 56)
+                ctx->data[i++] = 0x00;
+        }
+        else
+        {
+            ctx->data[i++] = 0x80;
+            while (i < 64)
+                ctx->data[i++] = 0x00;
+            sha1_transform(ctx, ctx->data);
+            std::memset(ctx->data, 0, 56);
+        }
+
+        // Append to the padding the total message's length in bits and
+        // transform.
+        ctx->bitlen += ctx->datalen * 8;
+        ctx->data[63] = static_cast<uint8_t>(ctx->bitlen);
+        ctx->data[62] = static_cast<uint8_t>(ctx->bitlen >> 8);
+        ctx->data[61] = static_cast<uint8_t>(ctx->bitlen >> 16);
+        ctx->data[60] = static_cast<uint8_t>(ctx->bitlen >> 24);
+        ctx->data[59] = static_cast<uint8_t>(ctx->bitlen >> 32);
+        ctx->data[58] = static_cast<uint8_t>(ctx->bitlen >> 40);
+        ctx->data[57] = static_cast<uint8_t>(ctx->bitlen >> 48);
+        ctx->data[56] = static_cast<uint8_t>(ctx->bitlen >> 56);
+        sha1_transform(ctx, ctx->data);
+
+        // Since this implementation uses little endian byte ordering and MD
+        // uses big endian, reverse all the bytes when copying the final state
+        // to the output hash.
+        for (i = 0; i < 4; ++i)
+        {
+            hash[i]      = (ctx->state[0] >> (24 - i * 8)) & 0x000000ff;
+            hash[i + 4]  = (ctx->state[1] >> (24 - i * 8)) & 0x000000ff;
+            hash[i + 8]  = (ctx->state[2] >> (24 - i * 8)) & 0x000000ff;
+            hash[i + 12] = (ctx->state[3] >> (24 - i * 8)) & 0x000000ff;
+            hash[i + 16] = (ctx->state[4] >> (24 - i * 8)) & 0x000000ff;
+        }
+    }
+
+    std::vector<char> sha1(const std::vector<char>& data)
+    {
+        SHA1_CTX ctx;
+        std::vector<char> out(20);
+
+        sha1_init(&ctx);
+        sha1_update(
+                &ctx,
+                reinterpret_cast<const uint8_t*>(data.data()),
+                data.size());
+        sha1_final(&ctx, reinterpret_cast<uint8_t*>(out.data()));
+
+        return out;
+    }
+
+    std::string sha1(const std::string& data)
+    {
+        auto hashed(sha1(std::vector<char>(data.begin(), data.end())));
+        return std::string(hashed.begin(), hashed.end());
+    }
+
+} // unnamed namespace
+
+std::vector<char> hmacSha1(std::string key, const std::string message)
+{
+    if (key.size() > block) key = sha1(key);
+    if (key.size() < block) key.insert(key.end(), block - key.size(), 0);
+
+    std::vector<char> okeypad(block, 0x5c);
+    std::vector<char> ikeypad(block, 0x36);
+
+    for (std::size_t i(0); i < block; ++i)
+    {
+        okeypad[i] ^= key[i];
+        ikeypad[i] ^= key[i];
+    }
+
+    return sha1(append(okeypad, sha1(append(ikeypad, message))));
+}
+
+} // namespace crypto
+} // namespace arbiter
+
+// //////////////////////////////////////////////////////////////////////
+// End of content of file: arbiter/util/crypto.cpp
 // //////////////////////////////////////////////////////////////////////
 
 

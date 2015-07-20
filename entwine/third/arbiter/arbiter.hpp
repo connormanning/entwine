@@ -1,6 +1,8 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
+// Git SHA: 9db47b655070e3e2fe31ef0cd4f250e05b86f112
+
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
 // //////////////////////////////////////////////////////////////////////
@@ -70,8 +72,8 @@ public:
     virtual std::string type() const = 0;
 
     // Read/write data.
-    virtual std::vector<char> getBinary(std::string path) = 0;
-    virtual void put(std::string path, const std::vector<char>& data) = 0;
+    virtual std::vector<char> getBinary(std::string path) const = 0;
+    virtual void put(std::string path, const std::vector<char>& data) const = 0;
 
     // True for filesystem paths, otherwise false.  Derived classes other than
     // the filesystem driver should not overload.
@@ -80,17 +82,19 @@ public:
 
 
     // Convenience overloads.
-    std::string get(std::string path);
-    void put(std::string path, const std::string& data);
+    std::string get(std::string path) const;
+    void put(std::string path, const std::string& data) const;
 
     // Resolve a possibly globbed path.
-    std::vector<std::string> resolve(std::string path, bool verbose = false);
+    std::vector<std::string> resolve(
+            std::string path,
+            bool verbose = false) const;
 
 private:
     // This operation expects a path ending with the characters "/*", and
     // without any type-specifying information (i.e. "http://", "s3://", or any
     // other "<type>://" information is stripped).
-    virtual std::vector<std::string> glob(std::string path, bool verbose)
+    virtual std::vector<std::string> glob(std::string path, bool verbose) const
     {
         throw std::runtime_error("Cannot glob driver for: " + path);
     }
@@ -127,10 +131,10 @@ class FsDriver : public Driver
 {
 public:
     virtual std::string type() const { return "fs"; }
-    virtual std::vector<char> getBinary(std::string path);
-    virtual void put(std::string path, const std::vector<char>& data);
+    virtual std::vector<char> getBinary(std::string path) const;
+    virtual void put(std::string path, const std::vector<char>& data) const;
 
-    virtual std::vector<std::string> glob(std::string path, bool verbose);
+    virtual std::vector<std::string> glob(std::string path, bool verbose) const;
 
     virtual bool isRemote() const { return false; }
 };
@@ -208,8 +212,8 @@ public:
     HttpDriver(HttpPool& pool);
 
     virtual std::string type() const { return "http"; }
-    virtual std::vector<char> getBinary(std::string path);
-    virtual void put(std::string path, const std::vector<char>& data);
+    virtual std::vector<char> getBinary(std::string path) const;
+    virtual void put(std::string path, const std::vector<char>& data) const;
 
 private:
     HttpPool& m_pool;
@@ -1852,28 +1856,28 @@ namespace rapidxml
                 // Insert UTF8 sequence
                 if (code < 0x80)    // 1 byte sequence
                 {
-	                text[0] = static_cast<unsigned char>(code);
+                    text[0] = static_cast<unsigned char>(code);
                     text += 1;
                 }
                 else if (code < 0x800)  // 2 byte sequence
                 {
-	                text[1] = static_cast<unsigned char>((code | 0x80) & 0xBF); code >>= 6;
-	                text[0] = static_cast<unsigned char>(code | 0xC0);
+                    text[1] = static_cast<unsigned char>((code | 0x80) & 0xBF); code >>= 6;
+                    text[0] = static_cast<unsigned char>(code | 0xC0);
                     text += 2;
                 }
-	            else if (code < 0x10000)    // 3 byte sequence
+                else if (code < 0x10000)    // 3 byte sequence
                 {
-	                text[2] = static_cast<unsigned char>((code | 0x80) & 0xBF); code >>= 6;
-	                text[1] = static_cast<unsigned char>((code | 0x80) & 0xBF); code >>= 6;
-	                text[0] = static_cast<unsigned char>(code | 0xE0);
+                    text[2] = static_cast<unsigned char>((code | 0x80) & 0xBF); code >>= 6;
+                    text[1] = static_cast<unsigned char>((code | 0x80) & 0xBF); code >>= 6;
+                    text[0] = static_cast<unsigned char>(code | 0xE0);
                     text += 3;
                 }
-	            else if (code < 0x110000)   // 4 byte sequence
+                else if (code < 0x110000)   // 4 byte sequence
                 {
-	                text[3] = static_cast<unsigned char>((code | 0x80) & 0xBF); code >>= 6;
-	                text[2] = static_cast<unsigned char>((code | 0x80) & 0xBF); code >>= 6;
-	                text[1] = static_cast<unsigned char>((code | 0x80) & 0xBF); code >>= 6;
-	                text[0] = static_cast<unsigned char>(code | 0xF0);
+                    text[3] = static_cast<unsigned char>((code | 0x80) & 0xBF); code >>= 6;
+                    text[2] = static_cast<unsigned char>((code | 0x80) & 0xBF); code >>= 6;
+                    text[1] = static_cast<unsigned char>((code | 0x80) & 0xBF); code >>= 6;
+                    text[0] = static_cast<unsigned char>(code | 0xF0);
                     text += 4;
                 }
                 else    // Invalid, only codes up to 0x10FFFF are allowed in Unicode
@@ -2956,6 +2960,35 @@ namespace Xml = rapidxml;
 
 
 // //////////////////////////////////////////////////////////////////////
+// Beginning of content of file: arbiter/util/crypto.hpp
+// //////////////////////////////////////////////////////////////////////
+
+#pragma once
+
+#include <string>
+#include <vector>
+
+namespace arbiter
+{
+namespace crypto
+{
+
+std::vector<char> hmacSha1(std::string key, std::string message);
+
+} // namespace crypto
+} // namespace arbiter
+
+
+// //////////////////////////////////////////////////////////////////////
+// End of content of file: arbiter/util/crypto.hpp
+// //////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+// //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: arbiter/drivers/s3.hpp
 // //////////////////////////////////////////////////////////////////////
 
@@ -2994,13 +3027,13 @@ public:
     S3Driver(HttpPool& pool, AwsAuth awsAuth);
 
     virtual std::string type() const { return "s3"; }
-    virtual std::vector<char> getBinary(std::string path);
-    virtual void put(std::string path, const std::vector<char>& data);
+    virtual std::vector<char> getBinary(std::string path) const;
+    virtual void put(std::string path, const std::vector<char>& data) const;
 
 private:
-    virtual std::vector<std::string> glob(std::string path, bool verbose);
+    virtual std::vector<std::string> glob(std::string path, bool verbose) const;
 
-    std::vector<char> get(std::string path, const Query& query);
+    std::vector<char> get(std::string path, const Query& query) const;
 
     Headers httpGetHeaders(std::string filePath) const;
     Headers httpPutHeaders(std::string filePath) const;
@@ -3062,18 +3095,18 @@ public:
     std::string type() const;
     bool isRemote() const;
 
-    std::string getSubpath(std::string subpath);
-    std::vector<char> getSubpathBinary(std::string subpath);
+    std::string getSubpath(std::string subpath) const;
+    std::vector<char> getSubpathBinary(std::string subpath) const;
 
-    void putSubpath(std::string subpath, const std::string& data);
-    void putSubpath(std::string subpath, const std::vector<char>& data);
+    void putSubpath(std::string subpath, const std::string& data) const;
+    void putSubpath(std::string subpath, const std::vector<char>& data) const;
 
     std::string fullPath(const std::string& subpath) const;
 
 private:
-    Endpoint(Driver& driver, std::string root);
+    Endpoint(const Driver& driver, std::string root);
 
-    Driver& m_driver;
+    const Driver& m_driver;
     std::string m_root;
 };
 
@@ -3098,6 +3131,10 @@ private:
 #include <vector>
 #include <string>
 
+#if defined(_WIN32) || defined(WIN32) || defined(_MSC_VER)
+#define ARBITER_WINDOWS
+#endif
+
 #ifndef ARBITER_IS_AMALGAMATION
 #include <arbiter/driver.hpp>
 #include <arbiter/endpoint.hpp>
@@ -3112,7 +3149,8 @@ namespace arbiter
 class Arbiter
 {
 public:
-    Arbiter(AwsAuth* awsAuth = 0);
+    Arbiter();
+    Arbiter(AwsAuth awsAuth);
     ~Arbiter();
 
     // Read/write operations.  Each may throw std::runtime_error if the
@@ -3120,8 +3158,8 @@ public:
     std::string get(std::string path) const;
     std::vector<char> getBinary(std::string path) const;
 
-    void put(std::string path, const std::string& data);
-    void put(std::string path, const std::vector<char>& data);
+    void put(std::string path, const std::string& data) const;
+    void put(std::string path, const std::vector<char>& data) const;
 
     // Returns true if this path is a filesystem path, otherwise false.
     bool isRemote(std::string path) const;
@@ -3151,7 +3189,7 @@ public:
     //
     // Will throw std::out_of_range if the delimiter exists but a driver for
     // its type does not exist.
-    Driver& getDriver(std::string path) const;
+    const Driver& getDriver(std::string path) const;
 
     static std::string stripType(const std::string path);
 
