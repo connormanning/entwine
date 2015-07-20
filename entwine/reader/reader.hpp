@@ -62,8 +62,9 @@ public:
             std::size_t depthEnd);
 
     std::size_t numPoints() const;
-    const Schema& schema() const { return *m_schema; }
-    const BBox& bbox() const { return *m_bbox; }
+    const BBox& bbox() const            { return *m_bbox; }
+    const Schema& schema() const        { return *m_schema; }
+    const Structure& structure() const  { return *m_structure; }
 
 private:
     FetchInfoSet traverse(
