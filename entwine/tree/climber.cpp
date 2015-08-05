@@ -77,5 +77,73 @@ void Climber::climb(const Dir dir)
     }
 }
 
+bool SplitClimber::next(bool terminate)
+{
+    if (terminate || (m_depthEnd && depth() + 1 == m_depthEnd))
+    {
+        while (
+                depth() &&
+                static_cast<unsigned>(++m_traversal.back()) ==
+                    m_structure.factor())
+        {
+            m_traversal.pop_back();
+            m_splits /= 2;
+
+            m_index = (m_index >> m_structure.dimensions()) - 1;
+
+            m_xPos /= 2;
+            m_yPos /= 2;
+            m_zPos /= 2;
+        }
+
+        if (depth())
+        {
+            const auto current(m_traversal.back());
+            ++m_index;
+
+            if (current % 2)
+            {
+                // Odd numbers: W->E.
+                ++m_xPos;
+            }
+            if (current == 2 || current == 6)
+            {
+                // 2 or 6: E->W, N->S.
+                --m_xPos;
+                ++m_yPos;
+            }
+            else if (current == 4)
+            {
+                // 4: E->W, S->N, D->U.
+                --m_xPos;
+                --m_yPos;
+                ++m_zPos;
+            }
+        }
+    }
+    else
+    {
+        m_traversal.push_back(0);
+        m_splits *= 2;
+
+        m_index = (m_index << m_structure.dimensions()) + 1;
+
+        m_xPos *= 2;
+        m_yPos *= 2;
+        m_zPos *= 2;
+    }
+
+    if (depth())
+    {
+        if (depth() < m_depthBegin) return next();
+        else if (overlaps()) return true;
+        else return next(true);
+    }
+    else
+    {
+        return false;
+    }
+}
+
 } // namespace entwine
 
