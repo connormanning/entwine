@@ -90,16 +90,17 @@ Reader::Reader(
 
         if (jsonIds.isArray())
         {
-            std::set<std::size_t>& ids(
+            std::set<Id>& ids(
                     m_ids.insert(
                         std::make_pair(
                             std::unique_ptr<Endpoint>(new Endpoint(endpoint)),
-                            std::set<std::size_t>())).first->second);
+                            std::set<Id>())).first->second);
 
             for (std::size_t i(0); i < jsonIds.size(); ++i)
             {
                 ids.insert(
-                        jsonIds[static_cast<Json::ArrayIndex>(i)].asUInt64());
+                        Id(jsonIds[static_cast<Json::ArrayIndex>(i)]
+                            .asString()));
             }
         }
         else if (jsonIds.isObject())
@@ -109,19 +110,19 @@ Reader::Reader(
             for (const auto path : subs)
             {
                 Endpoint sub(arbiter.getEndpoint(path));
-                std::set<std::size_t>& ids(
+                std::set<Id>& ids(
                         m_ids.insert(
                             std::make_pair(
                                 std::unique_ptr<Endpoint>(new Endpoint(sub)),
-                                std::set<std::size_t>())).first->second);
+                                std::set<Id>())).first->second);
 
                 const Json::Value& subIds(jsonIds[path]);
 
                 for (std::size_t i(0); i < subIds.size(); ++i)
                 {
                     ids.insert(
-                            subIds[static_cast<Json::ArrayIndex>(i)]
-                            .asUInt64());
+                            Id(subIds[static_cast<Json::ArrayIndex>(i)]
+                                .asString()));
                 }
             }
         }
