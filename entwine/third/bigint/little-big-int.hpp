@@ -109,6 +109,7 @@ bool operator<=(const BigUint& lhs, const BigUint& rhs);
 bool operator> (const BigUint& lhs, const BigUint& rhs);
 bool operator>=(const BigUint& lhs, const BigUint& rhs);
 
+inline bool operator!(const BigUint& val) { return val.zero(); }
 std::ostream& operator<<(std::ostream& out, const BigUint& val);
 
 Block log2(const BigUint& val);

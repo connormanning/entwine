@@ -24,7 +24,6 @@
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/simple-point-table.hpp>
-#include <entwine/types/structure.hpp>
 #include <entwine/util/pool.hpp>
 
 namespace entwine
@@ -114,7 +113,7 @@ Registry::Registry(
     if (m_structure.baseIndexSpan())
     {
         const std::string basePath(
-                std::to_string(m_structure.baseIndexBegin()) +
+                m_structure.baseIndexBegin().str() +
                 m_structure.subsetPostfix());
 
         std::vector<char> data(m_endpoint.getSubpathBinary(basePath));
@@ -231,7 +230,7 @@ Entry* Registry::getEntry(const Climber& climber, Clipper* clipper)
     return entry;
 }
 
-void Registry::clip(const std::size_t index, Clipper* clipper)
+void Registry::clip(const Id& index, Clipper* clipper)
 {
     m_cold->clip(index, clipper, *m_pool);
 }

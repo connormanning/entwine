@@ -15,6 +15,7 @@
 #include <memory>
 #include <vector>
 
+#include <entwine/types/structure.hpp>
 #include <entwine/tree/chunk.hpp>
 
 namespace entwine
@@ -27,18 +28,18 @@ class ChunkReader
 public:
     static std::unique_ptr<ChunkReader> create(
             const Schema& schema,
-            std::size_t id,
+            const Id& id,
             std::size_t maxPoints,
             std::unique_ptr<std::vector<char>> data);
 
     virtual bool sparse() const = 0;
-    virtual const char* getData(std::size_t rawIndex) const = 0;
+    virtual const char* getData(const Id& rawIndex) const = 0;
 
 protected:
-    ChunkReader(const Schema& schema, std::size_t id, std::size_t maxPoints);
+    ChunkReader(const Schema& schema, const Id& id, std::size_t maxPoints);
 
     const Schema& m_schema;
-    const std::size_t m_id;
+    const Id m_id;
     const std::size_t m_maxPoints;
 };
 
@@ -49,15 +50,15 @@ class SparseReader : public ChunkReader
 public:
     SparseReader(
             const Schema& schema,
-            std::size_t id,
+            const Id& id,
             std::size_t maxPoints,
             std::unique_ptr<std::vector<char>> data);
 
     virtual bool sparse() const { return true; }
-    virtual const char* getData(std::size_t rawIndex) const;
+    virtual const char* getData(const Id& rawIndex) const;
 
 private:
-    std::map<std::size_t, std::vector<char>> m_data;
+    std::map<Id, std::vector<char>> m_data;
 };
 
 class ContiguousReader : public ChunkReader
@@ -67,12 +68,12 @@ class ContiguousReader : public ChunkReader
 public:
     ContiguousReader(
             const Schema& schema,
-            std::size_t id,
+            const Id& id,
             std::size_t maxPoints,
             std::unique_ptr<std::vector<char>> data);
 
     virtual bool sparse() const { return false; }
-    virtual const char* getData(std::size_t rawIndex) const;
+    virtual const char* getData(const Id& rawIndex) const;
 
 private:
     std::unique_ptr<std::vector<char>> m_data;
@@ -100,8 +101,8 @@ public:
     virtual const char* getData() const { return m_cur->second.data(); }
 
 private:
-    std::map<std::size_t, std::vector<char>>::const_iterator m_cur;
-    std::map<std::size_t, std::vector<char>>::const_iterator m_end;
+    std::map<Id, std::vector<char>>::const_iterator m_cur;
+    std::map<Id, std::vector<char>>::const_iterator m_end;
 };
 
 class ContiguousIter : public ChunkIter

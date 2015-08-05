@@ -13,6 +13,8 @@
 #include <cstddef>
 #include <unordered_set>
 
+#include <entwine/types/structure.hpp>
+
 namespace entwine
 {
 
@@ -25,13 +27,13 @@ public:
     Clipper(Builder& builder);
     ~Clipper();
 
-    bool insert(std::size_t index);
+    bool insert(const Id& index);
 
     void clip();
 
 private:
     Builder& m_builder;
-    std::unordered_set<std::size_t> m_clips;
+    std::unordered_set<Id> m_clips;
 };
 
 } // namespace entwine

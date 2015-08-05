@@ -18,6 +18,7 @@
 #include <unordered_map>
 
 #include <entwine/third/json/json.h>
+#include <entwine/types/structure.hpp>
 
 namespace arbiter
 {
@@ -33,7 +34,6 @@ class Clipper;
 class Entry;
 class Pool;
 class Schema;
-class Structure;
 
 class Cold
 {
@@ -53,10 +53,10 @@ public:
 
     ~Cold();
 
-    Entry* getEntry(std::size_t index, Clipper* clipper);
+    Entry* getEntry(const Id& index, Clipper* clipper);
 
     Json::Value toJson() const;
-    void clip(std::size_t chunkId, Clipper* clipper, Pool& pool);
+    void clip(const Id& chunkId, Clipper* clipper, Pool& pool);
 
 private:
     void growFast(const ChunkInfo& info, Clipper* clipper);
@@ -81,8 +81,7 @@ private:
         std::unique_ptr<CountedChunk> chunk;
     };
 
-    typedef
-        std::unordered_map<std::size_t, std::unique_ptr<CountedChunk>> ChunkMap;
+    typedef std::unordered_map<Id, std::unique_ptr<CountedChunk>> ChunkMap;
 
     arbiter::Endpoint& m_endpoint;
     const Schema& m_schema;

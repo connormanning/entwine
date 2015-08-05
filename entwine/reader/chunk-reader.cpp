@@ -18,7 +18,7 @@ namespace entwine
 
 ChunkReader::ChunkReader(
         const Schema& schema,
-        const std::size_t id,
+        const Id& id,
         const std::size_t maxPoints)
     : m_schema(schema)
     , m_id(id)
@@ -27,7 +27,7 @@ ChunkReader::ChunkReader(
 
 std::unique_ptr<ChunkReader> ChunkReader::create(
         const Schema& schema,
-        const std::size_t id,
+        const Id& id,
         const std::size_t maxPoints,
         std::unique_ptr<std::vector<char>> data)
 {
@@ -50,7 +50,7 @@ std::unique_ptr<ChunkReader> ChunkReader::create(
 
 SparseReader::SparseReader(
         const Schema& schema,
-        const std::size_t id,
+        const Id& id,
         const std::size_t maxPoints,
         std::unique_ptr<std::vector<char>> data)
     : ChunkReader(schema, id, maxPoints)
@@ -85,7 +85,7 @@ SparseReader::SparseReader(
     }
 }
 
-const char* SparseReader::getData(const std::size_t rawIndex) const
+const char* SparseReader::getData(const Id& rawIndex) const
 {
     const char* pos(0);
 
@@ -101,7 +101,7 @@ const char* SparseReader::getData(const std::size_t rawIndex) const
 
 ContiguousReader::ContiguousReader(
         const Schema& schema,
-        const std::size_t id,
+        const Id& id,
         const std::size_t maxPoints,
         std::unique_ptr<std::vector<char>> compressed)
     : ChunkReader(schema, id, maxPoints)
@@ -112,9 +112,9 @@ ContiguousReader::ContiguousReader(
                 m_maxPoints * m_schema.pointSize()))
 { }
 
-const char* ContiguousReader::getData(const std::size_t rawIndex) const
+const char* ContiguousReader::getData(const Id& rawIndex) const
 {
-    const std::size_t normal(rawIndex - m_id);
+    const std::size_t normal((rawIndex - m_id).getSimple());
 
     if (normal >= m_maxPoints)
     {

@@ -135,7 +135,7 @@ Reader::Reader(
         std::unique_ptr<std::vector<char>> data(
                 new std::vector<char>(
                     endpoint.getSubpathBinary(
-                        std::to_string(m_structure->baseIndexBegin()))));
+                        m_structure->baseIndexBegin().str())));
 
         m_base = ChunkReader::create(
                 *m_schema,

@@ -13,10 +13,13 @@
 #include <cstddef>
 #include <memory>
 
+#include <entwine/third/bigint/little-big-int.hpp>
 #include <entwine/third/json/json.h>
 
 namespace entwine
 {
+
+typedef BigUint Id;
 
 class BBox;
 class Structure;
@@ -24,27 +27,27 @@ class Structure;
 class ChunkInfo
 {
 public:
-    ChunkInfo(const Structure& structure, std::size_t index);
+    ChunkInfo(const Structure& structure, const Id& index);
 
-    static std::size_t calcDepth(std::size_t factor, std::size_t index);
+    static std::size_t calcDepth(std::size_t factor, const Id& index);
 
-    static std::size_t calcLevelIndex(
+    static Id calcLevelIndex(
             std::size_t dimensions,
             std::size_t depth);
 
-    static std::size_t pointsAtDepth(
+    static Id pointsAtDepth(
             std::size_t dimensions,
             std::size_t depth);
 
     // Note: Expects to receive number of dimensions, not factor.  Result will
     // be equal to std::pow(factor, exp), but we avoid a log2() call.
-    static std::size_t binaryPow(std::size_t baseLog2, std::size_t exp);
+    static Id binaryPow(std::size_t baseLog2, std::size_t exp);
 
     static std::size_t logN(std::size_t val, std::size_t n);
     static std::size_t isPerfectLogN(std::size_t val, std::size_t n);
 
     std::size_t depth()         const { return m_depth; }
-    std::size_t chunkId()       const { return m_chunkId; }
+    const Id&   chunkId()       const { return m_chunkId; }
     std::size_t chunkOffset()   const { return m_chunkOffset; }
     std::size_t chunkPoints()   const { return m_chunkPoints; }
     std::size_t chunkNum()      const { return m_chunkNum; }
@@ -52,9 +55,9 @@ public:
 private:
     const Structure& m_structure;
 
-    std::size_t m_index;
+    Id m_index;
+    Id m_chunkId;
     std::size_t m_depth;
-    std::size_t m_chunkId;
     std::size_t m_chunkOffset;
     std::size_t m_chunkPoints;
     std::size_t m_chunkNum;
@@ -73,7 +76,6 @@ public:
             bool dynamicChunks,
             std::pair<std::size_t, std::size_t> subset = { 0, 0 });
 
-    // TODO Lossless ctor.
     Structure(
             std::size_t nullDepth,
             std::size_t baseDepth,
@@ -95,30 +97,30 @@ public:
     std::size_t coldDepthEnd() const;
     std::size_t sparseDepthBegin() const;
 
-    std::size_t nullIndexBegin() const;
-    std::size_t nullIndexEnd() const;
-    std::size_t baseIndexBegin() const;
-    std::size_t baseIndexEnd() const;
-    std::size_t coldIndexBegin() const;
-    std::size_t coldIndexEnd() const;
-    std::size_t sparseIndexBegin() const;
+    const Id& nullIndexBegin() const;
+    const Id& nullIndexEnd() const;
+    const Id& baseIndexBegin() const;
+    const Id& baseIndexEnd() const;
+    const Id& coldIndexBegin() const;
+    const Id& coldIndexEnd() const;
+    const Id& sparseIndexBegin() const;
 
     std::size_t baseIndexSpan() const;
 
-    bool isWithinNull(std::size_t index) const;
-    bool isWithinBase(std::size_t index) const;
-    bool isWithinCold(std::size_t index) const;
+    bool isWithinNull(const Id& index) const;
+    bool isWithinBase(const Id& index) const;
+    bool isWithinCold(const Id& index) const;
 
     bool hasNull() const;
     bool hasBase() const;
     bool hasCold() const;
     bool hasSparse() const;
 
-    bool inRange(std::size_t index) const;
-    bool lossless() const;  // TODO Not yet supported.
+    bool inRange(const Id& index) const;
+    bool lossless() const;
     bool dynamicChunks() const;
 
-    ChunkInfo getInfo(std::size_t index) const;
+    ChunkInfo getInfo(const Id& index) const;
     ChunkInfo getInfoFromNum(std::size_t chunkNum) const;
     std::size_t numChunksAtDepth(std::size_t depth) const;
 
@@ -153,13 +155,13 @@ private:
     std::size_t m_coldDepthEnd;
     std::size_t m_sparseDepthBegin;
 
-    std::size_t m_nullIndexBegin;
-    std::size_t m_nullIndexEnd;
-    std::size_t m_baseIndexBegin;
-    std::size_t m_baseIndexEnd;
-    std::size_t m_coldIndexBegin;
-    std::size_t m_coldIndexEnd;
-    std::size_t m_sparseIndexBegin;
+    Id m_nullIndexBegin;
+    Id m_nullIndexEnd;
+    Id m_baseIndexBegin;
+    Id m_baseIndexEnd;
+    Id m_coldIndexBegin;
+    Id m_coldIndexEnd;
+    Id m_sparseIndexBegin;
 
     std::size_t m_chunkPoints;
 

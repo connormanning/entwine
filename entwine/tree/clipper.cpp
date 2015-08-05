@@ -25,14 +25,14 @@ Clipper::~Clipper()
     clip();
 }
 
-bool Clipper::insert(const std::size_t index)
+bool Clipper::insert(const Id& index)
 {
     return m_clips.insert(index).second;
 }
 
 void Clipper::clip()
 {
-    for (auto index : m_clips)
+    for (const auto& index : m_clips)
     {
         m_builder.clip(index, this);
     }

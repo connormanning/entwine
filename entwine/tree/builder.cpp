@@ -344,7 +344,7 @@ std::string Builder::localize(const std::string path, const Origin origin)
     return localPath;
 }
 
-void Builder::clip(std::size_t index, Clipper* clipper)
+void Builder::clip(const Id& index, Clipper* clipper)
 {
     m_registry->clip(index, clipper);
 }
@@ -427,7 +427,7 @@ void Builder::merge()
 
         std::vector<char> data(
                 m_outEndpoint->getSubpathBinary(
-                    std::to_string(m_structure->baseIndexBegin()) + postfix));
+                    m_structure->baseIndexBegin().str() + postfix));
 
         if (!data.empty() || data.back() == Contiguous)
         {
@@ -556,7 +556,7 @@ void Builder::link(std::vector<std::string> subsetPaths)
         }
 
         std::vector<char> data(subs[i].getSubpathBinary(
-                std::to_string(m_structure->baseIndexBegin()) + postfix));
+                m_structure->baseIndexBegin().str() + postfix));
 
         if (!data.empty() || data.back() == Contiguous)
         {
