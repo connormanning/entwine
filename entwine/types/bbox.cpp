@@ -71,10 +71,6 @@ void BBox::set(const Point min, const Point max, const bool is3d)
     setMid();
 }
 
-const Point& BBox::min() const { return m_min; }
-const Point& BBox::max() const { return m_max; }
-const Point& BBox::mid() const { return m_mid; }
-
 bool BBox::overlaps(const BBox& other) const
 {
     Point otherMid(other.mid());
@@ -168,11 +164,6 @@ void BBox::goSed()
     setMid();
 }
 
-bool BBox::exists() const
-{
-    return Point::exists(m_min) && Point::exists(m_max);
-}
-
 Json::Value BBox::toJson() const
 {
     Json::Value json;
@@ -221,6 +212,21 @@ void BBox::growZ(const Range& range)
     m_min.z = std::min(m_min.z, range.min);
     m_max.z = std::max(m_max.z, range.max);
     m_mid.z = m_min.z + (m_max.z - m_min.z) / 2.0;
+}
+
+std::ostream& operator<<(std::ostream& os, const BBox& bbox)
+{
+    auto flags(os.flags());
+    auto precision(os.precision());
+
+    os << std::setprecision(2) << std::fixed;
+
+    os << "[" << bbox.min() << ", " << bbox.max() << "]";
+
+    os << std::setprecision(precision);
+    os.flags(flags);
+
+    return os;
 }
 
 } // namespace entwine

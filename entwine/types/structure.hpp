@@ -40,6 +40,9 @@ public:
     // be equal to std::pow(factor, exp), but we avoid a log2() call.
     static std::size_t binaryPow(std::size_t baseLog2, std::size_t exp);
 
+    static std::size_t logN(std::size_t val, std::size_t n);
+    static std::size_t isPerfectLogN(std::size_t val, std::size_t n);
+
     std::size_t depth()         const { return m_depth; }
     std::size_t chunkId()       const { return m_chunkId; }
     std::size_t chunkOffset()   const { return m_chunkOffset; }
@@ -119,10 +122,13 @@ public:
     ChunkInfo getInfoFromNum(std::size_t chunkNum) const;
     std::size_t numChunksAtDepth(std::size_t depth) const;
 
-    std::size_t baseChunkPoints() const;
-    std::size_t dimensions() const;
-    std::size_t factor() const;             // 4 if quadtree, 8 if octree.
+    std::size_t baseChunkPoints() const { return m_chunkPoints; }
+    std::size_t dimensions() const { return m_dimensions; }
+    std::size_t factor() const { return m_factor; } // Quadtree: 4, octree: 8.
     bool is3d() const;
+
+    std::size_t nominalChunkIndex() const { return m_nominalChunkIndex; }
+    std::size_t nominalChunkDepth() const { return m_nominalChunkDepth; }
 
     std::size_t numPointsHint() const;
 
@@ -156,6 +162,11 @@ private:
     std::size_t m_sparseIndexBegin;
 
     std::size_t m_chunkPoints;
+
+    // Chunk ID that spans the full bounds.  May not be an actual chunk since
+    // it may reside in the base branch.
+    std::size_t m_nominalChunkIndex;
+    std::size_t m_nominalChunkDepth;
 
     bool m_dynamicChunks;
 

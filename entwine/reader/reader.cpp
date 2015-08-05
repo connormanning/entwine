@@ -32,7 +32,7 @@ namespace
     {
         if (depthBegin >= depthEnd)
         {
-            throw std::runtime_error("Invalid query depths");
+            throw InvalidQuery("Invalid depths");
         }
     }
 }
@@ -164,6 +164,11 @@ std::unique_ptr<Query> Reader::query(
 {
     checkQuery(depthBegin, depthEnd);
 
+    if (m_is3d != bbox.is3d())
+    {
+        throw InvalidQuery("Wrong number of dimensions in query");
+    }
+
     std::unique_ptr<Block> block(
             m_cache->acquire(
                 m_path,
@@ -179,205 +184,148 @@ FetchInfoSet Reader::traverse(
         const std::size_t depthEnd) const
 {
     FetchInfoSet toFetch;
-    std::size_t tries(0);
-    const Climber climber(*m_bbox, *m_structure);
 
-    traverse(toFetch, tries, climber, queryBBox, depthBegin, depthEnd);
+    if (
+            m_structure->hasCold() &&
+            (depthBegin >= m_structure->coldDepthBegin() ||
+            !depthEnd ||
+            depthEnd > m_structure->coldDepthBegin()))
+    {
+        const ChunkClimber c(*m_bbox, *m_structure);
+        traverse(toFetch, c, queryBBox, depthBegin, depthEnd);
+    }
 
     return toFetch;
 }
 
 void Reader::traverse(
         FetchInfoSet& toFetch,
-        std::size_t& tries,
-        const Climber& r,
+        const ChunkClimber& c,
         const BBox& queryBBox,
         const std::size_t depthBegin,
         const std::size_t depthEnd) const
 {
-    if (!r.bbox().overlaps(queryBBox) || !m_structure->inRange(r.index()))
-        return;
-
-    const uint64_t index(r.index());
-    const std::size_t depth(r.depth());
-
-    if (
-            m_structure->isWithinCold(index) &&
-            depth >= depthBegin &&
-            (depth < depthEnd || !depthEnd))
+    if (!c.bbox().overlaps(queryBBox))
     {
-        const std::size_t chunkId(getChunkId(index, depth));
+        return;
+    }
 
+    const std::size_t chunkId(c.chunkId());
+    const std::size_t depth(c.depth());
+
+    if (chunkId)
+    {
         if (arbiter::Endpoint* endpoint = getEndpoint(chunkId))
         {
-            if (toFetch.size() + 1 >= m_cache->queryLimit())
+            if (depth >= depthBegin && (depth < depthEnd || !depthEnd))
             {
-                throw QueryLimitExceeded();
-            }
+                if (toFetch.size() + 1 >= m_cache->queryLimit())
+                {
+                    throw QueryLimitExceeded();
+                }
 
-            toFetch.insert(
-                    FetchInfo(
-                        *endpoint,
-                        *m_schema,
-                        chunkId,
-                        m_structure->getInfo(chunkId).chunkPoints()));
+                toFetch.insert(
+                        FetchInfo(
+                            *endpoint,
+                            *m_schema,
+                            chunkId,
+                            m_structure->getInfo(chunkId).chunkPoints()));
+            }
         }
         else
         {
-            if (++tries > m_cache->queryLimit())
-            {
-                throw QueryLimitExceeded();
-            }
+            return;
         }
     }
 
     if (depth + 1 < depthEnd || !depthEnd)
     {
-        traverse(toFetch, tries, r.getNwd(), queryBBox, depthBegin, depthEnd);
-        traverse(toFetch, tries, r.getNed(), queryBBox, depthBegin, depthEnd);
-        traverse(toFetch, tries, r.getSwd(), queryBBox, depthBegin, depthEnd);
-        traverse(toFetch, tries, r.getSed(), queryBBox, depthBegin, depthEnd);
+        if (
+                m_structure->dynamicChunks() &&
+                m_structure->sparseDepthBegin() &&
+                depth >= m_structure->sparseDepthBegin())
+        {
+            traverse(toFetch, c.shimmy(), queryBBox, depthBegin, depthEnd);
+        }
+        else
+        {
+            traverse(toFetch, c.getNwd(), queryBBox, depthBegin, depthEnd);
+            traverse(toFetch, c.getNed(), queryBBox, depthBegin, depthEnd);
+            traverse(toFetch, c.getSwd(), queryBBox, depthBegin, depthEnd);
+            traverse(toFetch, c.getSed(), queryBBox, depthBegin, depthEnd);
 
-        if (!m_is3d) return;
+            if (!m_is3d) return;
 
-        traverse(toFetch, tries, r.getNwu(), queryBBox, depthBegin, depthEnd);
-        traverse(toFetch, tries, r.getNeu(), queryBBox, depthBegin, depthEnd);
-        traverse(toFetch, tries, r.getSwu(), queryBBox, depthBegin, depthEnd);
-        traverse(toFetch, tries, r.getSeu(), queryBBox, depthBegin, depthEnd);
+            traverse(toFetch, c.getNwu(), queryBBox, depthBegin, depthEnd);
+            traverse(toFetch, c.getNeu(), queryBBox, depthBegin, depthEnd);
+            traverse(toFetch, c.getSwu(), queryBBox, depthBegin, depthEnd);
+            traverse(toFetch, c.getSeu(), queryBBox, depthBegin, depthEnd);
+        }
     }
 }
 
 std::unique_ptr<Query> Reader::runQuery(
         std::unique_ptr<Block> block,
         const Schema& schema,
-        const BBox& bbox,
+        const BBox& qbox,
         std::size_t depthBegin,
         std::size_t depthEnd)
 {
-    std::vector<const char*> points;
-    const Climber climber(*m_bbox, *m_structure);
-
     std::unique_ptr<Query> query(new Query(*this, schema, std::move(block)));
-    runQuery(*query, climber, bbox, depthBegin, depthEnd);
+    SplitClimber splitter(*m_structure, *m_bbox, qbox, depthBegin, depthEnd);
+
+    bool terminate(false);
+
+    // Get base data.
+    if (depthBegin < m_structure->coldDepthBegin())
+    {
+        do
+        {
+            const std::size_t index(splitter.index());
+            terminate = false;
+
+            if (const char* pos = m_base->getData(index))
+            {
+                Point point(query->unwrapPoint(pos));
+
+                if (Point::exists(point))
+                {
+                    if (qbox.contains(point))
+                    {
+                        query->insert(pos);
+                    }
+                }
+                else
+                {
+                    terminate = true;
+                }
+            }
+            else
+            {
+                throw std::runtime_error("Invalid base data");
+            }
+        }
+        while (splitter.next(terminate));
+    }
+
+    // Get cold data.
+    for (const auto& c : query->chunkMap())
+    {
+        auto it(ChunkIter::create(*c.second));
+
+        do
+        {
+            const Point point(query->unwrapPoint(it->getData()));
+
+            if (Point::exists(point) && qbox.contains(point))
+            {
+                query->insert(it->getData());
+            }
+        }
+        while (it->next());
+    }
 
     return query;
-}
-
-void Reader::runQuery(
-        Query& query,
-        const Climber& climber,
-        const BBox& queryBBox,
-        const std::size_t depthBegin,
-        const std::size_t depthEnd) const
-{
-    if (!climber.bbox().overlaps(queryBBox))
-    {
-        return;
-    }
-
-    const uint64_t index(climber.index());
-    const std::size_t depth(climber.depth());
-
-    if (depth >= depthBegin && (depth < depthEnd || !depthEnd))
-    {
-        if (const char* pos = getPointPos(index, query.chunkMap()))
-        {
-            Point point(query.unwrapPoint(pos));
-
-            if (Point::exists(point) && queryBBox.contains(point))
-            {
-                query.insert(pos);
-            }
-        }
-    }
-
-    if (depth + 1 < depthEnd || !depthEnd)
-    {
-        runQuery(query, climber.getNwd(), queryBBox, depthBegin, depthEnd);
-        runQuery(query, climber.getNed(), queryBBox, depthBegin, depthEnd);
-        runQuery(query, climber.getSwd(), queryBBox, depthBegin, depthEnd);
-        runQuery(query, climber.getSed(), queryBBox, depthBegin, depthEnd);
-
-        if (!m_is3d) return;
-
-        runQuery(query, climber.getNwu(), queryBBox, depthBegin, depthEnd);
-        runQuery(query, climber.getNeu(), queryBBox, depthBegin, depthEnd);
-        runQuery(query, climber.getSwu(), queryBBox, depthBegin, depthEnd);
-        runQuery(query, climber.getSeu(), queryBBox, depthBegin, depthEnd);
-    }
-}
-
-const char* Reader::getPointPos(
-        const std::size_t index,
-        const ChunkMap& chunkMap) const
-{
-    const char* pos(0);
-
-    if (m_structure->isWithinBase(index))
-    {
-        pos = m_base->getData(index);
-    }
-    else if (m_structure->isWithinCold(index))
-    {
-        const std::size_t chunkId(
-                getChunkId(
-                    index,
-                    ChunkInfo::calcDepth(m_structure->factor(), index)));
-
-        auto it(chunkMap.find(chunkId));
-        if (it != chunkMap.end())
-        {
-            pos = it->second->getData(index);
-        }
-        else
-        {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            if (m_missing.insert(chunkId).second)
-            {
-                std::cout << "\tMissing ID (" << m_path << "):" << chunkId <<
-                    std::endl;
-            }
-        }
-    }
-
-    return pos;
-}
-
-std::size_t Reader::getChunkId(
-        const std::size_t index,
-        const std::size_t depth) const
-{
-    const std::size_t baseChunkPoints(m_structure->baseChunkPoints());
-
-    if (
-            !m_structure->hasSparse() ||
-            !m_structure->dynamicChunks() ||
-            depth <= m_structure->sparseDepthBegin())
-    {
-        const std::size_t coldDelta(index - m_structure->coldIndexBegin());
-
-        return
-            m_structure->coldIndexBegin() +
-            (coldDelta / baseChunkPoints) * baseChunkPoints;
-    }
-    else
-    {
-        const std::size_t dimensions(m_structure->dimensions());
-
-        const std::size_t levelIndex(
-                ChunkInfo::calcLevelIndex(dimensions, depth));
-
-        const std::size_t sparseDepthCount(
-                depth - m_structure->sparseDepthBegin());
-
-        const std::size_t levelChunkPoints(
-                baseChunkPoints *
-                ChunkInfo::binaryPow(dimensions, sparseDepthCount));
-
-        return
-            levelIndex +
-            ((index - levelIndex) / levelChunkPoints) * levelChunkPoints;
-    }
 }
 
 arbiter::Endpoint* Reader::getEndpoint(const std::size_t chunkId) const

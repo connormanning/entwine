@@ -10,7 +10,6 @@
 
 #pragma once
 
-#include <condition_variable>
 #include <cstddef>
 #include <list>
 #include <map>
@@ -32,11 +31,14 @@ namespace entwine
 {
 
 class BBox;
+class ChunkClimber;
 class Climber;
+class LinkingPointView;
 class Manifest;
 class Query;
 class Reprojection;
 class Schema;
+class SinglePointTable;
 class Stats;
 class Structure;
 
@@ -74,8 +76,7 @@ private:
 
     void traverse(
             FetchInfoSet& toFetch,
-            std::size_t& tries,
-            const Climber& climber,
+            const ChunkClimber& climber,
             const BBox& bbox,
             std::size_t depthBegin,
             std::size_t depthEnd) const;
@@ -92,10 +93,10 @@ private:
             const Climber& climber,
             const BBox& bbox,
             std::size_t depthBegin,
-            std::size_t depthEnd) const;
-
-    const char* getPointPos(std::size_t index, const ChunkMap& chunks) const;
-    std::size_t getChunkId(std::size_t index, std::size_t depth) const;
+            std::size_t depthEnd,
+            SinglePointTable& table,
+            LinkingPointView& view,
+            std::vector<int> traversal = std::vector<int>()) const;
 
     // Returns 0 if chunk doesn't exist.
     arbiter::Endpoint* getEndpoint(std::size_t chunkId) const;

@@ -124,5 +124,24 @@ const char* ContiguousReader::getData(const std::size_t rawIndex) const
     return m_data->data() + normal * m_schema.pointSize();
 }
 
+std::unique_ptr<ChunkIter> ChunkIter::create(const ChunkReader& chunkReader)
+{
+    if (chunkReader.sparse())
+        return std::unique_ptr<ChunkIter>(
+                new SparseIter(
+                    static_cast<const SparseReader&>(chunkReader)));
+    else
+        return std::unique_ptr<ChunkIter>(
+                new ContiguousIter(
+                    static_cast<const ContiguousReader&>(chunkReader)));
+}
+
+ContiguousIter::ContiguousIter(const ContiguousReader& reader)
+    : m_index(0)
+    , m_maxPoints(reader.m_maxPoints)
+    , m_data(*reader.m_data)
+    , m_pointSize(reader.m_schema.pointSize())
+{ }
+
 } // namespace entwine
 

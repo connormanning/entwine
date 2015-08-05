@@ -20,7 +20,7 @@ class Schema;
 class SinglePointTable : public SizedPointTable
 {
 public:
-    SinglePointTable(const Schema& schema, const char* data);
+    SinglePointTable(const Schema& schema, const char* data = 0);
 
     void setData(const char* data) { m_point = data; }
 

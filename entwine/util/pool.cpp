@@ -31,11 +31,13 @@ Pool::Pool(const std::size_t numThreads, const std::size_t queueSize)
 
 Pool::~Pool()
 {
-    if (!stop()) join();
+    join();
 }
 
 void Pool::go()
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
+
     if (!stop())
     {
         throw std::runtime_error(
@@ -43,8 +45,6 @@ void Pool::go()
     }
 
     stop(false);
-
-    std::lock_guard<std::mutex> lock(m_mutex);
 
     for (std::size_t i(0); i < m_numThreads; ++i)
     {

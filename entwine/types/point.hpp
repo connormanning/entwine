@@ -11,6 +11,8 @@
 #pragma once
 
 #include <cmath>
+#include <iomanip>
+#include <ostream>
 
 namespace entwine
 {
@@ -65,6 +67,23 @@ public:
     double y;
     double z;
 };
+
+inline std::ostream& operator<<(std::ostream& os, const Point& point)
+{
+    auto flags(os.flags());
+    auto precision(os.precision());
+
+    os << std::setprecision(2) << std::fixed;
+
+    os << "(" << point.x << ", " << point.y;
+    if (point.z != Point::emptyCoord()) os << ", " << point.z;
+    os << ")";
+
+    os << std::setprecision(precision);
+    os.flags(flags);
+
+    return os;
+}
 
 } // namespace entwine
 

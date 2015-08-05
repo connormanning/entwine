@@ -55,24 +55,6 @@ namespace
         return results;
     }
 
-    std::string getBBoxString(const BBox* bbox)
-    {
-        std::ostringstream oss;
-
-        if (bbox)
-        {
-            oss << "[(" << std::fixed <<
-                bbox->min().x << ", " << bbox->min().y << "), (" <<
-                bbox->max().x << ", " << bbox->max().y << ")]";
-        }
-        else
-        {
-            oss << "(Inferring from source)";
-        }
-
-        return oss.str();
-    }
-
     std::vector<std::string> getManifest(
             const Json::Value& json,
             arbiter::Arbiter& arbiter)
@@ -413,7 +395,7 @@ void Kernel::build(std::vector<std::string> args)
             "\tBuild type: " << jsonStructure["type"].asString() << "\n" <<
             "\tPoint count hint: " << numPointsHint << " points\n" <<
             "Geometry:\n" <<
-            "\tBounds: " << getBBoxString(bbox.get()) << "\n" <<
+            "\tBounds: " << *bbox << "\n" <<
             "\tReprojection: " << getReprojString(reprojection.get()) << "\n" <<
             "\tStoring dimensions: " << getDimensionString(schema) << "\n" <<
             std::endl;

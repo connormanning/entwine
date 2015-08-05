@@ -10,6 +10,7 @@
 
 #include <entwine/types/structure.hpp>
 
+#include <cassert>
 #include <cmath>
 #include <iostream>
 
@@ -25,8 +26,7 @@ namespace
 
     std::size_t log2(std::size_t val)
     {
-        // TODO.
-        return std::floor(std::log2(val));
+        return std::log2(val);
     }
 }
 
@@ -116,6 +116,18 @@ std::size_t ChunkInfo::binaryPow(
     return 1ULL << (exp * baseLog2);
 }
 
+std::size_t ChunkInfo::logN(std::size_t val, std::size_t n)
+{
+    assert(n == 4 || n == 8);
+
+    return log2(val) / log2(n);
+}
+
+std::size_t ChunkInfo::isPerfectLogN(std::size_t val, std::size_t n)
+{
+    return (1ULL << logN(val, n) * log2(n)) == val;
+}
+
 Structure::Structure(
         const std::size_t nullDepth,
         const std::size_t baseDepth,
@@ -181,13 +193,16 @@ void Structure::loadIndexValues()
                 "Points per chunk not specified, but a cold depth was given.");
     }
 
-    if (hasCold())
+    if (hasCold() && !ChunkInfo::isPerfectLogN(m_chunkPoints, m_dimensions))
     {
-        if (!m_chunkPoints || (coldFirstSpan % m_chunkPoints))
-        {
-            throw std::runtime_error("Invalid chunk specification");
-        }
+        throw std::runtime_error(
+                "Invalid chunk specification - "
+                "must be of the form 4^n for quadtree, or 8^n for octree");
     }
+
+    m_nominalChunkDepth = ChunkInfo::logN(m_chunkPoints, m_factor);
+    m_nominalChunkIndex =
+        ChunkInfo::calcLevelIndex(m_dimensions, m_nominalChunkDepth);
 
     m_nullIndexBegin = 0;
     m_nullIndexEnd = ChunkInfo::calcLevelIndex(m_dimensions, m_nullDepthEnd);
@@ -414,21 +429,6 @@ std::size_t Structure::numChunksAtDepth(const std::size_t depth) const
     }
 
     return num;
-}
-
-std::size_t Structure::baseChunkPoints() const
-{
-    return m_chunkPoints;
-}
-
-std::size_t Structure::dimensions() const
-{
-    return m_dimensions;
-}
-
-std::size_t Structure::factor() const
-{
-    return m_factor;
 }
 
 bool Structure::is3d() const

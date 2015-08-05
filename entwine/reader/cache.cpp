@@ -11,7 +11,6 @@
 #include <entwine/reader/cache.hpp>
 
 #include <entwine/reader/chunk-reader.hpp>
-#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/util/pool.hpp>
 

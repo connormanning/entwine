@@ -28,9 +28,9 @@ public:
 
     void set(Point min, Point max, bool is3d);
 
-    const Point& min() const;
-    const Point& max() const;
-    const Point& mid() const;
+    const Point& min() const { return m_min; }
+    const Point& max() const { return m_max; }
+    const Point& mid() const { return m_mid; }
 
     // Returns true if this BBox shares any area in common with another.
     bool overlaps(const BBox& other) const;
@@ -51,7 +51,8 @@ public:
     void goSeu();
     void goSed();
 
-    bool exists() const;
+    bool exists() const { return Point::exists(m_min) && Point::exists(m_max); }
+    bool is3d() const { return m_is3d; }
 
     Json::Value toJson() const;
 
@@ -69,6 +70,8 @@ private:
 
     void check(const Point& min, const Point& max) const;
 };
+
+std::ostream& operator<<(std::ostream& os, const BBox& bbox);
 
 } // namespace entwine
 

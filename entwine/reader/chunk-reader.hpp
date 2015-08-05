@@ -31,6 +31,7 @@ public:
             std::size_t maxPoints,
             std::unique_ptr<std::vector<char>> data);
 
+    virtual bool sparse() const = 0;
     virtual const char* getData(std::size_t rawIndex) const = 0;
 
 protected:
@@ -43,6 +44,8 @@ protected:
 
 class SparseReader : public ChunkReader
 {
+    friend class SparseIter;
+
 public:
     SparseReader(
             const Schema& schema,
@@ -50,6 +53,7 @@ public:
             std::size_t maxPoints,
             std::unique_ptr<std::vector<char>> data);
 
+    virtual bool sparse() const { return true; }
     virtual const char* getData(std::size_t rawIndex) const;
 
 private:
@@ -58,6 +62,8 @@ private:
 
 class ContiguousReader : public ChunkReader
 {
+    friend class ContiguousIter;
+
 public:
     ContiguousReader(
             const Schema& schema,
@@ -65,10 +71,55 @@ public:
             std::size_t maxPoints,
             std::unique_ptr<std::vector<char>> data);
 
+    virtual bool sparse() const { return false; }
     virtual const char* getData(std::size_t rawIndex) const;
 
 private:
     std::unique_ptr<std::vector<char>> m_data;
+};
+
+class ChunkIter
+{
+public:
+    virtual ~ChunkIter() { }
+    static std::unique_ptr<ChunkIter> create(const ChunkReader& chunkReader);
+
+    virtual bool next() = 0;
+    virtual const char* getData() const = 0;
+};
+
+class SparseIter : public ChunkIter
+{
+public:
+    SparseIter(const SparseReader& reader)
+        : m_cur(reader.m_data.begin())
+        , m_end(reader.m_data.end())
+    { }
+
+    virtual bool next() { return ++m_cur != m_end; }
+    virtual const char* getData() const { return m_cur->second.data(); }
+
+private:
+    std::map<std::size_t, std::vector<char>>::const_iterator m_cur;
+    std::map<std::size_t, std::vector<char>>::const_iterator m_end;
+};
+
+class ContiguousIter : public ChunkIter
+{
+public:
+    ContiguousIter(const ContiguousReader& reader);
+
+    virtual bool next() { return ++m_index < m_maxPoints; }
+    virtual const char* getData() const
+    {
+        return m_data.data() + m_pointSize * m_index;
+    }
+
+private:
+    std::size_t m_index;
+    std::size_t m_maxPoints;
+    const std::vector<char>& m_data;
+    std::size_t m_pointSize;
 };
 
 } // namespace entwine

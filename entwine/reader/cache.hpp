@@ -20,10 +20,7 @@
 #include <set>
 #include <string>
 
-namespace arbiter
-{
-    class Endpoint;
-}
+#include <entwine/third/arbiter/arbiter.hpp>
 
 namespace entwine
 {
@@ -36,6 +33,18 @@ class QueryLimitExceeded : public std::runtime_error
 {
 public:
     QueryLimitExceeded() : std::runtime_error("Query size limit exceeded") { }
+};
+
+class InvalidQuery : public std::runtime_error
+{
+public:
+    InvalidQuery()
+        : std::runtime_error("Invalid query")
+    { }
+
+    InvalidQuery(std::string what)
+        : std::runtime_error("Invalid query - " + what)
+    { }
 };
 
 struct FetchInfo
@@ -54,7 +63,9 @@ struct FetchInfo
 
 inline bool operator<(const FetchInfo& lhs, const FetchInfo& rhs)
 {
-    return lhs.id < rhs.id;
+    return
+        (lhs.endpoint.root() < rhs.endpoint.root()) ||
+        (lhs.endpoint.root() == rhs.endpoint.root() && (lhs.id < rhs.id));
 }
 
 typedef std::set<FetchInfo> FetchInfoSet;
