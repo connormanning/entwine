@@ -19,6 +19,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include <entwine/types/blocked-data.hpp>
 #include <entwine/types/dim-info.hpp>
 #include <entwine/types/point.hpp>
 #include <entwine/types/structure.hpp>
@@ -125,17 +126,9 @@ public:
     static DimList makeSparse(const Schema& schema);
 
 private:
-    struct SparseEntry
-    {
-        SparseEntry(const Schema& schema);
-        SparseEntry(const Schema& schema, char* pos);
-
-        Entry entry;
-        std::vector<char> data;
-    };
-
+    std::map<std::size_t, Entry> m_entries;
+    BlockedData m_block;
     std::mutex m_mutex;
-    std::unordered_map<Id, std::unique_ptr<SparseEntry>> m_entries;
 
     // Creates a compact contiguous representation of this sparse chunk by
     // prepending an "EntryId" field to the native schema and inserting each

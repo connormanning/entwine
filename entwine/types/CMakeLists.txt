@@ -4,6 +4,7 @@ set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 set(
     SOURCES
     "${BASE}/bbox.cpp"
+    "${BASE}/blocked-data.cpp"
     "${BASE}/dim-info.cpp"
     "${BASE}/linking-point-view.cpp"
     "${BASE}/reprojection.cpp"
@@ -18,6 +19,7 @@ set(
 set(
     HEADERS
     "${BASE}/bbox.hpp"
+    "${BASE}/blocked-data.hpp"
     "${BASE}/dim-info.hpp"
     "${BASE}/elastic-atomic.hpp"
     "${BASE}/linking-point-view.hpp"

@@ -615,6 +615,12 @@ bool operator!=(const BigUint& lhs, const BigUint& rhs)
 
 bool operator<(const BigUint& lhs, const BigUint& rhs)
 {
+    if (lhs.trivial())
+    {
+        if (rhs.trivial()) return lhs.m_val.front() < rhs.m_val.front();
+        else return false;
+    }
+
     const auto& lhsVal(lhs.val());
     const auto& rhsVal(rhs.val());
 

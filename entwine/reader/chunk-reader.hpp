@@ -58,6 +58,8 @@ public:
     virtual const char* getData(const Id& rawIndex) const;
 
 private:
+    std::size_t normalize(const Id& id) { return (id - m_id).getSimple(); }
+
     std::map<Id, std::vector<char>> m_data;
 };
 

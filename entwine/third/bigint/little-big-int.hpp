@@ -339,6 +339,7 @@ public:
 
     // These ones need access to private members.
     friend BigUint& operator*=(BigUint& lhs, const BigUint& rhs);
+    friend bool operator<(const BigUint& lhs, const BigUint& rhs);
     friend BigUint operator<<(const BigUint&, Block);
 
 private:

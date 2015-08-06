@@ -171,36 +171,14 @@ std::size_t ChunkData::normalize(const Id& rawIndex) const
 
 
 
-SparseChunkData::SparseEntry::SparseEntry(const Schema& schema)
-    : entry()
-    , data(schema.pointSize())
-{
-    entry.setData(data.data());
-}
-
-SparseChunkData::SparseEntry::SparseEntry(const Schema& schema, char* pos)
-    : entry()
-    , data(pos, pos + schema.pointSize())
-{
-    entry.setData(data.data());
-
-    SinglePointTable table(schema, pos);
-    LinkingPointView view(table);
-
-    entry.setPoint(
-            Point(
-                view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
-                view.getFieldAs<double>(pdal::Dimension::Id::Y, 0),
-                view.getFieldAs<double>(pdal::Dimension::Id::Z, 0)));
-}
-
 SparseChunkData::SparseChunkData(
         const Schema& schema,
         const Id& id,
         const std::size_t maxPoints)
     : ChunkData(schema, id, maxPoints)
-    , m_mutex()
     , m_entries()
+    , m_block(schema.pointSize())
+    , m_mutex()
 {
     chunkCnt.fetch_add(1);
 }
@@ -211,10 +189,15 @@ SparseChunkData::SparseChunkData(
         const std::size_t maxPoints,
         std::vector<char>& compressedData)
     : ChunkData(schema, id, maxPoints)
-    , m_mutex()
     , m_entries()
+    , m_block(schema.pointSize())
+    , m_mutex()
 {
     const std::size_t numPoints(popNumPoints(compressedData));
+
+    m_block.assign(numPoints);
+
+    const std::size_t nativePointSize(m_schema.pointSize());
 
     chunkMem.fetch_add(numPoints * m_schema.pointSize());
     chunkCnt.fetch_add(1);
@@ -231,18 +214,31 @@ SparseChunkData::SparseChunkData(
     uint64_t key(0);
     char* pos(0);
 
+    const auto keySize(sizeof(uint64_t));
+    char* data(0);
+
+    Point p;
+    SinglePointTable table(m_schema);
+    LinkingPointView view(table);
+
     for (
             std::size_t offset(0);
             offset < squashed->size();
             offset += sparsePointSize)
     {
         pos = squashed->data() + offset;
-        std::memcpy(&key, pos, sizeof(uint64_t));
+        std::memcpy(&key, pos, keySize);
 
-        std::unique_ptr<SparseEntry> entry(
-                new SparseEntry(schema, pos + sizeof(uint64_t)));
+        data = m_block.getPointPos();
+        std::memcpy(data, pos + keySize, nativePointSize);
 
-        m_entries.insert(std::make_pair(key, std::move(entry)));
+        table.setData(data);
+
+        p.x = view.getFieldAs<double>(pdal::Dimension::Id::X, 0);
+        p.y = view.getFieldAs<double>(pdal::Dimension::Id::Y, 0);
+        p.z = view.getFieldAs<double>(pdal::Dimension::Id::Z, 0);
+
+        m_entries.emplace(key, Entry(p, data));
     }
 }
 
@@ -254,19 +250,18 @@ SparseChunkData::~SparseChunkData()
 
 Entry* SparseChunkData::getEntry(const Id& rawIndex)
 {
+    std::size_t norm(normalize(rawIndex));
+
     std::lock_guard<std::mutex> lock(m_mutex);
 
-    auto it(m_entries.find(rawIndex));
-
+    auto it(m_entries.find(norm));
     if (it == m_entries.end())
     {
         chunkMem.fetch_add(m_schema.pointSize());
-
-        std::unique_ptr<SparseEntry> entry(new SparseEntry(m_schema));
-        it = m_entries.insert(std::make_pair(rawIndex, std::move(entry))).first;
+        it = m_entries.emplace(norm, Entry(m_block.getPointPos())).first;
     }
 
-    return &it->second->entry;
+    return &it->second;
 }
 
 void SparseChunkData::save(arbiter::Endpoint& endpoint)
@@ -286,29 +281,24 @@ void SparseChunkData::save(arbiter::Endpoint& endpoint)
 
 std::vector<char> SparseChunkData::squash(const Schema& sparse)
 {
-    std::vector<char> squashed;
+    std::vector<char> squashed(sparse.pointSize() * m_entries.size());
+    char* pos(squashed.data());
 
     const std::size_t nativePointSize(m_schema.pointSize());
     const std::size_t sparsePointSize(sparse.pointSize());
 
-    assert(nativePointSize + sizeof(uint64_t) == sparsePointSize);
+    const auto end(m_entries.end());
+    const auto offset(sizeof(uint64_t));
 
-    const auto beginIt(m_entries.begin());
-    const auto endIt(m_entries.end());
+    assert(nativePointSize + offset == sparsePointSize);
 
-    std::vector<char> addition(sparsePointSize);
-    char* pos(addition.data());
-
-    for (auto it(beginIt); it != endIt; ++it)
+    for (auto it(m_entries.begin()); it != end; ++it)
     {
-        const Id& id(it->first);
-        const char* data(it->second->data.data());
-        const uint64_t norm(normalize(id));
+        const uint64_t norm(it->first);
+        std::memcpy(pos, &norm, offset);
+        std::memcpy(pos + offset, it->second.data(), nativePointSize);
 
-        std::memcpy(pos, &norm, sizeof(uint64_t));
-        std::memcpy(pos + sizeof(uint64_t), data, nativePointSize);
-
-        squashed.insert(squashed.end(), pos, pos + sparsePointSize);
+        pos += sparsePointSize;
     }
 
     return squashed;
@@ -414,18 +404,19 @@ ContiguousChunkData::ContiguousChunkData(
     chunkMem.fetch_add(m_maxPoints * pointSize);
     chunkCnt.fetch_add(1);
 
+    SinglePointTable table(m_schema);
+    LinkingPointView view(table);
+
     for (std::size_t i(0); i < maxPoints; ++i)
     {
         char* pos(m_data->data() + i * pointSize);
-
-        SinglePointTable table(m_schema, pos);
-        LinkingPointView view(table);
+        table.setData(pos);
 
         p.x = view.getFieldAs<double>(pdal::Dimension::Id::X, 0);
         p.y = view.getFieldAs<double>(pdal::Dimension::Id::Y, 0);
         p.z = view.getFieldAs<double>(pdal::Dimension::Id::Z, 0);
 
-        m_entries.emplace_back(Entry(p, m_data->data() + pointSize * i));
+        m_entries.emplace_back(Entry(p, pos));
     }
 }
 
@@ -446,17 +437,17 @@ ContiguousChunkData::ContiguousChunkData(
 
     for (auto& p : sparse.m_entries)
     {
-        const std::size_t id(p.first.getSimple());
+        const std::size_t id(p.first);
         auto& sparseEntry(p.second);
         auto& myEntry(m_entries[id]);
 
         char* pos(m_data->data() + id * pointSize);
 
         auto locker(myEntry.getLocker());
-        myEntry = sparseEntry->entry;
+        myEntry = sparseEntry;
         myEntry.setData(pos);
 
-        std::memcpy(pos, sparseEntry->data.data(), pointSize);
+        std::memcpy(pos, sparseEntry.data(), pointSize);
     }
 
     sparse.m_entries.clear();
