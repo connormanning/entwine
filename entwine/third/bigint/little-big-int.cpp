@@ -9,25 +9,26 @@
 #include <sstream>
 
 BigUint::BigUint()
-    : m_val()
+    : m_val{Alloc(m_shortStack)}
 {
     m_val.push_back(0);
 }
 
 BigUint::BigUint(const Block val)
-    : m_val()
+    : m_val{Alloc(m_shortStack)}
 {
     m_val.push_back(val);
 }
 
 BigUint::BigUint(std::vector<Block> blocks)
-    : m_val(blocks)
+    : m_val(Alloc(m_shortStack))
 {
+    m_val.insert(m_val.end(), blocks.begin(), blocks.end());
     if (m_val.empty()) m_val.push_back(0);
 }
 
 BigUint::BigUint(const std::string& str)
-    : m_val()
+    : m_val(Alloc(m_shortStack))
 {
     m_val.push_back(0);
     BigUint factor(1);
@@ -46,7 +47,7 @@ BigUint::BigUint(const std::string& str)
 }
 
 BigUint::BigUint(const BigUint& other)
-    : m_val(other.m_val)
+    : m_val(other.m_val, Alloc(m_shortStack))
 { }
 
 BigUint& BigUint::operator=(const BigUint& other)
@@ -189,29 +190,26 @@ void BigUint::add(const BigUint& rhs, const Block shift)
 
 std::pair<BigUint, BigUint> BigUint::divMod(const BigUint& d) const
 {
-    std::pair<BigUint, BigUint> result;
-    auto& q(result.first);
-    auto& r(result.second);
-
     const auto& dVal(d.val());
 
     if (d.zero()) throw std::invalid_argument("Cannot divide by zero");
 
     if (trivial() && d.trivial())
     {
-        q = m_val.front() / dVal.front();
-        r = m_val.front() % dVal.front();
-        return result;
+        return std::make_pair(
+                BigUint(m_val.front() / dVal.front()),
+                BigUint(m_val.front() % dVal.front()));
     }
-
-    if (*this < d)
+    else if (*this < d)
     {
-        q = 0;
-        r = m_val;
-        return result;
+        return std::make_pair(BigUint(0), *this);
     }
     else
     {
+        std::pair<BigUint, BigUint> result;
+        auto& q(result.first);
+        auto& r(result.second);
+
         const std::size_t nValSize(m_val.size());
 
         // Don't presize the quotient here, we can't have leading zero blocks
@@ -239,13 +237,10 @@ std::pair<BigUint, BigUint> BigUint::divMod(const BigUint& d) const
         }
 
         while (!qVal.back()) qVal.pop_back();
+
+        return result;
     }
-
-    return result;
 }
-
-std::vector<Block>& BigUint::val() { return m_val; }
-const std::vector<Block>& BigUint::val() const { return m_val; }
 
 BigUint& operator+=(BigUint& lhs, const BigUint& rhs)
 {
@@ -299,16 +294,16 @@ BigUint& operator-=(BigUint& lhs, const BigUint& rhs)
     const std::size_t rhsSize(rhsVal.size());
     const std::size_t lhsSize(lhsVal.size());
 
-    if (lhsSize < rhsSize)
-    {
-        throw std::underflow_error(
-                "Subtraction result was negative (block size)");
-    }
-    else if (lhs.trivial())
+    if (lhs.trivial() && rhs.trivial())
     {
         if (lhsVal.front() >= rhsVal.front()) lhsVal.front() -= rhsVal.front();
         else throw std::underflow_error(
                 "Subtraction result was negative (block zero)");
+    }
+    else if (lhsSize < rhsSize)
+    {
+        throw std::underflow_error(
+                "Subtraction result was negative (block size)");
     }
     else
     {

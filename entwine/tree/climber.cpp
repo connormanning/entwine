@@ -18,13 +18,16 @@ namespace entwine
 Climber::Climber(const BBox& bbox, const Structure& structure)
     : m_structure(structure)
     , m_dimensions(structure.dimensions())
+    , m_factor(structure.factor())
     , m_index(0)
-    , m_depth(0)
     , m_levelIndex(0)
-    , m_baseChunkPoints(structure.baseChunkPoints())
-    , m_chunkId(0)
+    , m_chunkId(structure.nominalChunkIndex())
+    , m_depth(0)
     , m_sparseDepthBegin(
             structure.dynamicChunks() ? structure.sparseDepthBegin() : 0)
+    , m_depthChunks(1)
+    , m_chunkNum(0)
+    , m_chunkPoints(structure.baseChunkPoints())
     , m_bbox(bbox)
 { }
 
@@ -56,25 +59,46 @@ void Climber::magnify(const Point& point)
 
 void Climber::climb(const Dir dir)
 {
-    m_index = (m_index << m_dimensions) + 1 + dir;
-    m_levelIndex = (m_levelIndex << m_dimensions) + 1;
-
-    ++m_depth;
-
-    if (m_depth >= m_structure.nominalChunkDepth())
+    if (++m_depth > m_structure.nominalChunkDepth())
     {
         if (!m_sparseDepthBegin || m_depth <= m_sparseDepthBegin)
         {
-            m_chunkId =
-                m_levelIndex +
-                (m_index - m_levelIndex) / m_baseChunkPoints *
-                m_baseChunkPoints;
+            const std::size_t chunkRatio(
+                    (m_index - m_chunkId).getSimple() /
+                    (m_chunkPoints / m_factor));
+
+            assert(chunkRatio < m_factor);
+
+            m_chunkId <<= m_dimensions;
+            m_chunkId.incSimple();
+            m_chunkId += chunkRatio * m_chunkPoints;
+
+            if (m_depth >= m_structure.coldDepthBegin())
+            {
+                m_chunkNum =
+                    ((m_chunkId - m_structure.coldIndexBegin()) / m_chunkPoints)
+                    .getSimple();
+            }
+
+            m_depthChunks *= m_factor;
         }
         else
         {
-            m_chunkId = (m_chunkId << m_dimensions) + 1;
+            m_chunkNum += m_depthChunks;
+
+            m_chunkId <<= m_dimensions;
+            m_chunkId.incSimple();
+
+            m_chunkPoints *= m_factor;
         }
     }
+
+    m_index <<= m_dimensions;
+    m_index.incSimple();
+    m_index += dir;
+
+    m_levelIndex <<= m_dimensions;
+    m_levelIndex.incSimple();
 }
 
 bool SplitClimber::next(bool terminate)

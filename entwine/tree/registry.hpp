@@ -62,7 +62,7 @@ public:
 
     Entry* getEntry(const Climber& climber, Clipper* clipper);
 
-    void clip(const Id& index, Clipper* clipper);
+    void clip(const Id& index, std::size_t chunkNum, Clipper* clipper);
 
 private:
     arbiter::Endpoint & m_endpoint;

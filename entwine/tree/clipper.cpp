@@ -25,16 +25,16 @@ Clipper::~Clipper()
     clip();
 }
 
-bool Clipper::insert(const Id& index)
+bool Clipper::insert(const Id& chunkId, const std::size_t chunkNum)
 {
-    return m_clips.insert(index).second;
+    return m_clips.insert(IdInfo(chunkId, chunkNum)).second;
 }
 
 void Clipper::clip()
 {
-    for (const auto& index : m_clips)
+    for (const auto& info : m_clips)
     {
-        m_builder.clip(index, this);
+        m_builder.clip(info.chunkId, info.chunkNum, this);
     }
 
     m_clips.clear();

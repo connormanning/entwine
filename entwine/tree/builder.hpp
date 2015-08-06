@@ -85,7 +85,7 @@ public:
     bool insert(std::string filename);
 
     // Remove resources that are no longer needed.
-    void clip(const Id& index, Clipper* clipper);
+    void clip(const Id& index, std::size_t chunkNum, Clipper* clipper);
 
     // Save the current state of the tree.
     void save();

@@ -11,6 +11,7 @@
 #pragma once
 
 #include <cstddef>
+#include <set>
 #include <unordered_set>
 
 #include <entwine/types/structure.hpp>
@@ -27,13 +28,30 @@ public:
     Clipper(Builder& builder);
     ~Clipper();
 
-    bool insert(const Id& index);
+    bool insert(const Id& chunkId, std::size_t chunkNum);
 
     void clip();
 
 private:
     Builder& m_builder;
-    std::unordered_set<Id> m_clips;
+
+    struct IdInfo
+    {
+        IdInfo(const Id& chunkId, std::size_t chunkNum)
+            : chunkId(chunkId)
+            , chunkNum(chunkNum)
+        { }
+
+        bool operator<(const IdInfo& rhs) const
+        {
+            return chunkId < rhs.chunkId;
+        }
+
+        Id chunkId;
+        std::size_t chunkNum;
+    };
+
+    std::set<IdInfo> m_clips;
 };
 
 } // namespace entwine

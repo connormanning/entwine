@@ -344,9 +344,12 @@ std::string Builder::localize(const std::string path, const Origin origin)
     return localPath;
 }
 
-void Builder::clip(const Id& index, Clipper* clipper)
+void Builder::clip(
+        const Id& index,
+        const std::size_t chunkNum,
+        Clipper* clipper)
 {
-    m_registry->clip(index, clipper);
+    m_registry->clip(index, chunkNum, clipper);
 }
 
 void Builder::join()

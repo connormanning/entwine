@@ -216,7 +216,7 @@ Entry* Registry::getEntry(const Climber& climber, Clipper* clipper)
 {
     Entry* entry(0);
 
-    const std::size_t index(climber.index());
+    const Id& index(climber.index());
 
     if (m_structure.isWithinBase(index))
     {
@@ -224,15 +224,18 @@ Entry* Registry::getEntry(const Climber& climber, Clipper* clipper)
     }
     else if (m_structure.isWithinCold(index))
     {
-        entry = m_cold->getEntry(index, clipper);
+        entry = m_cold->getEntry(climber, clipper);
     }
 
     return entry;
 }
 
-void Registry::clip(const Id& index, Clipper* clipper)
+void Registry::clip(
+        const Id& index,
+        const std::size_t chunkNum,
+        Clipper* clipper)
 {
-    m_cold->clip(index, clipper, *m_pool);
+    m_cold->clip(index, chunkNum, clipper, *m_pool);
 }
 
 } // namespace entwine

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <climits>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <ostream>
@@ -11,6 +12,252 @@
 typedef unsigned long long Block;
 static const std::size_t bitsPerBlock(CHAR_BIT * sizeof(Block));
 static const std::size_t blockMax(std::numeric_limits<Block>::max());
+
+/*
+// Adapted from https://howardhinnant.github.io/stack_alloc.html
+
+template<std::size_t N>
+class ShortStack
+{
+public:
+    ShortStack() noexcept : m_pos(m_buffer) { }
+    ~ShortStack() { m_pos = 0; }
+
+    char* allocate(std::size_t n);
+    void deallocate(char* p, std::size_t n) noexcept;
+
+    static constexpr std::size_t size() { return N; }
+
+    std::size_t used() const
+    {
+        return static_cast<std::size_t>(m_pos - m_buffer);
+    }
+
+    void reset()
+    {
+        m_pos = m_buffer;
+    }
+
+private:
+    static const std::size_t alignment = 16;
+    alignas(alignment) char m_buffer[N];
+    char* m_pos;
+
+    bool contained(const char* p) noexcept
+    {
+        return m_buffer <= p && p <= m_buffer + N;
+    }
+
+    ShortStack(const ShortStack&) = delete;
+    ShortStack& operator=(const ShortStack&) = delete;
+};
+
+template<std::size_t N>
+char* ShortStack<N>::allocate(const std::size_t n)
+{
+    if (m_pos + n <= m_buffer + N)
+    {
+        char* result = m_pos;
+        m_pos += n;
+        return result;
+    }
+    else
+    {
+        return static_cast<char*>(::operator new(n));
+    }
+}
+
+template<std::size_t N>
+void ShortStack<N>::deallocate(char* p, const std::size_t n) noexcept
+{
+    if (contained(p))
+    {
+        if (p + n == m_pos) m_pos = p;
+    }
+    else
+    {
+        ::operator delete(p);
+    }
+}
+
+template<class T, std::size_t N>
+class StackAlloc
+{
+public:
+    StackAlloc(ShortStack<N>& ss) noexcept
+        : m_ss(ss)
+    { }
+
+    template<class U>
+    StackAlloc(const StackAlloc<U, N>& other) noexcept
+        : m_ss(other.m_ss)
+    { }
+
+    T* allocate(std::size_t n)
+    {
+        return reinterpret_cast<T*>(m_ss.allocate(n * sizeof(T)));
+    }
+
+    void deallocate(T* p, std::size_t n) noexcept
+    {
+        m_ss.deallocate(reinterpret_cast<char*>(p), n * sizeof(T));
+    }
+
+    template<class T1, std::size_t N1, class T2, std::size_t N2> friend
+    bool operator==(
+            const StackAlloc<T1, N1>& lhs,
+            const StackAlloc<T2, N2>& rhs) noexcept;
+
+    template<class U> struct rebind { typedef StackAlloc<U, N> other; };
+    template<class U, std::size_t M> friend class StackAlloc;
+
+    typedef T value_type;
+
+private:
+    ShortStack<N>& m_ss;
+
+    StackAlloc(const StackAlloc&) = delete;
+    StackAlloc& operator=(const StackAlloc&) = delete;
+};
+
+template<class T1, std::size_t N1, class T2, std::size_t N2>
+inline bool operator==(
+        const StackAlloc<T1, N1>& lhs,
+        const StackAlloc<T2, N2>& rhs) noexcept
+{
+    return (N1 == N2) && (&lhs.m_ss == &rhs.m_ss);
+}
+
+template<class T1, std::size_t N1, class T2, std::size_t N2>
+inline bool operator!=(
+        const StackAlloc<T1, N1>& lhs,
+        const StackAlloc<T2, N2>& rhs) noexcept
+{
+    return !(lhs == rhs);
+}
+*/
+
+
+
+
+
+
+
+
+#include <cassert>
+
+template <std::size_t N>
+class arena
+{
+    static const std::size_t alignment = 16;
+    alignas(alignment) char buf_[N];
+    char* ptr_;
+
+    bool
+    pointer_in_buffer(char* p) noexcept
+        {return buf_ <= p && p <= buf_ + N;}
+
+public:
+    arena() noexcept : ptr_(buf_) {}
+    ~arena() {ptr_ = nullptr;}
+    arena(const arena&) = delete;
+    arena& operator=(const arena&) = delete;
+
+    char* allocate(std::size_t n);
+    void deallocate(char* p, std::size_t n) noexcept;
+
+    static constexpr std::size_t size() {return N;}
+    std::size_t used() const {return static_cast<std::size_t>(ptr_ - buf_);}
+    void reset() {ptr_ = buf_;}
+};
+
+template <std::size_t N>
+char*
+arena<N>::allocate(std::size_t n)
+{
+    assert(pointer_in_buffer(ptr_) && "short_alloc has outlived arena");
+    if (buf_ + N - ptr_ >= n)
+    {
+        char* r = ptr_;
+        ptr_ += n;
+        return r;
+    }
+    return static_cast<char*>(::operator new(n));
+}
+
+template <std::size_t N>
+void
+arena<N>::deallocate(char* p, std::size_t n) noexcept
+{
+    assert(pointer_in_buffer(ptr_) && "short_alloc has outlived arena");
+    if (pointer_in_buffer(p))
+    {
+        if (p + n == ptr_)
+            ptr_ = p;
+    }
+    else
+        ::operator delete(p);
+}
+
+template <class T, std::size_t N>
+class short_alloc
+{
+    arena<N>& a_;
+public:
+    typedef T value_type;
+
+public:
+    template <class _Up> struct rebind {typedef short_alloc<_Up, N> other;};
+
+    short_alloc(arena<N>& a) noexcept : a_(a) {}
+    template <class U>
+        short_alloc(const short_alloc<U, N>& a) noexcept
+            : a_(a.a_) {}
+    short_alloc(const short_alloc&) = default;
+    short_alloc& operator=(const short_alloc&) = delete;
+
+    T* allocate(std::size_t n)
+    {
+        return reinterpret_cast<T*>(a_.allocate(n*sizeof(T)));
+    }
+    void deallocate(T* p, std::size_t n) noexcept
+    {
+        a_.deallocate(reinterpret_cast<char*>(p), n*sizeof(T));
+    }
+
+    template <class T1, std::size_t N1, class U, std::size_t M>
+    friend
+    bool
+    operator==(const short_alloc<T1, N1>& x, const short_alloc<U, M>& y) noexcept;
+
+    template <class U, std::size_t M> friend class short_alloc;
+};
+
+template <class T, std::size_t N, class U, std::size_t M>
+inline
+bool
+operator==(const short_alloc<T, N>& x, const short_alloc<U, M>& y) noexcept
+{
+    return N == M && &x.a_ == &y.a_;
+}
+
+template <class T, std::size_t N, class U, std::size_t M>
+inline
+bool
+operator!=(const short_alloc<T, N>& x, const short_alloc<U, M>& y) noexcept
+{
+    return !(x == y);
+}
+
+
+
+
+
+
+
+
+
+
 
 class BigUint
 {
@@ -51,10 +298,44 @@ public:
     // increment.  For example, after a positive bit-shift left.
     void incSimple() { ++m_val.front(); }
 
+
+
+    static const unsigned int N = 8;
+    /*
+    typedef StackAlloc<Block, N> Alloc;
+    typedef std::vector<Block, Alloc> Data;
+
+    bool test()
+    {
+        ShortStack<N> arena;
+        Data v{Alloc(arena)};
+        v.push_back(1);
+        return v.empty();
+    }
+    */
+
+    /*
+    const unsigned N = 200;
+    typedef short_alloc<int, N> Alloc;
+    typedef std::vector<int, Alloc> SmallVector;
+    arena<N> a;
+    SmallVector v{Alloc(a)};
+    */
+    typedef short_alloc<Block, N> Alloc;
+    typedef std::vector<Block, Alloc> Data;
+
+    bool hin()
+    {
+        arena<N> a;
+        Data v{Alloc(a)};
+        v.push_back(1);
+        return v.empty();
+    }
+
     // Get raw blocks.  For the non-const version, if the result is modified,
     // all future operations may be incorrect.
-    std::vector<Block>& val();
-    const std::vector<Block>& val() const;
+    Data& val() { return m_val; }
+    const Data& val() const { return m_val; }
 
     // These ones need access to private members.
     friend BigUint& operator*=(BigUint& lhs, const BigUint& rhs);
@@ -69,7 +350,12 @@ private:
     // ...without the copy overhead of performing the shift in advance.
     void add(const BigUint& other, Block shift);
 
-    std::vector<Block> m_val;
+    arena<N> m_shortStack;
+    Data m_val;
+    /*
+    ShortStack<N> m_shortStack;
+    Data m_val;
+    */
 };
 
 // Assignment.

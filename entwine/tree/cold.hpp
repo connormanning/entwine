@@ -30,6 +30,7 @@ namespace entwine
 
 class Chunk;
 class ChunkInfo;
+class Climber;
 class Clipper;
 class Entry;
 class Pool;
@@ -53,14 +54,18 @@ public:
 
     ~Cold();
 
-    Entry* getEntry(const Id& index, Clipper* clipper);
+    Entry* getEntry(const Climber& climber, Clipper* clipper);
 
     Json::Value toJson() const;
-    void clip(const Id& chunkId, Clipper* clipper, Pool& pool);
+    void clip(
+            const Id& chunkId,
+            std::size_t chunkNum,
+            Clipper* clipper,
+            Pool& pool);
 
 private:
-    void growFast(const ChunkInfo& info, Clipper* clipper);
-    void growSlow(const ChunkInfo& info, Clipper* clipper);
+    void growFast(const Climber& climber, Clipper* clipper);
+    void growSlow(const Climber& climber, Clipper* clipper);
 
     struct CountedChunk
     {
