@@ -10,6 +10,8 @@
 
 #include <entwine/types/blocked-data.hpp>
 
+#include <stdexcept>
+
 namespace entwine
 {
 
