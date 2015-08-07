@@ -143,8 +143,6 @@ Registry::~Registry()
 
 bool Registry::addPoint(PointInfo& toAdd, Climber& climber, Clipper* clipper)
 {
-    bool accepted(false);
-
     if (Entry* entry = getEntry(climber, clipper))
     {
         Point myPoint(entry->point());
@@ -179,7 +177,7 @@ bool Registry::addPoint(PointInfo& toAdd, Climber& climber, Clipper* clipper)
             if (!Point::exists(myPoint))
             {
                 entry->update(toAdd.point, toAdd.data, m_schema.pointSize());
-                accepted = true;
+                return true;
             }
             else
             {
@@ -192,17 +190,11 @@ bool Registry::addPoint(PointInfo& toAdd, Climber& climber, Clipper* clipper)
         }
     }
 
-    if (!accepted)
-    {
-        climber.magnify(toAdd.point);
+    climber.magnify(toAdd.point);
 
-        if (m_structure.inRange(climber.index()))
-        {
-            accepted = addPoint(toAdd, climber, clipper);
-        }
-    }
+    if (!m_structure.inRange(climber.index())) return false;
 
-    return accepted;
+    return addPoint(toAdd, climber, clipper);
 }
 
 void Registry::save(Json::Value& meta)
