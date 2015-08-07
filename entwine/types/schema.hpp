@@ -32,14 +32,22 @@ public:
     explicit Schema(DimList dims);
     Schema(const Json::Value& json);
 
-    ~Schema();
-
     void finalize();
 
-    const std::vector<DimInfo>& dims() const;
-    pdal::PointLayout& pdalLayout() const;
+    std::size_t pointSize() const
+    {
+        return m_layout->pointSize();
+    }
 
-    std::size_t pointSize() const;
+    const DimList& dims() const
+    {
+        return m_dims;
+    }
+
+    pdal::PointLayout& pdalLayout() const
+    {
+        return *m_layout.get();
+    }
 
     Json::Value toJson() const;
 

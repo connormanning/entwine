@@ -60,10 +60,6 @@ Schema::Schema(const Json::Value& json)
     m_layout = makePointLayout(m_dims);
 }
 
-
-Schema::~Schema()
-{ }
-
 void Schema::finalize()
 {
     m_layout->finalize();
@@ -76,21 +72,6 @@ void Schema::finalize()
                     id,
                     m_layout->dimType(id)));
     }
-}
-
-std::size_t Schema::pointSize() const
-{
-    return m_layout->pointSize();
-}
-
-const DimList& Schema::dims() const
-{
-    return m_dims;
-}
-
-pdal::PointLayout& Schema::pdalLayout() const
-{
-    return *m_layout.get();
 }
 
 Json::Value Schema::toJson() const
