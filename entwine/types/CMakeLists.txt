@@ -24,6 +24,7 @@ set(
     "${BASE}/elastic-atomic.hpp"
     "${BASE}/linking-point-view.hpp"
     "${BASE}/point.hpp"
+    "${BASE}/range.hpp"
     "${BASE}/reprojection.hpp"
     "${BASE}/schema.hpp"
     "${BASE}/simple-point-layout.hpp"
