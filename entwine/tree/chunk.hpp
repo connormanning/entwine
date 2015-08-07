@@ -126,7 +126,7 @@ public:
     static DimList makeSparse(const Schema& schema);
 
 private:
-    std::map<std::size_t, Entry> m_entries;
+    std::map<std::size_t, Entry*> m_entries;
     BlockedData m_block;
     std::mutex m_mutex;
 

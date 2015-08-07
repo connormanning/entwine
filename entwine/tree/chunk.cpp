@@ -15,6 +15,7 @@
 
 #include <entwine/compression/util.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
+#include <entwine/third/pool/memory-pool.hpp>
 #include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/single-point-table.hpp>
@@ -35,6 +36,9 @@ namespace
             static_cast<double>(pointSize) /
             static_cast<double>(pointSize + sizeof(std::size_t));
     }
+
+    MemoryPool<Entry> entryPool;
+    std::mutex entryMutex;
 }
 
 Entry::Entry()
@@ -238,7 +242,8 @@ SparseChunkData::SparseChunkData(
         p.y = view.getFieldAs<double>(pdal::Dimension::Id::Y, 0);
         p.z = view.getFieldAs<double>(pdal::Dimension::Id::Z, 0);
 
-        m_entries.emplace(key, Entry(p, data));
+        std::lock_guard<std::mutex> lock(entryMutex);
+        m_entries.emplace(key, entryPool.newElement(p, data));
     }
 }
 
@@ -246,6 +251,12 @@ SparseChunkData::~SparseChunkData()
 {
     chunkMem.fetch_sub(numPoints() * m_schema.pointSize());
     chunkCnt.fetch_sub(1);
+
+    std::lock_guard<std::mutex> lock(entryMutex);
+    for (auto& e : m_entries)
+    {
+        entryPool.deleteElement(e.second);
+    }
 }
 
 Entry* SparseChunkData::getEntry(const Id& rawIndex)
@@ -258,10 +269,12 @@ Entry* SparseChunkData::getEntry(const Id& rawIndex)
     if (it == m_entries.end())
     {
         chunkMem.fetch_add(m_schema.pointSize());
-        it = m_entries.emplace(norm, Entry(m_block.getPointPos())).first;
+        it = m_entries.emplace(
+                norm,
+                entryPool.newElement(m_block.getPointPos())).first;
     }
 
-    return &it->second;
+    return it->second;
 }
 
 void SparseChunkData::save(arbiter::Endpoint& endpoint)
@@ -296,7 +309,7 @@ std::vector<char> SparseChunkData::squash(const Schema& sparse)
     {
         const uint64_t norm(it->first);
         std::memcpy(pos, &norm, offset);
-        std::memcpy(pos + offset, it->second.data(), nativePointSize);
+        std::memcpy(pos + offset, it->second->data(), nativePointSize);
 
         pos += sparsePointSize;
     }
@@ -438,16 +451,16 @@ ContiguousChunkData::ContiguousChunkData(
     for (auto& p : sparse.m_entries)
     {
         const std::size_t id(p.first);
-        auto& sparseEntry(p.second);
+        Entry* sparseEntry(p.second);
         auto& myEntry(m_entries[id]);
 
         char* pos(m_data->data() + id * pointSize);
 
         auto locker(myEntry.getLocker());
-        myEntry = sparseEntry;
+        myEntry = *sparseEntry;
         myEntry.setData(pos);
 
-        std::memcpy(pos, sparseEntry.data(), pointSize);
+        std::memcpy(pos, sparseEntry->data(), pointSize);
     }
 
     sparse.m_entries.clear();
