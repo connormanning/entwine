@@ -15,6 +15,7 @@
 #include <memory>
 #include <mutex>
 #include <set>
+#include <unordered_set>
 #include <unordered_map>
 
 #include <entwine/third/json/json.h>
@@ -70,7 +71,7 @@ private:
     struct CountedChunk
     {
         std::unique_ptr<Chunk> chunk;
-        std::set<const Clipper*> refs;
+        std::unordered_set<const Clipper*> refs;
         std::mutex mutex;
     };
 

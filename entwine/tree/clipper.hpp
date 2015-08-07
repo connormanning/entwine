@@ -51,8 +51,8 @@ public:
 private:
     Builder& m_builder;
 
-    std::set<Id> m_clips;
-    std::set<std::size_t> m_nums;
+    std::unordered_set<Id> m_clips;
+    std::unordered_set<std::size_t> m_nums;
 };
 
 } // namespace entwine
