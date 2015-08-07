@@ -26,42 +26,33 @@ public:
     Clipper(Builder& builder)
         : m_builder(builder)
         , m_clips()
+        , m_nums()
     { }
 
     ~Clipper()
     {
-        for (const auto& info : m_clips)
+        auto cEnd(m_clips.end());
+
+        auto cIt(m_clips.begin());
+        auto nIt(m_nums.begin());
+
+        for ( ; cIt != cEnd; ++cIt, ++nIt)
         {
-            m_builder.clip(info.chunkId, info.chunkNum, this);
+            m_builder.clip(*cIt, *nIt, this);
         }
     }
 
     bool insert(const Id& chunkId, const std::size_t chunkNum)
     {
-        return m_clips.insert(IdInfo(chunkId, chunkNum)).second;
+        m_nums.insert(chunkNum);
+        return m_clips.insert(chunkId).second;
     }
 
 private:
     Builder& m_builder;
 
-    struct IdInfo
-    {
-        IdInfo(const Id& chunkId, std::size_t chunkNum)
-            : chunkId(chunkId)
-            , chunkNum(chunkNum)
-        { }
-
-        bool operator<(const IdInfo& rhs) const
-        {
-            // return chunkId < rhs.chunkId;
-            return chunkNum < rhs.chunkNum;
-        }
-
-        Id chunkId;
-        std::size_t chunkNum;
-    };
-
-    std::set<IdInfo> m_clips;
+    std::set<Id> m_clips;
+    std::set<std::size_t> m_nums;
 };
 
 } // namespace entwine
