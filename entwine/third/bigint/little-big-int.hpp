@@ -339,6 +339,7 @@ public:
 
     // These ones need access to private members.
     friend BigUint& operator*=(BigUint& lhs, const BigUint& rhs);
+    friend BigUint& operator<<=(BigUint& lhs, Block rhs);
     friend bool operator<(const BigUint& lhs, const BigUint& rhs);
     friend BigUint operator<<(const BigUint&, Block);
 
@@ -372,14 +373,37 @@ BigUint& operator<<=(BigUint& lhs, Block rhs);
 BigUint& operator>>=(BigUint& lhs, Block rhs);
 
 // Copying.
-BigUint operator+(const BigUint& lhs, const BigUint& rhs);
-BigUint operator-(const BigUint& lhs, const BigUint& rhs);
-BigUint operator*(const BigUint& lhs, const BigUint& rhs);
-BigUint operator/(const BigUint& lhs, const BigUint& rhs);
-BigUint operator%(const BigUint& lhs, const BigUint& rhs);
+inline BigUint operator+(const BigUint& lhs, const BigUint& rhs)
+{
+    BigUint result(lhs); result += rhs; return result;
+}
+
+inline BigUint operator-(const BigUint& lhs, const BigUint& rhs)
+{
+    BigUint result(lhs); result -= rhs; return result;
+}
+
+inline BigUint operator*(const BigUint& lhs, const BigUint& rhs)
+{
+    BigUint result(lhs); result *= rhs; return result;
+}
+
+inline BigUint operator/(const BigUint& lhs, const BigUint& rhs)
+{
+    BigUint result(lhs); result /= rhs; return result;
+}
+
+inline BigUint operator%(const BigUint& lhs, const BigUint& rhs)
+{
+    BigUint result(lhs); result %= rhs; return result;
+}
+
+inline BigUint operator|(const BigUint& lhs, const BigUint& rhs)
+{
+    BigUint result(lhs); result |= rhs; return result;
+}
 
 BigUint operator&(const BigUint& lhs, const BigUint& rhs);
-BigUint operator|(const BigUint& lhs, const BigUint& rhs);
 BigUint operator<<(const BigUint& lhs, Block rhs);
 BigUint operator>>(const BigUint& lhs, Block rhs);
 

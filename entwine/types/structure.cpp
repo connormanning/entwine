@@ -306,84 +306,6 @@ Json::Value Structure::toJson() const
     return json;
 }
 
-std::size_t Structure::nullDepthBegin() const   { return m_nullDepthBegin; }
-std::size_t Structure::nullDepthEnd() const     { return m_nullDepthEnd; }
-std::size_t Structure::baseDepthBegin() const   { return m_baseDepthBegin; }
-std::size_t Structure::baseDepthEnd() const     { return m_baseDepthEnd; }
-std::size_t Structure::coldDepthBegin() const   { return m_coldDepthBegin; }
-std::size_t Structure::coldDepthEnd() const     { return m_coldDepthEnd; }
-std::size_t Structure::sparseDepthBegin() const { return m_sparseDepthBegin; }
-
-const Id& Structure::nullIndexBegin() const   { return m_nullIndexBegin; }
-const Id& Structure::nullIndexEnd() const     { return m_nullIndexEnd; }
-const Id& Structure::baseIndexBegin() const   { return m_baseIndexBegin; }
-const Id& Structure::baseIndexEnd() const     { return m_baseIndexEnd; }
-const Id& Structure::coldIndexBegin() const   { return m_coldIndexBegin; }
-const Id& Structure::coldIndexEnd() const     { return m_coldIndexEnd; }
-const Id& Structure::sparseIndexBegin() const { return m_sparseIndexBegin; }
-
-std::size_t Structure::baseIndexSpan() const
-{
-    return (m_baseIndexEnd - m_baseIndexBegin).getSimple();
-}
-
-bool Structure::isWithinNull(const Id& index) const
-{
-    return index >= m_nullIndexBegin && index < m_nullIndexEnd;
-}
-
-bool Structure::isWithinBase(const Id& index) const
-{
-    return index >= m_baseIndexBegin && index < m_baseIndexEnd;
-}
-
-bool Structure::isWithinCold(const Id& index) const
-{
-    return
-        index >= m_coldIndexBegin &&
-        (!m_coldIndexEnd || index < m_coldIndexEnd);
-}
-
-bool Structure::hasNull() const
-{
-    return nullIndexEnd() > nullIndexBegin();
-}
-
-bool Structure::hasBase() const
-{
-    return baseIndexEnd() > baseIndexBegin();
-}
-
-bool Structure::hasCold() const
-{
-    return lossless() || coldIndexEnd() > coldIndexBegin();
-}
-
-bool Structure::hasSparse() const
-{
-    return m_sparseIndexBegin != 0;
-}
-
-bool Structure::inRange(const Id& index) const
-{
-    return lossless() || index < m_coldIndexEnd;
-}
-
-bool Structure::lossless() const
-{
-    return m_coldDepthEnd == 0;
-}
-
-bool Structure::dynamicChunks() const
-{
-    return m_dynamicChunks;
-}
-
-ChunkInfo Structure::getInfo(const Id& index) const
-{
-    return ChunkInfo(*this, index);
-}
-
 ChunkInfo Structure::getInfoFromNum(const std::size_t chunkNum) const
 {
     Id chunkId(0);
@@ -460,16 +382,6 @@ std::size_t Structure::numChunksAtDepth(const std::size_t depth) const
     }
 
     return num;
-}
-
-bool Structure::is3d() const
-{
-    return m_dimensions == 3;
-}
-
-std::size_t Structure::numPointsHint() const
-{
-    return m_numPointsHint;
 }
 
 bool Structure::isSubset() const

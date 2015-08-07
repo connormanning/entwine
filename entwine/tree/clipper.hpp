@@ -14,23 +14,32 @@
 #include <set>
 #include <unordered_set>
 
+#include <entwine/tree/builder.hpp>
 #include <entwine/types/structure.hpp>
 
 namespace entwine
 {
 
-class Branch;
-class Builder;
-
 class Clipper
 {
 public:
-    Clipper(Builder& builder);
-    ~Clipper();
+    Clipper(Builder& builder)
+        : m_builder(builder)
+        , m_clips()
+    { }
 
-    bool insert(const Id& chunkId, std::size_t chunkNum);
+    ~Clipper()
+    {
+        for (const auto& info : m_clips)
+        {
+            m_builder.clip(info.chunkId, info.chunkNum, this);
+        }
+    }
 
-    void clip();
+    bool insert(const Id& chunkId, const std::size_t chunkNum)
+    {
+        return m_clips.insert(IdInfo(chunkId, chunkNum)).second;
+    }
 
 private:
     Builder& m_builder;
@@ -44,7 +53,8 @@ private:
 
         bool operator<(const IdInfo& rhs) const
         {
-            return chunkId < rhs.chunkId;
+            // return chunkId < rhs.chunkId;
+            return chunkNum < rhs.chunkNum;
         }
 
         Id chunkId;

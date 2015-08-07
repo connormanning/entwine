@@ -89,50 +89,103 @@ public:
 
     Json::Value toJson() const;
 
-    std::size_t nullDepthBegin() const;
-    std::size_t nullDepthEnd() const;
-    std::size_t baseDepthBegin() const;
-    std::size_t baseDepthEnd() const;
-    std::size_t coldDepthBegin() const;
-    std::size_t coldDepthEnd() const;
-    std::size_t sparseDepthBegin() const;
+    std::size_t nullDepthBegin() const   { return m_nullDepthBegin; }
+    std::size_t nullDepthEnd() const     { return m_nullDepthEnd; }
+    std::size_t baseDepthBegin() const   { return m_baseDepthBegin; }
+    std::size_t baseDepthEnd() const     { return m_baseDepthEnd; }
+    std::size_t coldDepthBegin() const   { return m_coldDepthBegin; }
+    std::size_t coldDepthEnd() const     { return m_coldDepthEnd; }
+    std::size_t sparseDepthBegin() const { return m_sparseDepthBegin; }
 
-    const Id& nullIndexBegin() const;
-    const Id& nullIndexEnd() const;
-    const Id& baseIndexBegin() const;
-    const Id& baseIndexEnd() const;
-    const Id& coldIndexBegin() const;
-    const Id& coldIndexEnd() const;
-    const Id& sparseIndexBegin() const;
+    const Id& nullIndexBegin() const   { return m_nullIndexBegin; }
+    const Id& nullIndexEnd() const     { return m_nullIndexEnd; }
+    const Id& baseIndexBegin() const   { return m_baseIndexBegin; }
+    const Id& baseIndexEnd() const     { return m_baseIndexEnd; }
+    const Id& coldIndexBegin() const   { return m_coldIndexBegin; }
+    const Id& coldIndexEnd() const     { return m_coldIndexEnd; }
+    const Id& sparseIndexBegin() const { return m_sparseIndexBegin; }
 
-    std::size_t baseIndexSpan() const;
+    std::size_t baseIndexSpan() const
+    {
+        return (m_baseIndexEnd - m_baseIndexBegin).getSimple();
+    }
 
-    bool isWithinNull(const Id& index) const;
-    bool isWithinBase(const Id& index) const;
-    bool isWithinCold(const Id& index) const;
+    bool isWithinNull(const Id& index) const
+    {
+        return index >= m_nullIndexBegin && index < m_nullIndexEnd;
+    }
 
-    bool hasNull() const;
-    bool hasBase() const;
-    bool hasCold() const;
-    bool hasSparse() const;
+    bool isWithinBase(const Id& index) const
+    {
+        return index >= m_baseIndexBegin && index < m_baseIndexEnd;
+    }
 
-    bool inRange(const Id& index) const;
-    bool lossless() const;
-    bool dynamicChunks() const;
+    bool isWithinCold(const Id& index) const
+    {
+        return
+            index >= m_coldIndexBegin &&
+            (!m_coldIndexEnd || index < m_coldIndexEnd);
+    }
 
-    ChunkInfo getInfo(const Id& index) const;
+    bool hasNull() const
+    {
+        return nullIndexEnd() > nullIndexBegin();
+    }
+
+    bool hasBase() const
+    {
+        return baseIndexEnd() > baseIndexBegin();
+    }
+
+    bool hasCold() const
+    {
+        return lossless() || coldIndexEnd() > coldIndexBegin();
+    }
+
+    bool hasSparse() const
+    {
+        return m_sparseIndexBegin != 0;
+    }
+
+    bool inRange(const Id& index) const
+    {
+        return lossless() || index < m_coldIndexEnd;
+    }
+
+    bool lossless() const
+    {
+        return m_coldDepthEnd == 0;
+    }
+
+    bool dynamicChunks() const
+    {
+        return m_dynamicChunks;
+    }
+
+    ChunkInfo getInfo(const Id& index) const
+    {
+        return ChunkInfo(*this, index);
+    }
+
+    bool is3d() const
+    {
+        return m_dimensions == 3;
+    }
+
+    std::size_t numPointsHint() const
+    {
+        return m_numPointsHint;
+    }
+
     ChunkInfo getInfoFromNum(std::size_t chunkNum) const;
     std::size_t numChunksAtDepth(std::size_t depth) const;
 
     std::size_t baseChunkPoints() const { return m_chunkPoints; }
     std::size_t dimensions() const { return m_dimensions; }
     std::size_t factor() const { return m_factor; } // Quadtree: 4, octree: 8.
-    bool is3d() const;
 
     std::size_t nominalChunkIndex() const { return m_nominalChunkIndex; }
     std::size_t nominalChunkDepth() const { return m_nominalChunkDepth; }
-
-    std::size_t numPointsHint() const;
 
     bool isSubset() const;
     std::pair<std::size_t, std::size_t> subset() const;

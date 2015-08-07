@@ -9,16 +9,12 @@
 #include <sstream>
 
 BigUint::BigUint()
-    : m_val{Alloc(m_shortStack)}
-{
-    m_val.push_back(0);
-}
+    : m_val{1, 0, Alloc(m_shortStack)}
+{ }
 
 BigUint::BigUint(const Block val)
-    : m_val{Alloc(m_shortStack)}
-{
-    m_val.push_back(val);
-}
+    : m_val{1, val, Alloc(m_shortStack)}
+{ }
 
 BigUint::BigUint(std::vector<Block> blocks)
     : m_val(Alloc(m_shortStack))
@@ -291,16 +287,22 @@ BigUint& operator-=(BigUint& lhs, const BigUint& rhs)
     auto& lhsVal(lhs.val());
     const auto& rhsVal(rhs.val());
 
+    if (lhs.trivial() && rhs.trivial())
+    {
+        if (lhsVal.front() >= rhsVal.front())
+        {
+            lhsVal.front() -= rhsVal.front();
+            return lhs;
+        }
+
+        throw std::underflow_error(
+                "Subtraction result was negative (block zero)");
+    }
+
     const std::size_t rhsSize(rhsVal.size());
     const std::size_t lhsSize(lhsVal.size());
 
-    if (lhs.trivial() && rhs.trivial())
-    {
-        if (lhsVal.front() >= rhsVal.front()) lhsVal.front() -= rhsVal.front();
-        else throw std::underflow_error(
-                "Subtraction result was negative (block zero)");
-    }
-    else if (lhsSize < rhsSize)
+    if (lhsSize < rhsSize)
     {
         throw std::underflow_error(
                 "Subtraction result was negative (block size)");
@@ -424,6 +426,14 @@ BigUint& operator|=(BigUint& lhs, const BigUint& rhs)
 
 BigUint& operator<<=(BigUint& lhs, Block rhs)
 {
+    if (
+            lhs.trivial() &&
+            (lhs.m_val.front() & (blockMax << (bitsPerBlock - rhs))) == 0)
+    {
+        lhs.m_val.front() <<= rhs;
+        return lhs;
+    }
+
     const std::size_t startBlocks(lhs.blockSize());
     const std::size_t shiftBlocks(rhs / bitsPerBlock);
     const std::size_t shiftBits(rhs % bitsPerBlock);
@@ -475,41 +485,6 @@ BigUint& operator>>=(BigUint& lhs, Block rhs)
     return lhs;
 }
 
-BigUint operator+(const BigUint& lhs, const BigUint& rhs)
-{
-    BigUint result(lhs);
-    result += rhs;
-    return result;
-}
-
-BigUint operator-(const BigUint& lhs, const BigUint& rhs)
-{
-    BigUint result(lhs);
-    result -= rhs;
-    return result;
-}
-
-BigUint operator*(const BigUint& lhs, const BigUint& rhs)
-{
-    BigUint result(lhs);
-    result *= rhs;
-    return result;
-}
-
-BigUint operator/(const BigUint& lhs, const BigUint& rhs)
-{
-    BigUint result(lhs);
-    result /= rhs;
-    return result;
-}
-
-BigUint operator%(const BigUint& lhs, const BigUint& rhs)
-{
-    BigUint result(lhs);
-    result %= rhs;
-    return result;
-}
-
 BigUint operator&(const BigUint& lhs, const BigUint& rhs)
 {
     BigUint result;
@@ -523,13 +498,6 @@ BigUint operator&(const BigUint& lhs, const BigUint& rhs)
         result = rhs;
         result &= lhs;
     }
-    return result;
-}
-
-BigUint operator|(const BigUint& lhs, const BigUint& rhs)
-{
-    BigUint result(lhs);
-    result |= rhs;
     return result;
 }
 
