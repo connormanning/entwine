@@ -269,6 +269,8 @@ Entry* SparseChunkData::getEntry(const Id& rawIndex)
     if (it == m_entries.end())
     {
         chunkMem.fetch_add(m_schema.pointSize());
+
+        std::lock_guard<std::mutex> lock(entryMutex);
         it = m_entries.emplace(
                 norm,
                 entryPool.newElement(m_block.getPointPos())).first;
