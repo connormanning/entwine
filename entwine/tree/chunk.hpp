@@ -93,6 +93,11 @@ protected:
     Id endId() const;
     std::size_t normalize(const Id& rawIndex) const;
 
+    void ensurePut(
+            const arbiter::Endpoint& endpoint,
+            const std::string& path,
+            const std::vector<char>& data) const;
+
     const Schema& m_schema;
     const Id m_id;
     const std::size_t m_maxPoints;

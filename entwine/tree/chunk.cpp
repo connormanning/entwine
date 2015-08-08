@@ -39,6 +39,8 @@ namespace
 
     MemoryPool<Entry> entryPool;
     std::mutex entryMutex;
+
+    const std::size_t putRetries(20);
 }
 
 Entry::Entry()
@@ -165,6 +167,45 @@ std::size_t ChunkData::normalize(const Id& rawIndex) const
     return (rawIndex - m_id).getSimple();
 }
 
+void ChunkData::ensurePut(
+        const arbiter::Endpoint& endpoint,
+        const std::string& path,
+        const std::vector<char>& data) const
+{
+    bool done(false);
+
+    std::size_t retries(0);
+
+    while (!done)
+    {
+        try
+        {
+            endpoint.putSubpath(path, data);
+            done = true;
+        }
+        catch (...)
+        {
+            if (++retries < putRetries)
+            {
+                std::this_thread::sleep_for(std::chrono::seconds(retries));
+
+                std::cout <<
+                    "Failed PUT attempt " << retries << ": " <<
+                    endpoint.fullPath(path) <<
+                    std::endl;
+            }
+            else
+            {
+                std::cout <<
+                    "Failed to PUT data: persistent endpoint failure.\n" <<
+                    "Exiting..." <<
+                    std::endl;
+
+                exit(1);
+            }
+        }
+    }
+}
 
 
 
@@ -291,7 +332,7 @@ void SparseChunkData::save(arbiter::Endpoint& endpoint)
     pushNumPoints(*compressed, m_entries.size());
     compressed->push_back(Sparse);
 
-    endpoint.putSubpath(m_id.str(), *compressed);
+    ensurePut(endpoint, m_id.str(), *compressed);
 }
 
 std::vector<char> SparseChunkData::squash(const Schema& sparse)
@@ -493,7 +534,7 @@ void ContiguousChunkData::save(
 
     compressed->push_back(Contiguous);
 
-    endpoint.putSubpath(m_id.str() + postfix, *compressed);
+    ensurePut(endpoint, m_id.str() + postfix, *compressed);
 }
 
 void ContiguousChunkData::save(arbiter::Endpoint& endpoint)
