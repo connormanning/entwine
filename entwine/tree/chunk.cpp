@@ -190,20 +190,25 @@ void ChunkData::ensurePut(
                 std::this_thread::sleep_for(std::chrono::seconds(retries));
 
                 std::cout <<
-                    "Failed PUT attempt " << retries << ": " <<
+                    "\tFailed PUT attempt " << retries << ": " <<
                     endpoint.fullPath(path) <<
                     std::endl;
             }
             else
             {
                 std::cout <<
-                    "Failed to PUT data: persistent endpoint failure.\n" <<
-                    "Exiting..." <<
+                    "\tFailed to PUT data: persistent endpoint failure.\n" <<
+                    "\tExiting..." <<
                     std::endl;
 
                 exit(1);
             }
         }
+    }
+
+    if (retries)
+    {
+        std::cout << "\tPUT success: " << endpoint.fullPath(path) << std::endl;
     }
 }
 
