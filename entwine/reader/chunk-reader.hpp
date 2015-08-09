@@ -26,6 +26,7 @@ class Schema;
 class ChunkReader
 {
 public:
+    virtual ~ChunkReader() { }
     static std::unique_ptr<ChunkReader> create(
             const Schema& schema,
             const Id& id,
