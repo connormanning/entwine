@@ -20,39 +20,65 @@
 namespace entwine
 {
 
+struct Clip
+{
+    Clip(const Id& id, std::size_t num) : id(id), num(num) { }
+
+    Id id;
+    std::size_t num;
+
+    bool operator<(const Clip& other) const
+    {
+        return num < other.num;
+    }
+
+    bool operator==(const Clip& other) const
+    {
+        return num == other.num;
+    }
+};
+
+}
+
+namespace std
+{
+    template<> struct hash<entwine::Clip>
+    {
+        std::size_t operator()(const entwine::Clip& c) const
+        {
+            return std::hash<std::size_t>()(c.num);
+        }
+    };
+}
+
+namespace entwine
+{
+
 class Clipper
 {
 public:
     Clipper(Builder& builder)
         : m_builder(builder)
         , m_clips()
-        , m_nums()
     { }
 
     ~Clipper()
     {
-        auto cEnd(m_clips.end());
-
-        auto cIt(m_clips.begin());
-        auto nIt(m_nums.begin());
-
-        for ( ; cIt != cEnd; ++cIt, ++nIt)
+        for (auto c(m_clips.begin()); c != m_clips.end(); ++c)
         {
-            m_builder.clip(*cIt, *nIt, this);
+            m_builder.clip(c->id, c->num, this);
         }
     }
 
     bool insert(const Id& chunkId, const std::size_t chunkNum)
     {
-        m_nums.insert(chunkNum);
-        return m_clips.insert(chunkId).second;
+        return m_clips.insert(Clip(chunkId, chunkNum)).second;
     }
 
 private:
     Builder& m_builder;
 
-    std::unordered_set<Id> m_clips;
-    std::unordered_set<std::size_t> m_nums;
+    std::unordered_set<Clip> m_clips;
 };
 
 } // namespace entwine
