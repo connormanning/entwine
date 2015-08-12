@@ -119,6 +119,7 @@ void Cache::release(const Block& block)
         }
         else
         {
+            std::cout << "Removing a bad fetch" << std::endl;
             localManager.erase(id);
             if (localManager.empty()) m_chunkManager.erase(path);
         }
@@ -150,24 +151,11 @@ std::unique_ptr<Block> Cache::reserve(
         throw std::runtime_error("Unexpected cache state");
     }
 
-    // TODO Not fair.
     std::unique_lock<std::mutex> lock(m_mutex);
     m_cv.wait(lock, [this, &fetches]()->bool
     {
         return m_activeCount + fetches.size() <= m_maxChunks;
     });
-
-    while (m_activeCount + fetches.size() + m_inactiveList.size() > m_maxChunks)
-    {
-        const GlobalChunkInfo& toRemove(m_inactiveList.back());
-
-        LocalManager& localManager(m_chunkManager.at(toRemove.path));
-        localManager.erase(toRemove.id);
-
-        if (localManager.empty()) m_chunkManager.erase(toRemove.path);
-
-        m_inactiveList.pop_back();
-    }
 
     // Make the Block responsible for these chunks now, so even if something
     // throws during the fetching, we won't hold inactive reservations.
@@ -196,6 +184,20 @@ std::unique_ptr<Block> Cache::reserve(
         }
 
         ++chunkState->refs;
+    }
+
+    // Do the removal after the reservation so we don't remove anything we are
+    // about to need to fetch.
+    while (m_activeCount + m_inactiveList.size() > m_maxChunks)
+    {
+        const GlobalChunkInfo& toRemove(m_inactiveList.back());
+
+        LocalManager& localManager(m_chunkManager.at(toRemove.path));
+        localManager.erase(toRemove.id);
+
+        if (localManager.empty()) m_chunkManager.erase(toRemove.path);
+
+        m_inactiveList.pop_back();
     }
 
     return block;
