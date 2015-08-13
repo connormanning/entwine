@@ -11,7 +11,7 @@
 #pragma once
 
 #include <cstddef>
-#include <vector>
+#include <deque>
 
 #include <entwine/reader/reader.hpp>
 #include <entwine/types/linking-point-view.hpp>
@@ -54,7 +54,7 @@ private:
     const Schema& m_outSchema;
 
     std::unique_ptr<Block> m_block;
-    std::vector<const char*> m_points;
+    std::deque<const char*> m_points;
 
     mutable SinglePointTable m_table;
     LinkingPointView m_view;

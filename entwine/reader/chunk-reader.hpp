@@ -25,6 +25,8 @@ class Schema;
 
 class ChunkReader
 {
+    friend class ChunkIter;
+
 public:
     virtual ~ChunkReader() { }
     static std::unique_ptr<ChunkReader> create(
@@ -37,7 +39,15 @@ public:
     virtual const char* getData(const Id& rawIndex) const = 0;
 
 protected:
+    virtual const std::vector<char>& getRaw() const = 0;
+    virtual std::size_t numPoints() const = 0;
+
     ChunkReader(const Schema& schema, const Id& id, std::size_t maxPoints);
+
+    std::size_t normalize(const Id& rawIndex) const
+    {
+        return (rawIndex - m_id).getSimple();
+    }
 
     const Schema& m_schema;
     const Id m_id;
@@ -46,8 +56,6 @@ protected:
 
 class SparseReader : public ChunkReader
 {
-    friend class SparseIter;
-
 public:
     SparseReader(
             const Schema& schema,
@@ -59,15 +67,15 @@ public:
     virtual const char* getData(const Id& rawIndex) const;
 
 private:
-    std::size_t normalize(const Id& id) { return (id - m_id).getSimple(); }
+    virtual const std::vector<char>& getRaw() const { return m_raw; }
+    virtual std::size_t numPoints() const { return m_ids.size(); }
 
-    std::map<Id, std::vector<char>> m_data;
+    std::vector<char> m_raw;
+    std::map<std::size_t, char*> m_ids;
 };
 
 class ContiguousReader : public ChunkReader
 {
-    friend class ContiguousIter;
-
 public:
     ContiguousReader(
             const Schema& schema,
@@ -79,50 +87,29 @@ public:
     virtual const char* getData(const Id& rawIndex) const;
 
 private:
+    virtual const std::vector<char>& getRaw() const { return *m_data; }
+    virtual std::size_t numPoints() const { return m_maxPoints; }
+
     std::unique_ptr<std::vector<char>> m_data;
 };
 
 class ChunkIter
 {
 public:
-    virtual ~ChunkIter() { }
-    static std::unique_ptr<ChunkIter> create(const ChunkReader& chunkReader);
+    ChunkIter(const ChunkReader& reader);
 
-    virtual bool next() = 0;
-    virtual const char* getData() const = 0;
-};
+    bool next() { return ++m_index < m_numPoints; }
 
-class SparseIter : public ChunkIter
-{
-public:
-    SparseIter(const SparseReader& reader)
-        : m_cur(reader.m_data.begin())
-        , m_end(reader.m_data.end())
-    { }
-
-    virtual bool next() { return ++m_cur != m_end; }
-    virtual const char* getData() const { return m_cur->second.data(); }
-
-private:
-    std::map<Id, std::vector<char>>::const_iterator m_cur;
-    std::map<Id, std::vector<char>>::const_iterator m_end;
-};
-
-class ContiguousIter : public ChunkIter
-{
-public:
-    ContiguousIter(const ContiguousReader& reader);
-
-    virtual bool next() { return ++m_index < m_maxPoints; }
-    virtual const char* getData() const
+    const char* getData() const
     {
         return m_data.data() + m_pointSize * m_index;
     }
 
 private:
-    std::size_t m_index;
-    std::size_t m_maxPoints;
     const std::vector<char>& m_data;
+
+    std::size_t m_index;
+    std::size_t m_numPoints;
     std::size_t m_pointSize;
 };
 

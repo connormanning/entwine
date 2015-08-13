@@ -54,10 +54,14 @@ SparseReader::SparseReader(
         const std::size_t maxPoints,
         std::unique_ptr<std::vector<char>> data)
     : ChunkReader(schema, id, maxPoints)
-    , m_data()
+    , m_raw()
+    , m_ids()
 {
     // TODO Direct copy/paste from SparseChunkData ctor.
     const std::size_t numPoints(SparseChunkData::popNumPoints(*data));
+    const std::size_t nativePointSize(m_schema.pointSize());
+
+    m_raw.resize(nativePointSize * numPoints);
 
     const Schema sparse(SparseChunkData::makeSparse(m_schema));
     const std::size_t sparsePointSize(sparse.pointSize());
@@ -68,20 +72,23 @@ SparseReader::SparseReader(
                 sparse,
                 numPoints * sparsePointSize));
 
+    const char* in(squashed->data());
+    const char* end(squashed->data() + squashed->size());
+
     uint64_t key(0);
-    char* pos(0);
+    char* out(m_raw.data());
 
-    for (
-            std::size_t offset(0);
-            offset < squashed->size();
-            offset += sparsePointSize)
+    const std::size_t keySize(sizeof(uint64_t));
+
+    while (in != end)
     {
-        pos = squashed->data() + offset;
-        std::memcpy(&key, pos, sizeof(uint64_t));
+        std::memcpy(&key, in, keySize);
+        std::memcpy(out, in + keySize, nativePointSize);
 
-        std::vector<char> point(pos + sizeof(uint64_t), pos + sparsePointSize);
+        m_ids[key] = out;
 
-        m_data.emplace(key, point);
+        in += sparsePointSize;
+        out += nativePointSize;
     }
 }
 
@@ -89,11 +96,11 @@ const char* SparseReader::getData(const Id& rawIndex) const
 {
     const char* pos(0);
 
-    auto it(m_data.find(rawIndex));
+    auto it(m_ids.find(normalize(rawIndex)));
 
-    if (it != m_data.end())
+    if (it != m_ids.end())
     {
-        pos = it->second.data();
+        pos = it->second;
     }
 
     return pos;
@@ -114,7 +121,7 @@ ContiguousReader::ContiguousReader(
 
 const char* ContiguousReader::getData(const Id& rawIndex) const
 {
-    const std::size_t normal((rawIndex - m_id).getSimple());
+    const std::size_t normal(normalize(rawIndex));
 
     if (normal >= m_maxPoints)
     {
@@ -124,22 +131,10 @@ const char* ContiguousReader::getData(const Id& rawIndex) const
     return m_data->data() + normal * m_schema.pointSize();
 }
 
-std::unique_ptr<ChunkIter> ChunkIter::create(const ChunkReader& chunkReader)
-{
-    if (chunkReader.sparse())
-        return std::unique_ptr<ChunkIter>(
-                new SparseIter(
-                    static_cast<const SparseReader&>(chunkReader)));
-    else
-        return std::unique_ptr<ChunkIter>(
-                new ContiguousIter(
-                    static_cast<const ContiguousReader&>(chunkReader)));
-}
-
-ContiguousIter::ContiguousIter(const ContiguousReader& reader)
-    : m_index(0)
-    , m_maxPoints(reader.m_maxPoints)
-    , m_data(*reader.m_data)
+ChunkIter::ChunkIter(const ChunkReader& reader)
+    : m_data(reader.getRaw())
+    , m_index(0)
+    , m_numPoints(reader.numPoints())
     , m_pointSize(reader.m_schema.pointSize())
 { }
 
