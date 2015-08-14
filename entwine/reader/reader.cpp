@@ -312,18 +312,21 @@ std::unique_ptr<Query> Reader::runQuery(
     // Get cold data.
     for (const auto& c : query->chunkMap())
     {
-        ChunkIter it(*c.second);
-
-        do
+        if (c.second)
         {
-            const Point point(query->unwrapPoint(it.getData()));
+            ChunkIter it(*c.second);
 
-            if (Point::exists(point) && qbox.contains(point))
+            do
             {
-                query->insert(it.getData());
+                const Point point(query->unwrapPoint(it.getData()));
+
+                if (Point::exists(point) && qbox.contains(point))
+                {
+                    query->insert(it.getData());
+                }
             }
+            while (it.next());
         }
-        while (it.next());
     }
 
     return query;
