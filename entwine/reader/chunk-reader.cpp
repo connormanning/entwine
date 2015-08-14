@@ -33,7 +33,17 @@ std::unique_ptr<ChunkReader> ChunkReader::create(
 {
     std::unique_ptr<ChunkReader> reader;
 
-    const ChunkType type(Chunk::getType(*data));
+    ChunkType type;
+
+    try
+    {
+        type = Chunk::getType(*data);
+    }
+    catch (...)
+    {
+        std::cout << "Invalid chunk at: " << id << std::endl;
+        throw std::runtime_error("Invalid chunk detected");
+    }
 
     if (type == Sparse)
     {
