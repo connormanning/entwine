@@ -30,7 +30,7 @@ public:
 
     // Schema layout will be finalized with these dims.
     explicit Schema(DimList dims);
-    Schema(const Json::Value& json);
+    explicit Schema(const Json::Value& json);
 
     Schema(const Schema& other);
     Schema& operator=(const Schema& other);
