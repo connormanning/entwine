@@ -30,14 +30,13 @@ public:
     Climber(const BBox& bbox, const Structure& structure);
 
     void magnify(const Point& point);
-    std::size_t index() const { return m_index; }
+    const Id& index() const { return m_index; }
     std::size_t depth() const { return m_depth; }
-    std::size_t chunkId() const
-    {
-        return m_depth >= m_structure.coldDepthBegin() ? m_chunkId : 0;
-    }
-
+    const Id& chunkId() const { return m_chunkId; }
     const BBox& bbox() const { return m_bbox; }
+
+    std::size_t chunkPoints() const { return m_chunkPoints; }
+    std::size_t chunkNum() const { return m_chunkNum; }
 
     void goSwd() { climb(Dir::swd); m_bbox.goSwd(); }
     void goSed() { climb(Dir::sed); m_bbox.goSed(); }
@@ -72,14 +71,18 @@ public:
 private:
     const Structure& m_structure;
     std::size_t m_dimensions;
+    std::size_t m_factor;
 
-    std::size_t m_index;
+    Id m_index;
+    Id m_levelIndex;
+    Id m_chunkId;
+
     std::size_t m_depth;
-
-    std::size_t m_levelIndex;
-    std::size_t m_baseChunkPoints;
-    std::size_t m_chunkId;
     std::size_t m_sparseDepthBegin;
+
+    std::size_t m_depthChunks;
+    std::size_t m_chunkNum;
+    std::size_t m_chunkPoints;
 
     BBox m_bbox;
 

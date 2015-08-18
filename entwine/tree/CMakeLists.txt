@@ -7,7 +7,6 @@ set(
     "${BASE}/cold.cpp"
     "${BASE}/chunk.cpp"
     "${BASE}/climber.cpp"
-    "${BASE}/clipper.cpp"
     "${BASE}/manifest.cpp"
     "${BASE}/point-info.cpp"
     "${BASE}/registry.cpp"

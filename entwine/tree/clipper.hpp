@@ -11,27 +11,74 @@
 #pragma once
 
 #include <cstddef>
+#include <set>
 #include <unordered_set>
+
+#include <entwine/tree/builder.hpp>
+#include <entwine/types/structure.hpp>
 
 namespace entwine
 {
 
-class Branch;
-class Builder;
+struct Clip
+{
+    Clip(const Id& id, std::size_t num) : id(id), num(num) { }
+
+    Id id;
+    std::size_t num;
+
+    bool operator<(const Clip& other) const
+    {
+        return num < other.num;
+    }
+
+    bool operator==(const Clip& other) const
+    {
+        return num == other.num;
+    }
+};
+
+}
+
+namespace std
+{
+    template<> struct hash<entwine::Clip>
+    {
+        std::size_t operator()(const entwine::Clip& c) const
+        {
+            return std::hash<std::size_t>()(c.num);
+        }
+    };
+}
+
+namespace entwine
+{
 
 class Clipper
 {
 public:
-    Clipper(Builder& builder);
-    ~Clipper();
+    Clipper(Builder& builder)
+        : m_builder(builder)
+        , m_clips()
+    { }
 
-    bool insert(std::size_t index);
+    ~Clipper()
+    {
+        for (auto c(m_clips.begin()); c != m_clips.end(); ++c)
+        {
+            m_builder.clip(c->id, c->num, this);
+        }
+    }
 
-    void clip();
+    bool insert(const Id& chunkId, const std::size_t chunkNum)
+    {
+        return m_clips.insert(Clip(chunkId, chunkNum)).second;
+    }
 
 private:
     Builder& m_builder;
-    std::unordered_set<std::size_t> m_clips;
+
+    std::unordered_set<Clip> m_clips;
 };
 
 } // namespace entwine

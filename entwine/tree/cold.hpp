@@ -15,9 +15,11 @@
 #include <memory>
 #include <mutex>
 #include <set>
+#include <unordered_set>
 #include <unordered_map>
 
 #include <entwine/third/json/json.h>
+#include <entwine/types/structure.hpp>
 
 namespace arbiter
 {
@@ -29,11 +31,11 @@ namespace entwine
 
 class Chunk;
 class ChunkInfo;
+class Climber;
 class Clipper;
 class Entry;
 class Pool;
 class Schema;
-class Structure;
 
 class Cold
 {
@@ -53,19 +55,23 @@ public:
 
     ~Cold();
 
-    Entry* getEntry(std::size_t index, Clipper* clipper);
+    Entry* getEntry(const Climber& climber, Clipper* clipper);
 
     Json::Value toJson() const;
-    void clip(std::size_t chunkId, Clipper* clipper, Pool& pool);
+    void clip(
+            const Id& chunkId,
+            std::size_t chunkNum,
+            Clipper* clipper,
+            Pool& pool);
 
 private:
-    void growFast(const ChunkInfo& info, Clipper* clipper);
-    void growSlow(const ChunkInfo& info, Clipper* clipper);
+    void growFast(const Climber& climber, Clipper* clipper);
+    void growSlow(const Climber& climber, Clipper* clipper);
 
     struct CountedChunk
     {
         std::unique_ptr<Chunk> chunk;
-        std::set<const Clipper*> refs;
+        std::unordered_set<const Clipper*> refs;
         std::mutex mutex;
     };
 
@@ -81,8 +87,7 @@ private:
         std::unique_ptr<CountedChunk> chunk;
     };
 
-    typedef
-        std::unordered_map<std::size_t, std::unique_ptr<CountedChunk>> ChunkMap;
+    typedef std::unordered_map<Id, std::unique_ptr<CountedChunk>> ChunkMap;
 
     arbiter::Endpoint& m_endpoint;
     const Schema& m_schema;

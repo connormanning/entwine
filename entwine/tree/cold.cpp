@@ -13,12 +13,12 @@
 #include <entwine/third/json/json.h>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/chunk.hpp>
+#include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
 #include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/single-point-table.hpp>
-#include <entwine/types/structure.hpp>
 #include <entwine/util/pool.hpp>
 
 namespace entwine
@@ -78,10 +78,11 @@ Cold::Cold(
         throw std::runtime_error("Invalid saved state.");
     }
 
+    Id id(0);
+
     for (std::size_t i(0); i < jsonIds.size(); ++i)
     {
-        const std::size_t id(
-                jsonIds[static_cast<Json::ArrayIndex>(i)].asUInt64());
+        id = Id(jsonIds[static_cast<Json::ArrayIndex>(i)].asString());
 
         const ChunkInfo chunkInfo(m_structure.getInfo(id));
         const std::size_t chunkNum(chunkInfo.chunkNum());
@@ -101,23 +102,21 @@ Cold::Cold(
 Cold::~Cold()
 { }
 
-Entry* Cold::getEntry(const std::size_t index, Clipper* clipper)
+Entry* Cold::getEntry(const Climber& climber, Clipper* clipper)
 {
     CountedChunk* countedChunk(0);
 
-    const ChunkInfo info(m_structure.getInfo(index));
-
-    const std::size_t chunkNum(info.chunkNum());
-    const std::size_t chunkId (info.chunkId());
+    const std::size_t chunkNum(climber.chunkNum());
+    const Id& chunkId(climber.chunkId());
 
     if (chunkNum < m_chunkVec.size())
     {
-        growFast(info, clipper);
+        growFast(climber, clipper);
         countedChunk = m_chunkVec[chunkNum].chunk.get();
     }
     else
     {
-        growSlow(info, clipper);
+        growSlow(climber, clipper);
 
         std::lock_guard<std::mutex> mapLock(m_mapMutex);
         countedChunk = m_chunkMap.at(chunkId).get();
@@ -128,7 +127,7 @@ Entry* Cold::getEntry(const std::size_t index, Clipper* clipper)
         throw std::runtime_error("CountedChunk has missing contents.");
     }
 
-    return countedChunk->chunk->getEntry(index);
+    return countedChunk->chunk->getEntry(climber.index());
 }
 
 Json::Value Cold::toJson() const
@@ -140,25 +139,25 @@ Json::Value Cold::toJson() const
         if (m_chunkVec[i].mark.load())
         {
             ChunkInfo info(m_structure.getInfoFromNum(i));
-            json.append(static_cast<Json::UInt64>(info.chunkId()));
+            json.append(info.chunkId().str());
         }
     }
 
     std::lock_guard<std::mutex> lock(m_mapMutex);
     for (const auto& p : m_chunkMap)
     {
-        json.append(static_cast<Json::UInt64>(p.first));
+        json.append(p.first.str());
     }
 
     return json;
 }
 
-void Cold::growFast(const ChunkInfo& info, Clipper* clipper)
+void Cold::growFast(const Climber& climber, Clipper* clipper)
 {
-    const std::size_t chunkId(info.chunkId());
-    const std::size_t chunkNum(info.chunkNum());
+    const Id& chunkId(climber.chunkId());
+    const std::size_t chunkNum(climber.chunkNum());
 
-    if (clipper && clipper->insert(chunkId))
+    if (clipper && clipper->insert(chunkId, chunkNum))
     {
         FastSlot& slot(m_chunkVec[chunkNum]);
 
@@ -184,9 +183,8 @@ void Cold::growFast(const ChunkInfo& info, Clipper* clipper)
                         new Chunk(
                             m_schema,
                             chunkId,
-                            info.chunkPoints(),
-                            m_endpoint.getSubpathBinary(
-                                std::to_string(chunkId)),
+                            climber.chunkPoints(),
+                            m_endpoint.getSubpathBinary(chunkId.str()),
                             m_empty));
             }
             else
@@ -195,7 +193,7 @@ void Cold::growFast(const ChunkInfo& info, Clipper* clipper)
                         new Chunk(
                             m_schema,
                             chunkId,
-                            info.chunkPoints(),
+                            climber.chunkPoints(),
                             chunkId < m_structure.sparseIndexBegin(),
                             m_empty));
             }
@@ -203,11 +201,11 @@ void Cold::growFast(const ChunkInfo& info, Clipper* clipper)
     }
 }
 
-void Cold::growSlow(const ChunkInfo& info, Clipper* clipper)
+void Cold::growSlow(const Climber& climber, Clipper* clipper)
 {
-    const std::size_t chunkId(info.chunkId());
+    const Id& chunkId(climber.chunkId());
 
-    if (clipper && clipper->insert(chunkId))
+    if (clipper && clipper->insert(chunkId, 0))
     {
         std::unique_lock<std::mutex> mapLock(m_mapMutex);
 
@@ -229,9 +227,8 @@ void Cold::growSlow(const ChunkInfo& info, Clipper* clipper)
                         new Chunk(
                             m_schema,
                             chunkId,
-                            info.chunkPoints(),
-                            m_endpoint.getSubpathBinary(
-                                std::to_string(chunkId)),
+                            climber.chunkPoints(),
+                            m_endpoint.getSubpathBinary(chunkId.str()),
                             m_empty));
             }
             else
@@ -240,7 +237,7 @@ void Cold::growSlow(const ChunkInfo& info, Clipper* clipper)
                         new Chunk(
                             m_schema,
                             chunkId,
-                            info.chunkPoints(),
+                            climber.chunkPoints(),
                             chunkId < m_structure.sparseIndexBegin(),
                             m_empty));
             }
@@ -248,14 +245,15 @@ void Cold::growSlow(const ChunkInfo& info, Clipper* clipper)
     }
 }
 
-void Cold::clip(const std::size_t chunkId, Clipper* clipper, Pool& pool)
+void Cold::clip(
+        const Id& chunkId,
+        const std::size_t chunkNum,
+        Clipper* clipper,
+        Pool& pool)
 {
-    const ChunkInfo info(m_structure.getInfo(chunkId));
-    const std::size_t chunkNum(info.chunkNum());
-
     if (chunkNum < m_chunkVec.size())
     {
-        pool.add([this, clipper, chunkId, chunkNum]()
+        pool.add([this, clipper, &chunkId, chunkNum]()
         {
             FastSlot& slot(m_chunkVec[chunkNum]);
             CountedChunk& countedChunk(*slot.chunk);

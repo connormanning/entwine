@@ -24,7 +24,6 @@
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/simple-point-table.hpp>
-#include <entwine/types/structure.hpp>
 #include <entwine/util/pool.hpp>
 
 namespace entwine
@@ -64,8 +63,8 @@ namespace
         }
     }
 
-    const std::size_t clipPoolSize(32);
-    const std::size_t clipQueueSize(16);
+    const std::size_t clipPoolSize(16);
+    const std::size_t clipQueueSize(8);
 }
 
 Registry::Registry(
@@ -114,7 +113,7 @@ Registry::Registry(
     if (m_structure.baseIndexSpan())
     {
         const std::string basePath(
-                std::to_string(m_structure.baseIndexBegin()) +
+                m_structure.baseIndexBegin().str() +
                 m_structure.subsetPostfix());
 
         std::vector<char> data(m_endpoint.getSubpathBinary(basePath));
@@ -144,8 +143,6 @@ Registry::~Registry()
 
 bool Registry::addPoint(PointInfo& toAdd, Climber& climber, Clipper* clipper)
 {
-    bool accepted(false);
-
     if (Entry* entry = getEntry(climber, clipper))
     {
         Point myPoint(entry->point());
@@ -180,7 +177,7 @@ bool Registry::addPoint(PointInfo& toAdd, Climber& climber, Clipper* clipper)
             if (!Point::exists(myPoint))
             {
                 entry->update(toAdd.point, toAdd.data, m_schema.pointSize());
-                accepted = true;
+                return true;
             }
             else
             {
@@ -193,17 +190,11 @@ bool Registry::addPoint(PointInfo& toAdd, Climber& climber, Clipper* clipper)
         }
     }
 
-    if (!accepted)
-    {
-        climber.magnify(toAdd.point);
+    climber.magnify(toAdd.point);
 
-        if (m_structure.inRange(climber.index()))
-        {
-            accepted = addPoint(toAdd, climber, clipper);
-        }
-    }
+    if (!m_structure.inRange(climber.index())) return false;
 
-    return accepted;
+    return addPoint(toAdd, climber, clipper);
 }
 
 void Registry::save(Json::Value& meta)
@@ -217,7 +208,7 @@ Entry* Registry::getEntry(const Climber& climber, Clipper* clipper)
 {
     Entry* entry(0);
 
-    const std::size_t index(climber.index());
+    const Id& index(climber.index());
 
     if (m_structure.isWithinBase(index))
     {
@@ -225,15 +216,18 @@ Entry* Registry::getEntry(const Climber& climber, Clipper* clipper)
     }
     else if (m_structure.isWithinCold(index))
     {
-        entry = m_cold->getEntry(index, clipper);
+        entry = m_cold->getEntry(climber, clipper);
     }
 
     return entry;
 }
 
-void Registry::clip(const std::size_t index, Clipper* clipper)
+void Registry::clip(
+        const Id& index,
+        const std::size_t chunkNum,
+        Clipper* clipper)
 {
-    m_cold->clip(index, clipper, *m_pool);
+    m_cold->clip(index, chunkNum, clipper, *m_pool);
 }
 
 } // namespace entwine

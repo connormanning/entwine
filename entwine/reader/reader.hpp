@@ -20,6 +20,7 @@
 
 #include <entwine/reader/cache.hpp>
 #include <entwine/reader/chunk-reader.hpp>
+#include <entwine/types/structure.hpp>
 
 namespace arbiter
 {
@@ -40,7 +41,6 @@ class Reprojection;
 class Schema;
 class SinglePointTable;
 class Stats;
-class Structure;
 
 class Reader
 {
@@ -115,9 +115,9 @@ private:
     bool m_is3d;
 
     mutable std::mutex m_mutex;
-    mutable std::set<std::size_t> m_missing;
+    mutable std::set<Id> m_missing;
 
-    std::map<std::unique_ptr<arbiter::Endpoint>, std::set<std::size_t>> m_ids;
+    std::map<std::unique_ptr<arbiter::Endpoint>, std::set<Id>> m_ids;
 };
 
 } // namespace entwine

@@ -60,6 +60,23 @@ Schema::Schema(const Json::Value& json)
     m_layout = makePointLayout(m_dims);
 }
 
+Schema::Schema(const Schema& other)
+{
+    m_dims = other.m_dims;
+    m_layout = makePointLayout(m_dims);
+}
+
+Schema& Schema::operator=(const Schema& other)
+{
+    m_dims = other.m_dims;
+    m_layout = makePointLayout(m_dims);
+
+    return *this;
+}
+
+Schema::~Schema()
+{ }
+
 void Schema::finalize()
 {
     m_layout->finalize();

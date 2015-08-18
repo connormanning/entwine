@@ -19,8 +19,10 @@
 #include <unordered_map>
 #include <vector>
 
+#include <entwine/types/blocked-data.hpp>
 #include <entwine/types/dim-info.hpp>
 #include <entwine/types/point.hpp>
+#include <entwine/types/structure.hpp>
 #include <entwine/util/locker.hpp>
 
 namespace arbiter
@@ -74,24 +76,30 @@ enum ChunkType
 class ChunkData
 {
 public:
-    ChunkData(const Schema& schema, std::size_t id, std::size_t maxPoints);
+    ChunkData(const Schema& schema, const Id& id, std::size_t maxPoints);
     ChunkData(const ChunkData& other);
     virtual ~ChunkData();
 
     std::size_t maxPoints() const { return m_maxPoints; }
-    std::size_t id() const { return m_id; }
+    const Id& id() const { return m_id; }
 
     virtual void save(arbiter::Endpoint& endpoint) = 0;
 
     virtual bool isSparse() const = 0;
     virtual std::size_t numPoints() const = 0;
-    virtual Entry* getEntry(std::size_t index) = 0;
+    virtual Entry* getEntry(const Id& index) = 0;
 
 protected:
-    std::size_t endId() const;
+    Id endId() const;
+    std::size_t normalize(const Id& rawIndex) const;
+
+    void ensurePut(
+            const arbiter::Endpoint& endpoint,
+            const std::string& path,
+            const std::vector<char>& data) const;
 
     const Schema& m_schema;
-    const std::size_t m_id;
+    const Id m_id;
     const std::size_t m_maxPoints;
 };
 
@@ -102,12 +110,12 @@ class SparseChunkData : public ChunkData
 public:
     SparseChunkData(
             const Schema& schema,
-            std::size_t id,
+            const Id& id,
             std::size_t maxPoints);
 
     SparseChunkData(
             const Schema& schema,
-            std::size_t id,
+            const Id& id,
             std::size_t maxPoints,
             std::vector<char>& compressedData);
 
@@ -117,23 +125,15 @@ public:
 
     virtual bool isSparse() const { return true; }
     virtual std::size_t numPoints() const { return m_entries.size(); }
-    virtual Entry* getEntry(std::size_t index);
+    virtual Entry* getEntry(const Id& index);
 
     static std::size_t popNumPoints(std::vector<char>& compressedData);
     static DimList makeSparse(const Schema& schema);
 
 private:
-    struct SparseEntry
-    {
-        SparseEntry(const Schema& schema);
-        SparseEntry(const Schema& schema, char* pos);
-
-        Entry entry;
-        std::vector<char> data;
-    };
-
+    std::unordered_map<std::size_t, Entry*> m_entries;
+    BlockedData m_block;
     std::mutex m_mutex;
-    std::unordered_map<std::size_t, std::unique_ptr<SparseEntry>> m_entries;
 
     // Creates a compact contiguous representation of this sparse chunk by
     // prepending an "EntryId" field to the native schema and inserting each
@@ -148,13 +148,13 @@ class ContiguousChunkData : public ChunkData
 public:
     ContiguousChunkData(
             const Schema& schema,
-            std::size_t id,
+            const Id& id,
             std::size_t maxPoints,
             const std::vector<char>& empty);
 
     ContiguousChunkData(
             const Schema& schema,
-            std::size_t id,
+            const Id& id,
             std::size_t maxPoints,
             std::vector<char>& compressedData);
 
@@ -169,13 +169,12 @@ public:
 
     virtual bool isSparse() const { return false; }
     virtual std::size_t numPoints() const { return m_maxPoints; }
-    virtual Entry* getEntry(std::size_t index);
+    virtual Entry* getEntry(const Id& index);
 
     void merge(ContiguousChunkData& other);
 
 private:
     void emptyEntries();
-    std::size_t normalize(std::size_t rawIndex);
 
     std::vector<Entry> m_entries;
     std::unique_ptr<std::vector<char>> m_data;
@@ -186,7 +185,7 @@ class ChunkDataFactory
 public:
     static std::unique_ptr<ChunkData> create(
             const Schema& schema,
-            std::size_t id,
+            const Id& id,
             std::size_t maxPoints,
             std::vector<char>& data);
 };
@@ -203,19 +202,19 @@ class Chunk
 public:
     Chunk(
             const Schema& schema,
-            std::size_t id,
+            const Id& id,
             std::size_t maxPoints,
             bool contiguous,
             const std::vector<char>& empty);
 
     Chunk(
             const Schema& schema,
-            std::size_t id,
+            const Id& id,
             std::size_t maxPoints,
             std::vector<char> data,
             const std::vector<char>& empty);
 
-    Entry* getEntry(std::size_t index);
+    Entry* getEntry(const Id& index);
 
     void save(arbiter::Endpoint& endpoint);
 

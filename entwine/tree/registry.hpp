@@ -15,6 +15,8 @@
 #include <mutex>
 #include <vector>
 
+#include <entwine/types/structure.hpp>
+
 namespace Json
 {
     class Value;
@@ -37,7 +39,6 @@ class Entry;
 class PointInfo;
 class Pool;
 class Schema;
-class Structure;
 
 class Registry
 {
@@ -61,7 +62,7 @@ public:
 
     Entry* getEntry(const Climber& climber, Clipper* clipper);
 
-    void clip(std::size_t index, Clipper* clipper);
+    void clip(const Id& index, std::size_t chunkNum, Clipper* clipper);
 
 private:
     arbiter::Endpoint & m_endpoint;

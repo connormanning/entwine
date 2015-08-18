@@ -13,7 +13,6 @@
 #include <stdexcept>
 #include <cstring>
 
-
 namespace entwine
 {
 
