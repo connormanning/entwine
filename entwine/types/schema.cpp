@@ -50,11 +50,13 @@ Schema::Schema(const Json::Value& json)
     for (Json::ArrayIndex i(0); i < json.size(); ++i)
     {
         const Json::Value& jsonDim(json[i]);
+        const Json::Value& sizeDim(jsonDim["size"]);
         m_dims.push_back(
                 DimInfo(
                     jsonDim["name"].asString(),
                     jsonDim["type"].asString(),
-                    jsonDim["size"].asUInt64()));
+                    sizeDim.isIntegral() ?
+                        sizeDim.asUInt64() : std::stoul(sizeDim.asString())));
     }
 
     m_layout = makePointLayout(m_dims);
