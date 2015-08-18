@@ -32,6 +32,9 @@ public:
     explicit Schema(DimList dims);
     Schema(const Json::Value& json);
 
+    Schema(const Schema& other);
+    Schema& operator=(const Schema& other);
+
     ~Schema();
 
     void finalize();
