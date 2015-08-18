@@ -38,8 +38,8 @@ namespace
 }
 
 Reader::Reader(
-        arbiter::Endpoint& endpoint,
-        arbiter::Arbiter& arbiter,
+        const arbiter::Endpoint& endpoint,
+        const arbiter::Arbiter& arbiter,
         std::shared_ptr<Cache> cache)
     : m_path(endpoint.root())
     , m_bbox()

@@ -47,8 +47,8 @@ class Reader
 public:
     // Will throw if entwine's meta files cannot be fetched from this endpoint.
     Reader(
-            arbiter::Endpoint& endpoint,
-            arbiter::Arbiter& arbiter,
+            const arbiter::Endpoint& endpoint,
+            const arbiter::Arbiter& arbiter,
             std::shared_ptr<Cache> cache);
     ~Reader();
 
