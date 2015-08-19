@@ -14,7 +14,6 @@
 
 #include <pdal/Dimension.hpp>
 #include <pdal/PointView.hpp>
-#include <pdal/Utils.hpp>
 
 #include <entwine/compression/util.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>

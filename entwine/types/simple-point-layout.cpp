@@ -10,7 +10,20 @@
 
 #include <entwine/types/simple-point-layout.hpp>
 
-#include <pdal/Utils.hpp>
+namespace
+{
+    bool contains(
+            const pdal::Dimension::IdList& idList,
+            const pdal::Dimension::Id::Enum id)
+    {
+        for (const auto current : idList)
+        {
+            if (current == id) return true;
+        }
+
+        return false;
+    }
+}
 
 bool SimplePointLayout::update(
         pdal::Dimension::Detail dimDetail,
@@ -18,7 +31,7 @@ bool SimplePointLayout::update(
 {
     bool added(false);
 
-    if (!m_finalized && !pdal::Utils::contains(m_used, dimDetail.id()))
+    if (!m_finalized && !contains(m_used, dimDetail.id()))
     {
         dimDetail.setOffset(m_pointSize);
 
