@@ -279,7 +279,7 @@ void Builder::inferBBox(const std::string path)
                 std::numeric_limits<double>::lowest(),
                 std::numeric_limits<double>::lowest(),
                 std::numeric_limits<double>::lowest()),
-            m_structure->is3d());
+            true);
 
     const std::string localPath(localize(path, 0));
 
