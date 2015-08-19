@@ -10,7 +10,7 @@
         "run": 0,
 
         // Number of worker threads for simultaneous point insertion.
-        "threads": 24,
+        "threads": 12,
 
         // Set to true if the headers for all files are known to be accurate.
         // If accurate, this information can be used to greatly speed up
@@ -19,10 +19,10 @@
 
         // Input file list.
         "manifest": [
-            // Globbed filesystem path (TODO Add s3 glob support).
+            // Globbed path.
             "/Users/my-name/data/data-directory/*",
 
-            // Absolute filesystem path (tilde expansion not supported).
+            // Absolute filesystem path (tilde expansion supported on unix).
             "/Users/my-name/data/path.laz",
 
             // Relative filesystem path.
@@ -61,23 +61,21 @@
         "baseDepth": 8,
 
         // End depth level of on-demand allocated set of data chunks.
-        "coldDepth": 10,
+        "coldDepth": 20,
 
         // Number of points per chunk for the tree depths from baseDepth up to,
         // but not including, coldDepth.
         //
         // (4 ^ baseDepth) / pointsPerChunk must be a whole number.
-        "pointsPerChunk": 65536,
+        "pointsPerChunk": 262144,
 
         // Highly recommended for medium to large (greater than a few billion
         // points) sets, and in general for lossless or non-truncated index
         // builds.
         "dynamicChunks": true,
 
-        // TODO Allow octree.
-
         // Valid values are "quadtree" and "octree".
-        "type": "quadtree"
+        "type": "octree"
     },
     "geometry": {
         // Bounding box for the entire dataset.  Points outside this box will
@@ -87,10 +85,12 @@
         // this may be set to null, in which case the bounding box will be
         // inferred from the bounds of the sole contributing file.
         //
-        // Format: [ x-min, y-min, x-max, y-max ].
+        // Format:
+        //      [ x-min, y-min, x-max, y-max] for quadtree.
+        //      [ x-min, y-min, z-min, x-max, y-max, z-max] for octree.
         "bbox": [
-            -10796577.371225, 4902908.135781,
-            -10015953.953824, 5375808.896799
+            -10796577.371225, 4902908.135781, 0,
+            -10015953.953824, 5375808.896799, 1000
         ],
 
         // If reprojection is required, in/out spatial reference systems must
@@ -99,12 +99,11 @@
         "reproject": {
             "in": "EPSG:26915",
             "out": "EPSG:3857"
-
-            /*
-            "in": null,
-            "out": null
-            */
         },
+
+        /*
+        "reproject": null,  // Don't reproject data.
+        */
 
         // Specify dimensions to capture in the resulting index.  If the type
         // and size are not sufficiently large to store a dimension in any file,
