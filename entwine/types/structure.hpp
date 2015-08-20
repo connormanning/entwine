@@ -14,7 +14,7 @@
 #include <memory>
 
 #include <entwine/third/bigint/little-big-int.hpp>
-#include <entwine/third/json/json.h>
+#include <entwine/third/json/json.hpp>
 
 namespace entwine
 {

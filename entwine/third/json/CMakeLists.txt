@@ -8,7 +8,7 @@ set(
 
 set(
     HEADERS
-    "${BASE}/json.h"
+    "${BASE}/json.hpp"
 )
 
 set(THIRD_SOURCES ${THIRD_SOURCES} ${SOURCES} PARENT_SCOPE)

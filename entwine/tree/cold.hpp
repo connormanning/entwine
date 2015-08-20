@@ -18,7 +18,7 @@
 #include <unordered_set>
 #include <unordered_map>
 
-#include <entwine/third/json/json.h>
+#include <entwine/third/json/json.hpp>
 #include <entwine/types/structure.hpp>
 
 namespace arbiter

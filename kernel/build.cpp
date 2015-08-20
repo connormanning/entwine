@@ -14,7 +14,6 @@
 #include <iostream>
 #include <string>
 
-#include <entwine/third/json/json.h>
 #include <entwine/tree/builder.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/reprojection.hpp>

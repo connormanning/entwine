@@ -10,7 +10,6 @@
 
 #include <entwine/tree/cold.hpp>
 
-#include <entwine/third/json/json.h>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>

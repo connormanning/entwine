@@ -10,8 +10,6 @@
 
 #include <entwine/types/reprojection.hpp>
 
-#include <entwine/third/json/json.h>
-
 namespace entwine
 {
 

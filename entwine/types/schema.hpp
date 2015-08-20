@@ -15,7 +15,7 @@
 
 #include <pdal/PointLayout.hpp>
 
-#include <entwine/third/json/json.h>
+#include <entwine/third/json/json.hpp>
 #include <entwine/types/dim-info.hpp>
 
 namespace entwine

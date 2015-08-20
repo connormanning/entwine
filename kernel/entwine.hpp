@@ -14,7 +14,7 @@
 #include <vector>
 
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/third/json/json.h>
+#include <entwine/third/json/json.hpp>
 
 class Kernel
 {

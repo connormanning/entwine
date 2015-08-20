@@ -13,7 +13,6 @@
 #include <fstream>
 #include <iostream>
 
-#include <entwine/third/json/json.h>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
 

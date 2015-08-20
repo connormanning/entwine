@@ -12,7 +12,7 @@
 
 #include <atomic>
 
-#include <entwine/third/json/json.h>
+#include <entwine/third/json/json.hpp>
 
 namespace entwine
 {

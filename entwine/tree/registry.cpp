@@ -14,7 +14,7 @@
 
 #include <pdal/PointView.hpp>
 
-#include <entwine/third/json/json.h>
+#include <entwine/third/json/json.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>

@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include <entwine/third/json/json.h>
+#include <entwine/third/json/json.hpp>
 #include <entwine/types/point.hpp>
 
 namespace entwine
