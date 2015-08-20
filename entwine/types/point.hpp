@@ -12,6 +12,7 @@
 
 #include <cmath>
 #include <iomanip>
+#include <limits>
 #include <ostream>
 
 namespace entwine
