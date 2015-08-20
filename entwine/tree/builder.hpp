@@ -99,7 +99,7 @@ public:
     // Link non-colocated subsets.
     void link(std::vector<std::string> subsets);
 
-    Stats stats() const;
+    const Stats& stats() const;
 
 private:
     // Awaken the tree from a saved state.  After a load(), no queries should

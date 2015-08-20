@@ -648,7 +648,7 @@ void Builder::save()
     m_pool->go();
 }
 
-Stats Builder::stats() const
+const Stats& Builder::stats() const
 {
     return m_stats;
 }
