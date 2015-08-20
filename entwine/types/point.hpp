@@ -76,7 +76,13 @@ inline std::ostream& operator<<(std::ostream& os, const Point& point)
     os << std::setprecision(2) << std::fixed;
 
     os << "(" << point.x << ", " << point.y;
-    if (point.z != Point::emptyCoord()) os << ", " << point.z;
+    if (
+            point.z != Point::emptyCoord() &&
+            point.z != std::numeric_limits<double>::max() &&
+            point.z != std::numeric_limits<double>::lowest())
+    {
+        os << ", " << point.z;
+    }
     os << ")";
 
     os << std::setprecision(precision);

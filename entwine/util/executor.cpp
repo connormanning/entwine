@@ -111,9 +111,10 @@ bool Executor::good(const std::string path) const
 
 std::unique_ptr<Preview> Executor::preview(
         const std::string path,
-        const Reprojection* reprojection)
+        const Reprojection* reprojection,
+        const bool doSrs)
 {
-    using namespace pdal::Dimension;
+    using namespace pdal;
 
     std::unique_ptr<Preview> result;
 
@@ -129,14 +130,16 @@ std::unique_ptr<Preview> Executor::preview(
             pdal::PointTable table;
 
             auto layout(table.layout());
-            layout->registerDim(Id::X);
-            layout->registerDim(Id::Y);
-            layout->registerDim(Id::Z);
+            layout->registerDim(Dimension::Id::X);
+            layout->registerDim(Dimension::Id::Y);
+            layout->registerDim(Dimension::Id::Z);
 
             const pdal::QuickInfo quick(reader->preview());
 
             if (quick.valid())
             {
+                std::string srs;
+
                 BBox bbox(
                         Point(
                             quick.m_bounds.minx,
@@ -155,28 +158,38 @@ std::unique_ptr<Preview> Executor::preview(
 
                     pdal::PointView view(table);
 
-                    view.setField(Id::X, 0, bbox.min().x);
-                    view.setField(Id::Y, 0, bbox.min().y);
-                    view.setField(Id::Z, 0, bbox.min().y);
-                    view.setField(Id::X, 1, bbox.max().x);
-                    view.setField(Id::Y, 1, bbox.max().y);
-                    view.setField(Id::Z, 1, bbox.max().y);
+                    view.setField(Dimension::Id::X, 0, bbox.min().x);
+                    view.setField(Dimension::Id::Y, 0, bbox.min().y);
+                    view.setField(Dimension::Id::Z, 0, bbox.min().y);
+                    view.setField(Dimension::Id::X, 1, bbox.max().x);
+                    view.setField(Dimension::Id::Y, 1, bbox.max().y);
+                    view.setField(Dimension::Id::Z, 1, bbox.max().y);
 
                     pdal::FilterWrapper::filter(*filter, view);
 
                     bbox = BBox(
                             Point(
-                                view.getFieldAs<double>(Id::X, 0),
-                                view.getFieldAs<double>(Id::Y, 0),
-                                view.getFieldAs<double>(Id::Z, 0)),
+                                view.getFieldAs<double>(Dimension::Id::X, 0),
+                                view.getFieldAs<double>(Dimension::Id::Y, 0),
+                                view.getFieldAs<double>(Dimension::Id::Z, 0)),
                             Point(
-                                view.getFieldAs<double>(Id::X, 1),
-                                view.getFieldAs<double>(Id::Y, 1),
-                                view.getFieldAs<double>(Id::Z, 1)),
+                                view.getFieldAs<double>(Dimension::Id::X, 1),
+                                view.getFieldAs<double>(Dimension::Id::Y, 1),
+                                view.getFieldAs<double>(Dimension::Id::Z, 1)),
                             m_is3d);
+
+                    if (doSrs)
+                    {
+                        srs = pdal::SpatialReference(
+                                reprojection->out()).getRawWKT();
+                    }
+                }
+                else
+                {
+                    srs = quick.m_srs.getRawWKT();
                 }
 
-                result.reset(new Preview(bbox, quick.m_pointCount));
+                result.reset(new Preview(bbox, quick.m_pointCount, srs));
             }
         }
     }

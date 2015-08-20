@@ -113,8 +113,8 @@ private:
     // Return the local path.
     std::string localize(std::string path, Origin origin);
 
-    // Initialize our bounds from a path.
-    void inferBBox(std::string path);
+    // Initialize our SRS WKT and our BBox, if necessary.
+    void infer(std::string path);
 
     // Insert each point from a pdal::PointView into the Registry.
     void insert(
@@ -142,6 +142,7 @@ private:
 
     Stats m_stats;
     bool m_trustHeaders;
+    std::string m_srs;
 
     std::unique_ptr<Pool> m_pool;
     std::unique_ptr<Executor> m_executor;

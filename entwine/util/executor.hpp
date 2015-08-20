@@ -35,13 +35,15 @@ class Schema;
 class Preview
 {
 public:
-    Preview(BBox bbox, std::size_t numPoints)
+    Preview(const BBox& bbox, std::size_t numPoints, const std::string& srs)
         : bbox(bbox)
         , numPoints(numPoints)
+        , srs(srs)
     { }
 
     BBox bbox;
     std::size_t numPoints;
+    std::string srs;
 };
 
 class Executor
@@ -63,7 +65,8 @@ public:
     // reading the whole file.
     std::unique_ptr<Preview> preview(
             std::string path,
-            const Reprojection* reprojection);
+            const Reprojection* reprojection,
+            bool doSrs = false);
 
 private:
     std::unique_ptr<pdal::Reader> createReader(

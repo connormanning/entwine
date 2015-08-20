@@ -128,10 +128,7 @@ bool Builder::insert(const std::string path)
 
     if (origin == Manifest::invalidOrigin()) return false;  // Already inserted.
 
-    if (!m_bbox && origin == 0)
-    {
-        inferBBox(path);
-    }
+    if (origin == 0) infer(path);
 
     std::cout << "Adding " << origin << " - " << path << std::endl;
 
@@ -264,55 +261,88 @@ void Builder::insert(
     }
 }
 
-void Builder::inferBBox(const std::string path)
+void Builder::infer(const std::string path)
 {
-    std::cout << "Inferring bounds from " << path << "..." << std::endl;
+    using namespace pdal;
 
-    // Use BBox::set() to avoid malformed BBox warning.
-    BBox bbox;
-    bbox.set(
-            Point(
-                std::numeric_limits<double>::max(),
-                std::numeric_limits<double>::max(),
-                std::numeric_limits<double>::max()),
-            Point(
-                std::numeric_limits<double>::lowest(),
-                std::numeric_limits<double>::lowest(),
-                std::numeric_limits<double>::lowest()),
-            true);
+    auto preview(m_executor->preview(path, m_reprojection.get(), true));
 
-    const std::string localPath(localize(path, 0));
-
-    auto bounder([this, &bbox](pdal::PointView& view)->void
+    if (preview)
     {
-        for (std::size_t i = 0; i < view.size(); ++i)
+        m_srs = preview->srs;
+
+        if (m_trustHeaders && !m_bbox && preview->bbox.exists())
         {
-            bbox.grow(
-                    Point(
-                        view.getFieldAs<double>(pdal::Dimension::Id::X, i),
-                        view.getFieldAs<double>(pdal::Dimension::Id::Y, i),
-                        view.getFieldAs<double>(pdal::Dimension::Id::Z, i)));
-        }
-    });
+            std::cout << "Inferring bounds from header of " << path << "..." <<
+                std::endl;
 
-    if (!m_executor->run(localPath, m_reprojection.get(), bounder))
-    {
-        throw std::runtime_error("Error inferring bounds");
+            BBox bbox(preview->bbox);
+            m_bbox.reset(
+                    new BBox(
+                        Point(
+                            std::floor(bbox.min().x),
+                            std::floor(bbox.min().y),
+                            std::floor(bbox.min().z)),
+                        Point(
+                            std::ceil(bbox.max().x),
+                            std::ceil(bbox.max().y),
+                            std::ceil(bbox.max().z)),
+                        m_structure->is3d()));
+
+            std::cout << "\tGot: " << *m_bbox << "\n" << std::endl;
+        }
     }
 
-    m_bbox.reset(
-            new BBox(
-                Point(
-                    std::floor(bbox.min().x),
-                    std::floor(bbox.min().y),
-                    std::floor(bbox.min().z)),
-                Point(
-                    std::ceil(bbox.max().x),
-                    std::ceil(bbox.max().y),
-                    std::ceil(bbox.max().z)),
-                m_structure->is3d()));
+    if (!m_bbox)
+    {
+        std::cout << "Inferring bounds from " << path << "..." << std::endl;
 
-    std::cout << "Got: " << m_bbox->toJson().toStyledString() << std::endl;
+        // Use BBox::set() to avoid malformed BBox warning.
+        BBox bbox;
+        bbox.set(
+                Point(
+                    std::numeric_limits<double>::max(),
+                    std::numeric_limits<double>::max(),
+                    std::numeric_limits<double>::max()),
+                Point(
+                    std::numeric_limits<double>::lowest(),
+                    std::numeric_limits<double>::lowest(),
+                    std::numeric_limits<double>::lowest()),
+                true);
+
+        const std::string localPath(localize(path, 0));
+
+        auto bounder([this, &bbox](pdal::PointView& view)->void
+        {
+            for (std::size_t i = 0; i < view.size(); ++i)
+            {
+                bbox.grow(
+                        Point(
+                            view.getFieldAs<double>(Dimension::Id::X, i),
+                            view.getFieldAs<double>(Dimension::Id::Y, i),
+                            view.getFieldAs<double>(Dimension::Id::Z, i)));
+            }
+        });
+
+        if (!m_executor->run(localPath, m_reprojection.get(), bounder))
+        {
+            throw std::runtime_error("Error inferring bounds");
+        }
+
+        m_bbox.reset(
+                new BBox(
+                    Point(
+                        std::floor(bbox.min().x),
+                        std::floor(bbox.min().y),
+                        std::floor(bbox.min().z)),
+                    Point(
+                        std::ceil(bbox.max().x),
+                        std::ceil(bbox.max().y),
+                        std::ceil(bbox.max().z)),
+                    m_structure->is3d()));
+
+        std::cout << "\tGot: " << *m_bbox << "\n" << std::endl;
+    }
 }
 
 std::string Builder::localize(const std::string path, const Origin origin)
@@ -663,6 +693,7 @@ Json::Value Builder::saveProps() const
     props["structure"] = m_structure->toJson();
     if (m_reprojection) props["reprojection"] = m_reprojection->toJson();
     props["manifest"] = m_manifest->toJson();
+    props["srs"] = m_srs;
     props["stats"] = m_stats.toJson();
     props["trustHeaders"] = m_trustHeaders;
 
@@ -681,6 +712,7 @@ void Builder::loadProps(const Json::Value& props)
     if (props.isMember("reprojection"))
         m_reprojection.reset(new Reprojection(props["reprojection"]));
 
+    m_srs = props["srs"].asString();
     m_manifest.reset(new Manifest(props["manifest"]));
     m_stats = Stats(props["stats"]);
     m_trustHeaders = props["trustHeaders"].asBool();

@@ -132,6 +132,20 @@ namespace
         return bbox;
     }
 
+    std::string getBBoxString(const BBox* bbox, const std::size_t dimensions)
+    {
+        if (bbox)
+        {
+            std::ostringstream oss;
+            oss << *bbox;
+            return oss.str();
+        }
+        else
+        {
+            return "(inferring from source)";
+        }
+    }
+
     std::unique_ptr<Reprojection> getReprojection(const Json::Value& json)
     {
         std::unique_ptr<Reprojection> reprojection;
@@ -395,7 +409,7 @@ void Kernel::build(std::vector<std::string> args)
             "\tBuild type: " << jsonStructure["type"].asString() << "\n" <<
             "\tPoint count hint: " << numPointsHint << " points\n" <<
             "Geometry:\n" <<
-            "\tBounds: " << *bbox << "\n" <<
+            "\tBounds: " << getBBoxString(bbox.get(), dimensions) << "\n" <<
             "\tReprojection: " << getReprojString(reprojection.get()) << "\n" <<
             "\tStoring dimensions: " << getDimensionString(schema) << "\n" <<
             std::endl;

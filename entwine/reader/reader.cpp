@@ -51,6 +51,7 @@ Reader::Reader(
     , m_base()
     , m_cache(cache)
     , m_is3d(false)
+    , m_srs()
     , m_ids()
 {
     using namespace arbiter;
@@ -85,6 +86,7 @@ Reader::Reader(
             m_reprojection.reset(new Reprojection(props["reprojection"]));
         m_manifest.reset(new Manifest(props["manifest"]));
         m_stats.reset(new Stats(props["stats"]));
+        m_srs = props["srs"].asString();
 
         const Json::Value& jsonIds(props["ids"]);
 

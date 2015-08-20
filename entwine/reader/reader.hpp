@@ -67,6 +67,7 @@ public:
     const BBox& bbox() const            { return *m_bbox; }
     const Schema& schema() const        { return *m_schema; }
     const Structure& structure() const  { return *m_structure; }
+    const std::string& srs() const      { return m_srs; }
 
 private:
     FetchInfoSet traverse(
@@ -113,6 +114,7 @@ private:
     std::shared_ptr<Cache> m_cache;
 
     bool m_is3d;
+    std::string m_srs;
 
     mutable std::mutex m_mutex;
     mutable std::set<Id> m_missing;
