@@ -42,16 +42,14 @@ public:
     static std::unique_ptr<Builder> getBuilder(
             const Json::Value& json,
             std::shared_ptr<arbiter::Arbiter> arbiter,
-            const RunInfo& runInfo,
-            bool force,
-            std::pair<std::size_t, std::size_t> subset = { 0, 0 });
+            const RunInfo& runInfo);
 
     static RunInfo getRunInfo(
             const Json::Value& json,
             const arbiter::Arbiter& arbiter);
 
     static std::shared_ptr<arbiter::Arbiter> getArbiter(
-            std::string credentialsString);
+            const Json::Value& json);
 
     static Json::Value parse(const std::string& input);
 };

@@ -95,9 +95,7 @@ namespace
 std::unique_ptr<Builder> ConfigParser::getBuilder(
         const Json::Value& config,
         std::shared_ptr<arbiter::Arbiter> arbiter,
-        const RunInfo& runInfo,
-        const bool force,
-        const std::pair<std::size_t, std::size_t> subset)
+        const RunInfo& runInfo)
 {
     std::unique_ptr<Builder> builder;
 
@@ -111,6 +109,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     const std::string outPath(jsonOutput["path"].asString());
     const std::string tmpPath(jsonOutput["tmp"].asString());
     const bool outCompress(jsonOutput["compress"].asUInt64());
+    const bool force(jsonOutput["force"].asBool());
 
     // Tree structure.
     const Json::Value& jsonStructure(config["structure"]);
@@ -120,6 +119,15 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     const std::size_t chunkPoints(jsonStructure["pointsPerChunk"].asUInt64());
     const std::size_t dynamicChunks(jsonStructure["dynamicChunks"].asBool());
     const std::size_t dimensions(getDimensions(jsonStructure["type"]));
+
+    std::pair<std::size_t, std::size_t> subset({ 0, 0 });
+    if (jsonStructure.isMember("subset"))
+    {
+        subset = std::make_pair(
+                jsonStructure[0].asUInt64(),
+                jsonStructure[1].asUInt64());
+    }
+
     const std::size_t numPointsHint(
             jsonStructure.isMember("numPointsHint") ?
                 jsonStructure["numPointsHint"].asUInt64() : 0);
@@ -228,14 +236,12 @@ RunInfo ConfigParser::getRunInfo(
 }
 
 std::shared_ptr<arbiter::Arbiter> ConfigParser::getArbiter(
-        const std::string credentialsString)
+        const Json::Value& credentials)
 {
     std::shared_ptr<arbiter::Arbiter> arbiter;
 
-    if (credentialsString.size())
+    if (credentials.isMember("access") && credentials.isMember("hidden"))
     {
-        Json::Value credentials(parse(credentialsString));
-
         arbiter.reset(
                 new arbiter::Arbiter(
                     arbiter::AwsAuth(
@@ -253,12 +259,16 @@ std::shared_ptr<arbiter::Arbiter> ConfigParser::getArbiter(
 Json::Value ConfigParser::parse(const std::string& input)
 {
     Json::Value json;
-    reader.parse(input, json, false);
 
-    const std::string jsonError(reader.getFormattedErrorMessages());
-    if (!jsonError.empty())
+    if (input.size())
     {
-        throw std::runtime_error("Error during parsing: " + jsonError);
+        reader.parse(input, json, false);
+
+        const std::string jsonError(reader.getFormattedErrorMessages());
+        if (!jsonError.empty())
+        {
+            throw std::runtime_error("Error during parsing: " + jsonError);
+        }
     }
 
     return json;

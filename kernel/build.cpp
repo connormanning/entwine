@@ -122,10 +122,13 @@ void Kernel::build(std::vector<std::string> args)
         return;
     }
 
+    arbiter::Arbiter localArbiter;
+
     const std::string configPath(args[0]);
+    const std::string config(localArbiter.get(configPath));
+    Json::Value json(ConfigParser::parse(config));
+
     std::string credPath;
-    bool force(false);
-    std::pair<std::size_t, std::size_t> subset({ 0, 0 });
 
     std::size_t a(1);
 
@@ -146,20 +149,22 @@ void Kernel::build(std::vector<std::string> args)
         }
         else if (arg == "-f")
         {
-            force = true;
+            json["output"]["force"] = true;
         }
         else if (arg == "-s")
         {
             if (a + 2 < args.size())
             {
                 ++a;
-                const std::size_t num(std::stoul(args[a]) - 1);
+                const Json::UInt64 num(std::stoul(args[a]) - 1);
                 ++a;
-                const std::size_t cnt(std::stoul(args[a]));
+                const Json::UInt64 cnt(std::stoul(args[a]));
 
                 if (num < cnt && (cnt == 4 || cnt == 16 || cnt == 64))
                 {
-                    subset = { num, cnt };
+                    json["structure"]["subset"].clear();
+                    json["structure"]["subset"].append(num);
+                    json["structure"]["subset"].append(cnt);
                 }
                 else
                 {
@@ -175,18 +180,12 @@ void Kernel::build(std::vector<std::string> args)
         ++a;
     }
 
-    arbiter::Arbiter localArbiter;
-
-    const std::string config(localArbiter.get(configPath));
     const std::string creds(credPath.size() ? localArbiter.get(credPath) : "");
-
-    auto arbiter(ConfigParser::getArbiter(creds));
-
-    const Json::Value json(ConfigParser::parse(config));
+    auto arbiter(ConfigParser::getArbiter(ConfigParser::parse(creds)));
 
     RunInfo runInfo(ConfigParser::getRunInfo(json, *arbiter));
     std::unique_ptr<Builder> builder(
-            ConfigParser::getBuilder(json, arbiter, runInfo, force, subset));
+            ConfigParser::getBuilder(json, arbiter, runInfo));
 
     if (builder->isContinuation())
     {
@@ -253,6 +252,7 @@ void Kernel::build(std::vector<std::string> args)
 
     if (structure.isSubset())
     {
+        const auto subset(structure.subset());
         std::cout << "Subset: " <<
             subset.first + 1 << " of " << subset.second << "\n" <<
             std::endl;
