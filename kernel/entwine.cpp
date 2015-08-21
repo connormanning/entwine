@@ -47,33 +47,6 @@ namespace
     }
 }
 
-std::shared_ptr<arbiter::Arbiter> Kernel::getArbiter(const std::string credPath)
-{
-    std::shared_ptr<arbiter::Arbiter> arbiter(new arbiter::Arbiter());
-
-    Json::Value credentials;
-    std::ifstream credFile(credPath, std::ifstream::binary);
-    if (credFile.good())
-    {
-        Json::Reader reader;
-        reader.parse(credFile, credentials, false);
-
-        const std::string jsonError(reader.getFormattedErrorMessages());
-        if (!jsonError.empty())
-        {
-            throw std::runtime_error("Credential parsing: " + jsonError);
-        }
-
-        arbiter.reset(
-                new arbiter::Arbiter(
-                    arbiter::AwsAuth(
-                        credentials["access"].asString(),
-                        credentials["hidden"].asString())));
-    }
-
-    return arbiter;
-}
-
 int main(int argc, char** argv)
 {
     signal(SIGSEGV, handler);

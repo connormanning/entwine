@@ -14,7 +14,9 @@
 #include <iostream>
 #include <string>
 
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
+#include <entwine/tree/config-parser.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
@@ -24,155 +26,9 @@ using namespace entwine;
 
 namespace
 {
-    std::size_t getRunCount(const Json::Value& input, std::size_t manifestSize)
+    std::string yesNo(const bool val)
     {
-        std::size_t runCount(manifestSize);
-
-        if (input.isMember("run") && input["run"].asUInt64() != 0)
-        {
-            runCount = std::min<std::size_t>(
-                    input["run"].asUInt64(),
-                    manifestSize);
-        }
-
-        return runCount;
-    }
-
-    std::string getDimensionString(const Schema& schema)
-    {
-        const DimList dims(schema.dims());
-        std::string results("[");
-
-        for (std::size_t i(0); i < dims.size(); ++i)
-        {
-            if (i) results += ", ";
-            results += dims[i].name();
-        }
-
-        results += "]";
-
-        return results;
-    }
-
-    std::vector<std::string> getManifest(
-            const Json::Value& json,
-            arbiter::Arbiter& arbiter)
-    {
-        std::vector<std::string> manifest;
-
-        auto insert([&manifest, &arbiter](std::string in)
-        {
-            std::vector<std::string> paths(arbiter.resolve(in, true));
-            manifest.insert(manifest.end(), paths.begin(), paths.end());
-        });
-
-        if (json.isArray())
-        {
-            for (Json::ArrayIndex i(0); i < json.size(); ++i)
-            {
-                insert(json[i].asString());
-            }
-        }
-        else
-        {
-            insert(json.asString());
-        }
-
-        return manifest;
-    }
-
-    std::size_t getDimensions(const Json::Value& jsonType)
-    {
-        const std::string typeString(jsonType.asString());
-
-        if (typeString == "quadtree") return 2;
-        else if (typeString == "octree") return 3;
-        else throw std::runtime_error("Invalid tree type");
-    }
-
-    std::unique_ptr<BBox> getBBox(
-            Json::Value& json,
-            const std::size_t dimensions)
-    {
-        std::unique_ptr<BBox> bbox;
-
-        if (!json.empty())
-        {
-            if (json.size() == 4 && dimensions == 2)
-            {
-                Json::Value expanded;
-                Json::Value& bounds(expanded["bounds"]);
-
-                bounds.append(json[0].asDouble());
-                bounds.append(json[1].asDouble());
-                bounds.append(std::numeric_limits<double>::max());
-                bounds.append(json[2].asDouble());
-                bounds.append(json[3].asDouble());
-                bounds.append(std::numeric_limits<double>::lowest());
-
-                expanded["is3d"] = false;
-
-                bbox.reset(new BBox(expanded));
-            }
-            else if (dimensions == 3)
-            {
-                Json::Value expanded;
-                expanded["bounds"] = json;
-                expanded["is3d"] = true;
-                bbox.reset(new BBox(expanded));
-            }
-            else
-            {
-                throw std::runtime_error(
-                        "Invalid bbox for the requested tree type.");
-            }
-        }
-
-        return bbox;
-    }
-
-    std::string getBBoxString(const BBox* bbox, const std::size_t dimensions)
-    {
-        if (bbox)
-        {
-            std::ostringstream oss;
-            oss << *bbox;
-            return oss.str();
-        }
-        else
-        {
-            return "(inferring from source)";
-        }
-    }
-
-    std::unique_ptr<Reprojection> getReprojection(const Json::Value& json)
-    {
-        std::unique_ptr<Reprojection> reprojection;
-
-        const Json::Value& in(json["in"]);
-        const Json::Value& out(json["out"]);
-
-        if (
-                !json.empty() &&
-                in.isString() && in.asString().size() &&
-                out.isString() && out.asString().size())
-        {
-            reprojection.reset(new Reprojection(in.asString(), out.asString()));
-        }
-
-        return reprojection;
-    }
-
-    std::string getReprojString(const Reprojection* reprojection)
-    {
-        if (reprojection)
-        {
-            return reprojection->in() + " -> " + reprojection->out();
-        }
-        else
-        {
-            return "(none)";
-        }
+        return (val ? "yes" : "no");
     }
 
     std::chrono::high_resolution_clock::time_point now()
@@ -208,6 +64,48 @@ namespace
             "\t\t\tsubset-total - Total number of subsets that will be built.\n"
             "\t\t\tMust be 4, 16, or 64.\n";
     }
+
+    std::string getDimensionString(const Schema& schema)
+    {
+        const DimList dims(schema.dims());
+        std::string results("[");
+
+        for (std::size_t i(0); i < dims.size(); ++i)
+        {
+            if (i) results += ", ";
+            results += dims[i].name();
+        }
+
+        results += "]";
+
+        return results;
+    }
+
+    std::string getBBoxString(const BBox* bbox, const std::size_t dimensions)
+    {
+        if (bbox)
+        {
+            std::ostringstream oss;
+            oss << *bbox;
+            return oss.str();
+        }
+        else
+        {
+            return "(inferring from source)";
+        }
+    }
+
+    std::string getReprojString(const Reprojection* reprojection)
+    {
+        if (reprojection)
+        {
+            return reprojection->in() + " -> " + reprojection->out();
+        }
+        else
+        {
+            return "(none)";
+        }
+    }
 }
 
 void Kernel::build(std::vector<std::string> args)
@@ -224,16 +122,8 @@ void Kernel::build(std::vector<std::string> args)
         return;
     }
 
-    const std::string configFilename(args[0]);
-    std::ifstream configStream(configFilename, std::ifstream::binary);
-
-    if (!configStream.good())
-    {
-        std::cout << getUsageString() << std::endl;
-        throw std::runtime_error("Couldn't open " + configFilename);
-    }
-
-    std::string credPath("credentials.json");
+    const std::string configPath(args[0]);
+    std::string credPath;
     bool force(false);
     std::pair<std::size_t, std::size_t> subset({ 0, 0 });
 
@@ -285,152 +175,87 @@ void Kernel::build(std::vector<std::string> args)
         ++a;
     }
 
-    Json::Reader reader;
-    Json::Value config;
-    reader.parse(configStream, config, false);
+    arbiter::Arbiter localArbiter;
 
-    const std::string jsonError(reader.getFormattedErrorMessages());
-    if (!jsonError.empty())
+    const std::string config(localArbiter.get(configPath));
+    const std::string creds(credPath.size() ? localArbiter.get(credPath) : "");
+
+    auto arbiter(ConfigParser::getArbiter(creds));
+
+    const Json::Value json(ConfigParser::parse(config));
+
+    RunInfo runInfo(ConfigParser::getRunInfo(json, *arbiter));
+    std::unique_ptr<Builder> builder(
+            ConfigParser::getBuilder(json, arbiter, runInfo, force, subset));
+
+    if (builder->isContinuation())
     {
-        throw std::runtime_error("Config parsing: " + jsonError);
+        std::cout << "\nContinuing previous index..." << std::endl;
     }
 
-    auto arbiter(getArbiter(credPath));
+    const auto& outEndpoint(builder->outEndpoint());
+    const auto& tmpEndpoint(builder->tmpEndpoint());
 
-    // Input files to add to the index.
-    const Json::Value jsonInput(config["input"]);
-    const std::vector<std::string> manifest(
-            getManifest(jsonInput["manifest"], *arbiter));
-    const bool trustHeaders(jsonInput["trustHeaders"].asBool());
-    const std::size_t runCount(getRunCount(jsonInput, manifest.size()));
-    const std::size_t threads(jsonInput["threads"].asUInt64());
+    std::string outPath(
+            (outEndpoint.type() != "fs" ? outEndpoint.type() + "://" : "") +
+            outEndpoint.root());
+    std::string tmpPath(tmpEndpoint.root());
 
-    // Build specifications and path info.
-    const Json::Value& jsonOutput(config["output"]);
-    const std::string outPath(jsonOutput["path"].asString());
-    const std::string tmpPath(jsonOutput["tmp"].asString());
-    const bool outCompress(jsonOutput["compress"].asUInt64());
+    const Structure& structure(builder->structure());
 
-    // Tree structure.
-    const Json::Value& jsonStructure(config["structure"]);
-    const std::size_t nullDepth(jsonStructure["nullDepth"].asUInt64());
-    const std::size_t baseDepth(jsonStructure["baseDepth"].asUInt64());
-    const std::size_t coldDepth(jsonStructure["coldDepth"].asUInt64());
-    const std::size_t chunkPoints(jsonStructure["pointsPerChunk"].asUInt64());
-    const std::size_t dynamicChunks(jsonStructure["dynamicChunks"].asBool());
-    const std::size_t dimensions(getDimensions(jsonStructure["type"]));
-    const std::size_t numPointsHint(
-            jsonStructure.isMember("numPointsHint") ?
-                jsonStructure["numPointsHint"].asUInt64() : 0);
+    const BBox* bbox(builder->bbox());
+    const Reprojection* reprojection(builder->reprojection());
+    const Schema& schema(builder->schema());
 
-    const Structure structure(
-            nullDepth,
-            baseDepth,
-            coldDepth,
-            chunkPoints,
-            dimensions,
-            numPointsHint,
-            dynamicChunks,
-            subset);
+    std::cout << std::endl;
 
-    // Geometry and spatial info.
-    Json::Value& geometry(config["geometry"]);
-    auto bbox(getBBox(geometry["bbox"], dimensions));
-    auto reprojection(getReprojection(geometry["reproject"]));
-    Schema schema(geometry["schema"]);
+    std::cout <<
+        "Input:\n" <<
+        "\tBuilding from " << runInfo.manifest.size() << " source file" <<
+            (runInfo.manifest.size() > 1 ? "s" : "") << "\n";
 
-    std::unique_ptr<Builder> builder;
-
-    bool exists(false);
-
-    if (!force)
+    if (runInfo.maxCount != runInfo.manifest.size())
     {
-        try
-        {
-            arbiter::Endpoint endpoint(arbiter->getEndpoint(outPath));
-            if (endpoint.getSubpath("entwine").size())
-            {
-                exists = true;
-            }
-        }
-        catch (...)
-        {
-            // Hacky...
-        }
-    }
-
-    if (!force && exists)
-    {
-        std::cout << "Continuing previous index..." << std::endl;
         std::cout <<
-            "\nInput:\n" <<
-            "\tBuilding from " << manifest.size() << " source files\n" <<
-            "\tInserting up to " << runCount << " files\n" <<
-            "\tBuild threads: " << threads << "\n" <<
-            "Output:\n" <<
-            "\tContinuing from output path: " << outPath << "\n" <<
-            "\tTemporary path: " << tmpPath << "\n" <<
-            "\tCompressed output: (inferring from previous build)\n" <<
-            "Tree structure:\n" <<
-            "\t(inferring from previous build)\n" <<
-            "Geometry:\n" <<
-            "\tBounds: (inferring from previous build)\n" <<
-            "\tReprojection: " << getReprojString(reprojection.get()) << "\n" <<
-            "\tStoring dimensions: (inferring from previous build)\n" <<
-            std::endl;
-
-        builder.reset(new Builder(outPath, tmpPath, threads, arbiter));
+            "\tInserting up to " << runInfo.maxCount << " file" <<
+                (runInfo.maxCount > 1 ? "s" : "") << "\n";
     }
-    else
+
+    std::cout <<
+        "\tTrust file headers? " << yesNo(builder->trustHeaders()) << "\n" <<
+        "\tBuild threads: " << builder->numThreads() <<
+        std::endl;
+
+    std::cout <<
+        "Output:\n" <<
+        "\tOutput path: " << outPath << "\n" <<
+        "\tTemporary path: " << tmpPath << "\n" <<
+        "\tCompressed output? " << yesNo(builder->compress()) <<
+        std::endl;
+
+    std::cout <<
+        "Tree structure:\n" <<
+        "\tNull depth: " << structure.nullDepthEnd() << "\n" <<
+        "\tBase depth: " << structure.baseDepthEnd() << "\n" <<
+        "\tCold depth: " << structure.coldDepthEnd() << "\n" <<
+        "\tChunk size: " << structure.baseChunkPoints() << " points\n" <<
+        "\tDynamic chunks? " << yesNo(structure.dynamicChunks()) << "\n" <<
+        "\tBuild type: " << structure.typeString() << "\n" <<
+        "\tPoint count hint: " << structure.numPointsHint() << " points" <<
+        std::endl;
+
+    std::cout <<
+        "Geometry:\n" <<
+        "\tBounds: " << getBBoxString(bbox, structure.dimensions()) << "\n" <<
+        "\tReprojection: " << getReprojString(reprojection) << "\n" <<
+        "\tStoring dimensions: " << getDimensionString(schema) << "\n" <<
+        std::endl;
+
+    if (structure.isSubset())
     {
-        if (!bbox && manifest.size() > 1)
-        {
-            throw std::runtime_error(
-                    "Can't infer bounds from multiple sources");
-        }
-
-        std::cout <<
-            "\nInput:\n" <<
-            "\tBuilding from " << manifest.size() << " source files\n" <<
-            "\tInserting up to " << runCount << " files\n" <<
-            "\tTrust file headers? " << (trustHeaders ? "Yes" : "No") << "\n" <<
-            "\tBuild threads: " << threads << "\n" <<
-            "Output:\n" <<
-            "\tOutput path: " << outPath << "\n" <<
-            "\tTemporary path: " << tmpPath << "\n" <<
-            "\tCompressed output? " << (outCompress ? "Yes" : "No") << "\n" <<
-            "Tree structure:\n" <<
-            "\tNull depth: " << nullDepth << "\n" <<
-            "\tBase depth: " << baseDepth << "\n" <<
-            "\tCold depth: " << coldDepth << "\n" <<
-            "\tChunk size: " << chunkPoints << " points\n" <<
-            "\tDynamic chunks? " << (dynamicChunks ? "Yes" : "No") << "\n" <<
-            "\tBuild type: " << jsonStructure["type"].asString() << "\n" <<
-            "\tPoint count hint: " << numPointsHint << " points\n" <<
-            "Geometry:\n" <<
-            "\tBounds: " << getBBoxString(bbox.get(), dimensions) << "\n" <<
-            "\tReprojection: " << getReprojString(reprojection.get()) << "\n" <<
-            "\tStoring dimensions: " << getDimensionString(schema) << "\n" <<
+        std::cout << "Subset: " <<
+            subset.first + 1 << " of " << subset.second << "\n" <<
             std::endl;
-
-        if (structure.isSubset())
-        {
-            std::cout << "Subset: " <<
-                subset.first + 1 << " of " << subset.second << "\n" <<
-                std::endl;
-        }
-
-        builder.reset(
-                new Builder(
-                    outPath,
-                    tmpPath,
-                    trustHeaders,
-                    reprojection.get(),
-                    bbox.get(),
-                    schema.dims(),
-                    threads,
-                    structure,
-                    arbiter));
     }
 
     // Index.
@@ -439,7 +264,10 @@ void Kernel::build(std::vector<std::string> args)
 
     auto start = now();
 
-    while (i < manifest.size() && (numInserted < runCount || !runCount))
+    const auto& manifest(runInfo.manifest);
+    const std::size_t maxCount(runInfo.maxCount);
+
+    while (i < manifest.size() && numInserted < maxCount)
     {
         if (builder->insert(manifest[i++]))
         {

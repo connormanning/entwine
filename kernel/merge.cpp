@@ -61,7 +61,9 @@ void Kernel::merge(std::vector<std::string> args)
         }
     }
 
-    auto arbiter(getArbiter(credPath));
+    arbiter::Arbiter localArbiter;
+    auto arbiter(ConfigParser::getArbiter(localArbiter.get(credPath)));
+
     Builder builder(path, arbiter);
 
     std::cout << "Merging " << path << "..." << std::endl;

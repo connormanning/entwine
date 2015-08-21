@@ -42,6 +42,8 @@ public:
     // called, add() may not be called again until go() is called and completes.
     void add(std::function<void()> task);
 
+    std::size_t numThreads() const { return m_numThreads; }
+
 private:
     // Worker thread function.  Wait for a task and run it - or if stop() is
     // called, complete any outstanding task and return.

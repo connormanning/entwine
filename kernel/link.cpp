@@ -75,7 +75,8 @@ void Kernel::link(std::vector<std::string> args)
         throw std::runtime_error("Invalid number of subsets");
     }
 
-    auto arbiter(getArbiter(credPath));
+    arbiter::Arbiter localArbiter;
+    auto arbiter(ConfigParser::getArbiter(localArbiter.get(credPath)));
 
     Builder builder(path, arbiter);
 

@@ -15,6 +15,7 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/third/json/json.hpp>
+#include <entwine/tree/config-parser.hpp>
 
 class Kernel
 {
@@ -22,8 +23,5 @@ public:
     static void build(std::vector<std::string> args);
     static void merge(std::vector<std::string> args);
     static void link(std::vector<std::string> args);
-
-private:
-    static std::shared_ptr<arbiter::Arbiter> getArbiter(std::string credPath);
 };
 

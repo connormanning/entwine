@@ -177,6 +177,11 @@ public:
         return m_numPointsHint;
     }
 
+    std::string typeString() const
+    {
+        return m_dimensions == 3 ? "octree" : "quadtree";
+    }
+
     ChunkInfo getInfoFromNum(std::size_t chunkNum) const;
     std::size_t numChunksAtDepth(std::size_t depth) const;
 

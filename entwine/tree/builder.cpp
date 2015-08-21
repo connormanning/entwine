@@ -29,7 +29,6 @@
 #include <entwine/types/single-point-table.hpp>
 #include <entwine/util/executor.hpp>
 #include <entwine/util/fs.hpp>
-#include <entwine/util/pool.hpp>
 
 using namespace arbiter;
 
@@ -39,6 +38,7 @@ namespace entwine
 Builder::Builder(
         const std::string outPath,
         const std::string tmpPath,
+        const bool compress,
         const bool trustHeaders,
         const Reprojection* reprojection,
         const BBox* bbox,
@@ -54,7 +54,9 @@ Builder::Builder(
     , m_manifest(new Manifest())
     , m_mutex()
     , m_stats()
+    , m_compress(compress)
     , m_trustHeaders(trustHeaders)
+    , m_isContinuation(false)
     , m_pool(new Pool(numThreads))
     , m_executor(new Executor(*m_schema, m_structure->is3d()))
     , m_originId(m_schema->pdalLayout().findDim("Origin"))
@@ -84,6 +86,7 @@ Builder::Builder(
     , m_mutex()
     , m_stats()
     , m_trustHeaders(false)
+    , m_isContinuation(true)
     , m_pool(new Pool(numThreads))
     , m_executor()
     , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
@@ -105,6 +108,7 @@ Builder::Builder(const std::string path, std::shared_ptr<Arbiter> arbiter)
     , m_mutex()
     , m_stats()
     , m_trustHeaders(true)
+    , m_isContinuation(true)
     , m_pool()
     , m_executor()
     , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
@@ -678,11 +682,6 @@ void Builder::save()
     m_pool->go();
 }
 
-const Stats& Builder::stats() const
-{
-    return m_stats;
-}
-
 Json::Value Builder::saveProps() const
 {
     Json::Value props;
@@ -695,6 +694,7 @@ Json::Value Builder::saveProps() const
     props["manifest"] = m_manifest->toJson();
     props["srs"] = m_srs;
     props["stats"] = m_stats.toJson();
+    props["compressed"] = m_compress;
     props["trustHeaders"] = m_trustHeaders;
 
     return props;
@@ -716,6 +716,7 @@ void Builder::loadProps(const Json::Value& props)
     m_manifest.reset(new Manifest(props["manifest"]));
     m_stats = Stats(props["stats"]);
     m_trustHeaders = props["trustHeaders"].asBool();
+    m_compress = props["compressed"].asBool();
 }
 
 void Builder::prep()

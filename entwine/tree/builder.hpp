@@ -24,6 +24,7 @@
 #include <entwine/types/range.hpp>
 #include <entwine/types/stats.hpp>
 #include <entwine/types/structure.hpp>
+#include <entwine/util/pool.hpp>
 
 namespace pdal
 {
@@ -48,7 +49,6 @@ class BBox;
 class Clipper;
 class Driver;
 class Executor;
-class Pool;
 class Registry;
 class Reprojection;
 
@@ -58,6 +58,7 @@ public:
     Builder(
             std::string outPath,
             std::string tmpPath,
+            bool compress,
             bool trustHeaders,
             const Reprojection* reprojection,
             const BBox* bbox,
@@ -99,7 +100,22 @@ public:
     // Link non-colocated subsets.
     void link(std::vector<std::string> subsets);
 
-    const Stats& stats() const;
+    // Various getters.
+    const BBox* bbox() const                    { return m_bbox.get(); }
+    const Schema& schema() const                { return *m_schema; }
+    const Structure& structure() const          { return *m_structure; }
+    const Stats& stats() const                  { return m_stats; }
+    const Reprojection* reprojection() const    { return m_reprojection.get(); }
+
+    bool compress() const       { return m_compress; }
+    bool trustHeaders() const   { return m_trustHeaders; }
+    bool isContinuation() const { return m_isContinuation; }
+
+    const std::string& srs() const { return m_srs; }
+    std::size_t numThreads() const { return m_pool->numThreads(); }
+
+    const arbiter::Endpoint& outEndpoint() const { return *m_outEndpoint; }
+    const arbiter::Endpoint& tmpEndpoint() const { return *m_tmpEndpoint; }
 
 private:
     // Awaken the tree from a saved state.  After a load(), no queries should
@@ -141,7 +157,10 @@ private:
     std::mutex m_mutex;
 
     Stats m_stats;
+
+    bool m_compress;
     bool m_trustHeaders;
+    bool m_isContinuation;
     std::string m_srs;
 
     std::unique_ptr<Pool> m_pool;
