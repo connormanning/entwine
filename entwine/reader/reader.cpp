@@ -21,7 +21,6 @@
 #include <entwine/types/stats.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
-#include <entwine/util/pool.hpp>
 
 namespace entwine
 {

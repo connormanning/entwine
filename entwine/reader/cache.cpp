@@ -208,9 +208,9 @@ bool Cache::populate(
         const FetchInfoSet& fetches,
         Block& block)
 {
-    std::mutex mutex;
     bool success(true);
-    Pool pool(std::min<std::size_t>(8, fetches.size()));
+    std::mutex mutex;
+    Pool pool(std::min<std::size_t>(2, fetches.size()));
 
     for (const auto& f : fetches)
     {
