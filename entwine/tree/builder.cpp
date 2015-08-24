@@ -132,7 +132,11 @@ bool Builder::insert(const std::string path)
 
     if (origin == Manifest::invalidOrigin()) return false;  // Already inserted.
 
-    if (origin == 0) infer(path);
+    if (origin == 0)
+    {
+        const std::string localPath(localize(path, origin));
+        infer(localPath);
+    }
 
     std::cout << "Adding " << origin << " - " << path << std::endl;
 
