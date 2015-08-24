@@ -63,8 +63,8 @@ namespace
         }
     }
 
-    const std::size_t clipPoolSize(16);
-    const std::size_t clipQueueSize(8);
+    const std::size_t clipPoolSize(4);
+    const std::size_t clipQueueSize(4);
 }
 
 Registry::Registry(

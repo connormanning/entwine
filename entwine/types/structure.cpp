@@ -186,7 +186,7 @@ Structure::Structure(const Json::Value& json)
     , m_baseDepthEnd(json["baseDepth"].asUInt64())
     , m_coldDepthBegin(m_baseDepthEnd)
     , m_coldDepthEnd(json["coldDepth"].asUInt64())
-    , m_sparseDepthBegin(0)
+    , m_sparseDepthBegin(json["sparseDepth"].asUInt64())
     , m_sparseIndexBegin(0)
     , m_chunkPoints(json["chunkPoints"].asUInt64())
     , m_dynamicChunks(json["dynamicChunks"].asBool())
@@ -241,15 +241,24 @@ void Structure::loadIndexValues()
 
     if (m_numPointsHint)
     {
-        m_sparseDepthBegin =
-            std::max(
-                    log2(m_numPointsHint) / log2(m_factor) + 1,
-                    m_coldDepthBegin);
+        if (!m_sparseDepthBegin)
+        {
+            if (m_dimensions == 2)
+            {
+                m_sparseDepthBegin =
+                    std::ceil(std::log2(m_numPointsHint) / std::log2(m_factor));
+            }
+            else
+            {
+                m_sparseDepthBegin =
+                    std::ceil(std::log2(m_numPointsHint) / std::log2(6));
+            }
+
+            m_sparseDepthBegin = std::max(m_sparseDepthBegin, m_coldDepthBegin);
+        }
 
         m_sparseIndexBegin =
-            ChunkInfo::calcLevelIndex(
-                    m_dimensions,
-                    m_sparseDepthBegin);
+            ChunkInfo::calcLevelIndex(m_dimensions, m_sparseDepthBegin);
     }
     else
     {
@@ -296,6 +305,7 @@ Json::Value Structure::toJson() const
     json["nullDepth"] = static_cast<Json::UInt64>(nullDepthEnd());
     json["baseDepth"] = static_cast<Json::UInt64>(baseDepthEnd());
     json["coldDepth"] = static_cast<Json::UInt64>(coldDepthEnd());
+    json["sparseDepth"] = static_cast<Json::UInt64>(sparseDepthBegin());
     json["chunkPoints"] = static_cast<Json::UInt64>(baseChunkPoints());
     json["dimensions"] = static_cast<Json::UInt64>(dimensions());
     json["numPointsHint"] = static_cast<Json::UInt64>(numPointsHint());
