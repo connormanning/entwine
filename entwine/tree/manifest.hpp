@@ -10,7 +10,10 @@
 
 #pragma once
 
+#include <atomic>
 #include <cstdint>
+#include <deque>
+#include <mutex>
 #include <set>
 #include <string>
 
@@ -28,6 +31,7 @@ public:
     explicit Manifest(const Json::Value& meta);
 
     Json::Value toJson() const;
+    Json::Value jsonCounts() const;
 
     // Register a new Origin ID for this path, if this path has not been
     // registered already, in which case invalidOrigin is returned.
@@ -43,11 +47,19 @@ public:
 
     static Origin invalidOrigin();
 
-private:
-    std::vector<std::string> m_originList;
-    std::vector<std::string> m_omissionList;
+    std::size_t originCount() const { return m_originCount.load(); }
+    std::size_t omissionCount() const { return m_omissionCount.load(); }
+    std::size_t errorCount() const { return m_errorCount.load(); }
 
-    std::set<std::string> m_errorSet;
+private:
+    std::deque<std::string> m_originList;
+    std::deque<std::string> m_omissionList;
+    std::deque<Origin> m_errorList;
+
+    std::atomic_size_t m_originCount;
+    std::atomic_size_t m_omissionCount;
+    std::atomic_size_t m_errorCount;
+
     std::set<std::string> m_reverseLookup;
 };
 

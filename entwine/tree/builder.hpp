@@ -88,7 +88,8 @@ public:
     // Remove resources that are no longer needed.
     void clip(const Id& index, std::size_t chunkNum, Clipper* clipper);
 
-    // Save the current state of the tree.
+    // Save the current state of the tree.  Files may no longer be inserted
+    // after this call, but getters are still valid.
     void save();
 
     // Block until all running insertion tasks are finished.
@@ -106,6 +107,7 @@ public:
     const Structure& structure() const          { return *m_structure; }
     const Stats& stats() const                  { return m_stats; }
     const Reprojection* reprojection() const    { return m_reprojection.get(); }
+    const Manifest& manifest() const            { return *m_manifest; }
 
     bool compress() const       { return m_compress; }
     bool trustHeaders() const   { return m_trustHeaders; }

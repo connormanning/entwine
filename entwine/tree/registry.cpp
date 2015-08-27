@@ -200,6 +200,7 @@ bool Registry::addPoint(PointInfo& toAdd, Climber& climber, Clipper* clipper)
 void Registry::save(Json::Value& meta)
 {
     m_base->save(m_endpoint, m_structure.subsetPostfix());
+    m_base.reset();
 
     if (m_cold) meta["ids"] = m_cold->toJson();
 }

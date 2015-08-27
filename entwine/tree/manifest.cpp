@@ -24,19 +24,25 @@ Origin Manifest::invalidOrigin()
 Manifest::Manifest()
     : m_originList()
     , m_omissionList()
-    , m_errorSet()
+    , m_errorList()
+    , m_originCount(0)
+    , m_omissionCount(0)
+    , m_errorCount(0)
     , m_reverseLookup()
 { }
 
 Manifest::Manifest(const Json::Value& json)
     : m_originList()
     , m_omissionList()
-    , m_errorSet()
+    , m_errorList()
+    , m_originCount(0)
+    , m_omissionCount(0)
+    , m_errorCount(0)
     , m_reverseLookup()
 {
     const Json::Value& originJson(json["input"]);
     const Json::Value& omissionJson(json["omissions"]);
-    // const Json::Value& errorJson(json["errors"]);
+    const Json::Value& errorJson(json["errors"]);
 
     for (Json::ArrayIndex i(0); i < originJson.size(); ++i)
     {
@@ -48,6 +54,15 @@ Manifest::Manifest(const Json::Value& json)
     {
         m_omissionList.push_back(omissionJson[i].asString());
     }
+
+    for (Json::ArrayIndex i(0); i < errorJson.size(); ++i)
+    {
+        m_errorList.push_back(errorJson[i].asUInt64());
+    }
+
+    m_originCount = m_originList.size();
+    m_omissionCount = m_omissionList.size();
+    m_errorCount = m_errorList.size();
 }
 
 Json::Value Manifest::toJson() const
@@ -56,7 +71,7 @@ Json::Value Manifest::toJson() const
 
     Json::Value& originJson(json["input"]);
     Json::Value& omissionJson(json["omissions"]);
-    // Json::Value& errorJson(json["errors"]);
+    Json::Value& errorJson(json["errors"]);
 
     for (Json::ArrayIndex i(0); i < m_originList.size(); ++i)
     {
@@ -67,6 +82,22 @@ Json::Value Manifest::toJson() const
     {
         omissionJson.append(m_omissionList[i]);
     }
+
+    for (Json::ArrayIndex i(0); i < m_omissionList.size(); ++i)
+    {
+        errorJson.append(static_cast<Json::UInt64>(m_errorList[i]));
+    }
+
+    return json;
+}
+
+Json::Value Manifest::jsonCounts() const
+{
+    Json::Value json;
+
+    json["numInserted"] = static_cast<Json::UInt64>(m_originCount.load());
+    json["numOmissions"] = static_cast<Json::UInt64>(m_omissionCount.load());
+    json["numErrors"] = static_cast<Json::UInt64>(m_errorCount.load());
 
     return json;
 }
@@ -79,7 +110,9 @@ Origin Manifest::addOrigin(const std::string& path)
     {
         origin = m_originList.size();
 
+        ++m_originCount;
         m_originList.push_back(path);
+
         m_reverseLookup.insert(path);
     }
 
@@ -88,13 +121,15 @@ Origin Manifest::addOrigin(const std::string& path)
 
 void Manifest::addOmission(const std::string& path)
 {
+    ++m_omissionCount;
     m_omissionList.push_back(path);
 }
 
 void Manifest::addError(const Origin origin)
 {
-    // TODO
-    std::cout << "Got error: " << origin << std::endl;
+    std::cout << "Got error at origin: " << origin << std::endl;
+    ++m_errorCount;
+    m_errorList.push_back(origin);
 }
 
 } // namespace entwine
