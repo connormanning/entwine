@@ -21,6 +21,7 @@
 #include <entwine/types/stats.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
+#include <entwine/types/subset.hpp>
 
 namespace entwine
 {
@@ -79,7 +80,7 @@ Reader::Reader(
 
         m_bbox.reset(new BBox(props["bbox"]));
         m_schema.reset(new Schema(props["schema"]));
-        m_structure.reset(new Structure(props["structure"]));
+        m_structure.reset(new Structure(props["structure"], *m_bbox));
         m_is3d = m_structure->is3d();
         if (props.isMember("reprojection"))
             m_reprojection.reset(new Reprojection(props["reprojection"]));

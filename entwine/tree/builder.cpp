@@ -27,6 +27,7 @@
 #include <entwine/types/schema.hpp>
 #include <entwine/types/simple-point-table.hpp>
 #include <entwine/types/single-point-table.hpp>
+#include <entwine/types/subset.hpp>
 #include <entwine/util/executor.hpp>
 #include <entwine/util/fs.hpp>
 
@@ -47,7 +48,9 @@ Builder::Builder(
         const Structure& structure,
         std::shared_ptr<Arbiter> arbiter)
     : m_bbox(bbox ? new BBox(*bbox) : 0)
-    , m_subBBox(bbox && structure.isSubset() ? structure.subsetBBox(*bbox) : 0)
+    , m_subBBox(
+            structure.subset() ?
+                new BBox(structure.subset()->bbox()) : nullptr)
     , m_schema(new Schema(dimList))
     , m_structure(new Structure(structure))
     , m_reprojection(reprojection ? new Reprojection(*reprojection) : 0)
@@ -691,7 +694,6 @@ Json::Value Builder::saveProps() const
     Json::Value props;
 
     props["bbox"] = m_bbox->toJson();
-    if (m_subBBox) props["sub"] = m_subBBox->toJson();
     props["schema"] = m_schema->toJson();
     props["structure"] = m_structure->toJson();
     if (m_reprojection) props["reprojection"] = m_reprojection->toJson();
@@ -707,11 +709,8 @@ Json::Value Builder::saveProps() const
 void Builder::loadProps(const Json::Value& props)
 {
     m_bbox.reset(new BBox(props["bbox"]));
-    if (props.isMember("sub"))
-        m_subBBox.reset(new BBox(props["sub"]));
-
     m_schema.reset(new Schema(props["schema"]));
-    m_structure.reset(new Structure(props["structure"]));
+    m_structure.reset(new Structure(props["structure"], *m_bbox));
 
     if (props.isMember("reprojection"))
         m_reprojection.reset(new Reprojection(props["reprojection"]));

@@ -132,6 +132,12 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
             jsonStructure.isMember("numPointsHint") ?
                 jsonStructure["numPointsHint"].asUInt64() : 0);
 
+    // Geometry and spatial info.
+    const Json::Value& geometry(config["geometry"]);
+    auto bbox(getBBox(geometry["bbox"], dimensions));
+    auto reprojection(getReprojection(geometry["reproject"]));
+    Schema schema(geometry["schema"]);
+
     const Structure structure(
             nullDepth,
             baseDepth,
@@ -140,13 +146,8 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
             dimensions,
             numPointsHint,
             dynamicChunks,
+            bbox.get(),
             subset);
-
-    // Geometry and spatial info.
-    const Json::Value& geometry(config["geometry"]);
-    auto bbox(getBBox(geometry["bbox"], dimensions));
-    auto reprojection(getReprojection(geometry["reproject"]));
-    Schema schema(geometry["schema"]);
 
     bool exists(false);
 
