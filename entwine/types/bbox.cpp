@@ -196,6 +196,12 @@ void BBox::setMid()
     if (m_is3d) m_mid.z = m_min.z + (m_max.z - m_min.z) / 2.0;
 }
 
+void BBox::grow(const BBox& other)
+{
+    grow(other.min());
+    grow(other.max());
+}
+
 void BBox::grow(const Point& p)
 {
     m_min.x = std::min(m_min.x, p.x);

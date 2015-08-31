@@ -150,8 +150,7 @@ Structure::Structure(
     , m_factor(1ULL << m_dimensions)
     , m_numPointsHint(numPointsHint)
     , m_subset(subset.second ?
-            new Subset(subset.first, subset.second, dimensions, bbox) :
-            nullptr)
+            new Subset(*this, bbox, subset.first, subset.second) : nullptr)
 {
     loadIndexValues();
 }
@@ -179,8 +178,7 @@ Structure::Structure(
     , m_factor(1ULL << m_dimensions)
     , m_numPointsHint(numPointsHint)
     , m_subset(subset.second ?
-            new Subset(subset.first, subset.second, dimensions, bbox) :
-            nullptr)
+            new Subset(*this, bbox, subset.first, subset.second) : nullptr)
 {
     loadIndexValues();
 }
@@ -201,8 +199,7 @@ Structure::Structure(const Json::Value& json, const BBox& bbox)
     , m_numPointsHint(json["numPointsHint"].asUInt64())
     , m_subset(
             json.isMember("subset") ?
-                new Subset(json["subset"], bbox) :
-                nullptr)
+                new Subset(*this, bbox, json["subset"]) : nullptr)
 {
     loadIndexValues();
 }
@@ -243,12 +240,16 @@ void Structure::loadIndexValues()
 {
     if (m_subset)
     {
-        // TODO - Validate settings for selected subset.
-        /*
-        if (!m_nullDepthEnd || std::pow(4, m_nullDepthEnd) < splits)
+        if (m_nullDepthEnd < m_subset->minNullDepth())
         {
-            throw std::runtime_error("Invalid null depth for requested subset");
+            std::cout << "Bumping null depth to accomodate subset" << std::endl;
         }
+
+        m_nullDepthEnd = std::max(m_nullDepthEnd, m_subset->minNullDepth());
+        m_baseDepthBegin = m_nullDepthEnd;
+        m_baseDepthEnd = std::max(m_baseDepthBegin, m_baseDepthEnd);
+        m_coldDepthBegin = m_baseDepthEnd;
+        m_coldDepthEnd = std::max(m_coldDepthBegin, m_coldDepthEnd);
 
         if (hasCold())
         {
@@ -257,6 +258,8 @@ void Structure::loadIndexValues()
                         m_dimensions,
                         m_coldDepthBegin).getSimple());
 
+            const std::size_t splits(m_subset->of());
+
             if (
                     (coldFirstSpan / m_chunkPoints) < splits ||
                     (coldFirstSpan / m_chunkPoints) % splits)
@@ -264,7 +267,6 @@ void Structure::loadIndexValues()
                 throw std::runtime_error("Invalid chunk size for this subset");
             }
         }
-        */
     }
 
     if (m_baseDepthEnd < 4)
@@ -343,11 +345,7 @@ Json::Value Structure::toJson() const
     json["numPointsHint"] = static_cast<Json::UInt64>(numPointsHint());
     json["dynamicChunks"] = m_dynamicChunks;
 
-    if (m_subset)
-    {
-        json["subset"]["id"] = static_cast<Json::UInt64>(m_subset->id());
-        json["subset"]["of"] = static_cast<Json::UInt64>(m_subset->of());
-    }
+    if (m_subset) json["subset"] = m_subset->toJson();
 
     return json;
 }
@@ -438,7 +436,7 @@ void Structure::makeWhole()
 std::string Structure::subsetPostfix() const
 {
     std::string postfix("");
-    if (m_subset) postfix += "-" + std::to_string(m_subset->of());
+    if (m_subset) postfix += "-" + std::to_string(m_subset->id());
     return postfix;
 }
 

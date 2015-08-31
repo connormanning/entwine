@@ -156,13 +156,12 @@ void Kernel::build(std::vector<std::string> args)
             if (a + 2 < args.size())
             {
                 ++a;
-                const Json::UInt64 id(std::stoul(args[a]) - 1);
+                const Json::UInt64 id(std::stoul(args[a]));
                 ++a;
                 const Json::UInt64 of(std::stoul(args[a]));
 
-                json["structure"]["subset"].clear();
-                json["structure"]["subset"].append(id);
-                json["structure"]["subset"].append(of);
+                json["structure"]["subset"]["id"] = id;
+                json["structure"]["subset"]["of"] = of;
             }
             else
             {

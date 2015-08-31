@@ -124,8 +124,8 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     if (jsonStructure.isMember("subset"))
     {
         subset = std::make_pair(
-                jsonStructure[0].asUInt64(),
-                jsonStructure[1].asUInt64());
+                jsonStructure["subset"]["id"].asUInt64(),
+                jsonStructure["subset"]["of"].asUInt64());
     }
 
     const std::size_t numPointsHint(

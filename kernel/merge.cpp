@@ -40,7 +40,7 @@ void Kernel::merge(std::vector<std::string> args)
 
     const std::string path(args[0]);
 
-    std::string credPath("credentials.json");
+    std::string credPath;
 
     std::size_t a(1);
 
@@ -62,7 +62,8 @@ void Kernel::merge(std::vector<std::string> args)
     }
 
     arbiter::Arbiter localArbiter;
-    auto arbiter(ConfigParser::getArbiter(localArbiter.get(credPath)));
+    const std::string creds(credPath.size() ? localArbiter.get(credPath) : "");
+    auto arbiter(ConfigParser::getArbiter(ConfigParser::parse(creds)));
 
     Builder builder(path, arbiter);
 

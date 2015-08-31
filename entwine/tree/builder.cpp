@@ -423,7 +423,7 @@ void Builder::load()
 void Builder::merge()
 {
     std::unique_ptr<ContiguousChunkData> base;
-    std::vector<std::size_t> ids;
+    std::vector<Id> ids;
     const std::size_t baseCount([this]()->std::size_t
     {
         Json::Value meta;
@@ -432,7 +432,8 @@ void Builder::merge()
         reader.parse(metaString, meta, false);
 
         loadProps(meta);
-        const std::size_t baseCount(meta["structure"]["subset"][1].asUInt64());
+        const std::size_t baseCount(
+            meta["structure"]["subset"]["of"].asUInt64());
 
         if (!baseCount) throw std::runtime_error("Cannot merge this path");
 
@@ -459,8 +460,9 @@ void Builder::merge()
         {
             for (std::size_t i(0); i < jsonIds.size(); ++i)
             {
-                ids.push_back(
-                        jsonIds[static_cast<Json::ArrayIndex>(i)].asUInt64());
+                Json::ArrayIndex arrayIndex(static_cast<Json::ArrayIndex>(i));
+
+                ids.push_back(Id(jsonIds[arrayIndex].asString()));
             }
         }
         else
@@ -526,7 +528,7 @@ void Builder::merge()
 
     for (auto id : ids)
     {
-        jsonIds.append(static_cast<Json::UInt64>(id));
+        jsonIds.append(id.str());
     }
 
     m_outEndpoint->putSubpath("entwine", jsonMeta.toStyledString());
