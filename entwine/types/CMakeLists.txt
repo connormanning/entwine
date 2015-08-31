@@ -14,6 +14,7 @@ set(
     "${BASE}/single-point-table.cpp"
     "${BASE}/stats.cpp"
     "${BASE}/structure.cpp"
+    "${BASE}/subset.cpp"
 )
 
 set(
@@ -33,6 +34,7 @@ set(
     "${BASE}/sized-point-table.hpp"
     "${BASE}/stats.hpp"
     "${BASE}/structure.hpp"
+    "${BASE}/subset.hpp"
 )
 
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})

@@ -15,6 +15,7 @@
 
 #include <entwine/third/bigint/little-big-int.hpp>
 #include <entwine/third/json/json.hpp>
+#include <entwine/types/subset.hpp>
 
 namespace entwine
 {
@@ -74,6 +75,7 @@ public:
             std::size_t dimensions,
             std::size_t numPointsHint,
             bool dynamicChunks,
+            const BBox* bbox,
             std::pair<std::size_t, std::size_t> subset = { 0, 0 });
 
     Structure(
@@ -83,9 +85,11 @@ public:
             std::size_t dimensions,
             std::size_t numPointsHint,
             bool dynamicChunks,
+            const BBox* bbox,
             std::pair<std::size_t, std::size_t> subset = { 0, 0 });
 
-    Structure(const Json::Value& json);
+    Structure(const Json::Value& json, const BBox& bbox);
+    Structure(const Structure& other);
 
     Json::Value toJson() const;
 
@@ -192,11 +196,9 @@ public:
     std::size_t nominalChunkIndex() const { return m_nominalChunkIndex; }
     std::size_t nominalChunkDepth() const { return m_nominalChunkDepth; }
 
-    bool isSubset() const;
-    std::pair<std::size_t, std::size_t> subset() const;
+    const Subset* subset() const { return m_subset.get(); }
     void makeWhole();
 
-    std::unique_ptr<BBox> subsetBBox(const BBox& full) const;
     std::string subsetPostfix() const;
 
 private:
@@ -234,7 +236,7 @@ private:
     std::size_t m_factor;
     std::size_t m_numPointsHint;
 
-    std::pair<std::size_t, std::size_t> m_subset;
+    std::unique_ptr<Subset> m_subset;
 };
 
 } // namespace entwine

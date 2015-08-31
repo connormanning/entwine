@@ -156,20 +156,12 @@ void Kernel::build(std::vector<std::string> args)
             if (a + 2 < args.size())
             {
                 ++a;
-                const Json::UInt64 num(std::stoul(args[a]) - 1);
+                const Json::UInt64 id(std::stoul(args[a]));
                 ++a;
-                const Json::UInt64 cnt(std::stoul(args[a]));
+                const Json::UInt64 of(std::stoul(args[a]));
 
-                if (num < cnt && (cnt == 4 || cnt == 16 || cnt == 64))
-                {
-                    json["structure"]["subset"].clear();
-                    json["structure"]["subset"].append(num);
-                    json["structure"]["subset"].append(cnt);
-                }
-                else
-                {
-                    throw std::runtime_error("Invalid subset values");
-                }
+                json["structure"]["subset"]["id"] = id;
+                json["structure"]["subset"]["of"] = of;
             }
             else
             {
@@ -250,11 +242,11 @@ void Kernel::build(std::vector<std::string> args)
         "\tStoring dimensions: " << getDimensionString(schema) << "\n" <<
         std::endl;
 
-    if (structure.isSubset())
+    if (structure.subset())
     {
         const auto subset(structure.subset());
         std::cout << "Subset: " <<
-            subset.first + 1 << " of " << subset.second << "\n" <<
+            subset->id() + 1 << " of " << subset->of() << "\n" <<
             std::endl;
     }
 

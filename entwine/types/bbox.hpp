@@ -56,6 +56,7 @@ public:
 
     Json::Value toJson() const;
 
+    void grow(const BBox& bbox);
     void grow(const Point& p);
     void growZ(const Range& range);
 

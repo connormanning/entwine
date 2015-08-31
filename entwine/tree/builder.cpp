@@ -27,6 +27,7 @@
 #include <entwine/types/schema.hpp>
 #include <entwine/types/simple-point-table.hpp>
 #include <entwine/types/single-point-table.hpp>
+#include <entwine/types/subset.hpp>
 #include <entwine/util/executor.hpp>
 #include <entwine/util/fs.hpp>
 
@@ -47,7 +48,9 @@ Builder::Builder(
         const Structure& structure,
         std::shared_ptr<Arbiter> arbiter)
     : m_bbox(bbox ? new BBox(*bbox) : 0)
-    , m_subBBox(bbox && structure.isSubset() ? structure.subsetBBox(*bbox) : 0)
+    , m_subBBox(
+            structure.subset() ?
+                new BBox(structure.subset()->bbox()) : nullptr)
     , m_schema(new Schema(dimList))
     , m_structure(new Structure(structure))
     , m_reprojection(reprojection ? new Reprojection(*reprojection) : 0)
@@ -421,7 +424,7 @@ void Builder::load()
 void Builder::merge()
 {
     std::unique_ptr<ContiguousChunkData> base;
-    std::vector<std::size_t> ids;
+    std::vector<Id> ids;
     const std::size_t baseCount([this]()->std::size_t
     {
         Json::Value meta;
@@ -430,7 +433,8 @@ void Builder::merge()
         reader.parse(metaString, meta, false);
 
         loadProps(meta);
-        const std::size_t baseCount(meta["structure"]["subset"][1].asUInt64());
+        const std::size_t baseCount(
+            meta["structure"]["subset"]["of"].asUInt64());
 
         if (!baseCount) throw std::runtime_error("Cannot merge this path");
 
@@ -457,8 +461,9 @@ void Builder::merge()
         {
             for (std::size_t i(0); i < jsonIds.size(); ++i)
             {
-                ids.push_back(
-                        jsonIds[static_cast<Json::ArrayIndex>(i)].asUInt64());
+                Json::ArrayIndex arrayIndex(static_cast<Json::ArrayIndex>(i));
+
+                ids.push_back(Id(jsonIds[arrayIndex].asString()));
             }
         }
         else
@@ -524,7 +529,7 @@ void Builder::merge()
 
     for (auto id : ids)
     {
-        jsonIds.append(static_cast<Json::UInt64>(id));
+        jsonIds.append(id.str());
     }
 
     m_outEndpoint->putSubpath("entwine", jsonMeta.toStyledString());
@@ -692,7 +697,6 @@ Json::Value Builder::saveProps() const
     Json::Value props;
 
     props["bbox"] = m_bbox->toJson();
-    if (m_subBBox) props["sub"] = m_subBBox->toJson();
     props["schema"] = m_schema->toJson();
     props["structure"] = m_structure->toJson();
     if (m_reprojection) props["reprojection"] = m_reprojection->toJson();
@@ -708,11 +712,8 @@ Json::Value Builder::saveProps() const
 void Builder::loadProps(const Json::Value& props)
 {
     m_bbox.reset(new BBox(props["bbox"]));
-    if (props.isMember("sub"))
-        m_subBBox.reset(new BBox(props["sub"]));
-
     m_schema.reset(new Schema(props["schema"]));
-    m_structure.reset(new Structure(props["structure"]));
+    m_structure.reset(new Structure(props["structure"], *m_bbox));
 
     if (props.isMember("reprojection"))
         m_reprojection.reset(new Reprojection(props["reprojection"]));
