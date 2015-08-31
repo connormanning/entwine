@@ -287,25 +287,28 @@ std::unique_ptr<Query> Reader::runQuery(
             const std::size_t index(splitter.index());
             terminate = false;
 
-            if (const char* pos = m_base->getData(index))
+            if (index >= m_structure->baseIndexBegin())
             {
-                Point point(query->unwrapPoint(pos));
-
-                if (Point::exists(point))
+                if (const char* pos = m_base->getData(index))
                 {
-                    if (qbox.contains(point))
+                    Point point(query->unwrapPoint(pos));
+
+                    if (Point::exists(point))
                     {
-                        query->insert(pos);
+                        if (qbox.contains(point))
+                        {
+                            query->insert(pos);
+                        }
+                    }
+                    else
+                    {
+                        terminate = true;
                     }
                 }
                 else
                 {
-                    terminate = true;
+                    throw std::runtime_error("Invalid base data");
                 }
-            }
-            else
-            {
-                throw std::runtime_error("Invalid base data");
             }
         }
         while (splitter.next(terminate));
