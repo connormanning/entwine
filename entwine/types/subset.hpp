@@ -10,6 +10,9 @@
 
 #pragma once
 
+#include <cstddef>
+#include <memory>
+
 #include <entwine/types/bbox.hpp>
 
 namespace Json
