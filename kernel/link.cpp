@@ -27,8 +27,8 @@ namespace
                 "<subset path N> <options>\n"
             "\tOptions:\n"
 
-            "\t\t-c <credentials-path.json>\n"
-            "\t\t\tSpecify path to AWS S3 credentials\n";
+            "\t\t-u <aws-user>\n"
+            "\t\t\tSpecify AWS credential user, if not default\n";
     }
 }
 
@@ -43,7 +43,7 @@ void Kernel::link(std::vector<std::string> args)
     const std::string path(args[0]);
     std::vector<std::string> subs;
 
-    std::string credPath("credentials.json");
+    std::string user;
 
     std::size_t a(1);
 
@@ -51,15 +51,15 @@ void Kernel::link(std::vector<std::string> args)
     {
         std::string arg(args[a]);
 
-        if (arg == "-c")
+        if (arg == "-u")
         {
             if (++a < args.size())
             {
-                credPath = args[a];
+                user = args[a];
             }
             else
             {
-                throw std::runtime_error("Invalid credential path argument");
+                throw std::runtime_error("Invalid AWS user argument");
             }
         }
         else
@@ -75,8 +75,8 @@ void Kernel::link(std::vector<std::string> args)
         throw std::runtime_error("Invalid number of subsets");
     }
 
-    arbiter::Arbiter localArbiter;
-    auto arbiter(ConfigParser::getArbiter(localArbiter.get(credPath)));
+    std::shared_ptr<arbiter::Arbiter> arbiter(
+            std::make_shared<arbiter::Arbiter>(user));
 
     Builder builder(path, arbiter);
 

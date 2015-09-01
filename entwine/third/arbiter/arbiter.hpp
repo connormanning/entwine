@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 9db47b655070e3e2fe31ef0cd4f250e05b86f112
+// Git SHA: ca8ab55bdc5aeeb932fb50be78769ce7ee680e7d
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -72,7 +72,9 @@ public:
     virtual std::string type() const = 0;
 
     // Read/write data.
-    virtual std::vector<char> getBinary(std::string path) const = 0;
+    std::unique_ptr<std::vector<char>> tryGetBinary(std::string path) const;
+    std::vector<char> getBinary(std::string path) const;
+
     virtual void put(std::string path, const std::vector<char>& data) const = 0;
 
     // True for filesystem paths, otherwise false.  Derived classes other than
@@ -82,6 +84,7 @@ public:
 
 
     // Convenience overloads.
+    std::unique_ptr<std::string> tryGet(std::string path) const;
     std::string get(std::string path) const;
     void put(std::string path, const std::string& data) const;
 
@@ -90,7 +93,7 @@ public:
             std::string path,
             bool verbose = false) const;
 
-private:
+protected:
     // This operation expects a path ending with the characters "/*", and
     // without any type-specifying information (i.e. "http://", "s3://", or any
     // other "<type>://" information is stripped).
@@ -98,6 +101,8 @@ private:
     {
         throw std::runtime_error("Cannot glob driver for: " + path);
     }
+
+    virtual bool get(std::string path, std::vector<char>& data) const = 0;
 };
 
 typedef std::map<std::string, std::shared_ptr<Driver>> DriverMap;
@@ -131,12 +136,14 @@ class FsDriver : public Driver
 {
 public:
     virtual std::string type() const { return "fs"; }
-    virtual std::vector<char> getBinary(std::string path) const;
     virtual void put(std::string path, const std::vector<char>& data) const;
 
     virtual std::vector<std::string> glob(std::string path, bool verbose) const;
 
     virtual bool isRemote() const { return false; }
+
+protected:
+    virtual bool get(std::string path, std::vector<char>& data) const;
 };
 
 } // namespace arbiter
@@ -212,10 +219,11 @@ public:
     HttpDriver(HttpPool& pool);
 
     virtual std::string type() const { return "http"; }
-    virtual std::vector<char> getBinary(std::string path) const;
     virtual void put(std::string path, const std::vector<char>& data) const;
 
 private:
+    virtual bool get(std::string path, std::vector<char>& data) const;
+
     HttpPool& m_pool;
 };
 
@@ -3011,6 +3019,14 @@ class AwsAuth
 public:
     AwsAuth(std::string access, std::string hidden);
 
+    // See:
+    // https://docs.aws.amazon.com/AWSJavaScriptSDK/guide/node-configuring.html
+    //
+    // Searches for methods 2 and 3 of "Setting AWS Credentials":
+    //      - Check for them in ~/.aws/credentials.
+    //      - If not found, try the environment settings.
+    static std::unique_ptr<AwsAuth> find(std::string user);
+
     std::string access() const;
     std::string hidden() const;
 
@@ -3027,13 +3043,17 @@ public:
     S3Driver(HttpPool& pool, AwsAuth awsAuth);
 
     virtual std::string type() const { return "s3"; }
-    virtual std::vector<char> getBinary(std::string path) const;
     virtual void put(std::string path, const std::vector<char>& data) const;
 
 private:
+    virtual bool get(std::string path, std::vector<char>& data) const;
     virtual std::vector<std::string> glob(std::string path, bool verbose) const;
 
     std::vector<char> get(std::string path, const Query& query) const;
+    bool get(
+            std::string rawPath,
+            const Query& query,
+            std::vector<char>& data) const;
 
     Headers httpGetHeaders(std::string filePath) const;
     Headers httpPutHeaders(std::string filePath) const;
@@ -3149,8 +3169,7 @@ namespace arbiter
 class Arbiter
 {
 public:
-    Arbiter();
-    Arbiter(AwsAuth awsAuth);
+    Arbiter(std::string awsUser = "");
     ~Arbiter();
 
     // Read/write operations.  Each may throw std::runtime_error if the

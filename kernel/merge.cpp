@@ -25,8 +25,8 @@ namespace
             "\tUsage: entwine merge <path> <options>\n"
             "\tOptions:\n"
 
-            "\t\t-c <credentials-path.json>\n"
-            "\t\t\tSpecify path to AWS S3 credentials\n";
+            "\t\t-u <aws-user>\n"
+            "\t\t\tSpecify AWS credential user, if not default\n";
     }
 }
 
@@ -40,7 +40,7 @@ void Kernel::merge(std::vector<std::string> args)
 
     const std::string path(args[0]);
 
-    std::string credPath;
+    std::string user;
 
     std::size_t a(1);
 
@@ -48,11 +48,11 @@ void Kernel::merge(std::vector<std::string> args)
     {
         std::string arg(args[a]);
 
-        if (arg == "-c")
+        if (arg == "-u")
         {
             if (++a < args.size())
             {
-                credPath = args[a];
+                user = args[a];
             }
             else
             {
@@ -61,9 +61,8 @@ void Kernel::merge(std::vector<std::string> args)
         }
     }
 
-    arbiter::Arbiter localArbiter;
-    const std::string creds(credPath.size() ? localArbiter.get(credPath) : "");
-    auto arbiter(ConfigParser::getArbiter(ConfigParser::parse(creds)));
+    std::shared_ptr<arbiter::Arbiter> arbiter(
+            std::make_shared<arbiter::Arbiter>(user));
 
     Builder builder(path, arbiter);
 

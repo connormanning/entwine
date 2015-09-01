@@ -68,21 +68,19 @@ namespace
     const std::size_t httpRetryCount(8);
 }
 
-Arbiter::Arbiter()
+Arbiter::Arbiter(std::string awsUser)
     : m_drivers()
     , m_pool(concurrentHttpReqs, httpRetryCount)
 {
     m_drivers["fs"] =   std::make_shared<FsDriver>(FsDriver());
     m_drivers["http"] = std::make_shared<HttpDriver>(HttpDriver(m_pool));
-}
 
-Arbiter::Arbiter(AwsAuth awsAuth)
-    : m_drivers()
-    , m_pool(concurrentHttpReqs, httpRetryCount)
-{
-    m_drivers["fs"] =   std::make_shared<FsDriver>(FsDriver());
-    m_drivers["http"] = std::make_shared<HttpDriver>(HttpDriver(m_pool));
-    m_drivers["s3"] =   std::make_shared<S3Driver>(S3Driver(m_pool, awsAuth));
+    std::unique_ptr<AwsAuth> auth(AwsAuth::find(awsUser));
+
+    if (auth)
+    {
+        m_drivers["s3"] = std::make_shared<S3Driver>(S3Driver(m_pool, *auth));
+    }
 }
 
 Arbiter::~Arbiter()
@@ -181,7 +179,39 @@ std::string Arbiter::stripType(const std::string raw)
 namespace arbiter
 {
 
-std::string Driver::get(std::string path) const
+std::unique_ptr<std::vector<char>> Driver::tryGetBinary(std::string path) const
+{
+    std::unique_ptr<std::vector<char>> data(new std::vector<char>());
+
+    if (!get(path, *data))
+    {
+        data.reset();
+    }
+
+    return data;
+}
+
+std::vector<char> Driver::getBinary(std::string path) const
+{
+    std::vector<char> data;
+
+    if (!get(path, data))
+    {
+        throw std::runtime_error("Could not read file " + path);
+    }
+
+    return data;
+}
+
+std::unique_ptr<std::string> Driver::tryGet(std::string path) const
+{
+    std::unique_ptr<std::string> result;
+    std::unique_ptr<std::vector<char>> data(tryGetBinary(path));
+    if (data) result.reset(new std::string(data->begin(), data->end()));
+    return result;
+}
+
+std::string Driver::get(const std::string path) const
 {
     const std::vector<char> data(getBinary(path));
     return std::string(data.begin(), data.end());
@@ -192,7 +222,9 @@ void Driver::put(std::string path, const std::string& data) const
     put(path, std::vector<char>(data.begin(), data.end()));
 }
 
-std::vector<std::string> Driver::resolve(std::string path, bool verbose) const
+std::vector<std::string> Driver::resolve(
+        const std::string path,
+        const bool verbose) const
 {
     std::vector<std::string> results;
 
@@ -350,40 +382,46 @@ namespace
             std::ofstream::out |
             std::ofstream::trunc);
 
-    const std::string home("HOME");
 
     std::string expandTilde(std::string in)
     {
         std::string out(in);
 
-#ifndef ARBITER_WINDOWS
         if (!in.empty() && in.front() == '~')
         {
-            out = getenv(home.c_str()) + in.substr(1);
-        }
+#ifndef ARBITER_WINDOWS
+            static const std::string home(getenv("HOME"));
+#else
+            static const std::string home(
+                    getenv("USERPROFILE").size() ?
+                        getenv("USERPROFILE") :
+                        getenv("HOMEDRIVE") + getenv("HOMEPATH"));
 #endif
+            out = home + in.substr(1);
+        }
 
         return out;
     }
 }
 
-std::vector<char> FsDriver::getBinary(std::string path) const
+bool FsDriver::get(std::string path, std::vector<char>& data) const
 {
+    bool good(false);
+
     path = expandTilde(path);
     std::ifstream stream(path, std::ios::in | std::ios::binary);
 
-    if (!stream.good())
+    if (stream.good())
     {
-        throw std::runtime_error("Could not read file " + path);
+        stream.seekg(0, std::ios::end);
+        data.resize(static_cast<std::size_t>(stream.tellg()));
+        stream.seekg(0, std::ios::beg);
+        stream.read(data.data(), data.size());
+        stream.close();
+        good = true;
     }
 
-    stream.seekg(0, std::ios::end);
-    std::vector<char> data(static_cast<std::size_t>(stream.tellg()));
-    stream.seekg(0, std::ios::beg);
-    stream.read(data.data(), data.size());
-    stream.close();
-
-    return data;
+    return good;
 }
 
 void FsDriver::put(std::string path, const std::vector<char>& data) const
@@ -549,13 +587,20 @@ HttpDriver::HttpDriver(HttpPool& pool)
     : m_pool(pool)
 { }
 
-std::vector<char> HttpDriver::getBinary(const std::string path) const
+bool HttpDriver::get(const std::string path, std::vector<char>& data) const
 {
+    bool good(false);
+
     auto http(m_pool.acquire());
     HttpResponse res(http.get(path));
 
-    if (res.ok()) return res.data();
-    else throw std::runtime_error("Couldn't HTTP GET " + path);
+    if (res.ok())
+    {
+        data = res.data();
+        good = true;
+    }
+
+    return good;
 }
 
 void HttpDriver::put(
@@ -792,13 +837,16 @@ void HttpPool::release(const std::size_t id)
 #endif
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
+#include <cstdlib>
 #include <cstring>
 #include <functional>
 #include <iostream>
 #include <thread>
 
 #ifndef ARBITER_IS_AMALGAMATION
+#include <arbiter/drivers/fs.hpp>
 #include <arbiter/third/xml/xml.hpp>
 #include <arbiter/util/crypto.hpp>
 #endif
@@ -858,6 +906,105 @@ AwsAuth::AwsAuth(const std::string access, const std::string hidden)
     , m_hidden(hidden)
 { }
 
+std::unique_ptr<AwsAuth> AwsAuth::find(std::string user)
+{
+    std::unique_ptr<AwsAuth> auth;
+
+    if (user.empty())
+    {
+        user = getenv("AWS_PROFILE") ? getenv("AWS_PROFILE") : "default";
+    }
+
+    FsDriver fs;
+    std::unique_ptr<std::string> file(fs.tryGet("~/.aws/credentials"));
+
+    // First, try reading credentials file.
+    if (file)
+    {
+        std::size_t index(0);
+        std::size_t pos(0);
+        std::vector<std::string> lines;
+
+        do
+        {
+            index = file->find('\n', pos);
+            std::string line(file->substr(pos, index - pos));
+
+            line.erase(
+                    std::remove_if(line.begin(), line.end(), ::isspace),
+                    line.end());
+
+            lines.push_back(line);
+
+            pos = index + 1;
+        }
+        while (index != std::string::npos);
+
+        if (lines.size() >= 3)
+        {
+            std::size_t i(0);
+
+            const std::string userFind("[" + user + "]");
+            const std::string accessFind("aws_access_key_id=");
+            const std::string hiddenFind("aws_secret_access_key=");
+
+            while (i < lines.size() - 2 && !auth)
+            {
+                if (lines[i].find(userFind) != std::string::npos)
+                {
+                    const std::string& accessLine(lines[i + 1]);
+                    const std::string& hiddenLine(lines[i + 2]);
+
+                    std::size_t accessPos(accessLine.find(accessFind));
+                    std::size_t hiddenPos(hiddenLine.find(hiddenFind));
+
+                    if (
+                            accessPos != std::string::npos &&
+                            hiddenPos != std::string::npos)
+                    {
+                        const std::string access(
+                                accessLine.substr(
+                                    accessPos + accessFind.size(),
+                                    accessLine.find(';')));
+
+                        const std::string hidden(
+                                hiddenLine.substr(
+                                    hiddenPos + hiddenFind.size(),
+                                    hiddenLine.find(';')));
+
+                        auth.reset(new AwsAuth(access, hidden));
+                    }
+                }
+
+                ++i;
+            }
+        }
+    }
+
+    // Fall back to environment settings.
+    if (!auth)
+    {
+        if (getenv("AWS_ACCESS_KEY_ID") && getenv("AWS_SECRET_ACCESS_KEY"))
+        {
+            auth.reset(
+                    new AwsAuth(
+                        getenv("AWS_ACCESS_KEY_ID"),
+                        getenv("AWS_SECRET_ACCESS_KEY")));
+        }
+        else if (
+                getenv("AMAZON_ACCESS_KEY_ID") &&
+                getenv("AMAZON_SECRET_ACCESS_KEY"))
+        {
+            auth.reset(
+                    new AwsAuth(
+                        getenv("AMAZON_ACCESS_KEY_ID"),
+                        getenv("AMAZON_SECRET_ACCESS_KEY")));
+        }
+    }
+
+    return auth;
+}
+
 std::string AwsAuth::access() const
 {
     return m_access;
@@ -873,14 +1020,15 @@ S3Driver::S3Driver(HttpPool& pool, const AwsAuth auth)
     , m_auth(auth)
 { }
 
-std::vector<char> S3Driver::getBinary(const std::string rawPath) const
+bool S3Driver::get(std::string rawPath, std::vector<char>& data) const
 {
-    return get(rawPath, Query());
+    return get(rawPath, Query(), data);
 }
 
-std::vector<char> S3Driver::get(
+bool S3Driver::get(
         const std::string rawPath,
-        const Query& query) const
+        const Query& query,
+        std::vector<char>& data) const
 {
     const Resource resource(rawPath);
 
@@ -893,15 +1041,28 @@ std::vector<char> S3Driver::get(
 
     if (res.ok())
     {
-        return res.data();
+        data = res.data();
+        return true;
     }
     else
     {
         // TODO If verbose:
         // std::cout << std::string(res.data().begin(), res.data().end()) <<
             // std::endl;
+        return false;
+    }
+}
+
+std::vector<char> S3Driver::get(std::string rawPath, const Query& query) const
+{
+    std::vector<char> data;
+
+    if (!get(rawPath, query, data))
+    {
         throw std::runtime_error("Couldn't S3 GET " + rawPath);
     }
+
+    return data;
 }
 
 void S3Driver::put(std::string rawPath, const std::vector<char>& data) const

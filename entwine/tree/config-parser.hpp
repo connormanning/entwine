@@ -48,9 +48,6 @@ public:
             const Json::Value& json,
             const arbiter::Arbiter& arbiter);
 
-    static std::shared_ptr<arbiter::Arbiter> getArbiter(
-            const Json::Value& json);
-
     static Json::Value parse(const std::string& input);
 };
 

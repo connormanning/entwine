@@ -48,8 +48,8 @@ namespace
             "\tUsage: entwine build <config-file.json> <options>\n"
             "\tOptions:\n"
 
-            "\t\t-c <credentials-path.json>\n"
-            "\t\t\tSpecify path to AWS S3 credentials\n"
+            "\t\t-u <aws-user>\n"
+            "\t\t\tSpecify AWS credential user, if not default\n"
 
             "\t\t-f\n"
             "\t\t\tForce build overwrite - do not continue previous build\n"
@@ -127,8 +127,7 @@ void Kernel::build(std::vector<std::string> args)
     const std::string configPath(args[0]);
     const std::string config(localArbiter.get(configPath));
     Json::Value json(ConfigParser::parse(config));
-
-    std::string credPath;
+    std::string user;
 
     std::size_t a(1);
 
@@ -136,15 +135,15 @@ void Kernel::build(std::vector<std::string> args)
     {
         std::string arg(args[a]);
 
-        if (arg == "-c")
+        if (arg == "-u")
         {
             if (++a < args.size())
             {
-                credPath = args[a];
+                user = args[a];
             }
             else
             {
-                throw std::runtime_error("Invalid credential path argument");
+                throw std::runtime_error("Invalid AWS user argument");
             }
         }
         else if (arg == "-f")
@@ -172,8 +171,8 @@ void Kernel::build(std::vector<std::string> args)
         ++a;
     }
 
-    const std::string creds(credPath.size() ? localArbiter.get(credPath) : "");
-    auto arbiter(ConfigParser::getArbiter(ConfigParser::parse(creds)));
+    std::shared_ptr<arbiter::Arbiter> arbiter(
+            std::make_shared<arbiter::Arbiter>(user));
 
     RunInfo runInfo(ConfigParser::getRunInfo(json, *arbiter));
     std::unique_ptr<Builder> builder(

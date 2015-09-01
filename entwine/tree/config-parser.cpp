@@ -236,27 +236,6 @@ RunInfo ConfigParser::getRunInfo(
     return RunInfo(manifest, runCount);
 }
 
-std::shared_ptr<arbiter::Arbiter> ConfigParser::getArbiter(
-        const Json::Value& credentials)
-{
-    std::shared_ptr<arbiter::Arbiter> arbiter;
-
-    if (credentials.isMember("access") && credentials.isMember("hidden"))
-    {
-        arbiter.reset(
-                new arbiter::Arbiter(
-                    arbiter::AwsAuth(
-                        credentials["access"].asString(),
-                        credentials["hidden"].asString())));
-    }
-    else
-    {
-        arbiter.reset(new arbiter::Arbiter());
-    }
-
-    return arbiter;
-}
-
 Json::Value ConfigParser::parse(const std::string& input)
 {
     Json::Value json;
