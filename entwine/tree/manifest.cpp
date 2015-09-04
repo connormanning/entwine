@@ -83,7 +83,7 @@ Json::Value Manifest::toJson() const
         omissionJson.append(m_omissionList[i]);
     }
 
-    for (Json::ArrayIndex i(0); i < m_omissionList.size(); ++i)
+    for (Json::ArrayIndex i(0); i < m_errorList.size(); ++i)
     {
         errorJson.append(static_cast<Json::UInt64>(m_errorList[i]));
     }

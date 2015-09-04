@@ -206,7 +206,7 @@ bool Builder::insert(const std::string path)
             const std::size_t mem(Chunk::getChunkMem());
             const std::size_t div(1000000000);
 
-            std::cout << "\tDone " << origin << " - " << path <<
+            std::cout << "\tDone " << origin << " - " <<
                 "\tGlobal usage: " << mem / div << "." << mem % div <<
                 " GB in " << Chunk::getChunkCnt() << " chunks." <<
                 std::endl;
