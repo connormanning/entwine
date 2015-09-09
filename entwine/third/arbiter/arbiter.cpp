@@ -223,7 +223,7 @@ void Driver::put(std::string path, const std::string& data) const
 }
 
 std::vector<std::string> Driver::resolve(
-        const std::string path,
+        std::string path,
         const bool verbose) const
 {
     std::vector<std::string> results;
@@ -249,6 +249,8 @@ std::vector<std::string> Driver::resolve(
     }
     else
     {
+        if (type() != "fs") path = type() + "://" + path;
+
         results.push_back(path);
     }
 
