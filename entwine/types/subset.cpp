@@ -11,6 +11,7 @@
 #include <entwine/types/subset.hpp>
 
 #include <entwine/tree/climber.hpp>
+#include <entwine/types/range.hpp>
 #include <entwine/types/structure.hpp>
 
 namespace entwine
@@ -71,8 +72,11 @@ void Subset::update(const BBox& bbox)
         throw std::runtime_error("Invalid subset range");
     }
 
-    const std::size_t dimensions(m_structure.dimensions());
-    const std::size_t factor(m_structure.factor());
+    // Always split only in X-Y, since data tends not to be dense throughout
+    // the entire Z-range.
+    const std::size_t dimensions(2);
+    const std::size_t factor(4);
+
     const std::size_t log(std::log2(m_of));
 
     if (static_cast<std::size_t>(std::pow(2, log)) != m_of)
@@ -93,7 +97,7 @@ void Subset::update(const BBox& bbox)
     const std::size_t startOffset(m_id * boxes);
 
     const std::size_t iterations(ChunkInfo::logN(cap, factor));
-    const std::size_t mask(dimensions == 3 ? 0x7 : 0x3);
+    const std::size_t mask(0x3);
 
     for (std::size_t curId(startOffset); curId < startOffset + boxes; ++curId)
     {
@@ -110,16 +114,17 @@ void Subset::update(const BBox& bbox)
                 case Climber::Dir::sed: climber.goSed(); break;
                 case Climber::Dir::nwd: climber.goNwd(); break;
                 case Climber::Dir::ned: climber.goNed(); break;
-                case Climber::Dir::swu: climber.goSwu(); break;
-                case Climber::Dir::seu: climber.goSeu(); break;
-                case Climber::Dir::nwu: climber.goNwu(); break;
-                case Climber::Dir::neu: climber.goNeu(); break;
+                default: throw std::runtime_error("Unexpected value");
             }
         }
 
         if (!m_sub) m_sub.reset(new BBox(climber.bbox()));
         else m_sub->grow(climber.bbox());
     }
+
+    // For octrees, we've shrunken our Z coordinates - blow them back up to
+    // span the whole set.
+    m_sub->growZ(Range(bbox.min().z, bbox.max().z));
 }
 
 } // namespace entwine

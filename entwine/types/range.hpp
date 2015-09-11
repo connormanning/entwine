@@ -23,6 +23,8 @@ public:
         , max(std::numeric_limits<double>::lowest())
     { }
 
+    Range(double min, double max) : min(min), max(max) { }
+
     void grow(double val)
     {
         min = std::min(min, val);
