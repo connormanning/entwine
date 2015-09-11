@@ -143,7 +143,9 @@ Structure::Structure(
     , m_coldDepthBegin(m_baseDepthEnd)
     , m_coldDepthEnd(std::max(m_coldDepthBegin, coldDepth))
     , m_sparseDepthBegin(0)
+    , m_mappedDepthBegin(0)
     , m_sparseIndexBegin(0)
+    , m_mappedIndexBegin(0)
     , m_chunkPoints(chunkPoints)
     , m_dynamicChunks(dynamicChunks)
     , m_dimensions(dimensions)
@@ -171,7 +173,9 @@ Structure::Structure(
     , m_coldDepthBegin(m_baseDepthEnd)
     , m_coldDepthEnd(0)
     , m_sparseDepthBegin(0)
+    , m_mappedDepthBegin(0)
     , m_sparseIndexBegin(0)
+    , m_mappedIndexBegin(0)
     , m_chunkPoints(chunkPoints)
     , m_dynamicChunks(dynamicChunks)
     , m_dimensions(dimensions)
@@ -191,7 +195,9 @@ Structure::Structure(const Json::Value& json, const BBox& bbox)
     , m_coldDepthBegin(m_baseDepthEnd)
     , m_coldDepthEnd(json["coldDepth"].asUInt64())
     , m_sparseDepthBegin(json["sparseDepth"].asUInt64())
+    , m_mappedDepthBegin(json["mappedDepth"].asUInt64())
     , m_sparseIndexBegin(0)
+    , m_mappedIndexBegin(0)
     , m_chunkPoints(json["chunkPoints"].asUInt64())
     , m_dynamicChunks(json["dynamicChunks"].asBool())
     , m_dimensions(json["dimensions"].asUInt64())
@@ -213,6 +219,7 @@ Structure::Structure(const Structure& other)
     m_coldDepthBegin = other.m_coldDepthBegin;
     m_coldDepthEnd = other.m_coldDepthEnd;
     m_sparseDepthBegin = other.m_sparseDepthBegin;
+    m_mappedDepthBegin = other.m_mappedDepthBegin;
 
     m_nullIndexBegin = other.m_nullIndexBegin;
     m_nullIndexEnd = other.m_nullIndexEnd;
@@ -221,6 +228,7 @@ Structure::Structure(const Structure& other)
     m_coldIndexBegin = other.m_coldIndexBegin;
     m_coldIndexEnd = other.m_coldIndexEnd;
     m_sparseIndexBegin = other.m_sparseIndexBegin;
+    m_mappedIndexBegin = other.m_mappedIndexBegin;
 
     m_chunkPoints = other.m_chunkPoints;
 
@@ -318,10 +326,17 @@ void Structure::loadIndexValues()
             }
 
             m_sparseDepthBegin = std::max(m_sparseDepthBegin, m_coldDepthBegin);
+
+            m_mappedDepthBegin =
+                std::ceil(std::log2(m_numPointsHint) / std::log2(m_factor));
+            m_mappedDepthBegin = std::max(m_mappedDepthBegin, m_coldDepthBegin);
         }
 
         m_sparseIndexBegin =
             ChunkInfo::calcLevelIndex(m_dimensions, m_sparseDepthBegin);
+
+        m_mappedIndexBegin =
+            ChunkInfo::calcLevelIndex(m_dimensions, m_mappedDepthBegin);
     }
     else
     {

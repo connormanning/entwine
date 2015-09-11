@@ -100,6 +100,7 @@ public:
     std::size_t coldDepthBegin() const   { return m_coldDepthBegin; }
     std::size_t coldDepthEnd() const     { return m_coldDepthEnd; }
     std::size_t sparseDepthBegin() const { return m_sparseDepthBegin; }
+    std::size_t mappedDepthBegin() const { return m_mappedDepthBegin; }
 
     const Id& nullIndexBegin() const   { return m_nullIndexBegin; }
     const Id& nullIndexEnd() const     { return m_nullIndexEnd; }
@@ -108,6 +109,7 @@ public:
     const Id& coldIndexBegin() const   { return m_coldIndexBegin; }
     const Id& coldIndexEnd() const     { return m_coldIndexEnd; }
     const Id& sparseIndexBegin() const { return m_sparseIndexBegin; }
+    const Id& mappedIndexBegin() const { return m_mappedIndexBegin; }
 
     std::size_t baseIndexSpan() const
     {
@@ -214,6 +216,7 @@ private:
     std::size_t m_coldDepthBegin;
     std::size_t m_coldDepthEnd;
     std::size_t m_sparseDepthBegin;
+    std::size_t m_mappedDepthBegin;
 
     Id m_nullIndexBegin;
     Id m_nullIndexEnd;
@@ -222,6 +225,7 @@ private:
     Id m_coldIndexBegin;
     Id m_coldIndexEnd;
     Id m_sparseIndexBegin;
+    Id m_mappedIndexBegin;
 
     std::size_t m_chunkPoints;
 

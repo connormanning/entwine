@@ -193,7 +193,7 @@ void Cold::growFast(const Climber& climber, Clipper* clipper)
                             m_schema,
                             chunkId,
                             climber.chunkPoints(),
-                            chunkId < m_structure.sparseIndexBegin(),
+                            chunkId < m_structure.mappedIndexBegin(),
                             m_empty));
             }
         }
@@ -237,7 +237,7 @@ void Cold::growSlow(const Climber& climber, Clipper* clipper)
                             m_schema,
                             chunkId,
                             climber.chunkPoints(),
-                            chunkId < m_structure.sparseIndexBegin(),
+                            chunkId < m_structure.mappedIndexBegin(),
                             m_empty));
             }
         }
