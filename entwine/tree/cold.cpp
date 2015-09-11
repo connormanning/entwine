@@ -204,7 +204,7 @@ void Cold::growSlow(const Climber& climber, Clipper* clipper)
 {
     const Id& chunkId(climber.chunkId());
 
-    if (clipper && clipper->insert(chunkId, 0))
+    if (clipper && clipper->insert(chunkId, climber.chunkNum()))
     {
         std::unique_lock<std::mutex> mapLock(m_mapMutex);
 
