@@ -384,6 +384,10 @@ namespace
             std::ofstream::out |
             std::ofstream::trunc);
 
+    void noHome()
+    {
+        throw std::runtime_error("No home directory found");
+    }
 
     std::string expandTilde(std::string in)
     {
@@ -392,13 +396,25 @@ namespace
         if (!in.empty() && in.front() == '~')
         {
 #ifndef ARBITER_WINDOWS
+            if (!getenv("HOME"))
+            {
+                noHome();
+            }
+
             static const std::string home(getenv("HOME"));
 #else
+            if (
+                    !getenv("USERPROFILE") &&
+                    !(getenv("HOMEDRIVE") && getenv("HOMEPATH")))
+            {
+                noHome();
+            }
+
             static const std::string home(
-                    getenv("USERPROFILE").size() ?
-                        getenv("USERPROFILE") :
-                        getenv("HOMEDRIVE") + getenv("HOMEPATH"));
+                    getenv("USERPROFILE") ? getenv("USERPROFILE") :
+                        (getenv("HOMEDRIVE") + getenv("HOMEPATH"));
 #endif
+
             out = home + in.substr(1);
         }
 
