@@ -160,10 +160,10 @@ std::unique_ptr<Preview> Executor::preview(
 
                     view.setField(Dimension::Id::X, 0, bbox.min().x);
                     view.setField(Dimension::Id::Y, 0, bbox.min().y);
-                    view.setField(Dimension::Id::Z, 0, bbox.min().y);
+                    view.setField(Dimension::Id::Z, 0, bbox.min().z);
                     view.setField(Dimension::Id::X, 1, bbox.max().x);
                     view.setField(Dimension::Id::Y, 1, bbox.max().y);
-                    view.setField(Dimension::Id::Z, 1, bbox.max().y);
+                    view.setField(Dimension::Id::Z, 1, bbox.max().z);
 
                     pdal::FilterWrapper::filter(*filter, view);
 

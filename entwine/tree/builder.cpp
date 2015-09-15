@@ -33,6 +33,11 @@
 
 using namespace arbiter;
 
+namespace
+{
+    const std::size_t sleepCount(65536 * 32);
+}
+
 namespace entwine
 {
 
@@ -149,18 +154,25 @@ bool Builder::insert(const std::string path)
         {
             const std::string localPath(localize(path, origin));
 
-            std::unique_ptr<Clipper> clipperPtr(new Clipper(*this));
-            Clipper* clipper(clipperPtr.get());
-
+            std::unique_ptr<Clipper> clipper(new Clipper(*this));
             std::unique_ptr<Range> zRangePtr(
-                    m_structure->dimensions() == 2 ? new Range() : 0);
+                m_structure->is3d() ? 0 : new Range());
+
             Range* zRange(zRangePtr.get());
+            std::size_t count(0);
 
             auto inserter(
-                    [this, origin, clipper, zRange]
+                    [this, origin, &clipper, zRange, &count]
                     (pdal::PointView& view)->void
             {
-                insert(view, origin, clipper, zRange);
+                count += view.size();
+                insert(view, origin, clipper.get(), zRange);
+
+                if (count >= sleepCount)
+                {
+                    count = 0;
+                    clipper.reset(new Clipper(*this));
+                }
             });
 
             bool doInsert(true);
