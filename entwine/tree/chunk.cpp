@@ -669,7 +669,9 @@ Chunk::Chunk(
     , m_mutex()
     , m_converting(false)
     , m_empty(empty)
-{ }
+{
+    if (!m_chunkData) throw std::runtime_error("Could not create chunk");
+}
 
 Entry* Chunk::getEntry(const Id& rawIndex)
 {
