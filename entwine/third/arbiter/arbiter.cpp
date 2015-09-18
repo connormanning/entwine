@@ -596,6 +596,58 @@ namespace
 
     const auto baseSleepTime(std::chrono::milliseconds(1));
     const auto maxSleepTime (std::chrono::milliseconds(4096));
+
+    const std::map<char, std::string> sanitizers
+    {
+        { ' ', "%20" },
+        { '!', "%21" },
+        { '"', "%22" },
+        { '#', "%23" },
+        { '$', "%24" },
+        { '\'', "%27" },
+        { '(', "%28" },
+        { ')', "%29" },
+        { '*', "%2A" },
+        { '+', "%2B" },
+        { ',', "%2C" },
+        { ';', "%3B" },
+        { '<', "%3C" },
+        { '>', "%3E" },
+        { '@', "%40" },
+        { '[', "%5B" },
+        { '\\', "%5C" },
+        { ']', "%5D" },
+        { '^', "%5E" },
+        { '`', "%60" },
+        { '{', "%7B" },
+        { '|', "%7C" },
+        { '}', "%7D" },
+        { '~', "%7E" }
+    };
+
+    std::string sanitize(const std::string& path)
+    {
+        std::string result;
+
+        for (const auto c : path)
+        {
+            auto it(sanitizers.find(c));
+
+            if (it == sanitizers.end())
+            {
+                result += c;
+            }
+            else
+            {
+                result += it->second;
+            }
+        }
+
+        std::cout << "In: " << path << std::endl;
+        std::cout << "Result: " << result << std::endl;
+
+        return result;
+    }
 }
 
 namespace arbiter
@@ -605,7 +657,7 @@ HttpDriver::HttpDriver(HttpPool& pool)
     : m_pool(pool)
 { }
 
-bool HttpDriver::get(const std::string path, std::vector<char>& data) const
+bool HttpDriver::get(std::string path, std::vector<char>& data) const
 {
     bool good(false);
 
@@ -622,7 +674,7 @@ bool HttpDriver::get(const std::string path, std::vector<char>& data) const
 }
 
 void HttpDriver::put(
-        const std::string path,
+        std::string path,
         const std::vector<char>& data) const
 {
     auto http(m_pool.acquire());
@@ -682,6 +734,7 @@ HttpResponse Curl::get(std::string path, std::vector<std::string> headers)
     int httpCode(0);
     std::vector<char> data;
 
+    path = sanitize(path);
     init(path, headers);
 
     // Register callback function and date pointer to consume the result.
@@ -704,6 +757,7 @@ HttpResponse Curl::put(
         const std::vector<char>& data,
         std::vector<std::string> headers)
 {
+    path = sanitize(path);
     init(path, headers);
 
     int httpCode(0);
