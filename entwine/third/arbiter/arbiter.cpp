@@ -624,30 +624,6 @@ namespace
         { '}', "%7D" },
         { '~', "%7E" }
     };
-
-    std::string sanitize(const std::string& path)
-    {
-        std::string result;
-
-        for (const auto c : path)
-        {
-            auto it(sanitizers.find(c));
-
-            if (it == sanitizers.end())
-            {
-                result += c;
-            }
-            else
-            {
-                result += it->second;
-            }
-        }
-
-        std::cout << "In: " << path << std::endl;
-        std::cout << "Result: " << result << std::endl;
-
-        return result;
-    }
 }
 
 namespace arbiter
@@ -683,6 +659,27 @@ void HttpDriver::put(
     {
         throw std::runtime_error("Couldn't HTTP PUT to " + path);
     }
+}
+
+std::string HttpDriver::sanitize(std::string path)
+{
+    std::string result;
+
+    for (const auto c : path)
+    {
+        auto it(sanitizers.find(c));
+
+        if (it == sanitizers.end())
+        {
+            result += c;
+        }
+        else
+        {
+            result += it->second;
+        }
+    }
+
+    return result;
 }
 
 Curl::Curl()
@@ -734,7 +731,7 @@ HttpResponse Curl::get(std::string path, std::vector<std::string> headers)
     int httpCode(0);
     std::vector<char> data;
 
-    path = sanitize(path);
+    path = HttpDriver::sanitize(path);
     init(path, headers);
 
     // Register callback function and date pointer to consume the result.
@@ -757,7 +754,7 @@ HttpResponse Curl::put(
         const std::vector<char>& data,
         std::vector<std::string> headers)
 {
-    path = sanitize(path);
+    path = HttpDriver::sanitize(path);
     init(path, headers);
 
     int httpCode(0);
@@ -1098,10 +1095,11 @@ bool S3Driver::get(std::string rawPath, std::vector<char>& data) const
 }
 
 bool S3Driver::get(
-        const std::string rawPath,
+        std::string rawPath,
         const Query& query,
         std::vector<char>& data) const
 {
+    rawPath = HttpDriver::sanitize(rawPath);
     const Resource resource(rawPath);
 
     const std::string path(resource.buildPath(query));
