@@ -915,6 +915,7 @@ void HttpPool::release(const std::size_t id)
 #include <thread>
 
 #ifndef ARBITER_IS_AMALGAMATION
+#include <arbiter/arbiter.hpp>
 #include <arbiter/drivers/fs.hpp>
 #include <arbiter/third/xml/xml.hpp>
 #include <arbiter/util/crypto.hpp>
@@ -1097,13 +1098,16 @@ bool S3Driver::get(std::string rawPath, std::vector<char>& data) const
 bool S3Driver::get(
         std::string rawPath,
         const Query& query,
-        std::vector<char>& data) const
+        std::vector<char>& data,
+        const Headers userHeaders) const
 {
     rawPath = HttpDriver::sanitize(rawPath);
     const Resource resource(rawPath);
 
     const std::string path(resource.buildPath(query));
-    const Headers headers(httpGetHeaders(rawPath));
+
+    Headers headers(httpGetHeaders(rawPath));
+    headers.insert(headers.end(), userHeaders.begin(), userHeaders.end());
 
     auto http(m_pool.acquire());
 
@@ -1116,11 +1120,28 @@ bool S3Driver::get(
     }
     else
     {
-        // TODO If verbose:
-        // std::cout << std::string(res.data().begin(), res.data().end()) <<
-            // std::endl;
         return false;
     }
+}
+
+std::vector<char> S3Driver::getBinary(
+        std::string rawPath,
+        Headers headers) const
+{
+    std::vector<char> data;
+
+    if (!get(Arbiter::stripType(rawPath), Query(), data, headers))
+    {
+        throw std::runtime_error("Couldn't S3 GET " + rawPath);
+    }
+
+    return data;
+}
+
+std::string S3Driver::get(std::string rawPath, Headers headers) const
+{
+    std::vector<char> data(getBinary(rawPath, headers));
+    return std::string(data.begin(), data.end());
 }
 
 std::vector<char> S3Driver::get(std::string rawPath, const Query& query) const
