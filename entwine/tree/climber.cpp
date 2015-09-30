@@ -113,10 +113,15 @@ bool SplitClimber::next(bool terminate)
                 (m_traversal.size() && ++m_traversal.back() == m_factor) ||
                 (depth() > m_structure.sparseDepthBegin() + 1))
         {
+            if (depth() <= m_structure.sparseDepthBegin() + 1)
+            {
+                m_index -= (m_factor - 1) * m_step;
+            }
+
+            m_index >>= m_dimensions;
+
             m_traversal.pop_back();
             m_splits /= 2;
-
-            m_index = ((m_index - (m_factor - 1) * m_step) >> m_dimensions);
 
             m_xPos /= 2;
             m_yPos /= 2;
