@@ -142,6 +142,9 @@ Reader::Reader(
                 static_cast<ContiguousChunk*>(
                     Chunk::create(
                         *m_schema,
+                        *m_bbox,
+                        *m_structure,
+                        0,
                         m_structure->baseIndexBegin(),
                         m_structure->baseIndexSpan(),
                         data).release()));

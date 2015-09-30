@@ -18,6 +18,7 @@
 #include <vector>
 
 #include <entwine/tree/point-info.hpp>
+#include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
 
 namespace entwine
@@ -75,6 +76,18 @@ public:
     bool empty() const;
     const Cell& primaryCell() const { return m_primaryCell; }
     const MapType& secondaryCells() const { return m_cells; }
+
+    static std::size_t calcTick(
+            const Point& point,
+            const BBox& bbox,
+            std::size_t depth)
+    {
+        return
+            static_cast<std::size_t>(
+                    std::floor((point.z - bbox.min().z) * (1ULL << depth)) /
+                    (bbox.max().z - bbox.min().z));
+    }
+
 
 private:
     std::pair<bool, Cell&> getMappedCell(std::size_t tick);

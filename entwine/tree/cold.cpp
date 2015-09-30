@@ -45,9 +45,11 @@ namespace
 Cold::Cold(
         arbiter::Endpoint& endpoint,
         const Schema& schema,
+        const BBox& bbox,
         const Structure& structure)
     : m_endpoint(endpoint)
     , m_schema(schema)
+    , m_bbox(bbox)
     , m_structure(structure)
     , m_chunkVec(getNumFastTrackers(m_structure))
     , m_chunkMap()
@@ -57,10 +59,12 @@ Cold::Cold(
 Cold::Cold(
         arbiter::Endpoint& endpoint,
         const Schema& schema,
+        const BBox& bbox,
         const Structure& structure,
         const Json::Value& meta)
     : m_endpoint(endpoint)
     , m_schema(schema)
+    , m_bbox(bbox)
     , m_structure(structure)
     , m_chunkVec(getNumFastTrackers(m_structure))
     , m_chunkMap()
@@ -178,6 +182,9 @@ void Cold::growFast(const Climber& climber, Clipper* clipper)
                 countedChunk->chunk =
                         Chunk::create(
                             m_schema,
+                            m_bbox,
+                            m_structure,
+                            climber.depth(),
                             chunkId,
                             climber.chunkPoints(),
                             m_endpoint.getSubpathBinary(chunkId.str()));
@@ -187,6 +194,9 @@ void Cold::growFast(const Climber& climber, Clipper* clipper)
                 countedChunk->chunk =
                         Chunk::create(
                             m_schema,
+                            m_bbox,
+                            m_structure,
+                            climber.depth(),
                             chunkId,
                             climber.chunkPoints(),
                             chunkId < m_structure.mappedIndexBegin());
@@ -220,6 +230,9 @@ void Cold::growSlow(const Climber& climber, Clipper* clipper)
                 countedChunk->chunk =
                         Chunk::create(
                             m_schema,
+                            m_bbox,
+                            m_structure,
+                            climber.depth(),
                             chunkId,
                             climber.chunkPoints(),
                             m_endpoint.getSubpathBinary(chunkId.str()));
@@ -229,6 +242,9 @@ void Cold::growSlow(const Climber& climber, Clipper* clipper)
                 countedChunk->chunk =
                         Chunk::create(
                             m_schema,
+                            m_bbox,
+                            m_structure,
+                            climber.depth(),
                             chunkId,
                             climber.chunkPoints(),
                             chunkId < m_structure.mappedIndexBegin());

@@ -42,6 +42,9 @@ class Chunk
 public:
     Chunk(
             const Schema& schema,
+            const BBox& bbox,
+            const Structure& structure,
+            std::size_t depth,
             const Id& id,
             std::size_t maxPoints,
             std::size_t numPoints = 0);
@@ -50,12 +53,18 @@ public:
 
     static std::unique_ptr<Chunk> create(
             const Schema& schema,
+            const BBox& bbox,
+            const Structure& structure,
+            std::size_t depth,
             const Id& id,
             std::size_t maxPoints,
             bool contiguous);
 
     static std::unique_ptr<Chunk> create(
             const Schema& schema,
+            const BBox& bbox,
+            const Structure& structure,
+            std::size_t depth,
             const Id& id,
             std::size_t maxPoints,
             std::vector<char> data);
@@ -95,6 +104,9 @@ protected:
 
     const Schema& m_nativeSchema;
     const Schema  m_celledSchema;
+    const BBox& m_bbox;
+    const Structure& m_structure;
+    const std::size_t m_depth;
     const Id m_id;
 
     const std::size_t m_maxPoints;
@@ -108,11 +120,17 @@ class SparseChunk : public Chunk
 public:
     SparseChunk(
             const Schema& schema,
+            const BBox& bbox,
+            const Structure& structure,
+            std::size_t depth,
             const Id& id,
             std::size_t maxPoints);
 
     SparseChunk(
             const Schema& schema,
+            const BBox& bbox,
+            const Structure& structure,
+            std::size_t depth,
             const Id& id,
             std::size_t maxPoints,
             std::vector<char>& compressedData,
@@ -132,11 +150,17 @@ class ContiguousChunk : public Chunk
 public:
     ContiguousChunk(
             const Schema& schema,
+            const BBox& bbox,
+            const Structure& structure,
+            std::size_t depth,
             const Id& id,
             std::size_t maxPoints);
 
     ContiguousChunk(
             const Schema& schema,
+            const BBox& bbox,
+            const Structure& structure,
+            std::size_t depth,
             const Id& id,
             std::size_t maxPoints,
             std::vector<char>& compressedData,

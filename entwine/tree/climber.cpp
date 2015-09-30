@@ -39,8 +39,9 @@ void Climber::magnify(const Point& point)
     m_tick *= 2;
     if (point.z >= mid.z) ++m_tick;
 
+    // TODO.
     // Up: +4, Down: +0.
-    const int z(m_dimensions == 3 && point.z >= mid.z ? 4 : 0);
+    const int z(/*m_dimensions == 3 &&*/ point.z >= mid.z ? 4 : 0);
 
     // North: +2, South: +0.
     const int y(point.y >= mid.y ? 2 : 0);
@@ -61,8 +62,11 @@ void Climber::magnify(const Point& point)
     }
 }
 
-void Climber::climb(const Dir dir)
+void Climber::climb(Dir dir)
 {
+    // TODO.  We're tracking the bbox in 3d, but climbing in 2d.
+    dir = static_cast<Dir>(static_cast<int>(dir) % 4);
+
     if (++m_depth > m_structure.nominalChunkDepth())
     {
         if (!m_sparseDepthBegin || m_depth <= m_sparseDepthBegin)

@@ -46,11 +46,13 @@ public:
     Registry(
             arbiter::Endpoint& endpoint,
             const Schema& schema,
+            const BBox& bbox,
             const Structure& structure);
 
     Registry(
             arbiter::Endpoint& endpoint,
             const Schema& schema,
+            const BBox& bbox,
             const Structure& structure,
             const Json::Value& meta);
 
@@ -69,6 +71,7 @@ public:
 private:
     arbiter::Endpoint & m_endpoint;
     const Schema& m_schema;
+    const BBox& m_bbox;
     const Structure& m_structure;
     bool m_is3d;
 

@@ -193,8 +193,6 @@ void Query::getChunked(std::vector<char>& buffer)
     std::unique_ptr<Block> block(m_cache.acquire(m_reader.path(), subset));
     m_chunks.erase(begin, end);
 
-    std::cout << "Got " << block->chunkMap().size() << " chunks" << std::endl;
-
     for (const auto& p : block->chunkMap())
     {
         if (const ChunkReader* cr = p.second)
@@ -206,21 +204,6 @@ void Query::getChunked(std::vector<char>& buffer)
             throw std::runtime_error("Reservation failure");
         }
     }
-
-
-
-    /*
-    std::cout << chunkMap.size() << std::endl;
-    std::cout << m_chunks.size() << " fetches: " << std::endl;
-    for (const auto& f : m_chunks) std::cout << f.id << " ";
-    std::cout << std::endl;
-    */
-
-
-
-
-
-
 
     if (buffer.empty()) m_done = true;
 }

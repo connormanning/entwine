@@ -89,32 +89,28 @@ void Tube::save(
 {
     if (m_primaryTick.load() != unassigned)
     {
-        uint64_t cellId(0);
         const std::size_t idSize(sizeof(uint64_t));
 
         const std::size_t celledSize(celledSchema.pointSize());
-        const std::size_t nativeSize(celledSize - 2 * idSize);
+        const std::size_t nativeSize(celledSize - idSize);
 
         // Include space for primary cell.
         data.resize(celledSize + m_cells.size() * celledSize);
         char* pos(data.data());
 
         const char* tubePos(reinterpret_cast<const char*>(&tubeId));
-        const char* cellPos(reinterpret_cast<const char*>(&cellId));
 
         // TODO Deduplicate.
 
         // Save primary cell.
         {
-            cellId = m_primaryTick.load();
             const Cell& cell(m_primaryCell);
 
             const std::vector<char>& rawVec(cell.atom().load()->data());
             const char* rawData(rawVec.data());
 
             std::copy(tubePos, tubePos + idSize, pos);
-            std::copy(cellPos, cellPos + idSize, pos + idSize);
-            std::copy(rawData, rawData + nativeSize, pos + idSize * 2);
+            std::copy(rawData, rawData + nativeSize, pos + idSize);
 
             pos += celledSize;
         }
@@ -122,15 +118,13 @@ void Tube::save(
         // Save mapped cells.
         for (const auto& c : m_cells)
         {
-            cellId = c.first;
             const Cell& cell(c.second);
 
             const std::vector<char>& rawVec(cell.atom().load()->data());
             const char* rawData(rawVec.data());
 
             std::copy(tubePos, tubePos + idSize, pos);
-            std::copy(cellPos, cellPos + idSize, pos + idSize);
-            std::copy(rawData, rawData + nativeSize, pos + idSize * 2);
+            std::copy(rawData, rawData + nativeSize, pos + idSize);
 
             pos += celledSize;
         }

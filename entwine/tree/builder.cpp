@@ -75,6 +75,7 @@ Builder::Builder(
             new Registry(
                 *m_outEndpoint,
                 *m_schema,
+                *m_bbox,
                 *m_structure))
 {
     prep();
@@ -436,6 +437,7 @@ void Builder::load()
             new Registry(
                 *m_outEndpoint,
                 *m_schema,
+                *m_bbox,
                 *m_structure,
                 meta));
 }

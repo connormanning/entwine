@@ -50,7 +50,8 @@ ChunkReader::ChunkReader(
     char* pos(celledData->data());
     char* out(m_data.data());
 
-    const std::size_t nativeOffset(2 * sizeof(uint64_t));
+    // Skip tube IDs.
+    const std::size_t nativeOffset(sizeof(uint64_t));
 
     for (std::size_t i(0); i < m_numPoints; ++i)
     {
@@ -102,7 +103,6 @@ std::size_t ChunkReader::query(
                 pos += dim.size();
             }
         }
-        else std::cout << "NO!" << std::endl;
     }
 
     return numPoints;

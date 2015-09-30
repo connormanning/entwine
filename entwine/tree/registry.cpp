@@ -54,9 +54,11 @@ namespace
 Registry::Registry(
         arbiter::Endpoint& endpoint,
         const Schema& schema,
+        const BBox& bbox,
         const Structure& structure)
     : m_endpoint(endpoint)
     , m_schema(schema)
+    , m_bbox(bbox)
     , m_structure(structure)
     , m_is3d(structure.is3d())
     , m_base()
@@ -69,6 +71,9 @@ Registry::Registry(
                 static_cast<ContiguousChunk*>(
                     Chunk::create(
                         m_schema,
+                        m_bbox,
+                        m_structure,
+                        0,
                         m_structure.baseIndexBegin(),
                         m_structure.baseIndexSpan(),
                         true).release()));
@@ -76,17 +81,19 @@ Registry::Registry(
 
     if (m_structure.hasCold())
     {
-        m_cold.reset(new Cold(endpoint, schema, m_structure));
+        m_cold.reset(new Cold(endpoint, schema, m_bbox, m_structure));
     }
 }
 
 Registry::Registry(
         arbiter::Endpoint& endpoint,
         const Schema& schema,
+        const BBox& bbox,
         const Structure& structure,
         const Json::Value& meta)
     : m_endpoint(endpoint)
     , m_schema(schema)
+    , m_bbox(bbox)
     , m_structure(structure)
     , m_is3d(structure.is3d())
     , m_base()
@@ -105,6 +112,9 @@ Registry::Registry(
                 static_cast<ContiguousChunk*>(
                     Chunk::create(
                         m_schema,
+                        m_bbox,
+                        m_structure,
+                        0,
                         m_structure.baseIndexBegin(),
                         m_structure.baseIndexSpan(),
                         data).release()));
@@ -112,7 +122,7 @@ Registry::Registry(
 
     if (m_structure.hasCold())
     {
-        m_cold.reset(new Cold(endpoint, schema, m_structure, meta));
+        m_cold.reset(new Cold(endpoint, schema, m_bbox, m_structure, meta));
     }
 }
 
