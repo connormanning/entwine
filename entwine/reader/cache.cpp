@@ -20,7 +20,7 @@ namespace entwine
 FetchInfo::FetchInfo(
         arbiter::Endpoint& endpoint,
         const Schema& schema,
-        std::size_t id,
+        const Id& id,
         std::size_t numPoints)
     : endpoint(endpoint)
     , schema(schema)
@@ -47,7 +47,7 @@ Block::~Block()
     m_cache.release(*this);
 }
 
-void Block::set(const std::size_t id, const ChunkReader* chunkReader)
+void Block::set(const Id& id, const ChunkReader* chunkReader)
 {
     m_chunkMap.at(id) = chunkReader;
 }
@@ -65,9 +65,8 @@ ChunkState::~ChunkState() { }
 
 
 
-Cache::Cache(const std::size_t maxChunks, const std::size_t maxChunksPerQuery)
+Cache::Cache(const std::size_t maxChunks)
     : m_maxChunks(std::max<std::size_t>(maxChunks, 16))
-    , m_maxChunksPerQuery(std::max<std::size_t>(maxChunksPerQuery, 4))
     , m_chunkManager()
     , m_inactiveList()
     , m_activeCount(0)
@@ -100,7 +99,7 @@ void Cache::release(const Block& block)
 
     for (const auto& c : block.chunkMap())
     {
-        const std::size_t id(c.first);
+        const Id& id(c.first);
 
         std::unique_ptr<ChunkState>& chunkState(localManager.at(id));
 
@@ -141,11 +140,6 @@ std::unique_ptr<Block> Cache::reserve(
         const std::string& readerPath,
         const FetchInfoSet& fetches)
 {
-    if (fetches.size() > m_maxChunksPerQuery)
-    {
-        throw QueryLimitExceeded();
-    }
-
     if (m_activeCount > m_maxChunks)
     {
         throw std::runtime_error("Unexpected cache state");
@@ -247,15 +241,13 @@ const ChunkReader* Cache::fetch(
     {
         std::unique_ptr<std::vector<char>> rawData(
                 new std::vector<char>(
-                    fetchInfo.endpoint.getSubpathBinary(
-                        std::to_string(fetchInfo.id))));
+                    fetchInfo.endpoint.getSubpathBinary(fetchInfo.id.str())));
 
-        chunkState.chunkReader =
-                ChunkReader::create(
+        chunkState.chunkReader.reset(
+                new ChunkReader(
                     fetchInfo.schema,
                     fetchInfo.id,
-                    fetchInfo.numPoints,
-                    std::move(rawData));
+                    std::move(rawData)));
     }
 
     return chunkState.chunkReader.get();

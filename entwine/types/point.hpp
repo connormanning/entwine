@@ -15,6 +15,8 @@
 #include <limits>
 #include <ostream>
 
+#include <entwine/util/pooled.hpp>
+
 namespace entwine
 {
 

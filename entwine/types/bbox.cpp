@@ -58,7 +58,7 @@ BBox::BBox(const Json::Value& json)
                 json["bounds"].get(Json::ArrayIndex(4), 0).asDouble(),
                 json["bounds"].get(Json::ArrayIndex(5), 0).asDouble()))
     , m_mid()
-    , m_is3d(json["is3d"].asBool())
+    , m_is3d(true/*json["is3d"].asBool()*/)
 {
     setMid();
 }
@@ -193,7 +193,7 @@ void BBox::setMid()
 {
     m_mid.x = m_min.x + (m_max.x - m_min.x) / 2.0;
     m_mid.y = m_min.y + (m_max.y - m_min.y) / 2.0;
-    if (m_is3d) m_mid.z = m_min.z + (m_max.z - m_min.z) / 2.0;
+    /* if (m_is3d) */ m_mid.z = m_min.z + (m_max.z - m_min.z) / 2.0;
 }
 
 void BBox::grow(const BBox& other)

@@ -19,7 +19,6 @@
 #include <vector>
 
 #include <entwine/reader/cache.hpp>
-#include <entwine/reader/chunk-reader.hpp>
 #include <entwine/types/structure.hpp>
 
 namespace arbiter
@@ -31,9 +30,22 @@ namespace arbiter
 namespace entwine
 {
 
+class InvalidQuery : public std::runtime_error
+{
+public:
+    InvalidQuery()
+        : std::runtime_error("Invalid query")
+    { }
+
+    InvalidQuery(std::string what)
+        : std::runtime_error("Invalid query - " + what)
+    { }
+};
+
 class BBox;
-class ChunkClimber;
+class Cache;
 class Climber;
+class ContiguousChunk;
 class LinkingPointView;
 class Manifest;
 class Query;
@@ -49,7 +61,7 @@ public:
     Reader(
             const arbiter::Endpoint& endpoint,
             const arbiter::Arbiter& arbiter,
-            std::shared_ptr<Cache> cache);
+            Cache& cache);
     ~Reader();
 
     std::unique_ptr<Query> query(
@@ -59,7 +71,7 @@ public:
 
     std::unique_ptr<Query> query(
             const Schema& schema,
-            const BBox& bbox,
+            const BBox& qbox,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
@@ -68,40 +80,13 @@ public:
     const Schema& schema() const        { return *m_schema; }
     const Structure& structure() const  { return *m_structure; }
     const std::string& srs() const      { return m_srs; }
-
-private:
-    FetchInfoSet traverse(
-            const BBox& bbox,
-            std::size_t depthBegin,
-            std::size_t depthEnd) const;
-
-    void traverse(
-            FetchInfoSet& toFetch,
-            const ChunkClimber& climber,
-            const BBox& bbox,
-            std::size_t depthBegin,
-            std::size_t depthEnd) const;
-
-    std::unique_ptr<Query> runQuery(
-            std::unique_ptr<Block> block,
-            const Schema& schema,
-            const BBox& bbox,
-            std::size_t depthBegin,
-            std::size_t depthEnd);
-
-    void runQuery(
-            Query& query,
-            const Climber& climber,
-            const BBox& bbox,
-            std::size_t depthBegin,
-            std::size_t depthEnd,
-            SinglePointTable& table,
-            LinkingPointView& view,
-            std::vector<int> traversal = std::vector<int>()) const;
+    const std::string& path() const     { return m_path; }
 
     // Returns 0 if chunk doesn't exist.
-    arbiter::Endpoint* getEndpoint(std::size_t chunkId) const;
+    arbiter::Endpoint* getEndpoint(const Id& chunkId) const;
+    const ContiguousChunk* base() const { return m_base.get(); }
 
+private:
     std::string m_path;
 
     std::unique_ptr<BBox> m_bbox;
@@ -110,8 +95,9 @@ private:
     std::unique_ptr<Reprojection> m_reprojection;
     std::unique_ptr<Manifest> m_manifest;
     std::unique_ptr<Stats> m_stats;
-    std::unique_ptr<ChunkReader> m_base;
-    std::shared_ptr<Cache> m_cache;
+    std::unique_ptr<ContiguousChunk> m_base;
+
+    Cache& m_cache;
 
     bool m_is3d;
     std::string m_srs;

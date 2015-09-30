@@ -33,13 +33,13 @@
 
 using namespace arbiter;
 
+namespace entwine
+{
+
 namespace
 {
     const std::size_t sleepCount(65536 * 32);
 }
-
-namespace entwine
-{
 
 Builder::Builder(
         const std::string outPath,
@@ -250,23 +250,30 @@ void Builder::insert(
         Clipper* clipper,
         Range* zRange)
 {
-    Point point;
+    using namespace pdal;
 
     for (std::size_t i = 0; i < pointView.size(); ++i)
     {
-        point.x = pointView.getFieldAs<double>(pdal::Dimension::Id::X, i);
-        point.y = pointView.getFieldAs<double>(pdal::Dimension::Id::Y, i);
-        point.z = pointView.getFieldAs<double>(pdal::Dimension::Id::Z, i);
+        pointView.setField(m_originId, i, origin);
+
+        std::unique_ptr<PointInfo> info(
+                new PointInfo(
+                    Point(
+                        pointView.getFieldAs<double>(Dimension::Id::X, i),
+                        pointView.getFieldAs<double>(Dimension::Id::Y, i),
+                        pointView.getFieldAs<double>(Dimension::Id::Z, i)),
+                    pointView.getPoint(i),
+                    m_schema->pointSize()));
+
+        const Point& point(info->point());
 
         if (m_bbox->contains(point))
         {
             if (!m_subBBox || m_subBBox->contains(point))
             {
                 Climber climber(*m_bbox, *m_structure);
-                pointView.setField(m_originId, i, origin);
-                PointInfoShallow pointInfo(point, pointView.getPoint(i));
 
-                if (m_registry->addPoint(pointInfo, climber, clipper))
+                if (m_registry->addPoint(std::move(info), climber, clipper))
                 {
                     m_stats.addPoint();
 
@@ -435,7 +442,8 @@ void Builder::load()
 
 void Builder::merge()
 {
-    std::unique_ptr<ContiguousChunkData> base;
+    /*
+    std::unique_ptr<ContiguousChunk> base;
     std::vector<Id> ids;
     const std::size_t baseCount([this]()->std::size_t
     {
@@ -487,7 +495,7 @@ void Builder::merge()
                 m_outEndpoint->getSubpathBinary(
                     m_structure->baseIndexBegin().str() + postfix));
 
-        if (!data.empty() || data.back() == Contiguous)
+        if (!data.empty() || data.back() == Chunk::Contiguous)
         {
             data.pop_back();
 
@@ -495,7 +503,7 @@ void Builder::merge()
             {
                 std::cout << "\t1 / " << baseCount << std::endl;
                 base.reset(
-                        new ContiguousChunkData(
+                        new ContiguousChunk(
                             *m_schema,
                             m_structure->baseIndexBegin(),
                             m_structure->baseIndexSpan(),
@@ -505,8 +513,8 @@ void Builder::merge()
             {
                 std::cout << "\t" << i + 1 << " / " << baseCount << std::endl;
 
-                std::unique_ptr<ContiguousChunkData> chunkData(
-                        new ContiguousChunkData(
+                std::unique_ptr<ContiguousChunk> chunkData(
+                        new ContiguousChunk(
                             *m_schema,
                             m_structure->baseIndexBegin(),
                             m_structure->baseIndexSpan(),
@@ -547,11 +555,13 @@ void Builder::merge()
     m_outEndpoint->putSubpath("entwine", jsonMeta.toStyledString());
 
     base->save(*m_outEndpoint);
+    */
 }
 
 void Builder::link(std::vector<std::string> subsetPaths)
 {
-    std::unique_ptr<ContiguousChunkData> base;
+    /*
+    std::unique_ptr<ContiguousChunk> base;
     std::vector<Endpoint> subs;
     std::map<std::string, std::vector<std::size_t>> ids;
 
@@ -624,7 +634,7 @@ void Builder::link(std::vector<std::string> subsetPaths)
             {
                 std::cout << "\t1 / " << baseCount << std::endl;
                 base.reset(
-                        new ContiguousChunkData(
+                        new ContiguousChunk(
                             *m_schema,
                             m_structure->baseIndexBegin(),
                             m_structure->baseIndexSpan(),
@@ -634,8 +644,8 @@ void Builder::link(std::vector<std::string> subsetPaths)
             {
                 std::cout << "\t" << i + 1 << " / " << baseCount << std::endl;
 
-                std::unique_ptr<ContiguousChunkData> chunkData(
-                        new ContiguousChunkData(
+                std::unique_ptr<ContiguousChunk> chunkData(
+                        new ContiguousChunk(
                             *m_schema,
                             m_structure->baseIndexBegin(),
                             m_structure->baseIndexSpan(),
@@ -686,6 +696,7 @@ void Builder::link(std::vector<std::string> subsetPaths)
 
     std::cout << "Saving base data..." << std::endl;
     base->save(*m_outEndpoint);
+    */
 }
 
 void Builder::save()

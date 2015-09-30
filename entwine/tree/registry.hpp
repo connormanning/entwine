@@ -30,12 +30,12 @@ namespace arbiter
 namespace entwine
 {
 
+class Cell;
 class Chunk;
 class Climber;
 class Clipper;
 class Cold;
-class ContiguousChunkData;
-class Entry;
+class ContiguousChunk;
 class PointInfo;
 class Pool;
 class Schema;
@@ -56,12 +56,14 @@ public:
 
     ~Registry();
 
-    bool addPoint(PointInfo& toAdd, Climber& climber, Clipper* clipper);
+    bool addPoint(
+            std::unique_ptr<PointInfo> toAdd,
+            Climber& climber,
+            Clipper* clipper);
+
+    Cell* getCell(const Climber& climber, Clipper* clipper);
 
     void save(Json::Value& meta);
-
-    Entry* getEntry(const Climber& climber, Clipper* clipper);
-
     void clip(const Id& index, std::size_t chunkNum, Clipper* clipper);
 
 private:
@@ -70,12 +72,10 @@ private:
     const Structure& m_structure;
     bool m_is3d;
 
-    std::unique_ptr<ContiguousChunkData> m_base;
+    std::unique_ptr<ContiguousChunk> m_base;
     std::unique_ptr<Cold> m_cold;
 
     std::unique_ptr<Pool> m_pool;
-
-    const std::vector<char> m_empty;
 };
 
 } // namespace entwine

@@ -14,6 +14,7 @@
 #include <deque>
 
 #include <entwine/reader/reader.hpp>
+#include <entwine/tree/climber.hpp>
 #include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/point.hpp>
 #include <entwine/types/single-point-table.hpp>
@@ -21,7 +22,6 @@
 namespace entwine
 {
 
-class Block;
 class Schema;
 
 class Query
@@ -30,34 +30,44 @@ class Query
 
 public:
     Query(
-            Reader& reader,
-            const Schema& outSchema,
-            std::unique_ptr<Block> block);
+            const Reader& reader,
+            const Structure& structure,
+            const Schema& schema,
+            Cache& cache,
+            const BBox& qbox,
+            std::size_t depthBegin,
+            std::size_t depthEnd);
 
-    // Returns the number of points in the query result.
-    std::size_t size() const;
+    // Get an arbitrary number of points selected by this query.  If the size
+    // of the result is zero, the query is complete.
+    void next(std::vector<char>& buffer);
 
-    // Get point data at the specified index.  Throws std::out_of_range if
-    // index is greater than or equal to Query::size().
-    //
-    // These operations are not thread-safe.
-    void get(std::size_t index, char* out) const;
-    std::vector<char> get(std::size_t index) const;
+    bool done() const { return m_done; }
+
+    // Get the number of points selected by this query, only valid once the
+    // query is complete.
+    std::size_t numPoints() const { return m_numPoints; }
 
 private:
-    // For use by the Reader when populating this Query.
-    void insert(const char* pos);
-    Point unwrapPoint(const char* pos) const;
-    const ChunkMap& chunkMap() const { return m_block->chunkMap(); }
+    void getBase(std::vector<char>& buffer);
+    void getChunked(std::vector<char>& buffer);
 
-    Reader& m_reader;
+    const Reader& m_reader;
+    const Structure& m_structure;
     const Schema& m_outSchema;
 
-    std::unique_ptr<Block> m_block;
-    std::deque<const char*> m_points;
+    Cache& m_cache;
 
-    mutable SinglePointTable m_table;
-    LinkingPointView m_view;
+    const BBox& m_qbox;
+    const std::size_t m_depthBegin;
+    const std::size_t m_depthEnd;
+
+    FetchInfoSet m_chunks;
+
+    std::size_t m_numPoints;
+
+    bool m_base;
+    bool m_done;
 };
 
 } // namespace entwine

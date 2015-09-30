@@ -40,7 +40,7 @@ namespace
 Reader::Reader(
         const arbiter::Endpoint& endpoint,
         const arbiter::Arbiter& arbiter,
-        std::shared_ptr<Cache> cache)
+        Cache& cache)
     : m_path(endpoint.root())
     , m_bbox()
     , m_schema()
@@ -55,11 +55,6 @@ Reader::Reader(
     , m_ids()
 {
     using namespace arbiter;
-
-    if (!cache)
-    {
-        throw std::runtime_error("No cache supplied");
-    }
 
     {
         Json::Reader reader;
@@ -88,63 +83,68 @@ Reader::Reader(
         m_stats.reset(new Stats(props["stats"]));
         m_srs = props["srs"].asString();
 
-        const Json::Value& jsonIds(props["ids"]);
-
-        if (jsonIds.isArray())
+        if (props.isMember("ids"))
         {
-            std::set<Id>& ids(
-                    m_ids.insert(
-                        std::make_pair(
-                            std::unique_ptr<Endpoint>(new Endpoint(endpoint)),
-                            std::set<Id>())).first->second);
+            const Json::Value& jsonIds(props["ids"]);
 
-            for (std::size_t i(0); i < jsonIds.size(); ++i)
+            if (jsonIds.isArray())
             {
-                ids.insert(
-                        Id(jsonIds[static_cast<Json::ArrayIndex>(i)]
-                            .asString()));
-            }
-        }
-        else if (jsonIds.isObject())
-        {
-            const auto subs(jsonIds.getMemberNames());
-
-            for (const auto path : subs)
-            {
-                Endpoint sub(arbiter.getEndpoint(path));
                 std::set<Id>& ids(
                         m_ids.insert(
                             std::make_pair(
-                                std::unique_ptr<Endpoint>(new Endpoint(sub)),
+                                std::unique_ptr<Endpoint>(
+                                    new Endpoint(endpoint)),
                                 std::set<Id>())).first->second);
 
-                const Json::Value& subIds(jsonIds[path]);
-
-                for (std::size_t i(0); i < subIds.size(); ++i)
+                for (std::size_t i(0); i < jsonIds.size(); ++i)
                 {
                     ids.insert(
-                            Id(subIds[static_cast<Json::ArrayIndex>(i)]
+                            Id(jsonIds[static_cast<Json::ArrayIndex>(i)]
                                 .asString()));
                 }
             }
-        }
-        else
-        {
-            throw std::runtime_error("Meta member 'ids' is the wrong type");
+            else if (jsonIds.isObject())
+            {
+                const auto subs(jsonIds.getMemberNames());
+
+                for (const auto path : subs)
+                {
+                    Endpoint sub(arbiter.getEndpoint(path));
+                    std::set<Id>& ids(
+                            m_ids.insert(
+                                std::make_pair(
+                                    std::unique_ptr<Endpoint>(
+                                        new Endpoint(sub)),
+                                    std::set<Id>())).first->second);
+
+                    const Json::Value& subIds(jsonIds[path]);
+
+                    for (std::size_t i(0); i < subIds.size(); ++i)
+                    {
+                        ids.insert(
+                                Id(subIds[static_cast<Json::ArrayIndex>(i)]
+                                    .asString()));
+                    }
+                }
+            }
+            else
+            {
+                throw std::runtime_error("Meta member 'ids' is the wrong type");
+            }
         }
     }
 
     {
-        std::unique_ptr<std::vector<char>> data(
-                new std::vector<char>(
-                    endpoint.getSubpathBinary(
-                        m_structure->baseIndexBegin().str())));
+        std::vector<char> data(
+                endpoint.getSubpathBinary(m_structure->baseIndexBegin().str()));
 
-        m_base = ChunkReader::create(
-                *m_schema,
-                m_structure->baseIndexBegin(),
-                m_structure->baseIndexSpan(),
-                std::move(data));
+        m_base.reset(
+                static_cast<ContiguousChunk*>(
+                    Chunk::create(
+                        *m_schema,
+                        m_structure->baseIndexBegin(),
+                        m_structure->baseIndexSpan(),
+                        data).release()));
     }
 }
 
@@ -161,183 +161,31 @@ std::unique_ptr<Query> Reader::query(
 
 std::unique_ptr<Query> Reader::query(
         const Schema& schema,
-        const BBox& bbox,
+        const BBox& qbox,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
     checkQuery(depthBegin, depthEnd);
 
-    if (m_is3d != bbox.is3d())
+    // TODO - Verify against structure.
+    if (!qbox.is3d())
     {
+        std::cout << "qbox: " << qbox << std::endl;
         throw InvalidQuery("Wrong number of dimensions in query");
     }
 
-    std::unique_ptr<Block> block(
-            m_cache->acquire(
-                m_path,
-                traverse(bbox, depthBegin, depthEnd)));
-
-    // Get the points selected by this query and all associated metadata.
-    return runQuery(std::move(block), schema, bbox, depthBegin, depthEnd);
+    return std::unique_ptr<Query>(
+            new Query(
+                *this,
+                *m_structure,
+                schema,
+                m_cache,
+                qbox,
+                depthBegin,
+                depthEnd));
 }
 
-FetchInfoSet Reader::traverse(
-        const BBox& queryBBox,
-        const std::size_t depthBegin,
-        const std::size_t depthEnd) const
-{
-    FetchInfoSet toFetch;
-
-    if (
-            m_structure->hasCold() &&
-            (depthBegin >= m_structure->coldDepthBegin() ||
-            !depthEnd ||
-            depthEnd > m_structure->coldDepthBegin()))
-    {
-        const ChunkClimber c(*m_bbox, *m_structure);
-        traverse(toFetch, c, queryBBox, depthBegin, depthEnd);
-    }
-
-    return toFetch;
-}
-
-void Reader::traverse(
-        FetchInfoSet& toFetch,
-        const ChunkClimber& c,
-        const BBox& queryBBox,
-        const std::size_t depthBegin,
-        const std::size_t depthEnd) const
-{
-    if (!c.bbox().overlaps(queryBBox))
-    {
-        return;
-    }
-
-    const std::size_t chunkId(c.chunkId());
-    const std::size_t depth(c.depth());
-
-    if (chunkId)
-    {
-        if (arbiter::Endpoint* endpoint = getEndpoint(chunkId))
-        {
-            if (depth >= depthBegin && (depth < depthEnd || !depthEnd))
-            {
-                if (toFetch.size() + 1 >= m_cache->queryLimit())
-                {
-                    throw QueryLimitExceeded();
-                }
-
-                toFetch.insert(
-                        FetchInfo(
-                            *endpoint,
-                            *m_schema,
-                            chunkId,
-                            m_structure->getInfo(chunkId).chunkPoints()));
-            }
-        }
-        else
-        {
-            return;
-        }
-    }
-
-    if (depth + 1 < depthEnd || !depthEnd)
-    {
-        if (
-                m_structure->dynamicChunks() &&
-                m_structure->sparseDepthBegin() &&
-                depth >= m_structure->sparseDepthBegin())
-        {
-            traverse(toFetch, c.shimmy(), queryBBox, depthBegin, depthEnd);
-        }
-        else
-        {
-            traverse(toFetch, c.getNwd(), queryBBox, depthBegin, depthEnd);
-            traverse(toFetch, c.getNed(), queryBBox, depthBegin, depthEnd);
-            traverse(toFetch, c.getSwd(), queryBBox, depthBegin, depthEnd);
-            traverse(toFetch, c.getSed(), queryBBox, depthBegin, depthEnd);
-
-            if (!m_is3d) return;
-
-            traverse(toFetch, c.getNwu(), queryBBox, depthBegin, depthEnd);
-            traverse(toFetch, c.getNeu(), queryBBox, depthBegin, depthEnd);
-            traverse(toFetch, c.getSwu(), queryBBox, depthBegin, depthEnd);
-            traverse(toFetch, c.getSeu(), queryBBox, depthBegin, depthEnd);
-        }
-    }
-}
-
-std::unique_ptr<Query> Reader::runQuery(
-        std::unique_ptr<Block> block,
-        const Schema& schema,
-        const BBox& qbox,
-        std::size_t depthBegin,
-        std::size_t depthEnd)
-{
-    std::unique_ptr<Query> query(new Query(*this, schema, std::move(block)));
-    SplitClimber splitter(*m_structure, *m_bbox, qbox, depthBegin, depthEnd);
-
-    bool terminate(false);
-
-    // Get base data.
-    if (depthBegin < m_structure->coldDepthBegin())
-    {
-        do
-        {
-            const std::size_t index(splitter.index());
-            terminate = false;
-
-            if (index >= m_structure->baseIndexBegin())
-            {
-                if (const char* pos = m_base->getData(index))
-                {
-                    Point point(query->unwrapPoint(pos));
-
-                    if (Point::exists(point))
-                    {
-                        if (qbox.contains(point))
-                        {
-                            query->insert(pos);
-                        }
-                    }
-                    else
-                    {
-                        terminate = true;
-                    }
-                }
-                else
-                {
-                    throw std::runtime_error("Invalid base data");
-                }
-            }
-        }
-        while (splitter.next(terminate));
-    }
-
-    // Get cold data.
-    for (const auto& c : query->chunkMap())
-    {
-        if (c.second)
-        {
-            ChunkIter it(*c.second);
-
-            do
-            {
-                const Point point(query->unwrapPoint(it.getData()));
-
-                if (Point::exists(point) && qbox.contains(point))
-                {
-                    query->insert(it.getData());
-                }
-            }
-            while (it.next());
-        }
-    }
-
-    return query;
-}
-
-arbiter::Endpoint* Reader::getEndpoint(const std::size_t chunkId) const
+arbiter::Endpoint* Reader::getEndpoint(const Id& chunkId) const
 {
     arbiter::Endpoint* endpoint(0);
 

@@ -10,10 +10,8 @@
 
 #include <entwine/compression/util.hpp>
 
-#include <pdal/Compression.hpp>
 #include <pdal/PointLayout.hpp>
 
-#include <entwine/compression/stream.hpp>
 #include <entwine/types/schema.hpp>
 
 namespace entwine
@@ -40,12 +38,7 @@ std::unique_ptr<std::vector<char>> Compression::compress(
     compressor.done();
 
     std::unique_ptr<std::vector<char>> compressed(
-            new std::vector<char>(compressionStream.data().size()));
-
-    std::memcpy(
-            compressed->data(),
-            compressionStream.data().data(),
-            compressed->size());
+            new std::vector<char>(compressionStream.data()));
 
     return compressed;
 }
@@ -68,25 +61,22 @@ std::unique_ptr<std::vector<char>> Compression::decompress(
     return decompressed;
 }
 
-void Compression::pushSize(std::vector<char>& data, uint64_t size)
+///////////////////////////////////////////////////////////////////////////////
+
+Compressor::Compressor(const Schema& schema)
+    : m_stream()
+    , m_compressor(m_stream, schema.pdalLayout().dimTypes())
+{ }
+
+void Compressor::push(const char* data, const std::size_t size)
 {
-    data.insert(data.end(), &size, &size + sizeof(uint64_t));
+    m_compressor.compress(data, size);
 }
 
-uint64_t Compression::popSize(std::vector<char>& data)
+std::vector<char> Compressor::data()
 {
-    uint64_t size(0);
-    const std::size_t popSize(sizeof(uint64_t));
-
-    if (data.size() < popSize)
-    {
-        throw std::runtime_error("Invalid uncompressed size");
-    }
-
-    std::memcpy(&size, data.data() + data.size() - popSize, popSize);
-    data.resize(data.size() - popSize);
-
-    return size;
+    m_compressor.done();
+    return m_stream.data();
 }
 
 } // namespace entwine

@@ -20,6 +20,7 @@
 #include <set>
 #include <string>
 
+#include <entwine/types/structure.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 
 namespace entwine
@@ -29,35 +30,17 @@ class Cache;
 class ChunkReader;
 class Schema;
 
-class QueryLimitExceeded : public std::runtime_error
-{
-public:
-    QueryLimitExceeded() : std::runtime_error("Query size limit exceeded") { }
-};
-
-class InvalidQuery : public std::runtime_error
-{
-public:
-    InvalidQuery()
-        : std::runtime_error("Invalid query")
-    { }
-
-    InvalidQuery(std::string what)
-        : std::runtime_error("Invalid query - " + what)
-    { }
-};
-
 struct FetchInfo
 {
     FetchInfo(
             arbiter::Endpoint& endpoint,
             const Schema& schema,
-            std::size_t id,
+            const Id& id,
             std::size_t numPoints);
 
     arbiter::Endpoint& endpoint;
     const Schema& schema;
-    std::size_t id;
+    Id id;
     std::size_t numPoints;
 };
 
@@ -74,13 +57,13 @@ typedef std::set<FetchInfo> FetchInfoSet;
 
 struct GlobalChunkInfo
 {
-    GlobalChunkInfo(const std::string& path, std::size_t id)
+    GlobalChunkInfo(const std::string& path, const Id& id)
         : path(path)
         , id(id)
     { }
 
     std::string path;
-    std::size_t id;
+    Id id;
 };
 
 typedef std::list<GlobalChunkInfo> InactiveList;
@@ -101,10 +84,9 @@ struct ChunkState
 
 
 
-typedef std::map<std::size_t, std::unique_ptr<ChunkState>> LocalManager;
+typedef std::map<Id, std::unique_ptr<ChunkState>> LocalManager;
 typedef std::map<std::string, LocalManager> GlobalManager;
-
-typedef std::map<std::size_t, const ChunkReader*> ChunkMap;
+typedef std::map<Id, const ChunkReader*> ChunkMap;
 
 class Block
 {
@@ -121,7 +103,7 @@ private:
             const std::string& readerPath,
             const FetchInfoSet& fetches);
 
-    void set(std::size_t id, const ChunkReader* chunkReader);
+    void set(const Id& id, const ChunkReader* chunkReader);
 
     Cache& m_cache;
     std::string m_readerPath;
@@ -133,15 +115,11 @@ class Cache
     friend class Block;
 
 public:
-    // maxChunks must be at least 16.
-    // maxChunksPerQuery must be at least 4.
-    Cache(std::size_t maxChunks, std::size_t maxChunksPerQuery);
+    Cache(std::size_t maxChunks);
 
     std::unique_ptr<Block> acquire(
             const std::string& readerPath,
             const FetchInfoSet& fetches);
-
-    std::size_t queryLimit() const { return m_maxChunksPerQuery; }
 
 private:
     void release(const Block& block);
@@ -160,7 +138,6 @@ private:
             const FetchInfo& fetchInfo);
 
     std::size_t m_maxChunks;
-    std::size_t m_maxChunksPerQuery;
 
     GlobalManager m_chunkManager;
     InactiveList m_inactiveList;

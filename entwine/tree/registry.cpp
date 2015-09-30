@@ -31,22 +31,6 @@ namespace entwine
 
 namespace
 {
-    std::vector<char> makeEmpty(const Schema& schema, std::size_t numPoints)
-    {
-        SimplePointTable table(schema);
-        pdal::PointView view(table);
-
-        const auto emptyCoord(Point::emptyCoord());
-
-        for (std::size_t i(0); i < numPoints; ++i)
-        {
-            view.setField(pdal::Dimension::Id::X, i, emptyCoord);
-            view.setField(pdal::Dimension::Id::Y, i, emptyCoord);
-        }
-
-        return table.data();
-    }
-
     bool better(
             const Point& candidate,
             const Point& current,
@@ -63,8 +47,8 @@ namespace
         }
     }
 
-    const std::size_t clipPoolSize(4);
-    const std::size_t clipQueueSize(4);
+    const std::size_t clipPoolSize(1);
+    const std::size_t clipQueueSize(1);
 }
 
 Registry::Registry(
@@ -78,21 +62,21 @@ Registry::Registry(
     , m_base()
     , m_cold()
     , m_pool(new Pool(clipPoolSize, clipQueueSize))
-    , m_empty(makeEmpty(m_schema, m_structure.baseChunkPoints()))
 {
     if (m_structure.baseIndexSpan())
     {
         m_base.reset(
-                new ContiguousChunkData(
-                    m_schema,
-                    m_structure.baseIndexBegin(),
-                    m_structure.baseIndexSpan(),
-                    m_empty));
+                static_cast<ContiguousChunk*>(
+                    Chunk::create(
+                        m_schema,
+                        m_structure.baseIndexBegin(),
+                        m_structure.baseIndexSpan(),
+                        true).release()));
     }
 
     if (m_structure.hasCold())
     {
-        m_cold.reset(new Cold(endpoint, schema, m_structure, m_empty));
+        m_cold.reset(new Cold(endpoint, schema, m_structure));
     }
 }
 
@@ -108,7 +92,6 @@ Registry::Registry(
     , m_base()
     , m_cold()
     , m_pool(new Pool(clipPoolSize, clipQueueSize))
-    , m_empty(makeEmpty(m_schema, m_structure.baseChunkPoints()))
 {
     if (m_structure.baseIndexSpan())
     {
@@ -117,110 +100,91 @@ Registry::Registry(
                 m_structure.subsetPostfix());
 
         std::vector<char> data(m_endpoint.getSubpathBinary(basePath));
-        ChunkType type(Chunk::getType(data));
-
-        if (type != Contiguous)
-        {
-            throw std::runtime_error("Invalid base chunk type");
-        }
 
         m_base.reset(
-                new ContiguousChunkData(
-                    m_schema,
-                    m_structure.baseIndexBegin(),
-                    m_structure.baseIndexSpan(),
-                    data));
+                static_cast<ContiguousChunk*>(
+                    Chunk::create(
+                        m_schema,
+                        m_structure.baseIndexBegin(),
+                        m_structure.baseIndexSpan(),
+                        data).release()));
     }
 
     if (m_structure.hasCold())
     {
-        m_cold.reset(new Cold(endpoint, schema, m_structure, m_empty, meta));
+        m_cold.reset(new Cold(endpoint, schema, m_structure, meta));
     }
 }
 
 Registry::~Registry()
 { }
 
-bool Registry::addPoint(PointInfo& toAdd, Climber& climber, Clipper* clipper)
+bool Registry::addPoint(
+        std::unique_ptr<PointInfo> toAdd,
+        Climber& climber,
+        Clipper* clipper)
 {
-    if (Entry* entry = getEntry(climber, clipper))
+    bool done(false);
+
+    if (Cell* cell = getCell(climber, clipper))
     {
-        Point myPoint(entry->point());
+        bool redo(false);
+        PointInfo* toAddSaved(toAdd.get());
 
-        if (Point::exists(myPoint))
+        do
         {
-            const Point& mid(climber.bbox().mid());
-
-            if (better(toAdd.point, myPoint, mid, m_is3d))
+            const PointInfoAtom& atom(cell->atom());
+            if (PointInfo* current = atom.load())
             {
-                // Reload point after locking.
-                Locker locker(entry->getLocker());
-                myPoint = entry->point();
+                const Point& mid(climber.bbox().mid());
 
-                if (better(toAdd.point, myPoint, mid, m_is3d))
+                // TODO
+                if (better(toAdd->point(), current->point(), mid, true/*m_is3d*/))
                 {
-                    const std::size_t pointSize(m_schema.pointSize());
-
-                    // Store this point and send the old value downstream.
-                    PointInfoDeep old(myPoint, entry->data(), pointSize);
-                    entry->update(toAdd.point, toAdd.data, pointSize);
-                    toAdd = old;
+                    done = false;
+                    redo = !cell->swap(std::move(toAdd), atom);
+                    if (!redo) toAdd.reset(current);
                 }
-            }
-        }
-        else
-        {
-            // Reload point after locking.
-            std::unique_ptr<Locker> locker(new Locker(entry->getLocker()));
-            myPoint = entry->point();
-
-            if (!Point::exists(myPoint))
-            {
-                entry->update(toAdd.point, toAdd.data, m_schema.pointSize());
-                return true;
             }
             else
             {
-                std::cout << "Racing..." << std::endl;
-                // Someone beat us here, call again to enter the other branch.
-                // Be sure to release our lock first.
-                locker.reset(0);
-                return addPoint(toAdd, climber, clipper);
+                done = cell->swap(std::move(toAdd));
+                redo = !done;
             }
+
+            if (redo) toAdd.reset(toAddSaved);
         }
+        while (redo);
     }
 
-    climber.magnify(toAdd.point);
-
-    if (!m_structure.inRange(climber.index())) return false;
-
-    return addPoint(toAdd, climber, clipper);
+    if (done)
+    {
+        return true;
+    }
+    else
+    {
+        climber.magnify(toAdd->point());
+        if (!m_structure.inRange(climber.index())) return false;
+        else return addPoint(std::move(toAdd), climber, clipper);
+    }
 }
 
-void Registry::save(Json::Value& meta)
+Cell* Registry::getCell(const Climber& climber, Clipper* clipper)
 {
-    m_base->save(m_endpoint, m_structure.subsetPostfix());
-    m_base.reset();
-
-    if (m_cold) meta["ids"] = m_cold->toJson();
-}
-
-Entry* Registry::getEntry(const Climber& climber, Clipper* clipper)
-{
-    Entry* entry(0);
+    Cell* cell(0);
 
     const Id& index(climber.index());
 
     if (m_structure.isWithinBase(index))
     {
-        entry = m_base->getEntry(index);
+        cell = &m_base->getCell(climber);
     }
     else if (m_structure.isWithinCold(index))
     {
-        entry = m_cold->getEntry(climber, clipper);
+        cell = &m_cold->getCell(climber, clipper);
     }
 
-    return entry;
+    return cell;
 }
 
 void Registry::clip(
@@ -229,6 +193,14 @@ void Registry::clip(
         Clipper* clipper)
 {
     m_cold->clip(index, chunkNum, clipper, *m_pool);
+}
+
+void Registry::save(Json::Value& meta)
+{
+    m_base->save(m_endpoint, m_structure.subsetPostfix());
+    m_base.reset();
+
+    if (m_cold) meta["ids"] = m_cold->toJson();
 }
 
 } // namespace entwine

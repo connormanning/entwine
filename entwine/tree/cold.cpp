@@ -45,22 +45,19 @@ namespace
 Cold::Cold(
         arbiter::Endpoint& endpoint,
         const Schema& schema,
-        const Structure& structure,
-        const std::vector<char>& empty)
+        const Structure& structure)
     : m_endpoint(endpoint)
     , m_schema(schema)
     , m_structure(structure)
     , m_chunkVec(getNumFastTrackers(m_structure))
     , m_chunkMap()
     , m_mapMutex()
-    , m_empty(empty)
 { }
 
 Cold::Cold(
         arbiter::Endpoint& endpoint,
         const Schema& schema,
         const Structure& structure,
-        const std::vector<char>& empty,
         const Json::Value& meta)
     : m_endpoint(endpoint)
     , m_schema(schema)
@@ -68,7 +65,6 @@ Cold::Cold(
     , m_chunkVec(getNumFastTrackers(m_structure))
     , m_chunkMap()
     , m_mapMutex()
-    , m_empty(empty)
 {
     const Json::Value& jsonIds(meta["ids"]);
 
@@ -101,7 +97,7 @@ Cold::Cold(
 Cold::~Cold()
 { }
 
-Entry* Cold::getEntry(const Climber& climber, Clipper* clipper)
+Cell& Cold::getCell(const Climber& climber, Clipper* clipper)
 {
     CountedChunk* countedChunk(0);
 
@@ -121,12 +117,13 @@ Entry* Cold::getEntry(const Climber& climber, Clipper* clipper)
         countedChunk = m_chunkMap.at(chunkId).get();
     }
 
+
     if (!countedChunk)
     {
         throw std::runtime_error("CountedChunk has missing contents.");
     }
 
-    return countedChunk->chunk->getEntry(climber.index());
+    return countedChunk->chunk->getCell(climber);
 }
 
 Json::Value Cold::toJson() const
@@ -178,23 +175,21 @@ void Cold::growFast(const Climber& climber, Clipper* clipper)
         {
             if (exists)
             {
-                countedChunk->chunk.reset(
-                        new Chunk(
+                countedChunk->chunk =
+                        Chunk::create(
                             m_schema,
                             chunkId,
                             climber.chunkPoints(),
-                            m_endpoint.getSubpathBinary(chunkId.str()),
-                            m_empty));
+                            m_endpoint.getSubpathBinary(chunkId.str()));
             }
             else
             {
-                countedChunk->chunk.reset(
-                        new Chunk(
+                countedChunk->chunk =
+                        Chunk::create(
                             m_schema,
                             chunkId,
                             climber.chunkPoints(),
-                            chunkId < m_structure.mappedIndexBegin(),
-                            m_empty));
+                            chunkId < m_structure.mappedIndexBegin());
             }
         }
     }
@@ -222,23 +217,21 @@ void Cold::growSlow(const Climber& climber, Clipper* clipper)
         {
             if (exists)
             {
-                countedChunk->chunk.reset(
-                        new Chunk(
+                countedChunk->chunk =
+                        Chunk::create(
                             m_schema,
                             chunkId,
                             climber.chunkPoints(),
-                            m_endpoint.getSubpathBinary(chunkId.str()),
-                            m_empty));
+                            m_endpoint.getSubpathBinary(chunkId.str()));
             }
             else
             {
-                countedChunk->chunk.reset(
-                        new Chunk(
+                countedChunk->chunk =
+                        Chunk::create(
                             m_schema,
                             chunkId,
                             climber.chunkPoints(),
-                            chunkId < m_structure.mappedIndexBegin(),
-                            m_empty));
+                            chunkId < m_structure.mappedIndexBegin());
             }
         }
     }
@@ -262,6 +255,7 @@ void Cold::clip(
 
             if (countedChunk.refs.empty())
             {
+                if (!countedChunk.chunk) std::cout << "UH OH" << std::endl;
                 countedChunk.chunk->save(m_endpoint);
                 countedChunk.chunk.reset(0);
             }

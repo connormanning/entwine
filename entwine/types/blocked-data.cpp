@@ -19,10 +19,8 @@ BlockedData::BlockedData(const std::size_t pointSize)
     : m_pointSize(pointSize)
     , m_index(0)
     , m_nextBlockPoints(16)
-    , m_data()
-{
-    m_data.emplace_back(m_pointSize * 8);
-}
+    , m_data({ std::vector<char>(pointSize * 8) })
+{ }
 
 void BlockedData::assign(const std::size_t n)
 {
@@ -31,7 +29,7 @@ void BlockedData::assign(const std::size_t n)
         throw std::runtime_error("Cannot assign after modifying");
     }
 
-    m_data.assign(1, std::vector<char>(m_pointSize * n));
+    m_data[0].assign(m_pointSize * n, 0);
 }
 
 char* BlockedData::getPointPos()

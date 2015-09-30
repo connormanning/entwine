@@ -15,8 +15,8 @@
 #include <memory>
 #include <vector>
 
+#include <entwine/tree/point-info.hpp>
 #include <entwine/types/structure.hpp>
-#include <entwine/tree/chunk.hpp>
 
 namespace entwine
 {
@@ -28,21 +28,19 @@ class ChunkReader
     friend class ChunkIter;
 
 public:
-    virtual ~ChunkReader() { }
-    static std::unique_ptr<ChunkReader> create(
+    ChunkReader(
             const Schema& schema,
             const Id& id,
-            std::size_t maxPoints,
             std::unique_ptr<std::vector<char>> data);
 
-    virtual bool sparse() const = 0;
-    virtual const char* getData(const Id& rawIndex) const = 0;
+    std::size_t query(
+            std::vector<char>& buffer,
+            const Schema& outSchema,
+            const BBox& qbox) const;
 
-protected:
-    virtual const std::vector<char>& getRaw() const = 0;
-    virtual std::size_t numPoints() const = 0;
-
-    ChunkReader(const Schema& schema, const Id& id, std::size_t maxPoints);
+private:
+    std::size_t numPoints() const { return m_points.size(); }
+    const Schema& schema() const { return m_schema; }
 
     std::size_t normalize(const Id& rawIndex) const
     {
@@ -51,48 +49,13 @@ protected:
 
     const Schema& m_schema;
     const Id m_id;
-    const std::size_t m_maxPoints;
+    const std::size_t m_numPoints;
+
+    std::vector<char> m_data;
+    std::multimap<uint64_t, PointInfoShallow> m_points;
 };
 
-class SparseReader : public ChunkReader
-{
-public:
-    SparseReader(
-            const Schema& schema,
-            const Id& id,
-            std::size_t maxPoints,
-            std::unique_ptr<std::vector<char>> data);
-
-    virtual bool sparse() const { return true; }
-    virtual const char* getData(const Id& rawIndex) const;
-
-private:
-    virtual const std::vector<char>& getRaw() const { return m_raw; }
-    virtual std::size_t numPoints() const { return m_ids.size(); }
-
-    std::vector<char> m_raw;
-    std::map<std::size_t, char*> m_ids;
-};
-
-class ContiguousReader : public ChunkReader
-{
-public:
-    ContiguousReader(
-            const Schema& schema,
-            const Id& id,
-            std::size_t maxPoints,
-            std::unique_ptr<std::vector<char>> data);
-
-    virtual bool sparse() const { return false; }
-    virtual const char* getData(const Id& rawIndex) const;
-
-private:
-    virtual const std::vector<char>& getRaw() const { return *m_data; }
-    virtual std::size_t numPoints() const { return m_maxPoints; }
-
-    std::unique_ptr<std::vector<char>> m_data;
-};
-
+/*
 class ChunkIter
 {
 public:
@@ -112,6 +75,7 @@ private:
     std::size_t m_numPoints;
     std::size_t m_pointSize;
 };
+*/
 
 } // namespace entwine
 

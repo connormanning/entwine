@@ -65,8 +65,15 @@ namespace
             }
             else
             {
+                Json::Value expanded;
+                expanded["bounds"] = json;
+                expanded["is3d"] = false;
+                bbox.reset(new BBox(expanded));
+
+                /*
                 throw std::runtime_error(
                         "Invalid bbox for the requested tree type.");
+                */
             }
         }
 

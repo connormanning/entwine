@@ -30,6 +30,7 @@ public:
     void getBytes(uint8_t* bytes, std::size_t length);
 
     const std::vector<char>& data() const;
+    void clear() { m_data.clear(); m_index = 0; }
 
 private:
     std::vector<char> m_data;

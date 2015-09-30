@@ -30,10 +30,11 @@ public:
     Climber(const BBox& bbox, const Structure& structure);
 
     void magnify(const Point& point);
-    const Id& index() const { return m_index; }
-    std::size_t depth() const { return m_depth; }
+    const Id& index()   const { return m_index; }
     const Id& chunkId() const { return m_chunkId; }
-    const BBox& bbox() const { return m_bbox; }
+    std::size_t tick()  const { return m_tick; }
+    std::size_t depth() const { return m_depth; }
+    const BBox& bbox()  const { return m_bbox; }
 
     std::size_t chunkPoints() const { return m_chunkPoints; }
     std::size_t chunkNum() const { return m_chunkNum; }
@@ -76,6 +77,7 @@ private:
     Id m_index;
     Id m_levelIndex;
     Id m_chunkId;
+    std::size_t m_tick;
 
     std::size_t m_depth;
     std::size_t m_sparseDepthBegin;
@@ -89,124 +91,70 @@ private:
     void climb(Dir dir);
 };
 
-class ChunkClimber
-{
-public:
-    ChunkClimber(const BBox& bbox, const Structure& structure)
-        : m_dimensions(structure.dimensions())
-        , m_depth(structure.nominalChunkDepth())
-        , m_chunkId(structure.nominalChunkIndex())
-        , m_baseChunkPoints(structure.baseChunkPoints())
-        , m_coldDepthBegin(structure.coldDepthBegin())
-        , m_bbox(bbox)
-    { }
-
-    std::size_t depth() const { return m_depth; }
-    const BBox& bbox() const { return m_bbox; }
-
-    std::size_t chunkId() const
-    {
-        return m_depth >= m_coldDepthBegin ? m_chunkId : 0;
-    }
-
-    ChunkClimber shimmy() const
-    {
-        ChunkClimber c(*this);
-        c.climb(static_cast<Climber::Dir>(0));
-        return c;
-    }
-
-    void goSwd() { climb(Climber::Dir::swd); m_bbox.goSwd(); }
-    void goSed() { climb(Climber::Dir::sed); m_bbox.goSed(); }
-    void goNwd() { climb(Climber::Dir::nwd); m_bbox.goNwd(); }
-    void goNed() { climb(Climber::Dir::ned); m_bbox.goNed(); }
-    void goSwu() { climb(Climber::Dir::swu); m_bbox.goSwu(); }
-    void goSeu() { climb(Climber::Dir::seu); m_bbox.goSeu(); }
-    void goNwu() { climb(Climber::Dir::nwu); m_bbox.goNwu(); }
-    void goNeu() { climb(Climber::Dir::neu); m_bbox.goNeu(); }
-
-    ChunkClimber getSwd() const { ChunkClimber c(*this); c.goSwd(); return c; }
-    ChunkClimber getSed() const { ChunkClimber c(*this); c.goSed(); return c; }
-    ChunkClimber getNwd() const { ChunkClimber c(*this); c.goNwd(); return c; }
-    ChunkClimber getNed() const { ChunkClimber c(*this); c.goNed(); return c; }
-    ChunkClimber getSwu() const { ChunkClimber c(*this); c.goSwu(); return c; }
-    ChunkClimber getSeu() const { ChunkClimber c(*this); c.goSeu(); return c; }
-    ChunkClimber getNwu() const { ChunkClimber c(*this); c.goNwu(); return c; }
-    ChunkClimber getNeu() const { ChunkClimber c(*this); c.goNeu(); return c; }
-
-private:
-    std::size_t m_dimensions;
-
-    std::size_t m_depth;
-    std::size_t m_chunkId;
-
-    std::size_t m_baseChunkPoints;
-    std::size_t m_coldDepthBegin;
-
-    BBox m_bbox;
-
-    void climb(Climber::Dir dir)
-    {
-        ++m_depth;
-        m_chunkId = (m_chunkId << m_dimensions) + 1 + dir * m_baseChunkPoints;
-    }
-};
-
 class SplitClimber
 {
 public:
     SplitClimber(
             const Structure& structure,
             const BBox& bbox,
-            const BBox& queryBBox,
+            const BBox& qbox,
             std::size_t depthBegin,
-            std::size_t depthEnd)
+            std::size_t depthEnd,
+            bool chunked = false)
         : m_structure(structure)
+        , m_dimensions(m_structure.dimensions())
+        , m_factor(m_structure.factor())
+        , m_is3d(m_structure.is3d())
         , m_bbox(bbox)
-        , m_queryBBox(queryBBox)
+        , m_qbox(qbox)
         , m_depthBegin(depthBegin)
-        , m_depthEnd(std::min(depthEnd, structure.baseDepthEnd()))
-        , m_index(0)
+        , m_depthEnd(depthEnd)
+        , m_chunked(chunked)
+        , m_startDepth(m_chunked ? m_structure.nominalChunkDepth() : 0)
+        , m_step(m_chunked ? m_structure.baseChunkPoints() : 1)
+        , m_index(m_chunked ? m_structure.nominalChunkIndex() : 0)
         , m_splits(1)
         , m_traversal()
         , m_xPos(0)
         , m_yPos(0)
         , m_zPos(0)
-    { }
+    {
+        if (m_structure.baseDepthBegin()) next();
+    }
 
     bool next(bool terminate = false);
 
-    std::size_t index() const
+    const Id& index() const
     {
         return m_index;
     }
 
     bool overlaps() const
     {
-        const Point& qMid(m_queryBBox.mid());
+        const Point& qMid(m_qbox.mid());
 
         return
             std::abs(qMid.x - midX()) <
-                m_queryBBox.width() / 2.0 +
+                m_qbox.width() / 2.0 +
                 m_bbox.width() / 2.0 / static_cast<double>(m_splits) &&
 
             std::abs(qMid.y - midY()) <
-                m_queryBBox.depth() / 2.0 +
+                m_qbox.depth() / 2.0 +
                 m_bbox.depth() / 2.0 / static_cast<double>(m_splits) &&
 
             (
                 !m_bbox.is3d() ||
                 std::abs(qMid.z - midZ()) <
-                    m_queryBBox.height() / 2.0 +
+                    m_qbox.height() / 2.0 +
                     m_bbox.height() / 2.0 / static_cast<double>(m_splits));
     }
 
-private:
     std::size_t depth() const
     {
-        return m_traversal.size();
+        return m_startDepth + m_traversal.size();
     }
 
+private:
     double midX() const
     {
         const double step(m_bbox.width() / static_cast<double>(m_splits));
@@ -227,18 +175,24 @@ private:
 
     // Tree.
     const Structure& m_structure;
+    const std::size_t m_dimensions;
+    const std::size_t m_factor;
+    const bool m_is3d;
     const BBox& m_bbox;
 
     // Query.
-    const BBox& m_queryBBox;
+    const BBox& m_qbox;
     const std::size_t m_depthBegin;
     const std::size_t m_depthEnd;
 
     // State.
-    std::size_t m_index;
+    const bool m_chunked;
+    const std::size_t m_startDepth;
+    const std::size_t m_step;
+    Id m_index;
     std::size_t m_splits;
 
-    std::deque<int> m_traversal;
+    std::deque<unsigned int> m_traversal;
 
     std::size_t m_xPos;
     std::size_t m_yPos;

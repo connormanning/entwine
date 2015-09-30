@@ -22,6 +22,7 @@ Climber::Climber(const BBox& bbox, const Structure& structure)
     , m_index(0)
     , m_levelIndex(0)
     , m_chunkId(structure.nominalChunkIndex())
+    , m_tick(0)
     , m_depth(0)
     , m_sparseDepthBegin(
             structure.dynamicChunks() ? structure.sparseDepthBegin() : 0)
@@ -34,6 +35,9 @@ Climber::Climber(const BBox& bbox, const Structure& structure)
 void Climber::magnify(const Point& point)
 {
     const Point& mid(m_bbox.mid());
+
+    m_tick *= 2;
+    if (point.z >= mid.z) ++m_tick;
 
     // Up: +4, Down: +0.
     const int z(m_dimensions == 3 && point.z >= mid.z ? 4 : 0);
@@ -75,9 +79,8 @@ void Climber::climb(const Dir dir)
 
             if (m_depth >= m_structure.coldDepthBegin())
             {
-                m_chunkNum =
-                    ((m_chunkId - m_structure.coldIndexBegin()) / m_chunkPoints)
-                    .getSimple();
+                const Id offset(m_chunkId - m_structure.coldIndexBegin());
+                m_chunkNum = (offset / m_chunkPoints).getSimple();
             }
 
             m_depthChunks *= m_factor;
@@ -105,25 +108,26 @@ bool SplitClimber::next(bool terminate)
 {
     if (terminate || (m_depthEnd && depth() + 1 == m_depthEnd))
     {
+        // Move shallower.
         while (
-                depth() &&
-                static_cast<unsigned>(++m_traversal.back()) ==
-                    m_structure.factor())
+                (m_traversal.size() && ++m_traversal.back() == m_factor) ||
+                (depth() > m_structure.sparseDepthBegin() + 1))
         {
             m_traversal.pop_back();
             m_splits /= 2;
 
-            m_index = (m_index >> m_structure.dimensions()) - 1;
+            m_index = ((m_index - (m_factor - 1) * m_step) >> m_dimensions);
 
             m_xPos /= 2;
             m_yPos /= 2;
-            m_zPos /= 2;
+            if (m_is3d) m_zPos /= 2;
         }
 
-        if (depth())
+        // Move laterally.
+        if (m_traversal.size())
         {
             const auto current(m_traversal.back());
-            ++m_index;
+            m_index += m_step;
 
             if (current % 2)
             {
@@ -147,19 +151,26 @@ bool SplitClimber::next(bool terminate)
     }
     else
     {
+        // Move deeper.
         m_traversal.push_back(0);
         m_splits *= 2;
 
-        m_index = (m_index << m_structure.dimensions()) + 1;
+        m_index = (m_index << m_dimensions) + 1;
 
         m_xPos *= 2;
         m_yPos *= 2;
-        m_zPos *= 2;
+        if (m_is3d) m_zPos *= 2;
     }
 
-    if (depth())
+    if (m_traversal.size())
     {
-        if (depth() < m_depthBegin) return next();
+        if (
+                depth() < m_depthBegin ||
+                depth() < m_structure.baseDepthBegin() ||
+                (m_chunked && depth() < m_structure.coldDepthBegin()))
+        {
+            return next();
+        }
         else if (overlaps()) return true;
         else return next(true);
     }

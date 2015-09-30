@@ -10,47 +10,45 @@
 
 #pragma once
 
+#include <atomic>
 #include <cstddef>
-#include <cstdint>
 #include <vector>
 
 #include <entwine/types/point.hpp>
 
-namespace pdal
-{
-    class PointView;
-}
-
 namespace entwine
 {
-
-class Schema;
 
 class PointInfo
 {
 public:
-    virtual ~PointInfo() { }
+    PointInfo(const Point& point, const char* data, std::size_t size)
+        : m_point(point)
+        , m_data(data, data + size)
+    { }
 
-    Point point;
-    const char* data;
-
-protected:
-    explicit PointInfo(const Point& point);
-};
-
-class PointInfoShallow : public PointInfo
-{
-public:
-    PointInfoShallow(const Point& point, char* pos);
-};
-
-class PointInfoDeep : public PointInfo
-{
-public:
-    PointInfoDeep(const Point& point, const char* pos, std::size_t length);
+    const Point& point() const { return m_point; }
+    const std::vector<char>& data() const { return m_data; }
 
 private:
-    std::vector<char> m_bytes;
+    const Point m_point;
+    const std::vector<char> m_data;
+};
+
+class PointInfoShallow
+{
+public:
+    PointInfoShallow(const Point& point, const char* pos)
+        : m_point(point)
+        , m_pos(pos)
+    { }
+
+    const Point& point() const { return m_point; }
+    const char* data() const { return m_pos; }
+
+private:
+    const Point m_point;
+    const char* m_pos;
 };
 
 } // namespace entwine

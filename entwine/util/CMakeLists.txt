@@ -14,6 +14,7 @@ set(
     "${BASE}/fs.hpp"
     "${BASE}/locker.hpp"
     "${BASE}/pool.hpp"
+    "${BASE}/pooled.hpp"
 )
 
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})

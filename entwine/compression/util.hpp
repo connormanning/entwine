@@ -15,6 +15,10 @@
 #include <memory>
 #include <vector>
 
+#include <pdal/Compression.hpp>
+
+#include <entwine/compression/stream.hpp>
+
 namespace entwine
 {
 
@@ -36,10 +40,18 @@ public:
             const std::vector<char>& data,
             const Schema& schema,
             std::size_t decompressedSize);
+};
 
-    // Append/remove the uncompressed size marker from this data chunk.
-    static void pushSize(std::vector<char>& data, uint64_t size);
-    static uint64_t popSize(std::vector<char>& data);
+class Compressor
+{
+public:
+    Compressor(const Schema& schema);
+    void push(const char* data, std::size_t size);
+    std::vector<char> data();
+
+private:
+    CompressionStream m_stream;
+    pdal::LazPerfCompressor<CompressionStream> m_compressor;
 };
 
 } // namespace entwine

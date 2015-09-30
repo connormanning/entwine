@@ -11,7 +11,10 @@
 #include <entwine/reader/chunk-reader.hpp>
 
 #include <entwine/compression/util.hpp>
+#include <entwine/tree/chunk.hpp>
+#include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/single-point-table.hpp>
 
 namespace entwine
 {
@@ -19,134 +22,91 @@ namespace entwine
 ChunkReader::ChunkReader(
         const Schema& schema,
         const Id& id,
-        const std::size_t maxPoints)
+        std::unique_ptr<std::vector<char>> compressed)
     : m_schema(schema)
     , m_id(id)
-    , m_maxPoints(maxPoints)
-{ }
-
-std::unique_ptr<ChunkReader> ChunkReader::create(
-        const Schema& schema,
-        const Id& id,
-        const std::size_t maxPoints,
-        std::unique_ptr<std::vector<char>> data)
+    , m_numPoints(Chunk::popTail(*compressed).numPoints)
+    , m_data()
+    , m_points()
 {
-    std::unique_ptr<ChunkReader> reader;
-
-    ChunkType type;
-
-    try
-    {
-        type = Chunk::getType(*data);
-    }
-    catch (...)
-    {
-        std::cout << "Invalid chunk at: " << id << std::endl;
-        throw std::runtime_error("Invalid chunk detected");
-    }
-
-    if (type == Sparse)
-    {
-        reader.reset(new SparseReader(schema, id, maxPoints, std::move(data)));
-    }
-    else if (type == Contiguous)
-    {
-        reader.reset(
-                new ContiguousReader(schema, id, maxPoints, std::move(data)));
-    }
-
-    return reader;
-}
-
-SparseReader::SparseReader(
-        const Schema& schema,
-        const Id& id,
-        const std::size_t maxPoints,
-        std::unique_ptr<std::vector<char>> data)
-    : ChunkReader(schema, id, maxPoints)
-    , m_raw()
-    , m_ids()
-{
-    // TODO Direct copy/paste from SparseChunkData ctor.
-    const std::size_t numPoints(SparseChunkData::popNumPoints(*data));
     const std::size_t nativePointSize(m_schema.pointSize());
+    const Schema celledSchema(Chunk::makeCelled(m_schema));
+    const std::size_t celledPointSize(celledSchema.pointSize());
 
-    m_raw.resize(nativePointSize * numPoints);
-
-    const Schema sparse(SparseChunkData::makeSparse(m_schema));
-    const std::size_t sparsePointSize(sparse.pointSize());
-
-    auto squashed(
+    auto celledData(
             Compression::decompress(
-                *data,
-                sparse,
-                numPoints * sparsePointSize));
+                *compressed,
+                celledSchema,
+                m_numPoints * celledPointSize));
 
-    const char* in(squashed->data());
-    const char* end(squashed->data() + squashed->size());
+    m_data.resize(nativePointSize * m_numPoints);
 
-    uint64_t key(0);
-    char* out(m_raw.data());
+    SinglePointTable table(celledSchema);
+    LinkingPointView view(table);
 
-    const std::size_t keySize(sizeof(uint64_t));
+    const pdal::Dimension::Id::Enum cellId(
+            celledSchema.pdalLayout().findDim("CellId"));
 
-    while (in != end)
+    char* pos(celledData->data());
+    char* out(m_data.data());
+
+    const std::size_t nativeOffset(2 * sizeof(uint64_t));
+
+    for (std::size_t i(0); i < m_numPoints; ++i)
     {
-        std::memcpy(&key, in, keySize);
-        std::memcpy(out, in + keySize, nativePointSize);
+        table.setData(pos);
+        std::copy(pos + nativeOffset, pos + celledPointSize, out);
 
-        m_ids[key] = out;
+        m_points.emplace(
+                std::piecewise_construct,
+                std::forward_as_tuple(view.getFieldAs<uint64_t>(cellId, 0)),
+                std::forward_as_tuple(
+                    Point(
+                        view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
+                        view.getFieldAs<double>(pdal::Dimension::Id::Y, 0),
+                        view.getFieldAs<double>(pdal::Dimension::Id::Z, 0)),
+                    out));
 
-        in += sparsePointSize;
+        pos += celledPointSize;
         out += nativePointSize;
     }
 }
 
-const char* SparseReader::getData(const Id& rawIndex) const
+std::size_t ChunkReader::query(
+        std::vector<char>& buffer,
+        const Schema& outSchema,
+        const BBox& qbox) const
 {
-    const char* pos(0);
+    std::size_t numPoints(0);
+    const std::size_t queryPointSize(outSchema.pointSize());
+    char* pos(0);
 
-    auto it(m_ids.find(normalize(rawIndex)));
+    SinglePointTable table(m_schema);
+    LinkingPointView view(table);
 
-    if (it != m_ids.end())
+    for (const auto& entry : m_points)
     {
-        pos = it->second;
+        const PointInfoShallow& info(entry.second);
+        const Point& point(info.point());
+        if (qbox.contains(point))
+        {
+            ++numPoints;
+            buffer.resize(buffer.size() + queryPointSize, 0);
+            pos = buffer.data() + buffer.size() - queryPointSize;
+
+            table.setData(info.data());
+
+            for (const auto dim : outSchema.dims())
+            {
+                view.getField(pos, dim.id(), dim.type(), 0);
+                pos += dim.size();
+            }
+        }
+        else std::cout << "NO!" << std::endl;
     }
 
-    return pos;
+    return numPoints;
 }
-
-ContiguousReader::ContiguousReader(
-        const Schema& schema,
-        const Id& id,
-        const std::size_t maxPoints,
-        std::unique_ptr<std::vector<char>> compressed)
-    : ChunkReader(schema, id, maxPoints)
-    , m_data(
-            Compression::decompress(
-                *compressed,
-                m_schema,
-                m_maxPoints * m_schema.pointSize()))
-{ }
-
-const char* ContiguousReader::getData(const Id& rawIndex) const
-{
-    const std::size_t normal(normalize(rawIndex));
-
-    if (normal >= m_maxPoints)
-    {
-        throw std::runtime_error("Invalid index to getData");
-    }
-
-    return m_data->data() + normal * m_schema.pointSize();
-}
-
-ChunkIter::ChunkIter(const ChunkReader& reader)
-    : m_data(reader.getRaw())
-    , m_index(0)
-    , m_numPoints(reader.numPoints())
-    , m_pointSize(reader.m_schema.pointSize())
-{ }
 
 } // namespace entwine
 

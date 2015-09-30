@@ -10,60 +10,219 @@
 
 #include <entwine/reader/query.hpp>
 
+#include <iterator>
+
 #include <entwine/reader/cache.hpp>
+#include <entwine/reader/chunk-reader.hpp>
+#include <entwine/tree/cell.hpp>
+#include <entwine/tree/chunk.hpp>
 #include <entwine/types/schema.hpp>
 
 namespace entwine
 {
 
+namespace
+{
+    std::size_t chunksPerIteration(4);
+}
+
 Query::Query(
-        Reader& reader,
-        const Schema& outSchema,
-        std::unique_ptr<Block> block)
+        const Reader& reader,
+        const Structure& structure,
+        const Schema& schema,
+        Cache& cache,
+        const BBox& qbox,
+        std::size_t depthBegin,
+        std::size_t depthEnd)
     : m_reader(reader)
-    , m_outSchema(outSchema)
-    , m_block(std::move(block))
-    , m_points()
-    , m_table(m_reader.schema(), 0)
-    , m_view(m_table)
-{ }
-
-void Query::insert(const char* pos)
+    , m_structure(structure)
+    , m_outSchema(schema)
+    , m_cache(cache)
+    , m_qbox(qbox)
+    , m_depthBegin(depthBegin)
+    , m_depthEnd(depthEnd)
+    , m_chunks()
+    , m_numPoints(0)
+    , m_base(true)
+    , m_done(false)
 {
-    m_points.push_back(pos);
-}
+    SplitClimber splitter(
+            m_structure,
+            m_reader.bbox(),
+            m_qbox,
+            m_depthBegin,
+            m_depthEnd,
+            true);
 
-Point Query::unwrapPoint(const char* pos) const
-{
-    m_table.setData(pos);
+    bool terminate(false);
 
-    return Point(
-            m_view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
-            m_view.getFieldAs<double>(pdal::Dimension::Id::Y, 0),
-            m_view.getFieldAs<double>(pdal::Dimension::Id::Z, 0));
-}
-
-std::size_t Query::size() const
-{
-    return m_points.size();
-}
-
-void Query::get(const std::size_t index, char* out) const
-{
-    m_table.setData(m_points.at(index));
-
-    for (const auto& dim : m_outSchema.dims())
+    do
     {
-        m_view.getField(out, dim.id(), dim.type(), 0);
-        out += dim.size();
+        terminate = false;
+        const Id& chunkId(splitter.index());
+
+        if (arbiter::Endpoint* endpoint = reader.getEndpoint(chunkId))
+        {
+            m_chunks.insert(
+                    FetchInfo(
+                        *endpoint,
+                        m_reader.schema(),
+                        chunkId,
+                        m_structure.getInfo(chunkId).chunkPoints()));
+        }
+        else
+        {
+            terminate = true;
+        }
+    }
+    while (splitter.next(terminate));
+}
+
+
+void Query::next(std::vector<char>& buffer)
+{
+    if (!buffer.empty()) throw std::runtime_error("Buffer should be empty");
+    if (m_done) throw std::runtime_error("Called next after query completed");
+
+    if (m_base)
+    {
+        getBase(buffer);
+        m_base = false;
+
+        if (buffer.empty())
+        {
+            getChunked(buffer);
+        }
+    }
+    else
+    {
+        getChunked(buffer);
     }
 }
 
-std::vector<char> Query::get(const std::size_t index) const
+void Query::getBase(std::vector<char>& buffer)
 {
-    std::vector<char> data(m_outSchema.pointSize());
-    get(index, data.data());
-    return data;
+    SinglePointTable table(m_reader.schema());
+    LinkingPointView view(table);
+
+    if (m_depthBegin < m_structure.coldDepthBegin() && m_reader.base())
+    {
+        const ContiguousChunk& base(*m_reader.base());
+        bool terminate(false);
+        SplitClimber splitter(
+                m_structure,
+                m_reader.bbox(),
+                m_qbox,
+                m_depthBegin,
+                std::min(m_depthEnd, m_structure.baseDepthEnd()));
+
+        do
+        {
+            terminate = false;
+
+            const Id& index(splitter.index());
+            const Tube& tube(base.getTube(index));
+
+            if (!tube.empty())
+            {
+                // TODO Deduplicate.
+                {
+                    const Cell& primaryCell(tube.primaryCell());
+                    const PointInfo& info(*primaryCell.atom().load());
+
+                    if (m_qbox.contains(info.point()))
+                    {
+                        ++m_numPoints;
+
+                        std::size_t initialSize(buffer.size());
+                        buffer.resize(
+                                initialSize + m_outSchema.pointSize());
+                        char* out(buffer.data() + initialSize);
+
+                        table.setData(info.data().data());
+
+                        for (const auto& dim : m_outSchema.dims())
+                        {
+                            view.getField(out, dim.id(), dim.type(), 0);
+                            out += dim.size();
+                        }
+                    }
+                }
+
+                const auto& cells(tube.secondaryCells());
+                for (const auto& p : cells)
+                {
+                    const Cell& cell(p.second);
+                    const PointInfo& info(*cell.atom().load());
+
+                    if (m_qbox.contains(info.point()))
+                    {
+                        ++m_numPoints;
+
+                        std::size_t initialSize(buffer.size());
+                        buffer.resize(
+                                initialSize + m_outSchema.pointSize());
+                        char* out(buffer.data() + initialSize);
+
+                        table.setData(info.data().data());
+
+                        for (const auto& dim : m_outSchema.dims())
+                        {
+                            view.getField(out, dim.id(), dim.type(), 0);
+                            out += dim.size();
+                        }
+                    }
+                }
+            }
+            else
+            {
+                terminate = true;
+            }
+        }
+        while (splitter.next(terminate));
+    }
+}
+
+void Query::getChunked(std::vector<char>& buffer)
+{
+    const auto begin(m_chunks.begin());
+    auto end(m_chunks.begin());
+    std::advance(end, std::min(chunksPerIteration, m_chunks.size()));
+
+    FetchInfoSet subset(begin, end);
+    std::unique_ptr<Block> block(m_cache.acquire(m_reader.path(), subset));
+    m_chunks.erase(begin, end);
+
+    std::cout << "Got " << block->chunkMap().size() << " chunks" << std::endl;
+
+    for (const auto& p : block->chunkMap())
+    {
+        if (const ChunkReader* cr = p.second)
+        {
+            m_numPoints += cr->query(buffer, m_outSchema, m_qbox);
+        }
+        else
+        {
+            throw std::runtime_error("Reservation failure");
+        }
+    }
+
+
+
+    /*
+    std::cout << chunkMap.size() << std::endl;
+    std::cout << m_chunks.size() << " fetches: " << std::endl;
+    for (const auto& f : m_chunks) std::cout << f.id << " ";
+    std::cout << std::endl;
+    */
+
+
+
+
+
+
+
+    if (buffer.empty()) m_done = true;
 }
 
 } // namespace entwine

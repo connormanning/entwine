@@ -29,11 +29,11 @@ namespace arbiter
 namespace entwine
 {
 
+class Cell;
 class Chunk;
 class ChunkInfo;
 class Climber;
 class Clipper;
-class Entry;
 class Pool;
 class Schema;
 
@@ -43,19 +43,17 @@ public:
     Cold(
             arbiter::Endpoint& endpoint,
             const Schema& schema,
-            const Structure& structure,
-            const std::vector<char>& empty);
+            const Structure& structure);
 
     Cold(
             arbiter::Endpoint& endpoint,
             const Schema& schema,
             const Structure& structure,
-            const std::vector<char>& empty,
             const Json::Value& meta);
 
     ~Cold();
 
-    Entry* getEntry(const Climber& climber, Clipper* clipper);
+    Cell& getCell(const Climber& climber, Clipper* clipper);
 
     Json::Value toJson() const;
     void clip(
@@ -97,8 +95,6 @@ private:
 
     ChunkMap m_chunkMap;
     mutable std::mutex m_mapMutex;
-
-    const std::vector<char>& m_empty;
 };
 
 } // namespace entwine
