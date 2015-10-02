@@ -269,9 +269,7 @@ SparseChunk::SparseChunk(
     : Chunk(schema, bbox, structure, pointPool, depth, id, maxPoints)
     , m_tubes()
     , m_mutex()
-{
-    chunkCnt.fetch_add(1);
-}
+{ }
 
 SparseChunk::SparseChunk(
         const Schema& schema,
