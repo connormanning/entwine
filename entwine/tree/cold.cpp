@@ -46,11 +46,13 @@ Cold::Cold(
         arbiter::Endpoint& endpoint,
         const Schema& schema,
         const BBox& bbox,
-        const Structure& structure)
+        const Structure& structure,
+        PointPool& pointPool)
     : m_endpoint(endpoint)
     , m_schema(schema)
     , m_bbox(bbox)
     , m_structure(structure)
+    , m_pointPool(pointPool)
     , m_chunkVec(getNumFastTrackers(m_structure))
     , m_chunkMap()
     , m_mapMutex()
@@ -61,11 +63,13 @@ Cold::Cold(
         const Schema& schema,
         const BBox& bbox,
         const Structure& structure,
+        PointPool& pointPool,
         const Json::Value& meta)
     : m_endpoint(endpoint)
     , m_schema(schema)
     , m_bbox(bbox)
     , m_structure(structure)
+    , m_pointPool(pointPool)
     , m_chunkVec(getNumFastTrackers(m_structure))
     , m_chunkMap()
     , m_mapMutex()
@@ -184,6 +188,7 @@ void Cold::growFast(const Climber& climber, Clipper* clipper)
                             m_schema,
                             m_bbox,
                             m_structure,
+                            m_pointPool,
                             climber.depth(),
                             chunkId,
                             climber.chunkPoints(),
@@ -196,6 +201,7 @@ void Cold::growFast(const Climber& climber, Clipper* clipper)
                             m_schema,
                             m_bbox,
                             m_structure,
+                            m_pointPool,
                             climber.depth(),
                             chunkId,
                             climber.chunkPoints(),
@@ -232,6 +238,7 @@ void Cold::growSlow(const Climber& climber, Clipper* clipper)
                             m_schema,
                             m_bbox,
                             m_structure,
+                            m_pointPool,
                             climber.depth(),
                             chunkId,
                             climber.chunkPoints(),
@@ -244,6 +251,7 @@ void Cold::growSlow(const Climber& climber, Clipper* clipper)
                             m_schema,
                             m_bbox,
                             m_structure,
+                            m_pointPool,
                             climber.depth(),
                             chunkId,
                             climber.chunkPoints(),
@@ -283,8 +291,8 @@ void Cold::clip(
         CountedChunk& countedChunk(*m_chunkMap.at(chunkId));
         mapLock.unlock();
 
-        pool.add([this, clipper, &countedChunk]()
-        {
+        //pool.add([this, clipper, &countedChunk]()
+        //{
             std::lock_guard<std::mutex> chunkLock(countedChunk.mutex);
             countedChunk.refs.erase(clipper);
 
@@ -293,7 +301,7 @@ void Cold::clip(
                 countedChunk.chunk->save(m_endpoint);
                 countedChunk.chunk.reset(0);
             }
-        });
+        //});
     }
 }
 

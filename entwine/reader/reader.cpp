@@ -49,6 +49,7 @@ Reader::Reader(
     , m_manifest()
     , m_stats()
     , m_base()
+    , m_pointPool(new PointPool())
     , m_cache(cache)
     , m_is3d(false)
     , m_srs()
@@ -144,6 +145,7 @@ Reader::Reader(
                         *m_schema,
                         *m_bbox,
                         *m_structure,
+                        *m_pointPool,
                         0,
                         m_structure->baseIndexBegin(),
                         m_structure->baseIndexSpan(),

@@ -96,6 +96,7 @@ private:
     std::unique_ptr<Manifest> m_manifest;
     std::unique_ptr<Stats> m_stats;
     std::unique_ptr<ContiguousChunk> m_base;
+    std::unique_ptr<PointPool> m_pointPool;
 
     Cache& m_cache;
 

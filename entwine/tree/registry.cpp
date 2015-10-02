@@ -55,11 +55,13 @@ Registry::Registry(
         arbiter::Endpoint& endpoint,
         const Schema& schema,
         const BBox& bbox,
-        const Structure& structure)
+        const Structure& structure,
+        PointPool& pointPool)
     : m_endpoint(endpoint)
     , m_schema(schema)
     , m_bbox(bbox)
     , m_structure(structure)
+    , m_pointPool(pointPool)
     , m_is3d(structure.is3d())
     , m_base()
     , m_cold()
@@ -73,6 +75,7 @@ Registry::Registry(
                         m_schema,
                         m_bbox,
                         m_structure,
+                        m_pointPool,
                         0,
                         m_structure.baseIndexBegin(),
                         m_structure.baseIndexSpan(),
@@ -81,7 +84,13 @@ Registry::Registry(
 
     if (m_structure.hasCold())
     {
-        m_cold.reset(new Cold(endpoint, schema, m_bbox, m_structure));
+        m_cold.reset(
+                new Cold(
+                    endpoint,
+                    schema,
+                    m_bbox,
+                    m_structure,
+                    m_pointPool));
     }
 }
 
@@ -90,11 +99,13 @@ Registry::Registry(
         const Schema& schema,
         const BBox& bbox,
         const Structure& structure,
+        PointPool& pointPool,
         const Json::Value& meta)
     : m_endpoint(endpoint)
     , m_schema(schema)
     , m_bbox(bbox)
     , m_structure(structure)
+    , m_pointPool(pointPool)
     , m_is3d(structure.is3d())
     , m_base()
     , m_cold()
@@ -114,6 +125,7 @@ Registry::Registry(
                         m_schema,
                         m_bbox,
                         m_structure,
+                        m_pointPool,
                         0,
                         m_structure.baseIndexBegin(),
                         m_structure.baseIndexSpan(),
@@ -122,7 +134,14 @@ Registry::Registry(
 
     if (m_structure.hasCold())
     {
-        m_cold.reset(new Cold(endpoint, schema, m_bbox, m_structure, meta));
+        m_cold.reset(
+                new Cold(
+                    endpoint,
+                    schema,
+                    m_bbox,
+                    m_structure,
+                    m_pointPool,
+                    meta));
     }
 }
 
@@ -130,7 +149,7 @@ Registry::~Registry()
 { }
 
 bool Registry::addPoint(
-        std::unique_ptr<PointInfo> toAdd,
+        PooledPointInfo* toAdd,
         Climber& climber,
         Clipper* clipper)
 {
@@ -139,30 +158,36 @@ bool Registry::addPoint(
     if (Cell* cell = getCell(climber, clipper))
     {
         bool redo(false);
-        PointInfo* toAddSaved(toAdd.get());
+        PooledPointInfo* toAddSaved(toAdd);
 
         do
         {
+            done = false;
+            redo = false;
+
             const PointInfoAtom& atom(cell->atom());
-            if (PointInfo* current = atom.load())
+            if (PooledPointInfo* current = atom.load())
             {
                 const Point& mid(climber.bbox().mid());
+                const Point& toAddPoint(toAddSaved->val().point());
 
                 // TODO
-                if (better(toAdd->point(), current->point(), mid, true/*m_is3d*/))
+                // (better(toAddVal.point(), current->val().point(), mid, m_is3d))
+                if (better(toAddPoint, current->val().point(), mid, true))
                 {
                     done = false;
-                    redo = !cell->swap(std::move(toAdd), atom);
-                    if (!redo) toAdd.reset(current);
+                    redo = !cell->swap(toAdd, current);
+                    if (!redo) toAdd = current;
                 }
             }
             else
             {
-                done = cell->swap(std::move(toAdd));
+                done = cell->swap(toAdd);
                 redo = !done;
             }
 
-            if (redo) toAdd.reset(toAddSaved);
+            if (redo) toAdd = toAddSaved;
+            if (redo) std::cout << "REDO" << std::endl;
         }
         while (redo);
     }
@@ -173,9 +198,17 @@ bool Registry::addPoint(
     }
     else
     {
-        climber.magnify(toAdd->point());
-        if (!m_structure.inRange(climber.index())) return false;
-        else return addPoint(std::move(toAdd), climber, clipper);
+        climber.magnify(toAdd->val().point());
+
+        if (m_structure.inRange(climber.index()))
+        {
+            return addPoint(toAdd, climber, clipper);
+        }
+        else
+        {
+            m_pointPool.release(toAdd);
+            return false;
+        }
     }
 }
 

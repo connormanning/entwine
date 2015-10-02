@@ -47,19 +47,21 @@ public:
             arbiter::Endpoint& endpoint,
             const Schema& schema,
             const BBox& bbox,
-            const Structure& structure);
+            const Structure& structure,
+            PointPool& pointPool);
 
     Registry(
             arbiter::Endpoint& endpoint,
             const Schema& schema,
             const BBox& bbox,
             const Structure& structure,
+            PointPool& pointPool,
             const Json::Value& meta);
 
     ~Registry();
 
     bool addPoint(
-            std::unique_ptr<PointInfo> toAdd,
+            PooledPointInfo* toAdd,
             Climber& climber,
             Clipper* clipper);
 
@@ -69,10 +71,12 @@ public:
     void clip(const Id& index, std::size_t chunkNum, Clipper* clipper);
 
 private:
-    arbiter::Endpoint & m_endpoint;
+    arbiter::Endpoint& m_endpoint;
     const Schema& m_schema;
     const BBox& m_bbox;
     const Structure& m_structure;
+    PointPool& m_pointPool;
+
     bool m_is3d;
 
     std::unique_ptr<ContiguousChunk> m_base;

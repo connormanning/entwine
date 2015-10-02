@@ -15,12 +15,17 @@
 
 #include <entwine/third/bigint/little-big-int.hpp>
 #include <entwine/third/json/json.hpp>
+#include <entwine/tree/point-info.hpp>
 #include <entwine/types/subset.hpp>
+#include <entwine/util/object-pool.hpp>
 
 namespace entwine
 {
 
 typedef BigUint Id;
+
+typedef ObjectPool<PointInfo> PointPool;
+typedef PointPool::Node PooledPointInfo;
 
 class BBox;
 class Structure;

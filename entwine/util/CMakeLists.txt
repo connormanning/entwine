@@ -13,6 +13,7 @@ set(
     "${BASE}/executor.hpp"
     "${BASE}/fs.hpp"
     "${BASE}/locker.hpp"
+    "${BASE}/object-pool.hpp"
     "${BASE}/pool.hpp"
     "${BASE}/pooled.hpp"
 )

@@ -11,6 +11,7 @@
 #include <entwine/tree/climber.hpp>
 
 #include <entwine/types/point.hpp>
+#include <entwine/tree/cell.hpp>
 
 namespace entwine
 {
@@ -30,6 +31,7 @@ Climber::Climber(const BBox& bbox, const Structure& structure)
     , m_chunkNum(0)
     , m_chunkPoints(structure.baseChunkPoints())
     , m_bbox(bbox)
+    , m_bboxFull(bbox)
 { }
 
 void Climber::magnify(const Point& point)

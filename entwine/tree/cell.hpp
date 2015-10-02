@@ -20,23 +20,25 @@
 #include <entwine/tree/point-info.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/structure.hpp>
 
 namespace entwine
 {
 
-typedef std::atomic<PointInfo*> PointInfoAtom;
+typedef std::atomic<PooledPointInfo*> PointInfoAtom;
 
 class Cell
 {
 public:
     Cell() : m_atom(0) { }
-    Cell(std::unique_ptr<PointInfo> pointInfo)
-        : m_atom(pointInfo.release())
+    Cell(PooledPointInfo* pointInfo)
+        : m_atom(pointInfo)
     { }
 
     ~Cell()
     {
-        if (m_atom.load()) delete m_atom.load();
+        // TODO.
+        // if (m_atom.load()) delete m_atom.load();
     }
 
     const PointInfoAtom& atom() const
@@ -44,14 +46,14 @@ public:
         return m_atom;
     }
 
-    bool swap(std::unique_ptr<PointInfo> newVal, PointInfo* oldVal = 0)
+    bool swap(PooledPointInfo* newVal, PooledPointInfo* oldVal = 0)
     {
-        return m_atom.compare_exchange_weak(oldVal, newVal.release());
+        return m_atom.compare_exchange_weak(oldVal, newVal);
     }
 
-    void store(std::unique_ptr<PointInfo> newVal)
+    void store(PooledPointInfo* newVal)
     {
-        m_atom.store(newVal.release());
+        m_atom.store(newVal);
     }
 
 private:
@@ -64,16 +66,18 @@ public:
     Tube();
 
     std::pair<bool, Cell&> getCell(std::size_t tick);
-    void addCell(std::size_t tick, std::unique_ptr<PointInfo> info);
+    void addCell(std::size_t tick, PooledPointInfo* info);
 
     void save(
             const Schema& celledSchema,
             uint64_t tubeId,
-            std::vector<char>& data) const;
+            std::vector<char>& data,
+            PointPool::Stack& stack) const;
 
     typedef std::unordered_map<uint64_t, Cell> MapType;
 
     bool empty() const;
+    std::size_t primaryTick() const { return m_primaryTick; }
     const Cell& primaryCell() const { return m_primaryCell; }
     const MapType& secondaryCells() const { return m_cells; }
 

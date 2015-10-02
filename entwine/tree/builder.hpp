@@ -24,6 +24,7 @@
 #include <entwine/types/range.hpp>
 #include <entwine/types/stats.hpp>
 #include <entwine/types/structure.hpp>
+#include <entwine/util/object-pool.hpp>
 #include <entwine/util/pool.hpp>
 
 namespace pdal
@@ -174,6 +175,7 @@ private:
     std::unique_ptr<arbiter::Endpoint> m_outEndpoint;
     std::unique_ptr<arbiter::Endpoint> m_tmpEndpoint;
 
+    std::unique_ptr<PointPool> m_pointPool;
     std::unique_ptr<Registry> m_registry;
 
     Builder(const Builder&);

@@ -76,6 +76,7 @@ Chunk::Chunk(
         const Schema& schema,
         const BBox& bbox,
         const Structure& structure,
+        PointPool& pointPool,
         const std::size_t depth,
         const Id& id,
         const std::size_t maxPoints,
@@ -84,6 +85,7 @@ Chunk::Chunk(
     , m_celledSchema(makeCelled(schema))
     , m_bbox(bbox)
     , m_structure(structure)
+    , m_pointPool(pointPool)
     , m_depth(depth)
     , m_id(id)
     , m_maxPoints(maxPoints)
@@ -104,6 +106,7 @@ std::unique_ptr<Chunk> Chunk::create(
         const Schema& schema,
         const BBox& bbox,
         const Structure& structure,
+        PointPool& pointPool,
         const std::size_t depth,
         const Id& id,
         const std::size_t maxPoints,
@@ -118,6 +121,7 @@ std::unique_ptr<Chunk> Chunk::create(
                     schema,
                     bbox,
                     structure,
+                    pointPool,
                     depth,
                     id,
                     maxPoints));
@@ -129,6 +133,7 @@ std::unique_ptr<Chunk> Chunk::create(
                     schema,
                     bbox,
                     structure,
+                    pointPool,
                     depth,
                     id,
                     maxPoints));
@@ -141,6 +146,7 @@ std::unique_ptr<Chunk> Chunk::create(
         const Schema& schema,
         const BBox& bbox,
         const Structure& structure,
+        PointPool& pointPool,
         const std::size_t depth,
         const Id& id,
         const std::size_t maxPoints,
@@ -158,6 +164,7 @@ std::unique_ptr<Chunk> Chunk::create(
                     schema,
                     bbox,
                     structure,
+                    pointPool,
                     depth,
                     id,
                     maxPoints,
@@ -171,6 +178,7 @@ std::unique_ptr<Chunk> Chunk::create(
                     schema,
                     bbox,
                     structure,
+                    pointPool,
                     depth,
                     id,
                     maxPoints,
@@ -254,10 +262,11 @@ SparseChunk::SparseChunk(
         const Schema& schema,
         const BBox& bbox,
         const Structure& structure,
+        PointPool& pointPool,
         const std::size_t depth,
         const Id& id,
         const std::size_t maxPoints)
-    : Chunk(schema, bbox, structure, depth, id, maxPoints)
+    : Chunk(schema, bbox, structure, pointPool, depth, id, maxPoints)
     , m_tubes()
     , m_mutex()
 {
@@ -268,12 +277,13 @@ SparseChunk::SparseChunk(
         const Schema& schema,
         const BBox& bbox,
         const Structure& structure,
+        PointPool& pointPool,
         const std::size_t depth,
         const Id& id,
         const std::size_t maxPoints,
         std::vector<char>& compressedData,
         const std::size_t numPoints)
-    : Chunk(schema, bbox, structure, depth, id, maxPoints, numPoints)
+    : Chunk(schema, bbox, structure, pointPool, depth, id, maxPoints, numPoints)
     , m_tubes()
     , m_mutex()
 {
@@ -303,8 +313,8 @@ SparseChunk::SparseChunk(
         char* pos(data->data() + i * pointSize);
         table.setData(pos);
 
-        std::unique_ptr<PointInfo> info(
-                new PointInfo(
+        PooledPointInfo* info(
+                m_pointPool.acquire(
                     Point(
                         view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
                         view.getFieldAs<double>(pdal::Dimension::Id::Y, 0),
@@ -313,9 +323,9 @@ SparseChunk::SparseChunk(
                     schema.pointSize()));
 
         tube = view.getFieldAs<uint64_t>(tubeId, 0);
-        tick = Tube::calcTick(info->point(), m_bbox, m_depth);
+        tick = Tube::calcTick(info->val().point(), m_bbox, m_depth);
 
-        m_tubes[tube].addCell(tick, std::move(info));
+        m_tubes[tube].addCell(tick, info);
     }
 }
 
@@ -341,10 +351,11 @@ void SparseChunk::save(arbiter::Endpoint& endpoint)
     // TODO Nearly direct copy/paste from ContiguousChunk::save.
     Compressor compressor(m_celledSchema);
     std::vector<char> data;
+    PointPool::Stack stack;
 
     for (const auto& pair : m_tubes)
     {
-        pair.second.save(m_celledSchema, pair.first, data);
+        pair.second.save(m_celledSchema, pair.first, data, stack);
 
         if (data.size())
         {
@@ -354,6 +365,7 @@ void SparseChunk::save(arbiter::Endpoint& endpoint)
     }
 
     std::vector<char> compressed(compressor.data());
+    m_pointPool.release(stack);
     pushTail(compressed, Tail(m_numPoints, Sparse));
     ensurePut(endpoint, m_id.str(), compressed);
 }
@@ -364,10 +376,11 @@ ContiguousChunk::ContiguousChunk(
         const Schema& schema,
         const BBox& bbox,
         const Structure& structure,
+        PointPool& pointPool,
         const std::size_t depth,
         const Id& id,
         const std::size_t maxPoints)
-    : Chunk(schema, bbox, structure, depth, id, maxPoints)
+    : Chunk(schema, bbox, structure, pointPool, depth, id, maxPoints)
     , m_tubes(maxPoints)
 { }
 
@@ -375,12 +388,13 @@ ContiguousChunk::ContiguousChunk(
         const Schema& schema,
         const BBox& bbox,
         const Structure& structure,
+        PointPool& pointPool,
         const std::size_t depth,
         const Id& id,
         const std::size_t maxPoints,
         std::vector<char>& compressedData,
         const std::size_t numPoints)
-    : Chunk(schema, bbox, structure, depth, id, maxPoints, numPoints)
+    : Chunk(schema, bbox, structure, pointPool, depth, id, maxPoints, numPoints)
     , m_tubes(maxPoints)
 {
     const std::size_t nativePointSize(m_nativeSchema.pointSize());
@@ -411,8 +425,8 @@ ContiguousChunk::ContiguousChunk(
         char* pos(data->data() + i * celledPointSize);
         table.setData(pos);
 
-        std::unique_ptr<PointInfo> info(
-                new PointInfo(
+        PooledPointInfo* info(
+                m_pointPool.acquire(
                     Point(
                         view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
                         view.getFieldAs<double>(pdal::Dimension::Id::Y, 0),
@@ -423,13 +437,13 @@ ContiguousChunk::ContiguousChunk(
         tube = view.getFieldAs<uint64_t>(tubeId, 0);
         tick =
             Tube::calcTick(
-                info->point(),
+                info->val().point(),
                 m_bbox,
                 m_depth ?
                     m_depth :
                     ChunkInfo::calcDepth(m_structure.factor(), m_id + i));
 
-        m_tubes[tube].addCell(tick, std::move(info));
+        m_tubes[tube].addCell(tick, info);
     }
 }
 
@@ -452,10 +466,11 @@ void ContiguousChunk::save(
 {
     Compressor compressor(m_celledSchema);
     std::vector<char> data;
+    PointPool::Stack stack;
 
     for (std::size_t i(0); i < m_tubes.size(); ++i)
     {
-        m_tubes[i].save(m_celledSchema, i, data);
+        m_tubes[i].save(m_celledSchema, i, data, stack);
 
         if (data.size())
         {
@@ -465,6 +480,7 @@ void ContiguousChunk::save(
     }
 
     std::vector<char> compressed(compressor.data());
+    m_pointPool.release(stack);
     pushTail(compressed, Tail(m_numPoints, Contiguous));
     ensurePut(endpoint, m_id.str() + postfix, compressed);
 }

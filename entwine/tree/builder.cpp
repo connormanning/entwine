@@ -71,12 +71,14 @@ Builder::Builder(
     , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
     , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(outPath)))
     , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
+    , m_pointPool(new PointPool())
     , m_registry(
             new Registry(
                 *m_outEndpoint,
                 *m_schema,
                 *m_bbox,
-                *m_structure))
+                *m_structure,
+                *m_pointPool))
 {
     prep();
 }
@@ -101,6 +103,7 @@ Builder::Builder(
     , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
     , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(outPath)))
     , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
+    , m_pointPool(new PointPool())
     , m_registry()
 {
     prep();
@@ -123,6 +126,7 @@ Builder::Builder(const std::string path, std::shared_ptr<Arbiter> arbiter)
     , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
     , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(path)))
     , m_tmpEndpoint()
+    , m_pointPool(new PointPool())
     , m_registry()
 { }
 
@@ -257,8 +261,8 @@ void Builder::insert(
     {
         pointView.setField(m_originId, i, origin);
 
-        std::unique_ptr<PointInfo> info(
-                new PointInfo(
+        PooledPointInfo* info(
+                m_pointPool->acquire(
                     Point(
                         pointView.getFieldAs<double>(Dimension::Id::X, i),
                         pointView.getFieldAs<double>(Dimension::Id::Y, i),
@@ -266,7 +270,7 @@ void Builder::insert(
                     pointView.getPoint(i),
                     m_schema->pointSize()));
 
-        const Point& point(info->point());
+        const Point& point(info->val().point());
 
         if (m_bbox->contains(point))
         {
@@ -274,7 +278,7 @@ void Builder::insert(
             {
                 Climber climber(*m_bbox, *m_structure);
 
-                if (m_registry->addPoint(std::move(info), climber, clipper))
+                if (m_registry->addPoint(info, climber, clipper))
                 {
                     m_stats.addPoint();
 
@@ -439,6 +443,7 @@ void Builder::load()
                 *m_schema,
                 *m_bbox,
                 *m_structure,
+                *m_pointPool,
                 meta));
 }
 

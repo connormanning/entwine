@@ -87,6 +87,7 @@ private:
     std::size_t m_chunkPoints;
 
     BBox m_bbox;
+    BBox m_bboxFull;
 
     void climb(Dir dir);
 };

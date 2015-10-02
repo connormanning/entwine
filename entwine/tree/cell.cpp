@@ -25,19 +25,21 @@ Tube::Tube()
     , m_mutex()
 { }
 
-void Tube::addCell(const std::size_t tick, std::unique_ptr<PointInfo> info)
+void Tube::addCell(const std::size_t tick, PooledPointInfo* info)
 {
     if (m_primaryTick == unassigned)
     {
         m_primaryTick = tick;
-        m_primaryCell.store(std::move(info));
+        m_primaryCell.store(info);
     }
     else
     {
+        if (tick == m_primaryTick.load() || m_cells.find(tick) != m_cells.end())
+            std::cout << "DUPE: " << tick << std::endl;
         m_cells.emplace(
                 std::piecewise_construct,
                 std::forward_as_tuple(tick),
-                std::forward_as_tuple(std::move(info)));
+                std::forward_as_tuple(info));
     }
 }
 
@@ -85,7 +87,8 @@ bool Tube::empty() const
 void Tube::save(
         const Schema& celledSchema,
         const uint64_t tubeId,
-        std::vector<char>& data) const
+        std::vector<char>& data,
+        PointPool::Stack& stack) const
 {
     if (m_primaryTick.load() != unassigned)
     {
@@ -106,11 +109,13 @@ void Tube::save(
         {
             const Cell& cell(m_primaryCell);
 
-            const std::vector<char>& rawVec(cell.atom().load()->data());
+            const std::vector<char>& rawVec(cell.atom().load()->val().data());
             const char* rawData(rawVec.data());
 
             std::copy(tubePos, tubePos + idSize, pos);
             std::copy(rawData, rawData + nativeSize, pos + idSize);
+
+            stack.push(cell.atom().load());
 
             pos += celledSize;
         }
@@ -120,11 +125,13 @@ void Tube::save(
         {
             const Cell& cell(c.second);
 
-            const std::vector<char>& rawVec(cell.atom().load()->data());
+            const std::vector<char>& rawVec(cell.atom().load()->val().data());
             const char* rawData(rawVec.data());
 
             std::copy(tubePos, tubePos + idSize, pos);
             std::copy(rawData, rawData + nativeSize, pos + idSize);
+
+            stack.push(cell.atom().load());
 
             pos += celledSize;
         }

@@ -128,7 +128,7 @@ void Query::getBase(std::vector<char>& buffer)
                 // TODO Deduplicate.
                 {
                     const Cell& primaryCell(tube.primaryCell());
-                    const PointInfo& info(*primaryCell.atom().load());
+                    const PointInfo& info(primaryCell.atom().load()->val());
 
                     if (m_qbox.contains(info.point()))
                     {
@@ -153,7 +153,7 @@ void Query::getBase(std::vector<char>& buffer)
                 for (const auto& p : cells)
                 {
                     const Cell& cell(p.second);
-                    const PointInfo& info(*cell.atom().load());
+                    const PointInfo& info(cell.atom().load()->val());
 
                     if (m_qbox.contains(info.point()))
                     {

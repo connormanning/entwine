@@ -22,6 +22,8 @@ namespace entwine
 class PointInfo
 {
 public:
+    PointInfo() : m_point(), m_data() { }
+
     PointInfo(const Point& point, const char* data, std::size_t size)
         : m_point(point)
         , m_data(data, data + size)

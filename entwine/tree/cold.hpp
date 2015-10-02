@@ -44,13 +44,15 @@ public:
             arbiter::Endpoint& endpoint,
             const Schema& schema,
             const BBox& bbox,
-            const Structure& structure);
+            const Structure& structure,
+            PointPool& pointPool);
 
     Cold(
             arbiter::Endpoint& endpoint,
             const Schema& schema,
             const BBox& bbox,
             const Structure& structure,
+            PointPool& pointPool,
             const Json::Value& meta);
 
     ~Cold();
@@ -93,6 +95,7 @@ private:
     const Schema& m_schema;
     const BBox& m_bbox;
     const Structure& m_structure;
+    PointPool& m_pointPool;
 
     std::vector<FastSlot> m_chunkVec;
 

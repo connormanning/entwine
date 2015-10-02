@@ -44,6 +44,7 @@ public:
             const Schema& schema,
             const BBox& bbox,
             const Structure& structure,
+            PointPool& pointPool,
             std::size_t depth,
             const Id& id,
             std::size_t maxPoints,
@@ -55,6 +56,7 @@ public:
             const Schema& schema,
             const BBox& bbox,
             const Structure& structure,
+            PointPool& pointPool,
             std::size_t depth,
             const Id& id,
             std::size_t maxPoints,
@@ -64,6 +66,7 @@ public:
             const Schema& schema,
             const BBox& bbox,
             const Structure& structure,
+            PointPool& pointPool,
             std::size_t depth,
             const Id& id,
             std::size_t maxPoints,
@@ -106,6 +109,7 @@ protected:
     const Schema  m_celledSchema;
     const BBox& m_bbox;
     const Structure& m_structure;
+    PointPool& m_pointPool;
     const std::size_t m_depth;
     const Id m_id;
 
@@ -122,6 +126,7 @@ public:
             const Schema& schema,
             const BBox& bbox,
             const Structure& structure,
+            PointPool& pointPool,
             std::size_t depth,
             const Id& id,
             std::size_t maxPoints);
@@ -130,6 +135,7 @@ public:
             const Schema& schema,
             const BBox& bbox,
             const Structure& structure,
+            PointPool& pointPool,
             std::size_t depth,
             const Id& id,
             std::size_t maxPoints,
@@ -152,6 +158,7 @@ public:
             const Schema& schema,
             const BBox& bbox,
             const Structure& structure,
+            PointPool& pointPool,
             std::size_t depth,
             const Id& id,
             std::size_t maxPoints);
@@ -160,6 +167,7 @@ public:
             const Schema& schema,
             const BBox& bbox,
             const Structure& structure,
+            PointPool& pointPool,
             std::size_t depth,
             const Id& id,
             std::size_t maxPoints,
