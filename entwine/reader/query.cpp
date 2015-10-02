@@ -46,36 +46,41 @@ Query::Query(
     , m_base(true)
     , m_done(false)
 {
-    SplitClimber splitter(
-            m_structure,
-            m_reader.bbox(),
-            m_qbox,
-            m_depthBegin,
-            m_depthEnd,
-            true);
-
-    bool terminate(false);
-
-    do
+    if (!m_depthEnd || m_depthEnd > m_structure.coldDepthBegin())
     {
-        terminate = false;
-        const Id& chunkId(splitter.index());
+        SplitClimber splitter(
+                m_structure,
+                m_reader.bbox(),
+                m_qbox,
+                m_depthBegin,
+                m_depthEnd,
+                true);
 
-        if (arbiter::Endpoint* endpoint = reader.getEndpoint(chunkId))
+        bool terminate(false);
+
+        do
         {
-            m_chunks.insert(
-                    FetchInfo(
-                        *endpoint,
-                        m_reader.schema(),
-                        chunkId,
-                        m_structure.getInfo(chunkId).chunkPoints()));
+            terminate = false;
+            const Id& chunkId(splitter.index());
+
+            if (arbiter::Endpoint* endpoint = reader.getEndpoint(chunkId))
+            {
+                m_chunks.insert(
+                        FetchInfo(
+                            *endpoint,
+                            m_reader.schema(),
+                            chunkId,
+                            m_structure.getInfo(chunkId).chunkPoints()));
+            }
+            else
+            {
+                terminate = true;
+            }
         }
-        else
-        {
-            terminate = true;
-        }
+        while (splitter.next(terminate));
+
+        std::cout << "Chunks in query: " << m_chunks.size() << std::endl;
     }
-    while (splitter.next(terminate));
 }
 
 
@@ -102,10 +107,14 @@ void Query::next(std::vector<char>& buffer)
 
 void Query::getBase(std::vector<char>& buffer)
 {
+    std::cout << "Base..." << std::endl;
     SinglePointTable table(m_reader.schema());
     LinkingPointView view(table);
 
-    if (m_depthBegin < m_structure.coldDepthBegin() && m_reader.base())
+    if (
+            m_reader.base() &&
+            m_depthBegin < m_structure.baseDepthEnd() &&
+            m_depthEnd   > m_structure.baseDepthBegin())
     {
         const ContiguousChunk& base(*m_reader.base());
         bool terminate(false);
@@ -135,8 +144,7 @@ void Query::getBase(std::vector<char>& buffer)
                         ++m_numPoints;
 
                         std::size_t initialSize(buffer.size());
-                        buffer.resize(
-                                initialSize + m_outSchema.pointSize());
+                        buffer.resize(initialSize + m_outSchema.pointSize());
                         char* out(buffer.data() + initialSize);
 
                         table.setData(info.data().data());
@@ -160,8 +168,7 @@ void Query::getBase(std::vector<char>& buffer)
                         ++m_numPoints;
 
                         std::size_t initialSize(buffer.size());
-                        buffer.resize(
-                                initialSize + m_outSchema.pointSize());
+                        buffer.resize(initialSize + m_outSchema.pointSize());
                         char* out(buffer.data() + initialSize);
 
                         table.setData(info.data().data());
@@ -181,6 +188,7 @@ void Query::getBase(std::vector<char>& buffer)
         }
         while (splitter.next(terminate));
     }
+    std::cout << "Base done" << std::endl;
 }
 
 void Query::getChunked(std::vector<char>& buffer)

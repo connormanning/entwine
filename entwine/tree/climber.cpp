@@ -112,7 +112,7 @@ void Climber::climb(Dir dir)
 
 bool SplitClimber::next(bool terminate)
 {
-    if (terminate || (m_depthEnd && depth() + 1 == m_depthEnd))
+    if (terminate || (m_depthEnd && depth() + 1 >= m_depthEnd))
     {
         // Move shallower.
         while (
