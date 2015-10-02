@@ -15,7 +15,6 @@ set(
     "${BASE}/locker.hpp"
     "${BASE}/object-pool.hpp"
     "${BASE}/pool.hpp"
-    "${BASE}/pooled.hpp"
 )
 
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})
