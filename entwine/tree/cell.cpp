@@ -25,7 +25,7 @@ Tube::Tube()
     , m_mutex()
 { }
 
-void Tube::addCell(const std::size_t tick, PooledPointInfo* info)
+void Tube::addCell(const std::size_t tick, PooledInfoNode* info)
 {
     if (m_primaryTick == unassigned)
     {
@@ -34,6 +34,7 @@ void Tube::addCell(const std::size_t tick, PooledPointInfo* info)
     }
     else
     {
+        // TODO Remove debug.
         if (tick == m_primaryTick.load() || m_cells.find(tick) != m_cells.end())
             std::cout << "DUPE: " << tick << std::endl;
         m_cells.emplace(
@@ -88,7 +89,7 @@ void Tube::save(
         const Schema& celledSchema,
         const uint64_t tubeId,
         std::vector<char>& data,
-        PointPool::Stack& stack) const
+        PooledStack& stack) const
 {
     if (m_primaryTick.load() != unassigned)
     {
@@ -108,9 +109,7 @@ void Tube::save(
         // Save primary cell.
         {
             const Cell& cell(m_primaryCell);
-
-            const std::vector<char>& rawVec(cell.atom().load()->val().data());
-            const char* rawData(rawVec.data());
+            const char* rawData(cell.atom().load()->val().data());
 
             std::copy(tubePos, tubePos + idSize, pos);
             std::copy(rawData, rawData + nativeSize, pos + idSize);
@@ -124,9 +123,7 @@ void Tube::save(
         for (const auto& c : m_cells)
         {
             const Cell& cell(c.second);
-
-            const std::vector<char>& rawVec(cell.atom().load()->val().data());
-            const char* rawData(rawVec.data());
+            const char* rawData(cell.atom().load()->val().data());
 
             std::copy(tubePos, tubePos + idSize, pos);
             std::copy(rawData, rawData + nativeSize, pos + idSize);

@@ -13,6 +13,7 @@
 #include <vector>
 
 #include <entwine/types/sized-point-table.hpp>
+#include <entwine/types/structure.hpp>
 
 namespace entwine
 {
@@ -22,8 +23,7 @@ class Schema;
 class SimplePointTable : public SizedPointTable
 {
 public:
-    explicit SimplePointTable(const Schema& schema, std::size_t reserve = 0);
-    SimplePointTable(const Schema& schema, const std::vector<char>& data);
+    explicit SimplePointTable(DataPool& dataPool, const Schema& schema);
 
     virtual pdal::PointId addPoint();
     virtual char* getPoint(pdal::PointId index);
@@ -39,14 +39,18 @@ public:
     void clear();
     std::size_t size() const;
 
-    const std::vector<char>& data() const;
+    PooledDataNode* getNode(std::size_t index) const
+    {
+        return m_dataNodes.at(index);
+    }
 
 private:
     char* getDimension(
             const pdal::Dimension::Detail* dimDetail,
             pdal::PointId index);
 
-    std::vector<char> m_data;
+    DataPool& m_dataPool;
+    std::deque<PooledDataNode*> m_dataNodes;
     std::size_t m_numPoints;
 };
 

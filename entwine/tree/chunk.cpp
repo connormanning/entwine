@@ -15,7 +15,6 @@
 
 #include <entwine/compression/util.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/third/pool/memory-pool.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/single-point-table.hpp>
@@ -76,7 +75,7 @@ Chunk::Chunk(
         const Schema& schema,
         const BBox& bbox,
         const Structure& structure,
-        PointPool& pointPool,
+        Pools& pools,
         const std::size_t depth,
         const Id& id,
         const std::size_t maxPoints,
@@ -85,12 +84,11 @@ Chunk::Chunk(
     , m_celledSchema(makeCelled(schema))
     , m_bbox(bbox)
     , m_structure(structure)
-    , m_pointPool(pointPool)
+    , m_pools(pools)
     , m_depth(depth)
     , m_id(id)
     , m_maxPoints(maxPoints)
     , m_numPoints(numPoints)
-    , m_block(schema.pointSize())
 {
     chunkMem.fetch_add(m_numPoints * m_nativeSchema.pointSize());
     chunkCnt.fetch_add(1);
@@ -106,7 +104,7 @@ std::unique_ptr<Chunk> Chunk::create(
         const Schema& schema,
         const BBox& bbox,
         const Structure& structure,
-        PointPool& pointPool,
+        Pools& pools,
         const std::size_t depth,
         const Id& id,
         const std::size_t maxPoints,
@@ -121,7 +119,7 @@ std::unique_ptr<Chunk> Chunk::create(
                     schema,
                     bbox,
                     structure,
-                    pointPool,
+                    pools,
                     depth,
                     id,
                     maxPoints));
@@ -133,7 +131,7 @@ std::unique_ptr<Chunk> Chunk::create(
                     schema,
                     bbox,
                     structure,
-                    pointPool,
+                    pools,
                     depth,
                     id,
                     maxPoints));
@@ -146,7 +144,7 @@ std::unique_ptr<Chunk> Chunk::create(
         const Schema& schema,
         const BBox& bbox,
         const Structure& structure,
-        PointPool& pointPool,
+        Pools& pools,
         const std::size_t depth,
         const Id& id,
         const std::size_t maxPoints,
@@ -164,7 +162,7 @@ std::unique_ptr<Chunk> Chunk::create(
                     schema,
                     bbox,
                     structure,
-                    pointPool,
+                    pools,
                     depth,
                     id,
                     maxPoints,
@@ -178,7 +176,7 @@ std::unique_ptr<Chunk> Chunk::create(
                     schema,
                     bbox,
                     structure,
-                    pointPool,
+                    pools,
                     depth,
                     id,
                     maxPoints,
@@ -262,11 +260,11 @@ SparseChunk::SparseChunk(
         const Schema& schema,
         const BBox& bbox,
         const Structure& structure,
-        PointPool& pointPool,
+        Pools& pools,
         const std::size_t depth,
         const Id& id,
         const std::size_t maxPoints)
-    : Chunk(schema, bbox, structure, pointPool, depth, id, maxPoints)
+    : Chunk(schema, bbox, structure, pools, depth, id, maxPoints)
     , m_tubes()
     , m_mutex()
 { }
@@ -275,24 +273,24 @@ SparseChunk::SparseChunk(
         const Schema& schema,
         const BBox& bbox,
         const Structure& structure,
-        PointPool& pointPool,
+        Pools& pools,
         const std::size_t depth,
         const Id& id,
         const std::size_t maxPoints,
         std::vector<char>& compressedData,
         const std::size_t numPoints)
-    : Chunk(schema, bbox, structure, pointPool, depth, id, maxPoints, numPoints)
+    : Chunk(schema, bbox, structure, pools, depth, id, maxPoints, numPoints)
     , m_tubes()
     , m_mutex()
 {
     // TODO This is direct copy/paste from the ContiguousChunk ctor.
-    const std::size_t pointSize(m_celledSchema.pointSize());
+    const std::size_t celledPointSize(m_celledSchema.pointSize());
 
     std::unique_ptr<std::vector<char>> data(
             Compression::decompress(
                 compressedData,
                 m_celledSchema,
-                m_numPoints * pointSize));
+                m_numPoints * celledPointSize));
 
     SinglePointTable table(m_celledSchema);
     LinkingPointView view(table);
@@ -305,20 +303,25 @@ SparseChunk::SparseChunk(
 
     // Skip tube IDs.
     const std::size_t dataOffset(sizeof(uint64_t));
+    DataPool& dataPool(m_pools.dataPool());
+    InfoPool& infoPool(m_pools.infoPool());
 
     for (std::size_t i(0); i < m_numPoints; ++i)
     {
-        char* pos(data->data() + i * pointSize);
+        char* pos(data->data() + i * celledPointSize);
         table.setData(pos);
 
-        PooledPointInfo* info(
-                m_pointPool.acquire(
+        PooledDataNode* data(m_pools.dataPool().acquire());
+        std::copy(pos + dataOffset, pos + celledPointSize, data->val());
+
+        PooledInfoNode* info(
+                infoPool.acquire(
                     Point(
                         view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
                         view.getFieldAs<double>(pdal::Dimension::Id::Y, 0),
                         view.getFieldAs<double>(pdal::Dimension::Id::Z, 0)),
-                    view.getPoint(0) + dataOffset,
-                    schema.pointSize()));
+                    data,
+                    &dataPool));
 
         tube = view.getFieldAs<uint64_t>(tubeId, 0);
         tick = Tube::calcTick(info->val().point(), m_bbox, m_depth);
@@ -349,11 +352,12 @@ void SparseChunk::save(arbiter::Endpoint& endpoint)
     // TODO Nearly direct copy/paste from ContiguousChunk::save.
     Compressor compressor(m_celledSchema);
     std::vector<char> data;
-    PointPool::Stack stack;
+    std::unique_ptr<PooledStack> stack(
+            new PooledStack(m_pools.dataPool(), m_pools.infoPool()));
 
     for (const auto& pair : m_tubes)
     {
-        pair.second.save(m_celledSchema, pair.first, data, stack);
+        pair.second.save(m_celledSchema, pair.first, data, *stack);
 
         if (data.size())
         {
@@ -363,7 +367,7 @@ void SparseChunk::save(arbiter::Endpoint& endpoint)
     }
 
     std::vector<char> compressed(compressor.data());
-    m_pointPool.release(stack);
+    stack.reset();
     pushTail(compressed, Tail(m_numPoints, Sparse));
     ensurePut(endpoint, m_id.str(), compressed);
 }
@@ -374,11 +378,11 @@ ContiguousChunk::ContiguousChunk(
         const Schema& schema,
         const BBox& bbox,
         const Structure& structure,
-        PointPool& pointPool,
+        Pools& pools,
         const std::size_t depth,
         const Id& id,
         const std::size_t maxPoints)
-    : Chunk(schema, bbox, structure, pointPool, depth, id, maxPoints)
+    : Chunk(schema, bbox, structure, pools, depth, id, maxPoints)
     , m_tubes(maxPoints)
 { }
 
@@ -386,16 +390,15 @@ ContiguousChunk::ContiguousChunk(
         const Schema& schema,
         const BBox& bbox,
         const Structure& structure,
-        PointPool& pointPool,
+        Pools& pools,
         const std::size_t depth,
         const Id& id,
         const std::size_t maxPoints,
         std::vector<char>& compressedData,
         const std::size_t numPoints)
-    : Chunk(schema, bbox, structure, pointPool, depth, id, maxPoints, numPoints)
+    : Chunk(schema, bbox, structure, pools, depth, id, maxPoints, numPoints)
     , m_tubes(maxPoints)
 {
-    const std::size_t nativePointSize(m_nativeSchema.pointSize());
     const std::size_t celledPointSize(m_celledSchema.pointSize());
 
     std::unique_ptr<std::vector<char>> data(
@@ -403,8 +406,6 @@ ContiguousChunk::ContiguousChunk(
                 compressedData,
                 m_celledSchema,
                 m_numPoints * celledPointSize));
-
-    m_block.assign(m_numPoints);
 
     SinglePointTable table(m_celledSchema);
     LinkingPointView view(table);
@@ -417,20 +418,25 @@ ContiguousChunk::ContiguousChunk(
 
     // Skip tube IDs.
     const std::size_t dataOffset(sizeof(uint64_t));
+    DataPool& dataPool(m_pools.dataPool());
+    InfoPool& infoPool(m_pools.infoPool());
 
     for (std::size_t i(0); i < m_numPoints; ++i)
     {
         char* pos(data->data() + i * celledPointSize);
         table.setData(pos);
 
-        PooledPointInfo* info(
-                m_pointPool.acquire(
+        PooledDataNode* data(m_pools.dataPool().acquire());
+        std::copy(pos + dataOffset, pos + celledPointSize, data->val());
+
+        PooledInfoNode* info(
+                infoPool.acquire(
                     Point(
                         view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
                         view.getFieldAs<double>(pdal::Dimension::Id::Y, 0),
                         view.getFieldAs<double>(pdal::Dimension::Id::Z, 0)),
-                    view.getPoint(0) + dataOffset,
-                    nativePointSize));
+                    data,
+                    &dataPool));
 
         tube = view.getFieldAs<uint64_t>(tubeId, 0);
         tick =
@@ -464,11 +470,12 @@ void ContiguousChunk::save(
 {
     Compressor compressor(m_celledSchema);
     std::vector<char> data;
-    PointPool::Stack stack;
+    std::unique_ptr<PooledStack> stack(
+            new PooledStack(m_pools.dataPool(), m_pools.infoPool()));
 
     for (std::size_t i(0); i < m_tubes.size(); ++i)
     {
-        m_tubes[i].save(m_celledSchema, i, data, stack);
+        m_tubes[i].save(m_celledSchema, i, data, *stack);
 
         if (data.size())
         {
@@ -478,7 +485,7 @@ void ContiguousChunk::save(
     }
 
     std::vector<char> compressed(compressor.data());
-    m_pointPool.release(stack);
+    stack.reset();
     pushTail(compressed, Tail(m_numPoints, Contiguous));
     ensurePut(endpoint, m_id.str() + postfix, compressed);
 }

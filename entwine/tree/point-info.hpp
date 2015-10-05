@@ -15,32 +15,64 @@
 #include <vector>
 
 #include <entwine/types/point.hpp>
+#include <entwine/util/object-pool.hpp>
 
 namespace entwine
 {
 
-class PointInfo
-{
-public:
-    PointInfo() : m_point(), m_data() { }
-
-    PointInfo(const Point& point, const char* data, std::size_t size)
-        : m_point(point)
-        , m_data(data, data + size)
-    { }
-
-    const Point& point() const { return m_point; }
-    const std::vector<char>& data() const { return m_data; }
-
-private:
-    const Point m_point;
-    const std::vector<char> m_data;
-};
+typedef BufferPool<char> DataPool;
+typedef DataPool::NodeType PooledDataNode;
+typedef DataPool::StackType PooledDataStack;
 
 class PointInfoShallow
 {
 public:
-    PointInfoShallow(const Point& point, const char* pos)
+    PointInfoShallow() noexcept
+        : m_point()
+        , m_dataNode(nullptr)
+        , m_dataPool(nullptr)
+    { }
+
+    PointInfoShallow(
+            const Point& point,
+            PooledDataNode* dataNode,
+            DataPool* dataPool) noexcept
+        : m_point(point)
+        , m_dataNode(dataNode)
+        , m_dataPool(dataPool)
+    { }
+
+    ~PointInfoShallow()
+    {
+        if (m_dataPool) m_dataPool->release(m_dataNode);
+    }
+
+    const Point& point() const { return m_point; }
+    const char* data() const { return m_dataNode->val(); }
+
+    PooledDataNode* releaseDataNode()
+    {
+        if (m_dataPool)
+        {
+            m_dataPool = nullptr;
+            return m_dataNode;
+        }
+        else
+        {
+            throw std::runtime_error("Tried to double release data node");
+        }
+    }
+
+private:
+    const Point m_point;
+    PooledDataNode* m_dataNode;
+    DataPool* m_dataPool;
+};
+
+class PointInfoNonPooled
+{
+public:
+    PointInfoNonPooled(const Point& point, const char* pos)
         : m_point(point)
         , m_pos(pos)
     { }

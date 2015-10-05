@@ -24,8 +24,55 @@ namespace entwine
 
 typedef BigUint Id;
 
-typedef ObjectPool<PointInfo> PointPool;
-typedef PointPool::Node PooledPointInfo;
+typedef ObjectPool<PointInfoShallow> InfoPool;
+typedef InfoPool::NodeType PooledInfoNode;
+typedef InfoPool::StackType PooledInfoStack;
+
+class Pools
+{
+public:
+    Pools(std::size_t pointSize) : m_dataPool(pointSize), m_infoPool() { }
+
+    DataPool& dataPool() { return m_dataPool; }
+    InfoPool& infoPool() { return m_infoPool; }
+
+private:
+    DataPool m_dataPool;
+    InfoPool m_infoPool;
+};
+
+class PooledStack
+{
+public:
+    PooledStack(DataPool& dataPool, InfoPool& infoPool)
+        : m_dataPool(dataPool)
+        , m_infoPool(infoPool)
+        , m_dataStack()
+        , m_infoStack()
+    { }
+
+    ~PooledStack()
+    {
+        if (!m_dataStack.empty())
+        {
+            m_dataPool.release(m_dataStack);
+            m_infoPool.release(m_infoStack);
+        }
+    }
+
+    void push(PooledInfoNode* info)
+    {
+        m_dataStack.push(info->val().releaseDataNode());
+        m_infoStack.push(info);
+    }
+
+private:
+    DataPool& m_dataPool;
+    InfoPool& m_infoPool;
+
+    PooledDataStack m_dataStack;
+    PooledInfoStack m_infoStack;
+};
 
 class BBox;
 class Structure;

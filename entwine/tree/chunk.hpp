@@ -44,7 +44,7 @@ public:
             const Schema& schema,
             const BBox& bbox,
             const Structure& structure,
-            PointPool& pointPool,
+            Pools& pools,
             std::size_t depth,
             const Id& id,
             std::size_t maxPoints,
@@ -56,7 +56,7 @@ public:
             const Schema& schema,
             const BBox& bbox,
             const Structure& structure,
-            PointPool& pointPool,
+            Pools& pools,
             std::size_t depth,
             const Id& id,
             std::size_t maxPoints,
@@ -66,7 +66,7 @@ public:
             const Schema& schema,
             const BBox& bbox,
             const Structure& structure,
-            PointPool& pointPool,
+            Pools& pools,
             std::size_t depth,
             const Id& id,
             std::size_t maxPoints,
@@ -109,14 +109,12 @@ protected:
     const Schema  m_celledSchema;
     const BBox& m_bbox;
     const Structure& m_structure;
-    PointPool& m_pointPool;
+    Pools& m_pools;
     const std::size_t m_depth;
     const Id m_id;
 
     const std::size_t m_maxPoints;
     std::atomic_size_t m_numPoints;
-
-    BlockedData m_block;
 };
 
 class SparseChunk : public Chunk
@@ -126,7 +124,7 @@ public:
             const Schema& schema,
             const BBox& bbox,
             const Structure& structure,
-            PointPool& pointPool,
+            Pools& pools,
             std::size_t depth,
             const Id& id,
             std::size_t maxPoints);
@@ -135,7 +133,7 @@ public:
             const Schema& schema,
             const BBox& bbox,
             const Structure& structure,
-            PointPool& pointPool,
+            Pools& pools,
             std::size_t depth,
             const Id& id,
             std::size_t maxPoints,
@@ -158,7 +156,7 @@ public:
             const Schema& schema,
             const BBox& bbox,
             const Structure& structure,
-            PointPool& pointPool,
+            Pools& pools,
             std::size_t depth,
             const Id& id,
             std::size_t maxPoints);
@@ -167,7 +165,7 @@ public:
             const Schema& schema,
             const BBox& bbox,
             const Structure& structure,
-            PointPool& pointPool,
+            Pools& pools,
             std::size_t depth,
             const Id& id,
             std::size_t maxPoints,

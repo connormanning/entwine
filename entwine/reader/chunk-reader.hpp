@@ -52,7 +52,7 @@ private:
     const std::size_t m_numPoints;
 
     std::vector<char> m_data;
-    std::multimap<uint64_t, PointInfoShallow> m_points;
+    std::multimap<uint64_t, PointInfoNonPooled> m_points;
 };
 
 /*

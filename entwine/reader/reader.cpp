@@ -49,7 +49,7 @@ Reader::Reader(
     , m_manifest()
     , m_stats()
     , m_base()
-    , m_pointPool(new PointPool())
+    , m_pointPool()
     , m_cache(cache)
     , m_is3d(false)
     , m_srs()
@@ -76,6 +76,7 @@ Reader::Reader(
 
         m_bbox.reset(new BBox(props["bbox"]));
         m_schema.reset(new Schema(props["schema"]));
+        m_pointPool.reset(new Pools(m_schema->pointSize()));
         m_structure.reset(new Structure(props["structure"], *m_bbox));
         m_is3d = m_structure->is3d();
         if (props.isMember("reprojection"))

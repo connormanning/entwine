@@ -137,7 +137,7 @@ void Query::getBase(std::vector<char>& buffer)
                 // TODO Deduplicate.
                 {
                     const Cell& primaryCell(tube.primaryCell());
-                    const PointInfo& info(primaryCell.atom().load()->val());
+                    const auto& info(primaryCell.atom().load()->val());
 
                     if (m_qbox.contains(info.point()))
                     {
@@ -147,7 +147,7 @@ void Query::getBase(std::vector<char>& buffer)
                         buffer.resize(initialSize + m_outSchema.pointSize());
                         char* out(buffer.data() + initialSize);
 
-                        table.setData(info.data().data());
+                        table.setData(info.data());
 
                         for (const auto& dim : m_outSchema.dims())
                         {
@@ -161,7 +161,7 @@ void Query::getBase(std::vector<char>& buffer)
                 for (const auto& p : cells)
                 {
                     const Cell& cell(p.second);
-                    const PointInfo& info(cell.atom().load()->val());
+                    const auto& info(cell.atom().load()->val());
 
                     if (m_qbox.contains(info.point()))
                     {
@@ -171,7 +171,7 @@ void Query::getBase(std::vector<char>& buffer)
                         buffer.resize(initialSize + m_outSchema.pointSize());
                         char* out(buffer.data() + initialSize);
 
-                        table.setData(info.data().data());
+                        table.setData(info.data());
 
                         for (const auto& dim : m_outSchema.dims())
                         {

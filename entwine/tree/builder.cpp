@@ -38,7 +38,7 @@ namespace entwine
 
 namespace
 {
-    const std::size_t sleepCount(65536 * 32);
+    const std::size_t sleepCount(65536 * 256);
 }
 
 Builder::Builder(
@@ -66,12 +66,12 @@ Builder::Builder(
     , m_trustHeaders(trustHeaders)
     , m_isContinuation(false)
     , m_pool(new Pool(numThreads))
-    , m_executor(new Executor(*m_schema, m_structure->is3d()))
+    , m_executor(new Executor(m_structure->is3d()))
     , m_originId(m_schema->pdalLayout().findDim("Origin"))
     , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
     , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(outPath)))
     , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
-    , m_pointPool(new PointPool())
+    , m_pointPool(new Pools(m_schema->pointSize()))
     , m_registry(
             new Registry(
                 *m_outEndpoint,
@@ -103,7 +103,7 @@ Builder::Builder(
     , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
     , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(outPath)))
     , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
-    , m_pointPool(new PointPool())
+    , m_pointPool()
     , m_registry()
 {
     prep();
@@ -126,7 +126,7 @@ Builder::Builder(const std::string path, std::shared_ptr<Arbiter> arbiter)
     , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
     , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(path)))
     , m_tmpEndpoint()
-    , m_pointPool(new PointPool())
+    , m_pointPool()
     , m_registry()
 { }
 
@@ -166,12 +166,14 @@ bool Builder::insert(const std::string path)
             Range* zRange(zRangePtr.get());
             std::size_t count(0);
 
+            SimplePointTable table(m_pointPool->dataPool(), *m_schema);
+
             auto inserter(
-                    [this, origin, &clipper, zRange, &count]
+                    [this, origin, &table, &clipper, zRange, &count]
                     (pdal::PointView& view)->void
             {
                 count += view.size();
-                insert(view, origin, clipper.get(), zRange);
+                insert(view, table, origin, clipper.get(), zRange);
 
                 if (count >= sleepCount)
                 {
@@ -203,7 +205,11 @@ bool Builder::insert(const std::string path)
 
             if (doInsert)
             {
-                if (m_executor->run(localPath, m_reprojection.get(), inserter))
+                if (m_executor->run(
+                            table,
+                            localPath,
+                            m_reprojection.get(),
+                            inserter))
                 {
                     if (zRange)
                     {
@@ -251,24 +257,29 @@ bool Builder::insert(const std::string path)
 
 void Builder::insert(
         pdal::PointView& pointView,
+        SimplePointTable& table,
         Origin origin,
         Clipper* clipper,
         Range* zRange)
 {
     using namespace pdal;
 
+    DataPool& dataPool(m_pointPool->dataPool());
+    InfoPool& infoPool(m_pointPool->infoPool());
+    PooledStack stack(dataPool, infoPool);
+
     for (std::size_t i = 0; i < pointView.size(); ++i)
     {
         pointView.setField(m_originId, i, origin);
 
-        PooledPointInfo* info(
-                m_pointPool->acquire(
+        PooledInfoNode* info(
+                infoPool.acquire(
                     Point(
                         pointView.getFieldAs<double>(Dimension::Id::X, i),
                         pointView.getFieldAs<double>(Dimension::Id::Y, i),
                         pointView.getFieldAs<double>(Dimension::Id::Z, i)),
-                    pointView.getPoint(i),
-                    m_schema->pointSize()));
+                    table.getNode(i),
+                    &dataPool));
 
         const Point& point(info->val().point());
 
@@ -292,6 +303,7 @@ void Builder::insert(
         }
         else
         {
+            stack.push(info);
             m_stats.addOutOfBounds();
         }
     }
@@ -346,6 +358,7 @@ void Builder::infer(const std::string path)
                     std::numeric_limits<double>::lowest()),
                 true);
 
+        SimplePointTable table(m_pointPool->dataPool(), *m_schema);
         const std::string localPath(localize(path, 0));
 
         auto bounder([this, &bbox](pdal::PointView& view)->void
@@ -360,7 +373,7 @@ void Builder::infer(const std::string path)
             }
         });
 
-        if (!m_executor->run(localPath, m_reprojection.get(), bounder))
+        if (!m_executor->run(table, localPath, m_reprojection.get(), bounder))
         {
             throw std::runtime_error("Error inferring bounds");
         }
@@ -434,7 +447,7 @@ void Builder::load()
 
     loadProps(meta);
 
-    m_executor.reset(new Executor(*m_schema, m_structure->is3d()));
+    m_executor.reset(new Executor(m_structure->is3d()));
     m_originId = m_schema->pdalLayout().findDim("Origin");
 
     m_registry.reset(
@@ -743,6 +756,7 @@ void Builder::loadProps(const Json::Value& props)
 {
     m_bbox.reset(new BBox(props["bbox"]));
     m_schema.reset(new Schema(props["schema"]));
+    m_pointPool.reset(new Pools(m_schema->pointSize()));
     m_structure.reset(new Structure(props["structure"], *m_bbox));
 
     if (props.isMember("reprojection"))

@@ -48,20 +48,20 @@ public:
             const Schema& schema,
             const BBox& bbox,
             const Structure& structure,
-            PointPool& pointPool);
+            Pools& pointPool);
 
     Registry(
             arbiter::Endpoint& endpoint,
             const Schema& schema,
             const BBox& bbox,
             const Structure& structure,
-            PointPool& pointPool,
+            Pools& pointPool,
             const Json::Value& meta);
 
     ~Registry();
 
     bool addPoint(
-            PooledPointInfo* toAdd,
+            PooledInfoNode* toAdd,
             Climber& climber,
             Clipper* clipper);
 
@@ -75,13 +75,12 @@ private:
     const Schema& m_schema;
     const BBox& m_bbox;
     const Structure& m_structure;
-    PointPool& m_pointPool;
+    Pools& m_pointPool;
 
     bool m_is3d;
 
     std::unique_ptr<ContiguousChunk> m_base;
     std::unique_ptr<Cold> m_cold;
-
     std::unique_ptr<Pool> m_pool;
 };
 

@@ -56,7 +56,7 @@ Registry::Registry(
         const Schema& schema,
         const BBox& bbox,
         const Structure& structure,
-        PointPool& pointPool)
+        Pools& pointPool)
     : m_endpoint(endpoint)
     , m_schema(schema)
     , m_bbox(bbox)
@@ -99,7 +99,7 @@ Registry::Registry(
         const Schema& schema,
         const BBox& bbox,
         const Structure& structure,
-        PointPool& pointPool,
+        Pools& pointPool,
         const Json::Value& meta)
     : m_endpoint(endpoint)
     , m_schema(schema)
@@ -149,7 +149,7 @@ Registry::~Registry()
 { }
 
 bool Registry::addPoint(
-        PooledPointInfo* toAdd,
+        PooledInfoNode* toAdd,
         Climber& climber,
         Clipper* clipper)
 {
@@ -158,7 +158,7 @@ bool Registry::addPoint(
     if (Cell* cell = getCell(climber, clipper))
     {
         bool redo(false);
-        PooledPointInfo* toAddSaved(toAdd);
+        PooledInfoNode* toAddSaved(toAdd);
 
         do
         {
@@ -166,7 +166,7 @@ bool Registry::addPoint(
             redo = false;
 
             const PointInfoAtom& atom(cell->atom());
-            if (PooledPointInfo* current = atom.load())
+            if (PooledInfoNode* current = atom.load())
             {
                 const Point& mid(climber.bbox().mid());
                 const Point& toAddPoint(toAddSaved->val().point());
@@ -187,7 +187,6 @@ bool Registry::addPoint(
             }
 
             if (redo) toAdd = toAddSaved;
-            if (redo) std::cout << "REDO" << std::endl;
         }
         while (redo);
     }
@@ -206,7 +205,7 @@ bool Registry::addPoint(
         }
         else
         {
-            m_pointPool.release(toAdd);
+            m_pointPool.infoPool().release(toAdd);
             return false;
         }
     }

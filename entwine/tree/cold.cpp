@@ -47,7 +47,7 @@ Cold::Cold(
         const Schema& schema,
         const BBox& bbox,
         const Structure& structure,
-        PointPool& pointPool)
+        Pools& pointPool)
     : m_endpoint(endpoint)
     , m_schema(schema)
     , m_bbox(bbox)
@@ -63,7 +63,7 @@ Cold::Cold(
         const Schema& schema,
         const BBox& bbox,
         const Structure& structure,
-        PointPool& pointPool,
+        Pools& pointPool,
         const Json::Value& meta)
     : m_endpoint(endpoint)
     , m_schema(schema)

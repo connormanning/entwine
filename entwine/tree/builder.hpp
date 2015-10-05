@@ -52,6 +52,7 @@ class Driver;
 class Executor;
 class Registry;
 class Reprojection;
+class SimplePointTable;
 
 class Builder
 {
@@ -138,6 +139,7 @@ private:
     // Insert each point from a pdal::PointView into the Registry.
     void insert(
             pdal::PointView& pointView,
+            SimplePointTable& table,
             Origin origin,
             Clipper* clipper,
             Range* zRange);
@@ -175,7 +177,7 @@ private:
     std::unique_ptr<arbiter::Endpoint> m_outEndpoint;
     std::unique_ptr<arbiter::Endpoint> m_tmpEndpoint;
 
-    std::unique_ptr<PointPool> m_pointPool;
+    std::unique_ptr<Pools> m_pointPool;
     std::unique_ptr<Registry> m_registry;
 
     Builder(const Builder&);

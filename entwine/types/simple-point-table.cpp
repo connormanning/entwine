@@ -15,38 +15,22 @@
 namespace entwine
 {
 
-SimplePointTable::SimplePointTable(
-        const Schema& schema,
-        const std::size_t reserve)
+SimplePointTable::SimplePointTable(DataPool& dataPool, const Schema& schema)
     : SizedPointTable(schema.pdalLayout())
-    , m_data()
+    , m_dataPool(dataPool)
+    , m_dataNodes()
     , m_numPoints(0)
-{
-    if (reserve)
-    {
-        m_data.reserve(reserve);
-    }
-}
-
-SimplePointTable::SimplePointTable(
-        const Schema& schema,
-        const std::vector<char>& data)
-    : SizedPointTable(schema.pdalLayout())
-    , m_data(data)
-    , m_numPoints(data.size() / schema.pointSize())
-{
-    assert(m_data.size() % schema.pointSize() == 0);
-}
+{ }
 
 pdal::PointId SimplePointTable::addPoint()
 {
-    m_data.resize(m_data.size() + m_layout.pointSize());
+    m_dataNodes.push_back(m_dataPool.acquire());
     return m_numPoints++;
 }
 
 char* SimplePointTable::getPoint(pdal::PointId index)
 {
-    return m_data.data() + index * m_layout.pointSize();
+    return m_dataNodes.at(index)->val();
 }
 
 void SimplePointTable::setField(
@@ -74,18 +58,13 @@ char* SimplePointTable::getDimension(
 
 void SimplePointTable::clear()
 {
-    m_data.clear();
+    m_dataNodes.clear();
     m_numPoints = 0;
 }
 
 std::size_t SimplePointTable::size() const
 {
     return m_numPoints;
-}
-
-const std::vector<char>& SimplePointTable::data() const
-{
-    return m_data;
 }
 
 } // namespace entwine

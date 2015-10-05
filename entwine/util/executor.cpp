@@ -26,14 +26,8 @@
 namespace entwine
 {
 
-namespace
-{
-    const std::size_t chunkBytes(65536 * 32);
-}
-
-Executor::Executor(const Schema& schema, bool is3d)
-    : m_schema(schema)
-    , m_is3d(is3d)
+Executor::Executor(bool is3d)
+    : m_is3d(is3d)
     , m_stageFactory(new pdal::StageFactory())
     , m_factoryMutex()
 { }
@@ -42,6 +36,7 @@ Executor::~Executor()
 { }
 
 bool Executor::run(
+        SimplePointTable& pointTable,
         const std::string path,
         const Reprojection* reprojection,
         std::function<void(pdal::PointView&)> f)
@@ -54,8 +49,6 @@ bool Executor::run(
 
     std::unique_ptr<pdal::Reader> reader(createReader(driver, path));
     if (!reader) return false;
-
-    SimplePointTable pointTable(m_schema, chunkBytes + m_schema.pointSize());
 
     std::shared_ptr<pdal::Filter> sharedFilter;
 
@@ -78,9 +71,7 @@ bool Executor::run(
     {
         const std::size_t indexSpan(index - begin);
 
-        if (
-                pointTable.size() == indexSpan + 1 &&
-                pointTable.data().size() > chunkBytes)
+        if (pointTable.size() == indexSpan + 1)
         {
             LinkingPointView link(pointTable);
             if (filter) pdal::FilterWrapper::filter(*filter, link);

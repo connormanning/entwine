@@ -87,7 +87,7 @@ std::size_t ChunkReader::query(
 
     for (const auto& entry : m_points)
     {
-        const PointInfoShallow& info(entry.second);
+        const PointInfoNonPooled& info(entry.second);
         const Point& point(info.point());
         if (qbox.contains(point))
         {

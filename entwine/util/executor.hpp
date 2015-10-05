@@ -16,6 +16,7 @@
 #include <string>
 
 #include <entwine/types/bbox.hpp>
+#include <entwine/types/structure.hpp>
 
 namespace pdal
 {
@@ -31,6 +32,7 @@ namespace entwine
 
 class Reprojection;
 class Schema;
+class SimplePointTable;
 
 class Preview
 {
@@ -49,11 +51,12 @@ public:
 class Executor
 {
 public:
-    Executor(const Schema& schema, bool is3d);
+    Executor(bool is3d);
     ~Executor();
 
     // Returns true if no errors occurred during insertion.
     bool run(
+            SimplePointTable& pointTable,
             std::string path,
             const Reprojection* reprojection,
             std::function<void(pdal::PointView&)> f);
@@ -79,11 +82,8 @@ private:
 
     std::unique_lock<std::mutex> getLock() const;
 
-    const Schema& m_schema;
     bool m_is3d;
-
     std::unique_ptr<pdal::StageFactory> m_stageFactory;
-
     mutable std::mutex m_factoryMutex;
 };
 
