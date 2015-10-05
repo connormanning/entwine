@@ -83,9 +83,10 @@ public:
     }
 
     bool empty() const { return !m_head; }
-    Node<T>* head() { return m_head; }
 
 private:
+    Node<T>* head() { return m_head; }
+
     Node<T>* m_tail;
     Node<T>* m_head;
 };
@@ -125,8 +126,12 @@ public:
 
     void release(Node<T>* node)
     {
-        node->val().~T();
-        new (&node->val()) T();
+        if (!std::is_pointer<T>::value)
+        {
+            node->val().~T();
+            new (&node->val()) T();
+        }
+
         std::lock_guard<std::mutex> lock(m_mutex);
         m_stack.push(node);
     }
@@ -141,6 +146,7 @@ public:
                 node->val().~T();
                 new (&node->val()) T();
             }
+
             node = node->next();
         }
 
