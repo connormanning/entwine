@@ -47,7 +47,7 @@ namespace
         }
     }
 
-    const std::size_t clipPoolSize(1);
+    const std::size_t clipPoolSize(4);
     const std::size_t clipQueueSize(1);
 }
 

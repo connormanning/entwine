@@ -291,8 +291,8 @@ void Cold::clip(
         CountedChunk& countedChunk(*m_chunkMap.at(chunkId));
         mapLock.unlock();
 
-        //pool.add([this, clipper, &countedChunk]()
-        //{
+        pool.add([this, clipper, &countedChunk]()
+        {
             std::lock_guard<std::mutex> chunkLock(countedChunk.mutex);
             countedChunk.refs.erase(clipper);
 
@@ -301,7 +301,7 @@ void Cold::clip(
                 countedChunk.chunk->save(m_endpoint);
                 countedChunk.chunk.reset(0);
             }
-        //});
+        });
     }
 }
 

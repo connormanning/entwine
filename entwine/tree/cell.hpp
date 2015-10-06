@@ -31,13 +31,7 @@ class Cell
 {
 public:
     Cell() : m_atom(0) { }
-    Cell(PooledInfoNode* pointInfo)
-        : m_atom(pointInfo)
-    { }
-
-    ~Cell()
-    {
-    }
+    Cell(PooledInfoNode* pointInfo) : m_atom(pointInfo) { }
 
     const PointInfoAtom& atom() const
     {

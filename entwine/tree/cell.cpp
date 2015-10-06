@@ -34,9 +34,6 @@ void Tube::addCell(const std::size_t tick, PooledInfoNode* info)
     }
     else
     {
-        // TODO Remove debug.
-        if (tick == m_primaryTick.load() || m_cells.find(tick) != m_cells.end())
-            std::cout << "DUPE: " << tick << std::endl;
         m_cells.emplace(
                 std::piecewise_construct,
                 std::forward_as_tuple(tick),
@@ -54,8 +51,8 @@ std::pair<bool, Cell&> Tube::getCell(const std::size_t tick)
     std::size_t unassignedMut(unassigned);
 
     if (
-            m_primaryTick == unassigned &&
-            m_primaryTick.compare_exchange_strong(unassignedMut, tick))
+            m_primaryTick.compare_exchange_strong(unassignedMut, tick) ||
+            unassignedMut == tick)
     {
         return std::pair<bool, Cell&>(true, m_primaryCell);
     }

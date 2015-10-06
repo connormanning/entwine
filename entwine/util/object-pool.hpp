@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <deque>
@@ -126,11 +127,7 @@ public:
 
     void release(Node<T>* node)
     {
-        if (!std::is_pointer<T>::value)
-        {
-            node->val().~T();
-            new (&node->val()) T();
-        }
+        reset(&node->val());
 
         std::lock_guard<std::mutex> lock(m_mutex);
         m_stack.push(node);
@@ -141,12 +138,7 @@ public:
         Node<T>* node(other.head());
         while (node)
         {
-            if (!std::is_pointer<T>::value)
-            {
-                node->val().~T();
-                new (&node->val()) T();
-            }
-
+            reset(&node->val());
             node = node->next();
         }
 
@@ -196,7 +188,15 @@ protected:
         }
     }
 
+    void reset(T* val)
+    {
+        destruct(val);
+        construct(val);
+    }
+
     virtual void doAllocate() = 0;
+    virtual void construct(T*) { }
+    virtual void destruct(T*) { }
 
     Stack<T> m_stack;
     const std::size_t m_blockSize;
@@ -235,6 +235,16 @@ private:
 
         std::lock_guard<std::mutex> lock(this->m_mutex);
         this->m_stack.push(newStack);
+    }
+
+    virtual void construct(T* val)
+    {
+        new (val) T();
+    }
+
+    virtual void destruct(T* val)
+    {
+        val->~T();
     }
 
     std::deque<std::unique_ptr<std::vector<Node<T>>>> m_blocks;
@@ -280,6 +290,11 @@ private:
 
         std::lock_guard<std::mutex> lock(this->m_mutex);
         this->m_stack.push(newStack);
+    }
+
+    virtual void construct(T** val)
+    {
+        std::fill(*val, *val + m_bufferSize, 0);
     }
 
     const std::size_t m_bufferSize;
