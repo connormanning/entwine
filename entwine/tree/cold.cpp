@@ -125,7 +125,6 @@ Cell& Cold::getCell(const Climber& climber, Clipper* clipper)
         countedChunk = m_chunkMap.at(chunkId).get();
     }
 
-
     if (!countedChunk)
     {
         throw std::runtime_error("CountedChunk has missing contents.");

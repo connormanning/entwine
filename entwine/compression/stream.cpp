@@ -10,8 +10,8 @@
 
 #include <entwine/compression/stream.hpp>
 
+#include <algorithm>
 #include <stdexcept>
-#include <cstring>
 
 namespace entwine
 {
@@ -30,10 +30,7 @@ void CompressionStream::putBytes(const uint8_t* bytes, const std::size_t length)
 {
     const std::size_t startSize(m_data.size());
     m_data.resize(m_data.size() + length);
-    std::memcpy(
-            m_data.data() + startSize,
-            bytes,
-            length);
+    std::copy(bytes, bytes + length, m_data.data() + startSize);
 }
 
 void CompressionStream::putByte(const uint8_t byte)
@@ -53,7 +50,7 @@ void CompressionStream::getBytes(uint8_t* bytes, std::size_t length)
         throw std::runtime_error("Too many bytes requested!");
     }
 
-    std::memcpy(bytes, m_data.data() + m_index, length);
+    std::copy(m_data.data() + m_index, m_data.data() + m_index + length, bytes);
     m_index += length;
 }
 

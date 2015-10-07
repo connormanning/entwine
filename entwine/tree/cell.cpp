@@ -43,37 +43,31 @@ void Tube::addCell(const std::size_t tick, PooledInfoNode* info)
 
 std::pair<bool, Cell&> Tube::getCell(const std::size_t tick)
 {
-    if (tick == m_primaryTick)
+    if (tick == m_primaryTick.load())
     {
         return std::pair<bool, Cell&>(false, m_primaryCell);
     }
 
     std::size_t unassignedMut(unassigned);
+    const bool assigned(
+            m_primaryTick.load() == unassigned &&
+            m_primaryTick.compare_exchange_strong(unassignedMut, tick));
 
-    if (
-            m_primaryTick.compare_exchange_strong(unassignedMut, tick) ||
-            unassignedMut == tick)
+    // It's possible that another thread beat us to the swap, and successfully
+    // swapped with the same value as our incoming tick.  Reload after the swap
+    // attempt to counter this, since if our _assigned_ statement failed to
+    // swap, then our primary tick is now set to its final value.
+    if (assigned || m_primaryTick.load() == tick)
     {
-        return std::pair<bool, Cell&>(true, m_primaryCell);
+        return std::pair<bool, Cell&>(assigned, m_primaryCell);
     }
     else
     {
-        return getMappedCell(tick);
-    }
-}
-
-std::pair<bool, Cell&> Tube::getMappedCell(const std::size_t tick)
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-    auto it(m_cells.find(tick));
-
-    if (it == m_cells.end())
-    {
-        return std::pair<bool, Cell&>(true, m_cells[tick]);
-    }
-    else
-    {
-        return std::pair<bool, Cell&>(false, it->second);
+        // Primary tick already assigned, and it's not the incoming one.  Go to
+        // secondary cells.
+        std::lock_guard<std::mutex> lock(m_mutex);
+        const bool added(!m_cells.count(tick));
+        return std::pair<bool, Cell&>(added, m_cells[tick]);
     }
 }
 
@@ -88,7 +82,7 @@ void Tube::save(
         std::vector<char>& data,
         PooledStack& stack) const
 {
-    if (m_primaryTick.load() != unassigned)
+    if (!empty())
     {
         const std::size_t idSize(sizeof(uint64_t));
 

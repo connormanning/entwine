@@ -19,8 +19,6 @@
 #include <type_traits>
 #include <vector>
 
-#include <iostream>
-
 namespace entwine
 {
 
@@ -95,12 +93,24 @@ private:
 class TryLocker
 {
 public:
-    explicit TryLocker(std::atomic_flag& flag) : m_flag(flag) { }
-    ~TryLocker() { m_flag.clear(); }
+    explicit TryLocker(std::atomic_flag& flag)
+        : m_set(false)
+        , m_flag(flag)
+    { }
 
-    bool tryLock() { return !m_flag.test_and_set(); }
+    ~TryLocker()
+    {
+        if (m_set) m_flag.clear();
+    }
+
+    bool tryLock()
+    {
+        m_set = !m_flag.test_and_set();
+        return m_set;
+    }
 
 private:
+    bool m_set;
     std::atomic_flag& m_flag;
 };
 
@@ -175,7 +185,7 @@ public:
 protected:
     void allocate()
     {
-        TryLocker locker(this->m_adding);
+        TryLocker locker(m_adding);
 
         if (locker.tryLock())
         {

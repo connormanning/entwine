@@ -86,8 +86,6 @@ public:
 
 
 private:
-    std::pair<bool, Cell&> getMappedCell(std::size_t tick);
-
     std::atomic_size_t m_primaryTick;
     Cell m_primaryCell;
 
