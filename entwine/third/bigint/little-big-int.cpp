@@ -480,7 +480,8 @@ BigUint& operator>>=(BigUint& lhs, Block rhs)
 
     Block last(val.back() >> shiftBits);
     val.resize(startBlocks - shiftBlocks - (last ? 0 : 1));
-    if (last) val.back() = last;
+    if (val.empty()) val.push_back(0);
+    else if (last) val.back() = last;
 
     return lhs;
 }

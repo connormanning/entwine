@@ -125,6 +125,12 @@ void Query::getBase(std::vector<char>& buffer)
                 m_depthBegin,
                 std::min(m_depthEnd, m_structure.baseDepthEnd()));
 
+        if (splitter.index() < m_structure.baseIndexBegin())
+        {
+            std::cout << "Nothing selected in base" << std::endl;
+            return;
+        }
+
         do
         {
             terminate = false;
