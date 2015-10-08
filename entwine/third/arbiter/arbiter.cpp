@@ -228,10 +228,7 @@ std::vector<std::string> Driver::resolve(
 {
     std::vector<std::string> results;
 
-    if (
-            path.size() > 2 &&
-            path.back() == '*' &&
-            (path[path.size() - 2] == '/' || path[path.size() - 2] == '\\'))
+    if (path.size() > 1 && path.back() == '*')
     {
         if (verbose)
         {
@@ -1174,20 +1171,13 @@ void S3Driver::put(std::string rawPath, const std::vector<char>& data) const
 std::vector<std::string> S3Driver::glob(std::string path, bool verbose) const
 {
     std::vector<std::string> results;
-
-    if (path.size() < 2 || path.substr(path.size() - 2) != "/*")
-    {
-        throw std::runtime_error("Invalid glob path: " + path);
-    }
-
-    path.resize(path.size() - 2);
+    path.pop_back();
 
     // https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGET.html
     const Resource resource(path);
     const std::string& bucket(resource.bucket);
     const std::string& object(resource.object);
-    const std::string prefix(
-            resource.object.empty() ? "" : resource.object + "/");
+    const std::string prefix(resource.object.empty() ? "" : resource.object);
 
     Query query;
 
@@ -1217,34 +1207,36 @@ std::vector<std::string> S3Driver::glob(std::string path, bool verbose) const
                 more = (t == "true");
             }
 
-            XmlNode* conNode(topNode->first_node("Contents"));
-
-            if (!conNode) throw std::runtime_error(badResponse);
-
-            for ( ; conNode; conNode = conNode->next_sibling())
+            if (XmlNode* conNode = topNode->first_node("Contents"))
             {
-                if (XmlNode* keyNode = conNode->first_node("Key"))
+                for ( ; conNode; conNode = conNode->next_sibling())
                 {
-                    std::string key(keyNode->value());
-
-                    // The prefix may contain slashes (i.e. is a sub-dir)
-                    // but we only include the top level after that.
-                    if (key.find('/', prefix.size()) == std::string::npos)
+                    if (XmlNode* keyNode = conNode->first_node("Key"))
                     {
-                        results.push_back("s3://" + bucket + "/" + key);
+                        std::string key(keyNode->value());
 
-                        if (more)
+                        // The prefix may contain slashes (i.e. is a sub-dir)
+                        // but we only include the top level after that.
+                        if (key.find('/', prefix.size()) == std::string::npos)
                         {
-                            query["marker"] =
-                                (object.size() ? object + "/" : "") +
-                                key.substr(prefix.size());
+                            results.push_back("s3://" + bucket + "/" + key);
+
+                            if (more)
+                            {
+                                query["marker"] =
+                                    object + key.substr(prefix.size());
+                            }
                         }
                     }
+                    else
+                    {
+                        throw std::runtime_error(badResponse);
+                    }
                 }
-                else
-                {
-                    throw std::runtime_error(badResponse);
-                }
+            }
+            else
+            {
+                throw std::runtime_error(badResponse);
             }
         }
         else
