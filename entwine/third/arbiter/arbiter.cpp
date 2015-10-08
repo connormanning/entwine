@@ -228,10 +228,7 @@ std::vector<std::string> Driver::resolve(
 {
     std::vector<std::string> results;
 
-    if (
-            path.size() > 2 &&
-            path.back() == '*' &&
-            (path[path.size() - 2] == '/' || path[path.size() - 2] == '\\'))
+    if (path.size() > 1 && path.back() == '*')
     {
         if (verbose)
         {
@@ -596,6 +593,34 @@ namespace
 
     const auto baseSleepTime(std::chrono::milliseconds(1));
     const auto maxSleepTime (std::chrono::milliseconds(4096));
+
+    const std::map<char, std::string> sanitizers
+    {
+        { ' ', "%20" },
+        { '!', "%21" },
+        { '"', "%22" },
+        { '#', "%23" },
+        { '$', "%24" },
+        { '\'', "%27" },
+        { '(', "%28" },
+        { ')', "%29" },
+        { '*', "%2A" },
+        { '+', "%2B" },
+        { ',', "%2C" },
+        { ';', "%3B" },
+        { '<', "%3C" },
+        { '>', "%3E" },
+        { '@', "%40" },
+        { '[', "%5B" },
+        { '\\', "%5C" },
+        { ']', "%5D" },
+        { '^', "%5E" },
+        { '`', "%60" },
+        { '{', "%7B" },
+        { '|', "%7C" },
+        { '}', "%7D" },
+        { '~', "%7E" }
+    };
 }
 
 namespace arbiter
@@ -605,7 +630,7 @@ HttpDriver::HttpDriver(HttpPool& pool)
     : m_pool(pool)
 { }
 
-bool HttpDriver::get(const std::string path, std::vector<char>& data) const
+bool HttpDriver::get(std::string path, std::vector<char>& data) const
 {
     bool good(false);
 
@@ -622,7 +647,7 @@ bool HttpDriver::get(const std::string path, std::vector<char>& data) const
 }
 
 void HttpDriver::put(
-        const std::string path,
+        std::string path,
         const std::vector<char>& data) const
 {
     auto http(m_pool.acquire());
@@ -631,6 +656,27 @@ void HttpDriver::put(
     {
         throw std::runtime_error("Couldn't HTTP PUT to " + path);
     }
+}
+
+std::string HttpDriver::sanitize(std::string path)
+{
+    std::string result;
+
+    for (const auto c : path)
+    {
+        auto it(sanitizers.find(c));
+
+        if (it == sanitizers.end())
+        {
+            result += c;
+        }
+        else
+        {
+            result += it->second;
+        }
+    }
+
+    return result;
 }
 
 Curl::Curl()
@@ -682,6 +728,7 @@ HttpResponse Curl::get(std::string path, std::vector<std::string> headers)
     int httpCode(0);
     std::vector<char> data;
 
+    path = HttpDriver::sanitize(path);
     init(path, headers);
 
     // Register callback function and date pointer to consume the result.
@@ -704,6 +751,7 @@ HttpResponse Curl::put(
         const std::vector<char>& data,
         std::vector<std::string> headers)
 {
+    path = HttpDriver::sanitize(path);
     init(path, headers);
 
     int httpCode(0);
@@ -864,6 +912,7 @@ void HttpPool::release(const std::size_t id)
 #include <thread>
 
 #ifndef ARBITER_IS_AMALGAMATION
+#include <arbiter/arbiter.hpp>
 #include <arbiter/drivers/fs.hpp>
 #include <arbiter/third/xml/xml.hpp>
 #include <arbiter/util/crypto.hpp>
@@ -1044,14 +1093,18 @@ bool S3Driver::get(std::string rawPath, std::vector<char>& data) const
 }
 
 bool S3Driver::get(
-        const std::string rawPath,
+        std::string rawPath,
         const Query& query,
-        std::vector<char>& data) const
+        std::vector<char>& data,
+        const Headers userHeaders) const
 {
+    rawPath = HttpDriver::sanitize(rawPath);
     const Resource resource(rawPath);
 
     const std::string path(resource.buildPath(query));
-    const Headers headers(httpGetHeaders(rawPath));
+
+    Headers headers(httpGetHeaders(rawPath));
+    headers.insert(headers.end(), userHeaders.begin(), userHeaders.end());
 
     auto http(m_pool.acquire());
 
@@ -1064,11 +1117,28 @@ bool S3Driver::get(
     }
     else
     {
-        // TODO If verbose:
-        // std::cout << std::string(res.data().begin(), res.data().end()) <<
-            // std::endl;
         return false;
     }
+}
+
+std::vector<char> S3Driver::getBinary(
+        std::string rawPath,
+        Headers headers) const
+{
+    std::vector<char> data;
+
+    if (!get(Arbiter::stripType(rawPath), Query(), data, headers))
+    {
+        throw std::runtime_error("Couldn't S3 GET " + rawPath);
+    }
+
+    return data;
+}
+
+std::string S3Driver::get(std::string rawPath, Headers headers) const
+{
+    std::vector<char> data(getBinary(rawPath, headers));
+    return std::string(data.begin(), data.end());
 }
 
 std::vector<char> S3Driver::get(std::string rawPath, const Query& query) const
@@ -1101,20 +1171,13 @@ void S3Driver::put(std::string rawPath, const std::vector<char>& data) const
 std::vector<std::string> S3Driver::glob(std::string path, bool verbose) const
 {
     std::vector<std::string> results;
-
-    if (path.size() < 2 || path.substr(path.size() - 2) != "/*")
-    {
-        throw std::runtime_error("Invalid glob path: " + path);
-    }
-
-    path.resize(path.size() - 2);
+    path.pop_back();
 
     // https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGET.html
     const Resource resource(path);
     const std::string& bucket(resource.bucket);
     const std::string& object(resource.object);
-    const std::string prefix(
-            resource.object.empty() ? "" : resource.object + "/");
+    const std::string prefix(resource.object.empty() ? "" : resource.object);
 
     Query query;
 
@@ -1144,34 +1207,36 @@ std::vector<std::string> S3Driver::glob(std::string path, bool verbose) const
                 more = (t == "true");
             }
 
-            XmlNode* conNode(topNode->first_node("Contents"));
-
-            if (!conNode) throw std::runtime_error(badResponse);
-
-            for ( ; conNode; conNode = conNode->next_sibling())
+            if (XmlNode* conNode = topNode->first_node("Contents"))
             {
-                if (XmlNode* keyNode = conNode->first_node("Key"))
+                for ( ; conNode; conNode = conNode->next_sibling())
                 {
-                    std::string key(keyNode->value());
-
-                    // The prefix may contain slashes (i.e. is a sub-dir)
-                    // but we only include the top level after that.
-                    if (key.find('/', prefix.size()) == std::string::npos)
+                    if (XmlNode* keyNode = conNode->first_node("Key"))
                     {
-                        results.push_back("s3://" + bucket + "/" + key);
+                        std::string key(keyNode->value());
 
-                        if (more)
+                        // The prefix may contain slashes (i.e. is a sub-dir)
+                        // but we only include the top level after that.
+                        if (key.find('/', prefix.size()) == std::string::npos)
                         {
-                            query["marker"] =
-                                (object.size() ? object + "/" : "") +
-                                key.substr(prefix.size());
+                            results.push_back("s3://" + bucket + "/" + key);
+
+                            if (more)
+                            {
+                                query["marker"] =
+                                    object + key.substr(prefix.size());
+                            }
                         }
                     }
+                    else
+                    {
+                        throw std::runtime_error(badResponse);
+                    }
                 }
-                else
-                {
-                    throw std::runtime_error(badResponse);
-                }
+            }
+            else
+            {
+                throw std::runtime_error(badResponse);
             }
         }
         else

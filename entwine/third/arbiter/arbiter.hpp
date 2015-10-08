@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 62f7842812ce08f4a73a8f1d00c835e4fbc97eb9
+// Git SHA: debec8f38b4993c78639f7fa37138879d4a4568e
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -220,6 +220,8 @@ public:
 
     virtual std::string type() const { return "http"; }
     virtual void put(std::string path, const std::vector<char>& data) const;
+
+    static std::string sanitize(std::string path);
 
 private:
     virtual bool get(std::string path, std::vector<char>& data) const;
@@ -3045,6 +3047,9 @@ public:
     virtual std::string type() const { return "s3"; }
     virtual void put(std::string path, const std::vector<char>& data) const;
 
+    std::string get(std::string path, Headers headers) const;
+    std::vector<char> getBinary(std::string path, Headers headers) const;
+
 private:
     virtual bool get(std::string path, std::vector<char>& data) const;
     virtual std::vector<std::string> glob(std::string path, bool verbose) const;
@@ -3053,7 +3058,8 @@ private:
     bool get(
             std::string rawPath,
             const Query& query,
-            std::vector<char>& data) const;
+            std::vector<char>& data,
+            Headers = Headers()) const;
 
     Headers httpGetHeaders(std::string filePath) const;
     Headers httpPutHeaders(std::string filePath) const;
