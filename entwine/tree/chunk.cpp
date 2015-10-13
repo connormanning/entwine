@@ -304,6 +304,12 @@ SparseChunk::SparseChunk(
     // Skip tube IDs.
     const std::size_t dataOffset(sizeof(uint64_t));
 
+    if (m_numPoints * celledPointSize != data->size())
+    {
+        // TODO Non-recoverable.  Exit?
+        throw std::runtime_error("Bad numPoints detected - sparse chunk");
+    }
+
     PooledDataStack dataStack(m_pools.dataPool().acquire(m_numPoints));
     PooledInfoStack infoStack(m_pools.infoPool().acquire(m_numPoints));
 
@@ -317,7 +323,7 @@ SparseChunk::SparseChunk(
 
         char* pos(data->data() + i * celledPointSize);
         std::copy(pos + dataOffset, pos + celledPointSize, dataNode->val());
-        table.setData(dataNode->val());
+        table.setData(pos);
 
         infoNode->construct(
                 Point(
@@ -329,7 +335,7 @@ SparseChunk::SparseChunk(
         tube = view.getFieldAs<uint64_t>(tubeId, 0);
         tick = Tube::calcTick(infoNode->val().point(), m_bbox, m_depth);
 
-        m_tubes.at(tube).addCell(tick, std::move(infoNode));
+        m_tubes[tube].addCell(tick, std::move(infoNode));
     }
 }
 
@@ -425,6 +431,12 @@ ContiguousChunk::ContiguousChunk(
     // Skip tube IDs.
     const std::size_t dataOffset(sizeof(uint64_t));
 
+    if (m_numPoints * celledPointSize != data->size())
+    {
+        // TODO Non-recoverable.  Exit?
+        throw std::runtime_error("Bad numPoints detected - contiguous chunk");
+    }
+
     PooledDataStack dataStack(m_pools.dataPool().acquire(m_numPoints));
     PooledInfoStack infoStack(m_pools.infoPool().acquire(m_numPoints));
 
@@ -438,7 +450,7 @@ ContiguousChunk::ContiguousChunk(
 
         char* pos(data->data() + i * celledPointSize);
         std::copy(pos + dataOffset, pos + celledPointSize, dataNode->val());
-        table.setData(dataNode->val());
+        table.setData(pos);
 
         infoNode->construct(
                 Point(
@@ -456,7 +468,7 @@ ContiguousChunk::ContiguousChunk(
 
         tick = Tube::calcTick(infoNode->val().point(), m_bbox, depth);
 
-        m_tubes[tube].addCell(tick, std::move(infoNode));
+        m_tubes.at(tube).addCell(tick, std::move(infoNode));
     }
 }
 
