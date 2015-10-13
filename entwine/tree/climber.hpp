@@ -141,13 +141,14 @@ public:
 
             std::abs(qMid.y - midY()) <
                 m_qbox.depth() / 2.0 +
-                m_bbox.depth() / 2.0 / static_cast<double>(m_splits) &&
+                m_bbox.depth() / 2.0 / static_cast<double>(m_splits);/* &&
 
+            // TODO Re-enable, for hybrid tree we don't want to check this.
             (
                 !m_bbox.is3d() ||
                 std::abs(qMid.z - midZ()) <
                     m_qbox.height() / 2.0 +
-                    m_bbox.height() / 2.0 / static_cast<double>(m_splits));
+                    m_bbox.height() / 2.0 / static_cast<double>(m_splits));*/
     }
 
     std::size_t depth() const

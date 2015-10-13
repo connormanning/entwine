@@ -20,12 +20,16 @@ namespace entwine
 FetchInfo::FetchInfo(
         arbiter::Endpoint& endpoint,
         const Schema& schema,
+        const BBox& bbox,
         const Id& id,
-        std::size_t numPoints)
+        const std::size_t numPoints,
+        const std::size_t depth)
     : endpoint(endpoint)
     , schema(schema)
+    , bbox(bbox)
     , id(id)
     , numPoints(numPoints)
+    , depth(depth)
 { }
 
 Block::Block(
@@ -246,7 +250,9 @@ const ChunkReader* Cache::fetch(
         chunkState.chunkReader.reset(
                 new ChunkReader(
                     fetchInfo.schema,
+                    fetchInfo.bbox,
                     fetchInfo.id,
+                    fetchInfo.depth,
                     std::move(rawData)));
     }
 
