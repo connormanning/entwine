@@ -61,7 +61,7 @@ public:
     ~Registry();
 
     bool addPoint(
-            PooledInfoNode* toAdd,
+            PooledInfoNode& toAdd,
             Climber& climber,
             Clipper* clipper);
 

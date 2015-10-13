@@ -18,13 +18,13 @@
 
 #include <pdal/Dimension.hpp>
 
+#include <entwine/third/splice-pool/splice-pool.hpp>
 #include <entwine/tree/manifest.hpp>
 #include <entwine/tree/point-info.hpp>
 #include <entwine/types/dim-info.hpp>
 #include <entwine/types/range.hpp>
 #include <entwine/types/stats.hpp>
 #include <entwine/types/structure.hpp>
-#include <entwine/util/object-pool.hpp>
 #include <entwine/util/pool.hpp>
 
 namespace pdal

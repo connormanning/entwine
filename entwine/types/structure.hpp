@@ -15,18 +15,19 @@
 
 #include <entwine/third/bigint/little-big-int.hpp>
 #include <entwine/third/json/json.hpp>
+#include <entwine/third/splice-pool/splice-pool.hpp>
 #include <entwine/tree/point-info.hpp>
 #include <entwine/types/subset.hpp>
-#include <entwine/util/object-pool.hpp>
 
 namespace entwine
 {
 
 typedef BigUint Id;
 
-typedef ObjectPool<PointInfoShallow> InfoPool;
-typedef InfoPool::NodeType PooledInfoNode;
-typedef InfoPool::StackType PooledInfoStack;
+typedef splicer::ObjectPool<PointInfoShallow> InfoPool;
+typedef InfoPool::NodeType RawInfoNode;
+typedef InfoPool::UniqueNodeType PooledInfoNode;
+typedef InfoPool::UniqueStackType PooledInfoStack;
 
 class Pools
 {
@@ -39,39 +40,6 @@ public:
 private:
     DataPool m_dataPool;
     InfoPool m_infoPool;
-};
-
-class PooledStack
-{
-public:
-    PooledStack(DataPool& dataPool, InfoPool& infoPool)
-        : m_dataPool(dataPool)
-        , m_infoPool(infoPool)
-        , m_dataStack()
-        , m_infoStack()
-    { }
-
-    ~PooledStack()
-    {
-        if (!m_dataStack.empty())
-        {
-            m_dataPool.release(m_dataStack);
-            m_infoPool.release(m_infoStack);
-        }
-    }
-
-    void push(PooledInfoNode* info)
-    {
-        m_dataStack.push(info->val().releaseDataNode());
-        m_infoStack.push(info);
-    }
-
-private:
-    DataPool& m_dataPool;
-    InfoPool& m_infoPool;
-
-    PooledDataStack m_dataStack;
-    PooledInfoStack m_infoStack;
 };
 
 class BBox;

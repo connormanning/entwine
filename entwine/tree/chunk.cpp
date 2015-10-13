@@ -303,30 +303,33 @@ SparseChunk::SparseChunk(
 
     // Skip tube IDs.
     const std::size_t dataOffset(sizeof(uint64_t));
-    DataPool& dataPool(m_pools.dataPool());
-    InfoPool& infoPool(m_pools.infoPool());
+
+    PooledDataStack dataStack(m_pools.dataPool().acquire(m_numPoints));
+    PooledInfoStack infoStack(m_pools.infoPool().acquire(m_numPoints));
 
     for (std::size_t i(0); i < m_numPoints; ++i)
     {
+        PooledDataNode dataNode(dataStack.popOne());
+        PooledInfoNode infoNode(infoStack.popOne());
+
+        assert(dataNode.get());
+        assert(infoNode.get());
+
         char* pos(data->data() + i * celledPointSize);
-        table.setData(pos);
+        std::copy(pos + dataOffset, pos + celledPointSize, dataNode->val());
+        table.setData(dataNode->val());
 
-        PooledDataNode* data(m_pools.dataPool().acquire());
-        std::copy(pos + dataOffset, pos + celledPointSize, data->val());
-
-        PooledInfoNode* info(
-                infoPool.acquire(
-                    Point(
-                        view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
-                        view.getFieldAs<double>(pdal::Dimension::Id::Y, 0),
-                        view.getFieldAs<double>(pdal::Dimension::Id::Z, 0)),
-                    data,
-                    &dataPool));
+        infoNode->construct(
+                Point(
+                    view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
+                    view.getFieldAs<double>(pdal::Dimension::Id::Y, 0),
+                    view.getFieldAs<double>(pdal::Dimension::Id::Z, 0)),
+                std::move(dataNode));
 
         tube = view.getFieldAs<uint64_t>(tubeId, 0);
-        tick = Tube::calcTick(info->val().point(), m_bbox, m_depth);
+        tick = Tube::calcTick(infoNode->val().point(), m_bbox, m_depth);
 
-        m_tubes[tube].addCell(tick, info);
+        m_tubes.at(tube).addCell(tick, std::move(infoNode));
     }
 }
 
@@ -352,12 +355,14 @@ void SparseChunk::save(arbiter::Endpoint& endpoint)
     // TODO Nearly direct copy/paste from ContiguousChunk::save.
     Compressor compressor(m_celledSchema);
     std::vector<char> data;
-    std::unique_ptr<PooledStack> stack(
-            new PooledStack(m_pools.dataPool(), m_pools.infoPool()));
+
+    PooledDataStack dataStack(m_pools.dataPool());
+    PooledInfoStack infoStack(m_pools.infoPool());
 
     for (const auto& pair : m_tubes)
     {
-        pair.second.save(m_celledSchema, pair.first, data, *stack);
+        pair.second.save(
+                m_celledSchema, pair.first, data, dataStack, infoStack);
 
         if (data.size())
         {
@@ -367,7 +372,8 @@ void SparseChunk::save(arbiter::Endpoint& endpoint)
     }
 
     std::vector<char> compressed(compressor.data());
-    stack.reset();
+    dataStack.reset();
+    infoStack.reset();
     pushTail(compressed, Tail(m_numPoints, Sparse));
     ensurePut(endpoint, m_id.str(), compressed);
 }
@@ -418,36 +424,39 @@ ContiguousChunk::ContiguousChunk(
 
     // Skip tube IDs.
     const std::size_t dataOffset(sizeof(uint64_t));
-    DataPool& dataPool(m_pools.dataPool());
-    InfoPool& infoPool(m_pools.infoPool());
+
+    PooledDataStack dataStack(m_pools.dataPool().acquire(m_numPoints));
+    PooledInfoStack infoStack(m_pools.infoPool().acquire(m_numPoints));
 
     for (std::size_t i(0); i < m_numPoints; ++i)
     {
+        PooledDataNode dataNode(dataStack.popOne());
+        PooledInfoNode infoNode(infoStack.popOne());
+
+        assert(dataNode.get());
+        assert(infoNode.get());
+
         char* pos(data->data() + i * celledPointSize);
-        table.setData(pos);
+        std::copy(pos + dataOffset, pos + celledPointSize, dataNode->val());
+        table.setData(dataNode->val());
 
-        PooledDataNode* data(m_pools.dataPool().acquire());
-        std::copy(pos + dataOffset, pos + celledPointSize, data->val());
-
-        PooledInfoNode* info(
-                infoPool.acquire(
-                    Point(
-                        view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
-                        view.getFieldAs<double>(pdal::Dimension::Id::Y, 0),
-                        view.getFieldAs<double>(pdal::Dimension::Id::Z, 0)),
-                    data,
-                    &dataPool));
+        infoNode->construct(
+                Point(
+                    view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
+                    view.getFieldAs<double>(pdal::Dimension::Id::Y, 0),
+                    view.getFieldAs<double>(pdal::Dimension::Id::Z, 0)),
+                std::move(dataNode));
 
         tube = view.getFieldAs<uint64_t>(tubeId, 0);
-        tick =
-            Tube::calcTick(
-                info->val().point(),
-                m_bbox,
+
+        const std::size_t depth(
                 m_depth ?
                     m_depth :
                     ChunkInfo::calcDepth(m_structure.factor(), m_id + i));
 
-        m_tubes[tube].addCell(tick, info);
+        tick = Tube::calcTick(infoNode->val().point(), m_bbox, depth);
+
+        m_tubes[tube].addCell(tick, std::move(infoNode));
     }
 }
 
@@ -470,12 +479,13 @@ void ContiguousChunk::save(
 {
     Compressor compressor(m_celledSchema);
     std::vector<char> data;
-    std::unique_ptr<PooledStack> stack(
-            new PooledStack(m_pools.dataPool(), m_pools.infoPool()));
+
+    PooledDataStack dataStack(m_pools.dataPool());
+    PooledInfoStack infoStack(m_pools.infoPool());
 
     for (std::size_t i(0); i < m_tubes.size(); ++i)
     {
-        m_tubes[i].save(m_celledSchema, i, data, *stack);
+        m_tubes[i].save(m_celledSchema, i, data, dataStack, infoStack);
 
         if (data.size())
         {
@@ -485,7 +495,8 @@ void ContiguousChunk::save(
     }
 
     std::vector<char> compressed(compressor.data());
-    stack.reset();
+    dataStack.reset();
+    infoStack.reset();
     pushTail(compressed, Tail(m_numPoints, Contiguous));
     ensurePut(endpoint, m_id.str() + postfix, compressed);
 }

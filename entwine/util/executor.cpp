@@ -26,6 +26,11 @@
 namespace entwine
 {
 
+namespace
+{
+    const std::size_t chunkPoints(65536);
+}
+
 Executor::Executor(bool is3d)
     : m_is3d(is3d)
     , m_stageFactory(new pdal::StageFactory())
@@ -71,7 +76,9 @@ bool Executor::run(
     {
         const std::size_t indexSpan(index - begin);
 
-        if (pointTable.size() == indexSpan + 1)
+        if (
+                pointTable.size() == indexSpan + 1 &&
+                pointTable.size() >= chunkPoints)
         {
             LinkingPointView link(pointTable);
             if (filter) pdal::FilterWrapper::filter(*filter, link);

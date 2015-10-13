@@ -25,27 +25,36 @@
 namespace entwine
 {
 
-typedef std::atomic<PooledInfoNode*> PointInfoAtom;
+typedef std::atomic<RawInfoNode*> PointInfoAtom;
 
 class Cell
 {
 public:
-    Cell() : m_atom(0) { }
-    Cell(PooledInfoNode* pointInfo) : m_atom(pointInfo) { }
+    Cell() : m_atom(nullptr) { }
+    Cell(PooledInfoNode& pointInfo) : m_atom() { store(pointInfo); }
 
     const PointInfoAtom& atom() const
     {
         return m_atom;
     }
 
-    bool swap(PooledInfoNode* newVal, PooledInfoNode* oldVal = 0)
+    bool swap(PooledInfoNode& newPooled, RawInfoNode* oldVal = 0)
     {
-        return m_atom.compare_exchange_weak(oldVal, newVal);
+        if (m_atom.compare_exchange_weak(oldVal, newPooled.get()))
+        {
+            newPooled.release();
+            return true;
+        }
+        else
+        {
+            return false;
+        }
     }
 
-    void store(PooledInfoNode* newVal)
+    void store(PooledInfoNode& newPooled)
     {
-        m_atom.store(newVal);
+        RawInfoNode* val(newPooled.release());
+        m_atom.store(val);
     }
 
 private:
@@ -58,13 +67,14 @@ public:
     Tube();
 
     std::pair<bool, Cell&> getCell(std::size_t tick);
-    void addCell(std::size_t tick, PooledInfoNode* info);
+    void addCell(std::size_t tick, PooledInfoNode info);
 
     void save(
             const Schema& celledSchema,
             uint64_t tubeId,
             std::vector<char>& data,
-            PooledStack& stack) const;
+            PooledDataStack& dataStack,
+            PooledInfoStack& infoStack) const;
 
     typedef std::unordered_map<uint64_t, Cell> MapType;
 

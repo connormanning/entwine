@@ -10,7 +10,6 @@ set(
     "${BASE}/reprojection.cpp"
     "${BASE}/schema.cpp"
     "${BASE}/simple-point-layout.cpp"
-    "${BASE}/simple-point-table.cpp"
     "${BASE}/single-point-table.cpp"
     "${BASE}/stats.cpp"
     "${BASE}/structure.cpp"

@@ -25,7 +25,7 @@ Tube::Tube()
     , m_mutex()
 { }
 
-void Tube::addCell(const std::size_t tick, PooledInfoNode* info)
+void Tube::addCell(const std::size_t tick, PooledInfoNode info)
 {
     if (m_primaryTick == unassigned)
     {
@@ -80,7 +80,8 @@ void Tube::save(
         const Schema& celledSchema,
         const uint64_t tubeId,
         std::vector<char>& data,
-        PooledStack& stack) const
+        PooledDataStack& dataStack,
+        PooledInfoStack& infoStack) const
 {
     if (!empty())
     {
@@ -105,7 +106,10 @@ void Tube::save(
             std::copy(tubePos, tubePos + idSize, pos);
             std::copy(rawData, rawData + nativeSize, pos + idSize);
 
-            stack.push(cell.atom().load());
+            RawInfoNode* rawInfoNode(cell.atom().load());
+
+            dataStack.push(rawInfoNode->val().acquireDataNode());
+            infoStack.push(rawInfoNode);
 
             pos += celledSize;
         }
@@ -119,7 +123,10 @@ void Tube::save(
             std::copy(tubePos, tubePos + idSize, pos);
             std::copy(rawData, rawData + nativeSize, pos + idSize);
 
-            stack.push(cell.atom().load());
+            RawInfoNode* rawInfoNode(cell.atom().load());
+
+            dataStack.push(rawInfoNode->val().acquireDataNode());
+            infoStack.push(rawInfoNode);
 
             pos += celledSize;
         }

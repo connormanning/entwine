@@ -149,7 +149,7 @@ Registry::~Registry()
 { }
 
 bool Registry::addPoint(
-        PooledInfoNode* toAdd,
+        PooledInfoNode& toAdd,
         Climber& climber,
         Clipper* clipper)
 {
@@ -165,7 +165,7 @@ bool Registry::addPoint(
             redo = false;
 
             const PointInfoAtom& atom(cell->atom());
-            if (PooledInfoNode* current = atom.load())
+            if (RawInfoNode* current = atom.load())
             {
                 const Point& mid(climber.bbox().mid());
                 const Point& toAddPoint(toAdd->val().point());
@@ -176,7 +176,7 @@ bool Registry::addPoint(
                 {
                     done = false;
                     redo = !cell->swap(toAdd, current);
-                    if (!redo) toAdd = current;
+                    if (!redo) toAdd.reset(current);
                 }
             }
             else
@@ -202,7 +202,6 @@ bool Registry::addPoint(
         }
         else
         {
-            m_pointPool.infoPool().release(toAdd);
             return false;
         }
     }

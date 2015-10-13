@@ -264,22 +264,30 @@ void Builder::insert(
 {
     using namespace pdal;
 
-    DataPool& dataPool(m_pointPool->dataPool());
     InfoPool& infoPool(m_pointPool->infoPool());
-    PooledStack stack(dataPool, infoPool);
 
-    for (std::size_t i = 0; i < pointView.size(); ++i)
+    PooledDataStack dataStack(table.stack());
+    PooledInfoStack infoStack(infoPool.acquire(dataStack.size()));
+
+    SinglePointTable localTable(*m_schema);
+    LinkingPointView localView(localTable);
+
+    PooledInfoStack rejected(infoPool);
+
+    while (!infoStack.empty())
     {
-        pointView.setField(m_originId, i, origin);
+        PooledDataNode data(dataStack.popOne());
+        PooledInfoNode info(infoStack.popOne());
 
-        PooledInfoNode* info(
-                infoPool.acquire(
-                    Point(
-                        pointView.getFieldAs<double>(Dimension::Id::X, i),
-                        pointView.getFieldAs<double>(Dimension::Id::Y, i),
-                        pointView.getFieldAs<double>(Dimension::Id::Z, i)),
-                    table.getNode(i),
-                    &dataPool));
+        localTable.setData(**data);
+        localView.setField(m_originId, 0, origin);
+
+        info->construct(
+                Point(
+                    localView.getFieldAs<double>(Dimension::Id::X, 0),
+                    localView.getFieldAs<double>(Dimension::Id::Y, 0),
+                    localView.getFieldAs<double>(Dimension::Id::Z, 0)),
+                std::move(data));
 
         const Point& point(info->val().point());
 
@@ -297,13 +305,18 @@ void Builder::insert(
                 }
                 else
                 {
+                    rejected.push(std::move(info));
                     m_stats.addFallThrough();
                 }
+            }
+            else
+            {
+                rejected.push(std::move(info));
             }
         }
         else
         {
-            stack.push(info);
+            rejected.push(std::move(info));
             m_stats.addOutOfBounds();
         }
     }
