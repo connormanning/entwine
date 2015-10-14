@@ -41,7 +41,7 @@ pkg=(
 apt-get install -q -y -V ${pkg[@]}
 
 # Install node.
-nodeVersion="0.12.7"
+nodeVersion="4.2.1"
 nodeUrl="http://nodejs.org/dist/v$nodeVersion/node-v$nodeVersion-linux-x64.tar.gz"
 echo Provisioning node.js version $nodeVersion...
 mkdir -p /tmp/nodejs
