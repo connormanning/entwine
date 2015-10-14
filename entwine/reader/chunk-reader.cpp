@@ -21,10 +21,14 @@ namespace entwine
 
 ChunkReader::ChunkReader(
         const Schema& schema,
+        const BBox& bbox,
         const Id& id,
+        const std::size_t depth,
         std::unique_ptr<std::vector<char>> compressed)
     : m_schema(schema)
+    , m_bbox(bbox)
     , m_id(id)
+    , m_depth(depth)
     , m_numPoints(Chunk::popTail(*compressed).numPoints)
     , m_data()
     , m_points()
@@ -44,11 +48,10 @@ ChunkReader::ChunkReader(
     SinglePointTable table(celledSchema);
     LinkingPointView view(table);
 
-    const pdal::Dimension::Id::Enum cellId(
-            celledSchema.pdalLayout().findDim("CellId"));
-
     char* pos(celledData->data());
     char* out(m_data.data());
+
+    Point point;
 
     // Skip tube IDs.
     const std::size_t nativeOffset(sizeof(uint64_t));
@@ -58,15 +61,14 @@ ChunkReader::ChunkReader(
         table.setData(pos);
         std::copy(pos + nativeOffset, pos + celledPointSize, out);
 
+        point.x = view.getFieldAs<double>(pdal::Dimension::Id::X, 0);
+        point.y = view.getFieldAs<double>(pdal::Dimension::Id::Y, 0);
+        point.z = view.getFieldAs<double>(pdal::Dimension::Id::Z, 0);
+
         m_points.emplace(
                 std::piecewise_construct,
-                std::forward_as_tuple(view.getFieldAs<uint64_t>(cellId, 0)),
-                std::forward_as_tuple(
-                    Point(
-                        view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
-                        view.getFieldAs<double>(pdal::Dimension::Id::Y, 0),
-                        view.getFieldAs<double>(pdal::Dimension::Id::Z, 0)),
-                    out));
+                std::forward_as_tuple(Tube::calcTick(point, m_bbox, m_depth)),
+                std::forward_as_tuple(point, out));
 
         pos += celledPointSize;
         out += nativePointSize;
@@ -85,9 +87,15 @@ std::size_t ChunkReader::query(
     SinglePointTable table(m_schema);
     LinkingPointView view(table);
 
-    for (const auto& entry : m_points)
+    const std::size_t minTick(Tube::calcTick(qbox.min(), m_bbox, m_depth));
+    const std::size_t maxTick(Tube::calcTick(qbox.max(), m_bbox, m_depth));
+
+    auto it(m_points.lower_bound(minTick));
+    const auto end(m_points.upper_bound(maxTick));
+
+    while (it != end)
     {
-        const PointInfoNonPooled& info(entry.second);
+        const PointInfoNonPooled& info(it->second);
         const Point& point(info.point());
         if (qbox.contains(point))
         {
@@ -103,6 +111,8 @@ std::size_t ChunkReader::query(
                 pos += dim.size();
             }
         }
+
+        ++it;
     }
 
     return numPoints;

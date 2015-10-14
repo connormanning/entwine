@@ -69,8 +69,10 @@ Query::Query(
                         FetchInfo(
                             *endpoint,
                             m_reader.schema(),
+                            m_reader.bbox(),
                             chunkId,
-                            m_structure.getInfo(chunkId).chunkPoints()));
+                            m_structure.getInfo(chunkId).chunkPoints(),
+                            splitter.depth()));
             }
             else
             {

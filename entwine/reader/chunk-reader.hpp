@@ -30,7 +30,9 @@ class ChunkReader
 public:
     ChunkReader(
             const Schema& schema,
+            const BBox& bbox,
             const Id& id,
+            std::size_t depth,
             std::unique_ptr<std::vector<char>> data);
 
     std::size_t query(
@@ -48,34 +50,14 @@ private:
     }
 
     const Schema& m_schema;
+    const BBox& m_bbox;
     const Id m_id;
+    const std::size_t m_depth;
     const std::size_t m_numPoints;
 
     std::vector<char> m_data;
     std::multimap<uint64_t, PointInfoNonPooled> m_points;
 };
-
-/*
-class ChunkIter
-{
-public:
-    ChunkIter(const ChunkReader& reader);
-
-    bool next() { return ++m_index < m_numPoints; }
-
-    const char* getData() const
-    {
-        return m_data.data() + m_pointSize * m_index;
-    }
-
-private:
-    const std::vector<char>& m_data;
-
-    std::size_t m_index;
-    std::size_t m_numPoints;
-    std::size_t m_pointSize;
-};
-*/
 
 } // namespace entwine
 
