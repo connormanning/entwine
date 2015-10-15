@@ -112,83 +112,101 @@ void Climber::climb(Dir dir)
 
 bool SplitClimber::next(bool terminate)
 {
-    if (terminate || (m_depthEnd && depth() + 1 >= m_depthEnd))
+    bool redo(false);
+
+    do
     {
-        // Move shallower.
-        while (
-                (m_traversal.size() && ++m_traversal.back() == m_factor) ||
-                (depth() > m_structure.sparseDepthBegin() + 1))
+        redo = false;
+
+        if (terminate || (m_depthEnd && depth() + 1 >= m_depthEnd))
         {
-            if (depth() <= m_structure.sparseDepthBegin() + 1)
+            // Move shallower.
+            while (
+                    (m_traversal.size() && ++m_traversal.back() == m_factor) ||
+                    (depth() > m_structure.sparseDepthBegin() + 1))
             {
-                m_index -= (m_factor - 1) * m_step;
+                if (depth() <= m_structure.sparseDepthBegin() + 1)
+                {
+                    m_index -= (m_factor - 1) * m_step;
+                }
+
+                m_index >>= m_dimensions;
+
+                m_traversal.pop_back();
+                m_splits /= 2;
+
+                m_xPos /= 2;
+                m_yPos /= 2;
+                if (m_is3d) m_zPos /= 2;
             }
 
-            m_index >>= m_dimensions;
+            // Move laterally.
+            if (m_traversal.size())
+            {
+                const auto current(m_traversal.back());
+                m_index += m_step;
 
-            m_traversal.pop_back();
-            m_splits /= 2;
+                if (current % 2)
+                {
+                    // Odd numbers: W->E.
+                    ++m_xPos;
+                }
+                if (current == 2 || current == 6)
+                {
+                    // 2 or 6: E->W, N->S.
+                    --m_xPos;
+                    ++m_yPos;
+                }
+                else if (current == 4)
+                {
+                    // 4: E->W, S->N, D->U.
+                    --m_xPos;
+                    --m_yPos;
+                    ++m_zPos;
+                }
+            }
+        }
+        else
+        {
+            // Move deeper.
+            m_traversal.push_back(0);
+            m_splits *= 2;
 
-            m_xPos /= 2;
-            m_yPos /= 2;
-            if (m_is3d) m_zPos /= 2;
+            m_index = (m_index << m_dimensions) + 1;
+
+            m_xPos *= 2;
+            m_yPos *= 2;
+            if (m_is3d) m_zPos *= 2;
         }
 
-        // Move laterally.
         if (m_traversal.size())
         {
-            const auto current(m_traversal.back());
-            m_index += m_step;
-
-            if (current % 2)
+            if (
+                    depth() < m_depthBegin ||
+                    depth() < m_structure.baseDepthBegin() ||
+                    (m_chunked && depth() < m_structure.coldDepthBegin()))
             {
-                // Odd numbers: W->E.
-                ++m_xPos;
+                terminate = false;
+                redo = true;
             }
-            if (current == 2 || current == 6)
+            else if (overlaps())
             {
-                // 2 or 6: E->W, N->S.
-                --m_xPos;
-                ++m_yPos;
+                return true;
             }
-            else if (current == 4)
+            else
             {
-                // 4: E->W, S->N, D->U.
-                --m_xPos;
-                --m_yPos;
-                ++m_zPos;
+                terminate = true;
+                redo = true;
             }
         }
-    }
-    else
-    {
-        // Move deeper.
-        m_traversal.push_back(0);
-        m_splits *= 2;
-
-        m_index = (m_index << m_dimensions) + 1;
-
-        m_xPos *= 2;
-        m_yPos *= 2;
-        if (m_is3d) m_zPos *= 2;
-    }
-
-    if (m_traversal.size())
-    {
-        if (
-                depth() < m_depthBegin ||
-                depth() < m_structure.baseDepthBegin() ||
-                (m_chunked && depth() < m_structure.coldDepthBegin()))
+        else
         {
-            return next();
+            return false;
         }
-        else if (overlaps()) return true;
-        else return next(true);
     }
-    else
-    {
-        return false;
-    }
+    while (redo);
+
+    return false;
 }
 
 } // namespace entwine
