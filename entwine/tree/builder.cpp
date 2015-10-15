@@ -475,7 +475,6 @@ void Builder::load()
 
 void Builder::merge()
 {
-    /*
     std::unique_ptr<ContiguousChunk> base;
     std::vector<Id> ids;
     const std::size_t baseCount([this]()->std::size_t
@@ -528,49 +527,49 @@ void Builder::merge()
                 m_outEndpoint->getSubpathBinary(
                     m_structure->baseIndexBegin().str() + postfix));
 
-        if (!data.empty() || data.back() == Chunk::Contiguous)
+        if (i == 0)
         {
-            data.pop_back();
-
-            if (i == 0)
-            {
-                std::cout << "\t1 / " << baseCount << std::endl;
-                base.reset(
-                        new ContiguousChunk(
+            std::cout << "\t1 / " << baseCount << std::endl;
+            base.reset(
+                    static_cast<ContiguousChunk*>(
+                        Chunk::create(
                             *m_schema,
+                            *m_bbox,
+                            *m_structure,
+                            *m_pointPool,
+                            0,
                             m_structure->baseIndexBegin(),
                             m_structure->baseIndexSpan(),
-                            data));
-            }
-            else
-            {
-                std::cout << "\t" << i + 1 << " / " << baseCount << std::endl;
-
-                std::unique_ptr<ContiguousChunk> chunkData(
-                        new ContiguousChunk(
-                            *m_schema,
-                            m_structure->baseIndexBegin(),
-                            m_structure->baseIndexSpan(),
-                            data));
-
-
-                // Update stats.  Don't add numOutOfBounds, since those are
-                // based on the global bounds, so every segment's out-of-bounds
-                // count should be equal.
-                Stats stats(meta["stats"]);
-                m_stats.addPoint(stats.getNumPoints());
-                m_stats.addFallThrough(stats.getNumFallThroughs());
-                if (m_stats.getNumOutOfBounds() != stats.getNumOutOfBounds())
-                {
-                    throw std::runtime_error("Invalid stats in segment.");
-                }
-
-                base->merge(*chunkData);
-            }
+                            std::move(data)).release()));
         }
         else
         {
-            throw std::runtime_error("Invalid base segment.");
+            std::cout << "\t" << i + 1 << " / " << baseCount << std::endl;
+
+            std::unique_ptr<ContiguousChunk> chunkData(
+                    static_cast<ContiguousChunk*>(
+                        Chunk::create(
+                            *m_schema,
+                            *m_bbox,
+                            *m_structure,
+                            *m_pointPool,
+                            0,
+                            m_structure->baseIndexBegin(),
+                            m_structure->baseIndexSpan(),
+                            std::move(data)).release()));
+
+            // Update stats.  Don't add numOutOfBounds, since those are
+            // based on the global bounds, so every segment's out-of-bounds
+            // count should be equal.
+            Stats stats(meta["stats"]);
+            m_stats.addPoint(stats.getNumPoints());
+            m_stats.addFallThrough(stats.getNumFallThroughs());
+            if (m_stats.getNumOutOfBounds() != stats.getNumOutOfBounds())
+            {
+                throw std::runtime_error("Invalid stats in segment.");
+            }
+
+            base->merge(*chunkData);
         }
     }
 
@@ -588,7 +587,6 @@ void Builder::merge()
     m_outEndpoint->putSubpath("entwine", jsonMeta.toStyledString());
 
     base->save(*m_outEndpoint);
-    */
 }
 
 void Builder::link(std::vector<std::string> subsetPaths)

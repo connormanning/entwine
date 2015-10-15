@@ -518,37 +518,24 @@ void ContiguousChunk::save(arbiter::Endpoint& endpoint)
     save(endpoint, "");
 }
 
-/*
 void ContiguousChunk::merge(ContiguousChunk& other)
 {
-    const std::size_t pointSize(m_schema.pointSize());
-
-    for (Id i(m_id); i < m_id + m_maxPoints; ++i)
+    for (std::size_t i(0); i < m_tubes.size(); ++i)
     {
-        Cell* ours(getCell(i));
-        Cell* theirs(other.getCell(i));
+        Tube& ours(m_tubes.at(i));
+        const Tube& theirs(other.m_tubes.at(i));
 
-        // Can't overlap - these are distinct subsets.
-        assert(
-                !Point::exists(ours->point()) ||
-                !Point::exists(theirs->point()));
-
-        const Point theirPoint(theirs->point());
-
-        if (Point::exists(theirPoint))
+        if (!ours.empty() && !theirs.empty())
         {
-            if (!Point::exists(ours->point()))
-            {
-                ours->update(theirPoint, theirs->data(), pointSize);
-            }
-            else
-            {
-                throw std::runtime_error("Trying to merge invalid chunks.");
-            }
+            throw std::runtime_error("Tube mismatch");
+        }
+
+        if (!theirs.empty())
+        {
+            ours = theirs;
         }
     }
 }
-*/
 
 } // namespace entwine
 

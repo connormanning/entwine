@@ -33,6 +33,16 @@ public:
     Cell() : m_atom(nullptr) { }
     Cell(PooledInfoNode& pointInfo) : m_atom() { store(pointInfo); }
 
+    Cell(const Cell& other)
+        : m_atom(other.atom().load())
+    { }
+
+    Cell& operator=(const Cell& other)
+    {
+        m_atom.store(other.atom().load());
+        return *this;
+    }
+
     const PointInfoAtom& atom() const
     {
         return m_atom;
@@ -65,6 +75,14 @@ class Tube
 {
 public:
     Tube();
+    Tube& operator=(const Tube& other)
+    {
+        m_primaryTick.store(other.primaryTick());
+        m_primaryCell = other.primaryCell();
+        m_cells = other.secondaryCells();
+
+        return *this;
+    }
 
     std::pair<bool, Cell&> getCell(std::size_t tick);
     void addCell(std::size_t tick, PooledInfoNode info);
