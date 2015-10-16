@@ -9,24 +9,22 @@
 #include <sstream>
 
 BigUint::BigUint()
-    : m_val{1, 0, Alloc(m_shortStack)}
+    : m_val{1, 0, Alloc(m_arena)}
 { }
 
 BigUint::BigUint(const Block val)
-    : m_val{1, val, Alloc(m_shortStack)}
+    : m_val{1, val, Alloc(m_arena)}
 { }
 
 BigUint::BigUint(std::vector<Block> blocks)
-    : m_val(Alloc(m_shortStack))
+    : m_val(blocks.begin(), blocks.end(), Alloc(m_arena))
 {
-    m_val.insert(m_val.end(), blocks.begin(), blocks.end());
     if (m_val.empty()) m_val.push_back(0);
 }
 
 BigUint::BigUint(const std::string& str)
-    : m_val(Alloc(m_shortStack))
+    : m_val{1, 0, Alloc(m_arena)}
 {
-    m_val.push_back(0);
     BigUint factor(1);
     const std::size_t size(str.size());
 
@@ -43,7 +41,7 @@ BigUint::BigUint(const std::string& str)
 }
 
 BigUint::BigUint(const BigUint& other)
-    : m_val(other.m_val, Alloc(m_shortStack))
+    : m_val(other.m_val, Alloc(m_arena))
 { }
 
 BigUint& BigUint::operator=(const BigUint& other)
@@ -480,6 +478,7 @@ BigUint& operator>>=(BigUint& lhs, Block rhs)
 
     Block last(val.back() >> shiftBits);
     val.resize(startBlocks - shiftBlocks - (last ? 0 : 1));
+
     if (val.empty()) val.push_back(0);
     else if (last) val.back() = last;
 
@@ -587,7 +586,7 @@ bool operator<(const BigUint& lhs, const BigUint& rhs)
     if (lhs.trivial())
     {
         if (rhs.trivial()) return lhs.m_val.front() < rhs.m_val.front();
-        else return false;
+        else return true;
     }
 
     const auto& lhsVal(lhs.val());
