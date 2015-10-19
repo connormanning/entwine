@@ -96,11 +96,8 @@ void Tube::save(
 
         const char* tubePos(reinterpret_cast<const char*>(&tubeId));
 
-        // TODO Deduplicate.
-
-        // Save primary cell.
+        const auto saveCell([&](const Cell& cell)
         {
-            const Cell& cell(m_primaryCell);
             const char* rawData(cell.atom().load()->val().data());
 
             std::copy(tubePos, tubePos + idSize, pos);
@@ -112,24 +109,10 @@ void Tube::save(
             infoStack.push(rawInfoNode);
 
             pos += celledSize;
-        }
+        });
 
-        // Save mapped cells.
-        for (const auto& c : m_cells)
-        {
-            const Cell& cell(c.second);
-            const char* rawData(cell.atom().load()->val().data());
-
-            std::copy(tubePos, tubePos + idSize, pos);
-            std::copy(rawData, rawData + nativeSize, pos + idSize);
-
-            RawInfoNode* rawInfoNode(cell.atom().load());
-
-            dataStack.push(rawInfoNode->val().acquireDataNode());
-            infoStack.push(rawInfoNode);
-
-            pos += celledSize;
-        }
+        saveCell(m_primaryCell);
+        for (const auto& c : m_cells) saveCell(c.second);
     }
 }
 

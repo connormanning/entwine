@@ -112,7 +112,6 @@ public:
                     (bbox.max().z - bbox.min().z));
     }
 
-
 private:
     std::atomic_size_t m_primaryTick;
     Cell m_primaryCell;
