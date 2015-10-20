@@ -104,12 +104,40 @@ public:
     static std::size_t calcTick(
             const Point& point,
             const BBox& bbox,
-            std::size_t depth)
+            const std::size_t depth)
     {
         return
-            static_cast<std::size_t>(
-                    std::floor((point.z - bbox.min().z) * (1ULL << depth)) /
+            std::floor(
+                    (point.z - bbox.min().z) * (1ULL << depth) /
                     (bbox.max().z - bbox.min().z));
+    }
+
+    // TODO Return an Id.
+    static std::size_t calcTube(
+            const Point& point,
+            const BBox& bbox,
+            const std::size_t ticks)
+    {
+        const std::size_t tickX(
+                std::floor(
+                    (point.x - bbox.min().x) * ticks /
+                    (bbox.max().x - bbox.min().x)));
+        const std::size_t tickY(
+                std::floor(
+                    (point.y - bbox.min().y) * ticks /
+                    (bbox.max().y - bbox.min().y)));
+
+        uint64_t expandX(0);
+        uint64_t expandY(0);
+
+        // TODO Don't hardcode number of bits.  This should be an Id.
+        for (std::size_t i(0); i < 32; ++i)
+        {
+            expandX |= ((tickX >> i) & 1ULL) << (i * 2);
+            expandY |= ((tickY >> i) & 1ULL) << (i * 2);
+        }
+
+        return ((expandY << 1) | expandX);
     }
 
 private:

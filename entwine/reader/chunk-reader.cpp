@@ -33,33 +33,22 @@ ChunkReader::ChunkReader(
     , m_data()
     , m_points()
 {
-    const std::size_t nativePointSize(m_schema.pointSize());
-    const Schema celledSchema(Chunk::makeCelled(m_schema));
-    const std::size_t celledPointSize(celledSchema.pointSize());
+    const std::size_t pointSize(m_schema.pointSize());
 
-    auto celledData(
-            Compression::decompress(
+    m_data = Compression::decompress(
                 *compressed,
-                celledSchema,
-                m_numPoints * celledPointSize));
+                schema,
+                m_numPoints * pointSize);
 
-    m_data.resize(nativePointSize * m_numPoints);
-
-    SinglePointTable table(celledSchema);
+    SinglePointTable table(m_schema);
     LinkingPointView view(table);
 
-    char* pos(celledData->data());
-    char* out(m_data.data());
-
     Point point;
-
-    // Skip tube IDs.
-    const std::size_t nativeOffset(sizeof(uint64_t));
+    const char* pos(m_data->data());
 
     for (std::size_t i(0); i < m_numPoints; ++i)
     {
         table.setData(pos);
-        std::copy(pos + nativeOffset, pos + celledPointSize, out);
 
         point.x = view.getFieldAs<double>(pdal::Dimension::Id::X, 0);
         point.y = view.getFieldAs<double>(pdal::Dimension::Id::Y, 0);
@@ -67,11 +56,14 @@ ChunkReader::ChunkReader(
 
         m_points.emplace(
                 std::piecewise_construct,
-                std::forward_as_tuple(Tube::calcTick(point, m_bbox, m_depth)),
-                std::forward_as_tuple(point, out));
+                std::forward_as_tuple(
+                    Tube::calcTick(
+                        point,
+                        m_bbox,
+                        m_depth)),
+                std::forward_as_tuple(point, pos));
 
-        pos += celledPointSize;
-        out += nativePointSize;
+        pos += pointSize;
     }
 }
 

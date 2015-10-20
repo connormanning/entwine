@@ -77,7 +77,7 @@ bool Tube::empty() const
 }
 
 void Tube::save(
-        const Schema& celledSchema,
+        const Schema& schema,
         const uint64_t tubeId,
         std::vector<char>& data,
         PooledDataStack& dataStack,
@@ -85,30 +85,24 @@ void Tube::save(
 {
     if (!empty())
     {
-        const std::size_t idSize(sizeof(uint64_t));
-
-        const std::size_t celledSize(celledSchema.pointSize());
-        const std::size_t nativeSize(celledSize - idSize);
+        const std::size_t pointSize(schema.pointSize());
 
         // Include space for primary cell.
-        data.resize(celledSize + m_cells.size() * celledSize);
+        data.resize((m_cells.size() + 1) * pointSize);
         char* pos(data.data());
-
-        const char* tubePos(reinterpret_cast<const char*>(&tubeId));
+        const char* pointData(nullptr);
 
         const auto saveCell([&](const Cell& cell)
         {
-            const char* rawData(cell.atom().load()->val().data());
-
-            std::copy(tubePos, tubePos + idSize, pos);
-            std::copy(rawData, rawData + nativeSize, pos + idSize);
+            pointData = cell.atom().load()->val().data();
+            std::copy(pointData, pointData + pointSize, pos);
 
             RawInfoNode* rawInfoNode(cell.atom().load());
 
             dataStack.push(rawInfoNode->val().acquireDataNode());
             infoStack.push(rawInfoNode);
 
-            pos += celledSize;
+            pos += pointSize;
         });
 
         saveCell(m_primaryCell);

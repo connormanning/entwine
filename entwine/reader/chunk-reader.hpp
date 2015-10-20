@@ -25,8 +25,6 @@ class Schema;
 
 class ChunkReader
 {
-    friend class ChunkIter;
-
 public:
     ChunkReader(
             const Schema& schema,
@@ -55,7 +53,7 @@ private:
     const std::size_t m_depth;
     const std::size_t m_numPoints;
 
-    std::vector<char> m_data;
+    std::unique_ptr<std::vector<char>> m_data;
     std::multimap<uint64_t, PointInfoNonPooled> m_points;
 };
 

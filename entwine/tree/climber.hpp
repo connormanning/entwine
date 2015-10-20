@@ -36,6 +36,8 @@ public:
     std::size_t depth() const { return m_depth; }
     const BBox& bbox()  const { return m_bbox; }
 
+    const BBox& bboxChunk() const { return m_bboxChunk; }
+
     std::size_t chunkPoints() const { return m_chunkPoints; }
     std::size_t chunkNum() const { return m_chunkNum; }
 
@@ -87,7 +89,7 @@ private:
     std::size_t m_chunkPoints;
 
     BBox m_bbox;
-    BBox m_bboxFull;
+    BBox m_bboxChunk;
 
     void climb(Dir dir);
 };

@@ -108,11 +108,11 @@ void BBox::goNwu()
     setMid();
 }
 
-void BBox::goNwd()
+void BBox::goNwd(const bool force2d)
 {
     m_max.x = m_mid.x;
     m_min.y = m_mid.y;
-    if (m_is3d) m_max.z = m_mid.z;
+    if (!force2d && m_is3d) m_max.z = m_mid.z;
     setMid();
 }
 
@@ -124,11 +124,11 @@ void BBox::goNeu()
     setMid();
 }
 
-void BBox::goNed()
+void BBox::goNed(const bool force2d)
 {
     m_min.x = m_mid.x;
     m_min.y = m_mid.y;
-    if (m_is3d) m_max.z = m_mid.z;
+    if (!force2d && m_is3d) m_max.z = m_mid.z;
     setMid();
 }
 
@@ -140,11 +140,11 @@ void BBox::goSwu()
     setMid();
 }
 
-void BBox::goSwd()
+void BBox::goSwd(const bool force2d)
 {
     m_max.x = m_mid.x;
     m_max.y = m_mid.y;
-    if (m_is3d) m_max.z = m_mid.z;
+    if (!force2d && m_is3d) m_max.z = m_mid.z;
     setMid();
 }
 
@@ -156,11 +156,11 @@ void BBox::goSeu()
     setMid();
 }
 
-void BBox::goSed()
+void BBox::goSed(const bool force2d)
 {
     m_min.x = m_mid.x;
     m_max.y = m_mid.y;
-    if (m_is3d) m_max.z = m_mid.z;
+    if (!force2d && m_is3d) m_max.z = m_mid.z;
     setMid();
 }
 

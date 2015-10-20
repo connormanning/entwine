@@ -50,7 +50,6 @@ Cold::Cold(
         Pools& pointPool)
     : m_endpoint(endpoint)
     , m_schema(schema)
-    , m_bbox(bbox)
     , m_structure(structure)
     , m_pointPool(pointPool)
     , m_chunkVec(getNumFastTrackers(m_structure))
@@ -67,7 +66,6 @@ Cold::Cold(
         const Json::Value& meta)
     : m_endpoint(endpoint)
     , m_schema(schema)
-    , m_bbox(bbox)
     , m_structure(structure)
     , m_pointPool(pointPool)
     , m_chunkVec(getNumFastTrackers(m_structure))
@@ -185,7 +183,7 @@ void Cold::growFast(const Climber& climber, Clipper* clipper)
                 countedChunk->chunk =
                         Chunk::create(
                             m_schema,
-                            m_bbox,
+                            climber.bboxChunk(),
                             m_structure,
                             m_pointPool,
                             climber.depth(),
@@ -198,7 +196,7 @@ void Cold::growFast(const Climber& climber, Clipper* clipper)
                 countedChunk->chunk =
                         Chunk::create(
                             m_schema,
-                            m_bbox,
+                            climber.bboxChunk(),
                             m_structure,
                             m_pointPool,
                             climber.depth(),
@@ -235,7 +233,7 @@ void Cold::growSlow(const Climber& climber, Clipper* clipper)
                 countedChunk->chunk =
                         Chunk::create(
                             m_schema,
-                            m_bbox,
+                            climber.bboxChunk(),
                             m_structure,
                             m_pointPool,
                             climber.depth(),
@@ -248,7 +246,7 @@ void Cold::growSlow(const Climber& climber, Clipper* clipper)
                 countedChunk->chunk =
                         Chunk::create(
                             m_schema,
-                            m_bbox,
+                            climber.bboxChunk(),
                             m_structure,
                             m_pointPool,
                             climber.depth(),

@@ -43,13 +43,13 @@ public:
     double height() const;  // Length in Z.
 
     void goNwu();
-    void goNwd();
+    void goNwd(bool force2d = false);
     void goNeu();
-    void goNed();
+    void goNed(bool force2d = false);
     void goSwu();
-    void goSwd();
+    void goSwd(bool force2d = false);
     void goSeu();
-    void goSed();
+    void goSed(bool force2d = false);
 
     bool exists() const { return Point::exists(m_min) && Point::exists(m_max); }
     bool is3d() const { return m_is3d; }

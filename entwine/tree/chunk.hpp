@@ -90,7 +90,6 @@ public:
 
     static void pushTail(std::vector<char>& data, Tail tail);
     static Tail popTail(std::vector<char>& data);
-    static Schema makeCelled(const Schema& schema);
 
     static std::size_t getChunkMem();
     static std::size_t getChunkCnt();
@@ -105,12 +104,12 @@ protected:
     Id endId() const { return m_id + m_maxPoints; }
     std::size_t normalize(const Id& rawIndex) const;
 
-    const Schema& m_nativeSchema;
-    const Schema  m_celledSchema;
-    const BBox& m_bbox;
+    const Schema& m_schema;
+    const BBox m_bbox;
     const Structure& m_structure;
     Pools& m_pools;
     const std::size_t m_depth;
+    const std::size_t m_zDepth;
     const Id m_id;
 
     const std::size_t m_maxPoints;
@@ -145,6 +144,8 @@ public:
     virtual Cell& getCell(const Climber& climber);
 
 private:
+    // TODO This should be an Id for losslessness.  With a uint64, we are
+    // limited to 23 sparse depths for a chunk size of 262144.
     std::unordered_map<std::size_t, Tube> m_tubes;
     std::mutex m_mutex;
 };

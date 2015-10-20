@@ -31,15 +31,18 @@ Climber::Climber(const BBox& bbox, const Structure& structure)
     , m_chunkNum(0)
     , m_chunkPoints(structure.baseChunkPoints())
     , m_bbox(bbox)
-    , m_bboxFull(bbox)
+    , m_bboxChunk(bbox)
 { }
 
 void Climber::magnify(const Point& point)
 {
     const Point& mid(m_bbox.mid());
 
-    m_tick *= 2;
-    if (point.z >= mid.z) ++m_tick;
+    if (m_depth <= m_structure.sparseDepthBegin())
+    {
+        m_tick *= 2;
+        if (point.z >= mid.z) ++m_tick;
+    }
 
     // TODO.
     // Up: +4, Down: +0.
@@ -82,6 +85,16 @@ void Climber::climb(Dir dir)
             m_chunkId <<= m_dimensions;
             m_chunkId.incSimple();
             m_chunkId += chunkRatio * m_chunkPoints;
+
+            if (m_depth > m_structure.nominalChunkDepth())
+            {
+                // TODO.
+                if (chunkRatio == 0) m_bboxChunk.goSwd(true);
+                else if (chunkRatio == 1) m_bboxChunk.goSed(true);
+                else if (chunkRatio == 2) m_bboxChunk.goNwd(true);
+                else if (chunkRatio == 3) m_bboxChunk.goNed(true);
+                else std::cout << "BAD RATIO!" << std::endl;
+            }
 
             if (m_depth >= m_structure.coldDepthBegin())
             {

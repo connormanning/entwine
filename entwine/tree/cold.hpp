@@ -93,7 +93,6 @@ private:
 
     arbiter::Endpoint& m_endpoint;
     const Schema& m_schema;
-    const BBox& m_bbox;
     const Structure& m_structure;
     Pools& m_pointPool;
 
