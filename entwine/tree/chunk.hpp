@@ -139,9 +139,8 @@ public:
             std::vector<char>& compressedData,
             std::size_t numPoints);
 
-    virtual void save(arbiter::Endpoint& endpoint);
-
-    virtual Cell& getCell(const Climber& climber);
+    virtual void save(arbiter::Endpoint& endpoint) override;
+    virtual Cell& getCell(const Climber& climber) override;
 
 private:
     // TODO This should be an Id for losslessness.  With a uint64, we are
@@ -173,20 +172,46 @@ public:
             std::vector<char>& compressedData,
             std::size_t numPoints);
 
-    void save(arbiter::Endpoint& endpoint, std::string postfix);
-
-    virtual void save(arbiter::Endpoint& endpoint);
-    virtual Cell& getCell(const Climber& climber);
+    virtual void save(arbiter::Endpoint& endpoint) override;
+    virtual Cell& getCell(const Climber& climber) override;
 
     const Tube& getTube(const Id& index) const
     {
         return m_tubes.at(normalize(index));
     }
 
-    void merge(ContiguousChunk& other);
+protected:
+    std::vector<Tube> m_tubes;
+};
+
+class BaseChunk : public ContiguousChunk
+{
+public:
+    BaseChunk(
+            const Schema& schema,
+            const BBox& bbox,
+            const Structure& structure,
+            Pools& pools,
+            const Id& id,
+            std::size_t maxPoints);
+
+    BaseChunk(
+            const Schema& schema,
+            const BBox& bbox,
+            const Structure& structure,
+            Pools& pools,
+            const Id& id,
+            std::size_t maxPoints,
+            std::vector<char>& compressedData,
+            std::size_t numPoints);
+
+    virtual void save(arbiter::Endpoint& endpoint) override;
+
+    void save(arbiter::Endpoint& endpoint, std::string postfix);
+    void merge(BaseChunk& other);
 
 private:
-    std::vector<Tube> m_tubes;
+    Schema m_celledSchema;
 };
 
 } // namespace entwine

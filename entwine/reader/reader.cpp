@@ -141,7 +141,7 @@ Reader::Reader(
                 endpoint.getSubpathBinary(m_structure->baseIndexBegin().str()));
 
         m_base.reset(
-                static_cast<ContiguousChunk*>(
+                static_cast<BaseChunk*>(
                     Chunk::create(
                         *m_schema,
                         *m_bbox,

@@ -70,7 +70,7 @@ Registry::Registry(
     if (m_structure.baseIndexSpan())
     {
         m_base.reset(
-                static_cast<ContiguousChunk*>(
+                static_cast<BaseChunk*>(
                     Chunk::create(
                         m_schema,
                         m_bbox,
@@ -120,7 +120,7 @@ Registry::Registry(
         std::vector<char> data(m_endpoint.getSubpathBinary(basePath));
 
         m_base.reset(
-                static_cast<ContiguousChunk*>(
+                static_cast<BaseChunk*>(
                     Chunk::create(
                         m_schema,
                         m_bbox,

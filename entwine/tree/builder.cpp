@@ -475,7 +475,7 @@ void Builder::load()
 
 void Builder::merge()
 {
-    std::unique_ptr<ContiguousChunk> base;
+    std::unique_ptr<BaseChunk> base;
     std::vector<Id> ids;
     const std::size_t baseCount([this]()->std::size_t
     {
@@ -531,7 +531,7 @@ void Builder::merge()
         {
             std::cout << "\t1 / " << baseCount << std::endl;
             base.reset(
-                    static_cast<ContiguousChunk*>(
+                    static_cast<BaseChunk*>(
                         Chunk::create(
                             *m_schema,
                             *m_bbox,
@@ -546,8 +546,8 @@ void Builder::merge()
         {
             std::cout << "\t" << i + 1 << " / " << baseCount << std::endl;
 
-            std::unique_ptr<ContiguousChunk> chunkData(
-                    static_cast<ContiguousChunk*>(
+            std::unique_ptr<BaseChunk> chunkData(
+                    static_cast<BaseChunk*>(
                         Chunk::create(
                             *m_schema,
                             *m_bbox,

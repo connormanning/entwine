@@ -69,6 +69,14 @@ namespace
             }
         }
     }
+
+    Schema makeCelled(const Schema& in)
+    {
+        DimList dims;
+        dims.push_back(DimInfo(tubeIdDim, "unsigned", 8));
+        dims.insert(dims.end(), in.dims().begin(), in.dims().end());
+        return Schema(dims);
+    }
 }
 
 Chunk::Chunk(
@@ -114,15 +122,29 @@ std::unique_ptr<Chunk> Chunk::create(
 
     if (contiguous)
     {
-        chunk.reset(
-                new ContiguousChunk(
-                    schema,
-                    bbox,
-                    structure,
-                    pools,
-                    depth,
-                    id,
-                    maxPoints));
+        if (depth)
+        {
+            chunk.reset(
+                    new ContiguousChunk(
+                        schema,
+                        bbox,
+                        structure,
+                        pools,
+                        depth,
+                        id,
+                        maxPoints));
+        }
+        else
+        {
+            chunk.reset(
+                    new BaseChunk(
+                        schema,
+                        bbox,
+                        structure,
+                        pools,
+                        id,
+                        maxPoints));
+        }
     }
     else
     {
@@ -157,17 +179,33 @@ std::unique_ptr<Chunk> Chunk::create(
 
     if (tail.type == Contiguous)
     {
-        chunk.reset(
-                new ContiguousChunk(
-                    schema,
-                    bbox,
-                    structure,
-                    pools,
-                    depth,
-                    id,
-                    maxPoints,
-                    data,
-                    points));
+        if (depth)
+        {
+            chunk.reset(
+                    new ContiguousChunk(
+                        schema,
+                        bbox,
+                        structure,
+                        pools,
+                        depth,
+                        id,
+                        maxPoints,
+                        data,
+                        points));
+        }
+        else
+        {
+            chunk.reset(
+                    new BaseChunk(
+                        schema,
+                        bbox,
+                        structure,
+                        pools,
+                        id,
+                        maxPoints,
+                        data,
+                        points));
+        }
     }
     else
     {
@@ -357,7 +395,7 @@ void SparseChunk::save(arbiter::Endpoint& endpoint)
 
     for (const auto& pair : m_tubes)
     {
-        pair.second.save(m_schema, pair.first, data, dataStack, infoStack);
+        pair.second.save(m_schema, data, dataStack, infoStack);
 
         if (data.size())
         {
@@ -423,7 +461,7 @@ ContiguousChunk::ContiguousChunk(
     PooledDataStack dataStack(m_pools.dataPool().acquire(m_numPoints));
     PooledInfoStack infoStack(m_pools.infoPool().acquire(m_numPoints));
 
-    std::size_t ticks(m_zDepth ? std::sqrt(m_maxPoints) : 0);
+    std::size_t ticks(std::sqrt(m_maxPoints));
 
     for (std::size_t i(0); i < m_numPoints; ++i)
     {
@@ -444,49 +482,10 @@ ContiguousChunk::ContiguousChunk(
                     view.getFieldAs<double>(pdal::Dimension::Id::Z, 0)),
                 std::move(dataNode));
 
-        const std::size_t depth(
-                m_zDepth ?
-                    m_zDepth :
-                    ChunkInfo::calcDepth(m_structure.factor(), m_id + i));
-
         const Point& point(infoNode->val().point());
 
-        tick = Tube::calcTick(point, m_bbox, depth);
-
-        if (m_zDepth)
-        {
-            tube = Tube::calcTube(point, m_bbox, ticks);
-            tick = Tube::calcTick(point, m_bbox, m_depth);
-        }
-        else
-        {
-            tick = Tube::calcTick(
-                    point,
-                    m_bbox,
-                    ChunkInfo::calcDepth(m_structure.factor(), m_id + i));
-
-            const std::size_t depth(
-                    ChunkInfo::calcDepth(
-                        m_structure.factor(),
-                        m_id + i));
-
-            const std::size_t pointsAtDepth(
-                    ChunkInfo::pointsAtDepth(
-                        m_structure.dimensions(),
-                        depth).getSimple());
-
-            const std::size_t levelIndex(
-                    ChunkInfo::calcLevelIndex(
-                        m_structure.dimensions(),
-                        depth).getSimple());
-
-            ticks = std::sqrt(pointsAtDepth);
-
-            tube =
-                Tube::calcTube(point, m_bbox, ticks) +
-                levelIndex -
-                m_id.getSimple();
-        }
+        tube = Tube::calcTube(point, m_bbox, ticks);
+        tick = Tube::calcTick(point, m_bbox, m_zDepth);
 
         m_tubes.at(tube).addCell(tick, std::move(infoNode));
     }
@@ -505,9 +504,7 @@ Cell& ContiguousChunk::getCell(const Climber& climber)
     return result.second;
 }
 
-void ContiguousChunk::save(
-        arbiter::Endpoint& endpoint,
-        const std::string postfix)
+void ContiguousChunk::save(arbiter::Endpoint& endpoint)
 {
     Compressor compressor(m_schema);
     std::vector<char> data;
@@ -517,7 +514,118 @@ void ContiguousChunk::save(
 
     for (std::size_t i(0); i < m_tubes.size(); ++i)
     {
-        m_tubes[i].save(m_schema, i, data, dataStack, infoStack);
+        m_tubes[i].save(m_schema, data, dataStack, infoStack);
+
+        if (data.size())
+        {
+            compressor.push(data.data(), data.size());
+            data.clear();
+        }
+    }
+
+    std::vector<char> compressed(compressor.data());
+    dataStack.reset();
+    infoStack.reset();
+    pushTail(compressed, Tail(m_numPoints, Contiguous));
+    ensurePut(endpoint, m_id.str(), compressed);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+BaseChunk::BaseChunk(
+        const Schema& schema,
+        const BBox& bbox,
+        const Structure& structure,
+        Pools& pools,
+        const Id& id,
+        const std::size_t maxPoints)
+    : ContiguousChunk(schema, bbox, structure, pools, 0, id, maxPoints)
+    , m_celledSchema(makeCelled(m_schema))
+{ }
+
+BaseChunk::BaseChunk(
+        const Schema& schema,
+        const BBox& bbox,
+        const Structure& structure,
+        Pools& pools,
+        const Id& id,
+        const std::size_t maxPoints,
+        std::vector<char>& compressedData,
+        const std::size_t numPoints)
+    : ContiguousChunk(schema, bbox, structure, pools, 0, id, maxPoints)
+    , m_celledSchema(makeCelled(m_schema))
+{
+    m_numPoints = numPoints;
+
+    const std::size_t celledPointSize(m_celledSchema.pointSize());
+
+    std::unique_ptr<std::vector<char>> data(
+            Compression::decompress(
+                compressedData,
+                m_celledSchema,
+                m_numPoints * celledPointSize));
+
+    SinglePointTable table(m_celledSchema);
+    LinkingPointView view(table);
+
+    const pdal::Dimension::Id::Enum tubeId(
+            m_celledSchema.pdalLayout().findDim(tubeIdDim));
+
+    std::size_t tube(0);
+    std::size_t tick(0);
+    std::size_t curDepth(0);
+
+    // Skip tube IDs.
+    const std::size_t dataOffset(sizeof(uint64_t));
+
+    if (m_numPoints * celledPointSize != data->size())
+    {
+        // TODO Non-recoverable.  Exit?
+        throw std::runtime_error("Bad numPoints detected - base chunk");
+    }
+
+    PooledDataStack dataStack(m_pools.dataPool().acquire(m_numPoints));
+    PooledInfoStack infoStack(m_pools.infoPool().acquire(m_numPoints));
+
+    for (std::size_t i(0); i < m_numPoints; ++i)
+    {
+        PooledDataNode dataNode(dataStack.popOne());
+        PooledInfoNode infoNode(infoStack.popOne());
+
+        assert(dataNode.get());
+        assert(infoNode.get());
+
+        char* pos(data->data() + i * celledPointSize);
+        std::copy(pos + dataOffset, pos + celledPointSize, dataNode->val());
+        table.setData(pos);
+
+        infoNode->construct(
+                Point(
+                    view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
+                    view.getFieldAs<double>(pdal::Dimension::Id::Y, 0),
+                    view.getFieldAs<double>(pdal::Dimension::Id::Z, 0)),
+                std::move(dataNode));
+
+        curDepth = ChunkInfo::calcDepth(m_structure.factor(), m_id + i);
+
+        tube = view.getFieldAs<uint64_t>(tubeId, 0);
+        tick = Tube::calcTick(infoNode->val().point(), m_bbox, curDepth);
+
+        m_tubes.at(tube).addCell(tick, std::move(infoNode));
+    }
+}
+
+void BaseChunk::save(arbiter::Endpoint& endpoint, std::string postfix)
+{
+    Compressor compressor(m_celledSchema);
+    std::vector<char> data;
+
+    PooledDataStack dataStack(m_pools.dataPool());
+    PooledInfoStack infoStack(m_pools.infoPool());
+
+    for (std::size_t i(0); i < m_tubes.size(); ++i)
+    {
+        m_tubes[i].saveBase(m_celledSchema, i, data, dataStack, infoStack);
 
         if (data.size())
         {
@@ -533,12 +641,12 @@ void ContiguousChunk::save(
     ensurePut(endpoint, m_id.str() + postfix, compressed);
 }
 
-void ContiguousChunk::save(arbiter::Endpoint& endpoint)
+void BaseChunk::save(arbiter::Endpoint& endpoint)
 {
     save(endpoint, "");
 }
 
-void ContiguousChunk::merge(ContiguousChunk& other)
+void BaseChunk::merge(BaseChunk& other)
 {
     for (std::size_t i(0); i < m_tubes.size(); ++i)
     {

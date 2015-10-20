@@ -88,6 +88,12 @@ public:
     void addCell(std::size_t tick, PooledInfoNode info);
 
     void save(
+            const Schema& schema,
+            std::vector<char>& data,
+            PooledDataStack& dataStack,
+            PooledInfoStack& infoStack) const;
+
+    void saveBase(
             const Schema& celledSchema,
             uint64_t tubeId,
             std::vector<char>& data,

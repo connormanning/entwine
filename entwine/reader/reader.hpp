@@ -45,7 +45,7 @@ public:
 class BBox;
 class Cache;
 class Climber;
-class ContiguousChunk;
+class BaseChunk;
 class LinkingPointView;
 class Manifest;
 class Query;
@@ -84,7 +84,7 @@ public:
 
     // Returns 0 if chunk doesn't exist.
     arbiter::Endpoint* getEndpoint(const Id& chunkId) const;
-    const ContiguousChunk* base() const { return m_base.get(); }
+    const BaseChunk* base() const { return m_base.get(); }
 
 private:
     std::string m_path;
@@ -95,7 +95,7 @@ private:
     std::unique_ptr<Reprojection> m_reprojection;
     std::unique_ptr<Manifest> m_manifest;
     std::unique_ptr<Stats> m_stats;
-    std::unique_ptr<ContiguousChunk> m_base;
+    std::unique_ptr<BaseChunk> m_base;
     std::unique_ptr<Pools> m_pointPool;
 
     Cache& m_cache;

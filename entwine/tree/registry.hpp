@@ -35,7 +35,7 @@ class Chunk;
 class Climber;
 class Clipper;
 class Cold;
-class ContiguousChunk;
+class BaseChunk;
 class PointInfo;
 class Pool;
 class Schema;
@@ -79,7 +79,7 @@ private:
 
     bool m_is3d;
 
-    std::unique_ptr<ContiguousChunk> m_base;
+    std::unique_ptr<BaseChunk> m_base;
     std::unique_ptr<Cold> m_cold;
     std::unique_ptr<Pool> m_pool;
 };
