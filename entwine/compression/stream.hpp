@@ -38,7 +38,9 @@ public:
 
     std::unique_ptr<std::vector<char>> data()
     {
-        return std::move(m_data);
+        std::unique_ptr<std::vector<char>> res(std::move(m_data));
+        m_data.reset(new std::vector<char>());
+        return res;
     }
 
 private:

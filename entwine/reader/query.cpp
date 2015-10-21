@@ -142,33 +142,8 @@ void Query::getBase(std::vector<char>& buffer)
 
             if (!tube.empty())
             {
-                // TODO Deduplicate.
+                auto processCell([&](const Cell& cell)
                 {
-                    const Cell& primaryCell(tube.primaryCell());
-                    const auto& info(primaryCell.atom().load()->val());
-
-                    if (m_qbox.contains(info.point()))
-                    {
-                        ++m_numPoints;
-
-                        std::size_t initialSize(buffer.size());
-                        buffer.resize(initialSize + m_outSchema.pointSize());
-                        char* out(buffer.data() + initialSize);
-
-                        table.setData(info.data());
-
-                        for (const auto& dim : m_outSchema.dims())
-                        {
-                            view.getField(out, dim.id(), dim.type(), 0);
-                            out += dim.size();
-                        }
-                    }
-                }
-
-                const auto& cells(tube.secondaryCells());
-                for (const auto& p : cells)
-                {
-                    const Cell& cell(p.second);
                     const auto& info(cell.atom().load()->val());
 
                     if (m_qbox.contains(info.point()))
@@ -187,6 +162,13 @@ void Query::getBase(std::vector<char>& buffer)
                             out += dim.size();
                         }
                     }
+                });
+
+                processCell(tube.primaryCell());
+
+                for (const auto& c : tube.secondaryCells())
+                {
+                    processCell(c.second);
                 }
             }
             else
