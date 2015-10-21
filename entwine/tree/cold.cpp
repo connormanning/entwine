@@ -178,31 +178,52 @@ void Cold::growFast(const Climber& climber, Clipper* clipper)
 
         if (!countedChunk->chunk)
         {
-            if (exists)
+            try
             {
-                countedChunk->chunk =
-                        Chunk::create(
-                            m_schema,
-                            climber.bboxChunk(),
-                            m_structure,
-                            m_pointPool,
-                            climber.depth(),
-                            chunkId,
-                            climber.chunkPoints(),
-                            m_endpoint.getSubpathBinary(chunkId.str()));
+                if (exists)
+                {
+                    countedChunk->chunk =
+                            Chunk::create(
+                                m_schema,
+                                climber.bboxChunk(),
+                                m_structure,
+                                m_pointPool,
+                                climber.depth(),
+                                chunkId,
+                                climber.chunkPoints(),
+                                m_endpoint.getSubpathBinary(chunkId.str()));
+                }
+                else
+                {
+                    countedChunk->chunk =
+                            Chunk::create(
+                                m_schema,
+                                climber.bboxChunk(),
+                                m_structure,
+                                m_pointPool,
+                                climber.depth(),
+                                chunkId,
+                                climber.chunkPoints(),
+                                chunkId < m_structure.mappedIndexBegin());
+                }
             }
-            else
+            catch (std::runtime_error& e)
             {
-                countedChunk->chunk =
-                        Chunk::create(
-                            m_schema,
-                            climber.bboxChunk(),
-                            m_structure,
-                            m_pointPool,
-                            climber.depth(),
-                            chunkId,
-                            climber.chunkPoints(),
-                            chunkId < m_structure.mappedIndexBegin());
+                std::cout << "Fast" <<
+                    " I: " << climber.index() <<
+                    " C: " << chunkId <<
+                    " E? " << exists <<
+                    " M: " << e.what() <<
+                    std::endl;
+            }
+            catch (...)
+            {
+                std::cout << "Fast" <<
+                    " I: " << climber.index() <<
+                    " C: " << chunkId <<
+                    " E? " << exists <<
+                    " M: " << "Unknown error" <<
+                    std::endl;
             }
         }
     }
@@ -228,31 +249,52 @@ void Cold::growSlow(const Climber& climber, Clipper* clipper)
 
         if (!countedChunk->chunk)
         {
-            if (exists)
+            try
             {
-                countedChunk->chunk =
-                        Chunk::create(
-                            m_schema,
-                            climber.bboxChunk(),
-                            m_structure,
-                            m_pointPool,
-                            climber.depth(),
-                            chunkId,
-                            climber.chunkPoints(),
-                            m_endpoint.getSubpathBinary(chunkId.str()));
+                if (exists)
+                {
+                    countedChunk->chunk =
+                            Chunk::create(
+                                m_schema,
+                                climber.bboxChunk(),
+                                m_structure,
+                                m_pointPool,
+                                climber.depth(),
+                                chunkId,
+                                climber.chunkPoints(),
+                                m_endpoint.getSubpathBinary(chunkId.str()));
+                }
+                else
+                {
+                    countedChunk->chunk =
+                            Chunk::create(
+                                m_schema,
+                                climber.bboxChunk(),
+                                m_structure,
+                                m_pointPool,
+                                climber.depth(),
+                                chunkId,
+                                climber.chunkPoints(),
+                                chunkId < m_structure.mappedIndexBegin());
+                }
             }
-            else
+            catch (std::runtime_error& e)
             {
-                countedChunk->chunk =
-                        Chunk::create(
-                            m_schema,
-                            climber.bboxChunk(),
-                            m_structure,
-                            m_pointPool,
-                            climber.depth(),
-                            chunkId,
-                            climber.chunkPoints(),
-                            chunkId < m_structure.mappedIndexBegin());
+                std::cout << "Slow" <<
+                    " I: " << climber.index() <<
+                    " C: " << chunkId <<
+                    " E? " << exists <<
+                    " M: " << e.what() <<
+                    std::endl;
+            }
+            catch (...)
+            {
+                std::cout << "Slow" <<
+                    " I: " << climber.index() <<
+                    " C: " << chunkId <<
+                    " E? " << exists <<
+                    " M: " << "Unknown error" <<
+                    std::endl;
             }
         }
     }
@@ -276,9 +318,15 @@ void Cold::clip(
 
             if (countedChunk.refs.empty())
             {
-                if (!countedChunk.chunk) std::cout << "UH OH" << std::endl;
-                countedChunk.chunk->save(m_endpoint);
-                countedChunk.chunk.reset(0);
+                if (countedChunk.chunk)
+                {
+                    countedChunk.chunk->save(m_endpoint);
+                    countedChunk.chunk.reset(0);
+                }
+                else
+                {
+                    std::cout << "Clipping null chunk" << std::endl;
+                }
             }
         });
     }
