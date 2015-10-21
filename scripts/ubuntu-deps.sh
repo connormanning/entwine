@@ -57,13 +57,14 @@ npm cache clean
 # Install las-zip.
 git clone https://github.com/LASzip/LASzip.git laszip
 cd laszip
+git checkout 6de83bc3f4abf6ca30fd07013ba76b06af0d2098
 cmake . -DCMAKE_INSTALL_PREFIX=/usr && make && make install
 cd -
 
 # Install laz-perf.
 git clone https://github.com/verma/laz-perf.git laz-perf
 cd laz-perf
-git checkout c3d9de3b148a2f4a1ea0844021040addcfccb24f
+git checkout aee20e61bb056ff7066f81a37a738bee7e3ef9ea
 cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX=/usr . && make && make install
 cd -
 
@@ -76,7 +77,7 @@ fi
 export NUMTHREADS
 git clone https://github.com/PDAL/PDAL.git pdal
 cd pdal
-git checkout 20b7dfaa7082749edc2a33b6825c2ba15dc42335
+git checkout 4e377b0da73c586c3e96dd33c8dc085cc0da1c74   # 1.0.1
 cmake   -G "Unix Makefiles" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr \
