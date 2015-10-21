@@ -29,6 +29,11 @@ namespace entwine
 namespace
 {
     const std::size_t chunkPoints(65536);
+
+    struct NoopDelete
+    {
+        void operator()(pdal::Filter*) { }
+    };
 }
 
 Executor::Executor(bool is3d)
@@ -54,24 +59,31 @@ bool Executor::run(
 
     std::unique_ptr<pdal::Reader> reader(createReader(driver, path));
     if (!reader) return false;
+    reader->prepare(pointTable);
 
-    std::shared_ptr<pdal::Filter> sharedFilter;
+    std::unique_ptr<pdal::Filter> filter;
 
     if (reprojection)
     {
-        reader->setSpatialReference(
-                pdal::SpatialReference(reprojection->in()));
+        if (reader->getSpatialReference().empty())
+        {
+            filter = createReprojectionFilter(*reprojection, pointTable);
+        }
+        else
+        {
+            Reprojection inferred(
+                    reader->getSpatialReference().getWKT(),
+                    reprojection->out());
 
-        sharedFilter = createReprojectionFilter(*reprojection, pointTable);
+            filter = createReprojectionFilter(inferred, pointTable);
+        }
     }
-
-    pdal::Filter* filter(sharedFilter.get());
 
     std::size_t begin(0);
 
     // Set up our per-point data handler.
     reader->setReadCb(
-            [&f, &pointTable, &begin, filter]
+            [&f, &pointTable, &begin, &filter]
             (pdal::PointView& view, pdal::PointId index)
     {
         const std::size_t indexSpan(index - begin);
@@ -90,7 +102,6 @@ bool Executor::run(
         }
     });
 
-    reader->prepare(pointTable);
     reader->execute(pointTable);
 
     // Insert leftover points.
@@ -151,7 +162,7 @@ std::unique_ptr<Preview> Executor::preview(
 
                 if (reprojection)
                 {
-                    auto filter(
+                    std::unique_ptr<pdal::Filter> filter(
                             createReprojectionFilter(*reprojection, table));
 
                     pdal::PointView view(table);
@@ -221,14 +232,15 @@ std::unique_ptr<pdal::Reader> Executor::createReader(
     return reader;
 }
 
-std::shared_ptr<pdal::Filter> Executor::createReprojectionFilter(
+std::unique_ptr<pdal::Filter> Executor::createReprojectionFilter(
         const Reprojection& reproj,
         pdal::BasePointTable& pointTable) const
 {
     auto lock(getLock());
     std::shared_ptr<pdal::Filter> filter(
             static_cast<pdal::Filter*>(
-                m_stageFactory->createStage("filters.reprojection")));
+                m_stageFactory->createStage("filters.reprojection")),
+            NoopDelete());
     lock.unlock();
 
     std::unique_ptr<pdal::Options> reprojOptions(new pdal::Options());
@@ -245,7 +257,7 @@ std::shared_ptr<pdal::Filter> Executor::createReprojectionFilter(
     pdal::FilterWrapper::processOptions(*filter, *reprojOptions);
     pdal::FilterWrapper::ready(*filter, pointTable);
 
-    return filter;
+    return std::unique_ptr<pdal::Filter>(filter.get());
 }
 
 std::unique_lock<std::mutex> Executor::getLock() const

@@ -76,7 +76,7 @@ private:
             std::string driver,
             std::string path) const;
 
-    std::shared_ptr<pdal::Filter> createReprojectionFilter(
+    std::unique_ptr<pdal::Filter> createReprojectionFilter(
             const Reprojection& reprojection,
             pdal::BasePointTable& pointTable) const;
 
