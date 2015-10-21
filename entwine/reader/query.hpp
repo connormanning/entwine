@@ -63,6 +63,8 @@ private:
     const std::size_t m_depthEnd;
 
     FetchInfoSet m_chunks;
+    std::unique_ptr<Block> m_block;
+    ChunkMap::const_iterator m_chunkReaderIt;
 
     std::size_t m_numPoints;
 

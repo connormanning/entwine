@@ -23,7 +23,7 @@ namespace entwine
 
 namespace
 {
-    std::size_t chunksPerIteration(4);
+    std::size_t fetchesPerIteration(4);
 }
 
 Query::Query(
@@ -42,6 +42,8 @@ Query::Query(
     , m_depthBegin(depthBegin)
     , m_depthEnd(depthEnd)
     , m_chunks()
+    , m_block()
+    , m_chunkReaderIt()
     , m_numPoints(0)
     , m_base(true)
     , m_done(false)
@@ -96,7 +98,11 @@ void Query::next(std::vector<char>& buffer)
         getBase(buffer);
         m_base = false;
 
-        if (buffer.empty())
+        if (m_chunks.empty())
+        {
+            m_done = true;
+        }
+        else if (buffer.empty())
         {
             getChunked(buffer);
         }
@@ -183,19 +189,32 @@ void Query::getBase(std::vector<char>& buffer)
 
 void Query::getChunked(std::vector<char>& buffer)
 {
-    const auto begin(m_chunks.begin());
-    auto end(m_chunks.begin());
-    std::advance(end, std::min(chunksPerIteration, m_chunks.size()));
-
-    FetchInfoSet subset(begin, end);
-    std::unique_ptr<Block> block(m_cache.acquire(m_reader.path(), subset));
-    m_chunks.erase(begin, end);
-
-    for (const auto& p : block->chunkMap())
+    if (!m_block)
     {
-        if (const ChunkReader* cr = p.second)
+        if (m_chunks.size())
+        {
+            const auto begin(m_chunks.begin());
+            auto end(m_chunks.begin());
+            std::advance(end, std::min(fetchesPerIteration, m_chunks.size()));
+
+            FetchInfoSet subset(begin, end);
+            m_block = m_cache.acquire(m_reader.path(), subset);
+            m_chunks.erase(begin, end);
+
+            if (m_block) m_chunkReaderIt = m_block->chunkMap().begin();
+        }
+    }
+
+    if (m_block)
+    {
+        if (const ChunkReader* cr = m_chunkReaderIt->second)
         {
             m_numPoints += cr->query(buffer, m_outSchema, m_qbox);
+
+            if (++m_chunkReaderIt == m_block->chunkMap().end())
+            {
+                m_block.reset();
+            }
         }
         else
         {
@@ -203,7 +222,7 @@ void Query::getChunked(std::vector<char>& buffer)
         }
     }
 
-    if (buffer.empty()) m_done = true;
+    m_done = !m_block && m_chunks.empty();
 }
 
 } // namespace entwine
