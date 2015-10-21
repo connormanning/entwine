@@ -39,6 +39,17 @@ namespace
         bool done(false);
         std::size_t retries(0);
 
+        if (data.empty())
+        {
+            throw std::runtime_error("Tried to save empty chunk");
+        }
+        else if (
+                data.back() != Chunk::Contiguous &&
+                data.back() != Chunk::Sparse)
+        {
+            throw std::runtime_error("Tried to save improperly marked chunk");
+        }
+
         while (!done)
         {
             try
@@ -242,12 +253,13 @@ Chunk::Tail Chunk::popTail(std::vector<char>& data)
 
     if (!data.empty())
     {
-        const char marker(data.back());
+        const int marker(data.back());
         data.pop_back();
 
         if (marker == Sparse) type = Sparse;
         else if (marker == Contiguous) type = Contiguous;
-        else throw std::runtime_error("Invalid chunk type detected");
+        else throw std::runtime_error(
+                "Invalid chunk type detected: " + std::to_string(marker));
     }
     else
     {

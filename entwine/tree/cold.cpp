@@ -213,6 +213,7 @@ void Cold::growFast(const Climber& climber, Clipper* clipper)
                     " I: " << climber.index() <<
                     " C: " << chunkId <<
                     " E? " << exists <<
+                    " S? " << (chunkId >= m_structure.mappedIndexBegin()) <<
                     " M: " << e.what() <<
                     std::endl;
             }
@@ -222,6 +223,7 @@ void Cold::growFast(const Climber& climber, Clipper* clipper)
                     " I: " << climber.index() <<
                     " C: " << chunkId <<
                     " E? " << exists <<
+                    " S? " << (chunkId >= m_structure.mappedIndexBegin()) <<
                     " M: " << "Unknown error" <<
                     std::endl;
             }
@@ -284,6 +286,7 @@ void Cold::growSlow(const Climber& climber, Clipper* clipper)
                     " I: " << climber.index() <<
                     " C: " << chunkId <<
                     " E? " << exists <<
+                    " S? " << (chunkId >= m_structure.mappedIndexBegin()) <<
                     " M: " << e.what() <<
                     std::endl;
             }
@@ -293,6 +296,7 @@ void Cold::growSlow(const Climber& climber, Clipper* clipper)
                     " I: " << climber.index() <<
                     " C: " << chunkId <<
                     " E? " << exists <<
+                    " S? " << (chunkId >= m_structure.mappedIndexBegin()) <<
                     " M: " << "Unknown error" <<
                     std::endl;
             }
@@ -308,12 +312,12 @@ void Cold::clip(
 {
     if (chunkNum < m_chunkVec.size())
     {
-        pool.add([this, clipper, &chunkId, chunkNum]()
+        pool.add([this, clipper, chunkNum]()
         {
             FastSlot& slot(m_chunkVec[chunkNum]);
             CountedChunk& countedChunk(*slot.chunk);
 
-            std::unique_lock<std::mutex> chunkLock(countedChunk.mutex);
+            std::lock_guard<std::mutex> chunkLock(countedChunk.mutex);
             countedChunk.refs.erase(clipper);
 
             if (countedChunk.refs.empty())
@@ -321,11 +325,12 @@ void Cold::clip(
                 if (countedChunk.chunk)
                 {
                     countedChunk.chunk->save(m_endpoint);
-                    countedChunk.chunk.reset(0);
+                    countedChunk.chunk.reset(nullptr);
                 }
                 else
                 {
-                    std::cout << "Clipping null chunk" << std::endl;
+                    std::cout << "Tried to clip null chunk (fast)" << std::endl;
+                    exit(1);
                 }
             }
         });
@@ -343,8 +348,16 @@ void Cold::clip(
 
             if (countedChunk.refs.empty())
             {
-                countedChunk.chunk->save(m_endpoint);
-                countedChunk.chunk.reset(0);
+                if (countedChunk.chunk)
+                {
+                    countedChunk.chunk->save(m_endpoint);
+                    countedChunk.chunk.reset(0);
+                }
+                else
+                {
+                    std::cout << "Tried to clip null chunk (slow)" << std::endl;
+                    exit(1);
+                }
             }
         });
     }
