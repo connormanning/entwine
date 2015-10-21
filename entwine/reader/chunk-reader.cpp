@@ -35,10 +35,7 @@ ChunkReader::ChunkReader(
 {
     const std::size_t pointSize(m_schema.pointSize());
 
-    m_data = Compression::decompress(
-                *compressed,
-                schema,
-                m_numPoints * pointSize);
+    m_data = Compression::decompress(*compressed, schema, m_numPoints);
 
     SinglePointTable table(m_schema);
     LinkingPointView view(table);

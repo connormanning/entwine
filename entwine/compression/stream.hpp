@@ -10,8 +10,10 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <stdexcept>
 #include <vector>
 
 namespace entwine
@@ -20,20 +22,58 @@ namespace entwine
 class CompressionStream
 {
 public:
-    CompressionStream();
-    CompressionStream(const std::vector<char>& data);
+    CompressionStream() : m_data(new std::vector<char>()) { }
 
-    void putBytes(const uint8_t* bytes, std::size_t length);
-    void putByte(uint8_t byte);
+    void putBytes(const uint8_t* bytes, std::size_t length)
+    {
+        const std::size_t startSize(m_data->size());
+        m_data->resize(m_data->size() + length);
+        std::copy(bytes, bytes + length, m_data->data() + startSize);
+    }
 
-    uint8_t getByte();
-    void getBytes(uint8_t* bytes, std::size_t length);
+    void putByte(uint8_t byte)
+    {
+        m_data->push_back(reinterpret_cast<const char&>(byte));
+    }
 
-    const std::vector<char>& data() const;
-    void clear() { m_data.clear(); m_index = 0; }
+    std::unique_ptr<std::vector<char>> data()
+    {
+        return std::move(m_data);
+    }
 
 private:
-    std::vector<char> m_data;
+    std::unique_ptr<std::vector<char>> m_data;
+};
+
+class DecompressionStream
+{
+public:
+    DecompressionStream(const std::vector<char>& data)
+        : m_data(data)
+        , m_index(0)
+    { }
+
+    uint8_t getByte()
+    {
+        const uint8_t val(reinterpret_cast<const uint8_t&>(m_data.at(m_index)));
+        ++m_index;
+        return val;
+    }
+
+    void getBytes(uint8_t* bytes, std::size_t length)
+    {
+        assert(m_index + length <= m_data.size());
+
+        std::copy(
+                m_data.data() + m_index,
+                m_data.data() + m_index + length,
+                bytes);
+
+        m_index += length;
+    }
+
+private:
+    const std::vector<char>& m_data;
     std::size_t m_index;
 };
 

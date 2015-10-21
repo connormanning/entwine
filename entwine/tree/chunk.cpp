@@ -314,13 +314,14 @@ SparseChunk::SparseChunk(
     , m_mutex()
 {
     // TODO This is direct copy/paste from the ContiguousChunk ctor.
-    const std::size_t pointSize(m_schema.pointSize());
-
-    std::unique_ptr<std::vector<char>> data(
+    PooledDataStack dataStack(
             Compression::decompress(
                 compressedData,
                 m_schema,
-                m_numPoints * pointSize));
+                m_numPoints,
+                m_pools.dataPool()));
+
+    PooledInfoStack infoStack(m_pools.infoPool().acquire(m_numPoints));
 
     SinglePointTable table(m_schema);
     LinkingPointView view(table);
@@ -328,14 +329,11 @@ SparseChunk::SparseChunk(
     std::size_t tube(0);
     std::size_t tick(0);
 
-    if (m_numPoints * pointSize != data->size())
+    if (m_numPoints != dataStack.size())
     {
         // TODO Non-recoverable.  Exit?
         throw std::runtime_error("Bad numPoints detected - sparse chunk");
     }
-
-    PooledDataStack dataStack(m_pools.dataPool().acquire(m_numPoints));
-    PooledInfoStack infoStack(m_pools.infoPool().acquire(m_numPoints));
 
     const std::size_t ticks(std::sqrt(m_maxPoints));
 
@@ -347,9 +345,7 @@ SparseChunk::SparseChunk(
         assert(dataNode.get());
         assert(infoNode.get());
 
-        char* pos(data->data() + i * pointSize);
-        std::copy(pos, pos + pointSize, dataNode->val());
-        table.setData(pos);
+        table.setData(dataNode->val());
 
         infoNode->construct(
                 Point(
@@ -404,11 +400,11 @@ void SparseChunk::save(arbiter::Endpoint& endpoint)
         }
     }
 
-    std::vector<char> compressed(compressor.data());
+    std::unique_ptr<std::vector<char>> compressed(compressor.data());
     dataStack.reset();
     infoStack.reset();
-    pushTail(compressed, Tail(m_numPoints, Sparse));
-    ensurePut(endpoint, m_id.str(), compressed);
+    pushTail(*compressed, Tail(m_numPoints, Sparse));
+    ensurePut(endpoint, m_id.str(), *compressed);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -438,13 +434,14 @@ ContiguousChunk::ContiguousChunk(
     : Chunk(schema, bbox, structure, pools, depth, id, maxPoints, numPoints)
     , m_tubes(maxPoints)
 {
-    const std::size_t pointSize(m_schema.pointSize());
-
-    std::unique_ptr<std::vector<char>> data(
+    PooledDataStack dataStack(
             Compression::decompress(
                 compressedData,
                 m_schema,
-                m_numPoints * pointSize));
+                m_numPoints,
+                m_pools.dataPool()));
+
+    PooledInfoStack infoStack(m_pools.infoPool().acquire(m_numPoints));
 
     SinglePointTable table(m_schema);
     LinkingPointView view(table);
@@ -452,14 +449,11 @@ ContiguousChunk::ContiguousChunk(
     std::size_t tube(0);
     std::size_t tick(0);
 
-    if (m_numPoints * pointSize != data->size())
+    if (m_numPoints != dataStack.size())
     {
         // TODO Non-recoverable.  Exit?
         throw std::runtime_error("Bad numPoints detected - contiguous chunk");
     }
-
-    PooledDataStack dataStack(m_pools.dataPool().acquire(m_numPoints));
-    PooledInfoStack infoStack(m_pools.infoPool().acquire(m_numPoints));
 
     std::size_t ticks(std::sqrt(m_maxPoints));
 
@@ -471,9 +465,7 @@ ContiguousChunk::ContiguousChunk(
         assert(dataNode.get());
         assert(infoNode.get());
 
-        char* pos(data->data() + i * pointSize);
-        std::copy(pos, pos + pointSize, dataNode->val());
-        table.setData(pos);
+        table.setData(dataNode->val());
 
         infoNode->construct(
                 Point(
@@ -523,11 +515,11 @@ void ContiguousChunk::save(arbiter::Endpoint& endpoint)
         }
     }
 
-    std::vector<char> compressed(compressor.data());
+    std::unique_ptr<std::vector<char>> compressed(compressor.data());
     dataStack.reset();
     infoStack.reset();
-    pushTail(compressed, Tail(m_numPoints, Contiguous));
-    ensurePut(endpoint, m_id.str(), compressed);
+    pushTail(*compressed, Tail(m_numPoints, Contiguous));
+    ensurePut(endpoint, m_id.str(), *compressed);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -563,7 +555,7 @@ BaseChunk::BaseChunk(
             Compression::decompress(
                 compressedData,
                 m_celledSchema,
-                m_numPoints * celledPointSize));
+                m_numPoints));
 
     SinglePointTable table(m_celledSchema);
     LinkingPointView view(table);
@@ -634,11 +626,11 @@ void BaseChunk::save(arbiter::Endpoint& endpoint, std::string postfix)
         }
     }
 
-    std::vector<char> compressed(compressor.data());
+    std::unique_ptr<std::vector<char>> compressed(compressor.data());
     dataStack.reset();
     infoStack.reset();
-    pushTail(compressed, Tail(m_numPoints, Contiguous));
-    ensurePut(endpoint, m_id.str() + postfix, compressed);
+    pushTail(*compressed, Tail(m_numPoints, Contiguous));
+    ensurePut(endpoint, m_id.str() + postfix, *compressed);
 }
 
 void BaseChunk::save(arbiter::Endpoint& endpoint)

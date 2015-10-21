@@ -37,20 +37,19 @@ std::unique_ptr<std::vector<char>> Compression::compress(
     compressor.compress(data, size);
     compressor.done();
 
-    std::unique_ptr<std::vector<char>> compressed(
-            new std::vector<char>(compressionStream.data()));
-
-    return compressed;
+    return compressionStream.data();
 }
 
 std::unique_ptr<std::vector<char>> Compression::decompress(
         const std::vector<char>& data,
         const Schema& schema,
-        const std::size_t decompressedSize)
+        const std::size_t numPoints)
 {
-    CompressionStream compressionStream(data);
-    pdal::LazPerfDecompressor<CompressionStream> decompressor(
-            compressionStream,
+    const std::size_t decompressedSize(numPoints * schema.pointSize());
+
+    DecompressionStream decompressionStream(data);
+    pdal::LazPerfDecompressor<DecompressionStream> decompressor(
+            decompressionStream,
             schema.pdalLayout().dimTypes());
 
     std::unique_ptr<std::vector<char>> decompressed(
@@ -59,6 +58,39 @@ std::unique_ptr<std::vector<char>> Compression::decompress(
     decompressor.decompress(decompressed->data(), decompressed->size());
 
     return decompressed;
+}
+
+PooledDataStack Compression::decompress(
+        const std::vector<char>& data,
+        const Schema& schema,
+        std::size_t numPoints,
+        DataPool& dataPool)
+{
+    PooledDataStack stack(dataPool.acquire(numPoints));
+
+    const std::size_t pointSize(schema.pointSize());
+
+    DecompressionStream decompressionStream(data);
+    pdal::LazPerfDecompressor<DecompressionStream> decompressor(
+            decompressionStream,
+            schema.pdalLayout().dimTypes());
+
+    if (stack.size() == numPoints)
+    {
+        RawDataNode* node(stack.head());
+
+        while (node)
+        {
+            decompressor.decompress(node->val(), pointSize);
+            node = node->next();
+        }
+    }
+    else
+    {
+        throw std::runtime_error("SplicePool acquisition error");
+    }
+
+    return stack;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -73,7 +105,7 @@ void Compressor::push(const char* data, const std::size_t size)
     m_compressor.compress(data, size);
 }
 
-std::vector<char> Compressor::data()
+std::unique_ptr<std::vector<char>> Compressor::data()
 {
     m_compressor.done();
     return m_stream.data();

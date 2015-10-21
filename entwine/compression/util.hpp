@@ -18,6 +18,7 @@
 #include <pdal/Compression.hpp>
 
 #include <entwine/compression/stream.hpp>
+#include <entwine/tree/point-info.hpp>
 
 namespace entwine
 {
@@ -39,7 +40,13 @@ public:
     static std::unique_ptr<std::vector<char>> decompress(
             const std::vector<char>& data,
             const Schema& schema,
-            std::size_t decompressedSize);
+            std::size_t numPoints);
+
+    static PooledDataStack decompress(
+            const std::vector<char>& data,
+            const Schema& schema,
+            std::size_t numPoints,
+            DataPool& dataPool);
 };
 
 class Compressor
@@ -47,7 +54,7 @@ class Compressor
 public:
     Compressor(const Schema& schema);
     void push(const char* data, std::size_t size);
-    std::vector<char> data();
+    std::unique_ptr<std::vector<char>> data();
 
 private:
     CompressionStream m_stream;

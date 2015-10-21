@@ -3,7 +3,6 @@ set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 set(
     SOURCES
-    "${BASE}/stream.cpp"
     "${BASE}/util.cpp"
 )
 
