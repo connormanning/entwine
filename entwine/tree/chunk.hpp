@@ -75,7 +75,8 @@ public:
     enum Type
     {
         Sparse = 0,
-        Contiguous
+        Contiguous,
+        Invalid
     };
 
     struct Tail

@@ -218,7 +218,7 @@ std::unique_ptr<Chunk> Chunk::create(
                         points));
         }
     }
-    else
+    else if (tail.type == Sparse)
     {
         chunk.reset(
                 new SparseChunk(
@@ -258,12 +258,11 @@ Chunk::Tail Chunk::popTail(std::vector<char>& data)
 
         if (marker == Sparse) type = Sparse;
         else if (marker == Contiguous) type = Contiguous;
-        else throw std::runtime_error(
-                "Invalid chunk type detected: " + std::to_string(marker));
+        else return Tail(0, Invalid);
     }
     else
     {
-        throw std::runtime_error("Invalid chunk data detected");
+        return Tail(0, Invalid);
     }
 
     // Pop numPoints.
@@ -272,7 +271,7 @@ Chunk::Tail Chunk::popTail(std::vector<char>& data)
 
     if (data.size() < size)
     {
-        throw std::runtime_error("Invalid serialized sparse chunk");
+        return Tail(0, Invalid);
     }
 
     std::copy(

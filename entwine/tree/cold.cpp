@@ -10,6 +10,9 @@
 
 #include <entwine/tree/cold.hpp>
 
+#include <chrono>
+#include <thread>
+
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
@@ -25,6 +28,9 @@ namespace entwine
 
 namespace
 {
+    const std::size_t maxCreateTries(8);
+    const auto createSleepTime(std::chrono::milliseconds(500));
+
     const std::size_t maxFastTrackers(std::pow(4, 12));
 
     std::size_t getNumFastTrackers(const Structure& structure)
@@ -176,56 +182,49 @@ void Cold::growFast(const Climber& climber, Clipper* clipper)
 
         countedChunk->refs.insert(clipper);
 
-        if (!countedChunk->chunk)
+        std::size_t tries(0);
+        while (!countedChunk->chunk)
         {
-            try
+            if (exists)
             {
-                if (exists)
+                countedChunk->chunk =
+                        Chunk::create(
+                            m_schema,
+                            climber.bboxChunk(),
+                            m_structure,
+                            m_pointPool,
+                            climber.depth(),
+                            chunkId,
+                            climber.chunkPoints(),
+                            m_endpoint.getSubpathBinary(chunkId.str()));
+            }
+            else
+            {
+                countedChunk->chunk =
+                        Chunk::create(
+                            m_schema,
+                            climber.bboxChunk(),
+                            m_structure,
+                            m_pointPool,
+                            climber.depth(),
+                            chunkId,
+                            climber.chunkPoints(),
+                            chunkId < m_structure.mappedIndexBegin());
+            }
+
+            if (!countedChunk->chunk)
+            {
+                if (++tries < maxCreateTries)
                 {
-                    countedChunk->chunk =
-                            Chunk::create(
-                                m_schema,
-                                climber.bboxChunk(),
-                                m_structure,
-                                m_pointPool,
-                                climber.depth(),
-                                chunkId,
-                                climber.chunkPoints(),
-                                m_endpoint.getSubpathBinary(chunkId.str()));
+                    std::cout << "Failed chunk create " << chunkId << std::endl;
+                    std::this_thread::sleep_for(createSleepTime);
                 }
                 else
                 {
-                    countedChunk->chunk =
-                            Chunk::create(
-                                m_schema,
-                                climber.bboxChunk(),
-                                m_structure,
-                                m_pointPool,
-                                climber.depth(),
-                                chunkId,
-                                climber.chunkPoints(),
-                                chunkId < m_structure.mappedIndexBegin());
+                    std::cout << "Invalid chunk at " << chunkId << std::endl;
+                    std::cout << "Non-recoverable error - exiting" << std::endl;
+                    exit(1);
                 }
-            }
-            catch (std::runtime_error& e)
-            {
-                std::cout << "Fast" <<
-                    " I: " << climber.index() <<
-                    " C: " << chunkId <<
-                    " E? " << exists <<
-                    " S? " << (chunkId >= m_structure.mappedIndexBegin()) <<
-                    " M: " << e.what() <<
-                    std::endl;
-            }
-            catch (...)
-            {
-                std::cout << "Fast" <<
-                    " I: " << climber.index() <<
-                    " C: " << chunkId <<
-                    " E? " << exists <<
-                    " S? " << (chunkId >= m_structure.mappedIndexBegin()) <<
-                    " M: " << "Unknown error" <<
-                    std::endl;
             }
         }
     }
@@ -249,56 +248,49 @@ void Cold::growSlow(const Climber& climber, Clipper* clipper)
 
         countedChunk->refs.insert(clipper);
 
-        if (!countedChunk->chunk)
+        std::size_t tries(0);
+        while (!countedChunk->chunk)
         {
-            try
+            if (exists)
             {
-                if (exists)
+                countedChunk->chunk =
+                        Chunk::create(
+                            m_schema,
+                            climber.bboxChunk(),
+                            m_structure,
+                            m_pointPool,
+                            climber.depth(),
+                            chunkId,
+                            climber.chunkPoints(),
+                            m_endpoint.getSubpathBinary(chunkId.str()));
+            }
+            else
+            {
+                countedChunk->chunk =
+                        Chunk::create(
+                            m_schema,
+                            climber.bboxChunk(),
+                            m_structure,
+                            m_pointPool,
+                            climber.depth(),
+                            chunkId,
+                            climber.chunkPoints(),
+                            chunkId < m_structure.mappedIndexBegin());
+            }
+
+            if (!countedChunk->chunk)
+            {
+                if (++tries < maxCreateTries)
                 {
-                    countedChunk->chunk =
-                            Chunk::create(
-                                m_schema,
-                                climber.bboxChunk(),
-                                m_structure,
-                                m_pointPool,
-                                climber.depth(),
-                                chunkId,
-                                climber.chunkPoints(),
-                                m_endpoint.getSubpathBinary(chunkId.str()));
+                    std::cout << "Failed chunk create " << chunkId << std::endl;
+                    std::this_thread::sleep_for(createSleepTime);
                 }
                 else
                 {
-                    countedChunk->chunk =
-                            Chunk::create(
-                                m_schema,
-                                climber.bboxChunk(),
-                                m_structure,
-                                m_pointPool,
-                                climber.depth(),
-                                chunkId,
-                                climber.chunkPoints(),
-                                chunkId < m_structure.mappedIndexBegin());
+                    std::cout << "Invalid chunk at " << chunkId << std::endl;
+                    std::cout << "Non-recoverable error - exiting" << std::endl;
+                    exit(1);
                 }
-            }
-            catch (std::runtime_error& e)
-            {
-                std::cout << "Slow" <<
-                    " I: " << climber.index() <<
-                    " C: " << chunkId <<
-                    " E? " << exists <<
-                    " S? " << (chunkId >= m_structure.mappedIndexBegin()) <<
-                    " M: " << e.what() <<
-                    std::endl;
-            }
-            catch (...)
-            {
-                std::cout << "Slow" <<
-                    " I: " << climber.index() <<
-                    " C: " << chunkId <<
-                    " E? " << exists <<
-                    " S? " << (chunkId >= m_structure.mappedIndexBegin()) <<
-                    " M: " << "Unknown error" <<
-                    std::endl;
             }
         }
     }
