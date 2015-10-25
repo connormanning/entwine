@@ -15,7 +15,7 @@
         // Set to true if the headers for all files are known to be accurate.
         // If accurate, this information can be used to greatly speed up
         // parallelized builds.
-        "trustHeaders": false,
+        "trustHeaders": true,
 
         // Input file list.
         "manifest": [
@@ -34,6 +34,14 @@
             // S3 bucket paths (do not include a bucket location).
             "s3://my-bucket/iowa/johnson-county.sbet"
         ]
+
+        // If the manifest is a single specification, it can be a string
+        // instead of an array:
+        //
+        // "manifest": "/Users/my-name/data/data-directory/*"
+        //      or
+        // "manifest": "../data/country/place.bpf"
+        //      etc.
     },
     "output": {
         // Final output location.

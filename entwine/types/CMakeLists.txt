@@ -7,7 +7,6 @@ set(
     "${BASE}/blocked-data.cpp"
     "${BASE}/dim-info.cpp"
     "${BASE}/linking-point-view.cpp"
-    "${BASE}/reprojection.cpp"
     "${BASE}/schema.cpp"
     "${BASE}/simple-point-layout.cpp"
     "${BASE}/single-point-table.cpp"
