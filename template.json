@@ -55,26 +55,27 @@
         "numPointsHint": 160000000000,
 
         // Starting depth level of the base of the tree.
-        "nullDepth": 0,
+        "nullDepth": 6,
 
         // End depth level of pre-allocated base chunk.
-        "baseDepth": 8,
+        "baseDepth": 10,
 
-        // End depth level of on-demand allocated set of data chunks.
-        "coldDepth": 20,
+        // End depth level of on-demand-allocated data chunks.  Omit this field
+        // for lossless builds.
+        // "coldDepth": 20,
 
         // Number of points per chunk for the tree depths from baseDepth up to,
         // but not including, coldDepth.
         //
-        // (4 ^ baseDepth) / pointsPerChunk must be a whole number.
+        // Must be a power of 4 for a quadtree or a hybrid build, or a power of
+        // 8 for an octree build.
         "pointsPerChunk": 262144,
 
         // Highly recommended for medium to large (greater than a few billion
-        // points) sets, and in general for lossless or non-truncated index
-        // builds.
+        // points) sets, and in general for lossless builds.
         "dynamicChunks": true,
 
-        // Valid values are "quadtree" and "octree".
+        // Valid values are "hybrid", "quadtree", and "octree".
         "type": "octree"
     },
     "geometry": {
@@ -93,9 +94,15 @@
             -10015953.953824, 5375808.896799, 1000
         ],
 
-        // If reprojection is required, in/out spatial reference systems must
-        // be specified.  If these are specified, then the "bbox" field above
-        // should be in the same coordinate system as "out" specified here.
+        // If reprojection is required, specify in/out spatial reference
+        // systems here.  "reproject.in" may be omitted if all source files
+        // contain their native SRSes in their headers.
+        //
+        // The SRS from "in" will only be used for any files that do not
+        // contain SRS information in their headers, so it is only a default.
+        //
+        // If reprojection is specified, then the "bbox" field above should be
+        // in the same coordinate system as "out" specified here.
         "reproject": {
             "in": "EPSG:26915",
             "out": "EPSG:3857"
@@ -119,7 +126,14 @@
             { "name": "Green",      "type": "unsigned", "size": 2 },
             { "name": "Blue",       "type": "unsigned", "size": 2 },
 
-            // TODO Allow disabling Origin tracking.
+            // This is an Entwine-specific dimension used to track which points
+            // come from which file in the manifest.  The size may be specified
+            // as small as necessary if the number of input files are known
+            // (Origin IDs are assigned in ascending order starting with zero).
+            //
+            // Omitting this dimension will disable Origin tracking in the
+            // output, so that individual input files will not reconstructible
+            // from the index.
             { "name": "Origin",     "type": "unsigned", "size": 4 }
         ]
     }
