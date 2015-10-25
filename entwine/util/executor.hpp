@@ -37,15 +37,21 @@ class SimplePointTable;
 class Preview
 {
 public:
-    Preview(const BBox& bbox, std::size_t numPoints, const std::string& srs)
+    Preview(
+            const BBox& bbox,
+            std::size_t numPoints,
+            const std::string& srs,
+            const std::vector<std::string>& dimNames)
         : bbox(bbox)
         , numPoints(numPoints)
         , srs(srs)
+        , dimNames(dimNames)
     { }
 
     BBox bbox;
     std::size_t numPoints;
     std::string srs;
+    std::vector<std::string> dimNames;
 };
 
 class Executor

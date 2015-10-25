@@ -79,8 +79,13 @@ public:
         std::memcpy(value, getDimension(dimDetail, index), dimDetail->size());
     }
 
-    // No-op, since our executor's callback is destructive via the stack() call.
-    void clear() { }
+    // SimplePointTable::stack is destructive, so this doesn't need to be called
+    // if the data is consumed via that call.  Otherwise, use clear() to reuse
+    // the already-acquired Stack.
+    void clear()
+    {
+        m_size = 0;
+    }
 
     std::size_t size() const
     {

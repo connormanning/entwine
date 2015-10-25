@@ -60,6 +60,37 @@ public:
     void grow(const Point& p);
     void growZ(const Range& range);
 
+    // Bloat coordinates to nearest integer.
+    void bloat()
+    {
+        m_min.x = std::floor(m_min.x);
+        m_min.y = std::floor(m_min.y);
+        m_min.z = std::floor(m_min.z);
+        m_max.x = std::ceil(m_max.x);
+        m_max.y = std::ceil(m_max.y);
+        m_max.z = std::ceil(m_max.z);
+
+        setMid();
+    }
+
+    // Bloat all coordinates necessary to form a cube.
+    void cubeify()
+    {
+        const double xDist(m_max.x - m_min.x);
+        const double yDist(m_max.y - m_min.y);
+        const double zDist(m_max.z - m_min.z);
+
+        const double radius(std::max({xDist, yDist, zDist}) / 2);
+
+        m_min.x = m_mid.x - radius;
+        m_min.y = m_mid.y - radius;
+        m_min.z = m_mid.z - radius;
+
+        m_max.x = m_mid.x + radius;
+        m_max.y = m_mid.y + radius;
+        m_max.z = m_mid.z + radius;
+    }
+
 private:
     Point m_min;
     Point m_max;

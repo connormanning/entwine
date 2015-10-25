@@ -61,5 +61,11 @@ private:
     DimList m_dims;
 };
 
+inline std::ostream& operator<<(std::ostream& os, const Schema& schema)
+{
+    os << schema.toJson();
+    return os;
+}
+
 } // namespace entwine
 

@@ -147,8 +147,9 @@ bool Builder::insert(const std::string path)
 
     if (origin == 0)
     {
-        const std::string localPath(localize(path, origin));
-        infer(localPath);
+        std::unique_ptr<arbiter::fs::LocalHandle> localHandle(
+                m_arbiter->getLocalHandle(path, *m_tmpEndpoint));
+        infer(localHandle->localPath());
     }
 
     std::cout << "Adding " << origin << " - " << path << std::endl;
@@ -157,7 +158,9 @@ bool Builder::insert(const std::string path)
     {
         try
         {
-            const std::string localPath(localize(path, origin));
+            std::unique_ptr<arbiter::fs::LocalHandle> localHandle(
+                    m_arbiter->getLocalHandle(path, *m_tmpEndpoint));
+            const std::string localPath(localHandle->localPath());
 
             std::unique_ptr<Clipper> clipper(new Clipper(*this));
             std::unique_ptr<Range> zRangePtr(
@@ -233,12 +236,6 @@ bool Builder::insert(const std::string path)
                 "\tGlobal usage: " << mem / div << "." << mem % div <<
                 " GB in " << Chunk::getChunkCnt() << " chunks." <<
                 std::endl;
-
-            if (m_arbiter->isRemote(path) && !fs::removeFile(localPath))
-            {
-                std::cout << "Couldn't delete " << localPath << std::endl;
-                throw std::runtime_error("Couldn't delete tmp file");
-            }
         }
         catch (std::runtime_error e)
         {
@@ -322,6 +319,7 @@ void Builder::insert(
     }
 }
 
+// TODO Delete me.
 void Builder::infer(const std::string path)
 {
     using namespace pdal;
@@ -372,7 +370,6 @@ void Builder::infer(const std::string path)
                 true);
 
         SimplePointTable table(m_pointPool->dataPool(), *m_schema);
-        const std::string localPath(localize(path, 0));
 
         auto bounder([this, &bbox](pdal::PointView& view)->void
         {
@@ -386,7 +383,7 @@ void Builder::infer(const std::string path)
             }
         });
 
-        if (!m_executor->run(table, localPath, m_reprojection.get(), bounder))
+        if (!m_executor->run(table, path, m_reprojection.get(), bounder))
         {
             throw std::runtime_error("Error inferring bounds");
         }
@@ -405,34 +402,6 @@ void Builder::infer(const std::string path)
 
         std::cout << "\tGot: " << *m_bbox << "\n" << std::endl;
     }
-}
-
-std::string Builder::localize(const std::string path, const Origin origin)
-{
-    std::string localPath(arbiter::Arbiter::stripType(path));
-
-    if (m_arbiter->isRemote(path))
-    {
-        std::size_t dot(path.find_last_of("."));
-
-        if (dot != std::string::npos)
-        {
-            const std::string subpath(
-                    name() + "-" + std::to_string(origin) + path.substr(dot));
-
-            m_tmpEndpoint->putSubpath(
-                    subpath,
-                    m_arbiter->getBinary(path));
-
-            localPath = m_tmpEndpoint->fullPath(subpath);
-        }
-        else
-        {
-            throw std::runtime_error("Bad extension on: " + path);
-        }
-    }
-
-    return localPath;
 }
 
 void Builder::clip(
@@ -787,12 +756,14 @@ void Builder::prep()
         throw std::runtime_error("Tmp path must be local");
     }
 
-    if (!fs::mkdirp(m_tmpEndpoint->root()))
+    if (!arbiter::fs::mkdirp(m_tmpEndpoint->root()))
     {
         throw std::runtime_error("Couldn't create tmp directory");
     }
 
-    if (!m_outEndpoint->isRemote() && !fs::mkdirp(m_outEndpoint->root()))
+    if (
+            !m_outEndpoint->isRemote() &&
+            !arbiter::fs::mkdirp(m_outEndpoint->root()))
     {
         throw std::runtime_error("Couldn't create local build directory");
     }

@@ -198,7 +198,12 @@ std::unique_ptr<Preview> Executor::preview(
                     srs = quick.m_srs.getRawWKT();
                 }
 
-                result.reset(new Preview(bbox, quick.m_pointCount, srs));
+                result.reset(
+                        new Preview(
+                            bbox,
+                            quick.m_pointCount,
+                            srs,
+                            quick.m_dimNames));
             }
         }
     }

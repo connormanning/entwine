@@ -57,6 +57,8 @@ SOFTWARE.
 #include <arbiter/driver.hpp>
 #endif
 
+#include <algorithm>
+
 namespace arbiter
 {
 
@@ -126,6 +128,31 @@ Endpoint Arbiter::getEndpoint(const std::string root) const
 const Driver& Arbiter::getDriver(const std::string path) const
 {
     return *m_drivers.at(parseType(path));
+}
+
+std::unique_ptr<fs::LocalHandle> Arbiter::getLocalHandle(
+        const std::string path,
+        const Endpoint& tempEndpoint) const
+{
+    std::unique_ptr<fs::LocalHandle> localHandle;
+
+    if (isRemote(path))
+    {
+        std::string name(path);
+        std::replace(name.begin(), name.end(), '/', '-');
+        std::replace(name.begin(), name.end(), '\\', '-');
+
+        tempEndpoint.putSubpath(name, getBinary(path));
+
+        localHandle.reset(
+                new fs::LocalHandle(tempEndpoint.root() + name, true));
+    }
+    else
+    {
+        localHandle.reset(new fs::LocalHandle(path, false));
+    }
+
+    return localHandle;
 }
 
 std::string Arbiter::parseType(const std::string path) const
@@ -385,45 +412,13 @@ namespace
     {
         throw std::runtime_error("No home directory found");
     }
-
-    std::string expandTilde(std::string in)
-    {
-        std::string out(in);
-
-        if (!in.empty() && in.front() == '~')
-        {
-#ifndef ARBITER_WINDOWS
-            if (!getenv("HOME"))
-            {
-                noHome();
-            }
-
-            static const std::string home(getenv("HOME"));
-#else
-            if (
-                    !getenv("USERPROFILE") &&
-                    !(getenv("HOMEDRIVE") && getenv("HOMEPATH")))
-            {
-                noHome();
-            }
-
-            static const std::string home(
-                    getenv("USERPROFILE") ? getenv("USERPROFILE") :
-                        (getenv("HOMEDRIVE") + getenv("HOMEPATH"));
-#endif
-
-            out = home + in.substr(1);
-        }
-
-        return out;
-    }
 }
 
 bool FsDriver::get(std::string path, std::vector<char>& data) const
 {
     bool good(false);
 
-    path = expandTilde(path);
+    path = fs::expandTilde(path);
     std::ifstream stream(path, std::ios::in | std::ios::binary);
 
     if (stream.good())
@@ -441,7 +436,7 @@ bool FsDriver::get(std::string path, std::vector<char>& data) const
 
 void FsDriver::put(std::string path, const std::vector<char>& data) const
 {
-    path = expandTilde(path);
+    path = fs::expandTilde(path);
     std::ofstream stream(path, binaryTruncMode);
 
     if (!stream.good())
@@ -462,7 +457,7 @@ std::vector<std::string> FsDriver::glob(std::string path, bool) const
     std::vector<std::string> results;
 
 #ifndef ARBITER_WINDOWS
-    path = expandTilde(path);
+    path = fs::expandTilde(path);
 
     glob_t buffer;
     struct stat info;
@@ -510,6 +505,75 @@ std::vector<std::string> FsDriver::glob(std::string path, bool) const
     return results;
 }
 
+namespace fs
+{
+
+bool mkdirp(std::string dir)
+{
+    dir = expandTilde(dir);
+
+#ifndef ARBITER_WINDOWS
+    const bool err(::mkdir(dir.c_str(), S_IRWXU | S_IRGRP | S_IROTH));
+    return (!err || errno == EEXIST);
+#else
+    throw std::runtime_error("Windows mkdirp not done yet.");
+#endif
+}
+
+bool remove(std::string filename)
+{
+    filename = expandTilde(filename);
+
+#ifndef ARBITER_WINDOWS
+    return ::remove(filename.c_str()) == 0;
+#else
+    throw std::runtime_error("Windows remove not done yet.");
+#endif
+}
+
+std::string expandTilde(std::string in)
+{
+    std::string out(in);
+
+    if (!in.empty() && in.front() == '~')
+    {
+#ifndef ARBITER_WINDOWS
+        if (!getenv("HOME"))
+        {
+            noHome();
+        }
+
+        static const std::string home(getenv("HOME"));
+#else
+        if (
+                !getenv("USERPROFILE") &&
+                !(getenv("HOMEDRIVE") && getenv("HOMEPATH")))
+        {
+            noHome();
+        }
+
+        static const std::string home(
+                getenv("USERPROFILE") ? getenv("USERPROFILE") :
+                    (getenv("HOMEDRIVE") + getenv("HOMEPATH"));
+#endif
+
+        out = home + in.substr(1);
+    }
+
+    return out;
+}
+
+LocalHandle::LocalHandle(const std::string localPath, const bool isRemote)
+    : m_localPath(expandTilde(localPath))
+    , m_isRemote(isRemote)
+{ }
+
+LocalHandle::~LocalHandle()
+{
+    if (m_isRemote) fs::remove(fs::expandTilde(m_localPath));
+}
+
+} // namespace fs
 } // namespace arbiter
 
 
