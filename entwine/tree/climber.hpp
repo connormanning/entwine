@@ -75,6 +75,8 @@ private:
     const Structure& m_structure;
     std::size_t m_dimensions;
     std::size_t m_factor;
+    bool m_is3d;
+    bool m_tubular;
 
     Id m_index;
     Id m_levelIndex;
@@ -86,6 +88,12 @@ private:
 
     std::size_t m_depthChunks;
     std::size_t m_chunkNum;
+
+    // TODO This, and everything derived from it down the line in the Chunk
+    // classes, should be tracked and stored as an Id (or using getSimple() for
+    // ContiguousChunks.  Applies to Tube::calcTube, and Chunk constructors
+    // will need to be able to take square-roots of BigInt powers of two.
+    // SparseChunk mappings will need to map from Ids.
     std::size_t m_chunkPoints;
 
     BBox m_bbox;
@@ -135,22 +143,17 @@ public:
     bool overlaps() const
     {
         const Point& qMid(m_qbox.mid());
+        const double dblSplits(static_cast<double>(m_splits));
 
         return
             std::abs(qMid.x - midX()) <
-                m_qbox.width() / 2.0 +
-                m_bbox.width() / 2.0 / static_cast<double>(m_splits) &&
-
+                m_qbox.width() / 2.0 + m_bbox.width() / 2.0 / dblSplits &&
             std::abs(qMid.y - midY()) <
-                m_qbox.depth() / 2.0 +
-                m_bbox.depth() / 2.0 / static_cast<double>(m_splits);/* &&
-
-            // TODO Re-enable, for hybrid tree we don't want to check this.
+                m_qbox.depth() / 2.0 + m_bbox.depth() / 2.0 / dblSplits &&
             (
-                !m_bbox.is3d() ||
+                !m_is3d ||
                 std::abs(qMid.z - midZ()) <
-                    m_qbox.height() / 2.0 +
-                    m_bbox.height() / 2.0 / static_cast<double>(m_splits));*/
+                    m_qbox.height() / 2.0 + m_bbox.height() / 2.0 / dblSplits);
     }
 
     std::size_t depth() const

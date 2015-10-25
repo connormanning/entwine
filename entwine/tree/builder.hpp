@@ -148,8 +148,6 @@ private:
     Json::Value saveProps() const;
     void loadProps(const Json::Value& props);
 
-    std::string name() const;
-
     //
 
     std::unique_ptr<BBox> m_bbox;

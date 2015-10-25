@@ -133,6 +133,7 @@ Structure::Structure(
         const std::size_t chunkPoints,
         const std::size_t dimensions,
         const std::size_t numPointsHint,
+        const bool tubular,
         const bool dynamicChunks,
         const BBox* bbox,
         const std::pair<std::size_t, std::size_t> subset)
@@ -147,6 +148,7 @@ Structure::Structure(
     , m_sparseIndexBegin(0)
     , m_mappedIndexBegin(0)
     , m_chunkPoints(chunkPoints)
+    , m_tubular(tubular)
     , m_dynamicChunks(dynamicChunks)
     , m_dimensions(dimensions)
     , m_factor(1ULL << m_dimensions)
@@ -163,6 +165,7 @@ Structure::Structure(
         const std::size_t chunkPoints,
         const std::size_t dimensions,
         const std::size_t numPointsHint,
+        const bool tubular,
         const bool dynamicChunks,
         const BBox* bbox,
         const std::pair<std::size_t, std::size_t> subset)
@@ -177,6 +180,7 @@ Structure::Structure(
     , m_sparseIndexBegin(0)
     , m_mappedIndexBegin(0)
     , m_chunkPoints(chunkPoints)
+    , m_tubular(tubular)
     , m_dynamicChunks(dynamicChunks)
     , m_dimensions(dimensions)
     , m_factor(1ULL << m_dimensions)
@@ -199,6 +203,7 @@ Structure::Structure(const Json::Value& json, const BBox& bbox)
     , m_sparseIndexBegin(0)
     , m_mappedIndexBegin(0)
     , m_chunkPoints(json["chunkPoints"].asUInt64())
+    , m_tubular(json["tubular"].asBool())
     , m_dynamicChunks(json["dynamicChunks"].asBool())
     , m_dimensions(json["dimensions"].asUInt64())
     , m_factor(1ULL << m_dimensions)
@@ -235,6 +240,7 @@ Structure::Structure(const Structure& other)
     m_nominalChunkIndex = other.m_nominalChunkIndex;
     m_nominalChunkDepth = other.m_nominalChunkDepth;
 
+    m_tubular = other.m_tubular;
     m_dynamicChunks = other.m_dynamicChunks;
 
     m_dimensions = other.m_dimensions;
@@ -288,7 +294,7 @@ void Structure::loadIndexValues()
                 "Points per chunk not specified, but a cold depth was given.");
     }
 
-    if (hasCold() && !ChunkInfo::isPerfectLogN(m_chunkPoints, m_dimensions))
+    if (hasCold() && !ChunkInfo::isPerfectLogN(m_chunkPoints, m_factor))
     {
         throw std::runtime_error(
                 "Invalid chunk specification - "
@@ -358,6 +364,7 @@ Json::Value Structure::toJson() const
     json["chunkPoints"] = static_cast<Json::UInt64>(baseChunkPoints());
     json["dimensions"] = static_cast<Json::UInt64>(dimensions());
     json["numPointsHint"] = static_cast<Json::UInt64>(numPointsHint());
+    json["tubular"] = m_tubular;
     json["dynamicChunks"] = m_dynamicChunks;
 
     if (m_subset) json["subset"] = m_subset->toJson();

@@ -560,6 +560,7 @@ void Builder::merge()
 
 void Builder::link(std::vector<std::string> subsetPaths)
 {
+    throw std::runtime_error("Not implemented");
     /*
     std::unique_ptr<ContiguousChunk> base;
     std::vector<Endpoint> subs;
@@ -767,21 +768,6 @@ void Builder::prep()
     {
         throw std::runtime_error("Couldn't create local build directory");
     }
-}
-
-std::string Builder::name() const
-{
-    std::string name(m_outEndpoint->root());
-
-    // TODO Temporary/hacky.
-    const std::size_t pos(name.find_last_of("/\\"));
-
-    if (pos != std::string::npos)
-    {
-        name = name.substr(pos + 1);
-    }
-
-    return name;
 }
 
 } // namespace entwine

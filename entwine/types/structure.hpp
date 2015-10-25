@@ -89,6 +89,7 @@ private:
 class Structure
 {
 public:
+    // Capped max depth.
     Structure(
             std::size_t nullDepth,
             std::size_t baseDepth,
@@ -96,16 +97,19 @@ public:
             std::size_t chunkPoints,
             std::size_t dimensions,
             std::size_t numPointsHint,
+            bool tubular,
             bool dynamicChunks,
             const BBox* bbox,
             std::pair<std::size_t, std::size_t> subset = { 0, 0 });
 
+    // Lossless.
     Structure(
             std::size_t nullDepth,
             std::size_t baseDepth,
             std::size_t chunkPoints,
             std::size_t dimensions,
             std::size_t numPointsHint,
+            bool tubular,
             bool dynamicChunks,
             const BBox* bbox,
             std::pair<std::size_t, std::size_t> subset = { 0, 0 });
@@ -167,7 +171,7 @@ public:
 
     bool hasCold() const
     {
-        return lossless() || coldIndexEnd() > coldIndexBegin();
+        return lossless() || coldDepthEnd() > coldDepthBegin();
     }
 
     bool hasSparse() const
@@ -183,6 +187,11 @@ public:
     bool lossless() const
     {
         return m_coldDepthEnd == 0;
+    }
+
+    bool tubular() const
+    {
+        return m_tubular;
     }
 
     bool dynamicChunks() const
@@ -207,7 +216,9 @@ public:
 
     std::string typeString() const
     {
-        return m_dimensions == 3 ? "octree" : "quadtree";
+        if (m_tubular) return "hybrid";
+        else if (is3d()) return "octree";
+        else return "quadtree";
     }
 
     ChunkInfo getInfoFromNum(std::size_t chunkNum) const;
@@ -256,6 +267,7 @@ private:
     std::size_t m_nominalChunkIndex;
     std::size_t m_nominalChunkDepth;
 
+    bool m_tubular;
     bool m_dynamicChunks;
 
     std::size_t m_dimensions;

@@ -173,11 +173,20 @@ std::unique_ptr<Query> Reader::query(
 {
     checkQuery(depthBegin, depthEnd);
 
-    // TODO - Verify against structure.
+    BBox normalBBox(qbox);
+
     if (!qbox.is3d())
     {
-        std::cout << "qbox: " << qbox << std::endl;
-        throw InvalidQuery("Wrong number of dimensions in query");
+        normalBBox = BBox(
+                Point(
+                    qbox.min().x,
+                    qbox.min().y,
+                    m_bbox->min().z),
+                Point(
+                    qbox.max().x,
+                    qbox.max().y,
+                    m_bbox->max().z),
+                true);
     }
 
     return std::unique_ptr<Query>(
@@ -186,7 +195,7 @@ std::unique_ptr<Query> Reader::query(
                 *m_structure,
                 schema,
                 m_cache,
-                qbox,
+                normalBBox,
                 depthBegin,
                 depthEnd));
 }

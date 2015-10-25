@@ -27,20 +27,19 @@ namespace
     {
         const std::string typeString(jsonType.asString());
 
-        if (typeString == "quadtree") return 2;
+        if (typeString == "hybrid") return 2;
+        else if (typeString == "quadtree") return 2;
         else if (typeString == "octree") return 3;
         else throw std::runtime_error("Invalid tree type");
     }
 
-    std::unique_ptr<BBox> getBBox(
-            const Json::Value& json,
-            const std::size_t dimensions)
+    std::unique_ptr<BBox> getBBox(const Json::Value& json, const bool is3d)
     {
         std::unique_ptr<BBox> bbox;
 
         if (!json.empty())
         {
-            if (json.size() == 4 && dimensions == 2)
+            if (json.size() == 4 && !is3d)
             {
                 Json::Value expanded;
                 Json::Value& bounds(expanded["bounds"]);
@@ -56,7 +55,7 @@ namespace
 
                 bbox.reset(new BBox(expanded));
             }
-            else if (dimensions == 3)
+            else if (is3d)
             {
                 Json::Value expanded;
                 expanded["bounds"] = json;
@@ -65,15 +64,8 @@ namespace
             }
             else
             {
-                Json::Value expanded;
-                expanded["bounds"] = json;
-                expanded["is3d"] = false;
-                bbox.reset(new BBox(expanded));
-
-                /*
                 throw std::runtime_error(
                         "Invalid bbox for the requested tree type.");
-                */
             }
         }
 
@@ -122,10 +114,11 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     const Json::Value& jsonStructure(config["structure"]);
     const std::size_t nullDepth(jsonStructure["nullDepth"].asUInt64());
     const std::size_t baseDepth(jsonStructure["baseDepth"].asUInt64());
-    const std::size_t coldDepth(jsonStructure["coldDepth"].asUInt64());
     const std::size_t chunkPoints(jsonStructure["pointsPerChunk"].asUInt64());
-    const std::size_t dynamicChunks(jsonStructure["dynamicChunks"].asBool());
     const std::size_t dimensions(getDimensions(jsonStructure["type"]));
+    const bool tubular(jsonStructure["type"].asString() == "hybrid");
+    const bool lossless(!jsonStructure.isMember("coldDepth"));
+    const bool dynamicChunks(jsonStructure["dynamicChunks"].asBool());
 
     std::pair<std::size_t, std::size_t> subset({ 0, 0 });
     if (jsonStructure.isMember("subset"))
@@ -141,20 +134,40 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
     // Geometry and spatial info.
     const Json::Value& geometry(config["geometry"]);
-    auto bbox(getBBox(geometry["bbox"], dimensions));
+    auto bbox(getBBox(geometry["bbox"], dimensions == 3 || tubular));
     auto reprojection(getReprojection(geometry["reproject"]));
     Schema schema(geometry["schema"]);
 
-    const Structure structure(
-            nullDepth,
-            baseDepth,
-            coldDepth,
-            chunkPoints,
-            dimensions,
-            numPointsHint,
-            dynamicChunks,
-            bbox.get(),
-            subset);
+    const Structure structure(([&]()
+    {
+        if (lossless)
+        {
+            return Structure(
+                    nullDepth,
+                    baseDepth,
+                    chunkPoints,
+                    dimensions,
+                    numPointsHint,
+                    tubular,
+                    dynamicChunks,
+                    bbox.get(),
+                    subset);
+        }
+        else
+        {
+            return Structure(
+                    nullDepth,
+                    baseDepth,
+                    jsonStructure["coldDepth"].asUInt64(),
+                    chunkPoints,
+                    dimensions,
+                    numPointsHint,
+                    tubular,
+                    dynamicChunks,
+                    bbox.get(),
+                    subset);
+        }
+    })());
 
     bool exists(false);
 

@@ -103,7 +103,6 @@ Chunk::Chunk(
     , m_bbox(bbox)
     , m_structure(structure)
     , m_pools(pools)
-    , m_depth(depth)
     , m_zDepth(std::min(structure.sparseDepthBegin() + 1, depth))
     , m_id(id)
     , m_maxPoints(maxPoints)
@@ -347,6 +346,7 @@ SparseChunk::SparseChunk(
     }
 
     const std::size_t ticks(std::sqrt(m_maxPoints));
+    const bool tubular(m_structure.tubular());
 
     for (std::size_t i(0); i < m_numPoints; ++i)
     {
@@ -368,7 +368,7 @@ SparseChunk::SparseChunk(
         const Point& point(infoNode->val().point());
 
         tube = Tube::calcTube(point, m_bbox, ticks);
-        tick = Tube::calcTick(point, m_bbox, m_zDepth);
+        if (tubular) tick = Tube::calcTick(point, m_bbox, m_zDepth);
 
         m_tubes[tube].addCell(tick, std::move(infoNode));
     }
@@ -466,7 +466,8 @@ ContiguousChunk::ContiguousChunk(
         throw std::runtime_error("Bad numPoints detected - contiguous chunk");
     }
 
-    std::size_t ticks(std::sqrt(m_maxPoints));
+    const std::size_t ticks(std::sqrt(m_maxPoints));
+    const bool tubular(m_structure.tubular());
 
     for (std::size_t i(0); i < m_numPoints; ++i)
     {
@@ -488,7 +489,7 @@ ContiguousChunk::ContiguousChunk(
         const Point& point(infoNode->val().point());
 
         tube = Tube::calcTube(point, m_bbox, ticks);
-        tick = Tube::calcTick(point, m_bbox, m_zDepth);
+        if (tubular) tick = Tube::calcTick(point, m_bbox, m_zDepth);
 
         m_tubes.at(tube).addCell(tick, std::move(infoNode));
     }
@@ -590,6 +591,8 @@ BaseChunk::BaseChunk(
     PooledDataStack dataStack(m_pools.dataPool().acquire(m_numPoints));
     PooledInfoStack infoStack(m_pools.infoPool().acquire(m_numPoints));
 
+    const bool tubular(m_structure.tubular());
+
     for (std::size_t i(0); i < m_numPoints; ++i)
     {
         PooledDataNode dataNode(dataStack.popOne());
@@ -609,10 +612,14 @@ BaseChunk::BaseChunk(
                     view.getFieldAs<double>(pdal::Dimension::Id::Z, 0)),
                 std::move(dataNode));
 
-        curDepth = ChunkInfo::calcDepth(m_structure.factor(), m_id + i);
 
         tube = view.getFieldAs<uint64_t>(tubeId, 0);
-        tick = Tube::calcTick(infoNode->val().point(), m_bbox, curDepth);
+
+        if (tubular)
+        {
+            curDepth = ChunkInfo::calcDepth(m_structure.factor(), m_id + i);
+            tick = Tube::calcTick(infoNode->val().point(), m_bbox, curDepth);
+        }
 
         m_tubes.at(tube).addCell(tick, std::move(infoNode));
     }

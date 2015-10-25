@@ -211,6 +211,11 @@ void Kernel::build(std::vector<std::string> args)
                 (runInfo.maxCount > 1 ? "s" : "") << "\n";
     }
 
+    const std::string coldDepthString(
+            structure.lossless() ?
+                "lossless" :
+                std::to_string(structure.coldDepthEnd()));
+
     std::cout <<
         "\tTrust file headers? " << yesNo(builder->trustHeaders()) << "\n" <<
         "\tBuild threads: " << builder->numThreads() <<
@@ -227,7 +232,7 @@ void Kernel::build(std::vector<std::string> args)
         "Tree structure:\n" <<
         "\tNull depth: " << structure.nullDepthEnd() << "\n" <<
         "\tBase depth: " << structure.baseDepthEnd() << "\n" <<
-        "\tCold depth: " << structure.coldDepthEnd() << "\n" <<
+        "\tCold depth: " << coldDepthString << "\n" <<
         "\tChunk size: " << structure.baseChunkPoints() << " points\n" <<
         "\tDynamic chunks? " << yesNo(structure.dynamicChunks()) << "\n" <<
         "\tBuild type: " << structure.typeString() << "\n" <<

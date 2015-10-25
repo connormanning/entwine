@@ -109,7 +109,6 @@ protected:
     const BBox m_bbox;
     const Structure& m_structure;
     Pools& m_pools;
-    const std::size_t m_depth;
     const std::size_t m_zDepth;
     const Id m_id;
 

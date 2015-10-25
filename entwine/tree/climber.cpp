@@ -20,6 +20,8 @@ Climber::Climber(const BBox& bbox, const Structure& structure)
     : m_structure(structure)
     , m_dimensions(structure.dimensions())
     , m_factor(structure.factor())
+    , m_is3d(structure.is3d())
+    , m_tubular(structure.factor())
     , m_index(0)
     , m_levelIndex(0)
     , m_chunkId(structure.nominalChunkIndex())
@@ -38,15 +40,14 @@ void Climber::magnify(const Point& point)
 {
     const Point& mid(m_bbox.mid());
 
-    if (m_depth <= m_structure.sparseDepthBegin())
+    if (m_tubular && m_depth <= m_structure.sparseDepthBegin())
     {
         m_tick *= 2;
         if (point.z >= mid.z) ++m_tick;
     }
 
-    // TODO.
     // Up: +4, Down: +0.
-    const int z(/*m_dimensions == 3 &&*/ point.z >= mid.z ? 4 : 0);
+    const int z((m_tubular || m_is3d) && point.z >= mid.z ? 4 : 0);
 
     // North: +2, South: +0.
     const int y(point.y >= mid.y ? 2 : 0);
@@ -69,8 +70,9 @@ void Climber::magnify(const Point& point)
 
 void Climber::climb(Dir dir)
 {
-    // TODO.  We're tracking the bbox in 3d, but climbing in 2d.
-    dir = static_cast<Dir>(static_cast<int>(dir) % 4);
+    // If this is a hybrid index, then we're tracking the BBox in 3d, but
+    // climbing in 2d.  If so, normalize the direction to 2d.
+    if (m_tubular) dir = static_cast<Dir>(static_cast<int>(dir) % 4);
 
     if (++m_depth > m_structure.nominalChunkDepth())
     {
@@ -88,12 +90,19 @@ void Climber::climb(Dir dir)
 
             if (m_depth > m_structure.nominalChunkDepth())
             {
-                // TODO.
-                if (chunkRatio == 0) m_bboxChunk.goSwd(true);
-                else if (chunkRatio == 1) m_bboxChunk.goSed(true);
-                else if (chunkRatio == 2) m_bboxChunk.goNwd(true);
-                else if (chunkRatio == 3) m_bboxChunk.goNed(true);
-                else std::cout << "BAD RATIO!" << std::endl;
+                assert(chunkRatio < m_factor);
+
+                switch (static_cast<Dir>(chunkRatio))
+                {
+                    case Dir::swd: m_bboxChunk.goSwd(m_tubular); break;
+                    case Dir::sed: m_bboxChunk.goSed(m_tubular); break;
+                    case Dir::nwd: m_bboxChunk.goNwd(m_tubular); break;
+                    case Dir::ned: m_bboxChunk.goNed(m_tubular); break;
+                    case Dir::swu: m_bboxChunk.goSwu(); break;
+                    case Dir::seu: m_bboxChunk.goSeu(); break;
+                    case Dir::nwu: m_bboxChunk.goNwu(); break;
+                    case Dir::neu: m_bboxChunk.goNeu(); break;
+                }
             }
 
             if (m_depth >= m_structure.coldDepthBegin())

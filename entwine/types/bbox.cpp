@@ -40,11 +40,9 @@ BBox::BBox(const Point min, const Point max, const bool is3d)
 BBox::BBox(const BBox& other)
     : m_min(other.min())
     , m_max(other.max())
-    , m_mid()
+    , m_mid(other.m_mid)
     , m_is3d(other.m_is3d)
-{
-    setMid();
-}
+{ }
 
 BBox::BBox(const Json::Value& json)
     : m_min(
@@ -58,7 +56,7 @@ BBox::BBox(const Json::Value& json)
                 json["bounds"].get(Json::ArrayIndex(4), 0).asDouble(),
                 json["bounds"].get(Json::ArrayIndex(5), 0).asDouble()))
     , m_mid()
-    , m_is3d(true/*json["is3d"].asBool()*/)
+    , m_is3d(json["is3d"].asBool())
 {
     setMid();
 }
