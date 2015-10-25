@@ -178,14 +178,8 @@ std::unique_ptr<Query> Reader::query(
     if (!qbox.is3d())
     {
         normalBBox = BBox(
-                Point(
-                    qbox.min().x,
-                    qbox.min().y,
-                    m_bbox->min().z),
-                Point(
-                    qbox.max().x,
-                    qbox.max().y,
-                    m_bbox->max().z),
+                Point(qbox.min().x, qbox.min().y, m_bbox->min().z),
+                Point(qbox.max().x, qbox.max().y, m_bbox->max().z),
                 true);
     }
 

@@ -47,7 +47,6 @@ namespace
         }
     }
 
-    const std::size_t clipPoolSize(4);
     const std::size_t clipQueueSize(1);
 }
 
@@ -56,7 +55,8 @@ Registry::Registry(
         const Schema& schema,
         const BBox& bbox,
         const Structure& structure,
-        Pools& pointPool)
+        Pools& pointPool,
+        const std::size_t clipPoolSize)
     : m_endpoint(endpoint)
     , m_schema(schema)
     , m_bbox(bbox)
@@ -100,6 +100,7 @@ Registry::Registry(
         const BBox& bbox,
         const Structure& structure,
         Pools& pointPool,
+        const std::size_t clipPoolSize,
         const Json::Value& meta)
     : m_endpoint(endpoint)
     , m_schema(schema)

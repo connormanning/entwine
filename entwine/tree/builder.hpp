@@ -122,9 +122,8 @@ public:
     const arbiter::Endpoint& tmpEndpoint() const { return *m_tmpEndpoint; }
 
 private:
-    // Awaken the tree from a saved state.  After a load(), no queries should
-    // be made until save() is subsequently called.
-    void load();
+    // Awaken the tree from a saved state.
+    void load(std::size_t clipThreads);
 
     // Validate sources.
     void prep();

@@ -29,7 +29,6 @@
 #include <entwine/types/single-point-table.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/executor.hpp>
-#include <entwine/util/fs.hpp>
 
 using namespace arbiter;
 
@@ -38,7 +37,20 @@ namespace entwine
 
 namespace
 {
-    const std::size_t sleepCount(65536 * 256);
+    std::size_t sleepCount(65536 * 24);
+    const double workToClipRatio(0.47);
+
+    std::size_t getWorkThreads(const std::size_t total)
+    {
+        std::size_t num(
+                std::round(static_cast<double>(total) * workToClipRatio));
+        return std::max<std::size_t>(num, 1);
+    }
+
+    std::size_t getClipThreads(const std::size_t total)
+    {
+        return std::max<std::size_t>(total - getWorkThreads(total), 4);
+    }
 }
 
 Builder::Builder(
@@ -49,7 +61,7 @@ Builder::Builder(
         const Reprojection* reprojection,
         const BBox* bbox,
         const DimList& dimList,
-        const std::size_t numThreads,
+        const std::size_t totalThreads,
         const Structure& structure,
         std::shared_ptr<Arbiter> arbiter)
     : m_bbox(bbox ? new BBox(*bbox) : 0)
@@ -65,7 +77,7 @@ Builder::Builder(
     , m_compress(compress)
     , m_trustHeaders(trustHeaders)
     , m_isContinuation(false)
-    , m_pool(new Pool(numThreads))
+    , m_pool(new Pool(getWorkThreads(totalThreads)))
     , m_executor(new Executor(m_structure->is3d()))
     , m_originId(m_schema->pdalLayout().findDim("Origin"))
     , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
@@ -78,7 +90,8 @@ Builder::Builder(
                 *m_schema,
                 *m_bbox,
                 *m_structure,
-                *m_pointPool))
+                *m_pointPool,
+                getClipThreads(totalThreads)))
 {
     prep();
 }
@@ -86,7 +99,7 @@ Builder::Builder(
 Builder::Builder(
         const std::string outPath,
         const std::string tmpPath,
-        const std::size_t numThreads,
+        const std::size_t totalThreads,
         std::shared_ptr<Arbiter> arbiter)
     : m_bbox()
     , m_subBBox()
@@ -98,7 +111,7 @@ Builder::Builder(
     , m_stats()
     , m_trustHeaders(false)
     , m_isContinuation(true)
-    , m_pool(new Pool(numThreads))
+    , m_pool(new Pool(getWorkThreads(totalThreads)))
     , m_executor()
     , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
     , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(outPath)))
@@ -107,7 +120,7 @@ Builder::Builder(
     , m_registry()
 {
     prep();
-    load();
+    load(getClipThreads(totalThreads));
 }
 
 Builder::Builder(const std::string path, std::shared_ptr<Arbiter> arbiter)
@@ -417,7 +430,7 @@ void Builder::join()
     m_pool->join();
 }
 
-void Builder::load()
+void Builder::load(const std::size_t clipThreads)
 {
     Json::Value meta;
 
@@ -439,6 +452,7 @@ void Builder::load()
                 *m_bbox,
                 *m_structure,
                 *m_pointPool,
+                clipThreads,
                 meta));
 }
 
@@ -752,6 +766,10 @@ void Builder::loadProps(const Json::Value& props)
 
 void Builder::prep()
 {
+    // TODO This should be based on numThreads, and ideally also desired
+    // memory consumption.
+    if (m_pool->numThreads() == 1) sleepCount = 65536 * 256;
+
     if (m_tmpEndpoint->isRemote())
     {
         throw std::runtime_error("Tmp path must be local");

@@ -48,7 +48,8 @@ public:
             const Schema& schema,
             const BBox& bbox,
             const Structure& structure,
-            Pools& pointPool);
+            Pools& pointPool,
+            std::size_t clipPoolSize);
 
     Registry(
             arbiter::Endpoint& endpoint,
@@ -56,6 +57,7 @@ public:
             const BBox& bbox,
             const Structure& structure,
             Pools& pointPool,
+            std::size_t clipPoolSize,
             const Json::Value& meta);
 
     ~Registry();
