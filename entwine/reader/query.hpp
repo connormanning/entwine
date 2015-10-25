@@ -58,7 +58,7 @@ private:
 
     Cache& m_cache;
 
-    const BBox& m_qbox;
+    const BBox m_qbox;
     const std::size_t m_depthBegin;
     const std::size_t m_depthEnd;
 
