@@ -263,7 +263,7 @@ void Structure::loadIndexValues()
         m_baseDepthBegin = m_nullDepthEnd;
         m_baseDepthEnd = std::max(m_baseDepthBegin, m_baseDepthEnd);
         m_coldDepthBegin = m_baseDepthEnd;
-        m_coldDepthEnd = std::max(m_coldDepthBegin, m_coldDepthEnd);
+        // Don't snap coldDepthEnd upward to accommodate lossless builds.
 
         if (hasCold())
         {

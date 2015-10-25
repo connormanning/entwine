@@ -124,7 +124,7 @@ void Query::getBase(std::vector<char>& buffer)
             m_depthBegin < m_structure.baseDepthEnd() &&
             m_depthEnd   > m_structure.baseDepthBegin())
     {
-        const ContiguousChunk& base(*m_reader.base());
+        const BaseChunk& base(*m_reader.base());
         bool terminate(false);
         SplitClimber splitter(
                 m_structure,
