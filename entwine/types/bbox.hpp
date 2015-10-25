@@ -82,7 +82,6 @@ public:
 
         const double radius(std::max(std::max(xDist, yDist), zDist) / 2);
 
-
         m_min.x = m_mid.x - radius;
         m_min.y = m_mid.y - radius;
         m_min.z = m_mid.z - radius;

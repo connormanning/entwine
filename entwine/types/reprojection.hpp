@@ -20,13 +20,33 @@ namespace entwine
 class Reprojection
 {
 public:
-    Reprojection(std::string in, std::string out);
-    Reprojection(const Json::Value& json);
+    Reprojection(const std::string in, const std::string out)
+        : m_in(in)
+        , m_out(out)
+    { }
 
-    Json::Value toJson() const;
+    Reprojection(const Json::Value& json)
+        : m_in(json["in"].asString())
+        , m_out(json["out"].asString())
+    { }
 
-    std::string in() const;
-    std::string out() const;
+    Json::Value toJson() const
+    {
+        Json::Value json;
+        json["in"] = in();
+        json["out"] = out();
+        return json;
+    }
+
+    std::string in() const
+    {
+        return m_in;
+    }
+
+    std::string out() const
+    {
+        return m_out;
+    }
 
 private:
     std::string m_in;
