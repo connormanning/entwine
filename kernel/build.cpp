@@ -20,7 +20,6 @@
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
-#include <entwine/util/fs.hpp>
 
 using namespace entwine;
 
