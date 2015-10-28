@@ -560,7 +560,6 @@ BaseChunk::BaseChunk(
     , m_celledSchema(makeCelled(m_schema))
 {
     m_numPoints = numPoints;
-
     const std::size_t celledPointSize(m_celledSchema.pointSize());
 
     std::unique_ptr<std::vector<char>> data(
@@ -612,12 +611,11 @@ BaseChunk::BaseChunk(
                     view.getFieldAs<double>(pdal::Dimension::Id::Z, 0)),
                 std::move(dataNode));
 
-
         tube = view.getFieldAs<uint64_t>(tubeId, 0);
 
         if (tubular)
         {
-            curDepth = ChunkInfo::calcDepth(m_structure.factor(), m_id + i);
+            curDepth = ChunkInfo::calcDepth(m_structure.factor(), m_id + tube);
             tick = Tube::calcTick(infoNode->val().point(), m_bbox, curDepth);
         }
 
@@ -658,6 +656,8 @@ void BaseChunk::save(arbiter::Endpoint& endpoint)
 
 void BaseChunk::merge(BaseChunk& other)
 {
+    m_numPoints += other.m_numPoints;
+
     for (std::size_t i(0); i < m_tubes.size(); ++i)
     {
         Tube& ours(m_tubes.at(i));

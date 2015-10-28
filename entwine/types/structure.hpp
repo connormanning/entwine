@@ -155,8 +155,7 @@ public:
     bool isWithinCold(const Id& index) const
     {
         return
-            index >= m_coldIndexBegin &&
-            (!m_coldIndexEnd || index < m_coldIndexEnd);
+            index >= m_coldIndexBegin && (lossless() || index < m_coldIndexEnd);
     }
 
     bool hasNull() const

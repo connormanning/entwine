@@ -34,6 +34,11 @@ void Tube::addCell(const std::size_t tick, PooledInfoNode info)
     }
     else
     {
+        if (m_cells.count(tick))
+        {
+            throw std::runtime_error("Invalid serialized chunk tick");
+        }
+
         m_cells.emplace(
                 std::piecewise_construct,
                 std::forward_as_tuple(tick),
@@ -124,7 +129,7 @@ void Tube::saveBase(
         const std::size_t nativeSize(celledSize - idSize);
 
         // Include space for primary cell.
-        data.resize(celledSize + m_cells.size() * celledSize);
+        data.resize((m_cells.size() + 1) * celledSize);
         char* pos(data.data());
 
         const char* tubePos(reinterpret_cast<const char*>(&tubeId));

@@ -38,7 +38,9 @@ namespace
         std::size_t count(0);
         std::size_t depth(structure.coldDepthBegin());
 
-        while (count < maxFastTrackers && depth < structure.coldDepthEnd())
+        while (
+                count < maxFastTrackers &&
+                (depth < structure.coldDepthEnd() || !structure.coldDepthEnd()))
         {
             count += structure.numChunksAtDepth(depth);
             ++depth;
@@ -100,8 +102,7 @@ Cold::Cold(
         }
         else
         {
-            m_chunkMap.insert(
-                    std::make_pair(id, std::unique_ptr<CountedChunk>()));
+            m_chunkMap.emplace(id, std::unique_ptr<CountedChunk>());
         }
     }
 }
@@ -140,20 +141,26 @@ Cell& Cold::getCell(const Climber& climber, Clipper* clipper)
 Json::Value Cold::toJson() const
 {
     Json::Value json;
+    std::set<Id> ids;
 
     for (std::size_t i(0); i < m_chunkVec.size(); ++i)
     {
         if (m_chunkVec[i].mark.load())
         {
             ChunkInfo info(m_structure.getInfoFromNum(i));
-            json.append(info.chunkId().str());
+            ids.insert(info.chunkId());
         }
     }
 
     std::lock_guard<std::mutex> lock(m_mapMutex);
     for (const auto& p : m_chunkMap)
     {
-        json.append(p.first.str());
+        ids.insert(p.first);
+    }
+
+    for (const auto& id : ids)
+    {
+        json.append(id.str());
     }
 
     return json;

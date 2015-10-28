@@ -438,6 +438,9 @@ void Builder::load(const std::size_t clipThreads)
         Json::Reader reader;
         const std::string data(m_outEndpoint->getSubpath("entwine"));
         reader.parse(data, meta, false);
+
+        const std::string err(reader.getFormattedErrorMessages());
+        if (!err.empty()) throw std::runtime_error("Invalid JSON: " + err);
     }
 
     loadProps(meta);
@@ -459,7 +462,7 @@ void Builder::load(const std::size_t clipThreads)
 void Builder::merge()
 {
     std::unique_ptr<BaseChunk> base;
-    std::vector<Id> ids;
+    std::set<Id> ids;
     const std::size_t baseCount([this]()->std::size_t
     {
         Json::Value meta;
@@ -478,6 +481,7 @@ void Builder::merge()
 
     for (std::size_t i(0); i < baseCount; ++i)
     {
+        std::cout << "\t" << i + 1 << " / " << baseCount << std::endl;
         const std::string postfix("-" + std::to_string(i));
 
         // Fetch metadata for this segment.
@@ -494,11 +498,9 @@ void Builder::merge()
         const Json::Value& jsonIds(meta["ids"]);
         if (jsonIds.isArray())
         {
-            for (std::size_t i(0); i < jsonIds.size(); ++i)
+            for (Json::ArrayIndex i(0); i < jsonIds.size(); ++i)
             {
-                Json::ArrayIndex arrayIndex(static_cast<Json::ArrayIndex>(i));
-
-                ids.push_back(Id(jsonIds[arrayIndex].asString()));
+                ids.insert(Id(jsonIds[i].asString()));
             }
         }
         else
@@ -510,37 +512,24 @@ void Builder::merge()
                 m_outEndpoint->getSubpathBinary(
                     m_structure->baseIndexBegin().str() + postfix));
 
+        std::unique_ptr<BaseChunk> current(
+                static_cast<BaseChunk*>(
+                    Chunk::create(
+                        *m_schema,
+                        *m_bbox,
+                        *m_structure,
+                        *m_pointPool,
+                        0,
+                        m_structure->baseIndexBegin(),
+                        m_structure->baseIndexSpan(),
+                        std::move(data)).release()));
+
         if (i == 0)
         {
-            std::cout << "\t1 / " << baseCount << std::endl;
-            base.reset(
-                    static_cast<BaseChunk*>(
-                        Chunk::create(
-                            *m_schema,
-                            *m_bbox,
-                            *m_structure,
-                            *m_pointPool,
-                            0,
-                            m_structure->baseIndexBegin(),
-                            m_structure->baseIndexSpan(),
-                            std::move(data)).release()));
+            base = std::move(current);
         }
         else
         {
-            std::cout << "\t" << i + 1 << " / " << baseCount << std::endl;
-
-            std::unique_ptr<BaseChunk> chunkData(
-                    static_cast<BaseChunk*>(
-                        Chunk::create(
-                            *m_schema,
-                            *m_bbox,
-                            *m_structure,
-                            *m_pointPool,
-                            0,
-                            m_structure->baseIndexBegin(),
-                            m_structure->baseIndexSpan(),
-                            std::move(data)).release()));
-
             // Update stats.  Don't add numOutOfBounds, since those are
             // based on the global bounds, so every segment's out-of-bounds
             // count should be equal.
@@ -552,7 +541,7 @@ void Builder::merge()
                 throw std::runtime_error("Invalid stats in segment.");
             }
 
-            base->merge(*chunkData);
+            base->merge(*current);
         }
     }
 
@@ -561,14 +550,9 @@ void Builder::merge()
 
     Json::Value jsonMeta(saveProps());
     Json::Value& jsonIds(jsonMeta["ids"]);
-
-    for (auto id : ids)
-    {
-        jsonIds.append(id.str());
-    }
+    for (const auto& id : ids) jsonIds.append(id.str());
 
     m_outEndpoint->putSubpath("entwine", jsonMeta.toStyledString());
-
     base->save(*m_outEndpoint);
 }
 
