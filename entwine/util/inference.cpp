@@ -82,33 +82,51 @@ Inference::Inference(
     auto tmpEndpoint(arbiter->getEndpoint(tmpPath));
     auto resolved(arbiter->resolve(path));
 
+    if (m_verbose)
+    {
+        std::cout << "Inferring from " << resolved.size() << " paths." <<
+            std::endl;
+    }
+
     entwine::Pool pool(threads);
     std::size_t i(0);
 
     for (const std::string& f : resolved)
     {
-        if (++i % 10 == 0 && m_verbose)
-        {
-            std::cout << i << " / " << resolved.size() << std::endl;
-        }
-
-        pool.add([arbiter, f, &tmpEndpoint, this]()
+        pool.add([arbiter, f, i, &tmpEndpoint, this]()
         {
             auto localHandle(arbiter->getLocalHandle(f, tmpEndpoint));
-            add(localHandle->localPath());
+            add(localHandle->localPath(), i);
         });
+
+        ++i;
     }
 
     pool.join();
 }
 
-void Inference::add(const std::string localPath)
+void Inference::add(const std::string localPath, std::size_t i)
 {
     std::unique_ptr<Preview> preview(m_executor.preview(localPath, m_reproj));
 
-    if (preview)
+    auto update([&](std::size_t numPoints, const BBox& bbox)
     {
         std::lock_guard<std::mutex> lock(m_mutex);
+
+        if (m_verbose)
+        {
+            std::cout << i << ": " << bbox << " - " << numPoints << std::endl;
+        }
+
+        m_numPoints += numPoints;
+        m_bbox.grow(bbox);
+        if (m_cubeify) m_bbox.cubeify();
+        m_bbox.bloat();
+    });
+
+    if (preview)
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
         for (const auto& d : preview->dimNames)
         {
             if (!m_dimSet.count(d))
@@ -117,14 +135,11 @@ void Inference::add(const std::string localPath)
                 m_dimVec.push_back(d);
             }
         }
+        lock.unlock();
 
         if (m_trustHeaders)
         {
-            m_numPoints += preview->numPoints;
-            m_bbox.grow(preview->bbox);
-            if (m_cubeify) m_bbox.cubeify();
-            m_bbox.bloat();
-
+            update(preview->numPoints, preview->bbox);
             return;
         }
     }
@@ -133,7 +148,7 @@ void Inference::add(const std::string localPath)
     std::size_t curNumPoints(0);
     SimplePointTable table(m_dataPool, xyzSchema);
 
-    auto bounder([this, &curBBox, &curNumPoints](pdal::PointView& view)->void
+    auto tracker([this, &curBBox, &curNumPoints](pdal::PointView& view)
     {
         Point p;
         curNumPoints += view.size();
@@ -148,14 +163,9 @@ void Inference::add(const std::string localPath)
         }
     });
 
-    if (!m_executor.run(table, localPath, m_reproj, bounder))
+    if (!m_executor.run(table, localPath, m_reproj, tracker))
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
-
-        m_numPoints += curNumPoints;
-        m_bbox.grow(curBBox);
-        if (m_cubeify) m_bbox.cubeify();
-        m_bbox.bloat();
+        update(curNumPoints, curBBox);
     }
 }
 

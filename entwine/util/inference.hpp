@@ -48,7 +48,7 @@ public:
     Schema schema() const;
 
 private:
-    void add(std::string localPath);
+    void add(std::string localPath, std::size_t index);
 
     Executor m_executor;
     DataPool m_dataPool;
