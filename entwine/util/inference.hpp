@@ -36,6 +36,8 @@ public:
     Inference(
             std::string path,
             std::string tmpPath,
+            std::size_t threads,
+            bool verbose = false,
             const Reprojection* reprojection = nullptr,
             bool trustHeaders = true,
             bool cubeify = true,
@@ -51,6 +53,7 @@ private:
     Executor m_executor;
     DataPool m_dataPool;
     const Reprojection* m_reproj;
+    bool m_verbose;
     bool m_trustHeaders;
     bool m_cubeify;
 

@@ -187,15 +187,11 @@ std::unique_ptr<Preview> Executor::preview(
                                 view.getFieldAs<double>(Dimension::Id::Z, 1)),
                             m_is3d);
 
-                    if (doSrs)
-                    {
-                        srs = pdal::SpatialReference(
-                                reprojection->out()).getRawWKT();
-                    }
+                    srs = pdal::SpatialReference(reprojection->out()).getWKT();
                 }
                 else
                 {
-                    srs = quick.m_srs.getRawWKT();
+                    srs = quick.m_srs.getWKT();
                 }
 
                 result.reset(
@@ -241,6 +237,11 @@ std::unique_ptr<pdal::Filter> Executor::createReprojectionFilter(
         const Reprojection& reproj,
         pdal::BasePointTable& pointTable) const
 {
+    if (reproj.in().empty())
+    {
+        throw std::runtime_error("No default SRS supplied, and none inferred");
+    }
+
     auto lock(getLock());
     std::shared_ptr<pdal::Filter> filter(
             static_cast<pdal::Filter*>(

@@ -53,6 +53,8 @@ namespace
 Inference::Inference(
         const std::string path,
         const std::string tmpPath,
+        const std::size_t threads,
+        const bool verbose,
         const Reprojection* reprojection,
         const bool trustHeaders,
         const bool cubeify,
@@ -60,6 +62,7 @@ Inference::Inference(
     : m_executor(true)
     , m_dataPool(xyzSchema.pointSize(), 4096 * 32)
     , m_reproj(reprojection)
+    , m_verbose(verbose)
     , m_trustHeaders(trustHeaders)
     , m_cubeify(cubeify)
     , m_numPoints(0)
@@ -79,11 +82,16 @@ Inference::Inference(
     auto tmpEndpoint(arbiter->getEndpoint(tmpPath));
     auto resolved(arbiter->resolve(path));
 
-    // TODO Take in thread count.
-    entwine::Pool pool(8);
+    entwine::Pool pool(threads);
+    std::size_t i(0);
 
     for (const std::string& f : resolved)
     {
+        if (++i % 10 == 0 && m_verbose)
+        {
+            std::cout << i << " / " << resolved.size() << std::endl;
+        }
+
         pool.add([arbiter, f, &tmpEndpoint, this]()
         {
             auto localHandle(arbiter->getLocalHandle(f, tmpEndpoint));
