@@ -150,6 +150,8 @@ void Inference::add(const std::string localPath)
 
     if (!m_executor.run(table, localPath, m_reproj, bounder))
     {
+        std::lock_guard<std::mutex> lock(m_mutex);
+
         m_numPoints += curNumPoints;
         m_bbox.grow(curBBox);
         if (m_cubeify) m_bbox.cubeify();
