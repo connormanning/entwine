@@ -163,7 +163,7 @@ void Inference::add(const std::string localPath, std::size_t i)
         }
     });
 
-    if (!m_executor.run(table, localPath, m_reproj, tracker))
+    if (m_executor.run(table, localPath, m_reproj, tracker))
     {
         update(curNumPoints, curBBox);
     }
