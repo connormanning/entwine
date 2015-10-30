@@ -22,7 +22,7 @@ FetchInfo::FetchInfo(
         const Schema& schema,
         const BBox& bbox,
         const Id& id,
-        const std::size_t numPoints,
+        const Id& numPoints,
         const std::size_t depth)
     : endpoint(endpoint)
     , schema(schema)

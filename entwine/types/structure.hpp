@@ -71,8 +71,8 @@ public:
 
     std::size_t depth()         const { return m_depth; }
     const Id&   chunkId()       const { return m_chunkId; }
-    std::size_t chunkOffset()   const { return m_chunkOffset; }
-    std::size_t chunkPoints()   const { return m_chunkPoints; }
+    const Id&   chunkOffset()   const { return m_chunkOffset; }
+    const Id&   chunkPoints()   const { return m_chunkPoints; }
     std::size_t chunkNum()      const { return m_chunkNum; }
 
 private:
@@ -81,8 +81,8 @@ private:
     Id m_index;
     Id m_chunkId;
     std::size_t m_depth;
-    std::size_t m_chunkOffset;
-    std::size_t m_chunkPoints;
+    Id m_chunkOffset;
+    Id m_chunkPoints;
     std::size_t m_chunkNum;
 };
 

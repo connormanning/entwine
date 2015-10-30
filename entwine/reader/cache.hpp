@@ -37,14 +37,14 @@ struct FetchInfo
             const Schema& schema,
             const BBox& bbox,
             const Id& id,
-            std::size_t numPoints,
+            const Id& numPoints,
             std::size_t depth);
 
     arbiter::Endpoint& endpoint;
     const Schema& schema;
     const BBox& bbox;
     Id id;
-    std::size_t numPoints;
+    Id numPoints;
     std::size_t depth;
 };
 

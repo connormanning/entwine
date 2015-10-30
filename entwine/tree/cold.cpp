@@ -40,6 +40,7 @@ namespace
 
         while (
                 count < maxFastTrackers &&
+                depth < 64 &&
                 (depth < structure.coldDepthEnd() || !structure.coldDepthEnd()))
         {
             count += structure.numChunksAtDepth(depth);

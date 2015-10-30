@@ -64,8 +64,8 @@ ChunkInfo::ChunkInfo(const Structure& structure, const Id& index)
                 m_depth - m_structure.sparseDepthBegin());
 
         m_chunkPoints =
-            (Id(baseChunkPoints) *
-            binaryPow(m_structure.dimensions(), sparseDepthCount)).getSimple();
+            Id(baseChunkPoints) *
+            binaryPow(m_structure.dimensions(), sparseDepthCount);
 
         const Id coldIndexSpan(sparseIndexBegin - coldIndexBegin);
         const Id numColdChunks(coldIndexSpan / baseChunkPoints);
@@ -74,12 +74,12 @@ ChunkInfo::ChunkInfo(const Structure& structure, const Id& index)
                 numColdChunks +
                 chunksPerSparseDepth * sparseDepthCount);
 
-        const std::size_t levelOffset((index - levelIndex).getSimple());
+        const Id levelOffset(index - levelIndex);
+        const auto divMod(levelOffset.divMod(m_chunkPoints));
 
-        m_chunkNum =
-            (prevLevelsChunkCount + levelOffset / m_chunkPoints).getSimple();
-        m_chunkOffset = levelOffset % m_chunkPoints;
-        m_chunkId = levelIndex + (levelOffset / m_chunkPoints) * m_chunkPoints;
+        m_chunkNum = (prevLevelsChunkCount + divMod.first).getSimple();
+        m_chunkOffset = divMod.second.getSimple();
+        m_chunkId = levelIndex + divMod.first * m_chunkPoints;
     }
 }
 
@@ -433,10 +433,10 @@ ChunkInfo Structure::getInfoFromNum(const std::size_t chunkNum) const
                 const std::size_t chunkNumInDepth(
                         (leftover % chunksPerSparseDepth).getSimple());
 
-                const std::size_t depthIndexBegin(
+                const Id depthIndexBegin(
                         ChunkInfo::calcLevelIndex(
                             m_dimensions,
-                            depth).getSimple());
+                            depth));
 
                 const Id depthChunkSize(
                         ChunkInfo::pointsAtDepth(m_dimensions, depth) /
