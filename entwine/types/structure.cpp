@@ -256,7 +256,8 @@ void Structure::loadIndexValues()
     {
         if (m_nullDepthEnd < m_subset->minNullDepth())
         {
-            std::cout << "Bumping null depth to accomodate subset" << std::endl;
+            std::cout << "Bumping null depth to accommodate subset" <<
+                std::endl;
         }
 
         m_nullDepthEnd = std::max(m_nullDepthEnd, m_subset->minNullDepth());
@@ -267,18 +268,44 @@ void Structure::loadIndexValues()
 
         if (hasCold())
         {
-            const std::size_t coldFirstSpan(
-                    ChunkInfo::pointsAtDepth(
-                        m_dimensions,
-                        m_coldDepthBegin).getSimple());
+            bool done(false);
+            std::size_t bumped(0);
 
-            const std::size_t splits(m_subset->of());
-
-            if (
-                    (coldFirstSpan / m_chunkPoints) < splits ||
-                    (coldFirstSpan / m_chunkPoints) % splits)
+            do
             {
-                throw std::runtime_error("Invalid chunk size for this subset");
+                const std::size_t coldFirstSpan(
+                        ChunkInfo::pointsAtDepth(
+                            m_dimensions,
+                            m_coldDepthBegin).getSimple());
+
+                std::size_t splits(m_factor);
+                while (splits < m_subset->of()) splits *= m_factor;
+
+                if (
+                        (coldFirstSpan / m_chunkPoints) < splits ||
+                        (coldFirstSpan / m_chunkPoints) % splits)
+                {
+                    ++m_baseDepthEnd;
+                    ++m_coldDepthBegin;
+
+                    if (++bumped > 8)
+                    {
+                        throw std::runtime_error(
+                                "Base depth is far too shallow for the "
+                                "specified subset");
+                    }
+                }
+                else
+                {
+                    done = true;
+                }
+            }
+            while (!done);
+
+            if (bumped)
+            {
+                std::cout << "Bumping cold depth to accommodate subset" <<
+                    std::endl;
             }
         }
     }

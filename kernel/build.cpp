@@ -215,6 +215,10 @@ void Kernel::build(std::vector<std::string> args)
                 "lossless" :
                 std::to_string(structure.coldDepthEnd()));
 
+    const std::string subBBoxString(
+            builder->subBBox() ?
+                getBBoxString(builder->subBBox(), structure.dimensions()) : "");
+
     std::cout <<
         "\tTrust file headers? " << yesNo(builder->trustHeaders()) << "\n" <<
         "\tBuild threads: " << builder->numThreads() <<
@@ -241,6 +245,8 @@ void Kernel::build(std::vector<std::string> args)
     std::cout <<
         "Geometry:\n" <<
         "\tBounds: " << getBBoxString(bbox, structure.dimensions()) << "\n" <<
+        (subBBoxString.size() ?
+            std::string("\tSubset bounds: ") + subBBoxString + "\n" : "") <<
         "\tReprojection: " << getReprojString(reprojection) << "\n" <<
         "\tStoring dimensions: " << getDimensionString(schema) << "\n" <<
         std::endl;

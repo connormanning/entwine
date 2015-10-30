@@ -105,6 +105,7 @@ public:
 
     // Various getters.
     const BBox* bbox() const                    { return m_bbox.get(); }
+    const BBox* subBBox() const                 { return m_subBBox.get(); }
     const Schema& schema() const                { return *m_schema; }
     const Structure& structure() const          { return *m_structure; }
     const Stats& stats() const                  { return m_stats; }

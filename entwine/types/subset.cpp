@@ -102,7 +102,7 @@ void Subset::update(const BBox& bbox)
     for (std::size_t curId(startOffset); curId < startOffset + boxes; ++curId)
     {
         Climber climber(bbox, m_structure);
-        for (std::size_t i(0); i < iterations; ++i)
+        for (std::size_t i(iterations - 1); i < iterations; --i)
         {
             Climber::Dir dir(
                     static_cast<Climber::Dir>(
