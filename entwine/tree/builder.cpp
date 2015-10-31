@@ -502,46 +502,42 @@ void Builder::merge()
             {
                 ids.insert(Id(jsonIds[i].asString()));
             }
-        }
-        else
-        {
-            throw std::runtime_error("Invalid IDs.");
-        }
 
-        std::vector<char> data(
-                m_outEndpoint->getSubpathBinary(
-                    m_structure->baseIndexBegin().str() + postfix));
+            std::vector<char> data(
+                    m_outEndpoint->getSubpathBinary(
+                        m_structure->baseIndexBegin().str() + postfix));
 
-        std::unique_ptr<BaseChunk> current(
-                static_cast<BaseChunk*>(
-                    Chunk::create(
-                        *m_schema,
-                        *m_bbox,
-                        *m_structure,
-                        *m_pointPool,
-                        0,
-                        m_structure->baseIndexBegin(),
-                        m_structure->baseIndexSpan(),
-                        std::move(data)).release()));
+            std::unique_ptr<BaseChunk> current(
+                    static_cast<BaseChunk*>(
+                        Chunk::create(
+                            *m_schema,
+                            *m_bbox,
+                            *m_structure,
+                            *m_pointPool,
+                            0,
+                            m_structure->baseIndexBegin(),
+                            m_structure->baseIndexSpan(),
+                            std::move(data)).release()));
 
-        if (i == 0)
-        {
-            base = std::move(current);
-        }
-        else
-        {
-            // Update stats.  Don't add numOutOfBounds, since those are
-            // based on the global bounds, so every segment's out-of-bounds
-            // count should be equal.
-            Stats stats(meta["stats"]);
-            m_stats.addPoint(stats.getNumPoints());
-            m_stats.addFallThrough(stats.getNumFallThroughs());
-            if (m_stats.getNumOutOfBounds() != stats.getNumOutOfBounds())
+            if (i == 0)
             {
-                throw std::runtime_error("Invalid stats in segment.");
+                base = std::move(current);
             }
+            else
+            {
+                // Update stats.  Don't add numOutOfBounds, since those are
+                // based on the global bounds, so every segment's out-of-bounds
+                // count should be equal.
+                Stats stats(meta["stats"]);
+                m_stats.addPoint(stats.getNumPoints());
+                m_stats.addFallThrough(stats.getNumFallThroughs());
+                if (m_stats.getNumOutOfBounds() != stats.getNumOutOfBounds())
+                {
+                    throw std::runtime_error("Invalid stats in segment.");
+                }
 
-            base->merge(*current);
+                base->merge(*current);
+            }
         }
     }
 
