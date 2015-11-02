@@ -65,11 +65,11 @@ Query::Query(
             terminate = false;
             const Id& chunkId(splitter.index());
 
-            if (arbiter::Endpoint* endpoint = reader.getEndpoint(chunkId))
+            if (reader.exists(chunkId))
             {
                 m_chunks.insert(
                         FetchInfo(
-                            *endpoint,
+                            m_reader.endpoint(),
                             m_reader.schema(),
                             m_reader.bbox(),
                             chunkId,

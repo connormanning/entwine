@@ -41,7 +41,7 @@ Reader::Reader(
         const arbiter::Endpoint& endpoint,
         const arbiter::Arbiter& arbiter,
         Cache& cache)
-    : m_path(endpoint.root())
+    : m_endpoint(endpoint)
     , m_bbox()
     , m_schema()
     , m_structure()
@@ -51,7 +51,6 @@ Reader::Reader(
     , m_base()
     , m_pointPool()
     , m_cache(cache)
-    , m_is3d(false)
     , m_srs()
     , m_ids()
 {
@@ -78,7 +77,6 @@ Reader::Reader(
         m_schema.reset(new Schema(props["schema"]));
         m_pointPool.reset(new Pools(m_schema->pointSize()));
         m_structure.reset(new Structure(props["structure"], *m_bbox));
-        m_is3d = m_structure->is3d();
         if (props.isMember("reprojection"))
             m_reprojection.reset(new Reprojection(props["reprojection"]));
         m_manifest.reset(new Manifest(props["manifest"]));
@@ -91,42 +89,9 @@ Reader::Reader(
 
             if (jsonIds.isArray())
             {
-                std::set<Id>& ids(
-                        m_ids.insert(
-                            std::make_pair(
-                                std::unique_ptr<Endpoint>(
-                                    new Endpoint(endpoint)),
-                                std::set<Id>())).first->second);
-
-                for (std::size_t i(0); i < jsonIds.size(); ++i)
+                for (Json::ArrayIndex i(0); i < jsonIds.size(); ++i)
                 {
-                    ids.insert(
-                            Id(jsonIds[static_cast<Json::ArrayIndex>(i)]
-                                .asString()));
-                }
-            }
-            else if (jsonIds.isObject())
-            {
-                const auto subs(jsonIds.getMemberNames());
-
-                for (const auto path : subs)
-                {
-                    Endpoint sub(arbiter.getEndpoint(path));
-                    std::set<Id>& ids(
-                            m_ids.insert(
-                                std::make_pair(
-                                    std::unique_ptr<Endpoint>(
-                                        new Endpoint(sub)),
-                                    std::set<Id>())).first->second);
-
-                    const Json::Value& subIds(jsonIds[path]);
-
-                    for (std::size_t i(0); i < subIds.size(); ++i)
-                    {
-                        ids.insert(
-                                Id(subIds[static_cast<Json::ArrayIndex>(i)]
-                                    .asString()));
-                    }
+                    m_ids.insert(Id(jsonIds[i].asString()));
                 }
             }
             else
@@ -192,26 +157,6 @@ std::unique_ptr<Query> Reader::query(
                 normalBBox,
                 depthBegin,
                 depthEnd));
-}
-
-arbiter::Endpoint* Reader::getEndpoint(const Id& chunkId) const
-{
-    arbiter::Endpoint* endpoint(0);
-
-    auto it(m_ids.begin());
-    const auto end(m_ids.end());
-
-    while (!endpoint && it != end)
-    {
-        if (it->second.count(chunkId))
-        {
-            endpoint = it->first.get();
-        }
-
-        ++it;
-    }
-
-    return endpoint;
 }
 
 std::size_t Reader::numPoints() const

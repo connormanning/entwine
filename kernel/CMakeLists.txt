@@ -4,7 +4,6 @@ set(
     SOURCES
     "${BASE}/build.cpp"
     "${BASE}/entwine.cpp"
-    "${BASE}/link.cpp"
     "${BASE}/merge.cpp"
 )
 

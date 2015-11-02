@@ -100,9 +100,6 @@ public:
     // Aggregate segmented build.
     void merge();
 
-    // Link non-colocated subsets.
-    void link(std::vector<std::string> subsets);
-
     // Various getters.
     const BBox* bbox() const                    { return m_bbox.get(); }
     const BBox* subBBox() const                 { return m_subBBox.get(); }

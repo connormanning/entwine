@@ -41,9 +41,7 @@ namespace
             "\t\tbuild\n"
             "\t\t\tBuild (or continue to build) an index\n"
             "\t\tmerge\n"
-            "\t\t\tMerge colocated previously built subsets\n"
-            "\t\tlink\n"
-            "\t\t\tLink separately located previously build subsets\n";
+            "\t\t\tMerge colocated previously built subsets\n";
     }
 }
 
@@ -86,10 +84,6 @@ int main(int argc, char** argv)
         else if (kernel == "merge")
         {
             Kernel::merge(args);
-        }
-        else if (kernel == "link")
-        {
-            Kernel::link(args);
         }
         else
         {

@@ -62,7 +62,7 @@ Registry::Registry(
     , m_bbox(bbox)
     , m_structure(structure)
     , m_pointPool(pointPool)
-    , m_is3d(structure.is3d())
+    , m_as3d(structure.is3d() || structure.tubular())
     , m_base()
     , m_cold()
     , m_pool(new Pool(clipPoolSize, clipQueueSize))
@@ -107,7 +107,7 @@ Registry::Registry(
     , m_bbox(bbox)
     , m_structure(structure)
     , m_pointPool(pointPool)
-    , m_is3d(structure.is3d())
+    , m_as3d(structure.is3d() || structure.tubular())
     , m_base()
     , m_cold()
     , m_pool(new Pool(clipPoolSize, clipQueueSize))
@@ -171,9 +171,7 @@ bool Registry::addPoint(
                 const Point& mid(climber.bbox().mid());
                 const Point& toAddPoint(toAdd->val().point());
 
-                // TODO
-                // (better(toAddVal.point(), current->val().point(), mid, m_is3d))
-                if (better(toAddPoint, current->val().point(), mid, true))
+                if (better(toAddPoint, current->val().point(), mid, m_as3d))
                 {
                     done = false;
                     redo = !cell->swap(toAdd, current);

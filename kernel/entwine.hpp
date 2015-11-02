@@ -22,6 +22,5 @@ class Kernel
 public:
     static void build(std::vector<std::string> args);
     static void merge(std::vector<std::string> args);
-    static void link(std::vector<std::string> args);
 };
 

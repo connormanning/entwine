@@ -18,7 +18,7 @@ namespace entwine
 {
 
 FetchInfo::FetchInfo(
-        arbiter::Endpoint& endpoint,
+        const arbiter::Endpoint& endpoint,
         const Schema& schema,
         const BBox& bbox,
         const Id& id,

@@ -20,12 +20,7 @@
 
 #include <entwine/reader/cache.hpp>
 #include <entwine/types/structure.hpp>
-
-namespace arbiter
-{
-    class Arbiter;
-    class Endpoint;
-}
+#include <entwine/third/arbiter/arbiter.hpp>
 
 namespace entwine
 {
@@ -80,14 +75,14 @@ public:
     const Schema& schema() const        { return *m_schema; }
     const Structure& structure() const  { return *m_structure; }
     const std::string& srs() const      { return m_srs; }
-    const std::string& path() const     { return m_path; }
+    std::string path() const            { return m_endpoint.root(); }
 
-    // Returns 0 if chunk doesn't exist.
-    arbiter::Endpoint* getEndpoint(const Id& chunkId) const;
     const BaseChunk* base() const { return m_base.get(); }
+    const arbiter::Endpoint& endpoint() const { return m_endpoint; }
+    bool exists(const Id& chunkId) const { return m_ids.count(chunkId); }
 
 private:
-    std::string m_path;
+    arbiter::Endpoint m_endpoint;
 
     std::unique_ptr<BBox> m_bbox;
     std::unique_ptr<Schema> m_schema;
@@ -99,14 +94,8 @@ private:
     std::unique_ptr<Pools> m_pointPool;
 
     Cache& m_cache;
-
-    bool m_is3d;
     std::string m_srs;
-
-    mutable std::mutex m_mutex;
-    mutable std::set<Id> m_missing;
-
-    std::map<std::unique_ptr<arbiter::Endpoint>, std::set<Id>> m_ids;
+    std::set<Id> m_ids;
 };
 
 } // namespace entwine

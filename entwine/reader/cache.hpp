@@ -33,19 +33,19 @@ class Schema;
 struct FetchInfo
 {
     FetchInfo(
-            arbiter::Endpoint& endpoint,
+            const arbiter::Endpoint& endpoint,
             const Schema& schema,
             const BBox& bbox,
             const Id& id,
             const Id& numPoints,
             std::size_t depth);
 
-    arbiter::Endpoint& endpoint;
+    const arbiter::Endpoint& endpoint;
     const Schema& schema;
     const BBox& bbox;
-    Id id;
-    Id numPoints;
-    std::size_t depth;
+    const Id id;
+    const Id numPoints;
+    const std::size_t depth;
 };
 
 inline bool operator<(const FetchInfo& lhs, const FetchInfo& rhs)
