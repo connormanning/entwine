@@ -12,11 +12,9 @@
 
 #include <pdal/PointView.hpp>
 
-#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/simple-point-table.hpp>
 #include <entwine/util/inference.hpp>
-#include <entwine/util/pool.hpp>
 
 namespace entwine
 {
@@ -57,52 +55,54 @@ Inference::Inference(
         const bool verbose,
         const Reprojection* reprojection,
         const bool trustHeaders,
-        const bool cubeify,
         arbiter::Arbiter* arbiter)
     : m_executor(true)
     , m_dataPool(xyzSchema.pointSize(), 4096 * 32)
     , m_reproj(reprojection)
+    , m_threads(threads)
     , m_verbose(verbose)
     , m_trustHeaders(trustHeaders)
-    , m_cubeify(cubeify)
+    , m_valid(false)
+    , m_done(false)
+    , m_ownedArbiter(arbiter ? nullptr : new arbiter::Arbiter())
+    , m_arbiter(arbiter ? arbiter : m_ownedArbiter.get())
+    , m_tmpEndpoint(m_arbiter->getEndpoint(tmpPath))
+    , m_resolved(m_arbiter->resolve(path, verbose))
+    , m_index(0)
     , m_numPoints(0)
     , m_bbox(expander)
     , m_dimVec()
     , m_dimSet()
     , m_mutex()
 {
-    std::unique_ptr<arbiter::Arbiter> ownedArbiter;
-
-    if (!arbiter)
-    {
-        ownedArbiter.reset(new arbiter::Arbiter());
-        arbiter = ownedArbiter.get();
-    }
-
-    auto tmpEndpoint(arbiter->getEndpoint(tmpPath));
-    auto resolved(arbiter->resolve(path));
-
     if (m_verbose)
     {
-        std::cout << "Inferring from " << resolved.size() << " paths." <<
+        std::cout << "Inferring from " << m_resolved.size() << " paths." <<
             std::endl;
     }
+}
 
-    entwine::Pool pool(threads);
-    std::size_t i(0);
-
-    for (const std::string& f : resolved)
+void Inference::go()
+{
+    if (m_pool)
     {
-        pool.add([arbiter, f, i, &tmpEndpoint, this]()
-        {
-            auto localHandle(arbiter->getLocalHandle(f, tmpEndpoint));
-            add(localHandle->localPath(), i);
-        });
-
-        ++i;
+        throw std::runtime_error("Cannot call Inference::go twice");
     }
 
-    pool.join();
+    m_pool.reset(new Pool(m_threads));
+
+    for (const std::string& f : m_resolved)
+    {
+        const std::size_t index(m_index++);
+        m_pool->add([f, index, this]()
+        {
+            auto localHandle(m_arbiter->getLocalHandle(f, m_tmpEndpoint));
+            add(localHandle->localPath(), index);
+        });
+    }
+
+    m_pool->join();
+    m_done = true;
 }
 
 void Inference::add(const std::string localPath, std::size_t i)
@@ -120,13 +120,15 @@ void Inference::add(const std::string localPath, std::size_t i)
 
         m_numPoints += numPoints;
         m_bbox.grow(bbox);
-        if (m_cubeify) m_bbox.cubeify();
         m_bbox.bloat();
     });
 
     if (preview)
     {
         std::unique_lock<std::mutex> lock(m_mutex);
+
+        m_valid = true;
+
         for (const auto& d : preview->dimNames)
         {
             if (!m_dimSet.count(d))
