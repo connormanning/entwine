@@ -34,6 +34,14 @@ namespace
     {
         void operator()(pdal::Filter*) { }
     };
+
+    Reprojection srsFoundOrDefault(
+            const pdal::SpatialReference& found,
+            const Reprojection& given)
+    {
+        if (found.empty()) return given;
+        else return Reprojection(found.getWKT(), given.out());
+    }
 }
 
 Executor::Executor(bool is3d)
@@ -65,18 +73,10 @@ bool Executor::run(
 
     if (reprojection)
     {
-        if (reader->getSpatialReference().empty())
-        {
-            filter = createReprojectionFilter(*reprojection, pointTable);
-        }
-        else
-        {
-            Reprojection inferred(
-                    reader->getSpatialReference().getWKT(),
-                    reprojection->out());
-
-            filter = createReprojectionFilter(inferred, pointTable);
-        }
+        filter =
+            createReprojectionFilter(
+                srsFoundOrDefault(reader->getSpatialReference(), *reprojection),
+                pointTable);
     }
 
     std::size_t begin(0);
@@ -163,7 +163,9 @@ std::unique_ptr<Preview> Executor::preview(
                 if (reprojection)
                 {
                     std::unique_ptr<pdal::Filter> filter(
-                            createReprojectionFilter(*reprojection, table));
+                            createReprojectionFilter(
+                                srsFoundOrDefault(quick.m_srs, *reprojection),
+                                table));
 
                     pdal::PointView view(table);
 
