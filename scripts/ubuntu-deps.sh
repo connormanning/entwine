@@ -25,6 +25,7 @@ pkg=(
     libproj-dev
     libtiff4-dev
     haproxy
+    libgeotiff-dev
     libgeos-dev
     python-all-dev
     python-numpy
