@@ -93,11 +93,11 @@ void Inference::go()
 
     for (const std::string& f : m_resolved)
     {
-        const std::size_t index(m_index++);
-        m_pool->add([f, index, this]()
+        ++m_index;
+        m_pool->add([f, this]()
         {
             auto localHandle(m_arbiter->getLocalHandle(f, m_tmpEndpoint));
-            add(localHandle->localPath(), index);
+            add(localHandle->localPath(), f);
         });
     }
 
@@ -105,7 +105,7 @@ void Inference::go()
     m_done = true;
 }
 
-void Inference::add(const std::string localPath, std::size_t i)
+void Inference::add(const std::string localPath, const std::string realPath)
 {
     std::unique_ptr<Preview> preview(m_executor.preview(localPath, m_reproj));
 
@@ -115,7 +115,8 @@ void Inference::add(const std::string localPath, std::size_t i)
 
         if (m_verbose)
         {
-            std::cout << i << ": " << bbox << " - " << numPoints << std::endl;
+            std::cout << realPath << "\n\t" << bbox << " - " << numPoints <<
+                std::endl;
         }
 
         m_numPoints += numPoints;
