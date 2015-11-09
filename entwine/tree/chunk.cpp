@@ -27,7 +27,7 @@ namespace
     std::atomic_size_t chunkMem(0);
     std::atomic_size_t chunkCnt(0);
 
-    const std::size_t putRetries(20);
+    const std::size_t putRetries(40);
 
     const std::string tubeIdDim("TubeId");
 
@@ -415,7 +415,7 @@ void SparseChunk::save(arbiter::Endpoint& endpoint)
     dataStack.reset();
     infoStack.reset();
     pushTail(*compressed, Tail(m_numPoints, Sparse));
-    ensurePut(endpoint, m_id.str(), *compressed);
+    ensurePut(endpoint, m_structure.maybePrefix(m_id), *compressed);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -531,7 +531,7 @@ void ContiguousChunk::save(arbiter::Endpoint& endpoint)
     dataStack.reset();
     infoStack.reset();
     pushTail(*compressed, Tail(m_numPoints, Contiguous));
-    ensurePut(endpoint, m_id.str(), *compressed);
+    ensurePut(endpoint, m_structure.maybePrefix(m_id), *compressed);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

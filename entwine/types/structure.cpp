@@ -135,6 +135,7 @@ Structure::Structure(
         const std::size_t numPointsHint,
         const bool tubular,
         const bool dynamicChunks,
+        const bool prefixIds,
         const BBox* bbox,
         const std::pair<std::size_t, std::size_t> subset)
     : m_nullDepthBegin(0)
@@ -150,6 +151,7 @@ Structure::Structure(
     , m_chunkPoints(chunkPoints)
     , m_tubular(tubular)
     , m_dynamicChunks(dynamicChunks)
+    , m_prefixIds(prefixIds)
     , m_dimensions(dimensions)
     , m_factor(1ULL << m_dimensions)
     , m_numPointsHint(numPointsHint)
@@ -167,6 +169,7 @@ Structure::Structure(
         const std::size_t numPointsHint,
         const bool tubular,
         const bool dynamicChunks,
+        const bool prefixIds,
         const BBox* bbox,
         const std::pair<std::size_t, std::size_t> subset)
     : m_nullDepthBegin(0)
@@ -182,6 +185,7 @@ Structure::Structure(
     , m_chunkPoints(chunkPoints)
     , m_tubular(tubular)
     , m_dynamicChunks(dynamicChunks)
+    , m_prefixIds(prefixIds)
     , m_dimensions(dimensions)
     , m_factor(1ULL << m_dimensions)
     , m_numPointsHint(numPointsHint)
@@ -205,6 +209,7 @@ Structure::Structure(const Json::Value& json, const BBox& bbox)
     , m_chunkPoints(json["chunkPoints"].asUInt64())
     , m_tubular(json["tubular"].asBool())
     , m_dynamicChunks(json["dynamicChunks"].asBool())
+    , m_prefixIds(json["prefixIds"].asBool())
     , m_dimensions(json["dimensions"].asUInt64())
     , m_factor(1ULL << m_dimensions)
     , m_numPointsHint(json["numPointsHint"].asUInt64())
@@ -242,6 +247,7 @@ Structure::Structure(const Structure& other)
 
     m_tubular = other.m_tubular;
     m_dynamicChunks = other.m_dynamicChunks;
+    m_prefixIds = other.m_prefixIds;
 
     m_dimensions = other.m_dimensions;
     m_factor = other.m_factor;
@@ -393,6 +399,7 @@ Json::Value Structure::toJson() const
     json["numPointsHint"] = static_cast<Json::UInt64>(numPointsHint());
     json["tubular"] = m_tubular;
     json["dynamicChunks"] = m_dynamicChunks;
+    json["prefixIds"] = m_prefixIds;
 
     if (m_subset) json["subset"] = m_subset->toJson();
 

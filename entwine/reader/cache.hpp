@@ -34,6 +34,7 @@ struct FetchInfo
 {
     FetchInfo(
             const arbiter::Endpoint& endpoint,
+            const Structure& structure,
             const Schema& schema,
             const BBox& bbox,
             const Id& id,
@@ -41,6 +42,7 @@ struct FetchInfo
             std::size_t depth);
 
     const arbiter::Endpoint& endpoint;
+    const Structure& structure;
     const Schema& schema;
     const BBox& bbox;
     const Id id;

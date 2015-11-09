@@ -204,7 +204,8 @@ void Cold::growFast(const Climber& climber, Clipper* clipper)
                             climber.depth(),
                             chunkId,
                             climber.chunkPoints(),
-                            m_endpoint.getSubpathBinary(chunkId.str()));
+                            m_endpoint.getSubpathBinary(
+                                m_structure.maybePrefix(chunkId)));
             }
             else
             {
@@ -270,7 +271,8 @@ void Cold::growSlow(const Climber& climber, Clipper* clipper)
                             climber.depth(),
                             chunkId,
                             climber.chunkPoints(),
-                            m_endpoint.getSubpathBinary(chunkId.str()));
+                            m_endpoint.getSubpathBinary(
+                                m_structure.maybePrefix(chunkId)));
             }
             else
             {

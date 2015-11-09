@@ -119,6 +119,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     const bool tubular(jsonStructure["type"].asString() == "hybrid");
     const bool lossless(!jsonStructure.isMember("coldDepth"));
     const bool dynamicChunks(jsonStructure["dynamicChunks"].asBool());
+    const bool prefixIds(jsonStructure["prefixIds"].asBool());
 
     std::pair<std::size_t, std::size_t> subset({ 0, 0 });
     if (jsonStructure.isMember("subset"))
@@ -150,6 +151,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                     numPointsHint,
                     tubular,
                     dynamicChunks,
+                    prefixIds,
                     bbox.get(),
                     subset);
         }
@@ -164,6 +166,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                     numPointsHint,
                     tubular,
                     dynamicChunks,
+                    prefixIds,
                     bbox.get(),
                     subset);
         }

@@ -83,6 +83,10 @@
         // points) sets, and in general for lossless builds.
         "dynamicChunks": true,
 
+        // Prefix chunk IDs with 4 base-32 encoded characters.  Useful for
+        // S3 sharding performance.
+        "prefixIds": false,
+
         // Valid values are "hybrid", "quadtree", and "octree".
         "type": "octree"
     },

@@ -70,6 +70,7 @@ Query::Query(
                 m_chunks.insert(
                         FetchInfo(
                             m_reader.endpoint(),
+                            m_reader.structure(),
                             m_reader.schema(),
                             m_reader.bbox(),
                             chunkId,

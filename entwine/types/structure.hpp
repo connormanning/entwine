@@ -97,6 +97,7 @@ public:
             std::size_t chunkPoints,
             std::size_t dimensions,
             std::size_t numPointsHint,
+            bool prefixIds,
             bool tubular,
             bool dynamicChunks,
             const BBox* bbox,
@@ -109,6 +110,7 @@ public:
             std::size_t chunkPoints,
             std::size_t dimensions,
             std::size_t numPointsHint,
+            bool prefixIds,
             bool tubular,
             bool dynamicChunks,
             const BBox* bbox,
@@ -158,24 +160,12 @@ public:
             index >= m_coldIndexBegin && (lossless() || index < m_coldIndexEnd);
     }
 
-    bool hasNull() const
-    {
-        return nullIndexEnd() > nullIndexBegin();
-    }
-
-    bool hasBase() const
-    {
-        return baseIndexEnd() > baseIndexBegin();
-    }
-
+    bool hasNull() const    { return nullIndexEnd() > nullIndexBegin(); }
+    bool hasBase() const    { return baseIndexEnd() > baseIndexBegin(); }
+    bool hasSparse() const  { return m_sparseIndexBegin != 0; }
     bool hasCold() const
     {
         return lossless() || coldDepthEnd() > coldDepthBegin();
-    }
-
-    bool hasSparse() const
-    {
-        return m_sparseIndexBegin != 0;
     }
 
     bool inRange(const Id& index) const
@@ -183,35 +173,14 @@ public:
         return lossless() || index < m_coldIndexEnd;
     }
 
-    bool lossless() const
-    {
-        return m_coldDepthEnd == 0;
-    }
+    bool lossless() const       { return m_coldDepthEnd == 0; }
+    bool tubular() const        { return m_tubular; }
+    bool dynamicChunks() const  { return m_dynamicChunks; }
+    bool prefixIds() const      { return m_prefixIds; }
+    bool is3d() const           { return m_dimensions == 3; }
 
-    bool tubular() const
-    {
-        return m_tubular;
-    }
-
-    bool dynamicChunks() const
-    {
-        return m_dynamicChunks;
-    }
-
-    ChunkInfo getInfo(const Id& index) const
-    {
-        return ChunkInfo(*this, index);
-    }
-
-    bool is3d() const
-    {
-        return m_dimensions == 3;
-    }
-
-    std::size_t numPointsHint() const
-    {
-        return m_numPointsHint;
-    }
+    ChunkInfo getInfo(const Id& index) const { return ChunkInfo(*this, index); }
+    std::size_t numPointsHint() const { return m_numPointsHint; }
 
     std::string typeString() const
     {
@@ -234,6 +203,39 @@ public:
     void makeWhole();
 
     std::string subsetPostfix() const;
+
+    std::string maybePrefix(const Id& id) const
+    {
+        if (prefixIds())
+        {
+            // Prefix the ID with 4 base32-encoded characters based on its hash.
+            // Useful for S3 sharding performance.
+            std::size_t hash(797003437);
+            const uint64_t val(id.val().front());
+
+            for (std::size_t i(0); i < 4; ++i)
+            {
+                hash = hash * 37 + ((val >> (i * 8)) & 0xFF);
+            }
+
+            std::string prefix;
+            char c(0);
+
+            for (std::size_t i(0); i < 4; ++i)
+            {
+                c = (hash >> (i * 5)) & 0x1F;
+
+                if (c < 26) prefix.push_back(c + 97);
+                else prefix.push_back(c + 22);
+            }
+
+            return prefix + '-' + id.str();
+        }
+        else
+        {
+            return id.str();
+        }
+    }
 
 private:
     void loadIndexValues();
@@ -268,6 +270,7 @@ private:
 
     bool m_tubular;
     bool m_dynamicChunks;
+    bool m_prefixIds;
 
     std::size_t m_dimensions;
     std::size_t m_factor;

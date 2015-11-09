@@ -238,6 +238,7 @@ void Kernel::build(std::vector<std::string> args)
         "\tCold depth: " << coldDepthString << "\n" <<
         "\tChunk size: " << structure.baseChunkPoints() << " points\n" <<
         "\tDynamic chunks? " << yesNo(structure.dynamicChunks()) << "\n" <<
+        "\tPrefix IDs? " << yesNo(structure.prefixIds()) << "\n" <<
         "\tBuild type: " << structure.typeString() << "\n" <<
         "\tPoint count hint: " << structure.numPointsHint() << " points" <<
         std::endl;
