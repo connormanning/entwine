@@ -504,9 +504,10 @@ void Builder::merge()
             }
         }
 
-        std::vector<char> data(
-                m_outEndpoint->getSubpathBinary(
-                    m_structure->baseIndexBegin().str() + postfix));
+        std::unique_ptr<std::vector<char>> data(
+                new std::vector<char>(
+                    m_outEndpoint->getSubpathBinary(
+                        m_structure->baseIndexBegin().str() + postfix)));
 
         std::unique_ptr<BaseChunk> current(
                 static_cast<BaseChunk*>(

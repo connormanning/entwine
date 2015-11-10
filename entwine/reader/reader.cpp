@@ -102,8 +102,10 @@ Reader::Reader(
     }
 
     {
-        std::vector<char> data(
-                endpoint.getSubpathBinary(m_structure->baseIndexBegin().str()));
+        std::unique_ptr<std::vector<char>> data(
+                new std::vector<char>(
+                    endpoint.getSubpathBinary(
+                        m_structure->baseIndexBegin().str())));
 
         m_base.reset(
                 static_cast<BaseChunk*>(
@@ -115,7 +117,7 @@ Reader::Reader(
                         0,
                         m_structure->baseIndexBegin(),
                         m_structure->baseIndexSpan(),
-                        data).release()));
+                        std::move(data)).release()));
     }
 }
 

@@ -210,13 +210,7 @@ public:
         {
             // Prefix the ID with 4 base32-encoded characters based on its hash.
             // Useful for S3 sharding performance.
-            std::size_t hash(797003437);
-            const uint64_t val(id.val().front());
-
-            for (std::size_t i(0); i < 4; ++i)
-            {
-                hash = hash * 37 + ((val >> (i * 8)) & 0xFF);
-            }
+            const std::size_t hash(std::hash<Id>()(id));
 
             std::string prefix;
             char c(0);

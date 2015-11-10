@@ -18,6 +18,7 @@
 #include <entwine/tree/climber.hpp>
 #include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/single-point-table.hpp>
+#include <entwine/util/storage.hpp>
 
 namespace entwine
 {
@@ -27,59 +28,7 @@ namespace
     std::atomic_size_t chunkMem(0);
     std::atomic_size_t chunkCnt(0);
 
-    const std::size_t putRetries(40);
-
     const std::string tubeIdDim("TubeId");
-
-    void ensurePut(
-            const arbiter::Endpoint& endpoint,
-            const std::string& path,
-            const std::vector<char>& data)
-    {
-        bool done(false);
-        std::size_t retries(0);
-
-        if (data.empty())
-        {
-            throw std::runtime_error("Tried to save empty chunk");
-        }
-        else if (
-                data.back() != Chunk::Contiguous &&
-                data.back() != Chunk::Sparse)
-        {
-            throw std::runtime_error("Tried to save improperly marked chunk");
-        }
-
-        while (!done)
-        {
-            try
-            {
-                endpoint.putSubpath(path, data);
-                done = true;
-            }
-            catch (...)
-            {
-                if (++retries < putRetries)
-                {
-                    std::this_thread::sleep_for(std::chrono::seconds(retries));
-
-                    std::cout <<
-                        "\tFailed PUT attempt " << retries << ": " <<
-                        endpoint.fullPath(path) <<
-                        std::endl;
-                }
-                else
-                {
-                    std::cout <<
-                        "\tFailed to PUT data: persistent failure.\n" <<
-                        "\tThis is a non-recoverable error - Exiting..." <<
-                        std::endl;
-
-                    exit(1);
-                }
-            }
-        }
-    }
 
     Schema makeCelled(const Schema& in)
     {
@@ -180,11 +129,11 @@ std::unique_ptr<Chunk> Chunk::create(
         const std::size_t depth,
         const Id& id,
         const std::size_t maxPoints,
-        std::vector<char> data)
+        std::unique_ptr<std::vector<char>> data)
 {
     std::unique_ptr<Chunk> chunk;
 
-    const Tail tail(popTail(data));
+    const Tail tail(popTail(*data));
     const std::size_t points(tail.numPoints);
 
     if (tail.type == Contiguous)
@@ -200,7 +149,7 @@ std::unique_ptr<Chunk> Chunk::create(
                         depth,
                         id,
                         maxPoints,
-                        data,
+                        std::move(data),
                         points));
         }
         else
@@ -213,7 +162,7 @@ std::unique_ptr<Chunk> Chunk::create(
                         pools,
                         id,
                         maxPoints,
-                        data,
+                        std::move(data),
                         points));
         }
     }
@@ -228,7 +177,7 @@ std::unique_ptr<Chunk> Chunk::create(
                     depth,
                     id,
                     maxPoints,
-                    data,
+                    std::move(data),
                     points));
     }
 
@@ -317,7 +266,7 @@ SparseChunk::SparseChunk(
         const std::size_t depth,
         const Id& id,
         const std::size_t maxPoints,
-        std::vector<char>& compressedData,
+        std::unique_ptr<std::vector<char>> compressedData,
         const std::size_t numPoints)
     : Chunk(schema, bbox, structure, pools, depth, id, maxPoints, numPoints)
     , m_tubes()
@@ -326,7 +275,7 @@ SparseChunk::SparseChunk(
     // TODO This is direct copy/paste from the ContiguousChunk ctor.
     PooledDataStack dataStack(
             Compression::decompress(
-                compressedData,
+                *compressedData,
                 m_schema,
                 m_numPoints,
                 m_pools.dataPool()));
@@ -415,7 +364,7 @@ void SparseChunk::save(arbiter::Endpoint& endpoint)
     dataStack.reset();
     infoStack.reset();
     pushTail(*compressed, Tail(m_numPoints, Sparse));
-    ensurePut(endpoint, m_structure.maybePrefix(m_id), *compressed);
+    Storage::ensurePut(endpoint, m_structure.maybePrefix(m_id), *compressed);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -440,14 +389,14 @@ ContiguousChunk::ContiguousChunk(
         const std::size_t depth,
         const Id& id,
         const std::size_t maxPoints,
-        std::vector<char>& compressedData,
+        std::unique_ptr<std::vector<char>> compressedData,
         const std::size_t numPoints)
     : Chunk(schema, bbox, structure, pools, depth, id, maxPoints, numPoints)
     , m_tubes(maxPoints)
 {
     PooledDataStack dataStack(
             Compression::decompress(
-                compressedData,
+                *compressedData,
                 m_schema,
                 m_numPoints,
                 m_pools.dataPool()));
@@ -531,7 +480,7 @@ void ContiguousChunk::save(arbiter::Endpoint& endpoint)
     dataStack.reset();
     infoStack.reset();
     pushTail(*compressed, Tail(m_numPoints, Contiguous));
-    ensurePut(endpoint, m_structure.maybePrefix(m_id), *compressed);
+    Storage::ensurePut(endpoint, m_structure.maybePrefix(m_id), *compressed);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -554,7 +503,7 @@ BaseChunk::BaseChunk(
         Pools& pools,
         const Id& id,
         const std::size_t maxPoints,
-        std::vector<char>& compressedData,
+        std::unique_ptr<std::vector<char>> compressedData,
         const std::size_t numPoints)
     : ContiguousChunk(schema, bbox, structure, pools, 0, id, maxPoints)
     , m_celledSchema(makeCelled(m_schema))
@@ -564,7 +513,7 @@ BaseChunk::BaseChunk(
 
     std::unique_ptr<std::vector<char>> data(
             Compression::decompress(
-                compressedData,
+                *compressedData,
                 m_celledSchema,
                 m_numPoints));
 
@@ -646,7 +595,7 @@ void BaseChunk::save(arbiter::Endpoint& endpoint, std::string postfix)
     dataStack.reset();
     infoStack.reset();
     pushTail(*compressed, Tail(m_numPoints, Contiguous));
-    ensurePut(endpoint, m_id.str() + postfix, *compressed);
+    Storage::ensurePut(endpoint, m_id.str() + postfix, *compressed);
 }
 
 void BaseChunk::save(arbiter::Endpoint& endpoint)

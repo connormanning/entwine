@@ -22,6 +22,7 @@
 #include <entwine/types/schema.hpp>
 #include <entwine/types/single-point-table.hpp>
 #include <entwine/util/pool.hpp>
+#include <entwine/util/storage.hpp>
 
 namespace entwine
 {
@@ -204,7 +205,8 @@ void Cold::growFast(const Climber& climber, Clipper* clipper)
                             climber.depth(),
                             chunkId,
                             climber.chunkPoints(),
-                            m_endpoint.getSubpathBinary(
+                            Storage::ensureGet(
+                                m_endpoint,
                                 m_structure.maybePrefix(chunkId)));
             }
             else
@@ -271,7 +273,8 @@ void Cold::growSlow(const Climber& climber, Clipper* clipper)
                             climber.depth(),
                             chunkId,
                             climber.chunkPoints(),
-                            m_endpoint.getSubpathBinary(
+                            Storage::ensureGet(
+                                m_endpoint,
                                 m_structure.maybePrefix(chunkId)));
             }
             else

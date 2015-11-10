@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: debec8f38b4993c78639f7fa37138879d4a4568e
+// Git SHA: 5260e412ca6e6fbd098ce8a07b33b75dc6f9b754
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -3150,6 +3150,8 @@ public:
 
     std::string getSubpath(std::string subpath) const;
     std::vector<char> getSubpathBinary(std::string subpath) const;
+    std::unique_ptr<std::vector<char>> tryGetSubpathBinary(
+            std::string subpath) const;
 
     void putSubpath(std::string subpath, const std::string& data) const;
     void putSubpath(std::string subpath, const std::vector<char>& data) const;

@@ -6,6 +6,7 @@ set(
     "${BASE}/executor.cpp"
     "${BASE}/inference.cpp"
     "${BASE}/pool.cpp"
+    "${BASE}/storage.cpp"
 )
 
 set(
@@ -14,6 +15,7 @@ set(
     "${BASE}/inference.hpp"
     "${BASE}/locker.hpp"
     "${BASE}/pool.hpp"
+    "${BASE}/storage.hpp"
 )
 
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})

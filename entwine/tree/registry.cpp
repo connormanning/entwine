@@ -25,6 +25,7 @@
 #include <entwine/types/schema.hpp>
 #include <entwine/types/simple-point-table.hpp>
 #include <entwine/util/pool.hpp>
+#include <entwine/util/storage.hpp>
 
 namespace entwine
 {
@@ -118,7 +119,9 @@ Registry::Registry(
                 m_structure.baseIndexBegin().str() +
                 m_structure.subsetPostfix());
 
-        std::vector<char> data(m_endpoint.getSubpathBinary(basePath));
+
+        std::unique_ptr<std::vector<char>> data(
+                new std::vector<char>(m_endpoint.getSubpathBinary(basePath)));
 
         m_base.reset(
                 static_cast<BaseChunk*>(
@@ -130,7 +133,7 @@ Registry::Registry(
                         0,
                         m_structure.baseIndexBegin(),
                         m_structure.baseIndexSpan(),
-                        data).release()));
+                        std::move(data)).release()));
     }
 
     if (m_structure.hasCold())

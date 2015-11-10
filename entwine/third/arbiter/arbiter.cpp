@@ -346,6 +346,12 @@ std::vector<char> Endpoint::getSubpathBinary(const std::string subpath) const
     return m_driver.getBinary(fullPath(subpath));
 }
 
+std::unique_ptr<std::vector<char>> Endpoint::tryGetSubpathBinary(
+        const std::string subpath) const
+{
+    return m_driver.tryGetBinary(fullPath(subpath));
+}
+
 void Endpoint::putSubpath(
         const std::string subpath,
         const std::string& data) const

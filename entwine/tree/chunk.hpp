@@ -70,7 +70,7 @@ public:
             std::size_t depth,
             const Id& id,
             std::size_t maxPoints,
-            std::vector<char> data);
+            std::unique_ptr<std::vector<char>> data);
 
     enum Type
     {
@@ -136,7 +136,7 @@ public:
             std::size_t depth,
             const Id& id,
             std::size_t maxPoints,
-            std::vector<char>& compressedData,
+            std::unique_ptr<std::vector<char>> compressedData,
             std::size_t numPoints);
 
     virtual void save(arbiter::Endpoint& endpoint) override;
@@ -169,7 +169,7 @@ public:
             std::size_t depth,
             const Id& id,
             std::size_t maxPoints,
-            std::vector<char>& compressedData,
+            std::unique_ptr<std::vector<char>> compressedData,
             std::size_t numPoints);
 
     virtual void save(arbiter::Endpoint& endpoint) override;
@@ -202,7 +202,7 @@ public:
             Pools& pools,
             const Id& id,
             std::size_t maxPoints,
-            std::vector<char>& compressedData,
+            std::unique_ptr<std::vector<char>> compressedData,
             std::size_t numPoints);
 
     virtual void save(arbiter::Endpoint& endpoint) override;
