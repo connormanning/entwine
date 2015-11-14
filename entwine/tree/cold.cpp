@@ -104,7 +104,8 @@ Cold::Cold(
         }
         else
         {
-            m_chunkMap.emplace(id, std::unique_ptr<CountedChunk>());
+            std::unique_ptr<CountedChunk> c(new CountedChunk());
+            m_chunkMap.emplace(id, std::move(c));
         }
     }
 }
