@@ -20,7 +20,14 @@ namespace entwine
 class LinkingPointView : public pdal::PointView
 {
 public:
-    LinkingPointView(SizedPointTable& table);
+    LinkingPointView(SizedPointTable& table) : PointView(table)
+    {
+        for (std::size_t i(0); i < table.size(); ++i)
+        {
+            m_index.push_back(i);
+            ++m_size;
+        }
+    }
 };
 
 } // namespace entwine
