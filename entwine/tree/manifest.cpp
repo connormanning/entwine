@@ -16,120 +16,240 @@
 namespace entwine
 {
 
-Origin Manifest::invalidOrigin()
+namespace
 {
-    return std::numeric_limits<Origin>::max();
+    std::string toString(const FileInfo::Status status)
+    {
+        switch (status)
+        {
+            case FileInfo::Status::Outstanding: return "outstanding";
+            case FileInfo::Status::Inserted:    return "inserted";
+            case FileInfo::Status::Omitted:     return "omitted";
+            case FileInfo::Status::Error:       return "error";
+            case FileInfo::Status::Delegated:   return "delegated";
+            default: throw std::runtime_error("Invalid file info status");
+        }
+    }
+
+    FileInfo::Status toStatus(const std::string s)
+    {
+        if (s == "outstanding") return FileInfo::Status::Outstanding;
+        if (s == "inserted")    return FileInfo::Status::Inserted;
+        if (s == "omitted")     return FileInfo::Status::Omitted;
+        if (s == "error")       return FileInfo::Status::Error;
+        if (s == "delegated")   return FileInfo::Status::Delegated;
+        throw std::runtime_error("Invalid file info status string");
+    }
+
+    void error(std::string message)
+    {
+        throw std::runtime_error(message);
+    }
 }
 
-Manifest::Manifest()
-    : m_originList()
-    , m_omissionList()
-    , m_errorList()
-    , m_originCount(0)
-    , m_omissionCount(0)
-    , m_errorCount(0)
-    , m_reverseLookup()
+PointStats::PointStats(const Json::Value& json)
+    : m_inserts(json["inserts"].asUInt64())
+    , m_outOfBounds(json["outOfBounds"].asUInt64())
+    , m_overflows(json["overflows"].asUInt64())
 { }
 
-Manifest::Manifest(const Json::Value& json)
-    : m_originList()
-    , m_omissionList()
-    , m_errorList()
-    , m_originCount(0)
-    , m_omissionCount(0)
-    , m_errorCount(0)
-    , m_reverseLookup()
+Json::Value PointStats::toJson() const
 {
-    const Json::Value& originJson(json["input"]);
-    const Json::Value& omissionJson(json["omissions"]);
-    const Json::Value& errorJson(json["errors"]);
+    Json::Value json;
+    json["inserts"] = static_cast<Json::UInt64>(m_inserts);
+    json["outOfBounds"] = static_cast<Json::UInt64>(m_outOfBounds);
+    json["overflows"] = static_cast<Json::UInt64>(m_overflows);
+    return json;
+}
 
-    for (Json::ArrayIndex i(0); i < originJson.size(); ++i)
+FileStats::FileStats(const Json::Value& json)
+    : m_inserts(json["inserts"].asUInt64())
+    , m_omits(json["omits"].asUInt64())
+    , m_errors(json["errors"].asUInt64())
+{ }
+
+Json::Value FileStats::toJson() const
+{
+    Json::Value json;
+    json["inserts"] = static_cast<Json::UInt64>(m_inserts);
+    json["omits"] = static_cast<Json::UInt64>(m_omits);
+    json["errors"] = static_cast<Json::UInt64>(m_errors);
+    return json;
+}
+
+FileInfo::FileInfo(const std::string path, const Status status)
+    : m_path(path)
+    , m_status(status)
+    , m_bbox()
+    , m_numPoints(0)
+    , m_pointStats()
+{ }
+
+FileInfo::FileInfo(const FileInfo& other)
+    : m_path(other.path())
+    , m_status(other.status())
+    , m_bbox(other.bbox() ? new BBox(*other.bbox()) : nullptr)
+    , m_numPoints(other.numPoints())
+    , m_pointStats(other.pointStats())
+{ }
+
+FileInfo& FileInfo::operator=(const FileInfo& other)
+{
+    m_path = other.path();
+    m_status = other.status();
+    if (other.bbox()) m_bbox.reset(new BBox(*other.bbox()));
+    m_numPoints = other.numPoints();
+    m_pointStats = other.pointStats();
+
+    return *this;
+}
+
+FileInfo::FileInfo(const Json::Value& json)
+    : m_path(json["path"].asString())
+    , m_status(toStatus(json["status"].asString()))
+    , m_bbox(json.isMember("bbox") ? new BBox(json["bbox"]) : nullptr)
+    , m_numPoints(json["numPoints"].asUInt64())
+    , m_pointStats(json["pointStats"])
+{ }
+
+Json::Value FileInfo::toJson() const
+{
+    Json::Value json;
+
+    json["path"] = m_path;
+    json["status"] = toString(m_status);
+    json["pointStats"] = m_pointStats.toJson();
+
+    if (m_bbox) json["bbox"] = m_bbox->toJson();
+    if (m_numPoints) json["numPoints"] = static_cast<Json::UInt64>(m_numPoints);
+
+    return json;
+}
+
+Manifest::Manifest(std::vector<std::string> rawPaths)
+    : m_paths()
+    , m_lookup()
+    , m_fileStats()
+    , m_pointStats()
+    , m_mutex()
+{
+    m_paths.reserve(rawPaths.size());
+    for (std::size_t i(0); i < rawPaths.size(); ++i)
     {
-        m_originList.push_back(originJson[i].asString());
-        m_reverseLookup.insert(originJson[i].asString());
+        m_paths.emplace_back(rawPaths[i]);
+    }
+}
+
+Manifest::Manifest(const Json::Value& json)
+    : m_paths()
+    , m_lookup()
+    , m_fileStats()
+    , m_pointStats()
+    , m_mutex()
+{
+    const Json::Value& fileInfo(json["fileInfo"]);
+
+    if (fileInfo.isArray() && fileInfo.size())
+    {
+        m_paths.reserve(fileInfo.size());
+        for (Json::ArrayIndex i(0); i < fileInfo.size(); ++i)
+        {
+            m_paths.emplace_back(fileInfo[i]);
+        }
     }
 
-    for (Json::ArrayIndex i(0); i < omissionJson.size(); ++i)
+    m_fileStats = FileStats(json["fileStats"]);
+    m_pointStats = PointStats(json["pointStats"]);
+}
+
+void Manifest::append(const Manifest& other)
+{
+    m_paths.reserve(size() + other.size());
+    for (const auto& info : other.m_paths)
     {
-        m_omissionList.push_back(omissionJson[i].asString());
+        countStatus(info.status());
+        m_paths.emplace_back(info);
+    }
+}
+
+void Manifest::merge(const Manifest& other)
+{
+    if (size() != other.size()) error("Invalid manifest sizes for merging.");
+
+    const FileInfo::Status out(FileInfo::Status::Outstanding);
+    const FileInfo::Status del(FileInfo::Status::Delegated);
+    const FileInfo::Status err(FileInfo::Status::Error);
+
+    FileStats fileStats;
+
+    for (std::size_t i(0); i < size(); ++i)
+    {
+        FileInfo& ours(m_paths[i]);
+        const FileInfo& theirs(other.m_paths[i]);
+
+        if (ours.path() != theirs.path()) error("Invalid manifest paths");
+
+        if (ours.status() == out || theirs.status() == out)
+        {
+            error("Invalid file info status - file was not inserted");
+        }
+
+        if (ours.status() == del || theirs.status() == del)
+        {
+            error("Invalid file info status - file was delegated");
+        }
+
+        if (ours.status() == FileInfo::Status::Omitted)
+        {
+            if (ours.status() != theirs.status())
+            {
+                error("Mismatched omission status");
+            }
+            else
+            {
+                // If both statuses are omitted, there's nothing to merge.
+                fileStats.addOmit();
+                continue;
+            }
+        }
+
+        // Both statuses are now inserted or error.  They may differ.
+        if (ours.status() == err || theirs.status() == err)
+        {
+            fileStats.addError();
+            ours.status(err);
+        }
+        else
+        {
+            fileStats.addInsert();
+        }
+
+        ours.pointStats().add(theirs.pointStats());
     }
 
-    for (Json::ArrayIndex i(0); i < errorJson.size(); ++i)
-    {
-        m_errorList.push_back(errorJson[i].asUInt64());
-    }
-
-    m_originCount = m_originList.size();
-    m_omissionCount = m_omissionList.size();
-    m_errorCount = m_errorList.size();
+    m_pointStats.add(other.pointStats());
+    m_fileStats = fileStats;
 }
 
 Json::Value Manifest::toJson() const
 {
     Json::Value json;
 
-    Json::Value& originJson(json["input"]);
-    Json::Value& omissionJson(json["omissions"]);
-    Json::Value& errorJson(json["errors"]);
+    Json::Value& fileInfo(json["fileInfo"]);
+    fileInfo.resize(size());
 
-    for (Json::ArrayIndex i(0); i < m_originList.size(); ++i)
+    for (std::size_t i(0); i < size(); ++i)
     {
-        originJson.append(m_originList[i]);
+        const FileInfo& info(m_paths[i]);
+        Json::Value& current(fileInfo[Json::ArrayIndex(i)]);
+
+        current = info.toJson();
     }
 
-    for (Json::ArrayIndex i(0); i < m_omissionList.size(); ++i)
-    {
-        omissionJson.append(m_omissionList[i]);
-    }
-
-    for (Json::ArrayIndex i(0); i < m_errorList.size(); ++i)
-    {
-        errorJson.append(static_cast<Json::UInt64>(m_errorList[i]));
-    }
+    json["fileStats"] = m_fileStats.toJson();
+    json["pointStats"] = m_pointStats.toJson();
 
     return json;
-}
-
-Json::Value Manifest::jsonCounts() const
-{
-    Json::Value json;
-
-    json["numInserted"] = static_cast<Json::UInt64>(m_originCount.load());
-    json["numOmissions"] = static_cast<Json::UInt64>(m_omissionCount.load());
-    json["numErrors"] = static_cast<Json::UInt64>(m_errorCount.load());
-
-    return json;
-}
-
-Origin Manifest::addOrigin(const std::string& path)
-{
-    Origin origin(Manifest::invalidOrigin());
-
-    if (!m_reverseLookup.count(path))
-    {
-        origin = m_originList.size();
-
-        ++m_originCount;
-        m_originList.push_back(path);
-
-        m_reverseLookup.insert(path);
-    }
-
-    return origin;
-}
-
-void Manifest::addOmission(const std::string& path)
-{
-    ++m_omissionCount;
-    m_omissionList.push_back(path);
-}
-
-void Manifest::addError(const Origin origin)
-{
-    std::cout << "Got error at origin: " << origin << std::endl;
-    ++m_errorCount;
-    m_errorList.push_back(origin);
 }
 
 } // namespace entwine

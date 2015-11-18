@@ -62,25 +62,16 @@ Inference::Inference(
     , m_threads(threads)
     , m_verbose(verbose)
     , m_trustHeaders(trustHeaders)
-    , m_valid(false)
     , m_done(false)
     , m_ownedArbiter(arbiter ? nullptr : new arbiter::Arbiter())
     , m_arbiter(arbiter ? arbiter : m_ownedArbiter.get())
-    , m_tmpEndpoint(m_arbiter->getEndpoint(tmpPath))
-    , m_resolved(m_arbiter->resolve(path, verbose))
+    , m_tmp(m_arbiter->getEndpoint(tmpPath))
+    , m_manifest(m_arbiter->resolve(path, verbose))
     , m_index(0)
-    , m_numPoints(0)
-    , m_bbox(expander)
     , m_dimVec()
     , m_dimSet()
     , m_mutex()
-{
-    if (m_verbose)
-    {
-        std::cout << "Inferring from " << m_resolved.size() << " paths." <<
-            std::endl;
-    }
-}
+{ }
 
 void Inference::go()
 {
@@ -90,13 +81,18 @@ void Inference::go()
     }
 
     m_pool.reset(new Pool(m_threads));
+    const std::size_t size(m_manifest.size());
 
-    for (const std::string& f : m_resolved)
+    for (std::size_t i(0); i < size; ++i)
     {
-        ++m_index;
-        m_pool->add([f, this]()
+        if (m_verbose) std::cout << i << " / " << size << std::endl;
+
+        FileInfo& f(m_manifest.get(i));
+        m_index = i;
+
+        m_pool->add([&f, this]()
         {
-            auto localHandle(m_arbiter->getLocalHandle(f, m_tmpEndpoint));
+            auto localHandle(m_arbiter->getLocalHandle(f.path(), m_tmp));
             add(localHandle->localPath(), f);
         });
     }
@@ -105,40 +101,30 @@ void Inference::go()
     m_done = true;
 }
 
-void Inference::add(const std::string localPath, const std::string realPath)
+void Inference::add(const std::string localPath, FileInfo& fileInfo)
 {
     std::unique_ptr<Preview> preview(m_executor.preview(localPath, m_reproj));
 
     auto update([&](std::size_t numPoints, const BBox& bbox)
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
-
-        if (m_verbose)
-        {
-            std::cout << realPath << "\n\t" << bbox << " - " << numPoints <<
-                std::endl;
-        }
-
-        m_numPoints += numPoints;
-        m_bbox.grow(bbox);
-        m_bbox.bloat();
+        fileInfo.numPoints(numPoints);
+        fileInfo.bbox(bbox);
     });
 
     if (preview)
     {
-        std::unique_lock<std::mutex> lock(m_mutex);
-
-        m_valid = true;
-
-        for (const auto& d : preview->dimNames)
         {
-            if (!m_dimSet.count(d))
+            std::lock_guard<std::mutex> lock(m_mutex);
+
+            for (const auto& d : preview->dimNames)
             {
-                m_dimSet.insert(d);
-                m_dimVec.push_back(d);
+                if (!m_dimSet.count(d))
+                {
+                    m_dimSet.insert(d);
+                    m_dimVec.push_back(d);
+                }
             }
         }
-        lock.unlock();
 
         if (m_trustHeaders)
         {

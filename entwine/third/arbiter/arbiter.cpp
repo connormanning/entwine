@@ -341,6 +341,12 @@ std::string Endpoint::getSubpath(const std::string subpath) const
     return m_driver.get(fullPath(subpath));
 }
 
+std::unique_ptr<std::string> Endpoint::tryGetSubpath(const std::string subpath)
+    const
+{
+    return m_driver.tryGet(fullPath(subpath));
+}
+
 std::vector<char> Endpoint::getSubpathBinary(const std::string subpath) const
 {
     return m_driver.getBinary(fullPath(subpath));

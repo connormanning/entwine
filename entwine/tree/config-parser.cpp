@@ -12,6 +12,7 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
+#include <entwine/tree/manifest.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
@@ -94,7 +95,7 @@ namespace
 std::unique_ptr<Builder> ConfigParser::getBuilder(
         const Json::Value& config,
         std::shared_ptr<arbiter::Arbiter> arbiter,
-        const RunInfo& runInfo)
+        std::unique_ptr<Manifest> manifest)
 {
     std::unique_ptr<Builder> builder;
 
@@ -176,36 +177,32 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
     if (!force)
     {
-        try
+        // TODO Existence test won't work for partially-complete subsets.
+        // Add subset extension to outPath.
+        arbiter::Endpoint endpoint(arbiter->getEndpoint(outPath));
+        if (endpoint.tryGetSubpath("entwine"))
         {
-            // TODO Existence test won't work for partially-complete subsets.
-            // Add subset extension to outPath.
-            arbiter::Endpoint endpoint(arbiter->getEndpoint(outPath));
-            if (endpoint.getSubpath("entwine").size())
-            {
-                exists = true;
-            }
-        }
-        catch (...)
-        {
-            // Nothing to do here.
+            exists = true;
         }
     }
 
     if (!force && exists)
     {
-        builder.reset(new Builder(outPath, tmpPath, threads, arbiter));
+        builder.reset(
+                new Builder(
+                    std::move(manifest),
+                    outPath,
+                    tmpPath,
+                    threads,
+                    arbiter));
     }
     else
     {
-        if (!bbox && runInfo.manifest.size() > 1)
-        {
-            throw std::runtime_error(
-                    "Can't infer bounds from multiple sources");
-        }
+        if (!bbox) throw std::runtime_error( "Missing inference");
 
         builder.reset(
                 new Builder(
+                    std::move(manifest),
                     outPath,
                     tmpPath,
                     outCompress,
@@ -221,42 +218,34 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     return builder;
 }
 
-RunInfo ConfigParser::getRunInfo(
+std::unique_ptr<Manifest> ConfigParser::getManifest(
         const Json::Value& json,
         const arbiter::Arbiter& arbiter)
 {
     const Json::Value& input(json["input"]);
-    const Json::Value& jsonManifest(input["manifest"]);
+    const Json::Value& jsonPaths(input["manifest"]);
 
-    std::vector<std::string> manifest;
+    std::vector<std::string> paths;
 
-    auto insert([&manifest, &arbiter](std::string in)
+    auto insert([&paths, &arbiter](std::string in)
     {
-        std::vector<std::string> paths(arbiter.resolve(in, true));
-        manifest.insert(manifest.end(), paths.begin(), paths.end());
+        std::vector<std::string> current(arbiter.resolve(in, true));
+        paths.insert(paths.end(), current.begin(), current.end());
     });
 
-    if (jsonManifest.isArray())
+    if (jsonPaths.isArray())
     {
-        for (Json::ArrayIndex i(0); i < jsonManifest.size(); ++i)
+        for (Json::ArrayIndex i(0); i < jsonPaths.size(); ++i)
         {
-            insert(jsonManifest[i].asString());
+            insert(jsonPaths[i].asString());
         }
     }
     else
     {
-        insert(jsonManifest.asString());
+        insert(jsonPaths.asString());
     }
 
-    const std::size_t jsonRunCount(
-            input.isMember("run") && input["run"].asUInt64() ?
-                input["run"].asUInt64() :
-                manifest.size());
-
-    const std::size_t runCount(
-            std::min<std::size_t>(jsonRunCount, manifest.size()));
-
-    return RunInfo(manifest, runCount);
+    return std::unique_ptr<Manifest>(new Manifest(paths));
 }
 
 Json::Value ConfigParser::parse(const std::string& input)

@@ -74,8 +74,7 @@ public:
     // reading the whole file.
     std::unique_ptr<Preview> preview(
             std::string path,
-            const Reprojection* reprojection,
-            bool doSrs = false);
+            const Reprojection* reprojection);
 
 private:
     std::unique_ptr<pdal::Reader> createReader(

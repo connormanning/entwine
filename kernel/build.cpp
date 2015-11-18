@@ -173,9 +173,11 @@ void Kernel::build(std::vector<std::string> args)
     std::shared_ptr<arbiter::Arbiter> arbiter(
             std::make_shared<arbiter::Arbiter>(user));
 
-    RunInfo runInfo(ConfigParser::getRunInfo(json, *arbiter));
+    std::unique_ptr<Manifest> manifest(
+            ConfigParser::getManifest(json, *arbiter));
+
     std::unique_ptr<Builder> builder(
-            ConfigParser::getBuilder(json, arbiter, runInfo));
+            ConfigParser::getBuilder(json, arbiter, std::move(manifest)));
 
     if (builder->isContinuation())
     {
@@ -195,19 +197,20 @@ void Kernel::build(std::vector<std::string> args)
     const BBox* bbox(builder->bbox());
     const Reprojection* reprojection(builder->reprojection());
     const Schema& schema(builder->schema());
+    const std::size_t runCount(json["input"]["run"].asUInt64());
 
     std::cout << std::endl;
 
     std::cout <<
         "Input:\n" <<
-        "\tBuilding from " << runInfo.manifest.size() << " source file" <<
-            (runInfo.manifest.size() > 1 ? "s" : "") << "\n";
+        "\tBuilding from " << builder->manifest().size() << " source file" <<
+            (builder->manifest().size() > 1 ? "s" : "") << "\n";
 
-    if (runInfo.maxCount != runInfo.manifest.size())
+    if (runCount)
     {
         std::cout <<
-            "\tInserting up to " << runInfo.maxCount << " file" <<
-                (runInfo.maxCount > 1 ? "s" : "") << "\n";
+            "\tInserting up to " << runCount << " file" <<
+            (runCount > 1 ? "s" : "") << "\n";
     }
 
     const std::string coldDepthString(
@@ -260,39 +263,18 @@ void Kernel::build(std::vector<std::string> args)
             std::endl;
     }
 
-    // Index.
-    std::size_t i(0);
-    std::size_t numInserted(0);
-
     auto start = now();
-
-    const auto& manifest(runInfo.manifest);
-    const std::size_t maxCount(runInfo.maxCount);
-
-    while (i < manifest.size() && numInserted < maxCount)
-    {
-        if (builder->insert(manifest[i++]))
-        {
-            ++numInserted;
-        }
-    }
-
-    std::cout << "Joining..." << std::endl;
-
-    builder->join();
-
+    builder->go(runCount);
     std::cout << "\nIndex completed in " << secondsSince(start) <<
-            " seconds.  Saving...\n" << std::endl;
+        " seconds." << std::endl;
 
-    builder->save();
-
-    const Stats stats(builder->stats());
+    const PointStats stats(builder->manifest().pointStats());
     std::cout <<
         "Save complete.  Indexing stats:\n" <<
-        "\tPoints inserted: " << stats.getNumPoints() << "\n" <<
+        "\tPoints inserted: " << stats.inserts() << "\n" <<
         "\tPoints discarded:\n" <<
-        "\t\tOutside specified bounds: " << stats.getNumOutOfBounds() << "\n" <<
-        "\t\tOverflow past max depth: " << stats.getNumFallThroughs() << "\n" <<
+        "\t\tOutside specified bounds: " << stats.outOfBounds() << "\n" <<
+        "\t\tOverflow past max depth: " << stats.overflows() << "\n" <<
         std::endl;
 }
 

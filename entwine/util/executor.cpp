@@ -120,8 +120,7 @@ bool Executor::good(const std::string path) const
 
 std::unique_ptr<Preview> Executor::preview(
         const std::string path,
-        const Reprojection* reprojection,
-        const bool doSrs)
+        const Reprojection* reprojection)
 {
     using namespace pdal;
 

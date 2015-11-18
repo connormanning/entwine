@@ -20,7 +20,6 @@
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
-#include <entwine/tree/registry.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/reprojection.hpp>
@@ -54,6 +53,7 @@ namespace
 }
 
 Builder::Builder(
+        std::unique_ptr<Manifest> manifest,
         const std::string outPath,
         const std::string tmpPath,
         const bool compress,
@@ -71,12 +71,12 @@ Builder::Builder(
     , m_schema(new Schema(dimList))
     , m_structure(new Structure(structure))
     , m_reprojection(reprojection ? new Reprojection(*reprojection) : 0)
-    , m_manifest(new Manifest())
+    , m_manifest(std::move(manifest))
     , m_mutex()
-    , m_stats()
     , m_compress(compress)
     , m_trustHeaders(trustHeaders)
     , m_isContinuation(false)
+    , m_srs()
     , m_pool(new Pool(getWorkThreads(totalThreads)))
     , m_executor(new Executor(m_structure->is3d()))
     , m_originId(m_schema->pdalLayout().findDim("Origin"))
@@ -97,6 +97,7 @@ Builder::Builder(
 }
 
 Builder::Builder(
+        std::unique_ptr<Manifest> manifest,
         const std::string outPath,
         const std::string tmpPath,
         const std::size_t totalThreads,
@@ -108,9 +109,10 @@ Builder::Builder(
     , m_reprojection()
     , m_manifest()
     , m_mutex()
-    , m_stats()
+    , m_compress(true)
     , m_trustHeaders(false)
     , m_isContinuation(true)
+    , m_srs()
     , m_pool(new Pool(getWorkThreads(totalThreads)))
     , m_executor()
     , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
@@ -131,9 +133,10 @@ Builder::Builder(const std::string path, std::shared_ptr<Arbiter> arbiter)
     , m_reprojection()
     , m_manifest()
     , m_mutex()
-    , m_stats()
+    , m_compress(true)
     , m_trustHeaders(true)
     , m_isContinuation(true)
+    , m_srs()
     , m_pool()
     , m_executor()
     , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
@@ -146,134 +149,132 @@ Builder::Builder(const std::string path, std::shared_ptr<Arbiter> arbiter)
 Builder::~Builder()
 { }
 
-bool Builder::insert(const std::string path)
+void Builder::go(std::size_t max)
 {
-    if (!m_executor->good(path))
+    std::size_t added(0);
+    if (!max) max = m_manifest->size();
+    if (m_srs.empty() && m_manifest->size()) init();
+
+    for (Origin origin(0); origin < m_manifest->size() && added < max; ++origin)
     {
-        m_manifest->addOmission(path);
-        return false;
-    }
+        FileInfo& info(m_manifest->get(origin));
+        if (info.status() != FileInfo::Status::Outstanding) continue;
 
-    const Origin origin(m_manifest->addOrigin(path));
+        const std::string path(info.path());
 
-    if (origin == Manifest::invalidOrigin()) return false;  // Already inserted.
-
-    if (origin == 0)
-    {
-        std::unique_ptr<arbiter::fs::LocalHandle> localHandle(
-                m_arbiter->getLocalHandle(path, *m_tmpEndpoint));
-        infer(localHandle->localPath());
-    }
-
-    std::cout << "Adding " << origin << " - " << path << std::endl;
-
-    m_pool->add([this, origin, path]()
-    {
-        try
+        if (!m_executor->good(path))
         {
-            std::unique_ptr<arbiter::fs::LocalHandle> localHandle(
-                    m_arbiter->getLocalHandle(path, *m_tmpEndpoint));
-            const std::string localPath(localHandle->localPath());
+            m_manifest->set(origin, FileInfo::Status::Omitted);
+            continue;
+        }
 
-            std::unique_ptr<Clipper> clipper(new Clipper(*this));
-            std::unique_ptr<Range> zRangePtr(
-                m_structure->is3d() ? 0 : new Range());
+        ++added;
+        std::cout << "Adding " << origin << " - " << path << std::endl;
 
-            Range* zRange(zRangePtr.get());
-            std::size_t count(0);
+        m_pool->add([this, origin, &info, &added, &path]()
+        {
+            PointStats pointStats;
 
-            SimplePointTable table(m_pointPool->dataPool(), *m_schema);
-
-            auto inserter(
-                    [this, origin, &table, &clipper, zRange, &count]
-                    (pdal::PointView& view)->void
+            try
             {
-                count += view.size();
-                insert(view, table, origin, clipper.get(), zRange);
+                insertPath(origin, info, pointStats);
 
-                if (count >= sleepCount)
-                {
-                    count = 0;
-                    clipper.reset(new Clipper(*this));
-                }
-            });
-
-            bool doInsert(true);
-
-            if (m_trustHeaders)
+                m_manifest->set(origin, FileInfo::Status::Inserted);
+                m_manifest->add(origin, pointStats);
+            }
+            catch (std::runtime_error e)
             {
-                auto preview(
-                    m_executor->preview(localPath, m_reprojection.get()));
-
-                if (preview)
-                {
-                    if (!preview->bbox.overlaps(*m_bbox))
-                    {
-                        m_stats.addOutOfBounds(preview->numPoints);
-                        doInsert = false;
-                    }
-                    else if (m_subBBox && !preview->bbox.overlaps(*m_subBBox))
-                    {
-                        doInsert = false;
-                    }
-                }
+                std::cout << "During " << path << ": " << e.what() << std::endl;
+                m_manifest->add(origin, pointStats);
+                m_manifest->set(origin, FileInfo::Status::Error);
+            }
+            catch (...)
+            {
+                std::cout << "Unknown error during " << path << std::endl;
+                m_manifest->add(origin, pointStats);
+                m_manifest->set(origin, FileInfo::Status::Error);
             }
 
-            if (doInsert)
-            {
-                if (m_executor->run(
-                            table,
-                            localPath,
-                            m_reprojection.get(),
-                            inserter))
-                {
-                    if (zRange)
-                    {
-                        zRange->min = std::floor(zRange->min);
-                        zRange->max = std::ceil(zRange->max);
+            std::cout << "\tChunks: " << Chunk::getChunkCnt() << std::endl;
+        });
+    }
 
-                        std::lock_guard<std::mutex> lock(m_mutex);
-                        m_bbox->growZ(*zRange);
-                    }
-                }
-                else
-                {
-                    m_manifest->addError(origin);
-                }
-            }
+    m_pool->join();
+    save();
+}
 
-            const std::size_t mem(Chunk::getChunkMem());
-            const std::size_t div(1000000000);
-
-            std::cout << "\tDone " << origin << " - " <<
-                "\tGlobal usage: " << mem / div << "." << mem % div <<
-                " GB in " << Chunk::getChunkCnt() << " chunks." <<
-                std::endl;
-        }
-        catch (std::runtime_error e)
+bool Builder::checkPath(
+        const std::string& localPath,
+        const Origin origin,
+        const FileInfo& info)
+{
+    auto check([this](Origin origin, const BBox& bbox, std::size_t numPoints)
+    {
+        if (!bbox.overlaps(*m_bbox))
         {
-            std::cout << "During " << path << ": " << e.what() << std::endl;
-            m_manifest->addError(origin);
+            m_manifest->add(origin, numPoints, m_structure->primary());
+            return false;
         }
-        catch (...)
+        else if (m_subBBox && !bbox.overlaps(*m_subBBox))
         {
-            std::cout << "Caught unknown error during " << path << std::endl;
-            m_manifest->addError(origin);
+            return false;
         }
+
+        return true;
     });
 
+    if (const BBox* bbox = info.bbox())
+    {
+        return check(origin, *bbox, info.numPoints());
+    }
+    else if (m_trustHeaders)
+    {
+        auto pre(m_executor->preview(localPath, m_reprojection.get()));
+        if (pre) return check(origin, pre->bbox, pre->numPoints);
+    }
+
+    // Couldn't validate anything - so we'll need to insert point-by-point.
     return true;
 }
 
-void Builder::insert(
+bool Builder::insertPath(
+        const Origin origin,
+        FileInfo& info,
+        PointStats& pointStats)
+{
+    auto localHandle(m_arbiter->getLocalHandle(info.path(), *m_tmpEndpoint));
+    const std::string& localPath(localHandle->localPath());
+
+    if (!checkPath(localPath, origin, info)) return false;
+
+    std::unique_ptr<Clipper> clipper(new Clipper(*this));
+    SimplePointTable table(m_pointPool->dataPool(), *m_schema);
+
+    std::size_t num(0);
+    auto inserter(
+            [this, &table, origin, &pointStats, &clipper, &num]
+            (pdal::PointView& view)
+    {
+        num += view.size();
+        insertView(view, table, origin, pointStats, clipper.get());
+
+        if (num >= sleepCount)
+        {
+            num = 0;
+            clipper.reset(new Clipper(*this));
+        }
+    });
+
+    return m_executor->run(table, localPath, m_reprojection.get(), inserter);
+}
+
+void Builder::insertView(
         pdal::PointView& pointView,
         SimplePointTable& table,
-        Origin origin,
-        Clipper* clipper,
-        Range* zRange)
+        const Origin origin,
+        PointStats& pointStats,
+        Clipper* clipper)
 {
-    using namespace pdal;
-
     InfoPool& infoPool(m_pointPool->infoPool());
 
     PooledDataStack dataStack(table.stack());
@@ -294,9 +295,9 @@ void Builder::insert(
 
         info->construct(
                 Point(
-                    localView.getFieldAs<double>(Dimension::Id::X, 0),
-                    localView.getFieldAs<double>(Dimension::Id::Y, 0),
-                    localView.getFieldAs<double>(Dimension::Id::Z, 0)),
+                    localView.getFieldAs<double>(pdal::Dimension::Id::X, 0),
+                    localView.getFieldAs<double>(pdal::Dimension::Id::Y, 0),
+                    localView.getFieldAs<double>(pdal::Dimension::Id::Z, 0)),
                 std::move(data));
 
         const Point& point(info->val().point());
@@ -309,14 +310,12 @@ void Builder::insert(
 
                 if (m_registry->addPoint(info, climber, clipper))
                 {
-                    m_stats.addPoint();
-
-                    if (zRange) zRange->grow(point.z);
+                    pointStats.addInsert();
                 }
                 else
                 {
                     rejected.push(std::move(info));
-                    m_stats.addFallThrough();
+                    pointStats.addOverflow();
                 }
             }
             else
@@ -327,107 +326,9 @@ void Builder::insert(
         else
         {
             rejected.push(std::move(info));
-            m_stats.addOutOfBounds();
+            pointStats.addOutOfBounds();
         }
     }
-}
-
-// TODO Delete me.
-void Builder::infer(const std::string path)
-{
-    using namespace pdal;
-
-    auto preview(m_executor->preview(path, m_reprojection.get(), true));
-
-    if (preview)
-    {
-        m_srs = preview->srs;
-
-        if (m_trustHeaders && !m_bbox && preview->bbox.exists())
-        {
-            std::cout << "Inferring bounds from header of " << path << "..." <<
-                std::endl;
-
-            BBox bbox(preview->bbox);
-            m_bbox.reset(
-                    new BBox(
-                        Point(
-                            std::floor(bbox.min().x),
-                            std::floor(bbox.min().y),
-                            std::floor(bbox.min().z)),
-                        Point(
-                            std::ceil(bbox.max().x),
-                            std::ceil(bbox.max().y),
-                            std::ceil(bbox.max().z)),
-                        m_structure->is3d()));
-
-            std::cout << "\tGot: " << *m_bbox << "\n" << std::endl;
-        }
-    }
-
-    if (!m_bbox)
-    {
-        std::cout << "Inferring bounds from " << path << "..." << std::endl;
-
-        // Use BBox::set() to avoid malformed BBox warning.
-        BBox bbox;
-        bbox.set(
-                Point(
-                    std::numeric_limits<double>::max(),
-                    std::numeric_limits<double>::max(),
-                    std::numeric_limits<double>::max()),
-                Point(
-                    std::numeric_limits<double>::lowest(),
-                    std::numeric_limits<double>::lowest(),
-                    std::numeric_limits<double>::lowest()),
-                true);
-
-        SimplePointTable table(m_pointPool->dataPool(), *m_schema);
-
-        auto bounder([this, &bbox](pdal::PointView& view)->void
-        {
-            for (std::size_t i = 0; i < view.size(); ++i)
-            {
-                bbox.grow(
-                        Point(
-                            view.getFieldAs<double>(Dimension::Id::X, i),
-                            view.getFieldAs<double>(Dimension::Id::Y, i),
-                            view.getFieldAs<double>(Dimension::Id::Z, i)));
-            }
-        });
-
-        if (!m_executor->run(table, path, m_reprojection.get(), bounder))
-        {
-            throw std::runtime_error("Error inferring bounds");
-        }
-
-        m_bbox.reset(
-                new BBox(
-                    Point(
-                        std::floor(bbox.min().x),
-                        std::floor(bbox.min().y),
-                        std::floor(bbox.min().z)),
-                    Point(
-                        std::ceil(bbox.max().x),
-                        std::ceil(bbox.max().y),
-                        std::ceil(bbox.max().z)),
-                    m_structure->is3d()));
-
-        std::cout << "\tGot: " << *m_bbox << "\n" << std::endl;
-    }
-}
-
-void Builder::clip(
-        const Id& index,
-        const std::size_t chunkNum,
-        Clipper* clipper)
-{
-    m_registry->clip(index, chunkNum, clipper);
-}
-
-void Builder::join()
-{
-    m_pool->join();
 }
 
 void Builder::load(const std::size_t clipThreads)
@@ -459,8 +360,35 @@ void Builder::load(const std::size_t clipThreads)
                 meta));
 }
 
+void Builder::save()
+{
+    // Get our own metadata and the registry's - then serialize.
+    Json::Value jsonMeta(saveProps());
+    m_registry->save(jsonMeta);
+    m_outEndpoint->putSubpath(
+            "entwine" + m_structure->subsetPostfix(),
+            jsonMeta.toStyledString());
+}
+
+void Builder::init()
+{
+    const std::string path(m_manifest->get(0).path());
+
+    if (m_reprojection)
+    {
+        m_srs = pdal::SpatialReference(m_reprojection->out()).getWKT();
+    }
+    else
+    {
+        auto preview(m_executor->preview(path, nullptr));
+        if (preview) m_srs = preview->srs;
+        else std::cout << "Could not find an SRS" << std::endl;
+    }
+}
+
 void Builder::merge()
 {
+    std::unique_ptr<Manifest> manifest;
     std::unique_ptr<BaseChunk> base;
     std::set<Id> ids;
     const std::size_t baseCount([this]()->std::size_t
@@ -509,7 +437,7 @@ void Builder::merge()
                     m_outEndpoint->getSubpathBinary(
                         m_structure->baseIndexBegin().str() + postfix)));
 
-        std::unique_ptr<BaseChunk> current(
+        std::unique_ptr<BaseChunk> currentBase(
                 static_cast<BaseChunk*>(
                     Chunk::create(
                         *m_schema,
@@ -521,26 +449,22 @@ void Builder::merge()
                         m_structure->baseIndexSpan(),
                         std::move(data)).release()));
 
+        std::unique_ptr<Manifest> currentManifest(
+                new Manifest(meta["manifest"]));
+
         if (i == 0)
         {
-            base = std::move(current);
+            base = std::move(currentBase);
+            manifest = std::move(currentManifest);
         }
         else
         {
-            // Update stats.  Don't add numOutOfBounds, since those are
-            // based on the global bounds, so every segment's out-of-bounds
-            // count should be equal.
-            Stats stats(meta["stats"]);
-            m_stats.addPoint(stats.getNumPoints());
-            m_stats.addFallThrough(stats.getNumFallThroughs());
-            if (m_stats.getNumOutOfBounds() != stats.getNumOutOfBounds())
-            {
-                std::cout << "\tInvalid stats in segment." << std::endl;
-            }
-
-            base->merge(*current);
+            base->merge(*currentBase);
+            manifest->merge(*currentManifest);
         }
     }
+
+    m_manifest = std::move(manifest);
 
     m_structure->makeWhole();
     m_subBBox.reset();
@@ -553,22 +477,6 @@ void Builder::merge()
     base->save(*m_outEndpoint);
 }
 
-void Builder::save()
-{
-    // Ensure constant state, waiting for all worker threads to complete.
-    join();
-
-    // Get our own metadata and the registry's - then serialize.
-    Json::Value jsonMeta(saveProps());
-    m_registry->save(jsonMeta);
-    m_outEndpoint->putSubpath(
-            "entwine" + m_structure->subsetPostfix(),
-            jsonMeta.toStyledString());
-
-    // Re-allow inserts.
-    m_pool->go();
-}
-
 Json::Value Builder::saveProps() const
 {
     Json::Value props;
@@ -579,7 +487,6 @@ Json::Value Builder::saveProps() const
     if (m_reprojection) props["reprojection"] = m_reprojection->toJson();
     props["manifest"] = m_manifest->toJson();
     props["srs"] = m_srs;
-    props["stats"] = m_stats.toJson();
     props["compressed"] = m_compress;
     props["trustHeaders"] = m_trustHeaders;
 
@@ -598,7 +505,6 @@ void Builder::loadProps(const Json::Value& props)
 
     m_srs = props["srs"].asString();
     m_manifest.reset(new Manifest(props["manifest"]));
-    m_stats = Stats(props["stats"]);
     m_trustHeaders = props["trustHeaders"].asBool();
     m_compress = props["compressed"].asBool();
 }
@@ -619,9 +525,8 @@ void Builder::prep()
         throw std::runtime_error("Couldn't create tmp directory");
     }
 
-    if (
-            !m_outEndpoint->isRemote() &&
-            !arbiter::fs::mkdirp(m_outEndpoint->root()))
+    const std::string rootDir(m_outEndpoint->root());
+    if (!m_outEndpoint->isRemote() && !arbiter::fs::mkdirp(rootDir))
     {
         throw std::runtime_error("Couldn't create local build directory");
     }

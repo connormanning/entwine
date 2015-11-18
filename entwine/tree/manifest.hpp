@@ -18,49 +18,190 @@
 #include <string>
 
 #include <entwine/third/json/json.hpp>
+#include <entwine/types/bbox.hpp>
 
 namespace entwine
 {
 
 typedef uint64_t Origin;
 
+class PointStats
+{
+public:
+    PointStats() : m_inserts(0), m_outOfBounds(0), m_overflows(0) { }
+    explicit PointStats(const Json::Value& json);
+
+    void add(const PointStats& other)
+    {
+        m_inserts += other.m_inserts;
+        m_outOfBounds += other.m_outOfBounds;
+        m_overflows += other.m_overflows;
+    }
+
+    void addInsert()        { ++m_inserts; }
+    void addOutOfBounds()   { ++m_outOfBounds; }
+    void addOverflow()      { ++m_overflows; }
+
+    std::size_t inserts() const     { return m_inserts; }
+    std::size_t outOfBounds() const { return m_outOfBounds; }
+    std::size_t overflows() const   { return m_overflows; }
+
+    void addOutOfBounds(std::size_t n) { m_outOfBounds += n; }
+
+    Json::Value toJson() const;
+
+private:
+    std::size_t m_inserts;
+    std::size_t m_outOfBounds;
+    std::size_t m_overflows;
+};
+
+class FileStats
+{
+public:
+    FileStats() : m_inserts(0), m_omits(0), m_errors(0) { }
+    explicit FileStats(const Json::Value& json);
+
+    void add(const FileStats& other)
+    {
+        m_inserts += other.m_inserts;
+        m_omits += other.m_omits;
+        m_errors += other.m_errors;
+    }
+
+    void addInsert()    { ++m_inserts; }
+    void addOmit()      { ++m_omits; }
+    void addError()     { ++m_errors; }
+
+    Json::Value toJson() const;
+
+private:
+    std::size_t m_inserts;
+    std::size_t m_omits;
+    std::size_t m_errors;
+};
+
+class FileInfo
+{
+    // Only Manifest may set status.
+    friend class Manifest;
+
+public:
+    enum class Status : char
+    {
+        // Needs insertion.
+        Outstanding,
+
+        // No further action needed for this file.  After the build is complete,
+        // these should be the only statuses in the metadata.
+        Inserted,       // Completed normally - in-bounds points were indexed.
+        Omitted,        // Not a point cloud file.
+        Error,          // An error occurred during insertion.
+
+        // Need to merge a peer's results after index time, but done for now.
+        Delegated       // Given to another worker.
+    };
+
+    FileInfo(std::string path, Status status = Status::Outstanding);
+    FileInfo(const FileInfo& other);
+    FileInfo& operator=(const FileInfo& other);
+    explicit FileInfo(const Json::Value& json);
+
+    Json::Value toJson() const;
+
+    const std::string& path() const         { return m_path; }
+    Status status() const                   { return m_status; }
+    const BBox* bbox() const                { return m_bbox.get(); }
+    const std::size_t numPoints() const     { return m_numPoints; }
+    const PointStats& pointStats() const    { return m_pointStats; }
+
+    void bbox(const BBox& bbox) { m_bbox.reset(new BBox(bbox)); }
+    void numPoints(std::size_t n) { m_numPoints = n; }
+    void add(const PointStats& stats) { m_pointStats.add(stats); }
+
+private:
+    PointStats& pointStats() { return m_pointStats; }
+    void status(Status status) { m_status = status; }
+
+    std::string m_path;
+    Status m_status;
+
+    // If BBox is set while the Status is Outstanding, then we have inferred
+    // the bounds and number of points in this file from the header.
+    std::unique_ptr<BBox> m_bbox;   // Represented in the output projection.
+    std::size_t m_numPoints;
+
+    PointStats m_pointStats;
+};
+
 class Manifest
 {
 public:
-    Manifest();
+    Manifest(std::vector<std::string> paths);
     explicit Manifest(const Json::Value& meta);
 
+    void append(const Manifest& other);
+
     Json::Value toJson() const;
-    Json::Value jsonCounts() const;
+    std::size_t size() const { return m_paths.size(); }
 
-    // Register a new Origin ID for this path, if this path has not been
-    // registered already, in which case invalidOrigin is returned.
-    Origin addOrigin(const std::string& path);
+    FileInfo& get(Origin origin) { return m_paths[origin]; }
+    void set(Origin origin, FileInfo::Status status)
+    {
+        countStatus(status);
+        m_paths[origin].status(status);
+    }
 
-    // Note this file as not indexed.  Primarily intended for insertion of
-    // globbed directories, which may contain some non-point-cloud files.
-    void addOmission(const std::string& path);
+    void add(Origin origin, const PointStats& stats)
+    {
+        m_paths[origin].add(stats);
 
-    // Mark a partial insertion of a file that was previously registered with
-    // addOrigin() due to an error during insertion.
-    void addError(Origin origin);
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_pointStats.add(stats);
+    }
 
-    static Origin invalidOrigin();
+    void add(Origin origin, std::size_t numOutOfBounds, bool primary)
+    {
+        m_paths[origin].pointStats().addOutOfBounds(numOutOfBounds);
+        if (primary) m_pointStats.addOutOfBounds(numOutOfBounds);
+    }
 
-    std::size_t originCount() const { return m_originCount.load(); }
-    std::size_t omissionCount() const { return m_omissionCount.load(); }
-    std::size_t errorCount() const { return m_errorCount.load(); }
+    void merge(const Manifest& other);
+
+    FileStats fileStats() const { return m_fileStats; }
+    PointStats pointStats() const { return m_pointStats; }
+
+    Json::Value jsonFileStats() const
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_fileStats.toJson();
+    }
+
+    Json::Value jsonPointStats() const
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_pointStats.toJson();
+    }
 
 private:
-    std::deque<std::string> m_originList;
-    std::deque<std::string> m_omissionList;
-    std::deque<Origin> m_errorList;
+    void countStatus(FileInfo::Status status)
+    {
+        switch (status)
+        {
+            case FileInfo::Status::Inserted:    m_fileStats.addInsert(); break;
+            case FileInfo::Status::Omitted:     m_fileStats.addOmit(); break;
+            case FileInfo::Status::Error:       m_fileStats.addError(); break;
+            default: break;
+        }
+    }
 
-    std::atomic_size_t m_originCount;
-    std::atomic_size_t m_omissionCount;
-    std::atomic_size_t m_errorCount;
+    std::vector<FileInfo> m_paths;
+    std::map<std::string, Origin> m_lookup;
 
-    std::set<std::string> m_reverseLookup;
+    FileStats m_fileStats;
+    PointStats m_pointStats;
+
+    mutable std::mutex m_mutex;
 };
 
 } // namespace entwine
