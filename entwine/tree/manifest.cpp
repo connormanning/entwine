@@ -128,7 +128,6 @@ Json::Value FileInfo::toJson() const
 
 Manifest::Manifest(std::vector<std::string> rawPaths)
     : m_paths()
-    , m_lookup()
     , m_fileStats()
     , m_pointStats()
     , m_mutex()
@@ -140,9 +139,24 @@ Manifest::Manifest(std::vector<std::string> rawPaths)
     }
 }
 
+Manifest::Manifest(const Manifest& other)
+    : m_paths(other.m_paths)
+    , m_fileStats(other.m_fileStats)
+    , m_pointStats(other.m_pointStats)
+    , m_mutex()
+{ }
+
+Manifest& Manifest::operator=(const Manifest& other)
+{
+    m_paths = other.m_paths;
+    m_fileStats = other.m_fileStats;
+    m_pointStats = other.m_pointStats;
+
+    return *this;
+}
+
 Manifest::Manifest(const Json::Value& json)
     : m_paths()
-    , m_lookup()
     , m_fileStats()
     , m_pointStats()
     , m_mutex()

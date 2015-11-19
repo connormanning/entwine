@@ -40,6 +40,15 @@ public:
             bool trustHeaders = true,
             arbiter::Arbiter* arbiter = nullptr);
 
+    Inference(
+            const Manifest& manifest,
+            std::string tmpPath,
+            std::size_t threads,
+            bool verbose = false,
+            const Reprojection* reprojection = nullptr,
+            bool trustHeaders = true,
+            arbiter::Arbiter* arbiter = nullptr);
+
     void go();
     bool done() const { return m_done; }
 
@@ -49,8 +58,9 @@ public:
         return m_index;
     }
 
-    std::size_t total() const { return m_manifest.size(); }
+    const Manifest& manifest() const { return m_manifest; }
     Schema schema() const;
+    BBox bbox() const;
 
 private:
     void add(std::string localPath, FileInfo& fileInfo);

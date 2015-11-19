@@ -10,7 +10,6 @@
 
 #pragma once
 
-#include <atomic>
 #include <cstdint>
 #include <deque>
 #include <mutex>
@@ -138,6 +137,8 @@ class Manifest
 {
 public:
     Manifest(std::vector<std::string> paths);
+    Manifest(const Manifest& other);
+    Manifest& operator=(const Manifest& other);
     explicit Manifest(const Json::Value& meta);
 
     void append(const Manifest& other);
@@ -146,6 +147,7 @@ public:
     std::size_t size() const { return m_paths.size(); }
 
     FileInfo& get(Origin origin) { return m_paths[origin]; }
+    const FileInfo& get(Origin origin) const { return m_paths[origin]; }
     void set(Origin origin, FileInfo::Status status)
     {
         countStatus(status);
@@ -196,7 +198,6 @@ private:
     }
 
     std::vector<FileInfo> m_paths;
-    std::map<std::string, Origin> m_lookup;
 
     FileStats m_fileStats;
     PointStats m_pointStats;

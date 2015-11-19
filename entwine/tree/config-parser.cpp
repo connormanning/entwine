@@ -8,6 +8,8 @@
 *
 ******************************************************************************/
 
+#include <limits>
+
 #include <entwine/tree/config-parser.hpp>
 
 #include <entwine/third/arbiter/arbiter.hpp>
@@ -16,6 +18,7 @@
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/util/inference.hpp>
 
 namespace entwine
 {
@@ -140,6 +143,61 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     auto reprojection(getReprojection(geometry["reproject"]));
     Schema schema(geometry["schema"]);
 
+    bool exists(false);
+
+    if (!force)
+    {
+        // TODO Existence test won't work for partially-complete subsets.
+        // Add subset extension to outPath.
+        arbiter::Endpoint endpoint(arbiter->getEndpoint(outPath));
+        if (endpoint.tryGetSubpath("entwine"))
+        {
+            exists = true;
+        }
+    }
+
+    if (!force && !exists && (!bbox || !schema.pointSize()))
+    {
+        std::cout << "Performing dataset inference..." << std::endl;
+        Inference inference(
+                *manifest,
+                tmpPath,
+                threads,
+                true,
+                reprojection.get(),
+                trustHeaders,
+                arbiter.get());
+
+        inference.go();
+        manifest.reset(new Manifest(inference.manifest()));
+
+        if (!bbox)
+        {
+            bbox.reset(new BBox(inference.bbox()));
+            bbox->cubeify();
+            bbox->bloat();
+
+            std::cout << "Inferred: " << inference.bbox() << std::endl;
+            std::cout << "Cubified: " << *bbox << std::endl;
+        }
+
+        if (!schema.pointSize())
+        {
+            auto dims(inference.schema().dims());
+            const std::size_t originSize([&manifest]()
+            {
+                if (manifest->size() <= std::numeric_limits<uint32_t>::max())
+                    return 4;
+                else
+                    return 8;
+            }());
+
+            dims.emplace_back("Origin", "unsigned", originSize);
+
+            schema = Schema(dims);
+        }
+    }
+
     const Structure structure(([&]()
     {
         if (lossless)
@@ -172,19 +230,6 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                     subset);
         }
     })());
-
-    bool exists(false);
-
-    if (!force)
-    {
-        // TODO Existence test won't work for partially-complete subsets.
-        // Add subset extension to outPath.
-        arbiter::Endpoint endpoint(arbiter->getEndpoint(outPath));
-        if (endpoint.tryGetSubpath("entwine"))
-        {
-            exists = true;
-        }
-    }
 
     if (!force && exists)
     {

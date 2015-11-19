@@ -73,6 +73,31 @@ Inference::Inference(
     , m_mutex()
 { }
 
+Inference::Inference(
+        const Manifest& manifest,
+        const std::string tmpPath,
+        const std::size_t threads,
+        const bool verbose,
+        const Reprojection* reprojection,
+        const bool trustHeaders,
+        arbiter::Arbiter* arbiter)
+    : m_executor(true)
+    , m_dataPool(xyzSchema.pointSize(), 4096 * 32)
+    , m_reproj(reprojection)
+    , m_threads(threads)
+    , m_verbose(verbose)
+    , m_trustHeaders(trustHeaders)
+    , m_done(false)
+    , m_ownedArbiter(arbiter ? nullptr : new arbiter::Arbiter())
+    , m_arbiter(arbiter ? arbiter : m_ownedArbiter.get())
+    , m_tmp(m_arbiter->getEndpoint(tmpPath))
+    , m_manifest(manifest)
+    , m_index(0)
+    , m_dimVec()
+    , m_dimSet()
+    , m_mutex()
+{ }
+
 void Inference::go()
 {
     if (m_pool)
@@ -80,24 +105,31 @@ void Inference::go()
         throw std::runtime_error("Cannot call Inference::go twice");
     }
 
+    bool valid(false);
     m_pool.reset(new Pool(m_threads));
     const std::size_t size(m_manifest.size());
 
     for (std::size_t i(0); i < size; ++i)
     {
-        if (m_verbose) std::cout << i << " / " << size << std::endl;
+        if (m_verbose) std::cout << i + 1 << " / " << size << std::endl;
 
         FileInfo& f(m_manifest.get(i));
         m_index = i;
 
-        m_pool->add([&f, this]()
+        if (m_executor.good(f.path()))
         {
-            auto localHandle(m_arbiter->getLocalHandle(f.path(), m_tmp));
-            add(localHandle->localPath(), f);
-        });
+            valid = true;
+
+            m_pool->add([&f, &valid, this]()
+            {
+                auto localHandle(m_arbiter->getLocalHandle(f.path(), m_tmp));
+                add(localHandle->localPath(), f);
+            });
+        }
     }
 
     m_pool->join();
+    if (!valid) throw std::runtime_error("No valid sources to inference.");
     m_done = true;
 }
 
@@ -167,6 +199,21 @@ Schema Inference::schema() const
         dims.emplace_back(name, id, pdal::Dimension::defaultType(id));
     }
     return Schema(dims);
+}
+
+BBox Inference::bbox() const
+{
+    BBox bbox(expander);
+
+    for (std::size_t i(0); i < m_manifest.size(); ++i)
+    {
+        if (const BBox* current = m_manifest.get(i).bbox())
+        {
+            bbox.grow(*current);
+        }
+    }
+
+    return bbox;
 }
 
 } // namespace entwine
