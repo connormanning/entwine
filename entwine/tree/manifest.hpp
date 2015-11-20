@@ -12,6 +12,7 @@
 
 #include <cstdint>
 #include <deque>
+#include <memory>
 #include <mutex>
 #include <set>
 #include <string>
