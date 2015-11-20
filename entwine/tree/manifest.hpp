@@ -93,12 +93,9 @@ public:
 
         // No further action needed for this file.  After the build is complete,
         // these should be the only statuses in the metadata.
-        Inserted,       // Completed normally - in-bounds points were indexed.
-        Omitted,        // Not a point cloud file.
-        Error,          // An error occurred during insertion.
-
-        // Need to merge a peer's results after index time, but done for now.
-        Delegated       // Given to another worker.
+        Inserted,   // Completed normally - in-bounds points were indexed.
+        Omitted,    // Not a point cloud file.
+        Error       // An error occurred during insertion.
     };
 
     FileInfo(std::string path, Status status = Status::Outstanding);

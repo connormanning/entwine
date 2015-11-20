@@ -26,7 +26,6 @@ namespace
             case FileInfo::Status::Inserted:    return "inserted";
             case FileInfo::Status::Omitted:     return "omitted";
             case FileInfo::Status::Error:       return "error";
-            case FileInfo::Status::Delegated:   return "delegated";
             default: throw std::runtime_error("Invalid file info status");
         }
     }
@@ -37,7 +36,6 @@ namespace
         if (s == "inserted")    return FileInfo::Status::Inserted;
         if (s == "omitted")     return FileInfo::Status::Omitted;
         if (s == "error")       return FileInfo::Status::Error;
-        if (s == "delegated")   return FileInfo::Status::Delegated;
         throw std::runtime_error("Invalid file info status string");
     }
 
@@ -191,7 +189,6 @@ void Manifest::merge(const Manifest& other)
     if (size() != other.size()) error("Invalid manifest sizes for merging.");
 
     const FileInfo::Status out(FileInfo::Status::Outstanding);
-    const FileInfo::Status del(FileInfo::Status::Delegated);
     const FileInfo::Status err(FileInfo::Status::Error);
 
     FileStats fileStats;
@@ -206,11 +203,6 @@ void Manifest::merge(const Manifest& other)
         if (ours.status() == out || theirs.status() == out)
         {
             error("Invalid file info status - file was not inserted");
-        }
-
-        if (ours.status() == del || theirs.status() == del)
-        {
-            error("Invalid file info status - file was delegated");
         }
 
         if (ours.status() == FileInfo::Status::Omitted)

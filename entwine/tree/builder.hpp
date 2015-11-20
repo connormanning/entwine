@@ -114,6 +114,8 @@ public:
     const arbiter::Endpoint& outEndpoint() const { return *m_outEndpoint; }
     const arbiter::Endpoint& tmpEndpoint() const { return *m_tmpEndpoint; }
 
+    bool setEnd(Origin end);
+
 private:
     // Returns true if we should insert this file.
     bool checkPath(
@@ -148,6 +150,10 @@ private:
     // Set up bookkeeping, for example initializing the SRS.
     void init();
 
+    Origin end() const;
+    bool keepGoing() const;
+    void next();
+
     // Ensure that the file at this path is accessible locally for execution.
     // Return the local path.
     std::string localize(std::string path, Origin origin);
@@ -173,7 +179,7 @@ private:
     std::unique_ptr<Reprojection> m_reprojection;
     std::unique_ptr<Manifest> m_manifest;
 
-    std::mutex m_mutex;
+    mutable std::mutex m_mutex;
 
     bool m_compress;
     bool m_trustHeaders;
@@ -184,6 +190,8 @@ private:
     std::unique_ptr<Executor> m_executor;
 
     pdal::Dimension::Id::Enum m_originId;
+    Origin m_origin;
+    Origin m_end;
 
     std::shared_ptr<arbiter::Arbiter> m_arbiter;
     std::unique_ptr<arbiter::Endpoint> m_outEndpoint;

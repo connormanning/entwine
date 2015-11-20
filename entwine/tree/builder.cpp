@@ -80,6 +80,8 @@ Builder::Builder(
     , m_pool(new Pool(getWorkThreads(totalThreads)))
     , m_executor(new Executor(m_structure->is3d()))
     , m_originId(m_schema->pdalLayout().findDim("Origin"))
+    , m_origin(0)
+    , m_end(0)
     , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
     , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(outPath)))
     , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
@@ -115,6 +117,9 @@ Builder::Builder(
     , m_srs()
     , m_pool(new Pool(getWorkThreads(totalThreads)))
     , m_executor()
+    , m_originId()
+    , m_origin(0)
+    , m_end(0)
     , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
     , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(outPath)))
     , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
@@ -139,6 +144,9 @@ Builder::Builder(const std::string path, std::shared_ptr<Arbiter> arbiter)
     , m_srs()
     , m_pool()
     , m_executor()
+    , m_originId()
+    , m_origin(0)
+    , m_end(0)
     , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
     , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(path)))
     , m_tmpEndpoint()
@@ -151,52 +159,57 @@ Builder::~Builder()
 
 void Builder::go(std::size_t max)
 {
-    std::size_t added(0);
-    if (!max) max = m_manifest->size();
-    if (m_srs.empty() && m_manifest->size()) init();
+    m_end = max ? std::min(max, m_manifest->size()) : m_manifest->size();
 
-    for (Origin origin(0); origin < m_manifest->size() && added < max; ++origin)
+    if (m_srs.empty() && m_manifest->size()) init();
+    std::size_t added(0);
+
+    while (keepGoing())
     {
-        FileInfo& info(m_manifest->get(origin));
+        FileInfo& info(m_manifest->get(m_origin));
         if (info.status() != FileInfo::Status::Outstanding) continue;
 
         const std::string path(info.path());
 
         if (!m_executor->good(path))
         {
-            m_manifest->set(origin, FileInfo::Status::Omitted);
+            m_manifest->set(m_origin, FileInfo::Status::Omitted);
             continue;
         }
 
         ++added;
-        std::cout << "Adding " << origin << " - " << path << std::endl;
+        std::cout << "Adding " << m_origin << " - " << path << std::endl;
 
-        m_pool->add([this, origin, &info, &added, &path]()
+        m_pool->add([this, &info, &added, &path]()
         {
             PointStats pointStats;
 
+            auto done([this, &pointStats](FileInfo::Status status)
+            {
+                m_manifest->add(m_origin, pointStats);
+                m_manifest->set(m_origin, status);
+            });
+
             try
             {
-                insertPath(origin, info, pointStats);
-
-                m_manifest->set(origin, FileInfo::Status::Inserted);
-                m_manifest->add(origin, pointStats);
+                insertPath(m_origin, info, pointStats);
+                done(FileInfo::Status::Inserted);
             }
             catch (std::runtime_error e)
             {
                 std::cout << "During " << path << ": " << e.what() << std::endl;
-                m_manifest->add(origin, pointStats);
-                m_manifest->set(origin, FileInfo::Status::Error);
+                done(FileInfo::Status::Error);
             }
             catch (...)
             {
                 std::cout << "Unknown error during " << path << std::endl;
-                m_manifest->add(origin, pointStats);
-                m_manifest->set(origin, FileInfo::Status::Error);
+                done(FileInfo::Status::Error);
             }
 
             std::cout << "\tChunks: " << Chunk::getChunkCnt() << std::endl;
         });
+
+        next();
     }
 
     m_pool->join();
@@ -530,6 +543,33 @@ void Builder::prep()
     {
         throw std::runtime_error("Couldn't create local build directory");
     }
+}
+
+void Builder::next()
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    ++m_origin;
+}
+
+bool Builder::keepGoing() const
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_origin < m_end;
+}
+
+bool Builder::setEnd(const Origin end)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+
+    const bool set(end < m_end && end > m_origin);
+    if (set) m_end = end;
+    return set;
+}
+
+Origin Builder::end() const
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_end;
 }
 
 } // namespace entwine
