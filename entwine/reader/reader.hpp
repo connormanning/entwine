@@ -47,7 +47,6 @@ class Query;
 class Reprojection;
 class Schema;
 class SinglePointTable;
-class Stats;
 
 class Reader
 {
@@ -89,7 +88,6 @@ private:
     std::unique_ptr<Structure> m_structure;
     std::unique_ptr<Reprojection> m_reprojection;
     std::unique_ptr<Manifest> m_manifest;
-    std::unique_ptr<Stats> m_stats;
     std::unique_ptr<BaseChunk> m_base;
     std::unique_ptr<Pools> m_pointPool;
 

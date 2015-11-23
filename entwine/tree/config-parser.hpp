@@ -24,17 +24,7 @@ namespace entwine
 {
 
 class Builder;
-
-struct RunInfo
-{
-    RunInfo(std::vector<std::string> manifest, std::size_t maxCount)
-        : manifest(manifest)
-        , maxCount(maxCount)
-    { }
-
-    std::vector<std::string> manifest;
-    std::size_t maxCount;
-};
+class Manifest;
 
 class ConfigParser
 {
@@ -42,9 +32,9 @@ public:
     static std::unique_ptr<Builder> getBuilder(
             const Json::Value& json,
             std::shared_ptr<arbiter::Arbiter> arbiter,
-            const RunInfo& runInfo);
+            std::unique_ptr<Manifest> manifest);
 
-    static RunInfo getRunInfo(
+    static std::unique_ptr<Manifest> getManifest(
             const Json::Value& json,
             const arbiter::Arbiter& arbiter);
 

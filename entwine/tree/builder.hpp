@@ -21,9 +21,9 @@
 #include <entwine/third/splice-pool/splice-pool.hpp>
 #include <entwine/tree/manifest.hpp>
 #include <entwine/tree/point-info.hpp>
+#include <entwine/tree/registry.hpp>
 #include <entwine/types/dim-info.hpp>
 #include <entwine/types/range.hpp>
-#include <entwine/types/stats.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/util/pool.hpp>
 
@@ -56,8 +56,11 @@ class SimplePointTable;
 
 class Builder
 {
+    friend class Clipper;
+
 public:
     Builder(
+            std::unique_ptr<Manifest> manifest,
             std::string outPath,
             std::string tmpPath,
             bool compress,
@@ -70,6 +73,7 @@ public:
             std::shared_ptr<arbiter::Arbiter> arbiter = 0);
 
     Builder(
+            std::unique_ptr<Manifest> manifest,
             std::string outPath,
             std::string tmpPath,
             std::size_t numThreads,
@@ -80,22 +84,13 @@ public:
 
     ~Builder();
 
-    // Insert the points from a PointView into this index asynchronously.
-    // Returns true if this file has not already been inserted, and this file
-    // has been successfully identified as a readable point cloud file.  When
-    // this function returns true, the file will be enqueued for point
-    // insertion into the index.
-    bool insert(std::string filename);
-
-    // Remove resources that are no longer needed.
-    void clip(const Id& index, std::size_t chunkNum, Clipper* clipper);
+    // Perform indexing.  A _maxFileInsertions_ of zero inserts all files in
+    // the manifest.
+    void go(std::size_t maxFileInsertions = 0);
 
     // Save the current state of the tree.  Files may no longer be inserted
     // after this call, but getters are still valid.
     void save();
-
-    // Block until all running insertion tasks are finished.
-    void join();
 
     // Aggregate segmented build.
     void merge();
@@ -105,7 +100,6 @@ public:
     const BBox* subBBox() const                 { return m_subBBox.get(); }
     const Schema& schema() const                { return *m_schema; }
     const Structure& structure() const          { return *m_structure; }
-    const Stats& stats() const                  { return m_stats; }
     const Reprojection* reprojection() const    { return m_reprojection.get(); }
     const Manifest& manifest() const            { return *m_manifest; }
 
@@ -119,19 +113,48 @@ public:
     const arbiter::Endpoint& outEndpoint() const { return *m_outEndpoint; }
     const arbiter::Endpoint& tmpEndpoint() const { return *m_tmpEndpoint; }
 
+    bool setEnd(Origin end);
+
 private:
+    // Returns true if we should insert this file.
+    bool checkPath(
+            const std::string& localPath,
+            Origin origin,
+            const FileInfo& info);
+
+    // Insert points from a file.  Return true if successful.  Sets any
+    // previously unset FileInfo fields based on file contents.
+    bool insertPath(Origin origin, FileInfo& info);
+
+    // Insert chunked points from a PointView.
+    void insertView(
+            pdal::PointView& pointView,
+            SimplePointTable& table,
+            Origin origin,
+            Clipper* clipper);
+
+    // Remove resources that are no longer needed.
+    void clip(const Id& index, std::size_t chunkNum, Clipper* clipper)
+    {
+        m_registry->clip(index, chunkNum, clipper);
+    }
+
     // Awaken the tree from a saved state.
     void load(std::size_t clipThreads);
 
     // Validate sources.
     void prep();
 
+    // Set up bookkeeping, for example initializing the SRS.
+    void init();
+
+    Origin end() const;
+    bool keepGoing() const;
+    void next();
+
     // Ensure that the file at this path is accessible locally for execution.
     // Return the local path.
     std::string localize(std::string path, Origin origin);
-
-    // Initialize our SRS WKT and our BBox, if necessary.
-    void infer(std::string path);
 
     // Insert each point from a pdal::PointView into the Registry.
     void insert(
@@ -154,9 +177,7 @@ private:
     std::unique_ptr<Reprojection> m_reprojection;
     std::unique_ptr<Manifest> m_manifest;
 
-    std::mutex m_mutex;
-
-    Stats m_stats;
+    mutable std::mutex m_mutex;
 
     bool m_compress;
     bool m_trustHeaders;
@@ -167,6 +188,8 @@ private:
     std::unique_ptr<Executor> m_executor;
 
     pdal::Dimension::Id::Enum m_originId;
+    Origin m_origin;
+    Origin m_end;
 
     std::shared_ptr<arbiter::Arbiter> m_arbiter;
     std::unique_ptr<arbiter::Endpoint> m_outEndpoint;

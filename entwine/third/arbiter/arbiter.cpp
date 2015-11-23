@@ -70,23 +70,34 @@ namespace
     const std::size_t httpRetryCount(8);
 }
 
+Arbiter::Arbiter()
+    : m_drivers()
+    , m_pool(concurrentHttpReqs, httpRetryCount)
+{
+    m_drivers["fs"] =   std::make_shared<drivers::Fs>();
+    m_drivers["http"] = std::make_shared<drivers::Http>(m_pool);
+
+    auto auth(drivers::AwsAuth::find(""));
+    if (auth) m_drivers["s3"] = std::make_shared<drivers::S3>(m_pool, *auth);
+}
+
 Arbiter::Arbiter(std::string awsUser)
     : m_drivers()
     , m_pool(concurrentHttpReqs, httpRetryCount)
 {
-    m_drivers["fs"] =   std::make_shared<FsDriver>(FsDriver());
-    m_drivers["http"] = std::make_shared<HttpDriver>(HttpDriver(m_pool));
+    m_drivers["fs"] =   std::make_shared<drivers::Fs>();
+    m_drivers["http"] = std::make_shared<drivers::Http>(m_pool);
 
-    std::unique_ptr<AwsAuth> auth(AwsAuth::find(awsUser));
-
-    if (auth)
-    {
-        m_drivers["s3"] = std::make_shared<S3Driver>(S3Driver(m_pool, *auth));
-    }
+    auto auth(drivers::AwsAuth::find(awsUser));
+    if (auth) m_drivers["s3"] = std::make_shared<drivers::S3>(m_pool, *auth);
+    else throw ArbiterError("AWS credentials not found for " + awsUser);
 }
 
-Arbiter::~Arbiter()
-{ }
+void Arbiter::addDriver(const std::string type, std::shared_ptr<Driver> driver)
+{
+    if (!driver) throw ArbiterError("Cannot add empty driver for " + type);
+    m_drivers[type] = driver;
+}
 
 std::string Arbiter::get(const std::string path) const
 {
@@ -96,6 +107,16 @@ std::string Arbiter::get(const std::string path) const
 std::vector<char> Arbiter::getBinary(const std::string path) const
 {
     return getDriver(path).getBinary(stripType(path));
+}
+
+std::unique_ptr<std::string> Arbiter::tryGet(std::string path) const
+{
+    return getDriver(path).tryGet(stripType(path));
+}
+
+std::unique_ptr<std::vector<char>> Arbiter::tryGetBinary(std::string path) const
+{
+    return getDriver(path).tryGetBinary(stripType(path));
 }
 
 void Arbiter::put(const std::string path, const std::string& data) const
@@ -127,7 +148,14 @@ Endpoint Arbiter::getEndpoint(const std::string root) const
 
 const Driver& Arbiter::getDriver(const std::string path) const
 {
-    return *m_drivers.at(parseType(path));
+    const auto type(parseType(path));
+
+    if (!m_drivers.count(type))
+    {
+        throw ArbiterError("No driver for " + path);
+    }
+
+    return *m_drivers.at(type);
 }
 
 std::unique_ptr<fs::LocalHandle> Arbiter::getLocalHandle(
@@ -138,6 +166,11 @@ std::unique_ptr<fs::LocalHandle> Arbiter::getLocalHandle(
 
     if (isRemote(path))
     {
+        if (tempEndpoint.isRemote())
+        {
+            throw ArbiterError("Temporary endpoint must be local.");
+        }
+
         std::string name(path);
         std::replace(name.begin(), name.end(), '/', '-');
         std::replace(name.begin(), name.end(), '\\', '-');
@@ -149,7 +182,8 @@ std::unique_ptr<fs::LocalHandle> Arbiter::getLocalHandle(
     }
     else
     {
-        localHandle.reset(new fs::LocalHandle(path, false));
+        localHandle.reset(
+                new fs::LocalHandle(fs::expandTilde(stripType(path)), false));
     }
 
     return localHandle;
@@ -209,24 +243,14 @@ namespace arbiter
 std::unique_ptr<std::vector<char>> Driver::tryGetBinary(std::string path) const
 {
     std::unique_ptr<std::vector<char>> data(new std::vector<char>());
-
-    if (!get(path, *data))
-    {
-        data.reset();
-    }
-
+    if (!get(path, *data)) data.reset();
     return data;
 }
 
 std::vector<char> Driver::getBinary(std::string path) const
 {
     std::vector<char> data;
-
-    if (!get(path, data))
-    {
-        throw std::runtime_error("Could not read file " + path);
-    }
-
+    if (!get(path, data)) throw ArbiterError("Could not read file " + path);
     return data;
 }
 
@@ -281,6 +305,11 @@ std::vector<std::string> Driver::resolve(
     return results;
 }
 
+std::vector<std::string> Driver::glob(std::string path, bool verbose) const
+{
+    throw ArbiterError("Cannot glob driver for: " + path);
+}
+
 } // namespace arbiter
 
 
@@ -300,6 +329,7 @@ std::vector<std::string> Driver::resolve(
 #ifndef ARBITER_IS_AMALGAMATION
 #include <arbiter/endpoint.hpp>
 
+#include <arbiter/arbiter.hpp>
 #include <arbiter/driver.hpp>
 #endif
 
@@ -310,7 +340,7 @@ namespace
 {
     std::string postfixSlash(std::string path)
     {
-        if (path.empty()) throw std::runtime_error("Invalid root path");
+        if (path.empty()) throw ArbiterError("Invalid root path");
         if (path.back() != '/') path.push_back('/');
         return path;
     }
@@ -318,7 +348,7 @@ namespace
 
 Endpoint::Endpoint(const Driver& driver, const std::string root)
     : m_driver(driver)
-    , m_root(postfixSlash(root))
+    , m_root(fs::expandTilde(postfixSlash(root)))
 { }
 
 std::string Endpoint::root() const
@@ -339,6 +369,12 @@ bool Endpoint::isRemote() const
 std::string Endpoint::getSubpath(const std::string subpath) const
 {
     return m_driver.get(fullPath(subpath));
+}
+
+std::unique_ptr<std::string> Endpoint::tryGetSubpath(const std::string subpath)
+    const
+{
+    return m_driver.tryGet(fullPath(subpath));
 }
 
 std::vector<char> Endpoint::getSubpathBinary(const std::string subpath) const
@@ -388,6 +424,7 @@ std::string Endpoint::fullPath(const std::string& subpath) const
 // //////////////////////////////////////////////////////////////////////
 
 #ifndef ARBITER_IS_AMALGAMATION
+#include <arbiter/arbiter.hpp>
 #include <arbiter/drivers/fs.hpp>
 #endif
 
@@ -416,11 +453,14 @@ namespace
 
     void noHome()
     {
-        throw std::runtime_error("No home directory found");
+        throw ArbiterError("No home directory found");
     }
 }
 
-bool FsDriver::get(std::string path, std::vector<char>& data) const
+namespace drivers
+{
+
+bool Fs::get(std::string path, std::vector<char>& data) const
 {
     bool good(false);
 
@@ -440,25 +480,25 @@ bool FsDriver::get(std::string path, std::vector<char>& data) const
     return good;
 }
 
-void FsDriver::put(std::string path, const std::vector<char>& data) const
+void Fs::put(std::string path, const std::vector<char>& data) const
 {
     path = fs::expandTilde(path);
     std::ofstream stream(path, binaryTruncMode);
 
     if (!stream.good())
     {
-        throw std::runtime_error("Could not open " + path + " for writing");
+        throw ArbiterError("Could not open " + path + " for writing");
     }
 
     stream.write(data.data(), data.size());
 
     if (!stream.good())
     {
-        throw std::runtime_error("Error occurred while writing " + path);
+        throw ArbiterError("Error occurred while writing " + path);
     }
 }
 
-std::vector<std::string> FsDriver::glob(std::string path, bool) const
+std::vector<std::string> Fs::glob(std::string path, bool) const
 {
     std::vector<std::string> results;
 
@@ -483,7 +523,7 @@ std::vector<std::string> FsDriver::glob(std::string path, bool) const
         }
         else
         {
-            throw std::runtime_error("Error globbing - POSIX stat failed");
+            throw ArbiterError("Error globbing - POSIX stat failed");
         }
     }
 
@@ -511,6 +551,8 @@ std::vector<std::string> FsDriver::glob(std::string path, bool) const
     return results;
 }
 
+} // namespace drivers
+
 namespace fs
 {
 
@@ -522,7 +564,7 @@ bool mkdirp(std::string dir)
     const bool err(::mkdir(dir.c_str(), S_IRWXU | S_IRGRP | S_IROTH));
     return (!err || errno == EEXIST);
 #else
-    throw std::runtime_error("Windows mkdirp not done yet.");
+    throw ArbiterError("Windows mkdirp not done yet.");
 #endif
 }
 
@@ -533,7 +575,7 @@ bool remove(std::string filename)
 #ifndef ARBITER_WINDOWS
     return ::remove(filename.c_str()) == 0;
 #else
-    throw std::runtime_error("Windows remove not done yet.");
+    throw ArbiterError("Windows remove not done yet.");
 #endif
 }
 
@@ -597,6 +639,7 @@ LocalHandle::~LocalHandle()
 // //////////////////////////////////////////////////////////////////////
 
 #ifndef ARBITER_IS_AMALGAMATION
+#include <arbiter/arbiter.hpp>
 #include <arbiter/drivers/http.hpp>
 #endif
 
@@ -695,12 +738,12 @@ namespace
 
 namespace arbiter
 {
+namespace drivers
+{
 
-HttpDriver::HttpDriver(HttpPool& pool)
-    : m_pool(pool)
-{ }
+Http::Http(HttpPool& pool) : m_pool(pool) { }
 
-bool HttpDriver::get(std::string path, std::vector<char>& data) const
+bool Http::get(std::string path, std::vector<char>& data) const
 {
     bool good(false);
 
@@ -716,19 +759,17 @@ bool HttpDriver::get(std::string path, std::vector<char>& data) const
     return good;
 }
 
-void HttpDriver::put(
-        std::string path,
-        const std::vector<char>& data) const
+void Http::put(std::string path, const std::vector<char>& data) const
 {
     auto http(m_pool.acquire());
 
     if (!http.put(path, data).ok())
     {
-        throw std::runtime_error("Couldn't HTTP PUT to " + path);
+        throw ArbiterError("Couldn't HTTP PUT to " + path);
     }
 }
 
-std::string HttpDriver::sanitize(std::string path)
+std::string Http::sanitize(std::string path)
 {
     std::string result;
 
@@ -748,6 +789,8 @@ std::string HttpDriver::sanitize(std::string path)
 
     return result;
 }
+
+} // namespace drivers
 
 Curl::Curl()
     : m_curl(0)
@@ -798,7 +841,7 @@ HttpResponse Curl::get(std::string path, std::vector<std::string> headers)
     int httpCode(0);
     std::vector<char> data;
 
-    path = HttpDriver::sanitize(path);
+    path = drivers::Http::sanitize(path);
     init(path, headers);
 
     // Register callback function and date pointer to consume the result.
@@ -821,7 +864,7 @@ HttpResponse Curl::put(
         const std::vector<char>& data,
         std::vector<std::string> headers)
 {
-    path = HttpDriver::sanitize(path);
+    path = drivers::Http::sanitize(path);
     init(path, headers);
 
     int httpCode(0);
@@ -969,6 +1012,7 @@ void HttpPool::release(const std::size_t id)
 // //////////////////////////////////////////////////////////////////////
 
 #ifndef ARBITER_IS_AMALGAMATION
+#include <arbiter/arbiter.hpp>
 #include <arbiter/drivers/s3.hpp>
 #endif
 
@@ -995,7 +1039,7 @@ namespace
 {
     const std::string baseUrl(".s3.amazonaws.com/");
 
-    std::string getQueryString(const Query& query)
+    std::string getQueryString(const drivers::Query& query)
     {
         std::string result;
 
@@ -1023,7 +1067,7 @@ namespace
             }
         }
 
-        std::string buildPath(Query query = Query()) const
+        std::string buildPath(drivers::Query query = drivers::Query()) const
         {
             const std::string queryString(getQueryString(query));
             return "http://" + bucket + baseUrl + object + queryString;
@@ -1037,6 +1081,9 @@ namespace
 
     const std::string badResponse("Unexpected contents in AWS response");
 }
+
+namespace drivers
+{
 
 AwsAuth::AwsAuth(const std::string access, const std::string hidden)
     : m_access(access)
@@ -1052,7 +1099,7 @@ std::unique_ptr<AwsAuth> AwsAuth::find(std::string user)
         user = getenv("AWS_PROFILE") ? getenv("AWS_PROFILE") : "default";
     }
 
-    FsDriver fs;
+    drivers::Fs fs;
     std::unique_ptr<std::string> file(fs.tryGet("~/.aws/credentials"));
 
     // First, try reading credentials file.
@@ -1152,23 +1199,23 @@ std::string AwsAuth::hidden() const
     return m_hidden;
 }
 
-S3Driver::S3Driver(HttpPool& pool, const AwsAuth auth)
+S3::S3(HttpPool& pool, const AwsAuth auth)
     : m_pool(pool)
     , m_auth(auth)
 { }
 
-bool S3Driver::get(std::string rawPath, std::vector<char>& data) const
+bool S3::get(std::string rawPath, std::vector<char>& data) const
 {
     return get(rawPath, Query(), data);
 }
 
-bool S3Driver::get(
+bool S3::get(
         std::string rawPath,
         const Query& query,
         std::vector<char>& data,
         const Headers userHeaders) const
 {
-    rawPath = HttpDriver::sanitize(rawPath);
+    rawPath = Http::sanitize(rawPath);
     const Resource resource(rawPath);
 
     const std::string path(resource.buildPath(query));
@@ -1191,39 +1238,37 @@ bool S3Driver::get(
     }
 }
 
-std::vector<char> S3Driver::getBinary(
-        std::string rawPath,
-        Headers headers) const
+std::vector<char> S3::getBinary(std::string rawPath, Headers headers) const
 {
     std::vector<char> data;
 
     if (!get(Arbiter::stripType(rawPath), Query(), data, headers))
     {
-        throw std::runtime_error("Couldn't S3 GET " + rawPath);
+        throw ArbiterError("Couldn't S3 GET " + rawPath);
     }
 
     return data;
 }
 
-std::string S3Driver::get(std::string rawPath, Headers headers) const
+std::string S3::get(std::string rawPath, Headers headers) const
 {
     std::vector<char> data(getBinary(rawPath, headers));
     return std::string(data.begin(), data.end());
 }
 
-std::vector<char> S3Driver::get(std::string rawPath, const Query& query) const
+std::vector<char> S3::get(std::string rawPath, const Query& query) const
 {
     std::vector<char> data;
 
     if (!get(rawPath, query, data))
     {
-        throw std::runtime_error("Couldn't S3 GET " + rawPath);
+        throw ArbiterError("Couldn't S3 GET " + rawPath);
     }
 
     return data;
 }
 
-void S3Driver::put(std::string rawPath, const std::vector<char>& data) const
+void S3::put(std::string rawPath, const std::vector<char>& data) const
 {
     const Resource resource(rawPath);
 
@@ -1234,11 +1279,11 @@ void S3Driver::put(std::string rawPath, const std::vector<char>& data) const
 
     if (!http.put(path, data, headers).ok())
     {
-        throw std::runtime_error("Couldn't S3 PUT to " + rawPath);
+        throw ArbiterError("Couldn't S3 PUT to " + rawPath);
     }
 }
 
-std::vector<std::string> S3Driver::glob(std::string path, bool verbose) const
+std::vector<std::string> S3::glob(std::string path, bool verbose) const
 {
     std::vector<std::string> results;
     path.pop_back();
@@ -1264,8 +1309,14 @@ std::vector<std::string> S3Driver::glob(std::string path, bool verbose) const
 
         Xml::xml_document<> xml;
 
-        // May throw Xml::parse_error.
-        xml.parse<0>(data.data());
+        try
+        {
+            xml.parse<0>(data.data());
+        }
+        catch (Xml::parse_error)
+        {
+            throw ArbiterError("Could not parse S3 response.");
+        }
 
         if (XmlNode* topNode = xml.first_node("ListBucketResult"))
         {
@@ -1300,18 +1351,18 @@ std::vector<std::string> S3Driver::glob(std::string path, bool verbose) const
                     }
                     else
                     {
-                        throw std::runtime_error(badResponse);
+                        throw ArbiterError(badResponse);
                     }
                 }
             }
             else
             {
-                throw std::runtime_error(badResponse);
+                throw ArbiterError(badResponse);
             }
         }
         else
         {
-            throw std::runtime_error(badResponse);
+            throw ArbiterError(badResponse);
         }
 
         xml.clear();
@@ -1321,7 +1372,7 @@ std::vector<std::string> S3Driver::glob(std::string path, bool verbose) const
     return results;
 }
 
-std::vector<std::string> S3Driver::httpGetHeaders(std::string filePath) const
+std::vector<std::string> S3::httpGetHeaders(std::string filePath) const
 {
     const std::string httpDate(getHttpDate());
     const std::string signedEncodedString(
@@ -1341,7 +1392,7 @@ std::vector<std::string> S3Driver::httpGetHeaders(std::string filePath) const
     return headers;
 }
 
-std::vector<std::string> S3Driver::httpPutHeaders(std::string filePath) const
+std::vector<std::string> S3::httpPutHeaders(std::string filePath) const
 {
     const std::string httpDate(getHttpDate());
     const std::string signedEncodedString(
@@ -1367,7 +1418,7 @@ std::vector<std::string> S3Driver::httpPutHeaders(std::string filePath) const
     return headers;
 }
 
-std::string S3Driver::getHttpDate() const
+std::string S3::getHttpDate() const
 {
     time_t rawTime;
     char charBuf[80];
@@ -1388,7 +1439,7 @@ std::string S3Driver::getHttpDate() const
     return stringBuf;
 }
 
-std::string S3Driver::getSignedEncodedString(
+std::string S3::getSignedEncodedString(
         std::string command,
         std::string file,
         std::string httpDate,
@@ -1404,7 +1455,7 @@ std::string S3Driver::getSignedEncodedString(
     return encodeBase64(signedData);
 }
 
-std::string S3Driver::getStringToSign(
+std::string S3::getStringToSign(
         std::string command,
         std::string file,
         std::string httpDate,
@@ -1418,12 +1469,12 @@ std::string S3Driver::getStringToSign(
         "/" + file;
 }
 
-std::vector<char> S3Driver::signString(std::string input) const
+std::vector<char> S3::signString(std::string input) const
 {
     return crypto::hmacSha1(m_auth.hidden(), input);
 }
 
-std::string S3Driver::encodeBase64(std::vector<char> data) const
+std::string S3::encodeBase64(std::vector<char> data) const
 {
     std::vector<uint8_t> input;
     for (std::size_t i(0); i < data.size(); ++i)
@@ -1472,6 +1523,7 @@ std::string S3Driver::encodeBase64(std::vector<char> data) const
     return output;
 }
 
+} // namespace drivers
 } // namespace arbiter
 
 

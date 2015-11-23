@@ -18,7 +18,6 @@
 #include <entwine/tree/manifest.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/reprojection.hpp>
-#include <entwine/types/stats.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/types/subset.hpp>
@@ -47,7 +46,6 @@ Reader::Reader(
     , m_structure()
     , m_reprojection()
     , m_manifest()
-    , m_stats()
     , m_base()
     , m_pointPool()
     , m_cache(cache)
@@ -80,7 +78,6 @@ Reader::Reader(
         if (props.isMember("reprojection"))
             m_reprojection.reset(new Reprojection(props["reprojection"]));
         m_manifest.reset(new Manifest(props["manifest"]));
-        m_stats.reset(new Stats(props["stats"]));
         m_srs = props["srs"].asString();
 
         if (props.isMember("ids"))
@@ -163,7 +160,7 @@ std::unique_ptr<Query> Reader::query(
 
 std::size_t Reader::numPoints() const
 {
-    return m_stats->getNumPoints();
+    return m_manifest->pointStats().inserts();
 }
 
 } // namespace entwine

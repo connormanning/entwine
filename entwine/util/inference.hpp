@@ -16,6 +16,7 @@
 #include <set>
 
 #include <entwine/third/arbiter/arbiter.hpp>
+#include <entwine/tree/manifest.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/util/executor.hpp>
@@ -39,9 +40,16 @@ public:
             bool trustHeaders = true,
             arbiter::Arbiter* arbiter = nullptr);
 
-    void go();
+    Inference(
+            const Manifest& manifest,
+            std::string tmpPath,
+            std::size_t threads,
+            bool verbose = false,
+            const Reprojection* reprojection = nullptr,
+            bool trustHeaders = true,
+            arbiter::Arbiter* arbiter = nullptr);
 
-    bool valid() const { return m_valid; }
+    void go();
     bool done() const { return m_done; }
 
     std::size_t index() const
@@ -50,14 +58,12 @@ public:
         return m_index;
     }
 
-    std::size_t total() const { return m_resolved.size(); }
-
-    std::size_t numPoints() const { return m_numPoints; }
-    BBox bbox() const { return m_bbox; }
+    const Manifest& manifest() const { return m_manifest; }
     Schema schema() const;
+    BBox bbox() const;
 
 private:
-    void add(std::string localPath, std::string realPath);
+    void add(std::string localPath, FileInfo& fileInfo);
 
     Executor m_executor;
     DataPool m_dataPool;
@@ -65,18 +71,15 @@ private:
     std::size_t m_threads;
     bool m_verbose;
     bool m_trustHeaders;
-    bool m_valid;
     bool m_done;
 
     std::unique_ptr<Pool> m_pool;
     std::unique_ptr<arbiter::Arbiter> m_ownedArbiter;
     arbiter::Arbiter* m_arbiter;
-    arbiter::Endpoint m_tmpEndpoint;
-    std::vector<std::string> m_resolved;
+    arbiter::Endpoint m_tmp;
+    Manifest m_manifest;
     std::size_t m_index;
 
-    std::size_t m_numPoints;
-    BBox m_bbox;
     std::vector<std::string> m_dimVec;
     std::set<std::string> m_dimSet;
 

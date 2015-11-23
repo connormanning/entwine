@@ -178,6 +178,7 @@ public:
     bool dynamicChunks() const  { return m_dynamicChunks; }
     bool prefixIds() const      { return m_prefixIds; }
     bool is3d() const           { return m_dimensions == 3; }
+    bool primary() const        { return !m_subset || !m_subset->id(); }
 
     ChunkInfo getInfo(const Id& index) const { return ChunkInfo(*this, index); }
     std::size_t numPointsHint() const { return m_numPointsHint; }
