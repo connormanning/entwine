@@ -24,7 +24,6 @@
 #include <entwine/tree/registry.hpp>
 #include <entwine/types/dim-info.hpp>
 #include <entwine/types/range.hpp>
-#include <entwine/types/stats.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/util/pool.hpp>
 
@@ -125,14 +124,13 @@ private:
 
     // Insert points from a file.  Return true if successful.  Sets any
     // previously unset FileInfo fields based on file contents.
-    bool insertPath(Origin origin, FileInfo& info, PointStats& pointStats);
+    bool insertPath(Origin origin, FileInfo& info);
 
     // Insert chunked points from a PointView.
     void insertView(
             pdal::PointView& pointView,
             SimplePointTable& table,
             Origin origin,
-            PointStats& pointStats,
             Clipper* clipper);
 
     // Remove resources that are no longer needed.

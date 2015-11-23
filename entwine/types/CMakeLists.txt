@@ -10,7 +10,6 @@ set(
     "${BASE}/schema.cpp"
     "${BASE}/simple-point-layout.cpp"
     "${BASE}/single-point-table.cpp"
-    "${BASE}/stats.cpp"
     "${BASE}/structure.cpp"
     "${BASE}/subset.cpp"
 )
@@ -30,7 +29,6 @@ set(
     "${BASE}/simple-point-table.hpp"
     "${BASE}/single-point-table.hpp"
     "${BASE}/sized-point-table.hpp"
-    "${BASE}/stats.hpp"
     "${BASE}/structure.hpp"
     "${BASE}/subset.hpp"
 )

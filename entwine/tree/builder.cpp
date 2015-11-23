@@ -179,33 +179,28 @@ void Builder::go(std::size_t max)
 
         ++added;
         std::cout << "Adding " << m_origin << " - " << path << std::endl;
+        const auto origin(m_origin);
 
-        m_pool->add([this, &info, &added, &path]()
+        m_pool->add([this, origin, &info, &added, &path]()
         {
-            PointStats pointStats;
-
-            auto done([this, &pointStats](FileInfo::Status status)
-            {
-                m_manifest->add(m_origin, pointStats);
-                m_manifest->set(m_origin, status);
-            });
+            FileInfo::Status status(FileInfo::Status::Inserted);
 
             try
             {
-                insertPath(m_origin, info, pointStats);
-                done(FileInfo::Status::Inserted);
+                insertPath(origin, info);
             }
             catch (std::runtime_error e)
             {
                 std::cout << "During " << path << ": " << e.what() << std::endl;
-                done(FileInfo::Status::Error);
+                status = FileInfo::Status::Error;
             }
             catch (...)
             {
                 std::cout << "Unknown error during " << path << std::endl;
-                done(FileInfo::Status::Error);
+                status = FileInfo::Status::Error;
             }
 
+            m_manifest->set(origin, status);
             std::cout << "\tChunks: " << Chunk::getChunkCnt() << std::endl;
         });
 
@@ -250,10 +245,7 @@ bool Builder::checkPath(
     return true;
 }
 
-bool Builder::insertPath(
-        const Origin origin,
-        FileInfo& info,
-        PointStats& pointStats)
+bool Builder::insertPath(const Origin origin, FileInfo& info)
 {
     auto localHandle(m_arbiter->getLocalHandle(info.path(), *m_tmpEndpoint));
     const std::string& localPath(localHandle->localPath());
@@ -264,12 +256,10 @@ bool Builder::insertPath(
     SimplePointTable table(m_pointPool->dataPool(), *m_schema);
 
     std::size_t num(0);
-    auto inserter(
-            [this, &table, origin, &pointStats, &clipper, &num]
-            (pdal::PointView& view)
+    auto inserter([this, &table, origin, &clipper, &num](pdal::PointView& view)
     {
         num += view.size();
-        insertView(view, table, origin, pointStats, clipper.get());
+        insertView(view, table, origin, clipper.get());
 
         if (num >= sleepCount)
         {
@@ -285,9 +275,9 @@ void Builder::insertView(
         pdal::PointView& pointView,
         SimplePointTable& table,
         const Origin origin,
-        PointStats& pointStats,
         Clipper* clipper)
 {
+    PointStats pointStats;
     InfoPool& infoPool(m_pointPool->infoPool());
 
     PooledDataStack dataStack(table.stack());
@@ -342,6 +332,8 @@ void Builder::insertView(
             pointStats.addOutOfBounds();
         }
     }
+
+    m_manifest->add(origin, pointStats);
 }
 
 void Builder::load(const std::size_t clipThreads)
@@ -385,14 +377,19 @@ void Builder::save()
 
 void Builder::init()
 {
-    const std::string path(m_manifest->get(0).path());
-
     if (m_reprojection)
     {
         m_srs = pdal::SpatialReference(m_reprojection->out()).getWKT();
     }
     else
     {
+        auto localHandle(
+                m_arbiter->getLocalHandle(
+                    m_manifest->get(0).path(),
+                    *m_tmpEndpoint));
+
+        const std::string path(localHandle->localPath());
+
         auto preview(m_executor->preview(path, nullptr));
         if (preview) m_srs = preview->srs;
         else std::cout << "Could not find an SRS" << std::endl;

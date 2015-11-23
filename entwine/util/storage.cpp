@@ -71,7 +71,7 @@ void Storage::ensurePut(
         }
         catch (...)
         {
-            if (++tried < retries) sleep(tried, "PUT", endpoint.fullPath(path));
+            if (++tried < retries) sleep(tried, "PUT", path);
             else suicide("PUT");
         }
     }
@@ -96,7 +96,7 @@ std::unique_ptr<std::vector<char>> Storage::ensureGet(
         }
         else
         {
-            if (++tried < retries) sleep(tried, "GET", endpoint.fullPath(path));
+            if (++tried < retries) sleep(tried, "GET", path);
             else suicide("GET");
         }
     }
