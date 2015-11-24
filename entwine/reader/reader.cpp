@@ -80,6 +80,9 @@ Reader::Reader(
         m_manifest.reset(new Manifest(props["manifest"]));
         m_srs = props["srs"].asString();
 
+        m_numPoints = m_manifest->pointStats().inserts();
+        if (!m_numPoints) m_numPoints = props["stats"]["numPoints"].asUInt64();
+
         if (props.isMember("ids"))
         {
             const Json::Value& jsonIds(props["ids"]);
@@ -160,7 +163,7 @@ std::unique_ptr<Query> Reader::query(
 
 std::size_t Reader::numPoints() const
 {
-    return m_manifest->pointStats().inserts();
+    return m_numPoints;
 }
 
 } // namespace entwine

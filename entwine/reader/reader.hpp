@@ -91,6 +91,8 @@ private:
     std::unique_ptr<BaseChunk> m_base;
     std::unique_ptr<Pools> m_pointPool;
 
+    std::size_t m_numPoints;
+
     Cache& m_cache;
     std::string m_srs;
     std::set<Id> m_ids;
