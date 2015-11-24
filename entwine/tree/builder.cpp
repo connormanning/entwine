@@ -167,13 +167,18 @@ void Builder::go(std::size_t max)
     while (keepGoing())
     {
         FileInfo& info(m_manifest->get(m_origin));
-        if (info.status() != FileInfo::Status::Outstanding) continue;
+        if (info.status() != FileInfo::Status::Outstanding)
+        {
+            next();
+            continue;
+        }
 
         const std::string path(info.path());
 
         if (!m_executor->good(path))
         {
             m_manifest->set(m_origin, FileInfo::Status::Omitted);
+            next();
             continue;
         }
 
