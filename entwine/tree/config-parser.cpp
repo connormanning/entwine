@@ -83,10 +83,7 @@ namespace
         const Json::Value& in(json["in"]);
         const Json::Value& out(json["out"]);
 
-        if (
-                !json.empty() &&
-                in.isString() && in.asString().size() &&
-                out.isString() && out.asString().size())
+        if (!json.empty() && out.isString() && out.asString().size())
         {
             reprojection.reset(new Reprojection(in.asString(), out.asString()));
         }
