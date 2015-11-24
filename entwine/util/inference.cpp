@@ -216,5 +216,16 @@ BBox Inference::bbox() const
     return bbox;
 }
 
+std::size_t Inference::numPoints() const
+{
+    std::size_t numPoints(0);
+    for (std::size_t i(0); i < m_manifest.size(); ++i)
+    {
+        numPoints += m_manifest.get(i).numPoints();
+    }
+
+    return numPoints;
+}
+
 } // namespace entwine
 

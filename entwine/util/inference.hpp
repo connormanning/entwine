@@ -61,6 +61,7 @@ public:
     const Manifest& manifest() const { return m_manifest; }
     Schema schema() const;
     BBox bbox() const;
+    std::size_t numPoints() const;
 
 private:
     void add(std::string localPath, FileInfo& fileInfo);
