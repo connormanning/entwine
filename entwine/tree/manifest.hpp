@@ -105,6 +105,7 @@ public:
     explicit FileInfo(const Json::Value& json);
 
     Json::Value toJson() const;
+    Json::Value toInferenceJson() const;
 
     const std::string& path() const         { return m_path; }
     Status status() const                   { return m_status; }
@@ -142,6 +143,7 @@ public:
     void append(const Manifest& other);
 
     Json::Value toJson() const;
+    Json::Value toInferenceJson() const;
     std::size_t size() const { return m_paths.size(); }
 
     FileInfo& get(Origin origin) { return m_paths[origin]; }

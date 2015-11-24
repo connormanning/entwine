@@ -104,7 +104,8 @@ FileInfo& FileInfo::operator=(const FileInfo& other)
 
 FileInfo::FileInfo(const Json::Value& json)
     : m_path(json["path"].asString())
-    , m_status(toStatus(json["status"].asString()))
+    , m_status(json.isMember("status") ?
+            toStatus(json["status"].asString()) : Status::Outstanding)
     , m_bbox(json.isMember("bbox") ? new BBox(json["bbox"]) : nullptr)
     , m_numPoints(json["numPoints"].asUInt64())
     , m_pointStats(json["pointStats"])
@@ -120,6 +121,30 @@ Json::Value FileInfo::toJson() const
 
     if (m_bbox) json["bbox"] = m_bbox->toJson();
     if (m_numPoints) json["numPoints"] = static_cast<Json::UInt64>(m_numPoints);
+
+    return json;
+}
+
+Json::Value FileInfo::toInferenceJson() const
+{
+    Json::Value json;
+
+    if (m_bbox)
+    {
+        Json::Value& bbox(json["bbox"]);
+
+        const Point& min(m_bbox->min());
+        const Point& max(m_bbox->max());
+
+        bbox.append(min.x);
+        bbox.append(min.y);
+        bbox.append(min.z);
+        bbox.append(max.x);
+        bbox.append(max.y);
+        bbox.append(max.z);
+    }
+
+    json["numPoints"] = static_cast<Json::UInt64>(m_numPoints);
 
     return json;
 }
@@ -160,18 +185,27 @@ Manifest::Manifest(const Json::Value& json)
     , m_mutex()
 {
     const Json::Value& fileInfo(json["fileInfo"]);
+    if (fileInfo.isArray() && fileInfo.size()) m_paths.reserve(fileInfo.size());
 
-    if (fileInfo.isArray() && fileInfo.size())
+    if (json.isMember("fileStats") && json.isMember("pointStats"))
     {
-        m_paths.reserve(fileInfo.size());
+        // Full manifest from Manifest::toJson.
+        for (Json::ArrayIndex i(0); i < fileInfo.size(); ++i)
+        {
+            m_paths.emplace_back(fileInfo[i]);
+        }
+
+        m_fileStats = FileStats(json["fileStats"]);
+        m_pointStats = PointStats(json["pointStats"]);
+    }
+    else
+    {
+        // Simplified inference manifest from Manifest::toInferenceJson.
         for (Json::ArrayIndex i(0); i < fileInfo.size(); ++i)
         {
             m_paths.emplace_back(fileInfo[i]);
         }
     }
-
-    m_fileStats = FileStats(json["fileStats"]);
-    m_pointStats = PointStats(json["pointStats"]);
 }
 
 void Manifest::append(const Manifest& other)
@@ -247,13 +281,31 @@ Json::Value Manifest::toJson() const
     for (std::size_t i(0); i < size(); ++i)
     {
         const FileInfo& info(m_paths[i]);
-        Json::Value& current(fileInfo[Json::ArrayIndex(i)]);
+        Json::Value& value(fileInfo[static_cast<Json::ArrayIndex>(i)]);
 
-        current = info.toJson();
+        value = info.toJson();
     }
 
     json["fileStats"] = m_fileStats.toJson();
     json["pointStats"] = m_pointStats.toJson();
+
+    return json;
+}
+
+Json::Value Manifest::toInferenceJson() const
+{
+    Json::Value json;
+
+    Json::Value& fileInfo(json["fileInfo"]);
+    fileInfo.resize(size());
+
+    for (std::size_t i(0); i < size(); ++i)
+    {
+        const FileInfo& info(m_paths[i]);
+        Json::Value& value(fileInfo[static_cast<Json::ArrayIndex>(i)]);
+
+        value = info.toInferenceJson();
+    }
 
     return json;
 }

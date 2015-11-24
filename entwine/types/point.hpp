@@ -29,6 +29,7 @@ public:
         , z(Point::emptyCoord())
     { }
 
+    Point(double x, double y) noexcept : x(x), y(y), z(Point::emptyCoord()) { }
     Point(double x, double y, double z) noexcept : x(x), y(y), z(z) { }
 
     double sqDist2d(const Point& other) const
