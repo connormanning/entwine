@@ -144,6 +144,7 @@ Json::Value FileInfo::toInferenceJson() const
         bbox.append(max.z);
     }
 
+    json["path"] = m_path;
     json["numPoints"] = static_cast<Json::UInt64>(m_numPoints);
 
     return json;
