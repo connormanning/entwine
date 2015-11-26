@@ -168,6 +168,7 @@ bool Registry::addPoint(
                 const Point& mid(climber.bbox().mid());
                 const Point& toAddPoint(toAdd->val().point());
 
+                if (toAddPoint == current->val().point()) return false;
                 if (better(toAddPoint, current->val().point(), mid, m_as3d))
                 {
                     done = false;

@@ -318,7 +318,7 @@ void Cold::clip(
 {
     if (chunkNum < m_chunkVec.size())
     {
-        pool.add([this, clipper, chunkNum]()
+        pool.add([this, clipper, chunkNum, &chunkId]()
         {
             FastSlot& slot(m_chunkVec[chunkNum]);
             CountedChunk& countedChunk(*slot.chunk);
@@ -336,6 +336,7 @@ void Cold::clip(
                 else
                 {
                     std::cout << "Tried to clip null chunk (fast)" << std::endl;
+                    std::cout << chunkId << std::endl;
                     exit(1);
                 }
             }
@@ -347,7 +348,7 @@ void Cold::clip(
         CountedChunk& countedChunk(*m_chunkMap.at(chunkId));
         mapLock.unlock();
 
-        pool.add([this, clipper, &countedChunk]()
+        pool.add([this, clipper, &countedChunk, &chunkId]()
         {
             std::lock_guard<std::mutex> chunkLock(countedChunk.mutex);
             countedChunk.refs.erase(clipper);
@@ -362,6 +363,7 @@ void Cold::clip(
                 else
                 {
                     std::cout << "Tried to clip null chunk (slow)" << std::endl;
+                    std::cout << chunkId << std::endl;
                     exit(1);
                 }
             }

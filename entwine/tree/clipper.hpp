@@ -46,7 +46,7 @@ namespace std
     {
         std::size_t operator()(const entwine::Clip& c) const
         {
-            return std::hash<std::size_t>()(c.num);
+            return std::hash<entwine::Id>()(c.id);
         }
     };
 }

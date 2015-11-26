@@ -70,6 +70,11 @@ public:
     double z;
 };
 
+inline bool operator==(const Point& lhs, const Point& rhs)
+{
+    return lhs.x == rhs.x && lhs.y == rhs.y && lhs.z == rhs.z;
+}
+
 inline std::ostream& operator<<(std::ostream& os, const Point& point)
 {
     auto flags(os.flags());
