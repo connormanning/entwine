@@ -80,7 +80,7 @@ void Climber::climb(Dir dir)
         {
             const std::size_t chunkRatio(
                     (m_index - m_chunkId).getSimple() /
-                    (m_chunkPoints / m_factor));
+                    (m_chunkPoints.getSimple() / m_factor));
 
             assert(chunkRatio < m_factor);
 
@@ -108,7 +108,7 @@ void Climber::climb(Dir dir)
             if (m_depth >= m_structure.coldDepthBegin())
             {
                 const Id offset(m_chunkId - m_structure.coldIndexBegin());
-                m_chunkNum = (offset / m_chunkPoints).getSimple();
+                m_chunkNum = offset / m_chunkPoints;
             }
 
             m_depthChunks *= m_factor;

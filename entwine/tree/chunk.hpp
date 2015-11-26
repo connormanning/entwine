@@ -47,7 +47,7 @@ public:
             Pools& pools,
             std::size_t depth,
             const Id& id,
-            std::size_t maxPoints,
+            const Id& maxPoints,
             std::size_t numPoints = 0);
 
     virtual ~Chunk();
@@ -59,7 +59,7 @@ public:
             Pools& pools,
             std::size_t depth,
             const Id& id,
-            std::size_t maxPoints,
+            const Id& maxPoints,
             bool contiguous);
 
     static std::unique_ptr<Chunk> create(
@@ -69,7 +69,7 @@ public:
             Pools& pools,
             std::size_t depth,
             const Id& id,
-            std::size_t maxPoints,
+            const Id& maxPoints,
             std::unique_ptr<std::vector<char>> data);
 
     enum Type
@@ -95,7 +95,7 @@ public:
     static std::size_t getChunkMem();
     static std::size_t getChunkCnt();
 
-    std::size_t maxPoints() const { return m_maxPoints; }
+    const Id& maxPoints() const { return m_maxPoints; }
     const Id& id() const { return m_id; }
 
     virtual void save(arbiter::Endpoint& endpoint) = 0;
@@ -103,7 +103,6 @@ public:
 
 protected:
     Id endId() const { return m_id + m_maxPoints; }
-    std::size_t normalize(const Id& rawIndex) const;
 
     const Schema& m_schema;
     const BBox m_bbox;
@@ -112,7 +111,7 @@ protected:
     const std::size_t m_zDepth;
     const Id m_id;
 
-    const std::size_t m_maxPoints;
+    const Id m_maxPoints;
     std::atomic_size_t m_numPoints;
 };
 
@@ -126,7 +125,7 @@ public:
             Pools& pools,
             std::size_t depth,
             const Id& id,
-            std::size_t maxPoints);
+            const Id& maxPoints);
 
     SparseChunk(
             const Schema& schema,
@@ -135,7 +134,7 @@ public:
             Pools& pools,
             std::size_t depth,
             const Id& id,
-            std::size_t maxPoints,
+            const Id& maxPoints,
             std::unique_ptr<std::vector<char>> compressedData,
             std::size_t numPoints);
 
@@ -143,9 +142,15 @@ public:
     virtual Cell& getCell(const Climber& climber) override;
 
 private:
-    // TODO This should be an Id for losslessness.  With a uint64, we are
-    // limited to 23 sparse depths for a chunk size of 262144.
-    std::unordered_map<std::size_t, Tube> m_tubes;
+    Id normalize(const Id& rawIndex) const
+    {
+        assert(rawIndex >= m_id);
+        assert(rawIndex < endId());
+
+        return rawIndex - m_id;
+    }
+
+    std::unordered_map<Id, Tube> m_tubes;
     std::mutex m_mutex;
 };
 
@@ -159,7 +164,7 @@ public:
             Pools& pools,
             std::size_t depth,
             const Id& id,
-            std::size_t maxPoints);
+            const Id& maxPoints);
 
     ContiguousChunk(
             const Schema& schema,
@@ -168,7 +173,7 @@ public:
             Pools& pools,
             std::size_t depth,
             const Id& id,
-            std::size_t maxPoints,
+            const Id& maxPoints,
             std::unique_ptr<std::vector<char>> compressedData,
             std::size_t numPoints);
 
@@ -181,6 +186,14 @@ public:
     }
 
 protected:
+    std::size_t normalize(const Id& rawIndex) const
+    {
+        assert(rawIndex >= m_id);
+        assert(rawIndex < endId());
+
+        return (rawIndex - m_id).getSimple();
+    }
+
     std::vector<Tube> m_tubes;
 };
 
@@ -193,7 +206,7 @@ public:
             const Structure& structure,
             Pools& pools,
             const Id& id,
-            std::size_t maxPoints);
+            const Id& maxPoints);
 
     BaseChunk(
             const Schema& schema,
@@ -201,7 +214,7 @@ public:
             const Structure& structure,
             Pools& pools,
             const Id& id,
-            std::size_t maxPoints,
+            const Id& maxPoints,
             std::unique_ptr<std::vector<char>> compressedData,
             std::size_t numPoints);
 

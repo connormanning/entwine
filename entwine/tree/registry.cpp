@@ -38,14 +38,8 @@ namespace
             const Point& goal,
             const bool is3d)
     {
-        if (is3d)
-        {
-            return candidate.sqDist3d(goal) < current.sqDist3d(goal);
-        }
-        else
-        {
-            return candidate.sqDist2d(goal) < current.sqDist2d(goal);
-        }
+        if (is3d)   return candidate.sqDist3d(goal) < current.sqDist3d(goal);
+        else        return candidate.sqDist2d(goal) < current.sqDist2d(goal);
     }
 
     const std::size_t clipQueueSize(1);

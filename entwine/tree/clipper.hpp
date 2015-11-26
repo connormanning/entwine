@@ -29,12 +29,12 @@ struct Clip
 
     bool operator<(const Clip& other) const
     {
-        return num < other.num;
+        return id < other.id;
     }
 
     bool operator==(const Clip& other) const
     {
-        return num == other.num;
+        return id == other.id;
     }
 };
 

@@ -38,8 +38,12 @@ public:
 
     const BBox& bboxChunk() const { return m_bboxChunk; }
 
-    std::size_t chunkPoints() const { return m_chunkPoints; }
-    std::size_t chunkNum() const { return m_chunkNum; }
+    const Id& chunkPoints() const { return m_chunkPoints; }
+    std::size_t chunkNum() const
+    {
+        if (m_chunkNum.trivial()) return m_chunkNum.getSimple();
+        else return std::numeric_limits<std::size_t>::max();
+    }
 
     void goSwd() { climb(Dir::swd); m_bbox.goSwd(); }
     void goSed() { climb(Dir::sed); m_bbox.goSed(); }
@@ -87,14 +91,8 @@ private:
     std::size_t m_sparseDepthBegin;
 
     std::size_t m_depthChunks;
-    std::size_t m_chunkNum;
-
-    // TODO This, and everything derived from it down the line in the Chunk
-    // classes, should be tracked and stored as an Id (or using getSimple() for
-    // ContiguousChunks.  Applies to Tube::calcTube, and Chunk constructors
-    // will need to be able to take square-roots of BigInt powers of two.
-    // SparseChunk mappings will need to map from Ids.
-    std::size_t m_chunkPoints;
+    Id m_chunkNum;
+    Id m_chunkPoints;
 
     BBox m_bbox;
     BBox m_bboxChunk;

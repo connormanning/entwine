@@ -186,7 +186,7 @@ void Builder::go(std::size_t max)
         std::cout << "Adding " << m_origin << " - " << path << std::endl;
         const auto origin(m_origin);
 
-        m_pool->add([this, origin, &info, &added, &path]()
+        m_pool->add([this, origin, &info, path]()
         {
             FileInfo::Status status(FileInfo::Status::Inserted);
 

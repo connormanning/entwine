@@ -118,32 +118,48 @@ public:
                     (bbox.max().z - bbox.min().z));
     }
 
-    // TODO Return an Id.
-    static std::size_t calcTube(
+    // TODO Ticks parameter should maybe be an Id, for very deep points.  It's
+    // always a perfect square-root, so we could do some looping tricks to
+    // perform the double division by an Id if necessary.
+    static Id calcTube(
             const Point& point,
             const BBox& bbox,
             const std::size_t ticks)
     {
+        const auto min(bbox.min());
+        const auto max(bbox.max());
+
         const std::size_t tickX(
-                std::floor(
-                    (point.x - bbox.min().x) * ticks /
-                    (bbox.max().x - bbox.min().x)));
+                std::floor((point.x - min.x) * ticks / (max.x - min.x)));
+
         const std::size_t tickY(
-                std::floor(
-                    (point.y - bbox.min().y) * ticks /
-                    (bbox.max().y - bbox.min().y)));
+                std::floor((point.y - min.y) * ticks / (max.y - min.y)));
 
-        uint64_t expandX(0);
-        uint64_t expandY(0);
+        Id expandX(0);
+        Id expandY(0);
 
-        // TODO Don't hardcode number of bits.  This should be an Id.
-        for (std::size_t i(0); i < 32; ++i)
+        Id tmpX(0);
+        Id tmpY(0);
+
+        std::size_t shift(0);
+
+        // The number of bits is currently limited by the ticks parameter being
+        // only 64 bits.
+        for (std::size_t i(0); i < 64; ++i)
         {
-            expandX |= ((tickX >> i) & 1ULL) << (i * 2);
-            expandY |= ((tickY >> i) & 1ULL) << (i * 2);
+            tmpX = (tickX >> i) & 1ULL;
+            tmpY = (tickY >> i) & 1ULL;
+
+            tmpX <<= shift;
+            tmpY <<= shift;
+
+            expandX |= tmpX;
+            expandY |= tmpY;
+
+            shift += 2;
         }
 
-        return ((expandY << 1) | expandX);
+        return (expandY << 1) | expandX;
     }
 
 private:

@@ -10,6 +10,7 @@
 
 #include <chrono>
 #include <iostream>
+#include <mutex>
 #include <thread>
 
 #include <entwine/third/arbiter/arbiter.hpp>
@@ -19,11 +20,13 @@
 namespace
 {
     const std::size_t retries(40);
+    std::mutex mutex;
 
     void sleep(std::size_t tried, std::string method, std::string path)
     {
         std::this_thread::sleep_for(std::chrono::seconds(tried));
 
+        std::lock_guard<std::mutex> lock(mutex);
         std::cout <<
             "\tFailed " << method << " attempt " << tried << ": " << path <<
             std::endl;
@@ -31,6 +34,7 @@ namespace
 
     void suicide(std::string method)
     {
+        std::lock_guard<std::mutex> lock(mutex);
         std::cout <<
             "\tFailed to " << method << " data: persistent failure.\n" <<
             "\tThis is a non-recoverable error - Abandoning index." <<
