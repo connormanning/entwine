@@ -11,6 +11,7 @@
 #include <entwine/reader/reader.hpp>
 
 #include <entwine/compression/util.hpp>
+#include <entwine/reader/cache.hpp>
 #include <entwine/reader/query.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/chunk.hpp>
@@ -127,16 +128,18 @@ Reader::~Reader()
 std::unique_ptr<Query> Reader::query(
         const Schema& schema,
         const std::size_t depthBegin,
-        const std::size_t depthEnd)
+        const std::size_t depthEnd,
+        const bool normalize)
 {
-    return query(schema, *m_bbox, depthBegin, depthEnd);
+    return query(schema, *m_bbox, depthBegin, depthEnd, normalize);
 }
 
 std::unique_ptr<Query> Reader::query(
         const Schema& schema,
         const BBox& qbox,
         const std::size_t depthBegin,
-        const std::size_t depthEnd)
+        const std::size_t depthEnd,
+        const bool normalize)
 {
     checkQuery(depthBegin, depthEnd);
 
@@ -153,12 +156,12 @@ std::unique_ptr<Query> Reader::query(
     return std::unique_ptr<Query>(
             new Query(
                 *this,
-                *m_structure,
                 schema,
                 m_cache,
                 normalBBox,
                 depthBegin,
-                depthEnd));
+                depthEnd,
+                normalize));
 }
 
 std::size_t Reader::numPoints() const

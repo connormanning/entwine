@@ -64,47 +64,15 @@ ChunkReader::ChunkReader(
     }
 }
 
-std::size_t ChunkReader::query(
-        std::vector<char>& buffer,
-        const Schema& outSchema,
-        const BBox& qbox) const
+ChunkReader::QueryRange ChunkReader::candidates(const BBox& qbox) const
 {
-    std::size_t numPoints(0);
-    const std::size_t queryPointSize(outSchema.pointSize());
-    char* pos(0);
-
-    SinglePointTable table(m_schema);
-    LinkingPointView view(table);
-
     const std::size_t minTick(Tube::calcTick(qbox.min(), m_bbox, m_depth));
     const std::size_t maxTick(Tube::calcTick(qbox.max(), m_bbox, m_depth));
 
-    auto it(m_points.lower_bound(minTick));
-    const auto end(m_points.upper_bound(maxTick));
+    It begin(m_points.lower_bound(minTick));
+    It end(m_points.upper_bound(maxTick));
 
-    while (it != end)
-    {
-        const PointInfoNonPooled& info(it->second);
-        const Point& point(info.point());
-        if (qbox.contains(point))
-        {
-            ++numPoints;
-            buffer.resize(buffer.size() + queryPointSize, 0);
-            pos = buffer.data() + buffer.size() - queryPointSize;
-
-            table.setData(info.data());
-
-            for (const auto dim : outSchema.dims())
-            {
-                view.getField(pos, dim.id(), dim.type(), 0);
-                pos += dim.size();
-            }
-        }
-
-        ++it;
-    }
-
-    return numPoints;
+    return QueryRange(begin, end);
 }
 
 } // namespace entwine

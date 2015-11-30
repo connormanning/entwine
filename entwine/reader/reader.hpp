@@ -18,7 +18,6 @@
 #include <set>
 #include <vector>
 
-#include <entwine/reader/cache.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 
@@ -61,13 +60,15 @@ public:
     std::unique_ptr<Query> query(
             const Schema& schema,
             std::size_t depthBegin,
-            std::size_t depthEnd);
+            std::size_t depthEnd,
+            bool normalize);
 
     std::unique_ptr<Query> query(
             const Schema& schema,
             const BBox& qbox,
             std::size_t depthBegin,
-            std::size_t depthEnd);
+            std::size_t depthEnd,
+            bool normalize);
 
     std::size_t numPoints() const;
     const BBox& bbox() const            { return *m_bbox; }

@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <deque>
 
+#include <entwine/reader/cache.hpp>
 #include <entwine/reader/reader.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/types/linking-point-view.hpp>
@@ -31,12 +32,12 @@ class Query
 public:
     Query(
             const Reader& reader,
-            const Structure& structure,
             const Schema& schema,
             Cache& cache,
             const BBox& qbox,
             std::size_t depthBegin,
-            std::size_t depthEnd);
+            std::size_t depthEnd,
+            bool normalize);
 
     // Get an arbitrary number of points selected by this query.  If the size
     // of the result is zero, the query is complete.
@@ -52,6 +53,8 @@ private:
     void getBase(std::vector<char>& buffer);
     void getChunked(std::vector<char>& buffer);
 
+    void processPoint(std::vector<char>& buffer, const PointInfo& info);
+
     const Reader& m_reader;
     const Structure& m_structure;
     const Schema& m_outSchema;
@@ -61,6 +64,10 @@ private:
     const BBox m_qbox;
     const std::size_t m_depthBegin;
     const std::size_t m_depthEnd;
+    const bool m_normalize;
+
+    SinglePointTable m_table;
+    LinkingPointView m_view;
 
     FetchInfoSet m_chunks;
     std::unique_ptr<Block> m_block;

@@ -25,7 +25,16 @@ typedef DataPool::NodeType RawDataNode;
 typedef DataPool::UniqueNodeType PooledDataNode;
 typedef DataPool::UniqueStackType PooledDataStack;
 
-class PointInfoShallow
+class PointInfo
+{
+public:
+    virtual ~PointInfo() { }
+
+    virtual const Point& point() const = 0;
+    virtual const char* data() const = 0;
+};
+
+class PointInfoShallow : public PointInfo
 {
 public:
     PointInfoShallow() noexcept
@@ -38,8 +47,8 @@ public:
         , m_dataNode(std::move(dataNode))
     { }
 
-    const Point& point() const { return m_point; }
-    const char* data() const { return m_dataNode->val(); }
+    virtual const Point& point() const override { return m_point; }
+    virtual const char* data() const override { return m_dataNode->val(); }
 
     PooledDataNode acquireDataNode() { return std::move(m_dataNode); }
 
@@ -48,7 +57,7 @@ private:
     PooledDataNode m_dataNode;
 };
 
-class PointInfoNonPooled
+class PointInfoNonPooled : public PointInfo
 {
 public:
     PointInfoNonPooled(const Point& point, const char* pos)
@@ -56,8 +65,8 @@ public:
         , m_pos(pos)
     { }
 
-    const Point& point() const { return m_point; }
-    const char* data() const { return m_pos; }
+    virtual const Point& point() const override { return m_point; }
+    virtual const char* data() const override { return m_pos; }
 
 private:
     const Point m_point;

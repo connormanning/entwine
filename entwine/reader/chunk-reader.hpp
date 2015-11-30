@@ -33,10 +33,17 @@ public:
             std::size_t depth,
             std::unique_ptr<std::vector<char>> data);
 
-    std::size_t query(
-            std::vector<char>& buffer,
-            const Schema& outSchema,
-            const BBox& qbox) const;
+    typedef std::multimap<uint64_t, PointInfoNonPooled>::const_iterator It;
+
+    struct QueryRange
+    {
+        QueryRange(It begin, It end) : begin(begin), end(end) { }
+
+        It begin;
+        It end;
+    };
+
+    QueryRange candidates(const BBox& qbox) const;
 
 private:
     std::size_t numPoints() const { return m_points.size(); }

@@ -28,19 +28,22 @@ namespace
 
 Query::Query(
         const Reader& reader,
-        const Structure& structure,
         const Schema& schema,
         Cache& cache,
         const BBox& qbox,
-        std::size_t depthBegin,
-        std::size_t depthEnd)
+        const std::size_t depthBegin,
+        const std::size_t depthEnd,
+        const bool normalize)
     : m_reader(reader)
-    , m_structure(structure)
+    , m_structure(reader.structure())
     , m_outSchema(schema)
     , m_cache(cache)
     , m_qbox(qbox)
     , m_depthBegin(depthBegin)
     , m_depthEnd(depthEnd)
+    , m_normalize(normalize)
+    , m_table(reader.schema())
+    , m_view(m_table)
     , m_chunks()
     , m_block()
     , m_chunkReaderIt()
@@ -69,10 +72,7 @@ Query::Query(
             {
                 m_chunks.insert(
                         FetchInfo(
-                            m_reader.endpoint(),
-                            m_reader.structure(),
-                            m_reader.schema(),
-                            m_reader.bbox(),
+                            m_reader,
                             chunkId,
                             m_structure.getInfo(chunkId).chunkPoints(),
                             splitter.depth()));
@@ -117,9 +117,6 @@ void Query::next(std::vector<char>& buffer)
 void Query::getBase(std::vector<char>& buffer)
 {
     std::cout << "Base..." << std::endl;
-    SinglePointTable table(m_reader.schema());
-    LinkingPointView view(table);
-
     if (
             m_reader.base() &&
             m_depthBegin < m_structure.baseDepthEnd() &&
@@ -149,33 +146,11 @@ void Query::getBase(std::vector<char>& buffer)
 
             if (!tube.empty())
             {
-                auto processCell([&](const Cell& cell)
-                {
-                    const auto& info(cell.atom().load()->val());
-
-                    if (m_qbox.contains(info.point()))
-                    {
-                        ++m_numPoints;
-
-                        std::size_t initialSize(buffer.size());
-                        buffer.resize(initialSize + m_outSchema.pointSize());
-                        char* out(buffer.data() + initialSize);
-
-                        table.setData(info.data());
-
-                        for (const auto& dim : m_outSchema.dims())
-                        {
-                            view.getField(out, dim.id(), dim.type(), 0);
-                            out += dim.size();
-                        }
-                    }
-                });
-
-                processCell(tube.primaryCell());
+                processPoint(buffer, tube.primaryCell().atom().load()->val());
 
                 for (const auto& c : tube.secondaryCells())
                 {
-                    processCell(c.second);
+                    processPoint(buffer, c.second.atom().load()->val());
                 }
             }
             else
@@ -186,6 +161,54 @@ void Query::getBase(std::vector<char>& buffer)
         while (splitter.next(terminate));
     }
     std::cout << "Base done" << std::endl;
+}
+
+void Query::processPoint(std::vector<char>& buffer, const PointInfo& info)
+{
+    if (m_qbox.contains(info.point()))
+    {
+        ++m_numPoints;
+        buffer.resize(buffer.size() + m_outSchema.pointSize(), 0);
+        char* pos(buffer.data() + buffer.size() - m_outSchema.pointSize());
+
+        m_table.setData(info.data());
+        bool isX(false), isY(false), isZ(false);
+
+        for (const auto& dim : m_outSchema.dims())
+        {
+            if (m_normalize)
+            {
+                isX = dim.id() == pdal::Dimension::Id::X;
+                isY = dim.id() == pdal::Dimension::Id::Y;
+                isZ = dim.id() == pdal::Dimension::Id::Z;
+
+                if (
+                        (isX || isY || isZ) &&
+                        pdal::Dimension::size(dim.type()) == 4)
+                {
+                    double d(m_view.getFieldAs<double>(dim.id(), 0));
+
+                    if (isX)        d -= m_reader.bbox().mid().x;
+                    else if (isY)   d -= m_reader.bbox().mid().y;
+                    else            d -= m_reader.bbox().mid().z;
+
+                    float f(d);
+
+                    std::memcpy(pos, &f, 4);
+                }
+                else
+                {
+                    m_view.getField(pos, dim.id(), dim.type(), 0);
+                }
+            }
+            else
+            {
+                m_view.getField(pos, dim.id(), dim.type(), 0);
+            }
+
+            pos += dim.size();
+        }
+    }
 }
 
 void Query::getChunked(std::vector<char>& buffer)
@@ -210,7 +233,14 @@ void Query::getChunked(std::vector<char>& buffer)
     {
         if (const ChunkReader* cr = m_chunkReaderIt->second)
         {
-            m_numPoints += cr->query(buffer, m_outSchema, m_qbox);
+            ChunkReader::QueryRange range(cr->candidates(m_qbox));
+            auto it(range.begin);
+
+            while (it != range.end)
+            {
+                processPoint(buffer, it->second);
+                ++it;
+            }
 
             if (++m_chunkReaderIt == m_block->chunkMap().end())
             {

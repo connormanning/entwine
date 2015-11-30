@@ -18,17 +18,11 @@ namespace entwine
 {
 
 FetchInfo::FetchInfo(
-        const arbiter::Endpoint& endpoint,
-        const Structure& structure,
-        const Schema& schema,
-        const BBox& bbox,
+        const Reader& reader,
         const Id& id,
         const Id& numPoints,
         const std::size_t depth)
-    : endpoint(endpoint)
-    , structure(structure)
-    , schema(schema)
-    , bbox(bbox)
+    : reader(reader)
     , id(id)
     , numPoints(numPoints)
     , depth(depth)
@@ -247,13 +241,14 @@ const ChunkReader* Cache::fetch(
     {
         std::unique_ptr<std::vector<char>> rawData(
                 new std::vector<char>(
-                    fetchInfo.endpoint.getSubpathBinary(
-                        fetchInfo.structure.maybePrefix(fetchInfo.id))));
+                    fetchInfo.reader.endpoint().getSubpathBinary(
+                        fetchInfo.reader.structure().maybePrefix(
+                            fetchInfo.id))));
 
         chunkState.chunkReader.reset(
                 new ChunkReader(
-                    fetchInfo.schema,
-                    fetchInfo.bbox,
+                    fetchInfo.reader.schema(),
+                    fetchInfo.reader.bbox(),
                     fetchInfo.id,
                     fetchInfo.depth,
                     std::move(rawData)));

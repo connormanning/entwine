@@ -20,6 +20,7 @@
 #include <set>
 #include <string>
 
+#include <entwine/reader/reader.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 
@@ -33,18 +34,12 @@ class Schema;
 struct FetchInfo
 {
     FetchInfo(
-            const arbiter::Endpoint& endpoint,
-            const Structure& structure,
-            const Schema& schema,
-            const BBox& bbox,
+            const Reader& reader,
             const Id& id,
             const Id& numPoints,
             std::size_t depth);
 
-    const arbiter::Endpoint& endpoint;
-    const Structure& structure;
-    const Schema& schema;
-    const BBox& bbox;
+    const Reader& reader;
     const Id id;
     const Id numPoints;
     const std::size_t depth;
@@ -52,9 +47,11 @@ struct FetchInfo
 
 inline bool operator<(const FetchInfo& lhs, const FetchInfo& rhs)
 {
+    const auto& lhsEp(lhs.reader.endpoint());
+    const auto& rhsEp(rhs.reader.endpoint());
     return
-        (lhs.endpoint.root() < rhs.endpoint.root()) ||
-        (lhs.endpoint.root() == rhs.endpoint.root() && (lhs.id < rhs.id));
+        (lhsEp.root() < rhsEp.root()) ||
+        (lhsEp.root() == rhsEp.root() && (lhs.id < rhs.id));
 }
 
 typedef std::set<FetchInfo> FetchInfoSet;
