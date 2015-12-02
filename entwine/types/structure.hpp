@@ -97,9 +97,10 @@ public:
             std::size_t chunkPoints,
             std::size_t dimensions,
             std::size_t numPointsHint,
-            bool prefixIds,
             bool tubular,
             bool dynamicChunks,
+            bool discardDuplicates,
+            bool prefixIds,
             const BBox* bbox,
             std::pair<std::size_t, std::size_t> subset = { 0, 0 });
 
@@ -110,9 +111,10 @@ public:
             std::size_t chunkPoints,
             std::size_t dimensions,
             std::size_t numPointsHint,
-            bool prefixIds,
             bool tubular,
             bool dynamicChunks,
+            bool discardDuplicates,
+            bool prefixIds,
             const BBox* bbox,
             std::pair<std::size_t, std::size_t> subset = { 0, 0 });
 
@@ -173,12 +175,13 @@ public:
         return lossless() || index < m_coldIndexEnd;
     }
 
-    bool lossless() const       { return m_coldDepthEnd == 0; }
-    bool tubular() const        { return m_tubular; }
-    bool dynamicChunks() const  { return m_dynamicChunks; }
-    bool prefixIds() const      { return m_prefixIds; }
-    bool is3d() const           { return m_dimensions == 3; }
-    bool primary() const        { return !m_subset || !m_subset->id(); }
+    bool lossless() const           { return m_coldDepthEnd == 0; }
+    bool tubular() const            { return m_tubular; }
+    bool dynamicChunks() const      { return m_dynamicChunks; }
+    bool discardDuplicates() const  { return m_discardDuplicates; }
+    bool prefixIds() const          { return m_prefixIds; }
+    bool is3d() const               { return m_dimensions == 3; }
+    bool primary() const            { return !m_subset || !m_subset->id(); }
 
     ChunkInfo getInfo(const Id& index) const { return ChunkInfo(*this, index); }
     std::size_t numPointsHint() const { return m_numPointsHint; }
@@ -265,6 +268,7 @@ private:
 
     bool m_tubular;
     bool m_dynamicChunks;
+    bool m_discardDuplicates;
     bool m_prefixIds;
 
     std::size_t m_dimensions;

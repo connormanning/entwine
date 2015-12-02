@@ -135,6 +135,7 @@ Structure::Structure(
         const std::size_t numPointsHint,
         const bool tubular,
         const bool dynamicChunks,
+        const bool discardDuplicates,
         const bool prefixIds,
         const BBox* bbox,
         const std::pair<std::size_t, std::size_t> subset)
@@ -143,7 +144,7 @@ Structure::Structure(
     , m_baseDepthBegin(m_nullDepthEnd)
     , m_baseDepthEnd(std::max(m_baseDepthBegin, baseDepth))
     , m_coldDepthBegin(m_baseDepthEnd)
-    , m_coldDepthEnd(std::max(m_coldDepthBegin, coldDepth))
+    , m_coldDepthEnd(coldDepth ? std::max(m_coldDepthBegin, coldDepth) : 0)
     , m_sparseDepthBegin(0)
     , m_mappedDepthBegin(0)
     , m_sparseIndexBegin(0)
@@ -151,40 +152,7 @@ Structure::Structure(
     , m_chunkPoints(chunkPoints)
     , m_tubular(tubular)
     , m_dynamicChunks(dynamicChunks)
-    , m_prefixIds(prefixIds)
-    , m_dimensions(dimensions)
-    , m_factor(1ULL << m_dimensions)
-    , m_numPointsHint(numPointsHint)
-    , m_subset(subset.second ?
-            new Subset(*this, bbox, subset.first, subset.second) : nullptr)
-{
-    loadIndexValues();
-}
-
-Structure::Structure(
-        const std::size_t nullDepth,
-        const std::size_t baseDepth,
-        const std::size_t chunkPoints,
-        const std::size_t dimensions,
-        const std::size_t numPointsHint,
-        const bool tubular,
-        const bool dynamicChunks,
-        const bool prefixIds,
-        const BBox* bbox,
-        const std::pair<std::size_t, std::size_t> subset)
-    : m_nullDepthBegin(0)
-    , m_nullDepthEnd(nullDepth)
-    , m_baseDepthBegin(m_nullDepthEnd)
-    , m_baseDepthEnd(std::max(m_baseDepthBegin, baseDepth))
-    , m_coldDepthBegin(m_baseDepthEnd)
-    , m_coldDepthEnd(0)
-    , m_sparseDepthBegin(0)
-    , m_mappedDepthBegin(0)
-    , m_sparseIndexBegin(0)
-    , m_mappedIndexBegin(0)
-    , m_chunkPoints(chunkPoints)
-    , m_tubular(tubular)
-    , m_dynamicChunks(dynamicChunks)
+    , m_discardDuplicates(discardDuplicates)
     , m_prefixIds(prefixIds)
     , m_dimensions(dimensions)
     , m_factor(1ULL << m_dimensions)
@@ -209,6 +177,7 @@ Structure::Structure(const Json::Value& json, const BBox& bbox)
     , m_chunkPoints(json["chunkPoints"].asUInt64())
     , m_tubular(json["tubular"].asBool())
     , m_dynamicChunks(json["dynamicChunks"].asBool())
+    , m_discardDuplicates(json["dynamicChunks"].asBool())
     , m_prefixIds(json["prefixIds"].asBool())
     , m_dimensions(json["dimensions"].asUInt64())
     , m_factor(1ULL << m_dimensions)
@@ -247,6 +216,7 @@ Structure::Structure(const Structure& other)
 
     m_tubular = other.m_tubular;
     m_dynamicChunks = other.m_dynamicChunks;
+    m_discardDuplicates = other.m_discardDuplicates;
     m_prefixIds = other.m_prefixIds;
 
     m_dimensions = other.m_dimensions;
@@ -270,7 +240,11 @@ void Structure::loadIndexValues()
         m_baseDepthBegin = m_nullDepthEnd;
         m_baseDepthEnd = std::max(m_baseDepthBegin, m_baseDepthEnd);
         m_coldDepthBegin = m_baseDepthEnd;
-        // Don't snap coldDepthEnd upward to accommodate lossless builds.
+
+        // Only snap coldDepthEnd upward if it's non-zero, since a zero value
+        // means that the index is lossless.
+        if (m_coldDepthEnd)
+            m_coldDepthEnd = std::max(m_coldDepthBegin, m_coldDepthEnd);
 
         if (hasCold())
         {
@@ -399,6 +373,7 @@ Json::Value Structure::toJson() const
     json["numPointsHint"] = static_cast<Json::UInt64>(numPointsHint());
     json["tubular"] = m_tubular;
     json["dynamicChunks"] = m_dynamicChunks;
+    json["discardDuplicates"] = m_discardDuplicates;
     json["prefixIds"] = m_prefixIds;
 
     if (m_subset) json["subset"] = m_subset->toJson();

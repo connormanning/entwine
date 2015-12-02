@@ -79,7 +79,8 @@ private:
     const Structure& m_structure;
     Pools& m_pointPool;
 
-    bool m_as3d;
+    const bool m_discardDuplicates;
+    const bool m_as3d;
 
     std::unique_ptr<BaseChunk> m_base;
     std::unique_ptr<Cold> m_cold;

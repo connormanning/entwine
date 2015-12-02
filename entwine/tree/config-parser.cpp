@@ -113,13 +113,19 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
     // Tree structure.
     const Json::Value& jsonStructure(config["structure"]);
+
     const std::size_t nullDepth(jsonStructure["nullDepth"].asUInt64());
     const std::size_t baseDepth(jsonStructure["baseDepth"].asUInt64());
+    const std::size_t coldDepth(
+            (jsonStructure.isMember("coldDepth") &&
+            jsonStructure["coldDepth"].isIntegral()) ?
+                jsonStructure["coldDepth"].asUInt64() : 0);
+
     const std::size_t chunkPoints(jsonStructure["pointsPerChunk"].asUInt64());
     const std::size_t dimensions(getDimensions(jsonStructure["type"]));
     const bool tubular(jsonStructure["type"].asString() == "hybrid");
-    const bool lossless(!jsonStructure.isMember("coldDepth"));
     const bool dynamicChunks(jsonStructure["dynamicChunks"].asBool());
+    const bool discardDuplicates(jsonStructure["discardDuplicates"].asBool());
     const bool prefixIds(jsonStructure["prefixIds"].asBool());
 
     std::pair<std::size_t, std::size_t> subset({ 0, 0 });
@@ -195,38 +201,19 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         }
     }
 
-    const Structure structure(([&]()
-    {
-        if (lossless)
-        {
-            return Structure(
-                    nullDepth,
-                    baseDepth,
-                    chunkPoints,
-                    dimensions,
-                    numPointsHint,
-                    tubular,
-                    dynamicChunks,
-                    prefixIds,
-                    bbox.get(),
-                    subset);
-        }
-        else
-        {
-            return Structure(
-                    nullDepth,
-                    baseDepth,
-                    jsonStructure["coldDepth"].asUInt64(),
-                    chunkPoints,
-                    dimensions,
-                    numPointsHint,
-                    tubular,
-                    dynamicChunks,
-                    prefixIds,
-                    bbox.get(),
-                    subset);
-        }
-    })());
+    const Structure structure(
+            nullDepth,
+            baseDepth,
+            coldDepth,
+            chunkPoints,
+            dimensions,
+            numPointsHint,
+            tubular,
+            dynamicChunks,
+            discardDuplicates,
+            prefixIds,
+            bbox.get(),
+            subset);
 
     if (!force && exists)
     {

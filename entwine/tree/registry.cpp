@@ -57,6 +57,7 @@ Registry::Registry(
     , m_bbox(bbox)
     , m_structure(structure)
     , m_pointPool(pointPool)
+    , m_discardDuplicates(structure.discardDuplicates())
     , m_as3d(structure.is3d() || structure.tubular())
     , m_base()
     , m_cold()
@@ -102,6 +103,7 @@ Registry::Registry(
     , m_bbox(bbox)
     , m_structure(structure)
     , m_pointPool(pointPool)
+    , m_discardDuplicates(structure.discardDuplicates())
     , m_as3d(structure.is3d() || structure.tubular())
     , m_base()
     , m_cold()
@@ -168,7 +170,12 @@ bool Registry::addPoint(
                 const Point& mid(climber.bbox().mid());
                 const Point& toAddPoint(toAdd->val().point());
 
-                if (toAddPoint == current->val().point()) return false;
+                if (m_discardDuplicates && toAddPoint == current->val().point())
+                {
+                    std::cout << "DUPE" << std::endl;
+                    return false;
+                }
+
                 if (better(toAddPoint, current->val().point(), mid, m_as3d))
                 {
                     done = false;

@@ -88,7 +88,6 @@ Query::Query(
     }
 }
 
-
 void Query::next(std::vector<char>& buffer)
 {
     if (!buffer.empty()) throw std::runtime_error("Buffer should be empty");
