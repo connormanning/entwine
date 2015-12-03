@@ -172,7 +172,6 @@ bool Registry::addPoint(
 
                 if (m_discardDuplicates && toAddPoint == current->val().point())
                 {
-                    std::cout << "DUPE" << std::endl;
                     return false;
                 }
 

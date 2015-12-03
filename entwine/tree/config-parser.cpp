@@ -251,30 +251,43 @@ std::unique_ptr<Manifest> ConfigParser::getManifest(
         const Json::Value& json,
         const arbiter::Arbiter& arbiter)
 {
+    std::unique_ptr<Manifest> manifest;
+
     const Json::Value& input(json["input"]);
-    const Json::Value& jsonPaths(input["manifest"]);
+    const Json::Value& jsonManifest(input["manifest"]);
 
-    std::vector<std::string> paths;
-
-    auto insert([&paths, &arbiter](std::string in)
+    if (jsonManifest.isString() || jsonManifest.isArray())
     {
-        std::vector<std::string> current(arbiter.resolve(in, true));
-        paths.insert(paths.end(), current.begin(), current.end());
-    });
+        // The input source is a path or array of paths.
+        std::vector<std::string> paths;
 
-    if (jsonPaths.isArray())
-    {
-        for (Json::ArrayIndex i(0); i < jsonPaths.size(); ++i)
+        auto insert([&paths, &arbiter](std::string in)
         {
-            insert(jsonPaths[i].asString());
+            std::vector<std::string> current(arbiter.resolve(in, true));
+            paths.insert(paths.end(), current.begin(), current.end());
+        });
+
+        if (jsonManifest.isArray())
+        {
+            for (Json::ArrayIndex i(0); i < jsonManifest.size(); ++i)
+            {
+                insert(jsonManifest[i].asString());
+            }
         }
+        else
+        {
+            insert(jsonManifest.asString());
+        }
+
+        manifest.reset(new Manifest(paths));
     }
-    else
+    else if (jsonManifest.isObject())
     {
-        insert(jsonPaths.asString());
+        // The input source is a previously inferred manifest.
+        manifest.reset(new Manifest(jsonManifest));
     }
 
-    return std::unique_ptr<Manifest>(new Manifest(paths));
+    return manifest;
 }
 
 Json::Value ConfigParser::parse(const std::string& input)

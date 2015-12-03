@@ -45,20 +45,12 @@ BBox::BBox(const BBox& other)
 { }
 
 BBox::BBox(const Json::Value& json)
-    : m_min(
-            Point(
-                json["bounds"].get(Json::ArrayIndex(0), 0).asDouble(),
-                json["bounds"].get(Json::ArrayIndex(1), 0).asDouble(),
-                json["bounds"].get(Json::ArrayIndex(2), 0).asDouble()))
-    , m_max(
-            Point(
-                json["bounds"].get(Json::ArrayIndex(3), 0).asDouble(),
-                json["bounds"].get(Json::ArrayIndex(4), 0).asDouble(),
-                json["bounds"].get(Json::ArrayIndex(5), 0).asDouble()))
+    : m_min()
+    , m_max()
     , m_mid()
-    , m_is3d(json["is3d"].asBool())
+    , m_is3d(true)
 {
-    if (json.isMember("bounds") && json.isMember("is3d"))
+    if (json.isObject() && json.isMember("bounds") && json.isMember("is3d"))
     {
         const Json::Value& bounds(json["bounds"]);
         m_min = Point(
