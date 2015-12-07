@@ -260,8 +260,8 @@ std::unique_ptr<pdal::Filter> Executor::createReprojectionFilter(
                 "out_srs",
                 pdal::SpatialReference(reproj.out())));
 
-    pdal::FilterWrapper::initialize(filter, pointTable);
     pdal::FilterWrapper::processOptions(*filter, *reprojOptions);
+    pdal::FilterWrapper::initialize(filter, pointTable);
     pdal::FilterWrapper::ready(*filter, pointTable);
 
     return std::unique_ptr<pdal::Filter>(filter.get());

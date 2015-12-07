@@ -90,7 +90,18 @@ BBox::BBox(const Json::Value& json)
     }
     else throw std::runtime_error("Invalid JSON BBox specification.");
 
-    setMid();
+    check(m_min, m_max);
+
+    set(
+            Point(
+                std::min(m_min.x, m_max.x),
+                std::min(m_min.y, m_max.y),
+                std::min(m_min.z, m_max.z)),
+            Point(
+                std::max(m_min.x, m_max.x),
+                std::max(m_min.y, m_max.y),
+                std::max(m_min.z, m_max.z)),
+            m_is3d);
 }
 
 void BBox::set(const Point min, const Point max, const bool is3d)
