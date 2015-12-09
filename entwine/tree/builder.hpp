@@ -114,6 +114,7 @@ public:
     const arbiter::Endpoint& tmpEndpoint() const { return *m_tmpEndpoint; }
 
     bool setEnd(Origin end);
+    void stop();
 
 private:
     // Returns true if we should insert this file.
