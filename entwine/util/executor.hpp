@@ -30,6 +30,7 @@ namespace pdal
 namespace entwine
 {
 
+class PooledPointTable;
 class Reprojection;
 class Schema;
 class SimplePointTable;
@@ -62,10 +63,9 @@ public:
 
     // Returns true if no errors occurred during insertion.
     bool run(
-            SimplePointTable& pointTable,
+            PooledPointTable& table,
             std::string path,
-            const Reprojection* reprojection,
-            std::function<void(pdal::PointView&)> f);
+            const Reprojection* reprojection);
 
     // True if this path is recognized as a point cloud file.
     bool good(std::string path) const;

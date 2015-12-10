@@ -19,12 +19,14 @@
 namespace entwine
 {
 
-class SizedPointTable : public pdal::BasePointTable
+class SizedPointTable : public pdal::SimplePointTable
 {
 public:
     explicit SizedPointTable(pdal::PointLayout& layout)
-        : m_layout(layout)
+        : pdal::SimplePointTable(layout)
+        , m_layout(layout)
     { }
+
     ~SizedPointTable() { }
 
     // Inherited from pdal::BasePointTable.

@@ -126,9 +126,13 @@ private:
     // previously unset FileInfo fields based on file contents.
     bool insertPath(Origin origin, FileInfo& info);
 
+    void insertData(
+            PooledDataStack dataStack,
+            const Origin origin,
+            Clipper* clipper);
+
     // Insert chunked points from a PointView.
     void insertView(
-            pdal::PointView& pointView,
             SimplePointTable& table,
             Origin origin,
             Clipper* clipper);
@@ -155,14 +159,6 @@ private:
     // Ensure that the file at this path is accessible locally for execution.
     // Return the local path.
     std::string localize(std::string path, Origin origin);
-
-    // Insert each point from a pdal::PointView into the Registry.
-    void insert(
-            pdal::PointView& pointView,
-            SimplePointTable& table,
-            Origin origin,
-            Clipper* clipper,
-            Range* zRange);
 
     // Get metadata properties, and load from those serialized properties.
     Json::Value saveProps() const;

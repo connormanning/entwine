@@ -13,7 +13,9 @@
 #include <pdal/PointView.hpp>
 
 #include <entwine/types/reprojection.hpp>
-#include <entwine/types/simple-point-table.hpp>
+#include <entwine/types/linking-point-view.hpp>
+#include <entwine/types/pooled-point-table.hpp>
+#include <entwine/types/single-point-table.hpp>
 #include <entwine/util/inference.hpp>
 
 namespace entwine
@@ -167,24 +169,33 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
 
     BBox curBBox(expander);
     std::size_t curNumPoints(0);
-    SimplePointTable table(m_dataPool, xyzSchema);
 
-    auto tracker([this, &curBBox, &curNumPoints](pdal::PointView& view)
+    auto tracker([this, &curBBox, &curNumPoints](PooledDataStack dataStack)
     {
         Point p;
-        curNumPoints += view.size();
+        curNumPoints += dataStack.size();
 
-        for (std::size_t i = 0; i < view.size(); ++i)
+        SinglePointTable table(xyzSchema);
+        LinkingPointView view(table);
+
+        RawDataNode* node(dataStack.head());
+
+        while (node)
         {
-            p.x = view.getFieldAs<double>(pdal::Dimension::Id::X, i);
-            p.y = view.getFieldAs<double>(pdal::Dimension::Id::Y, i);
-            p.z = view.getFieldAs<double>(pdal::Dimension::Id::Z, i);
+            table.setData(**node);
+
+            p.x = view.getFieldAs<double>(pdal::Dimension::Id::X, 0);
+            p.y = view.getFieldAs<double>(pdal::Dimension::Id::Y, 0);
+            p.z = view.getFieldAs<double>(pdal::Dimension::Id::Z, 0);
 
             curBBox.grow(p);
+            node = node->next();
         }
     });
 
-    if (m_executor.run(table, localPath, m_reproj, tracker))
+    PooledPointTable table(m_dataPool, xyzSchema, tracker);
+
+    if (m_executor.run(table, localPath, m_reproj))
     {
         update(curNumPoints, curBBox);
     }

@@ -22,6 +22,7 @@
 #include <entwine/tree/clipper.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/linking-point-view.hpp>
+#include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/simple-point-table.hpp>
@@ -257,14 +258,14 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
 
     if (!checkPath(localPath, origin, info)) return false;
 
+    std::size_t num = 0;
     std::unique_ptr<Clipper> clipper(new Clipper(*this));
-    SimplePointTable table(m_pointPool->dataPool(), *m_schema);
 
-    std::size_t num(0);
-    auto inserter([this, &table, origin, &clipper, &num](pdal::PointView& view)
+    auto inserter([this, origin, &clipper, &num](PooledDataStack dataStack)
     {
-        num += view.size();
-        insertView(view, table, origin, clipper.get());
+        num += dataStack.size();
+
+        insertData(std::move(dataStack), origin, clipper.get());
 
         if (num >= sleepCount)
         {
@@ -273,19 +274,19 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
         }
     });
 
-    return m_executor->run(table, localPath, m_reprojection.get(), inserter);
+    PooledPointTable table(m_pointPool->dataPool(), *m_schema, inserter);
+
+    return m_executor->run(table, localPath, m_reprojection.get());
 }
 
-void Builder::insertView(
-        pdal::PointView& pointView,
-        SimplePointTable& table,
+void Builder::insertData(
+        PooledDataStack dataStack,
         const Origin origin,
         Clipper* clipper)
 {
     PointStats pointStats;
-    InfoPool& infoPool(m_pointPool->infoPool());
 
-    PooledDataStack dataStack(table.stack());
+    InfoPool& infoPool(m_pointPool->infoPool());
     PooledInfoStack infoStack(infoPool.acquire(dataStack.size()));
 
     SinglePointTable localTable(*m_schema);

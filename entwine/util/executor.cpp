@@ -18,6 +18,7 @@
 
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/linking-point-view.hpp>
+#include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/simple-point-layout.hpp>
@@ -28,7 +29,7 @@ namespace entwine
 
 namespace
 {
-    const std::size_t chunkPoints(65536);
+    // const std::size_t chunkPoints(65536);
 
     struct NoopDelete
     {
@@ -54,10 +55,9 @@ Executor::~Executor()
 { }
 
 bool Executor::run(
-        SimplePointTable& pointTable,
+        PooledPointTable& table,
         const std::string path,
-        const Reprojection* reprojection,
-        std::function<void(pdal::PointView&)> f)
+        const Reprojection* reprojection)
 {
     auto lock(getLock());
     const std::string driver(m_stageFactory->inferReaderDriver(path));
@@ -67,47 +67,24 @@ bool Executor::run(
 
     std::unique_ptr<pdal::Reader> reader(createReader(driver, path));
     if (!reader) return false;
-    reader->prepare(pointTable);
-
-    std::unique_ptr<pdal::Filter> filter;
+    reader->prepare(table);
 
     if (reprojection)
     {
-        filter =
+        std::unique_ptr<pdal::Filter> filter(
             createReprojectionFilter(
                 srsFoundOrDefault(reader->getSpatialReference(), *reprojection),
-                pointTable);
+                table));
+
+        if (!filter) return false;
+
+        filter->setInput(*reader);
+        filter->execute(table);
     }
-
-    std::size_t begin(0);
-
-    // Set up our per-point data handler.
-    reader->setReadCb(
-            [&f, &pointTable, &begin, &filter]
-            (pdal::PointView& view, pdal::PointId index)
+    else
     {
-        const std::size_t indexSpan(index - begin);
-
-        if (
-                pointTable.size() == indexSpan + 1 &&
-                pointTable.size() >= chunkPoints)
-        {
-            LinkingPointView link(pointTable);
-            if (filter) pdal::FilterWrapper::filter(*filter, link);
-
-            f(link);
-
-            pointTable.clear();
-            begin = index + 1;
-        }
-    });
-
-    reader->execute(pointTable);
-
-    // Insert leftover points.
-    LinkingPointView link(pointTable);
-    if (filter) pdal::FilterWrapper::filter(*filter, link);
-    f(link);
+        reader->execute(table);
+    }
 
     return true;
 }
