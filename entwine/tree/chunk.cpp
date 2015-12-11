@@ -262,22 +262,13 @@ SparseChunk::SparseChunk(
     , m_mutex()
 {
     // TODO This is direct copy/paste from the ContiguousChunk ctor.
-    PooledDataStack dataStack(
-            Compression::decompress(
-                *compressedData,
-                m_schema,
-                m_numPoints,
-                m_pools.dataPool()));
-
-    PooledInfoStack infoStack(m_pools.infoPool().acquire(m_numPoints));
-
-    SinglePointTable table(m_schema);
-    LinkingPointView view(table);
+    PooledInfoStack infoStack(
+            Compression::decompress(*compressedData, m_numPoints, m_pools));
 
     Id tube(0);
     std::size_t tick(0);
 
-    if (m_numPoints != dataStack.size())
+    if (m_numPoints != infoStack.size())
     {
         // TODO Non-recoverable.  Exit?
         throw std::runtime_error("Bad numPoints detected - sparse chunk");
@@ -290,21 +281,7 @@ SparseChunk::SparseChunk(
 
     for (std::size_t i(0); i < m_numPoints; ++i)
     {
-        PooledDataNode dataNode(dataStack.popOne());
         PooledInfoNode infoNode(infoStack.popOne());
-
-        assert(dataNode.get());
-        assert(infoNode.get());
-
-        table.setData(dataNode->val());
-
-        infoNode->construct(
-                Point(
-                    view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
-                    view.getFieldAs<double>(pdal::Dimension::Id::Y, 0),
-                    view.getFieldAs<double>(pdal::Dimension::Id::Z, 0)),
-                std::move(dataNode));
-
         const Point& point(infoNode->val().point());
 
         tube = Tube::calcTube(point, m_bbox, ticks);
@@ -385,22 +362,13 @@ ContiguousChunk::ContiguousChunk(
     : Chunk(schema, bbox, structure, pools, depth, id, maxPoints, numPoints)
     , m_tubes(maxPoints.getSimple())
 {
-    PooledDataStack dataStack(
-            Compression::decompress(
-                *compressedData,
-                m_schema,
-                m_numPoints,
-                m_pools.dataPool()));
-
-    PooledInfoStack infoStack(m_pools.infoPool().acquire(m_numPoints));
-
-    SinglePointTable table(m_schema);
-    LinkingPointView view(table);
+    PooledInfoStack infoStack(
+            Compression::decompress(*compressedData, m_numPoints, m_pools));
 
     std::size_t tube(0);
     std::size_t tick(0);
 
-    if (m_numPoints != dataStack.size())
+    if (m_numPoints != infoStack.size())
     {
         // TODO Non-recoverable.  Exit?
         throw std::runtime_error("Bad numPoints detected - contiguous chunk");
@@ -411,21 +379,7 @@ ContiguousChunk::ContiguousChunk(
 
     for (std::size_t i(0); i < m_numPoints; ++i)
     {
-        PooledDataNode dataNode(dataStack.popOne());
         PooledInfoNode infoNode(infoStack.popOne());
-
-        assert(dataNode.get());
-        assert(infoNode.get());
-
-        table.setData(dataNode->val());
-
-        infoNode->construct(
-                Point(
-                    view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
-                    view.getFieldAs<double>(pdal::Dimension::Id::Y, 0),
-                    view.getFieldAs<double>(pdal::Dimension::Id::Z, 0)),
-                std::move(dataNode));
-
         const Point& point(infoNode->val().point());
 
         tube = Tube::calcTube(point, m_bbox, ticks).getSimple();

@@ -12,6 +12,7 @@
 
 #include <pdal/PointLayout.hpp>
 
+#include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/schema.hpp>
 
 namespace entwine
@@ -60,37 +61,25 @@ std::unique_ptr<std::vector<char>> Compression::decompress(
     return decompressed;
 }
 
-PooledDataStack Compression::decompress(
+PooledInfoStack Compression::decompress(
         const std::vector<char>& data,
-        const Schema& schema,
-        std::size_t numPoints,
-        DataPool& dataPool)
+        const std::size_t numPoints,
+        Pools& pools)
 {
-    PooledDataStack stack(dataPool.acquire(numPoints));
-
-    const std::size_t pointSize(schema.pointSize());
+    BinaryPointTable table(pools, numPoints);
+    const std::size_t pointSize(pools.schema().pointSize());
 
     DecompressionStream decompressionStream(data);
     pdal::LazPerfDecompressor<DecompressionStream> decompressor(
             decompressionStream,
-            schema.pdalLayout().dimTypes());
+            pools.schema().pdalLayout().dimTypes());
 
-    if (stack.size() == numPoints)
+    for (std::size_t i(0); i < numPoints; ++i)
     {
-        RawDataNode* node(stack.head());
-
-        while (node)
-        {
-            decompressor.decompress(node->val(), pointSize);
-            node = node->next();
-        }
-    }
-    else
-    {
-        throw std::runtime_error("SplicePool acquisition error");
+        decompressor.decompress(table.getPoint(i), pointSize);
     }
 
-    return stack;
+    return table.acquire();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

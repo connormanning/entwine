@@ -18,7 +18,7 @@
 #include <pdal/Compression.hpp>
 
 #include <entwine/compression/stream.hpp>
-#include <entwine/tree/point-info.hpp>
+#include <entwine/types/structure.hpp>
 
 namespace entwine
 {
@@ -42,11 +42,10 @@ public:
             const Schema& schema,
             std::size_t numPoints);
 
-    static PooledDataStack decompress(
+    static PooledInfoStack decompress(
             const std::vector<char>& data,
-            const Schema& schema,
             std::size_t numPoints,
-            DataPool& dataPool);
+            Pools& pools);
 };
 
 class Compressor

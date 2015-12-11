@@ -59,7 +59,7 @@ Inference::Inference(
         const bool trustHeaders,
         arbiter::Arbiter* arbiter)
     : m_executor(true)
-    , m_pools(xyzSchema.pointSize())
+    , m_pools(xyzSchema)
     , m_reproj(reprojection)
     , m_threads(threads)
     , m_verbose(verbose)
@@ -84,7 +84,7 @@ Inference::Inference(
         const bool trustHeaders,
         arbiter::Arbiter* arbiter)
     : m_executor(true)
-    , m_pools(xyzSchema.pointSize())
+    , m_pools(xyzSchema)
     , m_reproj(reprojection)
     , m_threads(threads)
     , m_verbose(verbose)
@@ -173,7 +173,6 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
     auto tracker([this, &curBBox, &curNumPoints](PooledInfoStack infoStack)
     {
         curNumPoints += infoStack.size();
-
         RawInfoNode* info(infoStack.head());
 
         while (info)
@@ -186,7 +185,7 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
         return infoStack;
     });
 
-    PooledPointTable table(m_pools, xyzSchema, tracker);
+    PooledPointTable table(m_pools, tracker);
 
     if (m_executor.run(table, localPath, m_reproj))
     {

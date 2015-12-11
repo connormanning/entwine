@@ -17,6 +17,7 @@
 #include <entwine/third/json/json.hpp>
 #include <entwine/third/splice-pool/splice-pool.hpp>
 #include <entwine/tree/point-info.hpp>
+#include <entwine/types/schema.hpp>
 #include <entwine/types/subset.hpp>
 
 namespace entwine
@@ -32,14 +33,19 @@ typedef InfoPool::UniqueStackType PooledInfoStack;
 class Pools
 {
 public:
-    Pools(std::size_t pointSize)
-        : m_dataPool(pointSize, 4096 * 32), m_infoPool(4096 * 32)
+    Pools(const Schema& schema)
+        : m_schema(schema)
+        , m_dataPool(schema.pointSize(), 4096 * 32)
+        , m_infoPool(4096 * 32)
     { }
 
+    const Schema& schema() { return m_schema; }
     DataPool& dataPool() { return m_dataPool; }
     InfoPool& infoPool() { return m_infoPool; }
 
 private:
+    const Schema& m_schema;
+
     DataPool m_dataPool;
     InfoPool m_infoPool;
 };

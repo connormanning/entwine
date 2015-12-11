@@ -86,7 +86,7 @@ Builder::Builder(
     , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
     , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(outPath)))
     , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
-    , m_pointPool(new Pools(m_schema->pointSize()))
+    , m_pointPool(new Pools(*m_schema))
     , m_registry(
             new Registry(
                 *m_outEndpoint,
@@ -273,7 +273,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
         return insertData(std::move(infoStack), origin, clipper.get());
     });
 
-    PooledPointTable table(*m_pointPool, *m_schema, inserter);
+    PooledPointTable table(*m_pointPool, inserter);
 
     return m_executor->run(table, localPath, m_reprojection.get());
 }
@@ -500,7 +500,7 @@ void Builder::loadProps(const Json::Value& props)
 {
     m_bbox.reset(new BBox(props["bbox"]));
     m_schema.reset(new Schema(props["schema"]));
-    m_pointPool.reset(new Pools(m_schema->pointSize()));
+    m_pointPool.reset(new Pools(*m_schema));
     m_structure.reset(new Structure(props["structure"], *m_bbox));
 
     if (props.isMember("reprojection"))

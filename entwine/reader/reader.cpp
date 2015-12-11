@@ -74,7 +74,7 @@ Reader::Reader(
 
         m_bbox.reset(new BBox(props["bbox"]));
         m_schema.reset(new Schema(props["schema"]));
-        m_pointPool.reset(new Pools(m_schema->pointSize()));
+        m_pointPool.reset(new Pools(*m_schema));
         m_structure.reset(new Structure(props["structure"], *m_bbox));
         if (props.isMember("reprojection"))
             m_reprojection.reset(new Reprojection(props["reprojection"]));
