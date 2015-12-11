@@ -59,7 +59,7 @@ Inference::Inference(
         const bool trustHeaders,
         arbiter::Arbiter* arbiter)
     : m_executor(true)
-    , m_dataPool(xyzSchema.pointSize(), 4096 * 32)
+    , m_pools(xyzSchema.pointSize())
     , m_reproj(reprojection)
     , m_threads(threads)
     , m_verbose(verbose)
@@ -84,7 +84,7 @@ Inference::Inference(
         const bool trustHeaders,
         arbiter::Arbiter* arbiter)
     : m_executor(true)
-    , m_dataPool(xyzSchema.pointSize(), 4096 * 32)
+    , m_pools(xyzSchema.pointSize())
     , m_reproj(reprojection)
     , m_threads(threads)
     , m_verbose(verbose)
@@ -170,30 +170,23 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
     BBox curBBox(expander);
     std::size_t curNumPoints(0);
 
-    auto tracker([this, &curBBox, &curNumPoints](PooledDataStack dataStack)
+    auto tracker([this, &curBBox, &curNumPoints](PooledInfoStack infoStack)
     {
-        Point p;
-        curNumPoints += dataStack.size();
+        curNumPoints += infoStack.size();
 
-        SinglePointTable table(xyzSchema);
-        LinkingPointView view(table);
+        RawInfoNode* info(infoStack.head());
 
-        RawDataNode* node(dataStack.head());
-
-        while (node)
+        while (info)
         {
-            table.setData(**node);
-
-            p.x = view.getFieldAs<double>(pdal::Dimension::Id::X, 0);
-            p.y = view.getFieldAs<double>(pdal::Dimension::Id::Y, 0);
-            p.z = view.getFieldAs<double>(pdal::Dimension::Id::Z, 0);
-
-            curBBox.grow(p);
-            node = node->next();
+            curBBox.grow(info->val().point());
+            info = info->next();
         }
+
+        // Return the entire stack since we aren't a consumer of this data.
+        return infoStack;
     });
 
-    PooledPointTable table(m_dataPool, xyzSchema, tracker);
+    PooledPointTable table(m_pools, xyzSchema, tracker);
 
     if (m_executor.run(table, localPath, m_reproj))
     {

@@ -14,6 +14,7 @@
 
 #include <entwine/tree/point-info.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/structure.hpp>
 
 namespace entwine
 {
@@ -21,10 +22,12 @@ namespace entwine
 class PooledPointTable : public pdal::StreamPointTable
 {
 public:
+    // The processing function may acquire nodes from the incoming stack, and
+    // can return any that do not need to be kept for reuse.
     PooledPointTable(
-            DataPool& dataPool,
+            Pools& pools,
             const Schema& schema,
-            std::function<void(PooledDataStack)> process);
+            std::function<PooledInfoStack(PooledInfoStack)> process);
 
     virtual pdal::point_count_t capacity() const override;
     virtual void reset() override;
@@ -33,12 +36,14 @@ protected:
     virtual char* getPoint(pdal::PointId i) override;
 
 private:
-    DataPool& m_dataPool;
-    PooledDataStack m_stack;
-    std::deque<RawDataNode*> m_nodes;   // m_nodes[0] -> m_stack.head()
+    void allocate();
 
-    std::function<void(PooledDataStack)> m_process;
+    Pools& m_pools;
+    PooledInfoStack m_stack;
+    std::deque<RawInfoNode*> m_nodes;   // m_nodes[0] -> m_stack.head()
     std::size_t m_size;
+
+    std::function<PooledInfoStack(PooledInfoStack)> m_process;
 };
 
 } // namespace entwine

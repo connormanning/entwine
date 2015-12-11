@@ -15,60 +15,69 @@ namespace entwine
 
 namespace
 {
-    const std::size_t blockSize(4096);
-    const std::size_t chunkPoints(65536);
+    const std::size_t blockSize(65536);
 }
 
 PooledPointTable::PooledPointTable(
-        DataPool& dataPool,
+        Pools& pools,
         const Schema& schema,
-        std::function<void(PooledDataStack)> process)
+        std::function<PooledInfoStack(PooledInfoStack)> process)
     : pdal::StreamPointTable(schema.pdalLayout())
-    , m_dataPool(dataPool)
-    , m_stack(dataPool)
-    , m_nodes()
-    , m_process(process)
+    , m_pools(pools)
+    , m_stack(pools.infoPool())
+    , m_nodes(blockSize, nullptr)
     , m_size(0)
-{ }
+    , m_process(process)
+{
+    allocate();
+}
 
 pdal::point_count_t PooledPointTable::capacity() const
 {
-    return chunkPoints;
+    return blockSize;
 }
 
 void PooledPointTable::reset()
 {
-    m_nodes.erase(m_nodes.begin(), m_nodes.begin() + m_size);
-    m_process(m_stack.pop(m_size));
+    pdal::PointRef pointRef(*this, 0);
+
+    // Using the pointRef during the loop ends up calling into this->getPoint,
+    // which will hammer over our m_size as we're traversing - so store a copy.
+    const std::size_t fixedSize(m_size);
+
+    for (std::size_t i(0); i < fixedSize; ++i)
+    {
+        pointRef.setPointId(i);
+        m_nodes[i]->val().point(pointRef);
+    }
+
+    m_stack.push(m_process(m_stack.pop(fixedSize)));
     m_size = 0;
+
+    allocate();
 }
 
 char* PooledPointTable::getPoint(const pdal::PointId i)
 {
-    assert(i <= m_stack.size());
-
-    if (m_size == m_stack.size())
-    {
-        PooledDataStack newStack(m_dataPool.acquire(blockSize));
-        RawDataNode* node(newStack.head());
-
-        assert(newStack.size() == m_blockSize);
-
-        const std::size_t startSize(m_nodes.size());
-        m_nodes.resize(startSize + blockSize);
-
-        for (std::size_t i(startSize); i < startSize + blockSize; ++i)
-        {
-            m_nodes[i] = node;
-            node = node->next();
-        }
-
-        newStack.push(std::move(m_stack));
-        m_stack = std::move(newStack);
-    }
-
     m_size = i + 1;
-    return m_nodes[i]->val();
+    return m_nodes[i]->val().data();
+}
+
+void PooledPointTable::allocate()
+{
+    const std::size_t needs(blockSize - m_stack.size());
+
+    m_stack.push(m_pools.infoPool().acquire(needs));
+    PooledDataStack dataStack(m_pools.dataPool().acquire(needs));
+
+    RawInfoNode* info(m_stack.head());
+
+    for (std::size_t i(0); i < needs; ++i)
+    {
+        info->construct(dataStack.popOne());
+        m_nodes[i] = info;
+        info = info->next();
+    }
 }
 
 } // namespace entwine

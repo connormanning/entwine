@@ -14,6 +14,8 @@
 #include <cstddef>
 #include <vector>
 
+#include <pdal/PointRef.hpp>
+
 #include <entwine/types/point.hpp>
 #include <entwine/third/splice-pool/splice-pool.hpp>
 
@@ -42,18 +44,33 @@ public:
         , m_dataNode()
     { }
 
+    PointInfoShallow(PooledDataNode dataNode) noexcept
+        : m_point()
+        , m_dataNode(std::move(dataNode))
+    { }
+
     PointInfoShallow(const Point& point, PooledDataNode dataNode) noexcept
         : m_point(point)
         , m_dataNode(std::move(dataNode))
     { }
 
+    void point(const pdal::PointRef& pointRef)
+    {
+        m_point = Point(
+                pointRef.getFieldAs<double>(pdal::Dimension::Id::X),
+                pointRef.getFieldAs<double>(pdal::Dimension::Id::Y),
+                pointRef.getFieldAs<double>(pdal::Dimension::Id::Z));
+    }
+
     virtual const Point& point() const override { return m_point; }
     virtual const char* data() const override { return m_dataNode->val(); }
+
+    char* data() { return m_dataNode->val(); }
 
     PooledDataNode acquireDataNode() { return std::move(m_dataNode); }
 
 private:
-    const Point m_point;
+    Point m_point;
     PooledDataNode m_dataNode;
 };
 

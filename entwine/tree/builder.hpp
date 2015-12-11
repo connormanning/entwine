@@ -126,8 +126,9 @@ private:
     // previously unset FileInfo fields based on file contents.
     bool insertPath(Origin origin, FileInfo& info);
 
-    void insertData(
-            PooledDataStack dataStack,
+    // Returns a stack of rejected info nodes so that they may be reused.
+    PooledInfoStack insertData(
+            PooledInfoStack infoStack,
             const Origin origin,
             Clipper* clipper);
 

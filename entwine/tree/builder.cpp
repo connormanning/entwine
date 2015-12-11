@@ -261,54 +261,39 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
     std::size_t num = 0;
     std::unique_ptr<Clipper> clipper(new Clipper(*this));
 
-    auto inserter([this, origin, &clipper, &num](PooledDataStack dataStack)
+    auto inserter([this, origin, &clipper, &num](PooledInfoStack infoStack)
     {
-        num += dataStack.size();
-
-        insertData(std::move(dataStack), origin, clipper.get());
-
-        if (num >= sleepCount)
+        num += infoStack.size();
+        if (num > sleepCount)
         {
             num = 0;
             clipper.reset(new Clipper(*this));
         }
+
+        return insertData(std::move(infoStack), origin, clipper.get());
     });
 
-    PooledPointTable table(m_pointPool->dataPool(), *m_schema, inserter);
+    PooledPointTable table(*m_pointPool, *m_schema, inserter);
 
     return m_executor->run(table, localPath, m_reprojection.get());
 }
 
-void Builder::insertData(
-        PooledDataStack dataStack,
+PooledInfoStack Builder::insertData(
+        PooledInfoStack infoStack,
         const Origin origin,
         Clipper* clipper)
 {
     PointStats pointStats;
+    PooledInfoStack rejected(m_pointPool->infoPool());
 
-    InfoPool& infoPool(m_pointPool->infoPool());
-    PooledInfoStack infoStack(infoPool.acquire(dataStack.size()));
-
-    SinglePointTable localTable(*m_schema);
-    LinkingPointView localView(localTable);
-
-    PooledInfoStack rejected(infoPool);
+    auto reject([&rejected](PooledInfoNode& info)
+    {
+        rejected.push(std::move(info));
+    });
 
     while (!infoStack.empty())
     {
-        PooledDataNode data(dataStack.popOne());
         PooledInfoNode info(infoStack.popOne());
-
-        localTable.setData(**data);
-        localView.setField(m_originId, 0, origin);
-
-        info->construct(
-                Point(
-                    localView.getFieldAs<double>(pdal::Dimension::Id::X, 0),
-                    localView.getFieldAs<double>(pdal::Dimension::Id::Y, 0),
-                    localView.getFieldAs<double>(pdal::Dimension::Id::Z, 0)),
-                std::move(data));
-
         const Point& point(info->val().point());
 
         if (m_bbox->contains(point))
@@ -323,23 +308,25 @@ void Builder::insertData(
                 }
                 else
                 {
-                    rejected.push(std::move(info));
+                    reject(info);
                     pointStats.addOverflow();
                 }
             }
             else
             {
-                rejected.push(std::move(info));
+                reject(info);
             }
         }
         else
         {
-            rejected.push(std::move(info));
+            reject(info);
             pointStats.addOutOfBounds();
         }
     }
 
     m_manifest->add(origin, pointStats);
+
+    return rejected;
 }
 
 void Builder::load(const std::size_t clipThreads)
