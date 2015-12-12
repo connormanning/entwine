@@ -40,7 +40,6 @@ class BBox;
 class Cache;
 class Climber;
 class BaseChunk;
-class LinkingPointView;
 class Manifest;
 class Query;
 class Reprojection;

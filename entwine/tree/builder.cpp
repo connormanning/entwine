@@ -21,12 +21,10 @@
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
 #include <entwine/types/bbox.hpp>
-#include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/simple-point-table.hpp>
-#include <entwine/types/single-point-table.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/executor.hpp>
 
@@ -160,13 +158,15 @@ Builder::~Builder()
 
 void Builder::go(std::size_t max)
 {
-    m_end = max ? std::min(max, m_manifest->size()) : m_manifest->size();
+    m_end = m_manifest->size();
+    max = max ? std::min<std::size_t>(m_end, max) : m_end;
 
-    if (m_srs.empty() && m_manifest->size()) init();
     std::size_t added(0);
 
-    while (keepGoing())
+    while (keepGoing() && added < max)
     {
+        if (m_srs.empty()) init();
+
         FileInfo& info(m_manifest->get(m_origin));
         if (info.status() != FileInfo::Status::Outstanding)
         {

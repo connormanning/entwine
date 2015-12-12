@@ -13,9 +13,7 @@
 #include <pdal/PointView.hpp>
 
 #include <entwine/types/reprojection.hpp>
-#include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/pooled-point-table.hpp>
-#include <entwine/types/single-point-table.hpp>
 #include <entwine/util/inference.hpp>
 
 namespace entwine

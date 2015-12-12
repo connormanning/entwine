@@ -42,8 +42,8 @@ Query::Query(
     , m_depthBegin(depthBegin)
     , m_depthEnd(depthEnd)
     , m_normalize(normalize)
-    , m_table(reader.schema())
-    , m_view(m_table)
+    , m_table(reader.schema(), 1, nullptr)
+    , m_pointRef(m_table, 0)
     , m_chunks()
     , m_block()
     , m_chunkReaderIt()
@@ -170,7 +170,7 @@ void Query::processPoint(std::vector<char>& buffer, const PointInfo& info)
         buffer.resize(buffer.size() + m_outSchema.pointSize(), 0);
         char* pos(buffer.data() + buffer.size() - m_outSchema.pointSize());
 
-        m_table.setData(info.data());
+        m_table.linkTo(info.data());
         bool isX(false), isY(false), isZ(false);
 
         for (const auto& dim : m_outSchema.dims())
@@ -185,7 +185,7 @@ void Query::processPoint(std::vector<char>& buffer, const PointInfo& info)
                         (isX || isY || isZ) &&
                         pdal::Dimension::size(dim.type()) == 4)
                 {
-                    double d(m_view.getFieldAs<double>(dim.id(), 0));
+                    double d(m_pointRef.getFieldAs<double>(dim.id()));
 
                     if (isX)        d -= m_reader.bbox().mid().x;
                     else if (isY)   d -= m_reader.bbox().mid().y;
@@ -197,12 +197,12 @@ void Query::processPoint(std::vector<char>& buffer, const PointInfo& info)
                 }
                 else
                 {
-                    m_view.getField(pos, dim.id(), dim.type(), 0);
+                    m_pointRef.getField(pos, dim.id(), dim.type());
                 }
             }
             else
             {
-                m_view.getField(pos, dim.id(), dim.type(), 0);
+                m_pointRef.getField(pos, dim.id(), dim.type());
             }
 
             pos += dim.size();

@@ -16,8 +16,6 @@
 #include <entwine/compression/util.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/climber.hpp>
-#include <entwine/types/linking-point-view.hpp>
-#include <entwine/types/single-point-table.hpp>
 #include <entwine/util/storage.hpp>
 
 namespace entwine
@@ -454,66 +452,43 @@ BaseChunk::BaseChunk(
     , m_celledSchema(makeCelled(m_schema))
 {
     m_numPoints = numPoints;
-    const std::size_t celledPointSize(m_celledSchema.pointSize());
 
     std::unique_ptr<std::vector<char>> data(
-            Compression::decompress(
-                *compressedData,
-                m_celledSchema,
-                m_numPoints));
+        Compression::decompress(*compressedData, m_celledSchema, m_numPoints));
 
-    SinglePointTable table(m_celledSchema);
-    LinkingPointView view(table);
-
-    const pdal::Dimension::Id::Enum tubeId(
-            m_celledSchema.pdalLayout().findDim(tubeIdDim));
-
-    std::size_t tube(0);
-    std::size_t tick(0);
-    std::size_t curDepth(0);
-
-    // Skip tube IDs.
-    const std::size_t dataOffset(sizeof(uint64_t));
-
-    if (m_numPoints * celledPointSize != data->size())
+    if (m_numPoints * m_celledSchema.pointSize() != data->size())
     {
         // TODO Non-recoverable.  Exit?
         throw std::runtime_error("Bad numPoints detected - base chunk");
     }
 
-    PooledDataStack dataStack(m_pools.dataPool().acquire(m_numPoints));
-    PooledInfoStack infoStack(m_pools.infoPool().acquire(m_numPoints));
-
     const bool tubular(m_structure.tubular());
+
+    CelledPointTable table(
+            m_pools,
+            m_celledSchema,
+            m_celledSchema.pdalLayout().findDim(tubeIdDim),
+            std::move(data));
+
+    auto tubedInfoList(table.tubedInfoList());
+    std::size_t curDepth(0);
+    std::size_t tick(0);
+    std::size_t tube(0);
 
     for (std::size_t i(0); i < m_numPoints; ++i)
     {
-        PooledDataNode dataNode(dataStack.popOne());
-        PooledInfoNode infoNode(infoStack.popOne());
+        CelledPointTable::TubedInfo& tubedInfo(*tubedInfoList[i]);
 
-        assert(dataNode.get());
-        assert(infoNode.get());
-
-        char* pos(data->data() + i * celledPointSize);
-        std::copy(pos + dataOffset, pos + celledPointSize, dataNode->val());
-        table.setData(pos);
-
-        infoNode->construct(
-                Point(
-                    view.getFieldAs<double>(pdal::Dimension::Id::X, 0),
-                    view.getFieldAs<double>(pdal::Dimension::Id::Y, 0),
-                    view.getFieldAs<double>(pdal::Dimension::Id::Z, 0)),
-                std::move(dataNode));
-
-        tube = view.getFieldAs<uint64_t>(tubeId, 0);
+        tube = tubedInfo.tube;
+        PooledInfoNode info(std::move(tubedInfo.info));
 
         if (tubular)
         {
             curDepth = ChunkInfo::calcDepth(m_structure.factor(), m_id + tube);
-            tick = Tube::calcTick(infoNode->val().point(), m_bbox, curDepth);
+            tick = Tube::calcTick(info->val().point(), m_bbox, curDepth);
         }
 
-        m_tubes.at(tube).addCell(tick, std::move(infoNode));
+        m_tubes.at(tube).addCell(tick, std::move(info));
     }
 }
 
@@ -541,6 +516,8 @@ void BaseChunk::save(arbiter::Endpoint& endpoint, std::string postfix)
     infoStack.reset();
     pushTail(*compressed, Tail(m_numPoints, Contiguous));
     Storage::ensurePut(endpoint, m_id.str() + postfix, *compressed);
+
+    std::cout << "Saved " << m_numPoints << std::endl;
 }
 
 void BaseChunk::save(arbiter::Endpoint& endpoint)
@@ -567,6 +544,63 @@ void BaseChunk::merge(BaseChunk& other)
             ours = theirs;
         }
     }
+}
+
+BaseChunk::CelledPointTable::CelledPointTable(
+        Pools& pools,
+        const Schema& celledSchema,
+        pdal::Dimension::Id::Enum tubeId,
+        std::unique_ptr<std::vector<char>> data)
+    : pdal::StreamPointTable(celledSchema.pdalLayout())
+    , m_pools(pools)
+    , m_data(std::move(data))
+    , m_celledPointSize(celledSchema.pointSize())
+    , m_numPoints(m_data->size() / m_celledPointSize)
+    , m_tubeId(tubeId)
+{ }
+
+std::vector<std::unique_ptr<BaseChunk::CelledPointTable::TubedInfo>>
+BaseChunk::CelledPointTable::tubedInfoList()
+{
+    std::vector<std::unique_ptr<TubedInfo>> tubedInfoList(m_numPoints);
+
+    pdal::PointRef pointRef(*this, 0);
+    std::size_t tube(0);
+
+    // Skip tube IDs.
+    const std::size_t dataOffset(sizeof(uint64_t));
+
+    PooledInfoStack infoStack(m_pools.infoPool().acquire(m_numPoints));
+    PooledDataStack dataStack(m_pools.dataPool().acquire(m_numPoints));
+
+    const char* pos(m_data->data());
+
+    for (std::size_t i(0); i < m_numPoints; ++i)
+    {
+        pointRef.setPointId(i);
+
+        PooledDataNode dataNode(dataStack.popOne());
+        PooledInfoNode infoNode(infoStack.popOne());
+
+        tube = pointRef.getFieldAs<uint64_t>(m_tubeId);
+
+        std::copy(pos + dataOffset, pos + m_celledPointSize, dataNode->val());
+
+        infoNode->construct(
+                Point(
+                    pointRef.getFieldAs<double>(pdal::Dimension::Id::X),
+                    pointRef.getFieldAs<double>(pdal::Dimension::Id::Y),
+                    pointRef.getFieldAs<double>(pdal::Dimension::Id::Z)),
+                std::move(dataNode));
+
+        tubedInfoList[i] =
+            std::unique_ptr<TubedInfo>(
+                    new TubedInfo(tube, std::move(infoNode)));
+
+        pos += m_celledPointSize;
+    }
+
+    return tubedInfoList;
 }
 
 } // namespace entwine

@@ -16,9 +16,8 @@
 #include <entwine/reader/cache.hpp>
 #include <entwine/reader/reader.hpp>
 #include <entwine/tree/climber.hpp>
-#include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/point.hpp>
-#include <entwine/types/single-point-table.hpp>
+#include <entwine/types/pooled-point-table.hpp>
 
 namespace entwine
 {
@@ -66,8 +65,8 @@ private:
     const std::size_t m_depthEnd;
     const bool m_normalize;
 
-    SinglePointTable m_table;
-    LinkingPointView m_view;
+    LinkingPointTable m_table;
+    pdal::PointRef m_pointRef;
 
     FetchInfoSet m_chunks;
     std::unique_ptr<Block> m_block;

@@ -17,20 +17,15 @@
 #include <pdal/StageWrapper.hpp>
 
 #include <entwine/types/bbox.hpp>
-#include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
-#include <entwine/types/simple-point-layout.hpp>
-#include <entwine/types/simple-point-table.hpp>
 
 namespace entwine
 {
 
 namespace
 {
-    // const std::size_t chunkPoints(65536);
-
     struct NoopDelete
     {
         void operator()(pdal::Filter*) { }

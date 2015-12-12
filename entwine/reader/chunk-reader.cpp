@@ -12,9 +12,8 @@
 
 #include <entwine/compression/util.hpp>
 #include <entwine/tree/chunk.hpp>
-#include <entwine/types/linking-point-view.hpp>
+#include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/schema.hpp>
-#include <entwine/types/single-point-table.hpp>
 
 namespace entwine
 {
@@ -33,23 +32,19 @@ ChunkReader::ChunkReader(
     , m_data()
     , m_points()
 {
-    const std::size_t pointSize(m_schema.pointSize());
-
     m_data = Compression::decompress(*compressed, schema, m_numPoints);
 
-    SinglePointTable table(m_schema);
-    LinkingPointView view(table);
-
+    LinkingPointTable table(m_schema, m_numPoints, m_data->data());
+    pdal::PointRef pointRef(table, 0);
     Point point;
-    const char* pos(m_data->data());
 
     for (std::size_t i(0); i < m_numPoints; ++i)
     {
-        table.setData(pos);
+        pointRef.setPointId(i);
 
-        point.x = view.getFieldAs<double>(pdal::Dimension::Id::X, 0);
-        point.y = view.getFieldAs<double>(pdal::Dimension::Id::Y, 0);
-        point.z = view.getFieldAs<double>(pdal::Dimension::Id::Z, 0);
+        point.x = pointRef.getFieldAs<double>(pdal::Dimension::Id::X);
+        point.y = pointRef.getFieldAs<double>(pdal::Dimension::Id::Y);
+        point.z = pointRef.getFieldAs<double>(pdal::Dimension::Id::Z);
 
         m_points.emplace(
                 std::piecewise_construct,
@@ -58,9 +53,7 @@ ChunkReader::ChunkReader(
                         point,
                         m_bbox,
                         m_depth)),
-                std::forward_as_tuple(point, pos));
-
-        pos += pointSize;
+                std::forward_as_tuple(point, table.getPoint(i)));
     }
 }
 

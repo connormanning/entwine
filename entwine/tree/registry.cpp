@@ -115,7 +115,6 @@ Registry::Registry(
                 m_structure.baseIndexBegin().str() +
                 m_structure.subsetPostfix());
 
-
         std::unique_ptr<std::vector<char>> data(
                 new std::vector<char>(m_endpoint.getSubpathBinary(basePath)));
 

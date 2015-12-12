@@ -18,6 +18,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include <pdal/PointTable.hpp>
+
 #include <entwine/tree/cell.hpp>
 #include <entwine/types/blocked-data.hpp>
 #include <entwine/types/dim-info.hpp>
@@ -225,6 +227,47 @@ public:
 
 private:
     Schema m_celledSchema;
+
+    class CelledPointTable : pdal::StreamPointTable
+    {
+    public:
+        struct TubedInfo
+        {
+            TubedInfo(std::size_t tube, PooledInfoNode info)
+                : tube(tube)
+                , info(std::move(info))
+            { }
+
+            const std::size_t tube;
+            PooledInfoNode info;
+        };
+
+        CelledPointTable(
+                Pools& pools,
+                const Schema& celledSchema,
+                pdal::Dimension::Id::Enum tubeId,
+                std::unique_ptr<std::vector<char>> data);
+
+        std::vector<std::unique_ptr<TubedInfo>> tubedInfoList();
+
+        virtual pdal::point_count_t capacity() const override
+        {
+            return m_numPoints;
+        }
+
+        virtual char* getPoint(pdal::PointId i) override
+        {
+            return m_data->data() + i * m_celledPointSize;
+        }
+
+    private:
+        Pools& m_pools;
+        std::unique_ptr<std::vector<char>> m_data;
+
+        const std::size_t m_celledPointSize;
+        const std::size_t m_numPoints;
+        const pdal::Dimension::Id::Enum m_tubeId;
+    };
 };
 
 } // namespace entwine

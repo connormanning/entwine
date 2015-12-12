@@ -17,10 +17,8 @@
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
-#include <entwine/types/linking-point-view.hpp>
 #include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
-#include <entwine/types/single-point-table.hpp>
 #include <entwine/util/pool.hpp>
 #include <entwine/util/storage.hpp>
 

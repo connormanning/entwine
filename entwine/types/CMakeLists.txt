@@ -9,7 +9,6 @@ set(
     "${BASE}/pooled-point-table.cpp"
     "${BASE}/schema.cpp"
     "${BASE}/simple-point-layout.cpp"
-    "${BASE}/single-point-table.cpp"
     "${BASE}/structure.cpp"
     "${BASE}/subset.cpp"
 )
@@ -20,7 +19,6 @@ set(
     "${BASE}/blocked-data.hpp"
     "${BASE}/dim-info.hpp"
     "${BASE}/elastic-atomic.hpp"
-    "${BASE}/linking-point-view.hpp"
     "${BASE}/point.hpp"
     "${BASE}/pooled-point-table.hpp"
     "${BASE}/range.hpp"
@@ -28,7 +26,6 @@ set(
     "${BASE}/schema.hpp"
     "${BASE}/simple-point-layout.hpp"
     "${BASE}/simple-point-table.hpp"
-    "${BASE}/single-point-table.hpp"
     "${BASE}/sized-point-table.hpp"
     "${BASE}/structure.hpp"
     "${BASE}/subset.hpp"
