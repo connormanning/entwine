@@ -34,14 +34,10 @@ public:
 
     void linkTo(const char* data) { m_data = data; }
 
-    const char* getPoint(pdal::PointId index) const
-    {
-        return m_data + index * m_schema.pointSize();
-    }
-
     virtual char* getPoint(pdal::PointId index) override
     {
-        throw std::runtime_error("Cannot modify LinkingPointTable");
+        // :(
+        return const_cast<char*>(m_data) + index * m_schema.pointSize();
     }
 
     virtual pdal::point_count_t capacity() const override
