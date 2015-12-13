@@ -33,7 +33,6 @@ namespace entwine
 class PooledPointTable;
 class Reprojection;
 class Schema;
-class SimplePointTable;
 
 class Preview
 {

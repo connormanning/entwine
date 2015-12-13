@@ -23,7 +23,6 @@
 #include <entwine/tree/point-info.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
-#include <entwine/types/simple-point-table.hpp>
 #include <entwine/util/pool.hpp>
 #include <entwine/util/storage.hpp>
 

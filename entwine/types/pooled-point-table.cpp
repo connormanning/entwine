@@ -69,12 +69,6 @@ void PooledPointTable::reset()
     allocate();
 }
 
-char* PooledPointTable::getPoint(const pdal::PointId i)
-{
-    m_size = i + 1;
-    return m_nodes[i]->val().data();
-}
-
 void PooledPointTable::allocate()
 {
     const std::size_t needs(blockSize - m_stack.size());

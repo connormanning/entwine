@@ -25,8 +25,6 @@ set(
     "${BASE}/reprojection.hpp"
     "${BASE}/schema.hpp"
     "${BASE}/simple-point-layout.hpp"
-    "${BASE}/simple-point-table.hpp"
-    "${BASE}/sized-point-table.hpp"
     "${BASE}/structure.hpp"
     "${BASE}/subset.hpp"
 )

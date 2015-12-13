@@ -24,7 +24,6 @@
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
-#include <entwine/types/simple-point-table.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/executor.hpp>
 

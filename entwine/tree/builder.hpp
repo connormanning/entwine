@@ -52,7 +52,6 @@ class Driver;
 class Executor;
 class Registry;
 class Reprojection;
-class SimplePointTable;
 
 class Builder
 {
@@ -130,12 +129,6 @@ private:
     PooledInfoStack insertData(
             PooledInfoStack infoStack,
             const Origin origin,
-            Clipper* clipper);
-
-    // Insert chunked points from a PointView.
-    void insertView(
-            SimplePointTable& table,
-            Origin origin,
             Clipper* clipper);
 
     // Remove resources that are no longer needed.
