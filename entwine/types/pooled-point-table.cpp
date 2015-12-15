@@ -18,19 +18,6 @@ namespace
     const std::size_t blockSize(65536);
 }
 
-PooledInfoStack BinaryPointTable::acquire()
-{
-    pdal::PointRef pointRef(*this, 0);
-
-    for (std::size_t i(0); i < capacity(); ++i)
-    {
-        pointRef.setPointId(i);
-        m_nodes[i]->val().point(pointRef);
-    }
-
-    return std::move(m_stack);
-}
-
 PooledPointTable::PooledPointTable(
         Pools& pools,
         std::function<PooledInfoStack(PooledInfoStack)> process)

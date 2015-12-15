@@ -66,7 +66,12 @@ PooledInfoStack Compression::decompress(
         const std::size_t numPoints,
         Pools& pools)
 {
-    BinaryPointTable table(pools, numPoints);
+    PooledDataStack dataStack(pools.dataPool().acquire(numPoints));
+    PooledInfoStack infoStack(pools.infoPool().acquire(numPoints));
+
+    BinaryPointTable table(pools.schema());
+    pdal::PointRef pointRef(table, 0);
+
     const std::size_t pointSize(pools.schema().pointSize());
 
     DecompressionStream decompressionStream(data);
@@ -74,12 +79,23 @@ PooledInfoStack Compression::decompress(
             decompressionStream,
             pools.schema().pdalLayout().dimTypes());
 
-    for (std::size_t i(0); i < numPoints; ++i)
+    RawInfoNode* info(infoStack.head());
+    char* pos(nullptr);
+
+    while (info)
     {
-        decompressor.decompress(table.getPoint(i), pointSize);
+        info->construct(dataStack.popOne());
+        pos = info->val().data();
+
+        decompressor.decompress(pos, pointSize);
+
+        table.setPoint(pos);
+        info->val().point(pointRef);
+
+        info = info->next();
     }
 
-    return table.acquire();
+    return infoStack;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

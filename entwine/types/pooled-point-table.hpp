@@ -54,37 +54,21 @@ private:
 class BinaryPointTable : public pdal::StreamPointTable
 {
 public:
-    BinaryPointTable(Pools& pools, const std::size_t capacity)
-        : pdal::StreamPointTable(pools.schema().pdalLayout())
-        , m_stack(pools.infoPool().acquire(capacity))
-        , m_nodes(capacity)
-    {
-        PooledDataStack dataStack(pools.dataPool().acquire(capacity));
-        RawInfoNode* info(m_stack.head());
+    BinaryPointTable(const Schema& schema)
+        : pdal::StreamPointTable(schema.pdalLayout())
+    { }
 
-        for (std::size_t i(0); i < capacity; ++i)
-        {
-            m_nodes[i] = info;
-            info->construct(dataStack.popOne());
-            info = info->next();
-        }
-    }
-
-    PooledInfoStack acquire();
-
-    virtual pdal::point_count_t capacity() const override
-    {
-        return m_stack.size();
-    }
-
+    virtual pdal::point_count_t capacity() const override { return 1; }
     virtual char* getPoint(pdal::PointId i) override
     {
-        return m_nodes[i]->val().data();
+        // :(
+        return const_cast<char*>(m_pos);
     }
 
+    void setPoint(const char* pos) { m_pos = pos; }
+
 protected:
-    PooledInfoStack m_stack;
-    std::vector<RawInfoNode*> m_nodes;
+    const char* m_pos;
 };
 
 class PooledPointTable : public pdal::StreamPointTable
