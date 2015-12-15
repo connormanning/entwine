@@ -32,15 +32,18 @@ ChunkReader::ChunkReader(
     , m_data()
     , m_points()
 {
-    m_data = Compression::decompress(*compressed, schema, m_numPoints);
+    m_data = Compression::decompress(*compressed, m_schema, m_numPoints);
 
-    LinkingPointTable table(m_schema, m_numPoints, m_data->data());
+    BinaryPointTable table(m_schema);
     pdal::PointRef pointRef(table, 0);
+
+    const std::size_t pointSize(m_schema.pointSize());
+    char* pos(m_data->data());
     Point point;
 
     for (std::size_t i(0); i < m_numPoints; ++i)
     {
-        pointRef.setPointId(i);
+        table.setPoint(pos);
 
         point.x = pointRef.getFieldAs<double>(pdal::Dimension::Id::X);
         point.y = pointRef.getFieldAs<double>(pdal::Dimension::Id::Y);
@@ -48,12 +51,10 @@ ChunkReader::ChunkReader(
 
         m_points.emplace(
                 std::piecewise_construct,
-                std::forward_as_tuple(
-                    Tube::calcTick(
-                        point,
-                        m_bbox,
-                        m_depth)),
-                std::forward_as_tuple(point, table.getPoint(i)));
+                std::forward_as_tuple(Tube::calcTick(point, m_bbox, m_depth)),
+                std::forward_as_tuple(point, pos));
+
+        pos += pointSize;
     }
 }
 

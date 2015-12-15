@@ -42,7 +42,7 @@ Query::Query(
     , m_depthBegin(depthBegin)
     , m_depthEnd(depthEnd)
     , m_normalize(normalize)
-    , m_table(reader.schema(), 1, nullptr)
+    , m_table(reader.schema())
     , m_pointRef(m_table, 0)
     , m_chunks()
     , m_block()
@@ -170,7 +170,7 @@ void Query::processPoint(std::vector<char>& buffer, const PointInfo& info)
         buffer.resize(buffer.size() + m_outSchema.pointSize(), 0);
         char* pos(buffer.data() + buffer.size() - m_outSchema.pointSize());
 
-        m_table.linkTo(info.data());
+        m_table.setPoint(info.data());
         bool isX(false), isY(false), isZ(false);
 
         for (const auto& dim : m_outSchema.dims())

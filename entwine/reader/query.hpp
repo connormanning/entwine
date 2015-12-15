@@ -65,7 +65,7 @@ private:
     const std::size_t m_depthEnd;
     const bool m_normalize;
 
-    LinkingPointTable m_table;
+    BinaryPointTable m_table;
     pdal::PointRef m_pointRef;
 
     FetchInfoSet m_chunks;

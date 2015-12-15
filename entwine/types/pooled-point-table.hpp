@@ -19,38 +19,6 @@
 namespace entwine
 {
 
-class LinkingPointTable : public pdal::StreamPointTable
-{
-public:
-    LinkingPointTable(
-            const Schema& schema,
-            std::size_t numPoints,
-            const char* data)
-        : pdal::StreamPointTable(schema.pdalLayout())
-        , m_schema(schema)
-        , m_numPoints(numPoints)
-        , m_data(data)
-    { }
-
-    void linkTo(const char* data) { m_data = data; }
-
-    virtual pdal::point_count_t capacity() const override
-    {
-        return m_numPoints;
-    }
-
-    virtual char* getPoint(pdal::PointId index) override
-    {
-        // :(
-        return const_cast<char*>(m_data) + index * m_schema.pointSize();
-    }
-
-private:
-    const Schema& m_schema;
-    const std::size_t m_numPoints;
-    const char* m_data;
-};
-
 class BinaryPointTable : public pdal::StreamPointTable
 {
 public:
