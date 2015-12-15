@@ -60,14 +60,22 @@ void PooledPointTable::allocate()
 {
     const std::size_t needs(blockSize - m_stack.size());
 
-    m_stack.push(m_pools.infoPool().acquire(needs));
+    PooledInfoStack infoStack(m_pools.infoPool().acquire(needs));
     PooledDataStack dataStack(m_pools.dataPool().acquire(needs));
 
-    RawInfoNode* info(m_stack.head());
+    RawInfoNode* info(infoStack.head());
 
     for (std::size_t i(0); i < needs; ++i)
     {
         info->construct(dataStack.popOne());
+        info = info->next();
+    }
+
+    m_stack.push(std::move(infoStack));
+    info = m_stack.head();
+
+    for (std::size_t i(0); i < blockSize; ++i)
+    {
         m_nodes[i] = info;
         info = info->next();
     }
