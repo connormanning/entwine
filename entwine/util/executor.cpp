@@ -10,6 +10,7 @@
 
 #include <entwine/util/executor.hpp>
 
+#include <pdal/BufferReader.hpp>
 #include <pdal/Filter.hpp>
 #include <pdal/QuickInfo.hpp>
 #include <pdal/Reader.hpp>
@@ -26,11 +27,6 @@ namespace entwine
 
 namespace
 {
-    struct NoopDelete
-    {
-        void operator()(pdal::Filter*) { }
-    };
-
     Reprojection srsFoundOrDefault(
             const pdal::SpatialReference& found,
             const Reprojection& given)
@@ -64,22 +60,25 @@ bool Executor::run(
     if (!reader) return false;
     reader->prepare(table);
 
+    pdal::Stage* executor(reader.get());
+
+    std::unique_ptr<pdal::Filter> filter;
+
     if (reprojection)
     {
-        std::unique_ptr<pdal::Filter> filter(
+        filter =
             createReprojectionFilter(
                 srsFoundOrDefault(reader->getSpatialReference(), *reprojection),
-                table));
+                table);
 
         if (!filter) return false;
 
         filter->setInput(*reader);
-        filter->execute(table);
+        executor = filter.get();
     }
-    else
-    {
-        reader->execute(table);
-    }
+
+    executor->prepare(table);
+    executor->execute(table);
 
     return true;
 }
@@ -107,13 +106,6 @@ std::unique_ptr<Preview> Executor::preview(
         std::unique_ptr<pdal::Reader> reader(createReader(driver, path));
         if (reader)
         {
-            pdal::PointTable table;
-
-            auto layout(table.layout());
-            layout->registerDim(Dimension::Id::X);
-            layout->registerDim(Dimension::Id::Y);
-            layout->registerDim(Dimension::Id::Z);
-
             const pdal::QuickInfo quick(reader->preview());
 
             if (quick.valid())
@@ -133,31 +125,42 @@ std::unique_ptr<Preview> Executor::preview(
 
                 if (reprojection)
                 {
+                    pdal::PointTable table;
+                    auto layout(table.layout());
+                    layout->registerDim(Dimension::Id::X);
+                    layout->registerDim(Dimension::Id::Y);
+                    layout->registerDim(Dimension::Id::Z);
+                    layout->finalize();
+
+                    pdal::PointViewPtr view(new pdal::PointView(table));
+                    view->setField(Dimension::Id::X, 0, bbox.min().x);
+                    view->setField(Dimension::Id::Y, 0, bbox.min().y);
+                    view->setField(Dimension::Id::Z, 0, bbox.min().z);
+                    view->setField(Dimension::Id::X, 1, bbox.max().x);
+                    view->setField(Dimension::Id::Y, 1, bbox.max().y);
+                    view->setField(Dimension::Id::Z, 1, bbox.max().z);
+
+                    pdal::BufferReader buffer;
+                    buffer.addView(view);
+
                     std::unique_ptr<pdal::Filter> filter(
                             createReprojectionFilter(
                                 srsFoundOrDefault(quick.m_srs, *reprojection),
                                 table));
+                    filter->setInput(buffer);
 
-                    pdal::PointView view(table);
-
-                    view.setField(Dimension::Id::X, 0, bbox.min().x);
-                    view.setField(Dimension::Id::Y, 0, bbox.min().y);
-                    view.setField(Dimension::Id::Z, 0, bbox.min().z);
-                    view.setField(Dimension::Id::X, 1, bbox.max().x);
-                    view.setField(Dimension::Id::Y, 1, bbox.max().y);
-                    view.setField(Dimension::Id::Z, 1, bbox.max().z);
-
-                    pdal::FilterWrapper::filter(*filter, view);
+                    filter->prepare(table);
+                    filter->execute(table);
 
                     bbox = BBox(
                             Point(
-                                view.getFieldAs<double>(Dimension::Id::X, 0),
-                                view.getFieldAs<double>(Dimension::Id::Y, 0),
-                                view.getFieldAs<double>(Dimension::Id::Z, 0)),
+                                view->getFieldAs<double>(Dimension::Id::X, 0),
+                                view->getFieldAs<double>(Dimension::Id::Y, 0),
+                                view->getFieldAs<double>(Dimension::Id::Z, 0)),
                             Point(
-                                view.getFieldAs<double>(Dimension::Id::X, 1),
-                                view.getFieldAs<double>(Dimension::Id::Y, 1),
-                                view.getFieldAs<double>(Dimension::Id::Z, 1)),
+                                view->getFieldAs<double>(Dimension::Id::X, 1),
+                                view->getFieldAs<double>(Dimension::Id::Y, 1),
+                                view->getFieldAs<double>(Dimension::Id::Z, 1)),
                             m_is3d);
 
                     srs = pdal::SpatialReference(reprojection->out()).getWKT();
@@ -216,27 +219,23 @@ std::unique_ptr<pdal::Filter> Executor::createReprojectionFilter(
     }
 
     auto lock(getLock());
-    std::shared_ptr<pdal::Filter> filter(
+    std::unique_ptr<pdal::Filter> filter(
             static_cast<pdal::Filter*>(
-                m_stageFactory->createStage("filters.reprojection")),
-            NoopDelete());
+                m_stageFactory->createStage("filters.reprojection")));
     lock.unlock();
 
-    std::unique_ptr<pdal::Options> reprojOptions(new pdal::Options());
-    reprojOptions->add(
+    pdal::Options options;
+    options.add(
             pdal::Option(
                 "in_srs",
                 pdal::SpatialReference(reproj.in())));
-    reprojOptions->add(
+    options.add(
             pdal::Option(
                 "out_srs",
                 pdal::SpatialReference(reproj.out())));
+    filter->setOptions(options);
 
-    pdal::FilterWrapper::initialize(filter, pointTable);
-    pdal::FilterWrapper::processOptions(*filter, *reprojOptions);
-    pdal::FilterWrapper::ready(*filter, pointTable);
-
-    return std::unique_ptr<pdal::Filter>(filter.get());
+    return filter;
 }
 
 std::unique_lock<std::mutex> Executor::getLock() const
