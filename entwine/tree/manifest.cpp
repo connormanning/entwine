@@ -237,7 +237,13 @@ void Manifest::merge(const Manifest& other)
 
         if (ours.status() == out || theirs.status() == out)
         {
-            error("Invalid file info status - file was not inserted");
+            // If a build was terminated early, paths are left outstanding.  In
+            // this case, the merged build is not resumable, since it would
+            // require reinserting a possibly partially inserted path.  The
+            // subsets would each need to be continued to completion and then
+            // their results merged.
+            ours.status(out);
+            continue;
         }
 
         if (ours.status() == FileInfo::Status::Omitted)

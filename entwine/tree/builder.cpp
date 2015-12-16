@@ -555,6 +555,13 @@ bool Builder::setEnd(const Origin end)
     return set;
 }
 
+void Builder::stop()
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_end = std::min(m_end, m_origin + 1);
+    std::cout << "Setting end at " << m_end << std::endl;
+}
+
 Origin Builder::end() const
 {
     std::lock_guard<std::mutex> lock(m_mutex);

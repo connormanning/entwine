@@ -62,6 +62,7 @@ public:
     Schema schema() const;
     BBox bbox() const;
     std::size_t numPoints() const;
+    const Reprojection* reprojection() const { return m_reproj; }
 
 private:
     void add(std::string localPath, FileInfo& fileInfo);
