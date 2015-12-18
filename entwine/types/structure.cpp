@@ -83,9 +83,7 @@ ChunkInfo::ChunkInfo(const Structure& structure, const Id& index)
     }
 }
 
-std::size_t ChunkInfo::calcDepth(
-        const std::size_t factor,
-        const Id& index)
+std::size_t ChunkInfo::calcDepth(const std::size_t factor, const Id& index)
 {
     return log2(index * (factor - 1) + 1) / log2(factor);
 }
@@ -113,11 +111,7 @@ Id ChunkInfo::binaryPow(
 
 std::size_t ChunkInfo::logN(std::size_t val, std::size_t n)
 {
-    if (n != 4 && n != 8)
-    {
-        throw std::runtime_error("Invalid logN arg: " + std::to_string(n));
-    }
-
+    assert(n == 4 || n == 8);
     return log2(val) / log2(n);
 }
 
