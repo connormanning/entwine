@@ -19,7 +19,7 @@
 #include <unordered_map>
 
 #include <entwine/third/json/json.hpp>
-#include <entwine/types/structure.hpp>
+#include <entwine/tree/point-info.hpp>
 
 namespace arbiter
 {
@@ -29,13 +29,16 @@ namespace arbiter
 namespace entwine
 {
 
+class BBox;
 class Cell;
 class Chunk;
 class ChunkInfo;
 class Climber;
 class Clipper;
 class Pool;
+class Pools;
 class Schema;
+class Structure;
 
 class Cold
 {

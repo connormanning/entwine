@@ -185,6 +185,37 @@ public:
         return m_pointStats.toJson();
     }
 
+    class Split
+    {
+    public:
+        Split(std::size_t begin, std::size_t end)
+            : m_begin(begin)
+            , m_end(end)
+        { }
+
+        Split(const Json::Value& json)
+            : m_begin(json["begin"].asUInt64())
+            , m_end(json["end"].asUInt64())
+        { }
+
+        Json::Value toJson() const
+        {
+            Json::Value json;
+
+            json["begin"] = static_cast<Json::UInt64>(m_begin);
+            json["end"] = static_cast<Json::UInt64>(m_end);
+
+            return json;
+        }
+
+        std::size_t begin() const { return m_begin; }
+        std::size_t end() const { return m_end; }
+
+    private:
+        std::size_t m_begin;
+        std::size_t m_end;
+    };
+
 private:
     void countStatus(FileInfo::Status status)
     {
@@ -201,6 +232,8 @@ private:
 
     FileStats m_fileStats;
     PointStats m_pointStats;
+
+    std::unique_ptr<Split> m_split;
 
     mutable std::mutex m_mutex;
 };

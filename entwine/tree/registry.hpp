@@ -30,6 +30,7 @@ namespace arbiter
 namespace entwine
 {
 
+class BBox;
 class Cell;
 class Chunk;
 class Climber;
@@ -39,6 +40,7 @@ class BaseChunk;
 class PointInfo;
 class Pool;
 class Schema;
+class Subset;
 
 class Registry
 {
@@ -48,6 +50,7 @@ public:
             const Schema& schema,
             const BBox& bbox,
             const Structure& structure,
+            const Subset* subset,
             Pools& pointPool,
             std::size_t clipPoolSize);
 
@@ -56,6 +59,7 @@ public:
             const Schema& schema,
             const BBox& bbox,
             const Structure& structure,
+            const Subset* subset,
             Pools& pointPool,
             std::size_t clipPoolSize,
             const Json::Value& meta);
@@ -77,6 +81,7 @@ private:
     const Schema& m_schema;
     const BBox& m_bbox;
     const Structure& m_structure;
+    const Subset* m_subset;
     Pools& m_pointPool;
 
     const bool m_discardDuplicates;

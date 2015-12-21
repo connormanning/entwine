@@ -17,15 +17,14 @@
 #include <pdal/PointRef.hpp>
 
 #include <entwine/types/point.hpp>
+#include <entwine/types/schema.hpp>
+#include <entwine/third/bigint/little-big-int.hpp>
 #include <entwine/third/splice-pool/splice-pool.hpp>
 
 namespace entwine
 {
 
-typedef splicer::BufferPool<char> DataPool;
-typedef DataPool::NodeType RawDataNode;
-typedef DataPool::UniqueNodeType PooledDataNode;
-typedef DataPool::UniqueStackType PooledDataStack;
+typedef BigUint Id;
 
 class PointInfo
 {
@@ -35,6 +34,11 @@ public:
     virtual const Point& point() const = 0;
     virtual const char* data() const = 0;
 };
+
+typedef splicer::BufferPool<char> DataPool;
+typedef DataPool::NodeType RawDataNode;
+typedef DataPool::UniqueNodeType PooledDataNode;
+typedef DataPool::UniqueStackType PooledDataStack;
 
 class PointInfoShallow : public PointInfo
 {
@@ -72,6 +76,31 @@ public:
 private:
     Point m_point;
     PooledDataNode m_dataNode;
+};
+
+typedef splicer::ObjectPool<PointInfoShallow> InfoPool;
+typedef InfoPool::NodeType RawInfoNode;
+typedef InfoPool::UniqueNodeType PooledInfoNode;
+typedef InfoPool::UniqueStackType PooledInfoStack;
+
+class Pools
+{
+public:
+    Pools(const Schema& schema)
+        : m_schema(schema)
+        , m_dataPool(schema.pointSize(), 4096 * 32)
+        , m_infoPool(4096 * 32)
+    { }
+
+    const Schema& schema() { return m_schema; }
+    DataPool& dataPool() { return m_dataPool; }
+    InfoPool& infoPool() { return m_infoPool; }
+
+private:
+    const Schema& m_schema;
+
+    DataPool m_dataPool;
+    InfoPool m_infoPool;
 };
 
 class PointInfoNonPooled : public PointInfo

@@ -20,6 +20,8 @@
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/structure.hpp>
+#include <entwine/types/subset.hpp>
 
 using namespace entwine;
 
@@ -61,7 +63,7 @@ namespace
             "\t\t\tsubset-number - One-based subset ID in range\n"
             "\t\t\t[1, subset-total].\n\n"
             "\t\t\tsubset-total - Total number of subsets that will be built.\n"
-            "\t\t\tMust be 4, 16, or 64.\n";
+            "\t\t\tMust be a binary power.\n";
     }
 
     std::string getDimensionString(const Schema& schema)
@@ -78,20 +80,6 @@ namespace
         results += "]";
 
         return results;
-    }
-
-    std::string getBBoxString(const BBox* bbox, const std::size_t dimensions)
-    {
-        if (bbox)
-        {
-            std::ostringstream oss;
-            oss << *bbox;
-            return oss.str();
-        }
-        else
-        {
-            return "(inferring from source)";
-        }
     }
 
     std::string getReprojString(const Reprojection* reprojection)
@@ -158,8 +146,8 @@ void Kernel::build(std::vector<std::string> args)
                 ++a;
                 const Json::UInt64 of(std::stoul(args[a]));
 
-                json["structure"]["subset"]["id"] = id;
-                json["structure"]["subset"]["of"] = of;
+                json["subset"]["id"] = id;
+                json["subset"]["of"] = of;
             }
             else
             {
@@ -194,7 +182,7 @@ void Kernel::build(std::vector<std::string> args)
 
     const Structure& structure(builder->structure());
 
-    const BBox* bbox(builder->bbox());
+    const BBox& bbox(builder->bbox());
     const Reprojection* reprojection(builder->reprojection());
     const Schema& schema(builder->schema());
     const std::size_t runCount(json["input"]["run"].asUInt64());
@@ -217,10 +205,6 @@ void Kernel::build(std::vector<std::string> args)
             structure.lossless() ?
                 "lossless" :
                 std::to_string(structure.coldDepthEnd()));
-
-    const std::string subBBoxString(
-            builder->subBBox() ?
-                getBBoxString(builder->subBBox(), structure.dimensions()) : "");
 
     std::cout <<
         "\tTrust file headers? " << yesNo(builder->trustHeaders()) << "\n" <<
@@ -249,18 +233,16 @@ void Kernel::build(std::vector<std::string> args)
 
     std::cout <<
         "Geometry:\n" <<
-        "\tBounds: " << getBBoxString(bbox, structure.dimensions()) << "\n" <<
-        (subBBoxString.size() ?
-            std::string("\tSubset bounds: ") + subBBoxString + "\n" : "") <<
+        "\tBounds: " << bbox << "\n" <<
         "\tReprojection: " << getReprojString(reprojection) << "\n" <<
         "\tStoring dimensions: " << getDimensionString(schema) << "\n" <<
         std::endl;
 
-    if (structure.subset())
+    if (const Subset* subset = builder->subset())
     {
-        const auto subset(structure.subset());
-        std::cout << "Subset: " <<
-            subset->id() + 1 << " of " << subset->of() << "\n" <<
+        std::cout <<
+            "Subset: " << subset->id() + 1 << " of " << subset->of() << "\n" <<
+            "Subset bounds: " << subset->bbox() << "\n" <<
             std::endl;
     }
 

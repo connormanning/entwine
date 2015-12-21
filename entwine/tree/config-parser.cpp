@@ -18,6 +18,7 @@
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/subset.hpp>
 #include <entwine/util/inference.hpp>
 
 namespace entwine
@@ -90,6 +91,21 @@ namespace
 
         return reprojection;
     }
+
+    std::unique_ptr<Subset> getSubset(
+            const Json::Value& json,
+            Structure& structure,
+            const BBox& bbox)
+    {
+        std::unique_ptr<Subset> subset;
+
+        if (json.isMember("subset"))
+        {
+            subset.reset(new Subset(structure, bbox, json["subset"]));
+        }
+
+        return subset;
+    }
 }
 
 std::unique_ptr<Builder> ConfigParser::getBuilder(
@@ -127,14 +143,6 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     const bool dynamicChunks(jsonStructure["dynamicChunks"].asBool());
     const bool discardDuplicates(jsonStructure["discardDuplicates"].asBool());
     const bool prefixIds(jsonStructure["prefixIds"].asBool());
-
-    std::pair<std::size_t, std::size_t> subset({ 0, 0 });
-    if (jsonStructure.isMember("subset"))
-    {
-        subset = std::make_pair(
-                jsonStructure["subset"]["id"].asUInt64(),
-                jsonStructure["subset"]["of"].asUInt64());
-    }
 
     const std::size_t numPointsHint(
             jsonStructure.isMember("numPointsHint") ?
@@ -201,7 +209,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         }
     }
 
-    const Structure structure(
+    Structure structure(
             nullDepth,
             baseDepth,
             coldDepth,
@@ -211,9 +219,9 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
             tubular,
             dynamicChunks,
             discardDuplicates,
-            prefixIds,
-            bbox.get(),
-            subset);
+            prefixIds);
+
+    std::unique_ptr<Subset> subset(getSubset(config, structure, *bbox));
 
     if (!force && exists)
     {
@@ -236,9 +244,10 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                     tmpPath,
                     outCompress,
                     trustHeaders,
+                    subset.get(),
                     reprojection.get(),
-                    bbox.get(),
-                    schema.dims(),
+                    *bbox,
+                    schema,
                     threads,
                     structure,
                     arbiter));

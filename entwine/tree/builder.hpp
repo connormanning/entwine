@@ -18,19 +18,8 @@
 
 #include <pdal/Dimension.hpp>
 
-#include <entwine/third/splice-pool/splice-pool.hpp>
 #include <entwine/tree/manifest.hpp>
 #include <entwine/tree/point-info.hpp>
-#include <entwine/tree/registry.hpp>
-#include <entwine/types/dim-info.hpp>
-#include <entwine/types/range.hpp>
-#include <entwine/types/structure.hpp>
-#include <entwine/util/pool.hpp>
-
-namespace pdal
-{
-    class PointView;
-}
 
 namespace Json
 {
@@ -50,8 +39,14 @@ class BBox;
 class Clipper;
 class Driver;
 class Executor;
+class Manifest;
+class Pool;
+class Pools;
 class Registry;
 class Reprojection;
+class Schema;
+class Structure;
+class Subset;
 
 class Builder
 {
@@ -64,9 +59,10 @@ public:
             std::string tmpPath,
             bool compress,
             bool trustHeaders,
+            const Subset* subset,
             const Reprojection* reprojection,
-            const BBox* bbox,
-            const DimList& dimList,
+            const BBox& bbox,
+            const Schema& schema,
             std::size_t numThreads,
             const Structure& structure,
             std::shared_ptr<arbiter::Arbiter> arbiter = 0);
@@ -95,22 +91,22 @@ public:
     void merge();
 
     // Various getters.
-    const BBox* bbox() const                    { return m_bbox.get(); }
-    const BBox* subBBox() const                 { return m_subBBox.get(); }
-    const Schema& schema() const                { return *m_schema; }
-    const Structure& structure() const          { return *m_structure; }
-    const Reprojection* reprojection() const    { return m_reprojection.get(); }
-    const Manifest& manifest() const            { return *m_manifest; }
+    const BBox& bbox() const;
+    const Schema& schema() const;
+    const Manifest& manifest() const;
+    const Structure& structure() const;
+    const Subset* subset() const;
+    const Reprojection* reprojection() const;
 
     bool compress() const       { return m_compress; }
     bool trustHeaders() const   { return m_trustHeaders; }
     bool isContinuation() const { return m_isContinuation; }
 
     const std::string& srs() const { return m_srs; }
-    std::size_t numThreads() const { return m_pool->numThreads(); }
+    std::size_t numThreads() const;
 
-    const arbiter::Endpoint& outEndpoint() const { return *m_outEndpoint; }
-    const arbiter::Endpoint& tmpEndpoint() const { return *m_tmpEndpoint; }
+    const arbiter::Endpoint& outEndpoint() const;
+    const arbiter::Endpoint& tmpEndpoint() const;
 
     bool setEnd(Origin end);
     void stop();
@@ -133,10 +129,7 @@ private:
             Clipper* clipper);
 
     // Remove resources that are no longer needed.
-    void clip(const Id& index, std::size_t chunkNum, Clipper* clipper)
-    {
-        m_registry->clip(index, chunkNum, clipper);
-    }
+    void clip(const Id& index, std::size_t chunkNum, Clipper* clipper);
 
     // Awaken the tree from a saved state.
     void load(std::size_t clipThreads);
@@ -165,8 +158,10 @@ private:
     std::unique_ptr<BBox> m_subBBox;
     std::unique_ptr<Schema> m_schema;
     std::unique_ptr<Structure> m_structure;
-    std::unique_ptr<Reprojection> m_reprojection;
     std::unique_ptr<Manifest> m_manifest;
+    std::unique_ptr<Subset> m_subset;
+
+    std::unique_ptr<Reprojection> m_reprojection;
 
     mutable std::mutex m_mutex;
 

@@ -13,45 +13,14 @@
 #include <cstddef>
 #include <memory>
 
-#include <entwine/third/bigint/little-big-int.hpp>
 #include <entwine/third/json/json.hpp>
-#include <entwine/third/splice-pool/splice-pool.hpp>
 #include <entwine/tree/point-info.hpp>
-#include <entwine/types/schema.hpp>
-#include <entwine/types/subset.hpp>
 
 namespace entwine
 {
 
-typedef BigUint Id;
-
-typedef splicer::ObjectPool<PointInfoShallow> InfoPool;
-typedef InfoPool::NodeType RawInfoNode;
-typedef InfoPool::UniqueNodeType PooledInfoNode;
-typedef InfoPool::UniqueStackType PooledInfoStack;
-
-class Pools
-{
-public:
-    Pools(const Schema& schema)
-        : m_schema(schema)
-        , m_dataPool(schema.pointSize(), 4096 * 32)
-        , m_infoPool(4096 * 32)
-    { }
-
-    const Schema& schema() { return m_schema; }
-    DataPool& dataPool() { return m_dataPool; }
-    InfoPool& infoPool() { return m_infoPool; }
-
-private:
-    const Schema& m_schema;
-
-    DataPool m_dataPool;
-    InfoPool m_infoPool;
-};
-
-class BBox;
 class Structure;
+class Subset;
 
 class ChunkInfo
 {
@@ -94,6 +63,8 @@ private:
 
 class Structure
 {
+    friend class Subset;
+
 public:
     // Capped max depth.
     Structure(
@@ -106,9 +77,7 @@ public:
             bool tubular,
             bool dynamicChunks,
             bool discardDuplicates,
-            bool prefixIds,
-            const BBox* bbox,
-            std::pair<std::size_t, std::size_t> subset = { 0, 0 });
+            bool prefixIds);
 
     // Lossless.
     Structure(
@@ -120,12 +89,9 @@ public:
             bool tubular,
             bool dynamicChunks,
             bool discardDuplicates,
-            bool prefixIds,
-            const BBox* bbox,
-            std::pair<std::size_t, std::size_t> subset = { 0, 0 });
+            bool prefixIds);
 
-    Structure(const Json::Value& json, const BBox& bbox);
-    Structure(const Structure& other);
+    Structure(const Json::Value& json);
 
     Json::Value toJson() const;
 
@@ -187,7 +153,6 @@ public:
     bool discardDuplicates() const  { return m_discardDuplicates; }
     bool prefixIds() const          { return m_prefixIds; }
     bool is3d() const               { return m_dimensions == 3; }
-    bool primary() const            { return !m_subset || !m_subset->id(); }
 
     ChunkInfo getInfo(const Id& index) const { return ChunkInfo(*this, index); }
     std::size_t numPointsHint() const { return m_numPointsHint; }
@@ -208,11 +173,6 @@ public:
 
     std::size_t nominalChunkIndex() const { return m_nominalChunkIndex; }
     std::size_t nominalChunkDepth() const { return m_nominalChunkDepth; }
-
-    const Subset* subset() const { return m_subset.get(); }
-    void makeWhole();
-
-    std::string subsetPostfix() const;
 
     std::string maybePrefix(const Id& id) const
     {
@@ -243,6 +203,7 @@ public:
 
 private:
     void loadIndexValues();
+    void accomodateSubset(const Subset& subset, std::size_t minNullDepth);
 
     // Redundant values (since the beginning of one level is equal to the end
     // of the previous level) help to maintain a logical distinction between
@@ -280,8 +241,6 @@ private:
     std::size_t m_dimensions;
     std::size_t m_factor;
     std::size_t m_numPointsHint;
-
-    std::unique_ptr<Subset> m_subset;
 };
 
 } // namespace entwine

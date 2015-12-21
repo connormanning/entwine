@@ -23,6 +23,7 @@
 #include <entwine/tree/point-info.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/subset.hpp>
 #include <entwine/util/pool.hpp>
 #include <entwine/util/storage.hpp>
 
@@ -49,12 +50,14 @@ Registry::Registry(
         const Schema& schema,
         const BBox& bbox,
         const Structure& structure,
+        const Subset* subset,
         Pools& pointPool,
         const std::size_t clipPoolSize)
     : m_endpoint(endpoint)
     , m_schema(schema)
     , m_bbox(bbox)
     , m_structure(structure)
+    , m_subset(subset)
     , m_pointPool(pointPool)
     , m_discardDuplicates(structure.discardDuplicates())
     , m_as3d(structure.is3d() || structure.tubular())
@@ -94,6 +97,7 @@ Registry::Registry(
         const Schema& schema,
         const BBox& bbox,
         const Structure& structure,
+        const Subset* subset,
         Pools& pointPool,
         const std::size_t clipPoolSize,
         const Json::Value& meta)
@@ -101,6 +105,7 @@ Registry::Registry(
     , m_schema(schema)
     , m_bbox(bbox)
     , m_structure(structure)
+    , m_subset(subset)
     , m_pointPool(pointPool)
     , m_discardDuplicates(structure.discardDuplicates())
     , m_as3d(structure.is3d() || structure.tubular())
@@ -112,7 +117,7 @@ Registry::Registry(
     {
         const std::string basePath(
                 m_structure.baseIndexBegin().str() +
-                m_structure.subsetPostfix());
+                (m_subset ? m_subset->basePostfix() : ""));
 
         std::unique_ptr<std::vector<char>> data(
                 new std::vector<char>(m_endpoint.getSubpathBinary(basePath)));
@@ -236,7 +241,7 @@ void Registry::clip(
 
 void Registry::save(Json::Value& meta)
 {
-    m_base->save(m_endpoint, m_structure.subsetPostfix());
+    m_base->save(m_endpoint, m_subset ? m_subset->basePostfix() : "");
     m_base.reset();
 
     if (m_cold) meta["ids"] = m_cold->toJson();

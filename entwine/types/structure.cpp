@@ -15,6 +15,7 @@
 #include <iostream>
 
 #include <entwine/tree/climber.hpp>
+#include <entwine/types/subset.hpp>
 
 namespace entwine
 {
@@ -136,9 +137,7 @@ Structure::Structure(
         const bool tubular,
         const bool dynamicChunks,
         const bool discardDuplicates,
-        const bool prefixIds,
-        const BBox* bbox,
-        const std::pair<std::size_t, std::size_t> subset)
+        const bool prefixIds)
     : m_nullDepthBegin(0)
     , m_nullDepthEnd(nullDepth)
     , m_baseDepthBegin(m_nullDepthEnd)
@@ -157,13 +156,11 @@ Structure::Structure(
     , m_dimensions(dimensions)
     , m_factor(1ULL << m_dimensions)
     , m_numPointsHint(numPointsHint)
-    , m_subset(subset.second ?
-            new Subset(*this, bbox, subset.first, subset.second) : nullptr)
 {
     loadIndexValues();
 }
 
-Structure::Structure(const Json::Value& json, const BBox& bbox)
+Structure::Structure(const Json::Value& json)
     : m_nullDepthBegin(0)
     , m_nullDepthEnd(json["nullDepth"].asUInt64())
     , m_baseDepthBegin(m_nullDepthEnd)
@@ -182,114 +179,80 @@ Structure::Structure(const Json::Value& json, const BBox& bbox)
     , m_dimensions(json["dimensions"].asUInt64())
     , m_factor(1ULL << m_dimensions)
     , m_numPointsHint(json["numPointsHint"].asUInt64())
-    , m_subset(
-            json.isMember("subset") ?
-                new Subset(*this, bbox, json["subset"]) : nullptr)
 {
     loadIndexValues();
 }
 
-Structure::Structure(const Structure& other)
+void Structure::accomodateSubset(
+        const Subset& subset,
+        const std::size_t minNullDepth)
 {
-    m_nullDepthBegin = other.m_nullDepthBegin;
-    m_nullDepthEnd = other.m_nullDepthEnd;
-    m_baseDepthBegin = other.m_baseDepthBegin;
-    m_baseDepthEnd = other.m_baseDepthEnd;
-    m_coldDepthBegin = other.m_coldDepthBegin;
-    m_coldDepthEnd = other.m_coldDepthEnd;
-    m_sparseDepthBegin = other.m_sparseDepthBegin;
-    m_mappedDepthBegin = other.m_mappedDepthBegin;
+    if (m_nullDepthEnd < minNullDepth)
+    {
+        std::cout << "Bumping null depth to accommodate subset" <<
+            std::endl;
+    }
 
-    m_nullIndexBegin = other.m_nullIndexBegin;
-    m_nullIndexEnd = other.m_nullIndexEnd;
-    m_baseIndexBegin = other.m_baseIndexBegin;
-    m_baseIndexEnd = other.m_baseIndexEnd;
-    m_coldIndexBegin = other.m_coldIndexBegin;
-    m_coldIndexEnd = other.m_coldIndexEnd;
-    m_sparseIndexBegin = other.m_sparseIndexBegin;
-    m_mappedIndexBegin = other.m_mappedIndexBegin;
+    m_nullDepthEnd = std::max(m_nullDepthEnd, minNullDepth);
+    m_baseDepthBegin = m_nullDepthEnd;
+    m_baseDepthEnd = std::max(m_baseDepthBegin, m_baseDepthEnd);
+    m_coldDepthBegin = m_baseDepthEnd;
 
-    m_chunkPoints = other.m_chunkPoints;
+    // Only snap coldDepthEnd upward if it's non-zero, since a zero value
+    // means that the index is lossless.
+    if (m_coldDepthEnd)
+    {
+        m_coldDepthEnd = std::max(m_coldDepthBegin, m_coldDepthEnd);
+    }
 
-    m_nominalChunkIndex = other.m_nominalChunkIndex;
-    m_nominalChunkDepth = other.m_nominalChunkDepth;
+    if (hasCold())
+    {
+        bool done(false);
+        std::size_t bumped(0);
 
-    m_tubular = other.m_tubular;
-    m_dynamicChunks = other.m_dynamicChunks;
-    m_discardDuplicates = other.m_discardDuplicates;
-    m_prefixIds = other.m_prefixIds;
+        do
+        {
+            const std::size_t coldFirstSpan(
+                    ChunkInfo::pointsAtDepth(
+                        m_dimensions,
+                        m_coldDepthBegin).getSimple());
 
-    m_dimensions = other.m_dimensions;
-    m_factor = other.m_factor;
-    m_numPointsHint = other.m_numPointsHint;
+            std::size_t splits(m_factor);
+            while (splits < subset.of()) splits *= m_factor;
 
-    m_subset.reset(other.m_subset ? new Subset(*other.m_subset) : nullptr);
+            if (
+                    (coldFirstSpan / m_chunkPoints) < splits ||
+                    (coldFirstSpan / m_chunkPoints) % splits)
+            {
+                ++m_baseDepthEnd;
+                ++m_coldDepthBegin;
+
+                if (++bumped > 8)
+                {
+                    throw std::runtime_error(
+                            "Base depth is far too shallow for the "
+                            "specified subset");
+                }
+            }
+            else
+            {
+                done = true;
+            }
+        }
+        while (!done);
+
+        if (bumped)
+        {
+            std::cout << "Bumping cold depth to accommodate subset" <<
+                std::endl;
+        }
+    }
+
+    loadIndexValues();
 }
 
 void Structure::loadIndexValues()
 {
-    if (m_subset)
-    {
-        if (m_nullDepthEnd < m_subset->minNullDepth())
-        {
-            std::cout << "Bumping null depth to accommodate subset" <<
-                std::endl;
-        }
-
-        m_nullDepthEnd = std::max(m_nullDepthEnd, m_subset->minNullDepth());
-        m_baseDepthBegin = m_nullDepthEnd;
-        m_baseDepthEnd = std::max(m_baseDepthBegin, m_baseDepthEnd);
-        m_coldDepthBegin = m_baseDepthEnd;
-
-        // Only snap coldDepthEnd upward if it's non-zero, since a zero value
-        // means that the index is lossless.
-        if (m_coldDepthEnd)
-            m_coldDepthEnd = std::max(m_coldDepthBegin, m_coldDepthEnd);
-
-        if (hasCold())
-        {
-            bool done(false);
-            std::size_t bumped(0);
-
-            do
-            {
-                const std::size_t coldFirstSpan(
-                        ChunkInfo::pointsAtDepth(
-                            m_dimensions,
-                            m_coldDepthBegin).getSimple());
-
-                std::size_t splits(m_factor);
-                while (splits < m_subset->of()) splits *= m_factor;
-
-                if (
-                        (coldFirstSpan / m_chunkPoints) < splits ||
-                        (coldFirstSpan / m_chunkPoints) % splits)
-                {
-                    ++m_baseDepthEnd;
-                    ++m_coldDepthBegin;
-
-                    if (++bumped > 8)
-                    {
-                        throw std::runtime_error(
-                                "Base depth is far too shallow for the "
-                                "specified subset");
-                    }
-                }
-                else
-                {
-                    done = true;
-                }
-            }
-            while (!done);
-
-            if (bumped)
-            {
-                std::cout << "Bumping cold depth to accommodate subset" <<
-                    std::endl;
-            }
-        }
-    }
-
     if (m_baseDepthEnd < 4)
     {
         throw std::runtime_error("Base depth too small");
@@ -376,8 +339,6 @@ Json::Value Structure::toJson() const
     json["discardDuplicates"] = m_discardDuplicates;
     json["prefixIds"] = m_prefixIds;
 
-    if (m_subset) json["subset"] = m_subset->toJson();
-
     return json;
 }
 
@@ -457,18 +418,6 @@ std::size_t Structure::numChunksAtDepth(const std::size_t depth) const
     }
 
     return num;
-}
-
-void Structure::makeWhole()
-{
-    m_subset.reset();
-}
-
-std::string Structure::subsetPostfix() const
-{
-    std::string postfix("");
-    if (m_subset) postfix += "-" + std::to_string(m_subset->id());
-    return postfix;
 }
 
 } // namespace entwine

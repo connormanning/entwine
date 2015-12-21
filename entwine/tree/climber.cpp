@@ -74,9 +74,11 @@ void Climber::climb(Dir dir)
     // climbing in 2d.  If so, normalize the direction to 2d.
     if (m_tubular) dir = static_cast<Dir>(static_cast<int>(dir) % 4);
 
+    // TODO We shouldn't start at the nominal chunk depth, since we're doing
+    // all this work for no reason until we reach coldDepthBegin.
     if (++m_depth > m_structure.nominalChunkDepth())
     {
-        if (!m_sparseDepthBegin || m_depth <= m_sparseDepthBegin)
+        if (m_depth <= m_sparseDepthBegin || !m_sparseDepthBegin)
         {
             const std::size_t chunkRatio(
                     (m_index - m_chunkId).getSimple() /
@@ -88,27 +90,24 @@ void Climber::climb(Dir dir)
             m_chunkId.incSimple();
             m_chunkId += chunkRatio * m_chunkPoints;
 
-            if (m_depth > m_structure.nominalChunkDepth())
-            {
-                assert(chunkRatio < m_factor);
+            assert(chunkRatio < m_factor);
 
-                switch (static_cast<Dir>(chunkRatio))
-                {
-                    case Dir::swd: m_bboxChunk.goSwd(m_tubular); break;
-                    case Dir::sed: m_bboxChunk.goSed(m_tubular); break;
-                    case Dir::nwd: m_bboxChunk.goNwd(m_tubular); break;
-                    case Dir::ned: m_bboxChunk.goNed(m_tubular); break;
-                    case Dir::swu: m_bboxChunk.goSwu(); break;
-                    case Dir::seu: m_bboxChunk.goSeu(); break;
-                    case Dir::nwu: m_bboxChunk.goNwu(); break;
-                    case Dir::neu: m_bboxChunk.goNeu(); break;
-                }
+            switch (static_cast<Dir>(chunkRatio))
+            {
+                case Dir::swd: m_bboxChunk.goSwd(m_tubular); break;
+                case Dir::sed: m_bboxChunk.goSed(m_tubular); break;
+                case Dir::nwd: m_bboxChunk.goNwd(m_tubular); break;
+                case Dir::ned: m_bboxChunk.goNed(m_tubular); break;
+                case Dir::swu: m_bboxChunk.goSwu(); break;
+                case Dir::seu: m_bboxChunk.goSeu(); break;
+                case Dir::nwu: m_bboxChunk.goNwu(); break;
+                case Dir::neu: m_bboxChunk.goNeu(); break;
             }
 
             if (m_depth >= m_structure.coldDepthBegin())
             {
-                const Id offset(m_chunkId - m_structure.coldIndexBegin());
-                m_chunkNum = offset / m_chunkPoints;
+                m_chunkNum =
+                    (m_chunkId - m_structure.coldIndexBegin()) / m_chunkPoints;
             }
 
             m_depthChunks *= m_factor;

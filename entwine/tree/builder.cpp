@@ -17,15 +17,19 @@
 
 #include <entwine/compression/util.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
+#include <entwine/third/splice-pool/splice-pool.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
+#include <entwine/tree/registry.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/structure.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/executor.hpp>
+#include <entwine/util/pool.hpp>
 
 using namespace arbiter;
 
@@ -56,20 +60,20 @@ Builder::Builder(
         const std::string tmpPath,
         const bool compress,
         const bool trustHeaders,
+        const Subset* subset,
         const Reprojection* reprojection,
-        const BBox* bbox,
-        const DimList& dimList,
+        const BBox& bbox,
+        const Schema& schema,
         const std::size_t totalThreads,
         const Structure& structure,
         std::shared_ptr<Arbiter> arbiter)
-    : m_bbox(bbox ? new BBox(*bbox) : 0)
-    , m_subBBox(
-            structure.subset() ?
-                new BBox(structure.subset()->bbox()) : nullptr)
-    , m_schema(new Schema(dimList))
+    : m_bbox(new BBox(bbox))
+    , m_subBBox(subset ? new BBox(subset->bbox()) : nullptr)
+    , m_schema(new Schema(schema))
     , m_structure(new Structure(structure))
-    , m_reprojection(reprojection ? new Reprojection(*reprojection) : 0)
     , m_manifest(std::move(manifest))
+    , m_subset(subset ? new Subset(*subset) : nullptr)
+    , m_reprojection(reprojection ? new Reprojection(*reprojection) : nullptr)
     , m_mutex()
     , m_compress(compress)
     , m_trustHeaders(trustHeaders)
@@ -90,6 +94,7 @@ Builder::Builder(
                 *m_schema,
                 *m_bbox,
                 *m_structure,
+                m_subset.get(),
                 *m_pointPool,
                 getClipThreads(totalThreads)))
 {
@@ -106,8 +111,9 @@ Builder::Builder(
     , m_subBBox()
     , m_schema()
     , m_structure()
-    , m_reprojection()
     , m_manifest()
+    , m_subset()
+    , m_reprojection()
     , m_mutex()
     , m_compress(true)
     , m_trustHeaders(false)
@@ -133,8 +139,9 @@ Builder::Builder(const std::string path, std::shared_ptr<Arbiter> arbiter)
     , m_subBBox()
     , m_schema()
     , m_structure()
-    , m_reprojection()
     , m_manifest()
+    , m_subset()
+    , m_reprojection()
     , m_mutex()
     , m_compress(true)
     , m_trustHeaders(true)
@@ -225,7 +232,8 @@ bool Builder::checkPath(
     {
         if (!bbox.overlaps(*m_bbox))
         {
-            m_manifest->add(origin, numPoints, m_structure->primary());
+            const bool primary(!m_subset || m_subset->primary());
+            m_manifest->add(origin, numPoints, primary);
             return false;
         }
         else if (m_subBBox && !bbox.overlaps(*m_subBBox))
@@ -352,6 +360,7 @@ void Builder::load(const std::size_t clipThreads)
                 *m_schema,
                 *m_bbox,
                 *m_structure,
+                m_subset.get(),
                 *m_pointPool,
                 clipThreads,
                 meta));
@@ -363,7 +372,7 @@ void Builder::save()
     Json::Value jsonMeta(saveProps());
     m_registry->save(jsonMeta);
     m_outEndpoint->putSubpath(
-            "entwine" + m_structure->subsetPostfix(),
+            "entwine" + (m_subset ? m_subset->basePostfix() : ""),
             jsonMeta.toStyledString());
 }
 
@@ -401,8 +410,7 @@ void Builder::merge()
         reader.parse(metaString, meta, false);
 
         loadProps(meta);
-        const std::size_t baseCount(
-            meta["structure"]["subset"]["of"].asUInt64());
+        const std::size_t baseCount(meta["subset"]["of"].asUInt64());
 
         if (!baseCount) throw std::runtime_error("Cannot merge this path");
 
@@ -468,7 +476,8 @@ void Builder::merge()
 
     m_manifest = std::move(manifest);
 
-    m_structure->makeWhole();
+    // Make whole.
+    if (m_subset) m_subset.reset();
     m_subBBox.reset();
 
     Json::Value jsonMeta(saveProps());
@@ -486,6 +495,7 @@ Json::Value Builder::saveProps() const
     props["bbox"] = m_bbox->toJson();
     props["schema"] = m_schema->toJson();
     props["structure"] = m_structure->toJson();
+    if (m_subset) props["subset"] = m_subset->toJson();
     if (m_reprojection) props["reprojection"] = m_reprojection->toJson();
     props["manifest"] = m_manifest->toJson();
     props["srs"] = m_srs;
@@ -500,10 +510,17 @@ void Builder::loadProps(const Json::Value& props)
     m_bbox.reset(new BBox(props["bbox"]));
     m_schema.reset(new Schema(props["schema"]));
     m_pointPool.reset(new Pools(*m_schema));
-    m_structure.reset(new Structure(props["structure"], *m_bbox));
+    m_structure.reset(new Structure(props["structure"]));
+
+    if (props.isMember("subset"))
+    {
+        m_subset.reset(new Subset(*m_structure, *m_bbox, props["subset"]));
+    }
 
     if (props.isMember("reprojection"))
+    {
         m_reprojection.reset(new Reprojection(props["reprojection"]));
+    }
 
     m_srs = props["srs"].asString();
     m_manifest.reset(new Manifest(props["manifest"]));
@@ -566,6 +583,30 @@ Origin Builder::end() const
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     return m_end;
+}
+
+const BBox& Builder::bbox() const           { return *m_bbox; }
+const Schema& Builder::schema() const       { return *m_schema; }
+const Manifest& Builder::manifest() const   { return *m_manifest; }
+const Structure& Builder::structure() const { return *m_structure; }
+const Subset* Builder::subset() const       { return m_subset.get(); }
+
+const Reprojection* Builder::reprojection() const
+{
+    return m_reprojection.get();
+}
+
+std::size_t Builder::numThreads() const { return m_pool->numThreads(); }
+
+const arbiter::Endpoint& Builder::outEndpoint() const { return *m_outEndpoint; }
+const arbiter::Endpoint& Builder::tmpEndpoint() const { return *m_tmpEndpoint; }
+
+void Builder::clip(
+        const Id& index,
+        const std::size_t chunkNum,
+        Clipper* clipper)
+{
+    m_registry->clip(index, chunkNum, clipper);
 }
 
 } // namespace entwine
