@@ -108,8 +108,18 @@ public:
     const arbiter::Endpoint& outEndpoint() const;
     const arbiter::Endpoint& tmpEndpoint() const;
 
-    bool setEnd(Origin end);
+    // Stop this build as soon as possible.  All partially inserted paths will
+    // be completed, and non-inserted paths can be added by continuing this
+    // build later.
     void stop();
+
+    // Mark about half of the remaining work on the current build as "not our
+    // problem" - the remaining work can be done separately and we can merge
+    // it later.  If successfully split, the result is a Manifest::Split
+    // containing the manifest indices that should be built elsewhere.  If the
+    // result points to nullptr, then this builder has refused to give up any
+    // work and will complete the entirety of the build.
+    std::unique_ptr<Manifest::Split> split();
 
 private:
     // Returns true if we should insert this file.
@@ -140,6 +150,7 @@ private:
     // Set up bookkeeping, for example initializing the SRS.
     void init();
 
+    // Callers of these functions must not hold a lock on m_mutex.
     Origin end() const;
     bool keepGoing() const;
     void next();

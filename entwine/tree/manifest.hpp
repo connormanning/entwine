@@ -211,10 +211,31 @@ public:
         std::size_t begin() const { return m_begin; }
         std::size_t end() const { return m_end; }
 
+        void begin(std::size_t set) { m_begin = set; }
+        void end(std::size_t set) { m_end = set; }
+
     private:
         std::size_t m_begin;
         std::size_t m_end;
     };
+
+    const Split* split() const { return m_split.get(); }
+
+    void split(std::size_t end)
+    {
+        split(0, end);
+    }
+
+    void split(std::size_t begin, std::size_t end)
+    {
+        begin = std::min(begin, size());
+        end = std::min(end, size());
+
+        if (!m_split) m_split.reset(new Split(begin, end));
+        else m_split->end(end);
+    }
+
+    void unsplit() { m_split.reset(); }
 
 private:
     void countStatus(FileInfo::Status status)

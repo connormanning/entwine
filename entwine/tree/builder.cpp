@@ -165,6 +165,13 @@ Builder::~Builder()
 void Builder::go(std::size_t max)
 {
     m_end = m_manifest->size();
+
+    if (const Manifest::Split* split = m_manifest->split())
+    {
+        m_origin = split->begin();
+        m_end = split->end();
+    }
+
     max = max ? std::min<std::size_t>(m_end, max) : m_end;
 
     std::size_t added(0);
@@ -551,6 +558,41 @@ void Builder::prep()
     }
 }
 
+void Builder::stop()
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_end = std::min(m_end, m_origin + 1);
+    std::cout << "Setting end at " << m_end << std::endl;
+}
+
+std::unique_ptr<Manifest::Split> Builder::split()
+{
+    std::unique_ptr<Manifest::Split> manifestSplit;
+
+    std::lock_guard<std::mutex> lock(m_mutex);
+
+    const std::size_t remaining(m_end - m_origin);
+    const double ratioRemaining(
+            static_cast<double>(remaining) /
+            static_cast<double>(m_manifest->size()));
+
+    m_end = m_origin + remaining / 2;
+    m_manifest->split(m_end);
+
+    if (remaining > 2 && ratioRemaining > 0.05)
+    {
+        manifestSplit.reset(new Manifest::Split(m_end, m_manifest->size()));
+    }
+
+    return manifestSplit;
+}
+
+Origin Builder::end() const
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_end;
+}
+
 void Builder::next()
 {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -561,28 +603,6 @@ bool Builder::keepGoing() const
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     return m_origin < m_end;
-}
-
-bool Builder::setEnd(const Origin end)
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-
-    const bool set(end < m_end && end > m_origin);
-    if (set) m_end = end;
-    return set;
-}
-
-void Builder::stop()
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_end = std::min(m_end, m_origin + 1);
-    std::cout << "Setting end at " << m_end << std::endl;
-}
-
-Origin Builder::end() const
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-    return m_end;
 }
 
 const BBox& Builder::bbox() const           { return *m_bbox; }

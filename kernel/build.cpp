@@ -116,6 +116,8 @@ void Kernel::build(std::vector<std::string> args)
     Json::Value json(ConfigParser::parse(config));
     std::string user;
 
+    std::unique_ptr<Manifest::Split> split;
+
     std::size_t a(1);
 
     while (a < args.size())
@@ -154,6 +156,22 @@ void Kernel::build(std::vector<std::string> args)
                 throw std::runtime_error("Invalid subset specification");
             }
         }
+        else if (arg == "-m")
+        {
+            if (a + 2 < args.size())
+            {
+                ++a;
+                const Json::UInt64 begin(std::stoul(args[a]));
+                ++a;
+                const Json::UInt64 end(std::stoul(args[a]));
+
+                split.reset(new Manifest::Split(begin, end));
+            }
+            else
+            {
+                throw std::runtime_error("Invalid manifest specification");
+            }
+        }
 
         ++a;
     }
@@ -163,6 +181,8 @@ void Kernel::build(std::vector<std::string> args)
 
     std::unique_ptr<Manifest> manifest(
             ConfigParser::getManifest(json, *arbiter));
+
+    if (split) manifest->split(split->begin(), split->end());
 
     std::unique_ptr<Builder> builder(
             ConfigParser::getBuilder(json, arbiter, std::move(manifest)));
@@ -243,6 +263,14 @@ void Kernel::build(std::vector<std::string> args)
         std::cout <<
             "Subset: " << subset->id() + 1 << " of " << subset->of() << "\n" <<
             "Subset bounds: " << subset->bbox() << "\n" <<
+            std::endl;
+    }
+
+    if (const Manifest::Split* split = builder->manifest().split())
+    {
+        std::cout <<
+            "Manifest split: [" << split->begin() << ", " <<
+            split->end() << ")\n" <<
             std::endl;
     }
 

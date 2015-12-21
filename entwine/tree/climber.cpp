@@ -67,8 +67,6 @@ void Climber::climb(Dir dir)
     // climbing in 2d.  If so, normalize the direction to 2d.
     if (m_tubular) dir = static_cast<Dir>(static_cast<int>(dir) % 4);
 
-    // TODO We shouldn't start at the nominal chunk depth, since we're doing
-    // all this work for no reason until we reach coldDepthBegin.
     if (++m_depth > m_structure.nominalChunkDepth())
     {
         if (m_depth <= m_sparseDepthBegin || !m_sparseDepthBegin)
