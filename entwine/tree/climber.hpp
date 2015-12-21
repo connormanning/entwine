@@ -83,7 +83,6 @@ private:
     bool m_tubular;
 
     Id m_index;
-    Id m_levelIndex;
     Id m_chunkId;
     std::size_t m_tick;
 

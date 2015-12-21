@@ -23,7 +23,6 @@ Climber::Climber(const BBox& bbox, const Structure& structure)
     , m_is3d(structure.is3d())
     , m_tubular(structure.factor())
     , m_index(0)
-    , m_levelIndex(0)
     , m_chunkId(structure.nominalChunkIndex())
     , m_tick(0)
     , m_depth(0)
@@ -47,9 +46,9 @@ void Climber::magnify(const Point& point)
     }
 
     switch (
-        ((m_tubular || m_is3d) && point.z >= mid.z ? 4 : 0) +
-        (point.y >= mid.y ? 2 : 0) +
-        (point.x >= mid.x ? 1 : 0))
+        ((m_tubular || m_is3d) && point.z >= mid.z ? 4 : 0) +   // Up? +4.
+        (point.y >= mid.y ? 2 : 0) +                            // North? +2.
+        (point.x >= mid.x ? 1 : 0))                             // East? +1.
     {
         case Dir::swd: goSwd(); break;
         case Dir::sed: goSed(); break;
@@ -120,9 +119,6 @@ void Climber::climb(Dir dir)
     m_index <<= m_dimensions;
     m_index.incSimple();
     m_index += dir;
-
-    m_levelIndex <<= m_dimensions;
-    m_levelIndex.incSimple();
 }
 
 bool SplitClimber::next(bool terminate)
