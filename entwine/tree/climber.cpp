@@ -40,22 +40,16 @@ void Climber::magnify(const Point& point)
 {
     const Point& mid(m_bbox.mid());
 
-    if (m_tubular && m_depth <= m_structure.sparseDepthBegin())
+    if (m_tubular && m_depth < Tube::maxTickDepth())
     {
-        m_tick *= 2;
+        m_tick <<= 1;
         if (point.z >= mid.z) ++m_tick;
     }
 
-    // Up: +4, Down: +0.
-    const int z((m_tubular || m_is3d) && point.z >= mid.z ? 4 : 0);
-
-    // North: +2, South: +0.
-    const int y(point.y >= mid.y ? 2 : 0);
-
-    // East: +1, West: +0.
-    const int x(point.x >= mid.x ? 1 : 0);
-
-    switch (x + y + z)
+    switch (
+        ((m_tubular || m_is3d) && point.z >= mid.z ? 4 : 0) +
+        (point.y >= mid.y ? 2 : 0) +
+        (point.x >= mid.x ? 1 : 0))
     {
         case Dir::swd: goSwd(); break;
         case Dir::sed: goSed(); break;

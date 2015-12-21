@@ -51,7 +51,7 @@ Chunk::Chunk(
     , m_bbox(bbox)
     , m_structure(structure)
     , m_pools(pools)
-    , m_zDepth(std::min(structure.sparseDepthBegin() + 1, depth))
+    , m_zDepth(std::min(Tube::maxTickDepth(), depth))
     , m_id(id)
     , m_maxPoints(maxPoints)
     , m_numPoints(numPoints)
