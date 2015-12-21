@@ -116,8 +116,8 @@ static inline std::string codePointToUTF8(unsigned int cp) {
   } else if (cp <= 0xFFFF) {
     result.resize(3);
     result[2] = static_cast<char>(0x80 | (0x3f & cp));
-    result[1] = 0x80 | static_cast<char>((0x3f & (cp >> 6)));
-    result[0] = 0xE0 | static_cast<char>((0xf & (cp >> 12)));
+    result[1] = static_cast<char>(0x80 | (0x3f & (cp >> 6)));
+    result[0] = static_cast<char>(0xE0 | (0xf & (cp >> 12)));
   } else if (cp <= 0x10FFFF) {
     result.resize(4);
     result[3] = static_cast<char>(0x80 | (0x3f & cp));
@@ -129,7 +129,7 @@ static inline std::string codePointToUTF8(unsigned int cp) {
   return result;
 }
 
-/// Returns true if ch is a control character (in range [0,32[).
+/// Returns true if ch is a control character (in range [1,31]).
 static inline bool isControlCharacter(char ch) { return ch > 0 && ch <= 0x1F; }
 
 enum {
@@ -149,7 +149,7 @@ typedef char UIntToStringBuffer[uintToStringBufferSize];
 static inline void uintToString(LargestUInt value, char*& current) {
   *--current = 0;
   do {
-    *--current = char(value % 10) + '0';
+    *--current = static_cast<signed char>(value % 10U + static_cast<unsigned>('0'));
     value /= 10;
   } while (value != 0);
 }
@@ -204,9 +204,24 @@ static inline void fixNumericLocale(char* begin, char* end) {
 #include <sstream>
 #include <memory>
 #include <set>
+#include <limits>
 
-#if defined(_MSC_VER) && _MSC_VER < 1500 // VC++ 8.0 and below
+#if defined(_MSC_VER)
+#if !defined(WINCE) && defined(__STDC_SECURE_LIB__) && _MSC_VER >= 1500 // VC++ 9.0 and above
+#define snprintf sprintf_s
+#elif _MSC_VER >= 1900 // VC++ 14.0 and above
+#define snprintf std::snprintf
+#else
 #define snprintf _snprintf
+#endif
+#elif defined(__ANDROID__) || defined(__QNXNTO__)
+#define snprintf snprintf
+#elif __cplusplus >= 201103L
+#define snprintf std::snprintf
+#endif
+
+#if defined(__QNXNTO__)
+#define sscanf std::sscanf
 #endif
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400 // VC++ 8.0
@@ -219,7 +234,7 @@ static int       stackDepth_g = 0;  // see readValue()
 
 namespace Json {
 
-#if __cplusplus >= 201103L
+#if __cplusplus >= 201103L || (defined(_CPPLIB_VER) && _CPPLIB_VER >= 520)
 typedef std::unique_ptr<CharReader> CharReaderPtr;
 #else
 typedef std::auto_ptr<CharReader>   CharReaderPtr;
@@ -742,7 +757,7 @@ bool Reader::decodeNumber(Token& token, Value& decoded) {
     ++current;
   // TODO: Help the compiler do the div and mod at compile time or get rid of them.
   Value::LargestUInt maxIntegerValue =
-      isNegative ? Value::LargestUInt(-Value::minLargestInt)
+      isNegative ? Value::LargestUInt(Value::maxLargestInt) + 1
                  : Value::maxLargestUInt;
   Value::LargestUInt threshold = maxIntegerValue / 10;
   Value::LargestUInt value = 0;
@@ -763,7 +778,9 @@ bool Reader::decodeNumber(Token& token, Value& decoded) {
     }
     value = value * 10 + digit;
   }
-  if (isNegative)
+  if (isNegative && value == maxIntegerValue)
+    decoded = Value::minLargestInt;
+  else if (isNegative)
     decoded = -Value::LargestInt(value);
   else if (value <= Value::LargestUInt(Value::maxInt))
     decoded = Value::LargestInt(value);
@@ -784,33 +801,9 @@ bool Reader::decodeDouble(Token& token) {
 
 bool Reader::decodeDouble(Token& token, Value& decoded) {
   double value = 0;
-  const int bufferSize = 32;
-  int count;
-  int length = int(token.end_ - token.start_);
-
-  // Sanity check to avoid buffer overflow exploits.
-  if (length < 0) {
-    return addError("Unable to parse token length", token);
-  }
-
-  // Avoid using a string constant for the format control string given to
-  // sscanf, as this can cause hard to debug crashes on OS X. See here for more
-  // info:
-  //
-  //     http://developer.apple.com/library/mac/#DOCUMENTATION/DeveloperTools/gcc-4.0.1/gcc/Incompatibilities.html
-  char format[] = "%lf";
-
-  if (length <= bufferSize) {
-    Char buffer[bufferSize + 1];
-    memcpy(buffer, token.start_, length);
-    buffer[length] = 0;
-    count = sscanf(buffer, format, &value);
-  } else {
-    std::string buffer(token.start_, token.end_);
-    count = sscanf(buffer.c_str(), format, &value);
-  }
-
-  if (count != 1)
+  std::string buffer(token.start_, token.end_);
+  std::istringstream is(buffer);
+  if (!(is >> value))
     return addError("'" + std::string(token.start_, token.end_) +
                         "' is not a number.",
                     token);
@@ -1004,15 +997,7 @@ std::string Reader::getLocationLineAndColumn(Location location) const {
   int line, column;
   getLocationLineAndColumn(location, line, column);
   char buffer[18 + 16 + 16 + 1];
-#if defined(_MSC_VER) && defined(__STDC_SECURE_LIB__)
-#if defined(WINCE)
-  _snprintf(buffer, sizeof(buffer), "Line %d, Column %d", line, column);
-#else
-  sprintf_s(buffer, sizeof(buffer), "Line %d, Column %d", line, column);
-#endif
-#else
   snprintf(buffer, sizeof(buffer), "Line %d, Column %d", line, column);
-#endif
   return buffer;
 }
 
@@ -1095,7 +1080,6 @@ bool Reader::good() const {
 class OurFeatures {
 public:
   static OurFeatures all();
-  OurFeatures();
   bool allowComments_;
   bool strictRoot_;
   bool allowDroppedNullPlaceholders_;
@@ -1103,19 +1087,12 @@ public:
   bool allowSingleQuotes_;
   bool failIfExtra_;
   bool rejectDupKeys_;
+  bool allowSpecialFloats_;
   int stackLimit_;
 };  // OurFeatures
 
 // exact copy of Implementation of class Features
 // ////////////////////////////////
-
-OurFeatures::OurFeatures()
-    : allowComments_(true), strictRoot_(false)
-    , allowDroppedNullPlaceholders_(false), allowNumericKeys_(false)
-    , allowSingleQuotes_(false)
-    , failIfExtra_(false)
-{
-}
 
 OurFeatures OurFeatures::all() { return OurFeatures(); }
 
@@ -1159,6 +1136,9 @@ private:
     tokenTrue,
     tokenFalse,
     tokenNull,
+    tokenNaN,
+    tokenPosInf,
+    tokenNegInf,
     tokenArraySeparator,
     tokenMemberSeparator,
     tokenComment,
@@ -1189,7 +1169,7 @@ private:
   bool readCppStyleComment();
   bool readString();
   bool readStringSingleQuote();
-  void readNumber();
+  bool readNumber(bool checkInf);
   bool readValue();
   bool readObject(Token& token);
   bool readArray(Token& token);
@@ -1241,7 +1221,9 @@ private:
 
 OurReader::OurReader(OurFeatures const& features)
     : errors_(), document_(), begin_(), end_(), current_(), lastValueEnd_(),
-      lastValue_(), commentsBefore_(), features_(features), collectComments_() {
+      lastValue_(), commentsBefore_(),
+      stackDepth_(0),
+      features_(features), collectComments_() {
 }
 
 bool OurReader::parse(const char* beginDoc,
@@ -1343,6 +1325,30 @@ bool OurReader::readValue() {
     currentValue().setOffsetLimit(token.end_ - begin_);
     }
     break;
+  case tokenNaN:
+    {
+    Value v(std::numeric_limits<double>::quiet_NaN());
+    currentValue().swapPayload(v);
+    currentValue().setOffsetStart(token.start_ - begin_);
+    currentValue().setOffsetLimit(token.end_ - begin_);
+    }
+    break;
+  case tokenPosInf:
+    {
+    Value v(std::numeric_limits<double>::infinity());
+    currentValue().swapPayload(v);
+    currentValue().setOffsetStart(token.start_ - begin_);
+    currentValue().setOffsetLimit(token.end_ - begin_);
+    }
+    break;
+  case tokenNegInf:
+    {
+    Value v(-std::numeric_limits<double>::infinity());
+    currentValue().swapPayload(v);
+    currentValue().setOffsetStart(token.start_ - begin_);
+    currentValue().setOffsetLimit(token.end_ - begin_);
+    }
+    break;
   case tokenArraySeparator:
   case tokenObjectEnd:
   case tokenArrayEnd:
@@ -1423,9 +1429,16 @@ bool OurReader::readToken(Token& token) {
   case '7':
   case '8':
   case '9':
-  case '-':
     token.type_ = tokenNumber;
-    readNumber();
+    readNumber(false);
+    break;
+  case '-':
+    if (readNumber(true)) {
+      token.type_ = tokenNumber;
+    } else {
+      token.type_ = tokenNegInf;
+      ok = features_.allowSpecialFloats_ && match("nfinity", 7);
+    }
     break;
   case 't':
     token.type_ = tokenTrue;
@@ -1438,6 +1451,22 @@ bool OurReader::readToken(Token& token) {
   case 'n':
     token.type_ = tokenNull;
     ok = match("ull", 3);
+    break;
+  case 'N':
+    if (features_.allowSpecialFloats_) {
+      token.type_ = tokenNaN;
+      ok = match("aN", 2);
+    } else {
+      ok = false;
+    }
+    break;
+  case 'I':
+    if (features_.allowSpecialFloats_) {
+      token.type_ = tokenPosInf;
+      ok = match("nfinity", 7);
+    } else {
+      ok = false;
+    }
     break;
   case ',':
     token.type_ = tokenArraySeparator;
@@ -1539,8 +1568,12 @@ bool OurReader::readCppStyleComment() {
   return true;
 }
 
-void OurReader::readNumber() {
+bool OurReader::readNumber(bool checkInf) {
   const char *p = current_;
+  if (checkInf && p != end_ && *p == 'I') {
+    current_ = ++p;
+    return false;
+  }
   char c = '0'; // stopgap for already consumed character
   // integral part
   while (c >= '0' && c <= '9')
@@ -1559,6 +1592,7 @@ void OurReader::readNumber() {
     while (c >= '0' && c <= '9')
       c = (current_ = p) < end_ ? *p++ : 0;
   }
+  return true;
 }
 bool OurReader::readString() {
   Char c = 0;
@@ -1967,15 +2001,7 @@ std::string OurReader::getLocationLineAndColumn(Location location) const {
   int line, column;
   getLocationLineAndColumn(location, line, column);
   char buffer[18 + 16 + 16 + 1];
-#if defined(_MSC_VER) && defined(__STDC_SECURE_LIB__)
-#if defined(WINCE)
-  _snprintf(buffer, sizeof(buffer), "Line %d, Column %d", line, column);
-#else
-  sprintf_s(buffer, sizeof(buffer), "Line %d, Column %d", line, column);
-#endif
-#else
   snprintf(buffer, sizeof(buffer), "Line %d, Column %d", line, column);
-#endif
   return buffer;
 }
 
@@ -2060,9 +2086,9 @@ public:
   : collectComments_(collectComments)
   , reader_(features)
   {}
-  virtual bool parse(
+  bool parse(
       char const* beginDoc, char const* endDoc,
-      Value* root, std::string* errs) {
+      Value* root, std::string* errs) override {
     bool ok = reader_.parse(beginDoc, endDoc, *root, collectComments_);
     if (errs) {
       *errs = reader_.getFormattedErrorMessages();
@@ -2089,6 +2115,7 @@ CharReader* CharReaderBuilder::newCharReader() const
   features.stackLimit_ = settings_["stackLimit"].asInt();
   features.failIfExtra_ = settings_["failIfExtra"].asBool();
   features.rejectDupKeys_ = settings_["rejectDupKeys"].asBool();
+  features.allowSpecialFloats_ = settings_["allowSpecialFloats"].asBool();
   return new OurCharReader(collectComments, features);
 }
 static void getValidReaderKeys(std::set<std::string>* valid_keys)
@@ -2103,6 +2130,7 @@ static void getValidReaderKeys(std::set<std::string>* valid_keys)
   valid_keys->insert("stackLimit");
   valid_keys->insert("failIfExtra");
   valid_keys->insert("rejectDupKeys");
+  valid_keys->insert("allowSpecialFloats");
 }
 bool CharReaderBuilder::validate(Json::Value* invalid) const
 {
@@ -2134,8 +2162,10 @@ void CharReaderBuilder::strictMode(Json::Value* settings)
   (*settings)["allowDroppedNullPlaceholders"] = false;
   (*settings)["allowNumericKeys"] = false;
   (*settings)["allowSingleQuotes"] = false;
+  (*settings)["stackLimit"] = 1000;
   (*settings)["failIfExtra"] = true;
   (*settings)["rejectDupKeys"] = true;
+  (*settings)["allowSpecialFloats"] = false;
 //! [CharReaderBuilderStrictMode]
 }
 // static
@@ -2151,6 +2181,7 @@ void CharReaderBuilder::setDefaults(Json::Value* settings)
   (*settings)["stackLimit"] = 1000;
   (*settings)["failIfExtra"] = false;
   (*settings)["rejectDupKeys"] = false;
+  (*settings)["allowSpecialFloats"] = false;
 //! [CharReaderBuilderDefaults]
 }
 
@@ -2180,7 +2211,7 @@ std::istream& operator>>(std::istream& sin, Value& root) {
             "Error from reader: %s",
             errs.c_str());
 
-    throwRuntimeError("reader error");
+    throwRuntimeError(errs);
   }
   return sin;
 }
@@ -2295,26 +2326,26 @@ UInt ValueIteratorBase::index() const {
 }
 
 std::string ValueIteratorBase::name() const {
-  char const* key;
+  char const* keey;
   char const* end;
-  key = memberName(&end);
-  if (!key) return std::string();
-  return std::string(key, end);
+  keey = memberName(&end);
+  if (!keey) return std::string();
+  return std::string(keey, end);
 }
 
 char const* ValueIteratorBase::memberName() const {
-  const char* name = (*current_).first.data();
-  return name ? name : "";
+  const char* cname = (*current_).first.data();
+  return cname ? cname : "";
 }
 
 char const* ValueIteratorBase::memberName(char const** end) const {
-  const char* name = (*current_).first.data();
-  if (!name) {
+  const char* cname = (*current_).first.data();
+  if (!cname) {
     *end = NULL;
     return NULL;
   }
-  *end = name + (*current_).first.length();
-  return name;
+  *end = cname + (*current_).first.length();
+  return cname;
 }
 
 // //////////////////////////////////////////////////////////////////
@@ -2330,6 +2361,9 @@ ValueConstIterator::ValueConstIterator() {}
 ValueConstIterator::ValueConstIterator(
     const Value::ObjectValues::iterator& current)
     : ValueIteratorBase(current) {}
+
+ValueConstIterator::ValueConstIterator(ValueIterator const& other)
+    : ValueIteratorBase(other) {}
 
 ValueConstIterator& ValueConstIterator::
 operator=(const ValueIteratorBase& other) {
@@ -2351,7 +2385,9 @@ ValueIterator::ValueIterator(const Value::ObjectValues::iterator& current)
     : ValueIteratorBase(current) {}
 
 ValueIterator::ValueIterator(const ValueConstIterator& other)
-    : ValueIteratorBase(other) {}
+    : ValueIteratorBase(other) {
+  throwRuntimeError("ConstIterator to Iterator should never be allowed.");
+}
 
 ValueIterator::ValueIterator(const ValueIterator& other)
     : ValueIteratorBase(other) {}
@@ -2486,7 +2522,7 @@ static inline char* duplicateAndPrefixStringValue(
   JSON_ASSERT_MESSAGE(length <= (unsigned)Value::maxInt - sizeof(unsigned) - 1U,
                       "in Json::Value::duplicateAndPrefixStringValue(): "
                       "length too big for prefixing");
-  unsigned actualLength = length + sizeof(unsigned) + 1U;
+  unsigned actualLength = length + static_cast<unsigned>(sizeof(unsigned)) + 1U;
   char* newString = static_cast<char*>(malloc(actualLength));
   if (newString == 0) {
     throwRuntimeError(
@@ -2503,7 +2539,7 @@ inline static void decodePrefixedString(
     unsigned* length, char const** value)
 {
   if (!isPrefixed) {
-    *length = strlen(prefixed);
+    *length = static_cast<unsigned>(strlen(prefixed));
     *value = prefixed;
   } else {
     *length = *reinterpret_cast<unsigned const*>(prefixed);
@@ -2529,23 +2565,6 @@ static inline void releaseStringValue(char* value) { free(value); }
 #endif // if !defined(JSON_IS_AMALGAMATION)
 
 namespace Json {
-
-class JSON_API Exception : public std::exception {
-public:
-  Exception(std::string const& msg);
-  virtual ~Exception() throw();
-  virtual char const* what() const throw();
-protected:
-  std::string const& msg_;
-};
-class JSON_API RuntimeError : public Exception {
-public:
-  RuntimeError(std::string const& msg);
-};
-class JSON_API LogicError : public Exception {
-public:
-  LogicError(std::string const& msg);
-};
 
 Exception::Exception(std::string const& msg)
   : msg_(msg)
@@ -2610,27 +2629,32 @@ void Value::CommentInfo::setComment(const char* text, size_t len) {
 // Notes: policy_ indicates if the string was allocated when
 // a string is stored.
 
-Value::CZString::CZString(ArrayIndex index) : cstr_(0), index_(index) {}
+Value::CZString::CZString(ArrayIndex aindex) : cstr_(0), index_(aindex) {}
 
-Value::CZString::CZString(char const* str, unsigned length, DuplicationPolicy allocate)
-    : cstr_(str)
-{
+Value::CZString::CZString(char const* str, unsigned ulength, DuplicationPolicy allocate)
+    : cstr_(str) {
   // allocate != duplicate
-  storage_.policy_ = allocate;
-  storage_.length_ = length;
+  storage_.policy_ = allocate & 0x3;
+  storage_.length_ = ulength & 0x3FFFFFFF;
 }
 
 Value::CZString::CZString(const CZString& other)
     : cstr_(other.storage_.policy_ != noDuplication && other.cstr_ != 0
                 ? duplicateStringValue(other.cstr_, other.storage_.length_)
-                : other.cstr_)
-{
+                : other.cstr_) {
   storage_.policy_ = (other.cstr_
-                 ? (other.storage_.policy_ == noDuplication
+                 ? (static_cast<DuplicationPolicy>(other.storage_.policy_) == noDuplication
                      ? noDuplication : duplicate)
-                 : other.storage_.policy_);
+                 : static_cast<DuplicationPolicy>(other.storage_.policy_));
   storage_.length_ = other.storage_.length_;
 }
+
+#if JSON_HAS_RVALUE_REFERENCES
+Value::CZString::CZString(CZString&& other)
+  : cstr_(other.cstr_), index_(other.index_) {
+  other.cstr_ = nullptr;
+}
+#endif
 
 Value::CZString::~CZString() {
   if (cstr_ && storage_.policy_ == duplicate)
@@ -2690,9 +2714,9 @@ bool Value::CZString::isStaticString() const { return storage_.policy_ == noDupl
  * memset( this, 0, sizeof(Value) )
  * This optimization is used in ValueInternalMap fast allocator.
  */
-Value::Value(ValueType type) {
-  initBasic(type);
-  switch (type) {
+Value::Value(ValueType vtype) {
+  initBasic(vtype);
+  switch (vtype) {
   case nullValue:
     break;
   case intValue:
@@ -2820,6 +2844,14 @@ Value::Value(Value const& other)
   }
 }
 
+#if JSON_HAS_RVALUE_REFERENCES
+// Move constructor
+Value::Value(Value&& other) {
+  initBasic(nullValue);
+  swap(other);
+}
+#endif
+
 Value::~Value() {
   switch (type_) {
   case nullValue:
@@ -2856,7 +2888,7 @@ void Value::swapPayload(Value& other) {
   std::swap(value_, other.value_);
   int temp2 = allocated_;
   allocated_ = other.allocated_;
-  other.allocated_ = temp2;
+  other.allocated_ = temp2 & 0x1;
 }
 
 void Value::swap(Value& other) {
@@ -2984,12 +3016,12 @@ const char* Value::asCString() const {
   return this_str;
 }
 
-bool Value::getString(char const** str, char const** end) const {
+bool Value::getString(char const** str, char const** cend) const {
   if (type_ != stringValue) return false;
   if (value_.string_ == 0) return false;
   unsigned length;
   decodePrefixedString(this->allocated_, this->value_.string_, &length, str);
-  *end = *str + length;
+  *cend = *str + length;
   return true;
 }
 
@@ -3188,7 +3220,8 @@ bool Value::asBool() const {
   case uintValue:
     return value_.uint_ ? true : false;
   case realValue:
-    return value_.real_ ? true : false;
+    // This is kind of strange. Not recommended.
+    return (value_.real_ != 0.0) ? true : false;
   default:
     break;
   }
@@ -3338,8 +3371,8 @@ const Value& Value::operator[](int index) const {
   return (*this)[ArrayIndex(index)];
 }
 
-void Value::initBasic(ValueType type, bool allocated) {
-  type_ = type;
+void Value::initBasic(ValueType vtype, bool allocated) {
+  type_ = vtype;
   allocated_ = allocated;
   comments_ = 0;
   start_ = 0;
@@ -3368,7 +3401,7 @@ Value& Value::resolveReference(const char* key) {
 }
 
 // @param key is not null-terminated.
-Value& Value::resolveReference(char const* key, char const* end)
+Value& Value::resolveReference(char const* key, char const* cend)
 {
   JSON_ASSERT_MESSAGE(
       type_ == nullValue || type_ == objectValue,
@@ -3376,7 +3409,7 @@ Value& Value::resolveReference(char const* key, char const* end)
   if (type_ == nullValue)
     *this = Value(objectValue);
   CZString actualKey(
-      key, static_cast<unsigned>(end-key), CZString::duplicateOnCopy);
+      key, static_cast<unsigned>(cend-key), CZString::duplicateOnCopy);
   ObjectValues::iterator it = value_.map_->lower_bound(actualKey);
   if (it != value_.map_->end() && (*it).first == actualKey)
     return (*it).second;
@@ -3394,13 +3427,13 @@ Value Value::get(ArrayIndex index, const Value& defaultValue) const {
 
 bool Value::isValidIndex(ArrayIndex index) const { return index < size(); }
 
-Value const* Value::find(char const* key, char const* end) const
+Value const* Value::find(char const* key, char const* cend) const
 {
   JSON_ASSERT_MESSAGE(
       type_ == nullValue || type_ == objectValue,
       "in Json::Value::find(key, end, found): requires objectValue or nullValue");
   if (type_ == nullValue) return NULL;
-  CZString actualKey(key, static_cast<unsigned>(end-key), CZString::noDuplication);
+  CZString actualKey(key, static_cast<unsigned>(cend-key), CZString::noDuplication);
   ObjectValues::const_iterator it = value_.map_->find(actualKey);
   if (it == value_.map_->end()) return NULL;
   return &(*it).second;
@@ -3444,9 +3477,9 @@ Value const& Value::operator[](CppTL::ConstString const& key) const
 
 Value& Value::append(const Value& value) { return (*this)[size()] = value; }
 
-Value Value::get(char const* key, char const* end, Value const& defaultValue) const
+Value Value::get(char const* key, char const* cend, Value const& defaultValue) const
 {
-  Value const* found = find(key, end);
+  Value const* found = find(key, cend);
   return !found ? defaultValue : *found;
 }
 Value Value::get(char const* key, Value const& defaultValue) const
@@ -3459,12 +3492,12 @@ Value Value::get(std::string const& key, Value const& defaultValue) const
 }
 
 
-bool Value::removeMember(const char* key, const char* end, Value* removed)
+bool Value::removeMember(const char* key, const char* cend, Value* removed)
 {
   if (type_ != objectValue) {
     return false;
   }
-  CZString actualKey(key, static_cast<unsigned>(end-key), CZString::noDuplication);
+  CZString actualKey(key, static_cast<unsigned>(cend-key), CZString::noDuplication);
   ObjectValues::iterator it = value_.map_->find(actualKey);
   if (it == value_.map_->end())
     return false;
@@ -3509,8 +3542,8 @@ bool Value::removeIndex(ArrayIndex index, Value* removed) {
   ArrayIndex oldSize = size();
   // shift left all items left, into the place of the "removed"
   for (ArrayIndex i = index; i < (oldSize - 1); ++i){
-    CZString key(i);
-    (*value_.map_)[key] = (*this)[i + 1];
+    CZString keey(i);
+    (*value_.map_)[keey] = (*this)[i + 1];
   }
   // erase the last one ("leftover")
   CZString keyLast(oldSize - 1);
@@ -3526,9 +3559,9 @@ Value Value::get(const CppTL::ConstString& key,
 }
 #endif
 
-bool Value::isMember(char const* key, char const* end) const
+bool Value::isMember(char const* key, char const* cend) const
 {
-  Value const* value = find(key, end);
+  Value const* value = find(key, cend);
   return NULL != value;
 }
 bool Value::isMember(char const* key) const
@@ -3948,20 +3981,58 @@ Value& Path::make(Value& root) const {
 #include <sstream>
 #include <utility>
 #include <set>
-#include <assert.h>
-#include <cmath>
-#include <stdio.h>
-#include <string.h>
+#include <cassert>
+#include <cstring>
+#include <cstdio>
 
-#if defined(_MSC_VER) && _MSC_VER < 1500 // VC++ 8.0 and below
+#if defined(_MSC_VER) && _MSC_VER >= 1200 && _MSC_VER < 1800 // Between VC++ 6.0 and VC++ 11.0
+#include <float.h>
+#define isfinite _finite
+#elif defined(__sun) && defined(__SVR4) //Solaris
+#if !defined(isfinite)
+#include <ieeefp.h>
+#define isfinite finite
+#endif
+#elif defined(_AIX)
+#if !defined(isfinite)
+#include <math.h>
+#define isfinite finite
+#endif
+#elif defined(__hpux)
+#if !defined(isfinite)
+#if defined(__ia64) && !defined(finite)
+#define isfinite(x) ((sizeof(x) == sizeof(float) ? \
+                     _Isfinitef(x) : _IsFinite(x)))
+#else
+#include <math.h>
+#define isfinite finite
+#endif
+#endif
+#else
+#include <cmath>
+#if !(defined(__QNXNTO__)) // QNX already defines isfinite
+#define isfinite std::isfinite
+#endif
+#endif
+
+#if defined(_MSC_VER)
+#if !defined(WINCE) && defined(__STDC_SECURE_LIB__) && _MSC_VER >= 1500 // VC++ 9.0 and above
+#define snprintf sprintf_s
+#elif _MSC_VER >= 1900 // VC++ 14.0 and above
+#define snprintf std::snprintf
+#else
+#define snprintf _snprintf
+#endif
+#elif defined(__ANDROID__) || defined(__QNXNTO__)
+#define snprintf snprintf
+#elif __cplusplus >= 201103L
+#define snprintf std::snprintf
+#endif
+
+#if defined(__BORLANDC__)
 #include <float.h>
 #define isfinite _finite
 #define snprintf _snprintf
-#elif defined(__sun) && defined(__SVR4) //Solaris
-#include <ieeefp.h>
-#define isfinite finite
-#else
-#define isfinite std::isfinite
 #endif
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400 // VC++ 8.0
@@ -3971,7 +4042,7 @@ Value& Path::make(Value& root) const {
 
 namespace Json {
 
-#if __cplusplus >= 201103L
+#if __cplusplus >= 201103L || (defined(_CPPLIB_VER) && _CPPLIB_VER >= 520)
 typedef std::unique_ptr<StreamWriter> StreamWriterPtr;
 #else
 typedef std::auto_ptr<StreamWriter>   StreamWriterPtr;
@@ -3998,12 +4069,15 @@ static bool containsControlCharacter0(const char* str, unsigned len) {
 std::string valueToString(LargestInt value) {
   UIntToStringBuffer buffer;
   char* current = buffer + sizeof(buffer);
-  bool isNegative = value < 0;
-  if (isNegative)
-    value = -value;
-  uintToString(LargestUInt(value), current);
-  if (isNegative)
+  if (value == Value::minLargestInt) {
+    uintToString(LargestUInt(Value::maxLargestInt) + 1, current);
     *--current = '-';
+  } else if (value < 0) {
+    uintToString(LargestUInt(-value), current);
+    *--current = '-';
+  } else {
+    uintToString(LargestUInt(value), current);
+  }
   assert(current >= buffer);
   return current;
 }
@@ -4028,42 +4102,37 @@ std::string valueToString(UInt value) {
 
 #endif // # if defined(JSON_HAS_INT64)
 
-std::string valueToString(double value) {
+std::string valueToString(double value, bool useSpecialFloats, unsigned int precision) {
   // Allocate a buffer that is more than large enough to store the 16 digits of
   // precision requested below.
   char buffer[32];
   int len = -1;
 
-// Print into the buffer. We need not request the alternative representation
-// that always has a decimal point because JSON doesn't distingish the
-// concepts of reals and integers.
-#if defined(_MSC_VER) && defined(__STDC_SECURE_LIB__) // Use secure version with
-                                                      // visual studio 2005 to
-                                                      // avoid warning.
-#if defined(WINCE)
-  len = _snprintf(buffer, sizeof(buffer), "%.17g", value);
-#else
-  len = sprintf_s(buffer, sizeof(buffer), "%.17g", value);
-#endif
-#else
+  char formatString[6];
+  sprintf(formatString, "%%.%dg", precision);
+
+  // Print into the buffer. We need not request the alternative representation
+  // that always has a decimal point because JSON doesn't distingish the
+  // concepts of reals and integers.
   if (isfinite(value)) {
-    len = snprintf(buffer, sizeof(buffer), "%.17g", value);
+    len = snprintf(buffer, sizeof(buffer), formatString, value);
   } else {
     // IEEE standard states that NaN values will not compare to themselves
     if (value != value) {
-      len = snprintf(buffer, sizeof(buffer), "null");
+      len = snprintf(buffer, sizeof(buffer), useSpecialFloats ? "NaN" : "null");
     } else if (value < 0) {
-      len = snprintf(buffer, sizeof(buffer), "-1e+9999");
+      len = snprintf(buffer, sizeof(buffer), useSpecialFloats ? "-Infinity" : "-1e+9999");
     } else {
-      len = snprintf(buffer, sizeof(buffer), "1e+9999");
+      len = snprintf(buffer, sizeof(buffer), useSpecialFloats ? "Infinity" : "1e+9999");
     }
     // For those, we do not need to call fixNumLoc, but it is fast.
   }
-#endif
   assert(len >= 0);
   fixNumericLocale(buffer, buffer + len);
   return buffer;
 }
+
+std::string valueToString(double value) { return valueToString(value, false, 17); }
 
 std::string valueToString(bool value) { return value ? "true" : "false"; }
 
@@ -4248,8 +4317,14 @@ void FastWriter::writeValue(const Value& value) {
     document_ += valueToString(value.asDouble());
     break;
   case stringValue:
-    document_ += valueToQuotedString(value.asCString());
+  {
+    // Is NULL possible for value.string_?
+    char const* str;
+    char const* end;
+    bool ok = value.getString(&str, &end);
+    if (ok) document_ += valueToQuotedStringN(str, static_cast<unsigned>(end-str));
     break;
+  }
   case booleanValue:
     document_ += valueToString(value.asBool());
     break;
@@ -4271,7 +4346,7 @@ void FastWriter::writeValue(const Value& value) {
       const std::string& name = *it;
       if (it != members.begin())
         document_ += ',';
-      document_ += valueToQuotedStringN(name.data(), name.length());
+      document_ += valueToQuotedStringN(name.data(), static_cast<unsigned>(name.length()));
       document_ += yamlCompatiblityEnabled_ ? ": " : ":";
       writeValue(value[name]);
     }
@@ -4313,7 +4388,7 @@ void StyledWriter::writeValue(const Value& value) {
     break;
   case stringValue:
   {
-    // Is NULL is possible for value.string_?
+    // Is NULL possible for value.string_?
     char const* str;
     char const* end;
     bool ok = value.getString(&str, &end);
@@ -4405,8 +4480,7 @@ bool StyledWriter::isMultineArray(const Value& value) {
   childValues_.clear();
   for (int index = 0; index < size && !isMultiLine; ++index) {
     const Value& childValue = value[index];
-    isMultiLine =
-        isMultiLine || ((childValue.isArray() || childValue.isObject()) &&
+    isMultiLine = ((childValue.isArray() || childValue.isObject()) &&
                         childValue.size() > 0);
   }
   if (!isMultiLine) // check if line length > max line length
@@ -4530,8 +4604,15 @@ void StyledStreamWriter::writeValue(const Value& value) {
     pushValue(valueToString(value.asDouble()));
     break;
   case stringValue:
-    pushValue(valueToQuotedString(value.asCString()));
+  {
+    // Is NULL possible for value.string_?
+    char const* str;
+    char const* end;
+    bool ok = value.getString(&str, &end);
+    if (ok) pushValue(valueToQuotedStringN(str, static_cast<unsigned>(end-str)));
+    else pushValue("");
     break;
+  }
   case booleanValue:
     pushValue(valueToString(value.asBool()));
     break;
@@ -4618,8 +4699,7 @@ bool StyledStreamWriter::isMultineArray(const Value& value) {
   childValues_.clear();
   for (int index = 0; index < size && !isMultiLine; ++index) {
     const Value& childValue = value[index];
-    isMultiLine =
-        isMultiLine || ((childValue.isArray() || childValue.isObject()) &&
+    isMultiLine = ((childValue.isArray() || childValue.isObject()) &&
                         childValue.size() > 0);
   }
   if (!isMultiLine) // check if line length > max line length
@@ -4723,8 +4803,10 @@ struct BuiltStyledStreamWriter : public StreamWriter
       CommentStyle::Enum cs,
       std::string const& colonSymbol,
       std::string const& nullSymbol,
-      std::string const& endingLineFeedSymbol);
-  virtual int write(Value const& root, std::ostream* sout);
+      std::string const& endingLineFeedSymbol,
+      bool useSpecialFloats,
+      unsigned int precision);
+  int write(Value const& root, std::ostream* sout) override;
 private:
   void writeValue(Value const& value);
   void writeArrayValue(Value const& value);
@@ -4750,13 +4832,17 @@ private:
   std::string endingLineFeedSymbol_;
   bool addChildValues_ : 1;
   bool indented_ : 1;
+  bool useSpecialFloats_ : 1;
+  unsigned int precision_;
 };
 BuiltStyledStreamWriter::BuiltStyledStreamWriter(
       std::string const& indentation,
       CommentStyle::Enum cs,
       std::string const& colonSymbol,
       std::string const& nullSymbol,
-      std::string const& endingLineFeedSymbol)
+      std::string const& endingLineFeedSymbol,
+      bool useSpecialFloats,
+      unsigned int precision)
   : rightMargin_(74)
   , indentation_(indentation)
   , cs_(cs)
@@ -4765,6 +4851,8 @@ BuiltStyledStreamWriter::BuiltStyledStreamWriter(
   , endingLineFeedSymbol_(endingLineFeedSymbol)
   , addChildValues_(false)
   , indented_(false)
+  , useSpecialFloats_(useSpecialFloats)
+  , precision_(precision)
 {
 }
 int BuiltStyledStreamWriter::write(Value const& root, std::ostream* sout)
@@ -4794,7 +4882,7 @@ void BuiltStyledStreamWriter::writeValue(Value const& value) {
     pushValue(valueToString(value.asLargestUInt()));
     break;
   case realValue:
-    pushValue(valueToString(value.asDouble()));
+    pushValue(valueToString(value.asDouble(), useSpecialFloats_, precision_));
     break;
   case stringValue:
   {
@@ -4824,7 +4912,7 @@ void BuiltStyledStreamWriter::writeValue(Value const& value) {
         std::string const& name = *it;
         Value const& childValue = value[name];
         writeCommentBeforeValue(childValue);
-        writeWithIndent(valueToQuotedStringN(name.data(), name.length()));
+        writeWithIndent(valueToQuotedStringN(name.data(), static_cast<unsigned>(name.length())));
         *sout_ << colonSymbol_;
         writeValue(childValue);
         if (++it == members.end()) {
@@ -4894,8 +4982,7 @@ bool BuiltStyledStreamWriter::isMultineArray(Value const& value) {
   childValues_.clear();
   for (int index = 0; index < size && !isMultiLine; ++index) {
     Value const& childValue = value[index];
-    isMultiLine =
-        isMultiLine || ((childValue.isArray() || childValue.isObject()) &&
+    isMultiLine = ((childValue.isArray() || childValue.isObject()) &&
                         childValue.size() > 0);
   }
   if (!isMultiLine) // check if line length > max line length
@@ -5009,6 +5096,8 @@ StreamWriter* StreamWriterBuilder::newStreamWriter() const
   std::string cs_str = settings_["commentStyle"].asString();
   bool eyc = settings_["enableYAMLCompatibility"].asBool();
   bool dnp = settings_["dropNullPlaceholders"].asBool();
+  bool usf = settings_["useSpecialFloats"].asBool();
+  unsigned int pre = settings_["precision"].asUInt();
   CommentStyle::Enum cs = CommentStyle::All;
   if (cs_str == "All") {
     cs = CommentStyle::All;
@@ -5027,10 +5116,11 @@ StreamWriter* StreamWriterBuilder::newStreamWriter() const
   if (dnp) {
     nullSymbol = "";
   }
+  if (pre > 17) pre = 17;
   std::string endingLineFeedSymbol = "";
   return new BuiltStyledStreamWriter(
       indentation, cs,
-      colonSymbol, nullSymbol, endingLineFeedSymbol);
+      colonSymbol, nullSymbol, endingLineFeedSymbol, usf, pre);
 }
 static void getValidWriterKeys(std::set<std::string>* valid_keys)
 {
@@ -5039,6 +5129,8 @@ static void getValidWriterKeys(std::set<std::string>* valid_keys)
   valid_keys->insert("commentStyle");
   valid_keys->insert("enableYAMLCompatibility");
   valid_keys->insert("dropNullPlaceholders");
+  valid_keys->insert("useSpecialFloats");
+  valid_keys->insert("precision");
 }
 bool StreamWriterBuilder::validate(Json::Value* invalid) const
 {
@@ -5069,6 +5161,8 @@ void StreamWriterBuilder::setDefaults(Json::Value* settings)
   (*settings)["indentation"] = "\t";
   (*settings)["enableYAMLCompatibility"] = false;
   (*settings)["dropNullPlaceholders"] = false;
+  (*settings)["useSpecialFloats"] = false;
+  (*settings)["precision"] = 17;
   //! [StreamWriterBuilderDefaults]
 }
 
