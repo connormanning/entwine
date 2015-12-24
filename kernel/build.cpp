@@ -176,8 +176,11 @@ void Kernel::build(std::vector<std::string> args)
         ++a;
     }
 
+    Json::Value arbiterConfig;
+    arbiterConfig["s3"]["user"] = user;
+
     std::shared_ptr<arbiter::Arbiter> arbiter(
-            std::make_shared<arbiter::Arbiter>(user));
+            std::make_shared<arbiter::Arbiter>(arbiterConfig));
 
     std::unique_ptr<Manifest> manifest(
             ConfigParser::getManifest(json, *arbiter));

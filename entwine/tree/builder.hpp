@@ -53,6 +53,7 @@ class Builder
     friend class Clipper;
 
 public:
+    // Launch a new build.
     Builder(
             std::unique_ptr<Manifest> manifest,
             std::string outPath,
@@ -67,15 +68,19 @@ public:
             const Structure& structure,
             std::shared_ptr<arbiter::Arbiter> arbiter = 0);
 
+    // Continue an existing build.
     Builder(
-            std::unique_ptr<Manifest> manifest,
             std::string outPath,
             std::string tmpPath,
             std::size_t numThreads,
             std::shared_ptr<arbiter::Arbiter> arbiter = 0);
 
-    // Only used for merging.
-    Builder(std::string path, std::shared_ptr<arbiter::Arbiter> arbiter = 0);
+    // Doesn't insert points, but metadata can be altered or different
+    // builders may be merged.
+    Builder(
+            std::string path,
+            std::size_t subsetId = 0,   // One-based.  Zero means no subset.
+            std::shared_ptr<arbiter::Arbiter> arbiter = 0);
 
     ~Builder();
 
@@ -95,12 +100,15 @@ public:
     const Schema& schema() const;
     const Manifest& manifest() const;
     const Structure& structure() const;
+    const Registry& registry() const;
     const Subset* subset() const;
     const Reprojection* reprojection() const;
+    Pools& pools() const;
 
     bool compress() const       { return m_compress; }
     bool trustHeaders() const   { return m_trustHeaders; }
     bool isContinuation() const { return m_isContinuation; }
+    bool chunkExists(const Id& id) const;
 
     const std::string& srs() const { return m_srs; }
     std::size_t numThreads() const;
@@ -119,7 +127,7 @@ public:
     // containing the manifest indices that should be built elsewhere.  If the
     // result points to nullptr, then this builder has refused to give up any
     // work and will complete the entirety of the build.
-    std::unique_ptr<Manifest::Split> split();
+    std::unique_ptr<Manifest::Split> takeWork();
 
 private:
     // Returns true if we should insert this file.
@@ -142,7 +150,7 @@ private:
     void clip(const Id& index, std::size_t chunkNum, Clipper* clipper);
 
     // Awaken the tree from a saved state.
-    void load(std::size_t clipThreads);
+    void load(std::size_t clipThreads, std::size_t subsetId = 0);
 
     // Validate sources.
     void prep();
@@ -192,7 +200,7 @@ private:
     std::unique_ptr<arbiter::Endpoint> m_outEndpoint;
     std::unique_ptr<arbiter::Endpoint> m_tmpEndpoint;
 
-    std::unique_ptr<Pools> m_pointPool;
+    mutable std::unique_ptr<Pools> m_pointPool;
     std::unique_ptr<Registry> m_registry;
 
     Builder(const Builder&);

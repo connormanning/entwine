@@ -15,6 +15,7 @@
 
 #include <entwine/compression/util.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
+#include <entwine/tree/builder.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/util/storage.hpp>
@@ -39,38 +40,32 @@ namespace
 }
 
 Chunk::Chunk(
-        const Schema& schema,
+        const Builder& builder,
         const BBox& bbox,
-        const Structure& structure,
-        Pools& pools,
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints,
         const std::size_t numPoints)
-    : m_schema(schema)
+    : m_builder(builder)
     , m_bbox(bbox)
-    , m_structure(structure)
-    , m_pools(pools)
     , m_zDepth(std::min(Tube::maxTickDepth(), depth))
     , m_id(id)
     , m_maxPoints(maxPoints)
     , m_numPoints(numPoints)
 {
-    chunkMem.fetch_add(m_numPoints * m_schema.pointSize());
+    chunkMem.fetch_add(m_numPoints * m_builder.schema().pointSize());
     chunkCnt.fetch_add(1);
 }
 
 Chunk::~Chunk()
 {
-    chunkMem.fetch_sub(m_numPoints * m_schema.pointSize());
+    chunkMem.fetch_sub(m_numPoints * m_builder.schema().pointSize());
     chunkCnt.fetch_sub(1);
 }
 
 std::unique_ptr<Chunk> Chunk::create(
-        const Schema& schema,
+        const Builder& builder,
         const BBox& bbox,
-        const Structure& structure,
-        Pools& pools,
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints,
@@ -83,48 +78,24 @@ std::unique_ptr<Chunk> Chunk::create(
         if (depth)
         {
             chunk.reset(
-                    new ContiguousChunk(
-                        schema,
-                        bbox,
-                        structure,
-                        pools,
-                        depth,
-                        id,
-                        maxPoints));
+                    new ContiguousChunk(builder, bbox, depth, id, maxPoints));
         }
         else
         {
-            chunk.reset(
-                    new BaseChunk(
-                        schema,
-                        bbox,
-                        structure,
-                        pools,
-                        id,
-                        maxPoints));
+            chunk.reset(new BaseChunk(builder, bbox, id, maxPoints));
         }
     }
     else
     {
-        chunk.reset(
-                new SparseChunk(
-                    schema,
-                    bbox,
-                    structure,
-                    pools,
-                    depth,
-                    id,
-                    maxPoints));
+        chunk.reset(new SparseChunk(builder, bbox, depth, id, maxPoints));
     }
 
     return chunk;
 }
 
 std::unique_ptr<Chunk> Chunk::create(
-        const Schema& schema,
+        const Builder& builder,
         const BBox& bbox,
-        const Structure& structure,
-        Pools& pools,
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints,
@@ -141,10 +112,8 @@ std::unique_ptr<Chunk> Chunk::create(
         {
             chunk.reset(
                     new ContiguousChunk(
-                        schema,
+                        builder,
                         bbox,
-                        structure,
-                        pools,
                         depth,
                         id,
                         maxPoints,
@@ -155,10 +124,8 @@ std::unique_ptr<Chunk> Chunk::create(
         {
             chunk.reset(
                     new BaseChunk(
-                        schema,
+                        builder,
                         bbox,
-                        structure,
-                        pools,
                         id,
                         maxPoints,
                         std::move(data),
@@ -169,10 +136,8 @@ std::unique_ptr<Chunk> Chunk::create(
     {
         chunk.reset(
                 new SparseChunk(
-                    schema,
+                    builder,
                     bbox,
-                    structure,
-                    pools,
                     depth,
                     id,
                     maxPoints,
@@ -234,35 +199,34 @@ std::size_t Chunk::getChunkCnt() { return chunkCnt.load(); }
 ///////////////////////////////////////////////////////////////////////////////
 
 SparseChunk::SparseChunk(
-        const Schema& schema,
+        const Builder& builder,
         const BBox& bbox,
-        const Structure& structure,
-        Pools& pools,
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints)
-    : Chunk(schema, bbox, structure, pools, depth, id, maxPoints)
+    : Chunk(builder, bbox, depth, id, maxPoints)
     , m_tubes()
     , m_mutex()
 { }
 
 SparseChunk::SparseChunk(
-        const Schema& schema,
+        const Builder& builder,
         const BBox& bbox,
-        const Structure& structure,
-        Pools& pools,
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints,
         std::unique_ptr<std::vector<char>> compressedData,
         const std::size_t numPoints)
-    : Chunk(schema, bbox, structure, pools, depth, id, maxPoints, numPoints)
+    : Chunk(builder, bbox, depth, id, maxPoints, numPoints)
     , m_tubes()
     , m_mutex()
 {
     // TODO This is direct copy/paste from the ContiguousChunk ctor.
     PooledInfoStack infoStack(
-            Compression::decompress(*compressedData, m_numPoints, m_pools));
+            Compression::decompress(
+                *compressedData,
+                m_numPoints,
+                m_builder.pools()));
 
     Id tube(0);
     std::size_t tick(0);
@@ -276,7 +240,7 @@ SparseChunk::SparseChunk(
     // TODO Very dense data might throw here.  See comment in calcTube for
     // discussion on what needs to change if that happens.
     const std::size_t ticks(sqrt(m_maxPoints).getSimple());
-    const bool tubular(m_structure.tubular());
+    const bool tubular(m_builder.structure().tubular());
 
     for (std::size_t i(0); i < m_numPoints; ++i)
     {
@@ -301,7 +265,7 @@ Cell& SparseChunk::getCell(const Climber& climber)
     std::pair<bool, Cell&> result(tube.getCell(climber.tick()));
     if (result.first)
     {
-        chunkMem.fetch_add(m_schema.pointSize());
+        chunkMem.fetch_add(m_builder.schema().pointSize());
         ++m_numPoints;
     }
     return result.second;
@@ -310,15 +274,15 @@ Cell& SparseChunk::getCell(const Climber& climber)
 void SparseChunk::save(arbiter::Endpoint& endpoint)
 {
     // TODO Nearly direct copy/paste from ContiguousChunk::save.
-    Compressor compressor(m_schema);
+    Compressor compressor(m_builder.schema());
     std::vector<char> data;
 
-    PooledDataStack dataStack(m_pools.dataPool());
-    PooledInfoStack infoStack(m_pools.infoPool());
+    PooledDataStack dataStack(m_builder.pools().dataPool());
+    PooledInfoStack infoStack(m_builder.pools().infoPool());
 
     for (const auto& pair : m_tubes)
     {
-        pair.second.save(m_schema, data, dataStack, infoStack);
+        pair.second.save(m_builder.schema(), data, dataStack, infoStack);
 
         if (data.size())
         {
@@ -331,38 +295,40 @@ void SparseChunk::save(arbiter::Endpoint& endpoint)
     dataStack.reset();
     infoStack.reset();
     pushTail(*compressed, Tail(m_numPoints, Sparse));
-    Storage::ensurePut(endpoint, m_structure.maybePrefix(m_id), *compressed);
+    Storage::ensurePut(
+            endpoint,
+            m_builder.structure().maybePrefix(m_id),
+            *compressed);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
 ContiguousChunk::ContiguousChunk(
-        const Schema& schema,
+        const Builder& builder,
         const BBox& bbox,
-        const Structure& structure,
-        Pools& pools,
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints)
-    : Chunk(schema, bbox, structure, pools, depth, id, maxPoints)
+    : Chunk(builder, bbox, depth, id, maxPoints)
     , m_tubes(maxPoints.getSimple())
 { }
 
 ContiguousChunk::ContiguousChunk(
-        const Schema& schema,
+        const Builder& builder,
         const BBox& bbox,
-        const Structure& structure,
-        Pools& pools,
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints,
         std::unique_ptr<std::vector<char>> compressedData,
         const std::size_t numPoints)
-    : Chunk(schema, bbox, structure, pools, depth, id, maxPoints, numPoints)
+    : Chunk(builder, bbox, depth, id, maxPoints, numPoints)
     , m_tubes(maxPoints.getSimple())
 {
     PooledInfoStack infoStack(
-            Compression::decompress(*compressedData, m_numPoints, m_pools));
+            Compression::decompress(
+                *compressedData,
+                m_numPoints,
+                m_builder.pools()));
 
     std::size_t tube(0);
     std::size_t tick(0);
@@ -374,7 +340,7 @@ ContiguousChunk::ContiguousChunk(
     }
 
     const std::size_t ticks(std::sqrt(m_maxPoints.getSimple()));
-    const bool tubular(m_structure.tubular());
+    const bool tubular(m_builder.structure().tubular());
 
     for (std::size_t i(0); i < m_numPoints; ++i)
     {
@@ -395,7 +361,7 @@ Cell& ContiguousChunk::getCell(const Climber& climber)
     std::pair<bool, Cell&> result(tube.getCell(climber.tick()));
     if (result.first)
     {
-        chunkMem.fetch_add(m_schema.pointSize());
+        chunkMem.fetch_add(m_builder.schema().pointSize());
         ++m_numPoints;
     }
     return result.second;
@@ -403,15 +369,15 @@ Cell& ContiguousChunk::getCell(const Climber& climber)
 
 void ContiguousChunk::save(arbiter::Endpoint& endpoint)
 {
-    Compressor compressor(m_schema);
+    Compressor compressor(m_builder.schema());
     std::vector<char> data;
 
-    PooledDataStack dataStack(m_pools.dataPool());
-    PooledInfoStack infoStack(m_pools.infoPool());
+    PooledDataStack dataStack(m_builder.pools().dataPool());
+    PooledInfoStack infoStack(m_builder.pools().infoPool());
 
     for (std::size_t i(0); i < m_tubes.size(); ++i)
     {
-        m_tubes[i].save(m_schema, data, dataStack, infoStack);
+        m_tubes[i].save(m_builder.schema(), data, dataStack, infoStack);
 
         if (data.size())
         {
@@ -424,33 +390,32 @@ void ContiguousChunk::save(arbiter::Endpoint& endpoint)
     dataStack.reset();
     infoStack.reset();
     pushTail(*compressed, Tail(m_numPoints, Contiguous));
-    Storage::ensurePut(endpoint, m_structure.maybePrefix(m_id), *compressed);
+    Storage::ensurePut(
+            endpoint,
+            m_builder.structure().maybePrefix(m_id),
+            *compressed);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
 BaseChunk::BaseChunk(
-        const Schema& schema,
+        const Builder& builder,
         const BBox& bbox,
-        const Structure& structure,
-        Pools& pools,
         const Id& id,
         const Id& maxPoints)
-    : ContiguousChunk(schema, bbox, structure, pools, 0, id, maxPoints)
-    , m_celledSchema(makeCelled(m_schema))
+    : ContiguousChunk(builder, bbox, 0, id, maxPoints)
+    , m_celledSchema(makeCelled(m_builder.schema()))
 { }
 
 BaseChunk::BaseChunk(
-        const Schema& schema,
+        const Builder& builder,
         const BBox& bbox,
-        const Structure& structure,
-        Pools& pools,
         const Id& id,
         const Id& maxPoints,
         std::unique_ptr<std::vector<char>> compressedData,
         const std::size_t numPoints)
-    : ContiguousChunk(schema, bbox, structure, pools, 0, id, maxPoints)
-    , m_celledSchema(makeCelled(m_schema))
+    : ContiguousChunk(builder, bbox, 0, id, maxPoints)
+    , m_celledSchema(makeCelled(m_builder.schema()))
 {
     m_numPoints = numPoints;
 
@@ -466,7 +431,7 @@ BaseChunk::BaseChunk(
     }
 
     const std::size_t celledPointSize(m_celledSchema.pointSize());
-    const bool tubular(m_structure.tubular());
+    const bool tubular(m_builder.structure().tubular());
     const auto tubeId(m_celledSchema.pdalLayout().findDim(tubeIdDim));
 
     // Skip tube IDs.
@@ -475,12 +440,15 @@ BaseChunk::BaseChunk(
     BinaryPointTable table(m_celledSchema);
     pdal::PointRef pointRef(table, 0);
 
-    PooledInfoStack infoStack(m_pools.infoPool().acquire(m_numPoints));
-    PooledDataStack dataStack(m_pools.dataPool().acquire(m_numPoints));
+    Pools& pools(m_builder.pools());
+    PooledInfoStack infoStack(pools.infoPool().acquire(m_numPoints));
+    PooledDataStack dataStack(pools.dataPool().acquire(m_numPoints));
 
     std::size_t tube(0);
     std::size_t curDepth(0);
     std::size_t tick(0);
+
+    const std::size_t factor(m_builder.structure().factor());
 
     for (std::size_t i(0); i < m_numPoints; ++i)
     {
@@ -499,7 +467,7 @@ BaseChunk::BaseChunk(
         if (tubular)
         {
             tube = pointRef.getFieldAs<uint64_t>(tubeId);
-            curDepth = ChunkInfo::calcDepth(m_structure.factor(), m_id + tube);
+            curDepth = ChunkInfo::calcDepth(factor, m_id + tube);
             tick = Tube::calcTick(info->val().point(), m_bbox, curDepth);
         }
 
@@ -514,8 +482,8 @@ void BaseChunk::save(arbiter::Endpoint& endpoint, std::string postfix)
     Compressor compressor(m_celledSchema);
     std::vector<char> data;
 
-    PooledDataStack dataStack(m_pools.dataPool());
-    PooledInfoStack infoStack(m_pools.infoPool());
+    PooledDataStack dataStack(m_builder.pools().dataPool());
+    PooledInfoStack infoStack(m_builder.pools().infoPool());
 
     for (std::size_t i(0); i < m_tubes.size(); ++i)
     {

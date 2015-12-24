@@ -37,6 +37,7 @@ public:
 };
 
 class BBox;
+class Builder;
 class Cache;
 class Climber;
 class BaseChunk;
@@ -70,32 +71,23 @@ public:
             bool normalize);
 
     std::size_t numPoints() const;
-    const BBox& bbox() const            { return *m_bbox; }
-    const Schema& schema() const        { return *m_schema; }
-    const Structure& structure() const  { return *m_structure; }
-    const std::string& srs() const      { return m_srs; }
-    std::string path() const            { return m_endpoint.root(); }
+    const BBox& bbox() const;
+    const Schema& schema() const;
+    const Structure& structure() const;
+    const std::string& srs() const;
+    std::string path() const;
 
-    const BaseChunk* base() const { return m_base.get(); }
-    const arbiter::Endpoint& endpoint() const { return m_endpoint; }
-    bool exists(const Id& chunkId) const { return m_ids.count(chunkId); }
+    const BaseChunk* base() const;
+    const arbiter::Endpoint& endpoint() const;
+    bool exists(const Id& id) const;
 
 private:
     arbiter::Endpoint m_endpoint;
 
-    std::unique_ptr<BBox> m_bbox;
-    std::unique_ptr<Schema> m_schema;
-    std::unique_ptr<Structure> m_structure;
-    std::unique_ptr<Reprojection> m_reprojection;
-    std::unique_ptr<Manifest> m_manifest;
+    std::unique_ptr<Builder> m_builder;
     std::unique_ptr<BaseChunk> m_base;
-    std::unique_ptr<Pools> m_pointPool;
-
-    std::size_t m_numPoints;
 
     Cache& m_cache;
-    std::string m_srs;
-    std::set<Id> m_ids;
 };
 
 } // namespace entwine

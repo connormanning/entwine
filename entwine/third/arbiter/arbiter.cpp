@@ -74,29 +74,34 @@ Arbiter::Arbiter()
     : m_drivers()
     , m_pool(concurrentHttpReqs, httpRetryCount)
 {
-    m_drivers["fs"] =   std::make_shared<drivers::Fs>();
-    m_drivers["http"] = std::make_shared<drivers::Http>(m_pool);
-
-    auto auth(drivers::AwsAuth::find(""));
-    if (auth) m_drivers["s3"] = std::make_shared<drivers::S3>(m_pool, *auth);
+    init(Json::Value());
 }
 
-Arbiter::Arbiter(std::string awsUser)
+Arbiter::Arbiter(const Json::Value& json)
     : m_drivers()
     , m_pool(concurrentHttpReqs, httpRetryCount)
 {
-    m_drivers["fs"] =   std::make_shared<drivers::Fs>();
-    m_drivers["http"] = std::make_shared<drivers::Http>(m_pool);
-
-    auto auth(drivers::AwsAuth::find(awsUser));
-    if (auth) m_drivers["s3"] = std::make_shared<drivers::S3>(m_pool, *auth);
-    else throw ArbiterError("AWS credentials not found for " + awsUser);
+    init(json);
 }
 
-void Arbiter::addDriver(const std::string type, std::shared_ptr<Driver> driver)
+void Arbiter::init(const Json::Value& json)
+{
+    using namespace drivers;
+
+    auto fs(Fs::create(m_pool, json["fs"]));
+    if (fs) m_drivers["fs"] = std::move(fs);
+
+    auto http(Http::create(m_pool, json["http"]));
+    if (http) m_drivers["http"] = std::move(http);
+
+    auto s3(S3::create(m_pool, json["s3"]));
+    if (s3) m_drivers["s3"] = std::move(s3);
+}
+
+void Arbiter::addDriver(const std::string type, std::unique_ptr<Driver> driver)
 {
     if (!driver) throw ArbiterError("Cannot add empty driver for " + type);
-    m_drivers[type] = driver;
+    m_drivers[type] = std::move(driver);
 }
 
 std::string Arbiter::get(const std::string path) const
@@ -5666,6 +5671,11 @@ namespace
 namespace drivers
 {
 
+std::unique_ptr<Fs> Fs::create(HttpPool&, const Json::Value&)
+{
+    return std::unique_ptr<Fs>(new Fs());
+}
+
 bool Fs::get(std::string path, std::vector<char>& data) const
 {
     bool good(false);
@@ -5948,6 +5958,11 @@ namespace drivers
 {
 
 Http::Http(HttpPool& pool) : m_pool(pool) { }
+
+std::unique_ptr<Http> Http::create(HttpPool& pool, const Json::Value&)
+{
+    return std::unique_ptr<Http>(new Http(pool));
+}
 
 bool Http::get(std::string path, std::vector<char>& data) const
 {
@@ -6410,12 +6425,30 @@ S3::S3(HttpPool& pool, const AwsAuth auth)
     , m_auth(auth)
 { }
 
-bool S3::get(std::string rawPath, std::vector<char>& data) const
+std::unique_ptr<S3> S3::create(HttpPool& pool, const Json::Value& json)
 {
-    return get(rawPath, Query(), data);
+    std::unique_ptr<S3> s3;
+
+    if (json.isMember("access") & json.isMember("hidden"))
+    {
+        AwsAuth auth(json["access"].asString(), json["hidden"].asString());
+        s3.reset(new S3(pool, auth));
+    }
+    else
+    {
+        auto auth(AwsAuth::find(json["user"].asString()));
+        if (auth) s3.reset(new S3(pool, *auth));
+    }
+
+    return s3;
 }
 
-bool S3::get(
+bool S3::get(std::string rawPath, std::vector<char>& data) const
+{
+    return buildRequestAndGet(rawPath, Query(), data);
+}
+
+bool S3::buildRequestAndGet(
         std::string rawPath,
         const Query& query,
         std::vector<char>& data,
@@ -6442,36 +6475,6 @@ bool S3::get(
     {
         return false;
     }
-}
-
-std::vector<char> S3::getBinary(std::string rawPath, Headers headers) const
-{
-    std::vector<char> data;
-
-    if (!get(Arbiter::stripType(rawPath), Query(), data, headers))
-    {
-        throw ArbiterError("Couldn't S3 GET " + rawPath);
-    }
-
-    return data;
-}
-
-std::string S3::get(std::string rawPath, Headers headers) const
-{
-    std::vector<char> data(getBinary(rawPath, headers));
-    return std::string(data.begin(), data.end());
-}
-
-std::vector<char> S3::get(std::string rawPath, const Query& query) const
-{
-    std::vector<char> data;
-
-    if (!get(rawPath, query, data))
-    {
-        throw ArbiterError("Couldn't S3 GET " + rawPath);
-    }
-
-    return data;
 }
 
 void S3::put(std::string rawPath, const std::vector<char>& data) const
@@ -6505,12 +6508,17 @@ std::vector<std::string> S3::glob(std::string path, bool verbose) const
     if (prefix.size()) query["prefix"] = prefix;
 
     bool more(false);
+    std::vector<char> data;
 
     do
     {
         if (verbose) std::cout << "." << std::flush;
 
-        auto data = get(resource.bucket + "/", query);
+        if (!buildRequestAndGet(resource.bucket + "/", query, data))
+        {
+            throw ArbiterError("Couldn't S3 GET " + resource.bucket);
+        }
+
         data.push_back('\0');
 
         Xml::xml_document<> xml;
@@ -6727,6 +6735,31 @@ std::string S3::encodeBase64(std::vector<char> data) const
     while (output.size() % 4) output.push_back('=');
 
     return output;
+}
+
+
+
+// These functions allow a caller to directly pass additional headers into
+// their GET request.  This is only applicable when using the S3 driver
+// directly, as these are not available through the Arbiter.
+
+std::vector<char> S3::getBinary(std::string rawPath, Headers headers) const
+{
+    std::vector<char> data;
+    const std::string stripped(Arbiter::stripType(rawPath));
+
+    if (!buildRequestAndGet(stripped, Query(), data, headers))
+    {
+        throw ArbiterError("Couldn't S3 GET " + rawPath);
+    }
+
+    return data;
+}
+
+std::string S3::get(std::string rawPath, Headers headers) const
+{
+    std::vector<char> data(getBinary(rawPath, headers));
+    return std::string(data.begin(), data.end());
 }
 
 } // namespace drivers

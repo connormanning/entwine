@@ -23,6 +23,7 @@
 #include <entwine/tree/point-info.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/structure.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/pool.hpp>
 #include <entwine/util/storage.hpp>
@@ -47,33 +48,24 @@ namespace
 
 Registry::Registry(
         arbiter::Endpoint& endpoint,
-        const Schema& schema,
-        const BBox& bbox,
-        const Structure& structure,
-        const Subset* subset,
-        Pools& pointPool,
+        const Builder& builder,
         const std::size_t clipPoolSize)
     : m_endpoint(endpoint)
-    , m_schema(schema)
-    , m_bbox(bbox)
-    , m_structure(structure)
-    , m_subset(subset)
-    , m_pointPool(pointPool)
-    , m_discardDuplicates(structure.discardDuplicates())
-    , m_as3d(structure.is3d() || structure.tubular())
+    , m_builder(builder)
+    , m_structure(builder.structure())
+    , m_discardDuplicates(m_structure.discardDuplicates())
+    , m_as3d(m_structure.is3d() || m_structure.tubular())
     , m_base()
     , m_cold()
-    , m_pool(new Pool(clipPoolSize, clipQueueSize))
+    , m_pool(clipPoolSize ? new Pool(clipPoolSize, clipQueueSize) : nullptr)
 {
     if (m_structure.baseIndexSpan())
     {
         m_base.reset(
                 static_cast<BaseChunk*>(
                     Chunk::create(
-                        m_schema,
-                        m_bbox,
-                        m_structure,
-                        m_pointPool,
+                        m_builder,
+                        m_builder.bbox(),
                         0,
                         m_structure.baseIndexBegin(),
                         m_structure.baseIndexSpan(),
@@ -82,33 +74,20 @@ Registry::Registry(
 
     if (m_structure.hasCold())
     {
-        m_cold.reset(
-                new Cold(
-                    endpoint,
-                    schema,
-                    m_bbox,
-                    m_structure,
-                    m_pointPool));
+        m_cold.reset(new Cold(endpoint, m_builder));
     }
 }
 
 Registry::Registry(
         arbiter::Endpoint& endpoint,
-        const Schema& schema,
-        const BBox& bbox,
-        const Structure& structure,
-        const Subset* subset,
-        Pools& pointPool,
+        const Builder& builder,
         const std::size_t clipPoolSize,
-        const Json::Value& meta)
+        const Json::Value& ids)
     : m_endpoint(endpoint)
-    , m_schema(schema)
-    , m_bbox(bbox)
-    , m_structure(structure)
-    , m_subset(subset)
-    , m_pointPool(pointPool)
-    , m_discardDuplicates(structure.discardDuplicates())
-    , m_as3d(structure.is3d() || structure.tubular())
+    , m_builder(builder)
+    , m_structure(builder.structure())
+    , m_discardDuplicates(m_structure.discardDuplicates())
+    , m_as3d(m_structure.is3d() || m_structure.tubular())
     , m_base()
     , m_cold()
     , m_pool(new Pool(clipPoolSize, clipQueueSize))
@@ -117,7 +96,7 @@ Registry::Registry(
     {
         const std::string basePath(
                 m_structure.baseIndexBegin().str() +
-                (m_subset ? m_subset->basePostfix() : ""));
+                (m_builder.subset() ? m_builder.subset()->basePostfix() : ""));
 
         std::unique_ptr<std::vector<char>> data(
                 new std::vector<char>(m_endpoint.getSubpathBinary(basePath)));
@@ -125,10 +104,8 @@ Registry::Registry(
         m_base.reset(
                 static_cast<BaseChunk*>(
                     Chunk::create(
-                        m_schema,
-                        m_bbox,
-                        m_structure,
-                        m_pointPool,
+                        m_builder,
+                        m_builder.bbox(),
                         0,
                         m_structure.baseIndexBegin(),
                         m_structure.baseIndexSpan(),
@@ -137,14 +114,7 @@ Registry::Registry(
 
     if (m_structure.hasCold())
     {
-        m_cold.reset(
-                new Cold(
-                    endpoint,
-                    schema,
-                    m_bbox,
-                    m_structure,
-                    m_pointPool,
-                    meta));
+        m_cold.reset(new Cold(endpoint, builder, ids));
     }
 }
 
@@ -239,12 +209,37 @@ void Registry::clip(
     m_cold->clip(index, chunkNum, clipper, *m_pool);
 }
 
-void Registry::save(Json::Value& meta)
+void Registry::save()
 {
-    m_base->save(m_endpoint, m_subset ? m_subset->basePostfix() : "");
-    m_base.reset();
+    m_base->save(
+            m_endpoint,
+            m_builder.subset() ? m_builder.subset()->basePostfix() : "");
 
-    if (m_cold) meta["ids"] = m_cold->toJson();
+    m_base.reset();
+}
+
+void Registry::merge(const Registry& other)
+{
+    if (m_cold && other.m_cold)
+    {
+        m_cold->merge(*other.m_cold);
+    }
+
+    if (m_base && other.m_base)
+    {
+        m_base->merge(*other.m_base);
+    }
+}
+
+Json::Value Registry::toJson() const
+{
+    if (m_cold) return m_cold->toJson();
+    else return Json::Value();
+}
+
+bool Registry::chunkExists(const Id& id) const
+{
+    return m_cold && m_cold->chunkExists(id);
 }
 
 } // namespace entwine

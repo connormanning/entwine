@@ -88,21 +88,14 @@ Builder::Builder(
     , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(outPath)))
     , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
     , m_pointPool(new Pools(*m_schema))
-    , m_registry(
-            new Registry(
-                *m_outEndpoint,
-                *m_schema,
-                *m_bbox,
-                *m_structure,
-                m_subset.get(),
-                *m_pointPool,
-                getClipThreads(totalThreads)))
+    , m_registry()
 {
+    m_registry.reset(
+            new Registry(*m_outEndpoint, *this, getClipThreads(totalThreads)));
     prep();
 }
 
 Builder::Builder(
-        std::unique_ptr<Manifest> manifest,
         const std::string outPath,
         const std::string tmpPath,
         const std::size_t totalThreads,
@@ -134,7 +127,10 @@ Builder::Builder(
     load(getClipThreads(totalThreads));
 }
 
-Builder::Builder(const std::string path, std::shared_ptr<Arbiter> arbiter)
+Builder::Builder(
+        const std::string path,
+        const std::size_t subsetId,
+        std::shared_ptr<Arbiter> arbiter)
     : m_bbox()
     , m_subBBox()
     , m_schema()
@@ -157,13 +153,21 @@ Builder::Builder(const std::string path, std::shared_ptr<Arbiter> arbiter)
     , m_tmpEndpoint()
     , m_pointPool()
     , m_registry()
-{ }
+{
+    prep();
+    load(0, subsetId);
+}
 
 Builder::~Builder()
 { }
 
 void Builder::go(std::size_t max)
 {
+    if (!m_tmpEndpoint)
+    {
+        throw std::runtime_error("Cannot add to read-only builder");
+    }
+
     m_end = m_manifest->size();
 
     if (const Manifest::Split* split = m_manifest->split())
@@ -343,13 +347,17 @@ PooledInfoStack Builder::insertData(
     return rejected;
 }
 
-void Builder::load(const std::size_t clipThreads)
+void Builder::load(const std::size_t clipThreads, const std::size_t subsetId)
 {
     Json::Value meta;
 
     {
         Json::Reader reader;
-        const std::string data(m_outEndpoint->getSubpath("entwine"));
+        const std::string metaPath(
+                "entwine" +
+                (subsetId ? "-" + std::to_string(subsetId - 1) : ""));
+
+        const std::string data(m_outEndpoint->getSubpath(metaPath));
         reader.parse(data, meta, false);
 
         const std::string err(reader.getFormattedErrorMessages());
@@ -362,25 +370,23 @@ void Builder::load(const std::size_t clipThreads)
     m_originId = m_schema->pdalLayout().findDim("Origin");
 
     m_registry.reset(
-            new Registry(
-                *m_outEndpoint,
-                *m_schema,
-                *m_bbox,
-                *m_structure,
-                m_subset.get(),
-                *m_pointPool,
-                clipThreads,
-                meta));
+            new Registry(*m_outEndpoint, *this, clipThreads, meta["ids"]));
 }
 
 void Builder::save()
 {
     // Get our own metadata and the registry's - then serialize.
     Json::Value jsonMeta(saveProps());
-    m_registry->save(jsonMeta);
-    m_outEndpoint->putSubpath(
-            "entwine" + (m_subset ? m_subset->basePostfix() : ""),
-            jsonMeta.toStyledString());
+    m_registry->save();
+
+    {
+        std::string metaPath(
+                "entwine" +
+                (m_subset ? m_subset->basePostfix() : "") +
+                m_manifest->splitPostfix());
+
+        m_outEndpoint->putSubpath(metaPath, jsonMeta.toStyledString());
+    }
 }
 
 void Builder::init()
@@ -406,93 +412,33 @@ void Builder::init()
 
 void Builder::merge()
 {
-    std::unique_ptr<Manifest> manifest;
-    std::unique_ptr<BaseChunk> base;
-    std::set<Id> ids;
-    const std::size_t baseCount([this]()->std::size_t
+    if (!subset())
     {
-        Json::Value meta;
-        Json::Reader reader;
-        const std::string metaString(m_outEndpoint->getSubpath("entwine-0"));
-        reader.parse(metaString, meta, false);
-
-        loadProps(meta);
-        const std::size_t baseCount(meta["subset"]["of"].asUInt64());
-
-        if (!baseCount) throw std::runtime_error("Cannot merge this path");
-
-        return baseCount;
-    }());
-
-    for (std::size_t i(0); i < baseCount; ++i)
-    {
-        std::cout << "\t" << i + 1 << " / " << baseCount << std::endl;
-        const std::string postfix("-" + std::to_string(i));
-
-        // Fetch metadata for this segment.
-        Json::Value meta;
-
-        {
-            Json::Reader reader;
-            const std::string metaString(
-                    m_outEndpoint->getSubpath("entwine" + postfix));
-            reader.parse(metaString, meta, false);
-        }
-
-        // Append IDs from this segment.
-        const Json::Value& jsonIds(meta["ids"]);
-        if (jsonIds.isArray())
-        {
-            for (Json::ArrayIndex i(0); i < jsonIds.size(); ++i)
-            {
-                ids.insert(Id(jsonIds[i].asString()));
-            }
-        }
-
-        std::unique_ptr<std::vector<char>> data(
-                new std::vector<char>(
-                    m_outEndpoint->getSubpathBinary(
-                        m_structure->baseIndexBegin().str() + postfix)));
-
-        std::unique_ptr<BaseChunk> currentBase(
-                static_cast<BaseChunk*>(
-                    Chunk::create(
-                        *m_schema,
-                        *m_bbox,
-                        *m_structure,
-                        *m_pointPool,
-                        0,
-                        m_structure->baseIndexBegin(),
-                        m_structure->baseIndexSpan(),
-                        std::move(data)).release()));
-
-        std::unique_ptr<Manifest> currentManifest(
-                new Manifest(meta["manifest"]));
-
-        if (i == 0)
-        {
-            base = std::move(currentBase);
-            manifest = std::move(currentManifest);
-        }
-        else
-        {
-            base->merge(*currentBase);
-            manifest->merge(*currentManifest);
-        }
+        throw std::runtime_error("This cannot merge non-subset build");
     }
 
-    m_manifest = std::move(manifest);
+    // Keep the intermediary pools alive while we're using their memory.
+    std::vector<std::unique_ptr<Pools>> pools;
+    std::cout << "\t1 / " << subset()->of() << std::endl;
+
+    for (std::size_t i(1); i < subset()->of(); ++i)
+    {
+        std::cout << "\t" << i + 1 << " / " << subset()->of() << std::endl;
+
+        // Convert subset ID to 1-based.
+        Builder inserting(m_outEndpoint->root(), i + 1);
+
+        m_registry->merge(inserting.registry());
+        m_manifest->merge(inserting.manifest());
+
+        pools.push_back(std::move(inserting.m_pointPool));
+    }
 
     // Make whole.
     if (m_subset) m_subset.reset();
     m_subBBox.reset();
 
-    Json::Value jsonMeta(saveProps());
-    Json::Value& jsonIds(jsonMeta["ids"]);
-    for (const auto& id : ids) jsonIds.append(id.str());
-
-    m_outEndpoint->putSubpath("entwine", jsonMeta.toStyledString());
-    base->save(*m_outEndpoint);
+    save();
 }
 
 Json::Value Builder::saveProps() const
@@ -502,9 +448,12 @@ Json::Value Builder::saveProps() const
     props["bbox"] = m_bbox->toJson();
     props["schema"] = m_schema->toJson();
     props["structure"] = m_structure->toJson();
+    props["manifest"] = m_manifest->toJson();
+    props["ids"] = m_registry->toJson();
+
     if (m_subset) props["subset"] = m_subset->toJson();
     if (m_reprojection) props["reprojection"] = m_reprojection->toJson();
-    props["manifest"] = m_manifest->toJson();
+
     props["srs"] = m_srs;
     props["compressed"] = m_compress;
     props["trustHeaders"] = m_trustHeaders;
@@ -539,22 +488,25 @@ void Builder::prep()
 {
     // TODO This should be based on numThreads, and ideally also desired
     // memory consumption.
-    if (m_pool->numThreads() == 1) sleepCount = 65536 * 256;
+    if (m_pool && m_pool->numThreads() == 1) sleepCount = 65536 * 256;
 
-    if (m_tmpEndpoint->isRemote())
+    if (m_tmpEndpoint)
     {
-        throw std::runtime_error("Tmp path must be local");
-    }
+        if (m_tmpEndpoint->isRemote())
+        {
+            throw std::runtime_error("Tmp path must be local");
+        }
 
-    if (!arbiter::fs::mkdirp(m_tmpEndpoint->root()))
-    {
-        throw std::runtime_error("Couldn't create tmp directory");
-    }
+        if (!arbiter::fs::mkdirp(m_tmpEndpoint->root()))
+        {
+            throw std::runtime_error("Couldn't create tmp directory");
+        }
 
-    const std::string rootDir(m_outEndpoint->root());
-    if (!m_outEndpoint->isRemote() && !arbiter::fs::mkdirp(rootDir))
-    {
-        throw std::runtime_error("Couldn't create local build directory");
+        const std::string rootDir(m_outEndpoint->root());
+        if (!m_outEndpoint->isRemote() && !arbiter::fs::mkdirp(rootDir))
+        {
+            throw std::runtime_error("Couldn't create local build directory");
+        }
     }
 }
 
@@ -565,7 +517,7 @@ void Builder::stop()
     std::cout << "Setting end at " << m_end << std::endl;
 }
 
-std::unique_ptr<Manifest::Split> Builder::split()
+std::unique_ptr<Manifest::Split> Builder::takeWork()
 {
     std::unique_ptr<Manifest::Split> manifestSplit;
 
@@ -576,12 +528,10 @@ std::unique_ptr<Manifest::Split> Builder::split()
             static_cast<double>(remaining) /
             static_cast<double>(m_manifest->size()));
 
-    m_end = m_origin + remaining / 2;
-    m_manifest->split(m_end);
-
     if (remaining > 2 && ratioRemaining > 0.05)
     {
-        manifestSplit.reset(new Manifest::Split(m_end, m_manifest->size()));
+        m_end = m_origin + remaining / 2;
+        manifestSplit = m_manifest->split(m_end);
     }
 
     return manifestSplit;
@@ -609,12 +559,20 @@ const BBox& Builder::bbox() const           { return *m_bbox; }
 const Schema& Builder::schema() const       { return *m_schema; }
 const Manifest& Builder::manifest() const   { return *m_manifest; }
 const Structure& Builder::structure() const { return *m_structure; }
+const Registry& Builder::registry() const   { return *m_registry; }
 const Subset* Builder::subset() const       { return m_subset.get(); }
+
+bool Builder::chunkExists(const Id& id) const
+{
+    return m_registry->chunkExists(id);
+}
 
 const Reprojection* Builder::reprojection() const
 {
     return m_reprojection.get();
 }
+
+Pools& Builder::pools() const { return *m_pointPool; }
 
 std::size_t Builder::numThreads() const { return m_pool->numThreads(); }
 

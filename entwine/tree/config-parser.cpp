@@ -225,17 +225,11 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
     if (!force && exists)
     {
-        builder.reset(
-                new Builder(
-                    std::move(manifest),
-                    outPath,
-                    tmpPath,
-                    threads,
-                    arbiter));
+        builder.reset(new Builder(outPath, tmpPath, threads, arbiter));
     }
     else
     {
-        if (!bbox) throw std::runtime_error( "Missing inference");
+        if (!bbox) throw std::runtime_error("Missing inference");
 
         builder.reset(
                 new Builder(

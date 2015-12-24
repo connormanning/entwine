@@ -29,33 +29,20 @@ namespace arbiter
 namespace entwine
 {
 
-class BBox;
+class Builder;
 class Cell;
 class Chunk;
-class ChunkInfo;
 class Climber;
 class Clipper;
 class Pool;
-class Pools;
-class Schema;
-class Structure;
 
 class Cold
 {
 public:
+    Cold(arbiter::Endpoint& endpoint, const Builder& builder);
     Cold(
             arbiter::Endpoint& endpoint,
-            const Schema& schema,
-            const BBox& bbox,
-            const Structure& structure,
-            Pools& pointPool);
-
-    Cold(
-            arbiter::Endpoint& endpoint,
-            const Schema& schema,
-            const BBox& bbox,
-            const Structure& structure,
-            Pools& pointPool,
+            const Builder& builder,
             const Json::Value& meta);
 
     ~Cold();
@@ -69,9 +56,15 @@ public:
             Clipper* clipper,
             Pool& pool);
 
+    bool chunkExists(const Id& id) const { return m_chunkMap.count(id); }
+
+    std::set<Id> ids() const;
+    void merge(const Cold& other);
+
 private:
     void growFast(const Climber& climber, Clipper* clipper);
     void growSlow(const Climber& climber, Clipper* clipper);
+    void growFaux(const Id& other);
 
     struct CountedChunk
     {
@@ -95,13 +88,13 @@ private:
     typedef std::unordered_map<Id, std::unique_ptr<CountedChunk>> ChunkMap;
 
     arbiter::Endpoint& m_endpoint;
-    const Schema& m_schema;
-    const Structure& m_structure;
-    Pools& m_pointPool;
+    const Builder& m_builder;
 
     std::vector<FastSlot> m_chunkVec;
 
     ChunkMap m_chunkMap;
+    std::set<Id> m_fauxIds; // Used for merging, these are added to metadata.
+
     mutable std::mutex m_mapMutex;
 };
 

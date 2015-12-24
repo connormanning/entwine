@@ -15,7 +15,7 @@
 #include <mutex>
 #include <vector>
 
-#include <entwine/types/structure.hpp>
+#include <entwine/tree/point-info.hpp>
 
 namespace Json
 {
@@ -30,39 +30,31 @@ namespace arbiter
 namespace entwine
 {
 
-class BBox;
+class BaseChunk;
+class Builder;
 class Cell;
-class Chunk;
 class Climber;
 class Clipper;
 class Cold;
-class BaseChunk;
-class PointInfo;
 class Pool;
-class Schema;
-class Subset;
+class Structure;
 
 class Registry
 {
 public:
     Registry(
             arbiter::Endpoint& endpoint,
-            const Schema& schema,
-            const BBox& bbox,
-            const Structure& structure,
-            const Subset* subset,
-            Pools& pointPool,
+            const Builder& builder,
             std::size_t clipPoolSize);
 
     Registry(
             arbiter::Endpoint& endpoint,
-            const Schema& schema,
-            const BBox& bbox,
-            const Structure& structure,
-            const Subset* subset,
-            Pools& pointPool,
+            const Builder& builder,
             std::size_t clipPoolSize,
             const Json::Value& meta);
+
+    Json::Value toJson() const;
+    void merge(const Registry& other);
 
     ~Registry();
 
@@ -73,16 +65,15 @@ public:
 
     Cell* getCell(const Climber& climber, Clipper* clipper);
 
-    void save(Json::Value& meta);
+    void save();
     void clip(const Id& index, std::size_t chunkNum, Clipper* clipper);
+
+    bool chunkExists(const Id& id) const;
 
 private:
     arbiter::Endpoint& m_endpoint;
-    const Schema& m_schema;
-    const BBox& m_bbox;
+    const Builder& m_builder;
     const Structure& m_structure;
-    const Subset* m_subset;
-    Pools& m_pointPool;
 
     const bool m_discardDuplicates;
     const bool m_as3d;

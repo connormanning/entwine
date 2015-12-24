@@ -61,10 +61,13 @@ void Kernel::merge(std::vector<std::string> args)
         }
     }
 
-    std::shared_ptr<arbiter::Arbiter> arbiter(
-            std::make_shared<arbiter::Arbiter>(user));
+    Json::Value arbiterConfig;
+    arbiterConfig["s3"]["user"] = user;
 
-    Builder builder(path, arbiter);
+    std::shared_ptr<arbiter::Arbiter> arbiter(
+            std::make_shared<arbiter::Arbiter>(arbiterConfig));
+
+    Builder builder(path, 1, arbiter);
 
     std::cout << "Merging " << path << "..." << std::endl;
     builder.merge();

@@ -211,7 +211,6 @@ public:
         std::size_t begin() const { return m_begin; }
         std::size_t end() const { return m_end; }
 
-        void begin(std::size_t set) { m_begin = set; }
         void end(std::size_t set) { m_end = set; }
 
     private:
@@ -220,22 +219,44 @@ public:
     };
 
     const Split* split() const { return m_split.get(); }
+    void unsplit() { m_split.reset(); }
 
-    void split(std::size_t end)
+    // This splits the remaining work, and returns the split that should be
+    // performed elsewhere.
+    std::unique_ptr<Manifest::Split> split(std::size_t mid)
     {
-        split(0, end);
+        auto err([](std::string msg) { throw std::runtime_error(msg); });
+        if (mid >= size()) err("Invalid split requested");
+
+        std::unique_ptr<Manifest::Split> result;
+
+        if (!m_split)
+        {
+            result.reset(new Split(mid, size()));
+            m_split.reset(new Split(0, mid));
+        }
+        else
+        {
+            if (mid <= m_split->begin()) err("Invalid split - too small");
+            else if (mid >= m_split->end()) err("Invalid split - too large");
+
+            result.reset(new Split(mid, m_split->end()));
+            m_split->end(mid);
+        }
+
+        return result;
     }
 
     void split(std::size_t begin, std::size_t end)
     {
-        begin = std::min(begin, size());
-        end = std::min(end, size());
-
-        if (!m_split) m_split.reset(new Split(begin, end));
-        else m_split->end(end);
+        m_split.reset(new Split(begin, end));
     }
 
-    void unsplit() { m_split.reset(); }
+    std::string splitPostfix() const
+    {
+        return m_split && m_split->begin() ?
+            "-" + std::to_string(m_split->begin()) : "";
+    }
 
 private:
     void countStatus(FileInfo::Status status)
