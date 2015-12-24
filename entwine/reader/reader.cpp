@@ -43,7 +43,7 @@ Reader::Reader(
         const arbiter::Arbiter& arbiter,
         Cache& cache)
     : m_endpoint(endpoint)
-    , m_builder(new Builder(endpoint.root() + "entwine"))
+    , m_builder(new Builder(endpoint.root()))
     , m_base()
     , m_cache(cache)
 {
