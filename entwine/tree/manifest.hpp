@@ -254,8 +254,7 @@ public:
 
     std::string splitPostfix() const
     {
-        return m_split && m_split->begin() ?
-            "-" + std::to_string(m_split->begin()) : "";
+        return m_split ? "-" + std::to_string(m_split->begin()) : "";
     }
 
 private:

@@ -211,10 +211,7 @@ void Registry::clip(
 
 void Registry::save()
 {
-    m_base->save(
-            m_endpoint,
-            m_builder.subset() ? m_builder.subset()->basePostfix() : "");
-
+    m_base->save(m_endpoint);
     m_base.reset();
 }
 

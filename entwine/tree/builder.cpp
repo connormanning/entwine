@@ -379,14 +379,7 @@ void Builder::save()
     Json::Value jsonMeta(saveProps());
     m_registry->save();
 
-    {
-        std::string metaPath(
-                "entwine" +
-                (m_subset ? m_subset->basePostfix() : "") +
-                m_manifest->splitPostfix());
-
-        m_outEndpoint->putSubpath(metaPath, jsonMeta.toStyledString());
-    }
+    m_outEndpoint->putSubpath("entwine" + postfix(), jsonMeta.toStyledString());
 }
 
 void Builder::init()
@@ -406,7 +399,6 @@ void Builder::init()
 
         auto preview(m_executor->preview(path, nullptr));
         if (preview) m_srs = preview->srs;
-        else std::cout << "Could not find an SRS" << std::endl;
     }
 }
 
@@ -508,6 +500,13 @@ void Builder::prep()
             throw std::runtime_error("Couldn't create local build directory");
         }
     }
+}
+
+std::string Builder::postfix(const bool manifestOnly) const
+{
+    return
+        (!manifestOnly && m_subset ? m_subset->basePostfix() : "") +
+        m_manifest->splitPostfix();
 }
 
 void Builder::stop()

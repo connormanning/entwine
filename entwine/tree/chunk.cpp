@@ -297,7 +297,7 @@ void SparseChunk::save(arbiter::Endpoint& endpoint)
     pushTail(*compressed, Tail(m_numPoints, Sparse));
     Storage::ensurePut(
             endpoint,
-            m_builder.structure().maybePrefix(m_id),
+            m_builder.structure().maybePrefix(m_id) + m_builder.postfix(true),
             *compressed);
 }
 
@@ -392,7 +392,7 @@ void ContiguousChunk::save(arbiter::Endpoint& endpoint)
     pushTail(*compressed, Tail(m_numPoints, Contiguous));
     Storage::ensurePut(
             endpoint,
-            m_builder.structure().maybePrefix(m_id),
+            m_builder.structure().maybePrefix(m_id) + m_builder.postfix(true),
             *compressed);
 }
 
@@ -477,7 +477,7 @@ BaseChunk::BaseChunk(
     }
 }
 
-void BaseChunk::save(arbiter::Endpoint& endpoint, std::string postfix)
+void BaseChunk::save(arbiter::Endpoint& endpoint)
 {
     Compressor compressor(m_celledSchema);
     std::vector<char> data;
@@ -500,12 +500,7 @@ void BaseChunk::save(arbiter::Endpoint& endpoint, std::string postfix)
     dataStack.reset();
     infoStack.reset();
     pushTail(*compressed, Tail(m_numPoints, Contiguous));
-    Storage::ensurePut(endpoint, m_id.str() + postfix, *compressed);
-}
-
-void BaseChunk::save(arbiter::Endpoint& endpoint)
-{
-    save(endpoint, "");
+    Storage::ensurePut(endpoint, m_id.str() + m_builder.postfix(), *compressed);
 }
 
 void BaseChunk::merge(BaseChunk& other)

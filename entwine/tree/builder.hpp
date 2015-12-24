@@ -129,6 +129,8 @@ public:
     // work and will complete the entirety of the build.
     std::unique_ptr<Manifest::Split> takeWork();
 
+    std::string postfix(bool subsetOnly = false) const;
+
 private:
     // Returns true if we should insert this file.
     bool checkPath(

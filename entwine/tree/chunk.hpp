@@ -203,7 +203,6 @@ public:
 
     virtual void save(arbiter::Endpoint& endpoint) override;
 
-    void save(arbiter::Endpoint& endpoint, std::string postfix);
     void merge(BaseChunk& other);
 
 private:

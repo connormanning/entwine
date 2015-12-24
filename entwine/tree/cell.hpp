@@ -120,9 +120,7 @@ public:
                     (bbox.max().z - bbox.min().z));
     }
 
-    // TODO Ticks parameter should maybe be an Id, for very deep points.  It's
-    // always a perfect square-root, so we could do some looping tricks to
-    // perform the double division by an Id if necessary.
+    // TODO Ticks parameter should maybe be an Id, for very deep points.
     static Id calcTube(
             const Point& point,
             const BBox& bbox,
