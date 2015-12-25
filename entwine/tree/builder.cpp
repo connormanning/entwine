@@ -633,11 +633,6 @@ const Structure& Builder::structure() const { return *m_structure; }
 const Registry& Builder::registry() const   { return *m_registry; }
 const Subset* Builder::subset() const       { return m_subset.get(); }
 
-bool Builder::chunkExists(const Id& id) const
-{
-    return m_registry->chunkExists(id);
-}
-
 const Reprojection* Builder::reprojection() const
 {
     return m_reprojection.get();

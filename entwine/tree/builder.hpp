@@ -106,7 +106,6 @@ public:
     bool compress() const       { return m_compress; }
     bool trustHeaders() const   { return m_trustHeaders; }
     bool isContinuation() const { return m_isContinuation; }
-    bool chunkExists(const Id& id) const;
 
     const std::string& srs() const { return m_srs; }
     std::size_t numThreads() const;

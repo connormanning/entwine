@@ -79,7 +79,7 @@ public:
 
     const BaseChunk* base() const;
     const arbiter::Endpoint& endpoint() const;
-    bool exists(const Id& id) const;
+    bool exists(const Id& id) const { return m_ids.count(id); }
 
 private:
     arbiter::Endpoint m_endpoint;
@@ -88,6 +88,7 @@ private:
     std::unique_ptr<BaseChunk> m_base;
 
     Cache& m_cache;
+    std::set<Id> m_ids;
 };
 
 } // namespace entwine

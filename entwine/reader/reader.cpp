@@ -18,6 +18,7 @@
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/builder.hpp>
 #include <entwine/tree/manifest.hpp>
+#include <entwine/tree/registry.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
@@ -46,6 +47,7 @@ Reader::Reader(
     , m_builder(new Builder(endpoint.root()))
     , m_base()
     , m_cache(cache)
+    , m_ids(m_builder->registry().ids())
 {
     using namespace arbiter;
 
@@ -114,7 +116,6 @@ std::string Reader::path() const            { return m_endpoint.root(); }
 
 const BaseChunk* Reader::base() const { return m_base.get(); }
 const arbiter::Endpoint& Reader::endpoint() const { return m_endpoint; }
-bool Reader::exists(const Id& id) const { return m_builder->chunkExists(id); }
 
 std::size_t Reader::numPoints() const
 {

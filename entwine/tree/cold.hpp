@@ -56,8 +56,6 @@ public:
             Clipper* clipper,
             Pool& pool);
 
-    bool chunkExists(const Id& id) const { return m_chunkMap.count(id); }
-
     std::set<Id> ids() const;
     void merge(const Cold& other);
 

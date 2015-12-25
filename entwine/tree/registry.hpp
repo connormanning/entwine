@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <vector>
 
 #include <entwine/tree/point-info.hpp>
@@ -68,7 +69,7 @@ public:
     void save();
     void clip(const Id& index, std::size_t chunkNum, Clipper* clipper);
 
-    bool chunkExists(const Id& id) const;
+    std::set<Id> ids() const;
 
 private:
     arbiter::Endpoint& m_endpoint;

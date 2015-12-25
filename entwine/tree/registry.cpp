@@ -234,9 +234,10 @@ Json::Value Registry::toJson() const
     else return Json::Value();
 }
 
-bool Registry::chunkExists(const Id& id) const
+std::set<Id> Registry::ids() const
 {
-    return m_cold && m_cold->chunkExists(id);
+    if (m_cold) return m_cold->ids();
+    else return std::set<Id>();
 }
 
 } // namespace entwine
