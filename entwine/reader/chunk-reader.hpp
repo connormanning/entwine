@@ -16,11 +16,11 @@
 #include <vector>
 
 #include <entwine/tree/point-info.hpp>
-#include <entwine/types/structure.hpp>
 
 namespace entwine
 {
 
+class BBox;
 class Schema;
 
 class ChunkReader

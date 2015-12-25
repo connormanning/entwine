@@ -23,7 +23,6 @@ Climber::Climber(const BBox& bbox, const Structure& structure)
     , m_is3d(structure.is3d())
     , m_tubular(structure.factor())
     , m_index(0)
-    , m_levelIndex(0)
     , m_chunkId(structure.nominalChunkIndex())
     , m_tick(0)
     , m_depth(0)
@@ -40,22 +39,16 @@ void Climber::magnify(const Point& point)
 {
     const Point& mid(m_bbox.mid());
 
-    if (m_tubular && m_depth <= m_structure.sparseDepthBegin())
+    if (m_tubular && m_depth < Tube::maxTickDepth())
     {
-        m_tick *= 2;
+        m_tick <<= 1;
         if (point.z >= mid.z) ++m_tick;
     }
 
-    // Up: +4, Down: +0.
-    const int z((m_tubular || m_is3d) && point.z >= mid.z ? 4 : 0);
-
-    // North: +2, South: +0.
-    const int y(point.y >= mid.y ? 2 : 0);
-
-    // East: +1, West: +0.
-    const int x(point.x >= mid.x ? 1 : 0);
-
-    switch (x + y + z)
+    switch (
+        ((m_tubular || m_is3d) && point.z >= mid.z ? 4 : 0) +   // Up? +4.
+        (point.y >= mid.y ? 2 : 0) +                            // North? +2.
+        (point.x >= mid.x ? 1 : 0))                             // East? +1.
     {
         case Dir::swd: goSwd(); break;
         case Dir::sed: goSed(); break;
@@ -76,7 +69,7 @@ void Climber::climb(Dir dir)
 
     if (++m_depth > m_structure.nominalChunkDepth())
     {
-        if (!m_sparseDepthBegin || m_depth <= m_sparseDepthBegin)
+        if (m_depth <= m_sparseDepthBegin || !m_sparseDepthBegin)
         {
             const std::size_t chunkRatio(
                     (m_index - m_chunkId).getSimple() /
@@ -88,27 +81,24 @@ void Climber::climb(Dir dir)
             m_chunkId.incSimple();
             m_chunkId += chunkRatio * m_chunkPoints;
 
-            if (m_depth > m_structure.nominalChunkDepth())
-            {
-                assert(chunkRatio < m_factor);
+            assert(chunkRatio < m_factor);
 
-                switch (static_cast<Dir>(chunkRatio))
-                {
-                    case Dir::swd: m_bboxChunk.goSwd(m_tubular); break;
-                    case Dir::sed: m_bboxChunk.goSed(m_tubular); break;
-                    case Dir::nwd: m_bboxChunk.goNwd(m_tubular); break;
-                    case Dir::ned: m_bboxChunk.goNed(m_tubular); break;
-                    case Dir::swu: m_bboxChunk.goSwu(); break;
-                    case Dir::seu: m_bboxChunk.goSeu(); break;
-                    case Dir::nwu: m_bboxChunk.goNwu(); break;
-                    case Dir::neu: m_bboxChunk.goNeu(); break;
-                }
+            switch (static_cast<Dir>(chunkRatio))
+            {
+                case Dir::swd: m_bboxChunk.goSwd(m_tubular); break;
+                case Dir::sed: m_bboxChunk.goSed(m_tubular); break;
+                case Dir::nwd: m_bboxChunk.goNwd(m_tubular); break;
+                case Dir::ned: m_bboxChunk.goNed(m_tubular); break;
+                case Dir::swu: m_bboxChunk.goSwu(); break;
+                case Dir::seu: m_bboxChunk.goSeu(); break;
+                case Dir::nwu: m_bboxChunk.goNwu(); break;
+                case Dir::neu: m_bboxChunk.goNeu(); break;
             }
 
             if (m_depth >= m_structure.coldDepthBegin())
             {
-                const Id offset(m_chunkId - m_structure.coldIndexBegin());
-                m_chunkNum = offset / m_chunkPoints;
+                m_chunkNum =
+                    (m_chunkId - m_structure.coldIndexBegin()) / m_chunkPoints;
             }
 
             m_depthChunks *= m_factor;
@@ -127,9 +117,6 @@ void Climber::climb(Dir dir)
     m_index <<= m_dimensions;
     m_index.incSimple();
     m_index += dir;
-
-    m_levelIndex <<= m_dimensions;
-    m_levelIndex.incSimple();
 }
 
 bool SplitClimber::next(bool terminate)

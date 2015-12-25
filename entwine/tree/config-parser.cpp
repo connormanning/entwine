@@ -18,6 +18,7 @@
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/subset.hpp>
 #include <entwine/util/inference.hpp>
 
 namespace entwine
@@ -90,6 +91,21 @@ namespace
 
         return reprojection;
     }
+
+    std::unique_ptr<Subset> getSubset(
+            const Json::Value& json,
+            Structure& structure,
+            const BBox& bbox)
+    {
+        std::unique_ptr<Subset> subset;
+
+        if (json.isMember("subset"))
+        {
+            subset.reset(new Subset(structure, bbox, json["subset"]));
+        }
+
+        return subset;
+    }
 }
 
 std::unique_ptr<Builder> ConfigParser::getBuilder(
@@ -128,14 +144,6 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     const bool discardDuplicates(jsonStructure["discardDuplicates"].asBool());
     const bool prefixIds(jsonStructure["prefixIds"].asBool());
 
-    std::pair<std::size_t, std::size_t> subset({ 0, 0 });
-    if (jsonStructure.isMember("subset"))
-    {
-        subset = std::make_pair(
-                jsonStructure["subset"]["id"].asUInt64(),
-                jsonStructure["subset"]["of"].asUInt64());
-    }
-
     const std::size_t numPointsHint(
             jsonStructure.isMember("numPointsHint") ?
                 jsonStructure["numPointsHint"].asUInt64() : 0);
@@ -150,10 +158,23 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
     if (!force)
     {
-        // TODO Existence test won't work for partially-complete subsets.
-        // Add subset extension to outPath.
+        // TODO Should probably just try to construct a Builder here using
+        // the subset/split constructor instead of reimplementing the postfix
+        // logic.
+        std::string postfix;
+
+        if (config.isMember("subset"))
+        {
+            postfix += "-" + config["subset"]["id"].asString();
+        }
+
+        if (manifest->split() && manifest->split()->begin())
+        {
+            postfix += "-" + std::to_string(manifest->split()->begin());
+        }
+
         arbiter::Endpoint endpoint(arbiter->getEndpoint(outPath));
-        if (endpoint.tryGetSubpath("entwine"))
+        if (endpoint.tryGetSubpath("entwine" + postfix))
         {
             exists = true;
         }
@@ -201,7 +222,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         }
     }
 
-    const Structure structure(
+    Structure structure(
             nullDepth,
             baseDepth,
             coldDepth,
@@ -211,23 +232,17 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
             tubular,
             dynamicChunks,
             discardDuplicates,
-            prefixIds,
-            bbox.get(),
-            subset);
+            prefixIds);
+
+    std::unique_ptr<Subset> subset(getSubset(config, structure, *bbox));
 
     if (!force && exists)
     {
-        builder.reset(
-                new Builder(
-                    std::move(manifest),
-                    outPath,
-                    tmpPath,
-                    threads,
-                    arbiter));
+        builder.reset(new Builder(outPath, tmpPath, threads, arbiter));
     }
     else
     {
-        if (!bbox) throw std::runtime_error( "Missing inference");
+        if (!bbox) throw std::runtime_error("Missing inference");
 
         builder.reset(
                 new Builder(
@@ -236,9 +251,10 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                     tmpPath,
                     outCompress,
                     trustHeaders,
+                    subset.get(),
                     reprojection.get(),
-                    bbox.get(),
-                    schema.dims(),
+                    *bbox,
+                    schema,
                     threads,
                     structure,
                     arbiter));

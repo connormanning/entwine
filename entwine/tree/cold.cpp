@@ -14,6 +14,7 @@
 #include <thread>
 
 #include <entwine/third/arbiter/arbiter.hpp>
+#include <entwine/tree/builder.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
@@ -50,38 +51,24 @@ namespace
     }
 }
 
-Cold::Cold(
-        arbiter::Endpoint& endpoint,
-        const Schema& schema,
-        const BBox& bbox,
-        const Structure& structure,
-        Pools& pointPool)
+Cold::Cold(arbiter::Endpoint& endpoint, const Builder& builder)
     : m_endpoint(endpoint)
-    , m_schema(schema)
-    , m_structure(structure)
-    , m_pointPool(pointPool)
-    , m_chunkVec(getNumFastTrackers(m_structure))
+    , m_builder(builder)
+    , m_chunkVec(getNumFastTrackers(builder.structure()))
     , m_chunkMap()
     , m_mapMutex()
 { }
 
 Cold::Cold(
         arbiter::Endpoint& endpoint,
-        const Schema& schema,
-        const BBox& bbox,
-        const Structure& structure,
-        Pools& pointPool,
-        const Json::Value& meta)
+        const Builder& builder,
+        const Json::Value& jsonIds)
     : m_endpoint(endpoint)
-    , m_schema(schema)
-    , m_structure(structure)
-    , m_pointPool(pointPool)
-    , m_chunkVec(getNumFastTrackers(m_structure))
+    , m_builder(builder)
+    , m_chunkVec(getNumFastTrackers(builder.structure()))
     , m_chunkMap()
     , m_mapMutex()
 {
-    const Json::Value& jsonIds(meta["ids"]);
-
     if (!jsonIds.isArray())
     {
         throw std::runtime_error("Invalid saved state.");
@@ -89,11 +76,13 @@ Cold::Cold(
 
     Id id(0);
 
+    const Structure& structure(m_builder.structure());
+
     for (std::size_t i(0); i < jsonIds.size(); ++i)
     {
         id = Id(jsonIds[static_cast<Json::ArrayIndex>(i)].asString());
 
-        const ChunkInfo chunkInfo(m_structure.getInfo(id));
+        const ChunkInfo chunkInfo(structure.getInfo(id));
         const std::size_t chunkNum(chunkInfo.chunkNum());
 
         if (chunkNum < m_chunkVec.size())
@@ -113,7 +102,7 @@ Cold::~Cold()
 
 Cell& Cold::getCell(const Climber& climber, Clipper* clipper)
 {
-    CountedChunk* countedChunk(0);
+    CountedChunk* countedChunk(nullptr);
 
     const std::size_t chunkNum(climber.chunkNum());
     const Id& chunkId(climber.chunkId());
@@ -139,31 +128,34 @@ Cell& Cold::getCell(const Climber& climber, Clipper* clipper)
     return countedChunk->chunk->getCell(climber);
 }
 
-Json::Value Cold::toJson() const
+std::set<Id> Cold::ids() const
 {
-    Json::Value json;
-    std::set<Id> ids;
+    std::set<Id> results(m_fauxIds);
+
+    const Structure& structure(m_builder.structure());
 
     for (std::size_t i(0); i < m_chunkVec.size(); ++i)
     {
         if (m_chunkVec[i].mark.load())
         {
-            ChunkInfo info(m_structure.getInfoFromNum(i));
-            ids.insert(info.chunkId());
+            ChunkInfo info(structure.getInfoFromNum(i));
+            results.insert(info.chunkId());
         }
     }
 
     std::lock_guard<std::mutex> lock(m_mapMutex);
     for (const auto& p : m_chunkMap)
     {
-        ids.insert(p.first);
+        results.insert(p.first);
     }
 
-    for (const auto& id : ids)
-    {
-        json.append(id.str());
-    }
+    return results;
+}
 
+Json::Value Cold::toJson() const
+{
+    Json::Value json;
+    for (const auto& id : ids()) json.append(id.str());
     return json;
 }
 
@@ -197,29 +189,25 @@ void Cold::growFast(const Climber& climber, Clipper* clipper)
             {
                 countedChunk->chunk =
                         Chunk::create(
-                            m_schema,
+                            m_builder,
                             climber.bboxChunk(),
-                            m_structure,
-                            m_pointPool,
                             climber.depth(),
                             chunkId,
                             climber.chunkPoints(),
                             Storage::ensureGet(
                                 m_endpoint,
-                                m_structure.maybePrefix(chunkId)));
+                                m_builder.structure().maybePrefix(chunkId)));
             }
             else
             {
                 countedChunk->chunk =
                         Chunk::create(
-                            m_schema,
+                            m_builder,
                             climber.bboxChunk(),
-                            m_structure,
-                            m_pointPool,
                             climber.depth(),
                             chunkId,
                             climber.chunkPoints(),
-                            chunkId < m_structure.mappedIndexBegin());
+                            chunkId < m_builder.structure().mappedIndexBegin());
             }
 
             if (!countedChunk->chunk)
@@ -265,29 +253,25 @@ void Cold::growSlow(const Climber& climber, Clipper* clipper)
             {
                 countedChunk->chunk =
                         Chunk::create(
-                            m_schema,
+                            m_builder,
                             climber.bboxChunk(),
-                            m_structure,
-                            m_pointPool,
                             climber.depth(),
                             chunkId,
                             climber.chunkPoints(),
                             Storage::ensureGet(
                                 m_endpoint,
-                                m_structure.maybePrefix(chunkId)));
+                                m_builder.structure().maybePrefix(chunkId)));
             }
             else
             {
                 countedChunk->chunk =
                         Chunk::create(
-                            m_schema,
+                            m_builder,
                             climber.bboxChunk(),
-                            m_structure,
-                            m_pointPool,
                             climber.depth(),
                             chunkId,
                             climber.chunkPoints(),
-                            chunkId < m_structure.mappedIndexBegin());
+                            chunkId < m_builder.structure().mappedIndexBegin());
             }
 
             if (!countedChunk->chunk)
@@ -306,6 +290,11 @@ void Cold::growSlow(const Climber& climber, Clipper* clipper)
             }
         }
     }
+}
+
+void Cold::growFaux(const Id& id)
+{
+    m_fauxIds.insert(id);
 }
 
 void Cold::clip(
@@ -367,6 +356,11 @@ void Cold::clip(
             }
         });
     }
+}
+
+void Cold::merge(const Cold& other)
+{
+    for (const Id& id : other.ids()) m_fauxIds.insert(id);
 }
 
 } // namespace entwine

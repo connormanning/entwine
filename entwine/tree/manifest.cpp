@@ -154,6 +154,7 @@ Manifest::Manifest(std::vector<std::string> rawPaths)
     : m_paths()
     , m_fileStats()
     , m_pointStats()
+    , m_split()
     , m_mutex()
 {
     m_paths.reserve(rawPaths.size());
@@ -167,6 +168,7 @@ Manifest::Manifest(const Manifest& other)
     : m_paths(other.m_paths)
     , m_fileStats(other.m_fileStats)
     , m_pointStats(other.m_pointStats)
+    , m_split(other.m_split ? new Split(*other.m_split) : nullptr)
     , m_mutex()
 { }
 
@@ -175,6 +177,7 @@ Manifest& Manifest::operator=(const Manifest& other)
     m_paths = other.m_paths;
     m_fileStats = other.m_fileStats;
     m_pointStats = other.m_pointStats;
+    if (other.m_split) m_split.reset(new Split(*other.m_split));
 
     return *this;
 }
@@ -183,6 +186,7 @@ Manifest::Manifest(const Json::Value& json)
     : m_paths()
     , m_fileStats()
     , m_pointStats()
+    , m_split(json.isMember("split") ? new Split(json["split"]) : nullptr)
     , m_mutex()
 {
     const Json::Value& fileInfo(json["fileInfo"]);
@@ -295,6 +299,8 @@ Json::Value Manifest::toJson() const
 
     json["fileStats"] = m_fileStats.toJson();
     json["pointStats"] = m_pointStats.toJson();
+
+    if (m_split) json["split"] = m_split->toJson();
 
     return json;
 }

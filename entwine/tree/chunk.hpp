@@ -25,7 +25,6 @@
 #include <entwine/types/dim-info.hpp>
 #include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
-#include <entwine/types/structure.hpp>
 #include <entwine/util/locker.hpp>
 
 namespace arbiter
@@ -36,17 +35,17 @@ namespace arbiter
 namespace entwine
 {
 
+class Builder;
 class Climber;
-class Schema;
+class Pools;
+class Structure;
 
 class Chunk
 {
 public:
     Chunk(
-            const Schema& schema,
+            const Builder& builder,
             const BBox& bbox,
-            const Structure& structure,
-            Pools& pools,
             std::size_t depth,
             const Id& id,
             const Id& maxPoints,
@@ -55,20 +54,16 @@ public:
     virtual ~Chunk();
 
     static std::unique_ptr<Chunk> create(
-            const Schema& schema,
+            const Builder& builder,
             const BBox& bbox,
-            const Structure& structure,
-            Pools& pools,
             std::size_t depth,
             const Id& id,
             const Id& maxPoints,
             bool contiguous);
 
     static std::unique_ptr<Chunk> create(
-            const Schema& schema,
+            const Builder& builder,
             const BBox& bbox,
-            const Structure& structure,
-            Pools& pools,
             std::size_t depth,
             const Id& id,
             const Id& maxPoints,
@@ -106,10 +101,8 @@ public:
 protected:
     Id endId() const { return m_id + m_maxPoints; }
 
-    const Schema& m_schema;
+    const Builder& m_builder;
     const BBox m_bbox;
-    const Structure& m_structure;
-    Pools& m_pools;
     const std::size_t m_zDepth;
     const Id m_id;
 
@@ -121,19 +114,15 @@ class SparseChunk : public Chunk
 {
 public:
     SparseChunk(
-            const Schema& schema,
+            const Builder& builder,
             const BBox& bbox,
-            const Structure& structure,
-            Pools& pools,
             std::size_t depth,
             const Id& id,
             const Id& maxPoints);
 
     SparseChunk(
-            const Schema& schema,
+            const Builder& builder,
             const BBox& bbox,
-            const Structure& structure,
-            Pools& pools,
             std::size_t depth,
             const Id& id,
             const Id& maxPoints,
@@ -160,19 +149,15 @@ class ContiguousChunk : public Chunk
 {
 public:
     ContiguousChunk(
-            const Schema& schema,
+            const Builder& builder,
             const BBox& bbox,
-            const Structure& structure,
-            Pools& pools,
             std::size_t depth,
             const Id& id,
             const Id& maxPoints);
 
     ContiguousChunk(
-            const Schema& schema,
+            const Builder& builder,
             const BBox& bbox,
-            const Structure& structure,
-            Pools& pools,
             std::size_t depth,
             const Id& id,
             const Id& maxPoints,
@@ -203,18 +188,14 @@ class BaseChunk : public ContiguousChunk
 {
 public:
     BaseChunk(
-            const Schema& schema,
+            const Builder& builder,
             const BBox& bbox,
-            const Structure& structure,
-            Pools& pools,
             const Id& id,
             const Id& maxPoints);
 
     BaseChunk(
-            const Schema& schema,
+            const Builder& builder,
             const BBox& bbox,
-            const Structure& structure,
-            Pools& pools,
             const Id& id,
             const Id& maxPoints,
             std::unique_ptr<std::vector<char>> compressedData,
@@ -222,7 +203,6 @@ public:
 
     virtual void save(arbiter::Endpoint& endpoint) override;
 
-    void save(arbiter::Endpoint& endpoint, std::string postfix);
     void merge(BaseChunk& other);
 
 private:
