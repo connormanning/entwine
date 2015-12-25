@@ -158,10 +158,23 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
     if (!force)
     {
-        // TODO Existence test won't work for partially-complete subsets.
-        // Add subset extension to outPath.
+        // TODO Should probably just try to construct a Builder here using
+        // the subset/split constructor instead of reimplementing the postfix
+        // logic.
+        std::string postfix;
+
+        if (config.isMember("subset"))
+        {
+            postfix += "-" + config["subset"]["id"].asString();
+        }
+
+        if (manifest->split() && manifest->split()->begin())
+        {
+            postfix += "-" + std::to_string(manifest->split()->begin());
+        }
+
         arbiter::Endpoint endpoint(arbiter->getEndpoint(outPath));
-        if (endpoint.tryGetSubpath("entwine"))
+        if (endpoint.tryGetSubpath("entwine" + postfix))
         {
             exists = true;
         }

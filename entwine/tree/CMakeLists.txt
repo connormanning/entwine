@@ -10,6 +10,7 @@ set(
     "${BASE}/cold.cpp"
     "${BASE}/config-parser.cpp"
     "${BASE}/manifest.cpp"
+    "${BASE}/merger.cpp"
     "${BASE}/registry.cpp"
 )
 
@@ -23,6 +24,7 @@ set(
     "${BASE}/cold.hpp"
     "${BASE}/config-parser.hpp"
     "${BASE}/manifest.hpp"
+    "${BASE}/merger.hpp"
     "${BASE}/point-info.hpp"
     "${BASE}/registry.hpp"
 )

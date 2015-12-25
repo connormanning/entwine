@@ -13,7 +13,7 @@
 #include <fstream>
 #include <iostream>
 
-#include <entwine/tree/builder.hpp>
+#include <entwine/tree/merger.hpp>
 
 using namespace entwine;
 
@@ -67,10 +67,10 @@ void Kernel::merge(std::vector<std::string> args)
     std::shared_ptr<arbiter::Arbiter> arbiter(
             std::make_shared<arbiter::Arbiter>(arbiterConfig));
 
-    Builder builder(path, 1, arbiter);
+    Merger merger(path, arbiter);
 
     std::cout << "Merging " << path << "..." << std::endl;
-    builder.merge();
+    merger.go();
     std::cout << "Done." << std::endl;
 }
 

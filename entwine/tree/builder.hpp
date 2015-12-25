@@ -51,6 +51,8 @@ class Subset;
 class Builder
 {
     friend class Clipper;
+    friend class Merger;
+    friend class Reader;
 
 public:
     // Launch a new build.
@@ -66,21 +68,14 @@ public:
             const Schema& schema,
             std::size_t numThreads,
             const Structure& structure,
-            std::shared_ptr<arbiter::Arbiter> arbiter = 0);
+            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
 
     // Continue an existing build.
     Builder(
             std::string outPath,
             std::string tmpPath,
             std::size_t numThreads,
-            std::shared_ptr<arbiter::Arbiter> arbiter = 0);
-
-    // Doesn't insert points, but metadata can be altered or different
-    // builders may be merged.
-    Builder(
-            std::string path,
-            std::size_t subsetId = 0,   // One-based.  Zero means no subset.
-            std::shared_ptr<arbiter::Arbiter> arbiter = 0);
+            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
 
     ~Builder();
 
@@ -92,8 +87,11 @@ public:
     // after this call, but getters are still valid.
     void save();
 
-    // Aggregate segmented build.
-    void merge();
+    // Aggregate manifest-split build.
+    void unsplit();
+
+    // Aggregate spatially segmented build.
+    void merge(Builder& other);
 
     // Various getters.
     const BBox& bbox() const;
@@ -121,6 +119,9 @@ public:
     // build later.
     void stop();
 
+    // Set up our metadata as finished with merging.
+    void makeWhole();
+
     // Mark about half of the remaining work on the current build as "not our
     // problem" - the remaining work can be done separately and we can merge
     // it later.  If successfully split, the result is a Manifest::Split
@@ -129,9 +130,31 @@ public:
     // work and will complete the entirety of the build.
     std::unique_ptr<Manifest::Split> takeWork();
 
-    std::string postfix(bool subsetOnly = false) const;
+    std::string postfix(bool includeSubset = true) const;
 
 private:
+    // Attempt to wake up a subset or split build with indeterminate metadata
+    // state.  Used for merging.
+    static std::unique_ptr<Builder> create(
+            std::string path,
+            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
+
+    static std::unique_ptr<Builder> create(
+            std::string path,
+            std::size_t subsetId,
+            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
+
+    // Also used for merging, after an initial Builder::create has provided
+    // us with enough metadata info to fetch the other pieces directly.
+    //
+    // Read-only.  Used by the Reader to avoid duplicating metadata logic (if
+    // no subset/split is passed) or by the Merger to awaken partial builds.
+    Builder(
+            std::string path,
+            const std::size_t* subsetId = nullptr,
+            const std::size_t* splitBegin = nullptr,
+            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
+
     // Returns true if we should insert this file.
     bool checkPath(
             const std::string& localPath,
@@ -145,14 +168,15 @@ private:
     // Returns a stack of rejected info nodes so that they may be reused.
     PooledInfoStack insertData(
             PooledInfoStack infoStack,
-            const Origin origin,
+            Origin origin,
             Clipper* clipper);
 
     // Remove resources that are no longer needed.
     void clip(const Id& index, std::size_t chunkNum, Clipper* clipper);
 
     // Awaken the tree from a saved state.
-    void load(std::size_t clipThreads, std::size_t subsetId = 0);
+    void load(std::size_t clipThreads, std::string postfix = "");
+    void load(const std::size_t* subsetId, const std::size_t* splitBegin);
 
     // Validate sources.
     void prep();

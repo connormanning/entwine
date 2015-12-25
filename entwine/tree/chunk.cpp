@@ -297,7 +297,7 @@ void SparseChunk::save(arbiter::Endpoint& endpoint)
     pushTail(*compressed, Tail(m_numPoints, Sparse));
     Storage::ensurePut(
             endpoint,
-            m_builder.structure().maybePrefix(m_id) + m_builder.postfix(true),
+            m_builder.structure().maybePrefix(m_id) + m_builder.postfix(false),
             *compressed);
 }
 
@@ -392,7 +392,7 @@ void ContiguousChunk::save(arbiter::Endpoint& endpoint)
     pushTail(*compressed, Tail(m_numPoints, Contiguous));
     Storage::ensurePut(
             endpoint,
-            m_builder.structure().maybePrefix(m_id) + m_builder.postfix(true),
+            m_builder.structure().maybePrefix(m_id) + m_builder.postfix(false),
             *compressed);
 }
 

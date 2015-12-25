@@ -12,10 +12,6 @@
 
 #include <limits>
 
-#include <pdal/Dimension.hpp>
-#include <pdal/PointView.hpp>
-
-#include <entwine/compression/util.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/third/splice-pool/splice-pool.hpp>
 #include <entwine/tree/chunk.hpp>
@@ -129,8 +125,9 @@ Builder::Builder(
 
 Builder::Builder(
         const std::string path,
-        const std::size_t subsetId,
-        std::shared_ptr<Arbiter> arbiter)
+        const std::size_t* subsetId,
+        const std::size_t* splitBegin,
+        std::shared_ptr<arbiter::Arbiter> arbiter)
     : m_bbox()
     , m_subBBox()
     , m_schema()
@@ -155,7 +152,53 @@ Builder::Builder(
     , m_registry()
 {
     prep();
-    load(0, subsetId);
+    load(subsetId, splitBegin);
+}
+
+std::unique_ptr<Builder> Builder::create(
+        const std::string path,
+        std::shared_ptr<arbiter::Arbiter> arbiter)
+{
+    std::unique_ptr<Builder> builder;
+    const std::size_t zero(0);
+
+    // Try a subset, but not split, build.
+    try { builder.reset(new Builder(path, &zero, nullptr, arbiter)); }
+    catch (...) { builder.reset(); }
+    if (builder) return builder;
+
+    // Try a split, but not subset, build.
+    try { builder.reset(new Builder(path, nullptr, &zero, arbiter)); }
+    catch (...) { builder.reset(); }
+    if (builder) return builder;
+
+    // Try a split and subset build.
+    try { builder.reset(new Builder(path, &zero, &zero, arbiter)); }
+    catch (...) { builder.reset(); }
+    if (builder) return builder;
+
+    return builder;
+}
+
+std::unique_ptr<Builder> Builder::create(
+        const std::string path,
+        const std::size_t subsetId,
+        std::shared_ptr<arbiter::Arbiter> arbiter)
+{
+    std::unique_ptr<Builder> builder;
+    const std::size_t zero(0);
+
+    // Try a subset, but not split, build.
+    try { builder.reset(new Builder(path, &subsetId, nullptr, arbiter)); }
+    catch (...) { builder.reset(); }
+    if (builder) return builder;
+
+    // Try a split and subset build.
+    try { builder.reset(new Builder(path, &subsetId, &zero, arbiter)); }
+    catch (...) { builder.reset(); }
+    if (builder) return builder;
+
+    return builder;
 }
 
 Builder::~Builder()
@@ -347,15 +390,13 @@ PooledInfoStack Builder::insertData(
     return rejected;
 }
 
-void Builder::load(const std::size_t clipThreads, const std::size_t subsetId)
+void Builder::load(const std::size_t clipThreads, const std::string post)
 {
     Json::Value meta;
 
     {
         Json::Reader reader;
-        const std::string metaPath(
-                "entwine" +
-                (subsetId ? "-" + std::to_string(subsetId - 1) : ""));
+        const std::string metaPath("entwine" + post);
 
         const std::string data(m_outEndpoint->getSubpath(metaPath));
         reader.parse(data, meta, false);
@@ -373,12 +414,20 @@ void Builder::load(const std::size_t clipThreads, const std::size_t subsetId)
             new Registry(*m_outEndpoint, *this, clipThreads, meta["ids"]));
 }
 
+void Builder::load(const std::size_t* subsetId, const std::size_t* splitBegin)
+{
+    std::string post(
+            (subsetId ? "-" + std::to_string(*subsetId) : "") +
+            (splitBegin ? "-" + std::to_string(*splitBegin) : ""));
+
+    load(0, post);
+}
+
 void Builder::save()
 {
-    // Get our own metadata and the registry's - then serialize.
-    Json::Value jsonMeta(saveProps());
     m_registry->save();
 
+    Json::Value jsonMeta(saveProps());
     m_outEndpoint->putSubpath("entwine" + postfix(), jsonMeta.toStyledString());
 }
 
@@ -392,7 +441,7 @@ void Builder::init()
     {
         auto localHandle(
                 m_arbiter->getLocalHandle(
-                    m_manifest->get(0).path(),
+                    m_manifest->get(m_origin).path(),
                     *m_tmpEndpoint));
 
         const std::string path(localHandle->localPath());
@@ -402,35 +451,50 @@ void Builder::init()
     }
 }
 
-void Builder::merge()
+void Builder::unsplit()
 {
-    if (!subset())
+    /*
+    if (!m_manifest->split()) return;
+
+    std::cout << "Unsplitting" << std::endl;
+    std::size_t pos(manifest().split()->end());
+
+    std::cout << "Start: " << manifest().split()->toJson() << std::endl;
+
+    while (pos < manifest().size())
+    {
+        Builder current(
+                m_outEndpoint->root(),
+                subset() ? subset()->id() + 1 : 0,
+                pos);
+
+        if (!current.manifest().split())
+        {
+            throw std::runtime_error("Invalid split state");
+        }
+
+        std::cout <<
+            "Unsplit: " << current.manifest().split()->toJson() << std::endl;
+
+        pos = current.manifest().split()->end();
+    }
+
+    m_manifest->unsplit();
+
+    std::cout << "Hard exiting for now..." << std::endl;
+    exit(0);
+    */
+}
+
+void Builder::merge(Builder& other)
+{
+    if (!subset() && !m_manifest->split())
     {
         throw std::runtime_error("This cannot merge non-subset build");
     }
 
-    // Keep the intermediary pools alive while we're using their memory.
-    std::vector<std::unique_ptr<Pools>> pools;
-    std::cout << "\t1 / " << subset()->of() << std::endl;
-
-    for (std::size_t i(1); i < subset()->of(); ++i)
-    {
-        std::cout << "\t" << i + 1 << " / " << subset()->of() << std::endl;
-
-        // Convert subset ID to 1-based.
-        Builder inserting(m_outEndpoint->root(), i + 1);
-
-        m_registry->merge(inserting.registry());
-        m_manifest->merge(inserting.manifest());
-
-        pools.push_back(std::move(inserting.m_pointPool));
-    }
-
-    // Make whole.
-    if (m_subset) m_subset.reset();
-    m_subBBox.reset();
-
-    save();
+    m_registry->merge(other.registry());
+    m_manifest->merge(other.manifest());
 }
 
 Json::Value Builder::saveProps() const
@@ -502,11 +566,13 @@ void Builder::prep()
     }
 }
 
-std::string Builder::postfix(const bool manifestOnly) const
+std::string Builder::postfix(const bool includeSubset) const
 {
+    // When saving individual chunks, we don't care about subsetting since
+    // the chunks are spatially disparate anyway (except for the base chunk).
     return
-        (!manifestOnly && m_subset ? m_subset->basePostfix() : "") +
-        m_manifest->splitPostfix();
+        (includeSubset && m_subset ? m_subset->basePostfix() : "") +
+        (m_manifest->splitPostfix());
 }
 
 void Builder::stop()
@@ -514,6 +580,12 @@ void Builder::stop()
     std::lock_guard<std::mutex> lock(m_mutex);
     m_end = std::min(m_end, m_origin + 1);
     std::cout << "Setting end at " << m_end << std::endl;
+}
+
+void Builder::makeWhole()
+{
+    if (m_subset) m_subset.reset();
+    m_subBBox.reset();
 }
 
 std::unique_ptr<Manifest::Split> Builder::takeWork()

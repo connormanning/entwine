@@ -96,7 +96,7 @@ Registry::Registry(
     {
         const std::string basePath(
                 m_structure.baseIndexBegin().str() +
-                (m_builder.subset() ? m_builder.subset()->basePostfix() : ""));
+                m_builder.postfix());
 
         std::unique_ptr<std::vector<char>> data(
                 new std::vector<char>(m_endpoint.getSubpathBinary(basePath)));
