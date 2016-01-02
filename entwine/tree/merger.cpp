@@ -37,23 +37,71 @@ void Merger::go()
 {
     unsplit();
     merge();
+
+    m_builders.front()->save();
 }
 
 void Merger::unsplit()
 {
-    m_builders.front()->unsplit();
+    m_builders[0] = unsplitOne(std::move(m_builders.front()));
 
     for (std::size_t id(1); id < m_builders.size(); ++id)
     {
         auto current(Builder::create(m_path, id, m_arbiter));
-        current->unsplit();
+        if (!current) throw std::runtime_error("Could create split builder");
 
-        m_builders[id] = std::move(current);
+        m_builders[id] = unsplitOne(std::move(current));
     }
 }
 
+std::unique_ptr<Builder> Merger::unsplitOne(
+        std::unique_ptr<Builder> builder) const
+{
+    if (!builder->manifest().split()) return builder;
+
+    std::unique_ptr<std::size_t> subsetId(
+            builder->subset() ?
+                new std::size_t(builder->subset()->id()) : nullptr);
+
+    std::size_t pos(builder->manifest().split()->end());
+
+    while (pos < builder->manifest().size())
+    {
+        std::unique_ptr<Builder> current(
+                new Builder(
+                    builder->outEndpoint().root(),
+                    subsetId.get(),
+                    &pos));
+
+        pos = current->manifest().split()->end();
+
+        builder = doUnsplit(std::move(builder), std::move(current));
+    }
+
+    return builder;
+}
+
+std::unique_ptr<Builder> Merger::doUnsplit(
+        std::unique_ptr<Builder> small,
+        std::unique_ptr<Builder> large) const
+{
+    if (
+            small->manifest().pointStats().inserts() >
+            large->manifest().pointStats().inserts())
+    {
+        std::swap(small, large);
+    }
+
+    large->unsplit(*small);
+
+    return large;
+}
+
+
 void Merger::merge()
 {
+    if (m_builders.size() == 1) return;
+
     std::cout << "\t1 / " << m_builders.size() << std::endl;
     for (std::size_t id(1); id < m_builders.size(); ++id)
     {
@@ -62,7 +110,6 @@ void Merger::merge()
     }
 
     m_builders.front()->makeWhole();
-    m_builders.front()->save();
 }
 
 } // namespace entwine

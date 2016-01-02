@@ -451,39 +451,10 @@ void Builder::init()
     }
 }
 
-void Builder::unsplit()
+void Builder::unsplit(Builder& other)
 {
-    /*
-    if (!m_manifest->split()) return;
-
-    std::cout << "Unsplitting" << std::endl;
-    std::size_t pos(manifest().split()->end());
-
-    std::cout << "Start: " << manifest().split()->toJson() << std::endl;
-
-    while (pos < manifest().size())
-    {
-        Builder current(
-                m_outEndpoint->root(),
-                subset() ? subset()->id() + 1 : 0,
-                pos);
-
-        if (!current.manifest().split())
-        {
-            throw std::runtime_error("Invalid split state");
-        }
-
-        std::cout <<
-            "Unsplit: " << current.manifest().split()->toJson() << std::endl;
-
-        pos = current.manifest().split()->end();
-    }
-
-    m_manifest->unsplit();
-
-    std::cout << "Hard exiting for now..." << std::endl;
-    exit(0);
-    */
+    std::cout << "Unsplitting " << m_manifest->split()->toJson() << std::endl;
+    std::cout << "With " << other.manifest().split()->toJson() << std::endl;
 }
 
 void Builder::merge(Builder& other)

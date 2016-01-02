@@ -88,7 +88,7 @@ public:
     void save();
 
     // Aggregate manifest-split build.
-    void unsplit();
+    void unsplit(Builder& other);
 
     // Aggregate spatially segmented build.
     void merge(Builder& other);
