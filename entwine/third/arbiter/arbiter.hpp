@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 46e195aaa013f0ae9a82dfb4a1286fe46a6137e7
+// Git SHA: 8890c7c06726c6497c5503f90faa9f5857c310c7
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -2376,6 +2376,8 @@ protected:
 namespace arbiter
 {
 
+typedef std::map<std::string, std::string> Headers;
+
 /** @cond arbiter_internal */
 class HttpResponse
 {
@@ -2390,21 +2392,31 @@ public:
         , m_data(data)
     { }
 
+    HttpResponse(
+            int code,
+            const std::vector<char>& data,
+            const Headers& headers)
+        : m_code(code)
+        , m_data(data)
+        , m_headers(headers)
+    { }
+
     ~HttpResponse() { }
 
-    bool ok() const     { return m_code / 100 == 2; }
-    bool retry() const  { return m_code / 100 == 5; }   // Only server errors.
-    int code() const    { return m_code; }
+    bool ok() const             { return m_code / 100 == 2; }
+    bool clientError() const    { return m_code / 100 == 4; }
+    bool serverError() const    { return m_code / 100 == 5; }
+    int code() const            { return m_code; }
 
     std::vector<char> data() const { return m_data; }
+    const Headers& headers() const { return m_headers; }
 
 private:
     int m_code;
     std::vector<char> m_data;
+    Headers m_headers;
 };
 /** @endcond */
-
-typedef std::vector<std::string> Headers;
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -2453,6 +2465,10 @@ public:
             std::string path,
             const std::vector<char>& data,
             Headers headers);
+    HttpResponse post(
+            std::string path,
+            const std::vector<char>& data,
+            Headers headers);
 
 private:
     Curl();
@@ -2464,6 +2480,7 @@ private:
 
     CURL* m_curl;
     curl_slist* m_headers;
+    bool m_verbose;
 
     std::vector<char> m_data;
 };
@@ -2483,11 +2500,17 @@ public:
             const std::vector<char>& data,
             Headers headers = Headers());
 
+    HttpResponse post(
+            std::string path,
+            const std::vector<char>& data,
+            Headers headers);
+
 private:
     HttpPool& m_pool;
     Curl& m_curl;
     std::size_t m_id;
     std::size_t m_retry;
+    bool m_verbose;
 
     HttpResponse exec(std::function<HttpResponse()> f);
 };
@@ -5327,6 +5350,80 @@ private:
 
 
 // //////////////////////////////////////////////////////////////////////
+// Beginning of content of file: arbiter/drivers/dropbox.hpp
+// //////////////////////////////////////////////////////////////////////
+
+#pragma once
+
+#include <memory>
+#include <string>
+#include <vector>
+
+#ifndef ARBITER_IS_AMALGAMATION
+#include <arbiter/driver.hpp>
+#include <arbiter/drivers/http.hpp>
+#endif
+
+namespace arbiter
+{
+
+namespace drivers
+{
+
+/** @brief Dropbox authentication information. */
+class DropboxAuth
+{
+public:
+    explicit DropboxAuth(std::string token) : m_token(token) { }
+    std::string token() const { return m_token; }
+
+private:
+    std::string m_token;
+};
+
+typedef std::map<std::string, std::string> Query;
+
+/** @brief Dropbox driver. */
+class Dropbox : public Driver
+{
+public:
+    Dropbox(HttpPool& pool, DropboxAuth auth);
+    static std::unique_ptr<Dropbox> create(
+            HttpPool& pool,
+            const Json::Value& json);
+
+    virtual std::string type() const override { return "dropbox"; }
+    virtual void put(
+            std::string path,
+            const std::vector<char>& data) const override;
+
+private:
+    virtual bool get(std::string path, std::vector<char>& data) const override;
+    virtual std::vector<std::string> glob(
+            std::string path,
+            bool verbose) const override;
+
+    std::string continueFileInfo(std::string cursor) const;
+    Headers httpGetHeaders(std::string contentType = "") const;
+
+    HttpPool& m_pool;
+    DropboxAuth m_auth;
+};
+
+} // namespace drivers
+} // namespace arbiter
+
+
+// //////////////////////////////////////////////////////////////////////
+// End of content of file: arbiter/drivers/dropbox.hpp
+// //////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+// //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: arbiter/endpoint.hpp
 // //////////////////////////////////////////////////////////////////////
 
@@ -5428,6 +5525,7 @@ private:
 #include <arbiter/drivers/fs.hpp>
 #include <arbiter/drivers/http.hpp>
 #include <arbiter/drivers/s3.hpp>
+#include <arbiter/drivers/dropbox.hpp>
 #include <arbiter/third/json/json.hpp>
 #endif
 

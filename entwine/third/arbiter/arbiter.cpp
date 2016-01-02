@@ -96,6 +96,9 @@ void Arbiter::init(const Json::Value& json)
 
     auto s3(S3::create(m_pool, json["s3"]));
     if (s3) m_drivers["s3"] = std::move(s3);
+
+    auto dropbox(Dropbox::create(m_pool, json["dropbox"]));
+    if (dropbox) m_drivers["dropbox"] = std::move(dropbox);
 }
 
 void Arbiter::addDriver(const std::string type, std::unique_ptr<Driver> driver)
@@ -5912,13 +5915,37 @@ namespace
         return fullBytes;
     }
 
+    std::size_t headerCb(
+            const char *buffer,
+            std::size_t size,
+            std::size_t num,
+            arbiter::Headers* out)
+    {
+        const std::size_t fullBytes(size * num);
+
+        std::string data(buffer, fullBytes);
+        data.erase(std::remove(data.begin(), data.end(), '\n'), data.end());
+        data.erase(std::remove(data.begin(), data.end(), '\r'), data.end());
+
+        const std::size_t split(data.find_first_of(":"));
+
+        // No colon means it isn't a header with data.
+        if (split == std::string::npos) return fullBytes;
+
+        const std::string key(data.substr(0, split));
+        const std::string val(data.substr(split + 1, data.size()));
+
+        (*out)[key] = val;
+
+        return fullBytes;
+    }
+
     size_t eatLogging(void *out, size_t size, size_t num, void *in)
     {
         return size * num;
     }
 
     const bool followRedirect(true);
-    const bool verbose(false);
 
     const auto baseSleepTime(std::chrono::milliseconds(1));
     const auto maxSleepTime (std::chrono::milliseconds(4096));
@@ -6016,6 +6043,7 @@ std::string Http::sanitize(std::string path)
 Curl::Curl()
     : m_curl(0)
     , m_headers(0)
+    , m_verbose(false)
     , m_data()
 {
     m_curl = curl_easy_init();
@@ -6028,7 +6056,7 @@ Curl::~Curl()
     m_headers = 0;
 }
 
-void Curl::init(std::string path, const std::vector<std::string>& headers)
+void Curl::init(std::string path, const Headers& headers)
 {
     // Reset our curl instance and header list.
     curl_slist_free_all(m_headers);
@@ -6047,20 +6075,23 @@ void Curl::init(std::string path, const std::vector<std::string>& headers)
     curl_easy_setopt(m_curl, CURLOPT_TIMEOUT, 120);
 
     // Configuration options.
-    if (verbose)        curl_easy_setopt(m_curl, CURLOPT_VERBOSE, 1L);
     if (followRedirect) curl_easy_setopt(m_curl, CURLOPT_FOLLOWLOCATION, 1L);
 
     // Insert supplied headers.
-    for (std::size_t i(0); i < headers.size(); ++i)
+    for (const auto& h : headers)
     {
-        m_headers = curl_slist_append(m_headers, headers[i].c_str());
+        m_headers = curl_slist_append(
+                m_headers,
+                (h.first + ": " + h.second).c_str());
     }
 }
 
-HttpResponse Curl::get(std::string path, std::vector<std::string> headers)
+HttpResponse Curl::get(std::string path, Headers headers)
 {
     int httpCode(0);
     std::vector<char> data;
+
+    if (m_verbose) curl_easy_setopt(m_curl, CURLOPT_VERBOSE, 1L);
 
     path = drivers::Http::sanitize(path);
     init(path, headers);
@@ -6083,10 +6114,12 @@ HttpResponse Curl::get(std::string path, std::vector<std::string> headers)
 HttpResponse Curl::put(
         std::string path,
         const std::vector<char>& data,
-        std::vector<std::string> headers)
+        Headers headers)
 {
     path = drivers::Http::sanitize(path);
     init(path, headers);
+
+    if (m_verbose) curl_easy_setopt(m_curl, CURLOPT_VERBOSE, 1L);
 
     int httpCode(0);
 
@@ -6120,6 +6153,56 @@ HttpResponse Curl::put(
     curl_easy_reset(m_curl);
     return HttpResponse(httpCode);
 }
+
+HttpResponse Curl::post(
+        std::string path,
+        const std::vector<char>& data,
+        Headers headers)
+{
+    path = drivers::Http::sanitize(path);
+    init(path, headers);
+    if (m_verbose) curl_easy_setopt(m_curl, CURLOPT_VERBOSE, 1L);
+
+    int httpCode(0);
+
+    std::unique_ptr<PutData> putData(new PutData(data));
+    std::vector<char> writeData;
+
+    // Register callback function and data pointer to create the request.
+    curl_easy_setopt(m_curl, CURLOPT_READFUNCTION, putCb);
+    curl_easy_setopt(m_curl, CURLOPT_READDATA, putData.get());
+
+    // Register callback function and data pointer to consume the result.
+    curl_easy_setopt(m_curl, CURLOPT_WRITEFUNCTION, getCb);
+    curl_easy_setopt(m_curl, CURLOPT_WRITEDATA, &writeData);
+
+    // Insert all headers into the request.
+    curl_easy_setopt(m_curl, CURLOPT_HTTPHEADER, m_headers);
+
+    // Set up callback and data pointer for received headers.
+    Headers receivedHeaders;
+    curl_easy_setopt(m_curl, CURLOPT_HEADERFUNCTION, headerCb);
+    curl_easy_setopt(m_curl, CURLOPT_HEADERDATA, &receivedHeaders);
+
+    // Specify that this is a POST request.
+    curl_easy_setopt(m_curl, CURLOPT_POST, 1L);
+
+    // Must use this for binary data, otherwise curl will use strlen(), which
+    // will likely be incorrect.
+    curl_easy_setopt(
+            m_curl,
+            CURLOPT_INFILESIZE_LARGE,
+            static_cast<curl_off_t>(data.size()));
+
+    // Run the command.
+    curl_easy_perform(m_curl);
+    curl_easy_getinfo(m_curl, CURLINFO_RESPONSE_CODE, &httpCode);
+
+    curl_easy_reset(m_curl);
+    HttpResponse response(httpCode, writeData, receivedHeaders);
+    return response;
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -6164,6 +6247,19 @@ HttpResponse HttpResource::put(
     return exec(f);
 }
 
+HttpResponse HttpResource::post(
+        std::string path,
+        const std::vector<char>& data,
+        Headers headers)
+{
+    auto f([this, path, &data, headers]()->HttpResponse
+    {
+        return m_curl.post(path, data, headers);
+    });
+
+    return exec(f);
+}
+
 HttpResponse HttpResource::exec(std::function<HttpResponse()> f)
 {
     HttpResponse res;
@@ -6173,7 +6269,7 @@ HttpResponse HttpResource::exec(std::function<HttpResponse()> f)
     {
         res = f();
     }
-    while (res.retry() && tries++ < m_retry);
+    while (res.serverError() && tries++ < m_retry);
 
     return res;
 }
@@ -6460,7 +6556,7 @@ bool S3::buildRequestAndGet(
     const std::string path(resource.buildPath(query));
 
     Headers headers(httpGetHeaders(rawPath));
-    headers.insert(headers.end(), userHeaders.begin(), userHeaders.end());
+    for (const auto& h : userHeaders) headers[h.first] = h.second;
 
     auto http(m_pool.acquire());
 
@@ -6586,49 +6682,41 @@ std::vector<std::string> S3::glob(std::string path, bool verbose) const
     return results;
 }
 
-std::vector<std::string> S3::httpGetHeaders(std::string filePath) const
+Headers S3::httpGetHeaders(std::string filePath) const
 {
     const std::string httpDate(getHttpDate());
-    const std::string signedEncodedString(
+    const std::string signedEncoded(
             getSignedEncodedString(
                 "GET",
                 filePath,
                 httpDate));
 
-    const std::string dateHeader("Date: " + httpDate);
-    const std::string authHeader(
-            "Authorization: AWS " +
-            m_auth.access() + ":" +
-            signedEncodedString);
-    std::vector<std::string> headers;
-    headers.push_back(dateHeader);
-    headers.push_back(authHeader);
+    Headers headers;
+
+    headers["Date"] = httpDate;
+    headers["Authorization"] = "AWS " + m_auth.access() + ":" + signedEncoded;
+
     return headers;
 }
 
-std::vector<std::string> S3::httpPutHeaders(std::string filePath) const
+Headers S3::httpPutHeaders(std::string filePath) const
 {
     const std::string httpDate(getHttpDate());
-    const std::string signedEncodedString(
+    const std::string signedEncoded(
             getSignedEncodedString(
                 "PUT",
                 filePath,
                 httpDate,
                 "application/octet-stream"));
 
-    const std::string typeHeader("Content-Type: application/octet-stream");
-    const std::string dateHeader("Date: " + httpDate);
-    const std::string authHeader(
-            "Authorization: AWS " +
-            m_auth.access() + ":" +
-            signedEncodedString);
+    Headers headers;
 
-    std::vector<std::string> headers;
-    headers.push_back(typeHeader);
-    headers.push_back(dateHeader);
-    headers.push_back(authHeader);
-    headers.push_back("Transfer-Encoding:");
-    headers.push_back("Expect:");
+    headers["Content-Type"] = "application/octet-stream";
+    headers["Date"] = httpDate;
+    headers["Authorization"] = "AWS " + m_auth.access() + ":" + signedEncoded;
+    headers["Transfer-Encoding"] = "";
+    headers["Expect"] = "";
+
     return headers;
 }
 
@@ -6768,6 +6856,252 @@ std::string S3::get(std::string rawPath, Headers headers) const
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/drivers/s3.cpp
+// //////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+// //////////////////////////////////////////////////////////////////////
+// Beginning of content of file: arbiter/drivers/dropbox.cpp
+// //////////////////////////////////////////////////////////////////////
+
+#ifndef ARBITER_IS_AMALGAMATION
+#include <arbiter/arbiter.hpp>
+#endif
+
+#include <algorithm>
+#include <cctype>
+#include <cstdlib>
+#include <functional>
+
+#ifndef ARBITER_IS_AMALGAMATION
+#include <arbiter/arbiter.hpp>
+#include <arbiter/drivers/fs.hpp>
+#include <arbiter/drivers/dropbox.hpp>
+#include <arbiter/third/xml/xml.hpp>
+#include <arbiter/util/crypto.hpp>
+#include <arbiter/third/json/json.hpp>
+#endif
+
+namespace arbiter
+{
+
+namespace
+{
+    const std::string getUrl("https://content.dropboxapi.com/2/files/download");
+    const std::string listUrl("https://api.dropboxapi.com/2/files/list_folder");
+    const std::string continueListUrl(listUrl + "/continue");
+
+    const auto ins([](unsigned char lhs, unsigned char rhs)
+    {
+        return std::tolower(lhs) == std::tolower(rhs);
+    });
+
+    std::string toSanitizedString(const Json::Value& v)
+    {
+        Json::FastWriter writer;
+        std::string f(writer.write(v));
+        f.erase(std::remove(f.begin(), f.end(), '\n'), f.end());
+        return f;
+    }
+}
+
+namespace drivers
+{
+
+Dropbox::Dropbox(HttpPool& pool, const DropboxAuth auth)
+    : m_pool(pool)
+    , m_auth(auth)
+{ }
+
+std::unique_ptr<Dropbox> Dropbox::create(
+        HttpPool& pool,
+        const Json::Value& json)
+{
+    std::unique_ptr<Dropbox> dropbox;
+
+    if (json.isMember("token"))
+    {
+        dropbox.reset(new Dropbox(pool, DropboxAuth(json["token"].asString())));
+    }
+
+    return dropbox;
+}
+
+Headers Dropbox::httpGetHeaders(const std::string contentType) const
+{
+    Headers headers;
+
+    headers["Authorization"] = "Bearer " + m_auth.token();
+    headers["Transfer-Encoding"] = "chunked";
+    headers["Expect"] = "100-continue";
+    headers["Content-Type"] = contentType;
+
+    return headers;
+}
+
+bool Dropbox::get(const std::string rawPath, std::vector<char>& data) const
+{
+    const std::string path(Http::sanitize(rawPath));
+    Headers headers(httpGetHeaders());
+    auto http(m_pool.acquire());
+
+    Json::Value json;
+    json["path"] = std::string("/" + path);
+    headers["Dropbox-API-Arg"] = toSanitizedString(json);
+
+    std::vector<char> postData;
+    HttpResponse res(http.post(getUrl, postData, headers));
+
+    if (res.ok())
+    {
+        if (!res.headers().count("original-content-length")) return false;
+
+        data = res.data();
+
+        const std::size_t size(
+                std::stol(res.headers().at("original-content-length")));
+
+        if (size == res.data().size()) return true;
+        else throw ArbiterError("Data size check failed");
+    }
+    else if (res.clientError() || res.serverError())
+    {
+        std::string message(std::string(res.data().data(), res.data().size()));
+        throw ArbiterError("Server responded with '" + message + "'");
+    }
+
+    return false;
+}
+
+void Dropbox::put(std::string rawPath, const std::vector<char>& data) const
+{
+//     const Resource resource(rawPath);
+//
+//     const std::string path(resource.buildPath());
+//     const Headers headers(httpPutHeaders(rawPath));
+//
+//     auto http(m_pool.acquire());
+//
+//     if (!http.put(path, data, headers).ok())
+//     {
+//         throw ArbiterError("Couldn't Dropbox PUT to " + rawPath);
+//     }
+}
+
+std::string Dropbox::continueFileInfo(std::string cursor) const
+{
+    Headers headers(httpGetHeaders("application/json"));
+
+    auto http(m_pool.acquire());
+
+    Json::Value json;
+    json["cursor"] = cursor;
+    std::string f = toSanitizedString(json);
+
+    std::vector<char> postData(f.begin(), f.end());
+    HttpResponse res(http.post(continueListUrl, postData, headers));
+
+    if (res.ok())
+    {
+        return std::string(res.data().data(), res.data().size());
+    }
+    else if (res.clientError() || res.serverError())
+    {
+        std::string message(std::string(res.data().data(), res.data().size()));
+        throw ArbiterError("Server responded with '" + message + "'");
+    }
+
+    return std::string("");
+}
+
+std::vector<std::string> Dropbox::glob(std::string rawPath, bool verbose) const
+{
+    std::vector<std::string> results;
+
+    const std::string path(
+            Http::sanitize(rawPath.substr(0, rawPath.size() - 2)));
+
+    auto listPath = [this](std::string path)->std::string
+    {
+        auto http(m_pool.acquire());
+        Headers headers(httpGetHeaders("application/json"));
+
+        Json::Value request;
+        request["path"] = std::string("/" + path);
+        request["recursive"] = true;
+        request["include_media_info"] = false;
+        request["include_deleted"] = false;
+
+        std::string f = toSanitizedString(request);
+
+        std::vector<char> postData(f.begin(), f.end());
+        HttpResponse res(http.post(listUrl, postData, headers));
+        std::string listing;
+        if (res.ok())
+        {
+            listing = std::string(res.data().data(), res.data().size());
+        }
+        else if (res.clientError() || res.serverError())
+        {
+            std::string message(std::string(res.data().data(), res.data().size()));
+            throw ArbiterError("Server responded with '" + message + "'");
+        }
+
+        return listing;
+    };
+
+    bool more(false);
+    auto processPath = [&results, &more](std::string json)
+    {
+        Json::Value root;
+        Json::Reader reader;
+        reader.parse(json, root, false);
+
+        Json::Value entries = root["entries"];
+        if (entries.isNull())
+            throw ArbiterError("Returned JSON from Dropbox was NULL");
+        if (!entries.isArray())
+            throw ArbiterError("Returned JSON from Dropbox was not an array");
+        more = root["has_more"].asBool();
+
+        for(int i = 0; i < entries.size(); ++i)
+        {
+            Json::Value& v = entries[i];
+            std::string tag = v[".tag"].asString();
+
+            std::string file("file");
+            std::string folder("folder");
+
+            if (std::equal(file.begin(), file.end(), tag.begin(), ins))
+            {
+                results.push_back(v["path_lower"].asString());
+            }
+        }
+    };
+
+    processPath(listPath(path));
+
+    if (more)
+    {
+        do
+        {
+            processPath(continueFileInfo(""));
+        }
+        while (more);
+    }
+
+    return results;
+}
+
+} // namespace drivers
+} // namespace arbiter
+
+
+// //////////////////////////////////////////////////////////////////////
+// End of content of file: arbiter/drivers/dropbox.cpp
 // //////////////////////////////////////////////////////////////////////
 
 
