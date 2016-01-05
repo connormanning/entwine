@@ -6534,9 +6534,9 @@ std::unique_ptr<S3> S3::create(HttpPool& pool, const Json::Value& json)
         AwsAuth auth(json["access"].asString(), json["hidden"].asString());
         s3.reset(new S3(pool, auth));
     }
-    else if (!json.isNull())
+    else
     {
-        auto auth(AwsAuth::find(json["user"].asString()));
+        auto auth(AwsAuth::find(json.isNull() ? "" : json["user"].asString()));
         if (auth) s3.reset(new S3(pool, *auth));
     }
 
