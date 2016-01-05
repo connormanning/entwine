@@ -37,6 +37,7 @@ pkg=(
     postgis
     libcunit1-dev
     libgeos++-dev
+    subversion
 )
 
 apt-get install -q -y -V ${pkg[@]}
@@ -67,6 +68,12 @@ git clone https://github.com/verma/laz-perf.git laz-perf
 cd laz-perf
 git checkout aee20e61bb056ff7066f81a37a738bee7e3ef9ea
 cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX=/usr . && make && make install
+cd -
+
+svn co -r 2691 https://svn.osgeo.org/metacrs/geotiff/trunk/libgeotiff/
+cd libgeotiff
+cmake . -DCMAKE_INSTALL_PREFIX=/usr -DWITH_TIFF=ON -DWITH_PROJ4=ON
+make && make install
 cd -
 
 # Install PDAL.
