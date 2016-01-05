@@ -8,7 +8,9 @@
 *
 ******************************************************************************/
 
+#include <memory>
 #include <string>
+#include <vector>
 
 namespace arbiter { class Arbiter; }
 namespace Json { class Value; }
@@ -21,7 +23,9 @@ class Builder;
 class Merger
 {
 public:
-    Merger(std::string path, std::shared_ptr<arbiter::Arbiter> arbiter);
+    Merger(
+            std::string path,
+            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
     ~Merger();
 
     void go();
