@@ -79,7 +79,11 @@ Arbiter::Arbiter()
 
 Arbiter::Arbiter(const Json::Value& json)
     : m_drivers()
-    , m_pool(concurrentHttpReqs, httpRetryCount)
+    , m_pool(
+            concurrentHttpReqs,
+            httpRetryCount,
+            json.isMember("arbiter") ?
+                json["arbiter"]["verbose"].asBool() : false)
 {
     init(json);
 }
@@ -6040,10 +6044,10 @@ std::string Http::sanitize(std::string path)
 
 } // namespace drivers
 
-Curl::Curl()
+Curl::Curl(bool verbose)
     : m_curl(0)
     , m_headers(0)
-    , m_verbose(false)
+    , m_verbose(verbose)
     , m_data()
 {
     m_curl = curl_easy_init();
@@ -6276,7 +6280,7 @@ HttpResponse HttpResource::exec(std::function<HttpResponse()> f)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-HttpPool::HttpPool(std::size_t concurrent, std::size_t retry)
+HttpPool::HttpPool(std::size_t concurrent, std::size_t retry, bool verbose)
     : m_curls(concurrent)
     , m_available(concurrent)
     , m_retry(retry)
@@ -6286,7 +6290,7 @@ HttpPool::HttpPool(std::size_t concurrent, std::size_t retry)
     for (std::size_t i(0); i < concurrent; ++i)
     {
         m_available[i] = i;
-        m_curls[i].reset(new Curl());
+        m_curls[i].reset(new Curl(verbose));
     }
 }
 
@@ -6356,7 +6360,7 @@ namespace
 {
     const std::string baseUrl(".s3.amazonaws.com/");
 
-    std::string getQueryString(const drivers::Query& query)
+    std::string getQueryString(const Query& query)
     {
         std::string result;
 
@@ -6384,7 +6388,7 @@ namespace
             }
         }
 
-        std::string buildPath(drivers::Query query = drivers::Query()) const
+        std::string buildPath(Query query = Query()) const
         {
             const std::string queryString(getQueryString(query));
             return "http://" + bucket + baseUrl + object + queryString;
@@ -6906,6 +6910,9 @@ namespace
         f.erase(std::remove(f.begin(), f.end(), '\n'), f.end());
         return f;
     }
+
+    const std::string dirTag("folder");
+    const std::string fileTag("file");
 }
 
 namespace drivers
@@ -6967,9 +6974,9 @@ bool Dropbox::get(const std::string rawPath, std::vector<char>& data) const
         if (size == res.data().size()) return true;
         else throw ArbiterError("Data size check failed");
     }
-    else if (res.clientError() || res.serverError())
+    else
     {
-        std::string message(std::string(res.data().data(), res.data().size()));
+        std::string message(res.data().data(), res.data().size());
         throw ArbiterError("Server responded with '" + message + "'");
     }
 
@@ -6978,17 +6985,7 @@ bool Dropbox::get(const std::string rawPath, std::vector<char>& data) const
 
 void Dropbox::put(std::string rawPath, const std::vector<char>& data) const
 {
-//     const Resource resource(rawPath);
-//
-//     const std::string path(resource.buildPath());
-//     const Headers headers(httpPutHeaders(rawPath));
-//
-//     auto http(m_pool.acquire());
-//
-//     if (!http.put(path, data, headers).ok())
-//     {
-//         throw ArbiterError("Couldn't Dropbox PUT to " + rawPath);
-//     }
+    throw ArbiterError("PUT not yet supported for " + type());
 }
 
 std::string Dropbox::continueFileInfo(std::string cursor) const
@@ -7008,9 +7005,9 @@ std::string Dropbox::continueFileInfo(std::string cursor) const
     {
         return std::string(res.data().data(), res.data().size());
     }
-    else if (res.clientError() || res.serverError())
+    else
     {
-        std::string message(std::string(res.data().data(), res.data().size()));
+        std::string message(res.data().data(), res.data().size());
         throw ArbiterError("Server responded with '" + message + "'");
     }
 
@@ -7031,7 +7028,7 @@ std::vector<std::string> Dropbox::glob(std::string rawPath, bool verbose) const
 
         Json::Value request;
         request["path"] = std::string("/" + path);
-        request["recursive"] = true;
+        request["recursive"] = false;
         request["include_media_info"] = false;
         request["include_deleted"] = false;
 
@@ -7039,45 +7036,59 @@ std::vector<std::string> Dropbox::glob(std::string rawPath, bool verbose) const
 
         std::vector<char> postData(f.begin(), f.end());
         HttpResponse res(http.post(listUrl, postData, headers));
-        std::string listing;
+
         if (res.ok())
         {
-            listing = std::string(res.data().data(), res.data().size());
+            return std::string(res.data().data(), res.data().size());
         }
-        else if (res.clientError() || res.serverError())
+        else if (res.code() == 409)
         {
-            std::string message(std::string(res.data().data(), res.data().size()));
+            return "";
+        }
+        else
+        {
+            std::string message(res.data().data(), res.data().size());
             throw ArbiterError("Server responded with '" + message + "'");
         }
-
-        return listing;
     };
 
     bool more(false);
-    auto processPath = [&results, &more](std::string json)
+    std::string cursor("");
+
+    auto processPath = [verbose, &results, &more, &cursor](std::string data)
     {
-        Json::Value root;
+        if (data.empty()) return;
+
+        if (verbose) std::cout << '.';
+
+        Json::Value json;
         Json::Reader reader;
-        reader.parse(json, root, false);
+        reader.parse(data, json, false);
 
-        Json::Value entries = root["entries"];
+        const Json::Value& entries(json["entries"]);
+
         if (entries.isNull())
-            throw ArbiterError("Returned JSON from Dropbox was NULL");
-        if (!entries.isArray())
-            throw ArbiterError("Returned JSON from Dropbox was not an array");
-        more = root["has_more"].asBool();
-
-        for(int i = 0; i < entries.size(); ++i)
         {
-            Json::Value& v = entries[i];
-            std::string tag = v[".tag"].asString();
+            throw ArbiterError("Returned JSON from Dropbox was NULL");
+        }
+        if (!entries.isArray())
+        {
+            throw ArbiterError("Returned JSON from Dropbox was not an array");
+        }
 
-            std::string file("file");
-            std::string folder("folder");
+        more = json["has_more"].asBool();
+        cursor = json["cursor"].asString();
 
-            if (std::equal(file.begin(), file.end(), tag.begin(), ins))
+        for (std::size_t i(0); i < entries.size(); ++i)
+        {
+            const Json::Value& v(entries[static_cast<Json::ArrayIndex>(i)]);
+            const std::string tag(v[".tag"].asString());
+
+            // Only insert files.
+            if (std::equal(tag.begin(), tag.end(), fileTag.begin(), ins))
             {
-                results.push_back(v["path_lower"].asString());
+                // Results already begin with a slash.
+                results.push_back("dropbox:/" + v["path_lower"].asString());
             }
         }
     };
@@ -7088,7 +7099,7 @@ std::vector<std::string> Dropbox::glob(std::string rawPath, bool verbose) const
     {
         do
         {
-            processPath(continueFileInfo(""));
+            processPath(continueFileInfo(cursor));
         }
         while (more);
     }

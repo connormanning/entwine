@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 8890c7c06726c6497c5503f90faa9f5857c310c7
+// Git SHA: c6cfa37b4238db2f6853184bd9c353b0ba9d541a
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -2377,6 +2377,7 @@ namespace arbiter
 {
 
 typedef std::map<std::string, std::string> Headers;
+typedef std::map<std::string, std::string> Query;
 
 /** @cond arbiter_internal */
 class HttpResponse
@@ -2471,7 +2472,7 @@ public:
             Headers headers);
 
 private:
-    Curl();
+    Curl(bool verbose);
 
     void init(std::string path, const Headers& headers);
 
@@ -2480,7 +2481,7 @@ private:
 
     CURL* m_curl;
     curl_slist* m_headers;
-    bool m_verbose;
+    const bool m_verbose;
 
     std::vector<char> m_data;
 };
@@ -2510,7 +2511,6 @@ private:
     Curl& m_curl;
     std::size_t m_id;
     std::size_t m_retry;
-    bool m_verbose;
 
     HttpResponse exec(std::function<HttpResponse()> f);
 };
@@ -2521,7 +2521,7 @@ class HttpPool
     friend class HttpResource;
 
 public:
-    HttpPool(std::size_t concurrent, std::size_t retry);
+    HttpPool(std::size_t concurrent, std::size_t retry, bool verbose = false);
 
     HttpResource acquire();
 
@@ -5260,12 +5260,15 @@ class AwsAuth
 public:
     AwsAuth(std::string access, std::string hidden);
 
-    // See:
-    // https://docs.aws.amazon.com/AWSJavaScriptSDK/guide/node-configuring.html
-    //
-    // Searches for methods 2 and 3 of "Setting AWS Credentials":
-    //      - Check for them in ~/.aws/credentials.
-    //      - If not found, try the environment settings.
+    /** @brief Search for credentials in some common locations.
+     *
+     * See:
+     * https://docs.aws.amazon.com/AWSJavaScriptSDK/guide/node-configuring.html
+     *
+     * Uses methods 2 and 3 of "Setting AWS Credentials":
+     *      - Check for them in `~/.aws/credentials`.
+     *      - If not found, try the environment settings.
+     */
     static std::unique_ptr<AwsAuth> find(std::string user = "");
 
     std::string access() const;
@@ -5276,13 +5279,17 @@ private:
     std::string m_hidden;
 };
 
-typedef std::map<std::string, std::string> Query;
-
 /** @brief Amazon %S3 driver. */
 class S3 : public Driver
 {
 public:
     S3(HttpPool& pool, AwsAuth awsAuth);
+
+    /** Try to construct an S3 Driver.  Searches @p json primarily for the keys
+     * `access` and `hidden` to construct an AwsAuth.  If not found, common
+     * filesystem locations and then the environment will be searched (see
+     * AwsAuth::find).
+     */
     static std::unique_ptr<S3> create(HttpPool& pool, const Json::Value& json);
 
     virtual std::string type() const override { return "s3"; }
@@ -5370,7 +5377,7 @@ namespace arbiter
 namespace drivers
 {
 
-/** @brief Dropbox authentication information. */
+/** @brief %Dropbox authentication information. */
 class DropboxAuth
 {
 public:
@@ -5381,13 +5388,15 @@ private:
     std::string m_token;
 };
 
-typedef std::map<std::string, std::string> Query;
-
-/** @brief Dropbox driver. */
+/** @brief %Dropbox driver. */
 class Dropbox : public Driver
 {
 public:
     Dropbox(HttpPool& pool, DropboxAuth auth);
+
+    /** Try to construct a %Dropbox Driver.  Searches @p json for the key
+     * `token` to construct a DropboxAuth.
+     */
     static std::unique_ptr<Dropbox> create(
             HttpPool& pool,
             const Json::Value& json);
@@ -5672,6 +5681,11 @@ public:
 
     /** Strip the type and delimiter `://`, if they exist. */
     static std::string stripType(std::string path);
+
+    /** Fetch the common HTTP pool, which may be useful when dynamically
+     * constructing adding a Driver via Arbiter::addDriver.
+     */
+    HttpPool& httpPool() { return m_pool; }
 
 private:
     // Registers all available default Driver instances.
