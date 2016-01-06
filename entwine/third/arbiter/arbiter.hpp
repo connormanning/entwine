@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 08bfbfac5aa73463827be1c1a4a0f01e16fc9f38
+// Git SHA: 84b209647e8d22822bad04a24afaf05fffa08ae6
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -5494,10 +5494,13 @@ public:
      */
     void putSubpath(std::string subpath, const std::vector<char>& data) const;
 
+    /** Get the full path corresponding to this subpath.  The path will not
+     * be prefixed with the driver type or the `://` delimiter.
+     */
+    std::string fullPath(const std::string& subpath) const;
+
 private:
     Endpoint(const Driver& driver, std::string root);
-
-    std::string fullPath(const std::string& subpath) const;
 
     const Driver& m_driver;
     std::string m_root;
@@ -5687,13 +5690,14 @@ public:
      */
     HttpPool& httpPool() { return m_pool; }
 
+    /** If no delimiter of "://" is found, returns "fs".  Otherwise, returns
+     * the substring prior to but not including this delimiter.
+     */
+    std::string getType(const std::string path) const;
+
 private:
     // Registers all available default Driver instances.
     void init(const Json::Value& json);
-
-    // If no delimiter of "://" is found, returns "fs".  Otherwise, returns
-    // the substring prior to but not including this delimiter.
-    std::string parseType(const std::string path) const;
 
     DriverMap m_drivers;
     HttpPool m_pool;

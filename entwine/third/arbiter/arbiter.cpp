@@ -160,7 +160,7 @@ Endpoint Arbiter::getEndpoint(const std::string root) const
 
 const Driver& Arbiter::getDriver(const std::string path) const
 {
-    const auto type(parseType(path));
+    const auto type(getType(path));
 
     if (!m_drivers.count(type))
     {
@@ -201,7 +201,7 @@ std::unique_ptr<fs::LocalHandle> Arbiter::getLocalHandle(
     return localHandle;
 }
 
-std::string Arbiter::parseType(const std::string path) const
+std::string Arbiter::getType(const std::string path) const
 {
     std::string type("fs");
     const std::size_t pos(path.find(delimiter));

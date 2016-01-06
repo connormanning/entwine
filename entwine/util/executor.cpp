@@ -77,7 +77,10 @@ bool Executor::run(
         executor = filter.get();
     }
 
+    lock = getLock();
     executor->prepare(table);
+    lock.unlock();
+
     executor->execute(table);
 
     return true;
@@ -106,6 +109,8 @@ std::unique_ptr<Preview> Executor::preview(
         std::unique_ptr<pdal::Reader> reader(createReader(driver, path));
         if (reader)
         {
+            lock = getLock();
+
             const pdal::QuickInfo quick(reader->preview());
 
             if (quick.valid())
@@ -143,10 +148,13 @@ std::unique_ptr<Preview> Executor::preview(
                     pdal::BufferReader buffer;
                     buffer.addView(view);
 
+                    lock.unlock();
                     std::unique_ptr<pdal::Filter> filter(
                             createReprojectionFilter(
                                 srsFoundOrDefault(quick.m_srs, *reprojection),
                                 table));
+                    lock = getLock();
+
                     filter->setInput(buffer);
 
                     filter->prepare(table);
@@ -169,6 +177,8 @@ std::unique_ptr<Preview> Executor::preview(
                 {
                     srs = quick.m_srs.getWKT();
                 }
+
+                lock.unlock();
 
                 result.reset(
                         new Preview(

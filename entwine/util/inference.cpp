@@ -21,6 +21,16 @@ namespace entwine
 
 namespace
 {
+    const arbiter::Headers previewRange(([]()
+    {
+        // Just get 16 kB for the preview attempt.
+        const std::size_t bytes(16384);
+
+        arbiter::Headers headers;
+        headers["Range"] = "bytes=0-" + std::to_string(bytes);
+        return headers;
+    })());
+
     const BBox expander(([]()
     {
         // Use BBox::set to avoid malformed bounds warning.
@@ -120,11 +130,37 @@ void Inference::go()
         {
             valid = true;
 
-            m_pool->add([&f, &valid, this]()
+            if (m_arbiter->getType(f.path()) == "s3")
             {
-                auto localHandle(m_arbiter->getLocalHandle(f.path(), m_tmp));
-                add(localHandle->localPath(), f);
-            });
+                m_pool->add([&f, this]()
+                {
+                    const arbiter::drivers::S3& s3(
+                            static_cast<const arbiter::drivers::S3&>(
+                                m_arbiter->getDriver(f.path())));
+
+                    const auto data(s3.getBinary(f.path(), previewRange));
+
+                    std::string name(f.path());
+                    std::replace(name.begin(), name.end(), '/', '-');
+                    std::replace(name.begin(), name.end(), '\\', '-');
+
+                    m_tmp.putSubpath(name, data);
+
+                    add(m_tmp.fullPath(name), f);
+
+                    arbiter::fs::remove(m_tmp.fullPath(name));
+                });
+            }
+            else
+            {
+                m_pool->add([&f, this]()
+                {
+                    auto localHandle(
+                        m_arbiter->getLocalHandle(f.path(), m_tmp));
+
+                    add(localHandle->localPath(), f);
+                });
+            }
         }
     }
 
@@ -137,7 +173,7 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
 {
     std::unique_ptr<Preview> preview(m_executor.preview(localPath, m_reproj));
 
-    auto update([&](std::size_t numPoints, const BBox& bbox)
+    auto update([&fileInfo](std::size_t numPoints, const BBox& bbox)
     {
         fileInfo.numPoints(numPoints);
         fileInfo.bbox(bbox);
