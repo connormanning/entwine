@@ -225,20 +225,12 @@ void Builder::go(std::size_t max)
 
     while (keepGoing() && added < max)
     {
-        if (m_srs.empty()) init();
-
         FileInfo& info(m_manifest->get(m_origin));
-        if (info.status() != FileInfo::Status::Outstanding)
-        {
-            next();
-            continue;
-        }
-
         const std::string path(info.path());
 
-        if (!m_executor->good(path))
+        if (!checkInfo(info))
         {
-            m_manifest->set(m_origin, FileInfo::Status::Omitted);
+            std::cout << "Skipping " << m_origin << " - " << path << std::endl;
             next();
             continue;
         }
@@ -277,38 +269,45 @@ void Builder::go(std::size_t max)
     save();
 }
 
-bool Builder::checkPath(
-        const std::string& localPath,
-        const Origin origin,
-        const FileInfo& info)
+bool Builder::checkInfo(const FileInfo& info)
 {
-    auto check([this](Origin origin, const BBox& bbox, std::size_t numPoints)
+    if (info.status() != FileInfo::Status::Outstanding)
     {
-        if (!bbox.overlaps(*m_bbox))
+        return false;
+    }
+    else if (!m_executor->good(info.path()))
+    {
+        m_manifest->set(m_origin, FileInfo::Status::Omitted);
+        return false;
+    }
+    else if (const BBox* bbox = info.bbox())
+    {
+        if (!checkBounds(m_origin, *bbox, info.numPoints()))
         {
-            const bool primary(!m_subset || m_subset->primary());
-            m_manifest->add(origin, numPoints, primary);
+            m_manifest->set(m_origin, FileInfo::Status::Inserted);
             return false;
         }
-        else if (m_subBBox && !bbox.overlaps(*m_subBBox))
-        {
-            return false;
-        }
-
-        return true;
-    });
-
-    if (const BBox* bbox = info.bbox())
-    {
-        return check(origin, *bbox, info.numPoints());
-    }
-    else if (m_trustHeaders)
-    {
-        auto pre(m_executor->preview(localPath, m_reprojection.get()));
-        if (pre) return check(origin, pre->bbox, pre->numPoints);
     }
 
-    // Couldn't validate anything - so we'll need to insert point-by-point.
+    return true;
+}
+
+bool Builder::checkBounds(
+        const Origin origin,
+        const BBox& bbox,
+        const std::size_t numPoints)
+{
+    if (!bbox.overlaps(*m_bbox))
+    {
+        const bool primary(!m_subset || m_subset->primary());
+        m_manifest->addOutOfBounds(origin, numPoints, primary);
+        return false;
+    }
+    else if (m_subBBox && !bbox.overlaps(*m_subBBox))
+    {
+        return false;
+    }
+
     return true;
 }
 
@@ -317,7 +316,34 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
     auto localHandle(m_arbiter->getLocalHandle(info.path(), *m_tmpEndpoint));
     const std::string& localPath(localHandle->localPath());
 
-    if (!checkPath(localPath, origin, info)) return false;
+    // If we don't have an inferred bbox, check against the actual file.
+    if (!info.bbox())
+    {
+        auto pre(m_executor->preview(localPath, m_reprojection.get()));
+
+        if (pre && !checkBounds(origin, pre->bbox, pre->numPoints))
+        {
+            return false;
+        }
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_srs.empty())
+        {
+            if (m_reprojection)
+            {
+                m_srs = pdal::SpatialReference(m_reprojection->out()).getWKT();
+            }
+            else
+            {
+                auto preview(m_executor->preview(localPath, nullptr));
+                if (preview) m_srs = preview->srs;
+            }
+
+            if (m_srs.size()) std::cout << "Found an SRS" << std::endl;
+        }
+    }
 
     std::size_t num = 0;
     std::unique_ptr<Clipper> clipper(new Clipper(*this));
@@ -429,26 +455,6 @@ void Builder::save()
 
     Json::Value jsonMeta(saveProps());
     m_outEndpoint->putSubpath("entwine" + postfix(), jsonMeta.toStyledString());
-}
-
-void Builder::init()
-{
-    if (m_reprojection)
-    {
-        m_srs = pdal::SpatialReference(m_reprojection->out()).getWKT();
-    }
-    else
-    {
-        auto localHandle(
-                m_arbiter->getLocalHandle(
-                    m_manifest->get(m_origin).path(),
-                    *m_tmpEndpoint));
-
-        const std::string path(localHandle->localPath());
-
-        auto preview(m_executor->preview(path, nullptr));
-        if (preview) m_srs = preview->srs;
-    }
 }
 
 void Builder::unsplit(Builder& other)

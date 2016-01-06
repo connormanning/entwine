@@ -162,10 +162,10 @@ public:
         m_pointStats.add(stats);
     }
 
-    void add(Origin origin, std::size_t numOutOfBounds, bool primary)
+    void addOutOfBounds(Origin origin, std::size_t count, bool primary)
     {
-        m_paths[origin].pointStats().addOutOfBounds(numOutOfBounds);
-        if (primary) m_pointStats.addOutOfBounds(numOutOfBounds);
+        m_paths[origin].pointStats().addOutOfBounds(count);
+        if (primary) m_pointStats.addOutOfBounds(count);
     }
 
     void merge(const Manifest& other);

@@ -39,11 +39,13 @@ void Climber::magnify(const Point& point)
 {
     const Point& mid(m_bbox.mid());
 
+    /*
     if (m_tubular && m_depth < Tube::maxTickDepth())
     {
         m_tick <<= 1;
         if (point.z >= mid.z) ++m_tick;
     }
+    */
 
     switch (
         ((m_tubular || m_is3d) && point.z >= mid.z ? 4 : 0) +   // Up? +4.
@@ -58,6 +60,11 @@ void Climber::magnify(const Point& point)
         case Dir::seu: goSeu(); break;
         case Dir::nwu: goNwu(); break;
         case Dir::neu: goNeu(); break;
+    }
+
+    if (m_tubular && m_depth <= Tube::maxTickDepth())
+    {
+        m_tick = Tube::calcTick(point, m_bboxChunk, m_depth);
     }
 }
 

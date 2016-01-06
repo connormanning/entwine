@@ -154,11 +154,11 @@ private:
             const std::size_t* splitBegin = nullptr,
             std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
 
-    // Returns true if we should insert this file.
-    bool checkPath(
-            const std::string& localPath,
-            Origin origin,
-            const FileInfo& info);
+    // Returns true if we should insert this file based on its info.
+    bool checkInfo(const FileInfo& info);
+
+    // Returns true if we should insert this file based on its bounds.
+    bool checkBounds(Origin origin, const BBox& bbox, std::size_t numPoints);
 
     // Insert points from a file.  Return true if successful.  Sets any
     // previously unset FileInfo fields based on file contents.
@@ -180,8 +180,8 @@ private:
     // Validate sources.
     void prep();
 
-    // Set up bookkeeping, for example initializing the SRS.
-    void init();
+    // Initialize the SRS from the preview for this path.
+    void initSrs(const std::string& path);
 
     // Callers of these functions must not hold a lock on m_mutex.
     Origin end() const;
