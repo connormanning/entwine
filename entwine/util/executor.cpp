@@ -52,7 +52,6 @@ bool Executor::run(
 {
     auto lock(getLock());
     const std::string driver(m_stageFactory->inferReaderDriver(path));
-    lock.unlock();
 
     if (driver.empty()) return false;
 
@@ -77,7 +76,6 @@ bool Executor::run(
         executor = filter.get();
     }
 
-    lock = getLock();
     executor->prepare(table);
     lock.unlock();
 
@@ -102,15 +100,12 @@ std::unique_ptr<Preview> Executor::preview(
 
     auto lock(getLock());
     const std::string driver(m_stageFactory->inferReaderDriver(path));
-    lock.unlock();
 
     if (!driver.empty())
     {
         std::unique_ptr<pdal::Reader> reader(createReader(driver, path));
         if (reader)
         {
-            lock = getLock();
-
             const pdal::QuickInfo quick(reader->preview());
 
             if (quick.valid())
@@ -148,12 +143,10 @@ std::unique_ptr<Preview> Executor::preview(
                     pdal::BufferReader buffer;
                     buffer.addView(view);
 
-                    lock.unlock();
                     std::unique_ptr<pdal::Filter> filter(
                             createReprojectionFilter(
                                 srsFoundOrDefault(quick.m_srs, *reprojection),
                                 table));
-                    lock = getLock();
 
                     filter->setInput(buffer);
 
@@ -178,8 +171,6 @@ std::unique_ptr<Preview> Executor::preview(
                     srs = quick.m_srs.getWKT();
                 }
 
-                lock.unlock();
-
                 result.reset(
                         new Preview(
                             bbox,
@@ -201,11 +192,9 @@ std::unique_ptr<pdal::Reader> Executor::createReader(
 
     if (driver.size())
     {
-        auto lock(getLock());
         reader.reset(
                 static_cast<pdal::Reader*>(
                     m_stageFactory->createStage(driver)));
-        lock.unlock();
 
         pdal::Options options;
         options.add(pdal::Option("filename", path));
@@ -228,11 +217,9 @@ std::unique_ptr<pdal::Filter> Executor::createReprojectionFilter(
         throw std::runtime_error("No default SRS supplied, and none inferred");
     }
 
-    auto lock(getLock());
     std::unique_ptr<pdal::Filter> filter(
             static_cast<pdal::Filter*>(
                 m_stageFactory->createStage("filters.reprojection")));
-    lock.unlock();
 
     pdal::Options options;
     options.add(
