@@ -473,6 +473,11 @@ void Builder::merge(Builder& other)
         throw std::runtime_error("This cannot merge non-subset build");
     }
 
+    if (m_srs.empty() && !other.srs().empty())
+    {
+        m_srs = other.srs();
+    }
+
     m_registry->merge(other.registry());
     m_manifest->merge(other.manifest());
 }

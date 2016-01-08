@@ -69,30 +69,28 @@ Cold::Cold(
     , m_chunkMap()
     , m_mapMutex()
 {
-    if (!jsonIds.isArray())
+    if (jsonIds.isArray())
     {
-        throw std::runtime_error("Invalid saved state.");
-    }
+        Id id(0);
 
-    Id id(0);
+        const Structure& structure(m_builder.structure());
 
-    const Structure& structure(m_builder.structure());
-
-    for (std::size_t i(0); i < jsonIds.size(); ++i)
-    {
-        id = Id(jsonIds[static_cast<Json::ArrayIndex>(i)].asString());
-
-        const ChunkInfo chunkInfo(structure.getInfo(id));
-        const std::size_t chunkNum(chunkInfo.chunkNum());
-
-        if (chunkNum < m_chunkVec.size())
+        for (std::size_t i(0); i < jsonIds.size(); ++i)
         {
-            m_chunkVec[chunkNum].mark.store(true);
-        }
-        else
-        {
-            std::unique_ptr<CountedChunk> c(new CountedChunk());
-            m_chunkMap.emplace(id, std::move(c));
+            id = Id(jsonIds[static_cast<Json::ArrayIndex>(i)].asString());
+
+            const ChunkInfo chunkInfo(structure.getInfo(id));
+            const std::size_t chunkNum(chunkInfo.chunkNum());
+
+            if (chunkNum < m_chunkVec.size())
+            {
+                m_chunkVec[chunkNum].mark.store(true);
+            }
+            else
+            {
+                std::unique_ptr<CountedChunk> c(new CountedChunk());
+                m_chunkMap.emplace(id, std::move(c));
+            }
         }
     }
 }
