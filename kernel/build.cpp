@@ -176,7 +176,7 @@ void Kernel::build(std::vector<std::string> args)
         ++a;
     }
 
-    Json::Value arbiterConfig;
+    Json::Value arbiterConfig(json["arbiter"]);
     arbiterConfig["s3"]["user"] = user;
 
     std::shared_ptr<arbiter::Arbiter> arbiter(
