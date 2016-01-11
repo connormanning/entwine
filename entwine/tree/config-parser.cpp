@@ -144,7 +144,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     const bool discardDuplicates(jsonStructure["discardDuplicates"].asBool());
     const bool prefixIds(jsonStructure["prefixIds"].asBool());
 
-    const std::size_t numPointsHint(
+    std::size_t numPointsHint(
             jsonStructure.isMember("numPointsHint") ?
                 jsonStructure["numPointsHint"].asUInt64() : 0);
 
@@ -220,6 +220,8 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
             schema = Schema(dims);
         }
+
+        if (!numPointsHint) numPointsHint = inference.numPoints();
     }
 
     Structure structure(
