@@ -80,15 +80,15 @@ public:
         const double yDist(m_max.y - m_min.y);
         const double zDist(m_max.z - m_min.z);
 
-        const double radius(std::max(std::max(xDist, yDist), zDist) / 2);
+        const double radius(std::max(std::max(xDist, yDist), zDist) / 2 + 10);
 
-        m_min.x = m_mid.x - radius;
-        m_min.y = m_mid.y - radius;
-        m_min.z = m_mid.z - radius;
+        m_min.x = std::floor(m_mid.x) - radius;
+        m_min.y = std::floor(m_mid.y) - radius;
+        m_min.z = std::floor(m_mid.z) - radius;
 
-        m_max.x = m_mid.x + radius;
-        m_max.y = m_mid.y + radius;
-        m_max.z = m_mid.z + radius;
+        m_max.x = std::floor(m_mid.x) + radius;
+        m_max.y = std::floor(m_mid.y) + radius;
+        m_max.z = std::floor(m_mid.z) + radius;
     }
 
 private:

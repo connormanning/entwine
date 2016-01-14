@@ -180,7 +180,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         }
     }
 
-    if (!force && !exists && (!bbox || !schema.pointSize()))
+    if (!bbox || !schema.pointSize() || !numPointsHint)
     {
         std::cout << "Performing dataset inference..." << std::endl;
         Inference inference(
