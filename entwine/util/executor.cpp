@@ -15,7 +15,6 @@
 #include <pdal/QuickInfo.hpp>
 #include <pdal/Reader.hpp>
 #include <pdal/StageFactory.hpp>
-#include <pdal/StageWrapper.hpp>
 
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/pooled-point-table.hpp>
