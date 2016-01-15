@@ -529,7 +529,11 @@ void Builder::prep()
 {
     // TODO This should be based on numThreads, and ideally also desired
     // memory consumption.
-    if (m_pool && m_pool->numThreads() == 1) sleepCount = 65536 * 256;
+    if (m_pool && m_pool->numThreads() == 1)
+    {
+        std::cout << "Bumping sleep count" << std::endl;
+        sleepCount = 65536 * 256;
+    }
 
     if (m_tmpEndpoint)
     {
