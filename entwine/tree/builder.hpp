@@ -203,6 +203,8 @@ private:
     Json::Value saveProps() const;
     void loadProps(const Json::Value& props);
 
+    void addError(const std::string& path, const std::string& error);
+
     //
 
     std::unique_ptr<BBox> m_bbox;
@@ -220,6 +222,7 @@ private:
     bool m_trustHeaders;
     bool m_isContinuation;
     std::string m_srs;
+    std::vector<std::string> m_errors;
 
     std::unique_ptr<Pool> m_pool;
     std::unique_ptr<Executor> m_executor;

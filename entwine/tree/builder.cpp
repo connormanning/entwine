@@ -247,15 +247,19 @@ void Builder::go(std::size_t max)
             {
                 insertPath(origin, info);
             }
-            catch (std::runtime_error e)
+            catch (const std::runtime_error& e)
             {
                 std::cout << "During " << path << ": " << e.what() << std::endl;
                 status = FileInfo::Status::Error;
+
+                addError(path, e.what());
             }
             catch (...)
             {
                 std::cout << "Unknown error during " << path << std::endl;
                 status = FileInfo::Status::Error;
+
+                addError(path, "Unknown error");
             }
 
             m_manifest->set(origin, status);
@@ -579,7 +583,7 @@ void Builder::makeWhole()
 
 const std::vector<std::string>& Builder::errors() const
 {
-    return m_pool->errors();
+    return m_errors;
 }
 
 std::unique_ptr<Manifest::Split> Builder::takeWork()
@@ -645,6 +649,16 @@ void Builder::clip(
         Clipper* clipper)
 {
     m_registry->clip(index, chunkNum, clipper);
+}
+
+void Builder::addError(const std::string& path, const std::string& error)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+
+    const std::size_t lastSlash(path.find_last_of('/'));
+    const std::string file(
+            lastSlash != std::string::npos ? path.substr(lastSlash + 1) : path);
+    m_errors.push_back(file + ": " + error);
 }
 
 } // namespace entwine
