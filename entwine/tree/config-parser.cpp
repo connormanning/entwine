@@ -9,6 +9,7 @@
 ******************************************************************************/
 
 #include <limits>
+#include <numeric>
 
 #include <entwine/tree/config-parser.hpp>
 
@@ -180,6 +181,18 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         }
     }
 
+    if (!numPointsHint)
+    {
+        numPointsHint = std::accumulate(
+                manifest->paths().begin(),
+                manifest->paths().end(),
+                std::size_t(0),
+                [](std::size_t sum, const FileInfo& f)
+                {
+                    return sum + f.numPoints();
+                });
+    }
+
     if (!bbox || !schema.pointSize() || !numPointsHint)
     {
         std::cout << "Performing dataset inference..." << std::endl;
@@ -198,11 +211,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         if (!bbox)
         {
             bbox.reset(new BBox(inference.bbox()));
-            bbox->cubeify();
-            bbox->bloat();
-
             std::cout << "Inferred: " << inference.bbox() << std::endl;
-            std::cout << "Cubified: " << *bbox << std::endl;
         }
 
         if (!schema.pointSize())
@@ -235,6 +244,12 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
             dynamicChunks,
             discardDuplicates,
             prefixIds);
+
+    if (bbox)
+    {
+        bbox->cubeify();
+        bbox->bloat();
+    }
 
     std::unique_ptr<Subset> subset(getSubset(config, structure, *bbox));
 

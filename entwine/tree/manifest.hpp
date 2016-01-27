@@ -145,6 +145,7 @@ public:
     Json::Value toJson() const;
     Json::Value toInferenceJson() const;
     std::size_t size() const { return m_paths.size(); }
+    const std::vector<FileInfo>& paths() const { return m_paths; }
 
     FileInfo& get(Origin origin) { return m_paths[origin]; }
     const FileInfo& get(Origin origin) const { return m_paths[origin]; }

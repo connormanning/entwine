@@ -19,24 +19,6 @@ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-
-*/
-
-// //////////////////////////////////////////////////////////////////////
-// End of content of file: LICENSE
-// //////////////////////////////////////////////////////////////////////
-
 
 
 
@@ -58,28 +40,28 @@ SOFTWARE.
 // //////////////////////////////////////////////////////////////////////
 
 /*
-The JsonCpp library's source code, including accompanying documentation, 
+The JsonCpp library's source code, including accompanying documentation,
 tests and demonstration applications, are licensed under the following
 conditions...
 
-The author (Baptiste Lepilleur) explicitly disclaims copyright in all 
-jurisdictions which recognize such a disclaimer. In such jurisdictions, 
+The author (Baptiste Lepilleur) explicitly disclaims copyright in all
+jurisdictions which recognize such a disclaimer. In such jurisdictions,
 this software is released into the Public Domain.
 
 In jurisdictions which do not recognize Public Domain property (e.g. Germany as of
 2010), this software is Copyright (c) 2007-2010 by Baptiste Lepilleur, and is
 released under the terms of the MIT License (see below).
 
-In jurisdictions which recognize Public Domain property, the user of this 
-software may choose to accept it either as 1) Public Domain, 2) under the 
-conditions of the MIT License (see below), or 3) under the terms of dual 
+In jurisdictions which recognize Public Domain property, the user of this
+software may choose to accept it either as 1) Public Domain, 2) under the
+conditions of the MIT License (see below), or 3) under the terms of dual
 Public Domain/MIT License conditions described here, as they choose.
 
 The MIT License is about as close to Public Domain as a license can get, and is
 described in clear, concise terms at:
 
    http://en.wikipedia.org/wiki/MIT_License
-   
+
 The full text of the MIT License follows:
 
 ========================================================================
@@ -486,7 +468,7 @@ protected:
 /** Exceptions which the user cannot easily avoid.
  *
  * E.g. out-of-memory (when we use malloc), stack-overflow, malicious input
- * 
+ *
  * \remark derived from Json::Exception
  */
 class JSON_API RuntimeError : public Exception {
@@ -497,7 +479,7 @@ public:
 /** Exceptions thrown by JSON_ASSERT/JSON_FAIL macros.
  *
  * These are precondition-violations (user bugs) and internal errors (our bugs).
- * 
+ *
  * \remark derived from Json::Exception
  */
 class JSON_API LogicError : public Exception {
@@ -1622,7 +1604,7 @@ public:
     - `"rejectDupKeys": false or true`
       - If true, `parse()` returns false when a key is duplicated within an object.
     - `"allowSpecialFloats": false or true`
-      - If true, special float values (NaNs and infinities) are allowed 
+      - If true, special float values (NaNs and infinities) are allowed
         and their values are lossfree restorable.
 
     You can examine 'settings_` yourself
