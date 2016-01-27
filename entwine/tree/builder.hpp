@@ -121,6 +121,13 @@ public:
     // Set up our metadata as finished with merging.
     void makeWhole();
 
+    // Fetch any non-fatal error messages that were encountered during the
+    // build.  This may include things like files with invalid contents
+    // or files with points that were not reprojectable into the target SRS.
+    //
+    // Not thread-safe, and should not be called while Builder::go is running.
+    const std::vector<std::string>& errors() const;
+
     // Mark about half of the remaining work on the current build as "not our
     // problem" - the remaining work can be done separately and we can merge
     // it later.  If successfully split, the result is a Manifest::Split

@@ -165,7 +165,24 @@ void Inference::go()
     }
 
     m_pool->join();
-    if (!valid) throw std::runtime_error("No valid sources to inference.");
+
+    if (!valid)
+    {
+        throw std::runtime_error("No point cloud files found");
+    }
+    else if (!numPoints())
+    {
+        throw std::runtime_error("Zero points found");
+    }
+    else if (!schema().pointSize())
+    {
+        throw std::runtime_error("No schema dimensions found");
+    }
+    else if (bbox() == expander)
+    {
+        throw std::runtime_error("No bounds found");
+    }
+
     m_done = true;
 }
 

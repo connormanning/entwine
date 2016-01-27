@@ -38,6 +38,9 @@ public:
     // Wait for all currently running tasks to complete.
     void join();
 
+    // Not thread-safe, pool should be joined before calling.
+    const std::vector<std::string>& errors() const { return m_errors; }
+
     // Add a threaded task, blocking until a thread is available.  If join() is
     // called, add() may not be called again until go() is called and completes.
     void add(std::function<void()> task);
@@ -57,6 +60,9 @@ private:
     std::size_t m_queueSize;
     std::vector<std::thread> m_threads;
     std::queue<std::function<void()>> m_tasks;
+
+    std::vector<std::string> m_errors;
+    std::mutex m_errorMutex;
 
     std::atomic<bool> m_stop;
     std::mutex m_mutex;

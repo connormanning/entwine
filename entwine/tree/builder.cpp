@@ -577,6 +577,11 @@ void Builder::makeWhole()
     m_subBBox.reset();
 }
 
+const std::vector<std::string>& Builder::errors() const
+{
+    return m_pool->errors();
+}
+
 std::unique_ptr<Manifest::Split> Builder::takeWork()
 {
     std::unique_ptr<Manifest::Split> manifestSplit;

@@ -105,5 +105,10 @@ private:
 
 std::ostream& operator<<(std::ostream& os, const BBox& bbox);
 
+inline bool operator==(const BBox& lhs, const BBox& rhs)
+{
+    return lhs.min() == rhs.min() && lhs.max() == rhs.max();
+}
+
 } // namespace entwine
 

@@ -21,6 +21,8 @@ Pool::Pool(const std::size_t numThreads, const std::size_t queueSize)
     , m_queueSize(queueSize)
     , m_threads()
     , m_tasks()
+    , m_errors()
+    , m_errorMutex()
     , m_stop(true)
     , m_mutex()
     , m_produceCv()
@@ -115,11 +117,17 @@ void Pool::work()
             {
                 std::cout <<
                     "Exception caught in pool task: " << e.what() << std::endl;
+
+                std::lock_guard<std::mutex> lock(m_errorMutex);
+                m_errors.push_back(e.what());
             }
             catch (...)
             {
                 std::cout <<
                     "Unknown exception caught in pool task." << std::endl;
+
+                std::lock_guard<std::mutex> lock(m_errorMutex);
+                m_errors.push_back("Unknown error");
             }
 
             lock.lock();
