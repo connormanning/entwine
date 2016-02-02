@@ -527,6 +527,18 @@ void Builder::loadProps(const Json::Value& props)
     m_manifest.reset(new Manifest(props["manifest"]));
     m_trustHeaders = props["trustHeaders"].asBool();
     m_compress = props["compressed"].asBool();
+
+    if (!m_manifest->pointStats().inserts())
+    {
+        std::vector<std::string> paths;
+        paths.push_back("fake");
+
+        m_manifest.reset(new Manifest(paths));
+
+        Json::Value json;
+        json["inserts"] = props["stats"]["numPoints"].asUInt64();
+        m_manifest->add(0, PointStats(json));
+    }
 }
 
 void Builder::prep()
