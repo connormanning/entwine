@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 84b209647e8d22822bad04a24afaf05fffa08ae6
+// Git SHA: de6782c3663eba3a76e99cbfeea2f3d0b8a8bae6
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -18,6 +18,26 @@ in the Software without restriction, including without limitation the rights
 to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
+<<<<<<< HEAD
+=======
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+*/
+
+// //////////////////////////////////////////////////////////////////////
+// End of content of file: LICENSE
+// //////////////////////////////////////////////////////////////////////
 
 
 
@@ -2132,6 +2152,8 @@ JSON_API std::ostream& operator<<(std::ostream&, const Value& root);
 namespace arbiter
 {
 
+typedef std::map<std::string, std::string> Headers;
+
 class HttpPool;
 
 /** @brief Base class for interacting with a storage type.
@@ -2219,6 +2241,24 @@ protected:
      * @param[out] data Empty vector in which to write resulting data.
      */
     virtual bool get(std::string path, std::vector<char>& data) const = 0;
+};
+
+class CustomHeaderDriver : public Driver
+{
+    using Driver::get;
+
+public:
+    /** A GET method allowing user-defined headers. Accessible only via the
+     * Arbiter::getDriver directly, and not through the Arbiter.
+     */
+    virtual std::string get(std::string path, Headers headers) const = 0;
+
+    /** A GET method allowing user-defined headers. Accessible only via the
+     * Arbiter::getDriver directly, and not through the Arbiter.
+     */
+    virtual std::vector<char> getBinary(
+            std::string path,
+            Headers headers) const = 0;
 };
 
 typedef std::map<std::string, std::unique_ptr<Driver>> DriverMap;
@@ -2358,7 +2398,6 @@ protected:
 namespace arbiter
 {
 
-typedef std::map<std::string, std::string> Headers;
 typedef std::map<std::string, std::string> Query;
 
 /** @cond arbiter_internal */
@@ -2454,7 +2493,7 @@ public:
             Headers headers);
 
 private:
-    Curl(bool verbose);
+    Curl(bool verbose, std::size_t timeout);
 
     void init(std::string path, const Headers& headers);
 
@@ -2464,6 +2503,7 @@ private:
     CURL* m_curl;
     curl_slist* m_headers;
     const bool m_verbose;
+    const std::size_t m_timeout;
 
     std::vector<char> m_data;
 };
@@ -2503,7 +2543,10 @@ class HttpPool
     friend class HttpResource;
 
 public:
-    HttpPool(std::size_t concurrent, std::size_t retry, bool verbose = false);
+    HttpPool(
+            std::size_t concurrent,
+            std::size_t retry,
+            const Json::Value& json);
 
     HttpResource acquire();
 
@@ -5262,7 +5305,7 @@ private:
 };
 
 /** @brief Amazon %S3 driver. */
-class S3 : public Driver
+class S3 : public CustomHeaderDriver
 {
 public:
     S3(HttpPool& pool, AwsAuth awsAuth);
@@ -5279,15 +5322,13 @@ public:
             std::string path,
             const std::vector<char>& data) const override;
 
-    /** A GET method allowing user-defined headers. Accessible only via the S3
-     * driver directly, and not through the Arbiter.
-     */
-    std::string get(std::string path, Headers headers) const;
+    /** Inherited from CustomHeaderDriver. */
+    virtual std::string get(std::string path, Headers headers) const override;
 
-    /** A GET method allowing user-defined headers. Accessible only via the S3
-     * driver directly, and not through the Arbiter.
-     */
-    std::vector<char> getBinary(std::string path, Headers headers) const;
+    /** Inherited from CustomHeaderDriver. */
+    virtual std::vector<char> getBinary(
+            std::string path,
+            Headers headers) const override;
 
 private:
     virtual bool get(std::string path, std::vector<char>& data) const override;
@@ -5371,7 +5412,7 @@ private:
 };
 
 /** @brief %Dropbox driver. */
-class Dropbox : public Driver
+class Dropbox : public CustomHeaderDriver
 {
 public:
     Dropbox(HttpPool& pool, DropboxAuth auth);
@@ -5388,14 +5429,29 @@ public:
             std::string path,
             const std::vector<char>& data) const override;
 
+    /** Inherited from CustomHeaderDriver. */
+    virtual std::string get(std::string path, Headers headers) const override;
+
+    /** Inherited from CustomHeaderDriver. */
+    virtual std::vector<char> getBinary(
+            std::string path,
+            Headers headers) const override;
+
 private:
     virtual bool get(std::string path, std::vector<char>& data) const override;
     virtual std::vector<std::string> glob(
             std::string path,
             bool verbose) const override;
 
+    bool buildRequestAndGet(
+            std::string path,
+            std::vector<char>& data,
+            Headers headers = Headers()) const;
+
     std::string continueFileInfo(std::string cursor) const;
-    Headers httpGetHeaders(std::string contentType = "") const;
+
+    Headers httpGetHeaders() const;
+    Headers httpPostHeaders() const;
 
     HttpPool& m_pool;
     DropboxAuth m_auth;

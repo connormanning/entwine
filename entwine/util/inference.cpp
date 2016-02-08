@@ -130,15 +130,14 @@ void Inference::go()
         {
             valid = true;
 
-            if (m_arbiter->getType(f.path()) == "s3")
-            {
-                m_pool->add([&f, this]()
-                {
-                    const arbiter::drivers::S3& s3(
-                            static_cast<const arbiter::drivers::S3&>(
-                                m_arbiter->getDriver(f.path())));
+            const arbiter::Driver& driver(m_arbiter->getDriver(f.path()));
 
-                    const auto data(s3.getBinary(f.path(), previewRange));
+            if (const auto custom =
+                    dynamic_cast<const arbiter::CustomHeaderDriver*>(&driver))
+            {
+                m_pool->add([&f, custom, this]()
+                {
+                    const auto data(custom->getBinary(f.path(), previewRange));
 
                     std::string name(f.path());
                     std::replace(name.begin(), name.end(), '/', '-');
