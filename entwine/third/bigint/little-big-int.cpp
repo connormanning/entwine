@@ -7,6 +7,7 @@
 #include <deque>
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 
 BigUint::BigUint()
     : m_val{1, 0, Alloc(m_arena)}
