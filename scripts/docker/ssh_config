@@ -1,0 +1,8 @@
+Host entwine
+	User git
+	HostName github.com
+	IdentityFile ~/.ssh/entwine_key
+
+Host github.com
+	StrictHostKeyChecking no
+
