@@ -51,6 +51,15 @@ public:
     void goSeu();
     void goSed(bool force2d = false);
 
+    BBox getNwu() const { BBox b(*this); b.goNwu(); return b; }
+    BBox getNwd() const { BBox b(*this); b.goNwd(); return b; }
+    BBox getNeu() const { BBox b(*this); b.goNeu(); return b; }
+    BBox getNed() const { BBox b(*this); b.goNed(); return b; }
+    BBox getSwu() const { BBox b(*this); b.goSwu(); return b; }
+    BBox getSwd() const { BBox b(*this); b.goSwd(); return b; }
+    BBox getSeu() const { BBox b(*this); b.goSeu(); return b; }
+    BBox getSed() const { BBox b(*this); b.goSed(); return b; }
+
     bool exists() const { return Point::exists(m_min) && Point::exists(m_max); }
     bool is3d() const { return m_is3d; }
 

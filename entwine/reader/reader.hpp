@@ -70,6 +70,11 @@ public:
             std::size_t depthEnd,
             bool normalize);
 
+    Json::Value hierarchy(
+            const BBox& qbox,
+            std::size_t depthBegin,
+            std::size_t depthEnd);
+
     std::size_t numPoints() const;
     const BBox& bbox() const;
     const Schema& schema() const;
@@ -82,6 +87,13 @@ public:
     bool exists(const Id& id) const { return m_ids.count(id); }
 
 private:
+    void doHierarchyLevel(
+            Json::Value& json,
+            const BBox& qbox,
+            std::size_t depth,
+            std::size_t depthEnd,
+            std::string dir = "");
+
     arbiter::Endpoint m_endpoint;
 
     std::unique_ptr<Builder> m_builder;

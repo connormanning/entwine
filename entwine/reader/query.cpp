@@ -26,24 +26,18 @@ namespace
     std::size_t fetchesPerIteration(4);
 }
 
-Query::Query(
+BaseQuery::BaseQuery(
         const Reader& reader,
-        const Schema& schema,
         Cache& cache,
         const BBox& qbox,
         const std::size_t depthBegin,
-        const std::size_t depthEnd,
-        const bool normalize)
+        const std::size_t depthEnd)
     : m_reader(reader)
     , m_structure(reader.structure())
-    , m_outSchema(schema)
     , m_cache(cache)
     , m_qbox(qbox)
     , m_depthBegin(depthBegin)
     , m_depthEnd(depthEnd)
-    , m_normalize(normalize)
-    , m_table(reader.schema())
-    , m_pointRef(m_table, 0)
     , m_chunks()
     , m_block()
     , m_chunkReaderIt()
@@ -83,39 +77,35 @@ Query::Query(
             }
         }
         while (splitter.next(terminate));
-
-        std::cout << "Chunks in query: " << m_chunks.size() << std::endl;
     }
 }
 
-void Query::next(std::vector<char>& buffer)
+bool BaseQuery::next()
 {
-    if (!buffer.empty()) throw std::runtime_error("Buffer should be empty");
     if (m_done) throw std::runtime_error("Called next after query completed");
 
     if (m_base)
     {
-        getBase(buffer);
         m_base = false;
 
-        if (m_chunks.empty())
+        if (!getBase())
         {
-            m_done = true;
-        }
-        else if (buffer.empty())
-        {
-            getChunked(buffer);
+            if (m_chunks.empty()) m_done = true;
+            else getChunked();
         }
     }
     else
     {
-        getChunked(buffer);
+        getChunked();
     }
+
+    return !m_done;
 }
 
-void Query::getBase(std::vector<char>& buffer)
+bool BaseQuery::getBase()
 {
-    std::cout << "Base..." << std::endl;
+    bool dataExisted(false);
+
     if (
             m_reader.base() &&
             m_depthBegin < m_structure.baseDepthEnd() &&
@@ -132,8 +122,7 @@ void Query::getBase(std::vector<char>& buffer)
 
         if (splitter.index() < m_structure.baseIndexBegin())
         {
-            std::cout << "Nothing selected in base" << std::endl;
-            return;
+            return dataExisted;
         }
 
         do
@@ -145,11 +134,19 @@ void Query::getBase(std::vector<char>& buffer)
 
             if (!tube.empty())
             {
-                processPoint(buffer, tube.primaryCell().atom().load()->val());
+                if (processPoint(tube.primaryCell().atom().load()->val()))
+                {
+                    ++m_numPoints;
+                    dataExisted = true;
+                }
 
                 for (const auto& c : tube.secondaryCells())
                 {
-                    processPoint(buffer, c.second.atom().load()->val());
+                    if (processPoint(c.second.atom().load()->val()))
+                    {
+                        ++m_numPoints;
+                        dataExisted = true;
+                    }
                 }
             }
             else
@@ -159,16 +156,88 @@ void Query::getBase(std::vector<char>& buffer)
         }
         while (splitter.next(terminate));
     }
-    std::cout << "Base done" << std::endl;
+
+    return dataExisted;
 }
 
-void Query::processPoint(std::vector<char>& buffer, const PointInfo& info)
+void BaseQuery::getChunked()
 {
+    if (!m_block)
+    {
+        if (m_chunks.size())
+        {
+            const auto begin(m_chunks.begin());
+            auto end(m_chunks.begin());
+            std::advance(end, std::min(fetchesPerIteration, m_chunks.size()));
+
+            FetchInfoSet subset(begin, end);
+            m_block = m_cache.acquire(m_reader.path(), subset);
+            m_chunks.erase(begin, end);
+
+            if (m_block) m_chunkReaderIt = m_block->chunkMap().begin();
+        }
+    }
+
+    if (m_block)
+    {
+        if (const ChunkReader* cr = m_chunkReaderIt->second)
+        {
+            ChunkReader::QueryRange range(cr->candidates(m_qbox));
+            auto it(range.begin);
+
+            while (it != range.end)
+            {
+                if (processPoint(it->second)) ++m_numPoints;
+                ++it;
+            }
+
+            if (++m_chunkReaderIt == m_block->chunkMap().end())
+            {
+                m_block.reset();
+            }
+        }
+        else
+        {
+            throw std::runtime_error("Reservation failure");
+        }
+    }
+
+    m_done = !m_block && m_chunks.empty();
+}
+
+Query::Query(
+        const Reader& reader,
+        const Schema& schema,
+        Cache& cache,
+        const BBox& qbox,
+        const std::size_t depthBegin,
+        const std::size_t depthEnd,
+        const bool normalize)
+    : BaseQuery(reader, cache, qbox, depthBegin, depthEnd)
+    , m_buffer(nullptr)
+    , m_outSchema(schema)
+    , m_normalize(normalize)
+    , m_table(reader.schema())
+    , m_pointRef(m_table, 0)
+{ }
+
+bool Query::next(std::vector<char>& buffer)
+{
+    if (buffer.size()) throw std::runtime_error("Query buffer not empty");
+    m_buffer = &buffer;
+
+    return BaseQuery::next();
+}
+
+bool Query::processPoint(const PointInfo& info)
+{
+    if (!m_buffer) throw std::runtime_error("Query buffer not set");
+
     if (m_qbox.contains(info.point()))
     {
-        ++m_numPoints;
-        buffer.resize(buffer.size() + m_outSchema.pointSize(), 0);
-        char* pos(buffer.data() + buffer.size() - m_outSchema.pointSize());
+        m_buffer->resize(m_buffer->size() + m_outSchema.pointSize(), 0);
+        char* pos(
+                m_buffer->data() + m_buffer->size() - m_outSchema.pointSize());
 
         m_table.setPoint(info.data());
         bool isX(false), isY(false), isZ(false);
@@ -207,52 +276,13 @@ void Query::processPoint(std::vector<char>& buffer, const PointInfo& info)
 
             pos += dim.size();
         }
-    }
-}
 
-void Query::getChunked(std::vector<char>& buffer)
-{
-    if (!m_block)
+        return true;
+    }
+    else
     {
-        if (m_chunks.size())
-        {
-            const auto begin(m_chunks.begin());
-            auto end(m_chunks.begin());
-            std::advance(end, std::min(fetchesPerIteration, m_chunks.size()));
-
-            FetchInfoSet subset(begin, end);
-            m_block = m_cache.acquire(m_reader.path(), subset);
-            m_chunks.erase(begin, end);
-
-            if (m_block) m_chunkReaderIt = m_block->chunkMap().begin();
-        }
+        return false;
     }
-
-    if (m_block)
-    {
-        if (const ChunkReader* cr = m_chunkReaderIt->second)
-        {
-            ChunkReader::QueryRange range(cr->candidates(m_qbox));
-            auto it(range.begin);
-
-            while (it != range.end)
-            {
-                processPoint(buffer, it->second);
-                ++it;
-            }
-
-            if (++m_chunkReaderIt == m_block->chunkMap().end())
-            {
-                m_block.reset();
-            }
-        }
-        else
-        {
-            throw std::runtime_error("Reservation failure");
-        }
-    }
-
-    m_done = !m_block && m_chunks.empty();
 }
 
 } // namespace entwine

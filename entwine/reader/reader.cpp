@@ -69,6 +69,56 @@ Reader::Reader(
 Reader::~Reader()
 { }
 
+Json::Value Reader::hierarchy(
+        const BBox& qbox,
+        const std::size_t depthBegin,
+        const std::size_t depthEnd)
+{
+    checkQuery(depthBegin, depthEnd);
+
+    Json::Value json;
+    doHierarchyLevel(json, qbox, depthBegin, depthEnd);
+    return json;
+}
+
+void Reader::doHierarchyLevel(
+        Json::Value& json,
+        const BBox& qbox,
+        const std::size_t depth,
+        const std::size_t depthEnd,
+        const std::string dir)
+{
+    const std::size_t nextDepth(depth + 1);
+
+    std::unique_ptr<MetaQuery> query(
+            new MetaQuery(
+                *this,
+                m_cache,
+                qbox,
+                depth,
+                nextDepth));
+
+    query->run();
+
+    if (!query->numPoints()) return;
+
+    Json::Value& self(dir.size() ? json[dir] : json);
+    self["count"] = static_cast<Json::UInt64>(query->numPoints());
+
+    if (nextDepth < depthEnd)
+    {
+        doHierarchyLevel(self, qbox.getNwu(), nextDepth, depthEnd, "nwu");
+        doHierarchyLevel(self, qbox.getNwd(), nextDepth, depthEnd, "nwd");
+        doHierarchyLevel(self, qbox.getNeu(), nextDepth, depthEnd, "neu");
+        doHierarchyLevel(self, qbox.getNed(), nextDepth, depthEnd, "ned");
+
+        doHierarchyLevel(self, qbox.getSwu(), nextDepth, depthEnd, "swu");
+        doHierarchyLevel(self, qbox.getSwd(), nextDepth, depthEnd, "swd");
+        doHierarchyLevel(self, qbox.getSeu(), nextDepth, depthEnd, "seu");
+        doHierarchyLevel(self, qbox.getSed(), nextDepth, depthEnd, "sed");
+    }
+}
+
 std::unique_ptr<Query> Reader::query(
         const Schema& schema,
         const std::size_t depthBegin,
