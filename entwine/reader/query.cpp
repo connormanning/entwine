@@ -285,5 +285,29 @@ bool Query::processPoint(const PointInfo& info)
     }
 }
 
+bool MetaQuery::processPoint(const PointInfo& info)
+{
+    const Point& check(info.point());
+
+    m_loBox.set(check - m_radius, check - m_radius, m_is3d);
+    m_hiBox.set(check + m_radius, check + m_radius, m_is3d);
+
+    auto it(m_grid.lower_bound(m_loBox));
+    auto end(m_grid.upper_bound(m_hiBox));
+
+    while (it != end)
+    {
+        if (it->first.contains(check))
+        {
+            ++it->second.numPoints;
+            return true;
+        }
+
+        ++it;
+    }
+
+    return false;
+}
+
 } // namespace entwine
 

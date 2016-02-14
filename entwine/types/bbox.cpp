@@ -104,7 +104,7 @@ BBox::BBox(const Json::Value& json)
             m_is3d);
 }
 
-void BBox::set(const Point min, const Point max, const bool is3d)
+void BBox::set(const Point& min, const Point& max, const bool is3d)
 {
     m_min = min;
     m_max = max;

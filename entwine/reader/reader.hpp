@@ -86,13 +86,24 @@ public:
     const arbiter::Endpoint& endpoint() const;
     bool exists(const Id& id) const { return m_ids.count(id); }
 
+    struct BoxInfo
+    {
+        BoxInfo() : keys(), numPoints(0) { }
+        BoxInfo(std::vector<std::string> keys) : keys(keys), numPoints(0) { }
+
+        std::vector<std::string> keys;
+        std::size_t numPoints;
+    };
+
+    typedef std::map<BBox, BoxInfo> BoxMap;
+
 private:
     void doHierarchyLevel(
             Json::Value& json,
             const BBox& qbox,
+            BoxMap grid,
             std::size_t depth,
-            std::size_t depthEnd,
-            std::string dir = "");
+            std::size_t depthEnd);
 
     arbiter::Endpoint m_endpoint;
 

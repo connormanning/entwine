@@ -37,6 +37,27 @@ namespace
             throw InvalidQuery("Invalid depths");
         }
     }
+
+    Json::Value& traverse(Json::Value& in, std::vector<std::string> keys)
+    {
+        Json::Value* json(&in);
+
+        for (const auto& key : keys)
+        {
+            json = &((*json)[key]);
+        }
+
+        return *json;
+    }
+
+    std::vector<std::string> concat(
+            const std::vector<std::string>& in,
+            const std::string& add)
+    {
+        std::vector<std::string> out(in);
+        out.push_back(add);
+        return out;
+    }
 }
 
 Reader::Reader(
@@ -77,45 +98,62 @@ Json::Value Reader::hierarchy(
     checkQuery(depthBegin, depthEnd);
 
     Json::Value json;
-    doHierarchyLevel(json, qbox, depthBegin, depthEnd);
+
+    BoxMap grid;
+    grid[qbox] = BoxInfo();
+    doHierarchyLevel(json, qbox, grid, depthBegin, depthEnd);
+
     return json;
 }
 
 void Reader::doHierarchyLevel(
         Json::Value& json,
         const BBox& qbox,
+        BoxMap grid,
         const std::size_t depth,
-        const std::size_t depthEnd,
-        const std::string dir)
+        const std::size_t depthEnd)
 {
-    const std::size_t nextDepth(depth + 1);
-
     std::unique_ptr<MetaQuery> query(
             new MetaQuery(
                 *this,
                 m_cache,
                 qbox,
-                depth,
-                nextDepth));
+                grid,
+                depth));
 
     query->run();
 
-    if (!query->numPoints()) return;
+    BoxMap next;
+    const std::size_t nextDepth(depth + 1);
 
-    Json::Value& self(dir.size() ? json[dir] : json);
-    self["count"] = static_cast<Json::UInt64>(query->numPoints());
+    for (const auto it : grid)
+    {
+        const auto& info(it.second);
+
+        if (info.numPoints)
+        {
+            const auto& box(it.first);
+
+            traverse(json, info.keys)["count"] =
+                static_cast<Json::UInt64>(info.numPoints);
+
+            if (nextDepth < depthEnd)
+            {
+                next[box.getNwu()] = BoxInfo(concat(info.keys, "nwu"));
+                next[box.getNwd()] = BoxInfo(concat(info.keys, "nwd"));
+                next[box.getNeu()] = BoxInfo(concat(info.keys, "neu"));
+                next[box.getNed()] = BoxInfo(concat(info.keys, "ned"));
+                next[box.getSwu()] = BoxInfo(concat(info.keys, "swu"));
+                next[box.getSwd()] = BoxInfo(concat(info.keys, "swd"));
+                next[box.getSeu()] = BoxInfo(concat(info.keys, "seu"));
+                next[box.getSed()] = BoxInfo(concat(info.keys, "sed"));
+            }
+        }
+    }
 
     if (nextDepth < depthEnd)
     {
-        doHierarchyLevel(self, qbox.getNwu(), nextDepth, depthEnd, "nwu");
-        doHierarchyLevel(self, qbox.getNwd(), nextDepth, depthEnd, "nwd");
-        doHierarchyLevel(self, qbox.getNeu(), nextDepth, depthEnd, "neu");
-        doHierarchyLevel(self, qbox.getNed(), nextDepth, depthEnd, "ned");
-
-        doHierarchyLevel(self, qbox.getSwu(), nextDepth, depthEnd, "swu");
-        doHierarchyLevel(self, qbox.getSwd(), nextDepth, depthEnd, "swd");
-        doHierarchyLevel(self, qbox.getSeu(), nextDepth, depthEnd, "seu");
-        doHierarchyLevel(self, qbox.getSed(), nextDepth, depthEnd, "sed");
+        doHierarchyLevel(json, qbox, next, nextDepth, depthEnd);
     }
 }
 

@@ -26,7 +26,7 @@ public:
     BBox(const BBox& other);
     BBox(const Json::Value& json);
 
-    void set(Point min, Point max, bool is3d);
+    void set(const Point& min, const Point& max, bool is3d);
 
     const Point& min() const { return m_min; }
     const Point& max() const { return m_max; }
@@ -113,6 +113,19 @@ private:
 };
 
 std::ostream& operator<<(std::ostream& os, const BBox& bbox);
+
+// Orders BBoxes by their midpoint.  This is really only useful if the boxes
+// are arranged in a grid and are of equal size (like during a MetaQuery).
+inline bool operator<(const BBox& lhs, const BBox& rhs)
+{
+    const auto& lhsMid(lhs.mid());
+    const auto& rhsMid(rhs.mid());
+
+    return
+        (lhsMid.x < rhsMid.x) ||
+        (lhsMid.x == rhsMid.x && lhsMid.y < rhsMid.y) ||
+        (lhsMid.x == rhsMid.x && lhsMid.y == rhsMid.y && lhsMid.z < rhsMid.z);
+}
 
 inline bool operator==(const BBox& lhs, const BBox& rhs)
 {
