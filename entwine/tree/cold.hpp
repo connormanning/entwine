@@ -71,6 +71,13 @@ private:
         std::mutex mutex;
     };
 
+    void ensureChunk(
+            const Climber& climber,
+            std::unique_ptr<Chunk>& chunk,
+            bool exists);
+
+    void unrefChunk(CountedChunk& countedChunk, Clipper* clipper, bool fast);
+
     struct FastSlot
     {
         FastSlot() : mark(false), flag(), chunk()

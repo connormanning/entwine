@@ -180,49 +180,7 @@ void Cold::growFast(const Climber& climber, Clipper* clipper)
 
         countedChunk->refs.insert(clipper);
 
-        std::size_t tries(0);
-        while (!countedChunk->chunk)
-        {
-            if (exists)
-            {
-                countedChunk->chunk =
-                        Chunk::create(
-                            m_builder,
-                            climber.bboxChunk(),
-                            climber.depth(),
-                            chunkId,
-                            climber.chunkPoints(),
-                            Storage::ensureGet(
-                                m_endpoint,
-                                m_builder.structure().maybePrefix(chunkId)));
-            }
-            else
-            {
-                countedChunk->chunk =
-                        Chunk::create(
-                            m_builder,
-                            climber.bboxChunk(),
-                            climber.depth(),
-                            chunkId,
-                            climber.chunkPoints(),
-                            chunkId < m_builder.structure().mappedIndexBegin());
-            }
-
-            if (!countedChunk->chunk)
-            {
-                if (++tries < maxCreateTries)
-                {
-                    std::cout << "Failed chunk create " << chunkId << std::endl;
-                    std::this_thread::sleep_for(createSleepTime);
-                }
-                else
-                {
-                    std::cout << "Invalid chunk at " << chunkId << std::endl;
-                    std::cout << "Non-recoverable error - exiting" << std::endl;
-                    exit(1);
-                }
-            }
-        }
+        ensureChunk(climber, countedChunk->chunk, exists);
     }
 }
 
@@ -244,55 +202,65 @@ void Cold::growSlow(const Climber& climber, Clipper* clipper)
 
         countedChunk->refs.insert(clipper);
 
-        std::size_t tries(0);
-        while (!countedChunk->chunk)
-        {
-            if (exists)
-            {
-                countedChunk->chunk =
-                        Chunk::create(
-                            m_builder,
-                            climber.bboxChunk(),
-                            climber.depth(),
-                            chunkId,
-                            climber.chunkPoints(),
-                            Storage::ensureGet(
-                                m_endpoint,
-                                m_builder.structure().maybePrefix(chunkId)));
-            }
-            else
-            {
-                countedChunk->chunk =
-                        Chunk::create(
-                            m_builder,
-                            climber.bboxChunk(),
-                            climber.depth(),
-                            chunkId,
-                            climber.chunkPoints(),
-                            chunkId < m_builder.structure().mappedIndexBegin());
-            }
-
-            if (!countedChunk->chunk)
-            {
-                if (++tries < maxCreateTries)
-                {
-                    std::cout << "Failed chunk create " << chunkId << std::endl;
-                    std::this_thread::sleep_for(createSleepTime);
-                }
-                else
-                {
-                    std::cout << "Invalid chunk at " << chunkId << std::endl;
-                    std::cout << "Non-recoverable error - exiting" << std::endl;
-                    exit(1);
-                }
-            }
-        }
+        ensureChunk(climber, countedChunk->chunk, exists);
     }
 }
 
 void Cold::growFaux(const Id& id)
 {
     m_fauxIds.insert(id);
+}
+
+void Cold::ensureChunk(
+        const Climber& climber,
+        std::unique_ptr<Chunk>& chunk,
+        const bool exists)
+{
+    const Id& chunkId(climber.chunkId());
+
+    std::size_t tries(0);
+    while (!chunk)
+    {
+        if (exists)
+        {
+            chunk =
+                    Chunk::create(
+                        m_builder,
+                        climber.bboxChunk(),
+                        climber.depth(),
+                        chunkId,
+                        climber.chunkPoints(),
+                        Storage::ensureGet(
+                            m_endpoint,
+                            m_builder.structure().maybePrefix(chunkId)));
+        }
+        else
+        {
+            chunk =
+                    Chunk::create(
+                        m_builder,
+                        climber.bboxChunk(),
+                        climber.depth(),
+                        chunkId,
+                        climber.chunkPoints(),
+                        chunkId < m_builder.structure().mappedIndexBegin());
+        }
+
+        if (!chunk)
+        {
+            if (++tries < maxCreateTries)
+            {
+                std::cout << "Failed chunk create " << chunkId << std::endl;
+                std::this_thread::sleep_for(createSleepTime);
+            }
+            else
+            {
+                std::cout << "Invalid chunk at " << chunkId << std::endl;
+                std::cout << "Non-recoverable error - exiting" << std::endl;
+                exit(1);
+            }
+        }
+    }
 }
 
 void Cold::clip(
@@ -303,28 +271,12 @@ void Cold::clip(
 {
     if (chunkNum < m_chunkVec.size())
     {
-        pool.add([this, clipper, chunkNum, &chunkId]()
+        FastSlot& slot(m_chunkVec[chunkNum]);
+        CountedChunk& countedChunk(*slot.chunk);
+
+        pool.add([this, &countedChunk, clipper]()
         {
-            FastSlot& slot(m_chunkVec[chunkNum]);
-            CountedChunk& countedChunk(*slot.chunk);
-
-            std::lock_guard<std::mutex> chunkLock(countedChunk.mutex);
-            countedChunk.refs.erase(clipper);
-
-            if (countedChunk.refs.empty())
-            {
-                if (countedChunk.chunk)
-                {
-                    countedChunk.chunk->save(m_endpoint);
-                    countedChunk.chunk.reset(nullptr);
-                }
-                else
-                {
-                    std::cout << "Tried to clip null chunk (fast)" << std::endl;
-                    std::cout << chunkId << std::endl;
-                    exit(1);
-                }
-            }
+            unrefChunk(countedChunk, clipper, true);
         });
     }
     else
@@ -333,26 +285,31 @@ void Cold::clip(
         CountedChunk& countedChunk(*m_chunkMap.at(chunkId));
         mapLock.unlock();
 
-        pool.add([this, clipper, &countedChunk, &chunkId]()
+        pool.add([this, &countedChunk, clipper]()
         {
-            std::lock_guard<std::mutex> chunkLock(countedChunk.mutex);
-            countedChunk.refs.erase(clipper);
-
-            if (countedChunk.refs.empty())
-            {
-                if (countedChunk.chunk)
-                {
-                    countedChunk.chunk->save(m_endpoint);
-                    countedChunk.chunk.reset(0);
-                }
-                else
-                {
-                    std::cout << "Tried to clip null chunk (slow)" << std::endl;
-                    std::cout << chunkId << std::endl;
-                    exit(1);
-                }
-            }
+            unrefChunk(countedChunk, clipper, false);
         });
+    }
+}
+
+void Cold::unrefChunk(CountedChunk& countedChunk, Clipper* clipper, bool fast)
+{
+    std::lock_guard<std::mutex> chunkLock(countedChunk.mutex);
+    countedChunk.refs.erase(clipper);
+
+    if (countedChunk.refs.empty())
+    {
+        if (countedChunk.chunk)
+        {
+            countedChunk.chunk->save(m_endpoint);
+            countedChunk.chunk.reset(nullptr);
+        }
+        else
+        {
+            std::cout << "Tried to clip null chunk - ";
+            std::cout << (fast ? "fast" : "slow") << std::endl;
+            exit(1);
+        }
     }
 }
 
