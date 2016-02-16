@@ -6612,6 +6612,9 @@ std::vector<std::string> S3::glob(std::string path, bool verbose) const
     std::vector<std::string> results;
     path.pop_back();
 
+    const bool recursive(path.back() == '*');
+    if (recursive) path.pop_back();
+
     // https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGET.html
     const Resource resource(path);
     const std::string& bucket(resource.bucket);
@@ -6664,18 +6667,22 @@ std::vector<std::string> S3::glob(std::string path, bool verbose) const
                     if (XmlNode* keyNode = conNode->first_node("Key"))
                     {
                         std::string key(keyNode->value());
+                        const bool isSubdir(
+                                key.find('/', prefix.size()) !=
+                                std::string::npos);
 
                         // The prefix may contain slashes (i.e. is a sub-dir)
-                        // but we only include the top level after that.
-                        if (key.find('/', prefix.size()) == std::string::npos)
+                        // but we only want to traverse into subdirectories
+                        // beyond the prefix if recursive is true.
+                        if ( recursive || !isSubdir)
                         {
                             results.push_back("s3://" + bucket + "/" + key);
+                        }
 
-                            if (more)
-                            {
-                                query["marker"] =
-                                    object + key.substr(prefix.size());
-                            }
+                        if (more)
+                        {
+                            query["marker"] =
+                                object + key.substr(prefix.size());
                         }
                     }
                     else
