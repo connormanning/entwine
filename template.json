@@ -17,6 +17,12 @@
         // parallelized builds.
         "trustHeaders": true,
 
+        // A soft memory threshold that entwine will attempt to maintain.  This
+        // is *not* the maximum amount of memory that will be used, and the
+        // memory usage may vary by system even with a constant threshold for
+        // the same build input.
+        "threshold": 2.0,
+
         // Input file list.
         "manifest": [
             // Globbed path.
@@ -49,7 +55,7 @@
 
         // Path for temporary storage used by entwine.  Must be a local
         // filesystem path.
-        "tmp":  "./tmp",
+        "tmp":  "/tmp",
 
         // TODO Currently ignored - always compressed.
         // True to compress output.

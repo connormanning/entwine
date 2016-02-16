@@ -52,7 +52,7 @@ private:
         explicit ClipInfo(std::size_t chunkNum) : chunkNum(chunkNum), it() { }
 
         std::size_t chunkNum;
-        Order::const_iterator it;
+        Order::iterator it;
     };
 
     Builder& m_builder;

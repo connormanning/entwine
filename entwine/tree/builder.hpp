@@ -67,6 +67,7 @@ public:
             const BBox& bbox,
             const Schema& schema,
             std::size_t numThreads,
+            float threshold,
             const Structure& structure,
             std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
 
@@ -75,6 +76,7 @@ public:
             std::string outPath,
             std::string tmpPath,
             std::size_t numThreads,
+            float threshold,
             std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
 
     ~Builder();
@@ -108,7 +110,8 @@ public:
     bool isContinuation() const { return m_isContinuation; }
 
     const std::string& srs() const { return m_srs; }
-    std::size_t numThreads() const;
+    std::size_t numThreads() const { return m_totalThreads; }
+    float threshold() const { return m_threshold; }
 
     const arbiter::Endpoint& outEndpoint() const;
     const arbiter::Endpoint& tmpEndpoint() const;
@@ -227,6 +230,9 @@ private:
     std::vector<std::string> m_errors;
 
     std::unique_ptr<Pool> m_pool;
+    std::size_t m_totalThreads;
+    float m_threshold;
+
     std::unique_ptr<Executor> m_executor;
 
     pdal::Dimension::Id::Enum m_originId;

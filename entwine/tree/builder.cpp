@@ -62,6 +62,7 @@ Builder::Builder(
         const BBox& bbox,
         const Schema& schema,
         const std::size_t totalThreads,
+        const float threshold,
         const Structure& structure,
         std::shared_ptr<Arbiter> arbiter)
     : m_bbox(new BBox(bbox))
@@ -77,6 +78,8 @@ Builder::Builder(
     , m_isContinuation(false)
     , m_srs()
     , m_pool(new Pool(getWorkThreads(totalThreads)))
+    , m_totalThreads(totalThreads)
+    , m_threshold(threshold)
     , m_executor(new Executor(m_structure->is3d()))
     , m_originId(m_schema->pdalLayout().findDim("Origin"))
     , m_origin(0)
@@ -96,6 +99,7 @@ Builder::Builder(
         const std::string outPath,
         const std::string tmpPath,
         const std::size_t totalThreads,
+        const float threshold,
         std::shared_ptr<Arbiter> arbiter)
     : m_bbox()
     , m_subBBox()
@@ -110,6 +114,8 @@ Builder::Builder(
     , m_isContinuation(true)
     , m_srs()
     , m_pool(new Pool(getWorkThreads(totalThreads)))
+    , m_totalThreads(totalThreads)
+    , m_threshold(threshold)
     , m_executor()
     , m_originId()
     , m_origin(0)
@@ -142,6 +148,8 @@ Builder::Builder(
     , m_isContinuation(true)
     , m_srs()
     , m_pool()
+    , m_totalThreads(0)
+    , m_threshold(2.0)
     , m_executor()
     , m_originId()
     , m_origin(0)
@@ -356,18 +364,18 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
 
     auto inserter([this, origin, &clipper](PooledInfoStack infoStack)
     {
-        std::size_t backoff(500);
+        std::size_t backoff(250);
 
-        while (clipper.size() > 1 && chunkMem() > 2.0)
+        while (clipper.size() > 1 && chunkMem() > m_threshold && backoff < 2000)
         {
             std::cout <<
                 "\t\t" << chunkMem() << " GB - " <<
                 Chunk::getChunkCnt() << " chunks" << std::endl;
 
             clipper.clip();
-            backoff += 150;
+            backoff += 250;
 
-            if (chunkMem() > 2.0)
+            if (chunkMem() > m_threshold)
             {
                 std::this_thread::sleep_for(std::chrono::milliseconds(backoff));
             }
@@ -650,8 +658,6 @@ const Reprojection* Builder::reprojection() const
 }
 
 Pools& Builder::pools() const { return *m_pointPool; }
-
-std::size_t Builder::numThreads() const { return m_pool->numThreads(); }
 
 const arbiter::Endpoint& Builder::outEndpoint() const { return *m_outEndpoint; }
 const arbiter::Endpoint& Builder::tmpEndpoint() const { return *m_tmpEndpoint; }

@@ -120,6 +120,10 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     const Json::Value jsonInput(config["input"]);
     const bool trustHeaders(jsonInput["trustHeaders"].asBool());
     const std::size_t threads(jsonInput["threads"].asUInt64());
+    const float threshold(
+            jsonInput.isMember("threshold") ?
+                std::max(jsonInput["threshold"].asDouble(), 0.5) :
+                2.0);
 
     // Build specifications and path info.
     const Json::Value& jsonOutput(config["output"]);
@@ -255,7 +259,13 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
     if (!force && exists)
     {
-        builder.reset(new Builder(outPath, tmpPath, threads, arbiter));
+        builder.reset(
+                new Builder(
+                    outPath,
+                    tmpPath,
+                    threads,
+                    threshold,
+                    arbiter));
     }
     else
     {
@@ -273,6 +283,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                     *bbox,
                     schema,
                     threads,
+                    threshold,
                     structure,
                     arbiter));
     }
