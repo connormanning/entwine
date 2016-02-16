@@ -129,6 +129,8 @@ public:
             std::unique_ptr<std::vector<char>> compressedData,
             std::size_t numPoints);
 
+    ~SparseChunk();
+
     virtual void save(arbiter::Endpoint& endpoint) override;
     virtual Cell& getCell(const Climber& climber) override;
 
@@ -163,6 +165,8 @@ public:
             const Id& maxPoints,
             std::unique_ptr<std::vector<char>> compressedData,
             std::size_t numPoints);
+
+    ~ContiguousChunk();
 
     virtual void save(arbiter::Endpoint& endpoint) override;
     virtual Cell& getCell(const Climber& climber) override;

@@ -22,7 +22,11 @@ namespace entwine
 class CompressionStream
 {
 public:
-    CompressionStream() : m_data(new std::vector<char>()) { }
+    CompressionStream(std::size_t fullBytes)
+        : m_data(new std::vector<char>())
+    {
+        m_data->reserve(static_cast<float>(fullBytes) * 0.4);
+    }
 
     void putBytes(const uint8_t* bytes, std::size_t length)
     {

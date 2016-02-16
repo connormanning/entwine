@@ -12,7 +12,7 @@
 
 #include <cstddef>
 #include <set>
-#include <unordered_set>
+#include <unordered_map>
 
 #include <entwine/tree/builder.hpp>
 #include <entwine/types/structure.hpp>
@@ -20,65 +20,47 @@
 namespace entwine
 {
 
-struct Clip
-{
-    Clip(const Id& id, std::size_t num) : id(id), num(num) { }
-
-    Id id;
-    std::size_t num;
-
-    bool operator<(const Clip& other) const
-    {
-        return id < other.id;
-    }
-
-    bool operator==(const Clip& other) const
-    {
-        return id == other.id;
-    }
-};
-
-}
-
-namespace std
-{
-    template<> struct hash<entwine::Clip>
-    {
-        std::size_t operator()(const entwine::Clip& c) const
-        {
-            return std::hash<entwine::Id>()(c.id);
-        }
-    };
-}
-
-namespace entwine
-{
-
 class Clipper
 {
 public:
-    Clipper(Builder& builder)
+    Clipper(Builder& builder, Origin origin)
         : m_builder(builder)
         , m_clips()
+        , m_order()
+        , m_id(origin)
     { }
 
     ~Clipper()
     {
-        for (auto c(m_clips.begin()); c != m_clips.end(); ++c)
+        for (const auto& c : m_clips)
         {
-            m_builder.clip(c->id, c->num, this);
+            m_builder.clip(c.first, c.second.chunkNum, m_id);
         }
     }
 
-    bool insert(const Id& chunkId, const std::size_t chunkNum)
-    {
-        return m_clips.insert(Clip(chunkId, chunkNum)).second;
-    }
+    bool insert(const Id& chunkId, std::size_t chunkNum);
+    void clip();
+    std::size_t id() const { return m_id; }
+    std::size_t size() const { return m_clips.size(); }
 
 private:
+    typedef std::list<const Id*> Order;
+
+    struct ClipInfo
+    {
+        ClipInfo() : chunkNum(0), it() { }
+        explicit ClipInfo(std::size_t chunkNum) : chunkNum(chunkNum), it() { }
+
+        std::size_t chunkNum;
+        Order::const_iterator it;
+    };
+
     Builder& m_builder;
 
-    std::unordered_set<Clip> m_clips;
+    std::unordered_map<Id, ClipInfo> m_clips;
+    Order m_order;
+
+    uint64_t m_id;
 };
 
 } // namespace entwine

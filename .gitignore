@@ -3,4 +3,5 @@ CMakeCache.txt
 
 .DS_Store
 build/*
+dev/*
 

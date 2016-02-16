@@ -175,10 +175,10 @@ private:
     PooledInfoStack insertData(
             PooledInfoStack infoStack,
             Origin origin,
-            Clipper* clipper);
+            Clipper& clipper);
 
     // Remove resources that are no longer needed.
-    void clip(const Id& index, std::size_t chunkNum, Clipper* clipper);
+    void clip(const Id& index, std::size_t chunkNum, std::size_t id);
 
     // Awaken the tree from a saved state.
     void load(std::size_t clipThreads, std::string postfix = "");
@@ -204,6 +204,8 @@ private:
     void loadProps(const Json::Value& props);
 
     void addError(const std::string& path, const std::string& error);
+
+    float chunkMem() const;
 
     //
 

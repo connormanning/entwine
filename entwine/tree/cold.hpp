@@ -47,27 +47,27 @@ public:
 
     ~Cold();
 
-    Cell& getCell(const Climber& climber, Clipper* clipper);
+    Cell& getCell(const Climber& climber, Clipper& clipper);
 
     Json::Value toJson() const;
     void clip(
             const Id& chunkId,
             std::size_t chunkNum,
-            Clipper* clipper,
+            std::size_t id,
             Pool& pool);
 
     std::set<Id> ids() const;
     void merge(const Cold& other);
 
 private:
-    void growFast(const Climber& climber, Clipper* clipper);
-    void growSlow(const Climber& climber, Clipper* clipper);
+    void growFast(const Climber& climber, Clipper& clipper);
+    void growSlow(const Climber& climber, Clipper& clipper);
     void growFaux(const Id& other);
 
     struct CountedChunk
     {
         std::unique_ptr<Chunk> chunk;
-        std::unordered_set<const Clipper*> refs;
+        std::unordered_map<std::size_t, std::size_t> refs;
         std::mutex mutex;
     };
 
@@ -76,7 +76,7 @@ private:
             std::unique_ptr<Chunk>& chunk,
             bool exists);
 
-    void unrefChunk(CountedChunk& countedChunk, Clipper* clipper, bool fast);
+    void unrefChunk(CountedChunk& countedChunk, std::size_t id, bool fast);
 
     struct FastSlot
     {

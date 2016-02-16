@@ -172,6 +172,28 @@ void Kernel::build(std::vector<std::string> args)
                 throw std::runtime_error("Invalid manifest specification");
             }
         }
+        else if (arg == "-r")
+        {
+            if (++a < args.size())
+            {
+                json["input"]["run"] = Json::UInt64(std::stoul(args[a]));
+            }
+            else
+            {
+                throw std::runtime_error("Invalid run count specification");
+            }
+        }
+        else if (arg == "-t")
+        {
+            if (++a < args.size())
+            {
+                json["input"]["threads"] = Json::UInt64(std::stoul(args[a]));
+            }
+            else
+            {
+                throw std::runtime_error("Invalid thread count specification");
+            }
+        }
 
         ++a;
     }

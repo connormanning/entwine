@@ -124,7 +124,7 @@ Registry::~Registry()
 bool Registry::addPoint(
         PooledInfoNode& toAdd,
         Climber& climber,
-        Clipper* clipper)
+        Clipper& clipper)
 {
     bool done(false);
 
@@ -183,7 +183,7 @@ bool Registry::addPoint(
     }
 }
 
-Cell* Registry::getCell(const Climber& climber, Clipper* clipper)
+Cell* Registry::getCell(const Climber& climber, Clipper& clipper)
 {
     Cell* cell(0);
 
@@ -204,9 +204,9 @@ Cell* Registry::getCell(const Climber& climber, Clipper* clipper)
 void Registry::clip(
         const Id& index,
         const std::size_t chunkNum,
-        Clipper* clipper)
+        const std::size_t id)
 {
-    m_cold->clip(index, chunkNum, clipper, *m_pool);
+    m_cold->clip(index, chunkNum, id, *m_pool);
 }
 
 void Registry::save()

@@ -98,7 +98,7 @@ Cold::Cold(
 Cold::~Cold()
 { }
 
-Cell& Cold::getCell(const Climber& climber, Clipper* clipper)
+Cell& Cold::getCell(const Climber& climber, Clipper& clipper)
 {
     CountedChunk* countedChunk(nullptr);
 
@@ -157,12 +157,12 @@ Json::Value Cold::toJson() const
     return json;
 }
 
-void Cold::growFast(const Climber& climber, Clipper* clipper)
+void Cold::growFast(const Climber& climber, Clipper& clipper)
 {
     const Id& chunkId(climber.chunkId());
     const std::size_t chunkNum(climber.chunkNum());
 
-    if (clipper && clipper->insert(chunkId, chunkNum))
+    if (clipper.insert(chunkId, chunkNum))
     {
         FastSlot& slot(m_chunkVec[chunkNum]);
 
@@ -178,17 +178,24 @@ void Cold::growFast(const Climber& climber, Clipper* clipper)
         std::lock_guard<std::mutex> chunkLock(countedChunk->mutex);
         slot.flag.clear();
 
-        countedChunk->refs.insert(clipper);
+        if (!countedChunk->refs.count(clipper.id()))
+        {
+            countedChunk->refs[clipper.id()] = 1;
+        }
+        else
+        {
+            ++countedChunk->refs[clipper.id()];
+        }
 
         ensureChunk(climber, countedChunk->chunk, exists);
     }
 }
 
-void Cold::growSlow(const Climber& climber, Clipper* clipper)
+void Cold::growSlow(const Climber& climber, Clipper& clipper)
 {
     const Id& chunkId(climber.chunkId());
 
-    if (clipper && clipper->insert(chunkId, climber.chunkNum()))
+    if (clipper.insert(chunkId, climber.chunkNum()))
     {
         std::unique_lock<std::mutex> mapLock(m_mapMutex);
 
@@ -200,7 +207,14 @@ void Cold::growSlow(const Climber& climber, Clipper* clipper)
         std::lock_guard<std::mutex> chunkLock(countedChunk->mutex);
         mapLock.unlock();
 
-        countedChunk->refs.insert(clipper);
+        if (!countedChunk->refs.count(clipper.id()))
+        {
+            countedChunk->refs[clipper.id()] = 1;
+        }
+        else
+        {
+            ++countedChunk->refs[clipper.id()];
+        }
 
         ensureChunk(climber, countedChunk->chunk, exists);
     }
@@ -266,7 +280,7 @@ void Cold::ensureChunk(
 void Cold::clip(
         const Id& chunkId,
         const std::size_t chunkNum,
-        Clipper* clipper,
+        const std::size_t id,
         Pool& pool)
 {
     if (chunkNum < m_chunkVec.size())
@@ -274,9 +288,9 @@ void Cold::clip(
         FastSlot& slot(m_chunkVec[chunkNum]);
         CountedChunk& countedChunk(*slot.chunk);
 
-        pool.add([this, &countedChunk, clipper]()
+        pool.add([this, &countedChunk, id]()
         {
-            unrefChunk(countedChunk, clipper, true);
+            unrefChunk(countedChunk, id, true);
         });
     }
     else
@@ -285,17 +299,24 @@ void Cold::clip(
         CountedChunk& countedChunk(*m_chunkMap.at(chunkId));
         mapLock.unlock();
 
-        pool.add([this, &countedChunk, clipper]()
+        pool.add([this, &countedChunk, id]()
         {
-            unrefChunk(countedChunk, clipper, false);
+            unrefChunk(countedChunk, id, false);
         });
     }
 }
 
-void Cold::unrefChunk(CountedChunk& countedChunk, Clipper* clipper, bool fast)
+void Cold::unrefChunk(
+        CountedChunk& countedChunk,
+        const std::size_t id,
+        const bool fast)
 {
     std::lock_guard<std::mutex> chunkLock(countedChunk.mutex);
-    countedChunk.refs.erase(clipper);
+
+    if (!--countedChunk.refs.at(id))
+    {
+        countedChunk.refs.erase(id);
+    }
 
     if (countedChunk.refs.empty())
     {

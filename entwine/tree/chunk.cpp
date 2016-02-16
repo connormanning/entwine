@@ -53,13 +53,11 @@ Chunk::Chunk(
     , m_maxPoints(maxPoints)
     , m_numPoints(numPoints)
 {
-    chunkMem.fetch_add(m_numPoints * m_builder.schema().pointSize());
     chunkCnt.fetch_add(1);
 }
 
 Chunk::~Chunk()
 {
-    chunkMem.fetch_sub(m_numPoints * m_builder.schema().pointSize());
     chunkCnt.fetch_sub(1);
 }
 
@@ -221,6 +219,8 @@ SparseChunk::SparseChunk(
     , m_tubes()
     , m_mutex()
 {
+    chunkMem.fetch_add(m_numPoints);
+
     // TODO This is direct copy/paste from the ContiguousChunk ctor.
     PooledInfoStack infoStack(
             Compression::decompress(
@@ -254,6 +254,11 @@ SparseChunk::SparseChunk(
     }
 }
 
+SparseChunk::~SparseChunk()
+{
+    chunkMem.fetch_sub(m_numPoints);
+}
+
 Cell& SparseChunk::getCell(const Climber& climber)
 {
     const Id norm(normalize(climber.index()));
@@ -265,7 +270,7 @@ Cell& SparseChunk::getCell(const Climber& climber)
     std::pair<bool, Cell&> result(tube.getCell(climber.tick()));
     if (result.first)
     {
-        chunkMem.fetch_add(m_builder.schema().pointSize());
+        chunkMem.fetch_add(1);
         ++m_numPoints;
     }
     return result.second;
@@ -274,7 +279,7 @@ Cell& SparseChunk::getCell(const Climber& climber)
 void SparseChunk::save(arbiter::Endpoint& endpoint)
 {
     // TODO Nearly direct copy/paste from ContiguousChunk::save.
-    Compressor compressor(m_builder.schema());
+    Compressor compressor(m_builder.schema(), m_numPoints);
     std::vector<char> data;
 
     PooledDataStack dataStack(m_builder.pools().dataPool());
@@ -311,7 +316,9 @@ ContiguousChunk::ContiguousChunk(
         const Id& maxPoints)
     : Chunk(builder, bbox, depth, id, maxPoints)
     , m_tubes(maxPoints.getSimple())
-{ }
+{
+    chunkMem.fetch_add(m_tubes.size());
+}
 
 ContiguousChunk::ContiguousChunk(
         const Builder& builder,
@@ -324,6 +331,8 @@ ContiguousChunk::ContiguousChunk(
     : Chunk(builder, bbox, depth, id, maxPoints, numPoints)
     , m_tubes(maxPoints.getSimple())
 {
+    chunkMem.fetch_add(m_tubes.size());
+
     PooledInfoStack infoStack(
             Compression::decompress(
                 *compressedData,
@@ -354,6 +363,11 @@ ContiguousChunk::ContiguousChunk(
     }
 }
 
+ContiguousChunk::~ContiguousChunk()
+{
+    chunkMem.fetch_sub(m_tubes.size());
+}
+
 Cell& ContiguousChunk::getCell(const Climber& climber)
 {
     Tube& tube(m_tubes.at(normalize(climber.index())));
@@ -361,7 +375,6 @@ Cell& ContiguousChunk::getCell(const Climber& climber)
     std::pair<bool, Cell&> result(tube.getCell(climber.tick()));
     if (result.first)
     {
-        chunkMem.fetch_add(m_builder.schema().pointSize());
         ++m_numPoints;
     }
     return result.second;
@@ -369,7 +382,7 @@ Cell& ContiguousChunk::getCell(const Climber& climber)
 
 void ContiguousChunk::save(arbiter::Endpoint& endpoint)
 {
-    Compressor compressor(m_builder.schema());
+    Compressor compressor(m_builder.schema(), m_numPoints);
     std::vector<char> data;
 
     PooledDataStack dataStack(m_builder.pools().dataPool());
@@ -479,7 +492,7 @@ BaseChunk::BaseChunk(
 
 void BaseChunk::save(arbiter::Endpoint& endpoint)
 {
-    Compressor compressor(m_celledSchema);
+    Compressor compressor(m_celledSchema, m_numPoints);
     std::vector<char> data;
 
     PooledDataStack dataStack(m_builder.pools().dataPool());

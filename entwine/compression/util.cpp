@@ -30,7 +30,7 @@ std::unique_ptr<std::vector<char>> Compression::compress(
         const std::size_t size,
         const Schema& schema)
 {
-    CompressionStream compressionStream;
+    CompressionStream compressionStream(size);
     pdal::LazPerfCompressor<CompressionStream> compressor(
             compressionStream,
             schema.pdalLayout().dimTypes());
@@ -100,8 +100,8 @@ PooledInfoStack Compression::decompress(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-Compressor::Compressor(const Schema& schema)
-    : m_stream()
+Compressor::Compressor(const Schema& schema, std::size_t numPoints)
+    : m_stream(schema.pointSize() * numPoints)
     , m_compressor(m_stream, schema.pdalLayout().dimTypes())
 { }
 

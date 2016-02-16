@@ -62,12 +62,12 @@ public:
     bool addPoint(
             PooledInfoNode& toAdd,
             Climber& climber,
-            Clipper* clipper);
+            Clipper& clipper);
 
-    Cell* getCell(const Climber& climber, Clipper* clipper);
+    Cell* getCell(const Climber& climber, Clipper& clipper);
 
     void save();
-    void clip(const Id& index, std::size_t chunkNum, Clipper* clipper);
+    void clip(const Id& index, std::size_t chunkNum, std::size_t id);
 
     std::set<Id> ids() const;
 

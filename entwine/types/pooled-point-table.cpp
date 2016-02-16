@@ -15,7 +15,7 @@ namespace entwine
 
 namespace
 {
-    const std::size_t blockSize(65536);
+    const std::size_t blockSize(4096);
 }
 
 PooledPointTable::PooledPointTable(

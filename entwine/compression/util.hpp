@@ -51,7 +51,7 @@ public:
 class Compressor
 {
 public:
-    Compressor(const Schema& schema);
+    Compressor(const Schema& schema, std::size_t numPoints);
     void push(const char* data, std::size_t size);
     std::unique_ptr<std::vector<char>> data();
 

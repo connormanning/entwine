@@ -10,7 +10,9 @@
 
 #include <entwine/tree/builder.hpp>
 
+#include <chrono>
 #include <limits>
+#include <thread>
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/third/splice-pool/splice-pool.hpp>
@@ -34,8 +36,7 @@ namespace entwine
 
 namespace
 {
-    std::size_t sleepCount(65536 * 24);
-    const double workToClipRatio(0.47);
+    const double workToClipRatio(0.33);
 
     std::size_t getWorkThreads(const std::size_t total)
     {
@@ -263,7 +264,6 @@ void Builder::go(std::size_t max)
             }
 
             m_manifest->set(origin, status);
-            std::cout << "\tChunks: " << Chunk::getChunkCnt() << std::endl;
         });
 
         next();
@@ -352,19 +352,28 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
         }
     }
 
-    std::size_t num = 0;
-    std::unique_ptr<Clipper> clipper(new Clipper(*this));
+    Clipper clipper(*this, origin);
 
-    auto inserter([this, origin, &clipper, &num](PooledInfoStack infoStack)
+    auto inserter([this, origin, &clipper](PooledInfoStack infoStack)
     {
-        num += infoStack.size();
-        if (num > sleepCount)
+        std::size_t backoff(500);
+
+        while (clipper.size() > 1 && chunkMem() > 2.0)
         {
-            num = 0;
-            clipper.reset(new Clipper(*this));
+            std::cout <<
+                "\t\t" << chunkMem() << " GB - " <<
+                Chunk::getChunkCnt() << " chunks" << std::endl;
+
+            clipper.clip();
+            backoff += 150;
+
+            if (chunkMem() > 2.0)
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(backoff));
+            }
         }
 
-        return insertData(std::move(infoStack), origin, clipper.get());
+        return insertData(std::move(infoStack), origin, clipper);
     });
 
     PooledPointTable table(*m_pointPool, inserter);
@@ -375,7 +384,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
 PooledInfoStack Builder::insertData(
         PooledInfoStack infoStack,
         const Origin origin,
-        Clipper* clipper)
+        Clipper& clipper)
 {
     PointStats pointStats;
     PooledInfoStack rejected(m_pointPool->infoPool());
@@ -650,9 +659,9 @@ const arbiter::Endpoint& Builder::tmpEndpoint() const { return *m_tmpEndpoint; }
 void Builder::clip(
         const Id& index,
         const std::size_t chunkNum,
-        Clipper* clipper)
+        const std::size_t id)
 {
-    m_registry->clip(index, chunkNum, clipper);
+    m_registry->clip(index, chunkNum, id);
 }
 
 void Builder::addError(const std::string& path, const std::string& error)
@@ -663,6 +672,15 @@ void Builder::addError(const std::string& path, const std::string& error)
     const std::string file(
             lastSlash != std::string::npos ? path.substr(lastSlash + 1) : path);
     m_errors.push_back(file + ": " + error);
+}
+
+float Builder::chunkMem() const
+{
+    static const std::size_t bytesPerPoint(
+            m_schema->pointSize() + sizeof(Tube));
+
+    return
+        static_cast<float>(Chunk::getChunkMem() * bytesPerPoint) / 1073741824.0;
 }
 
 } // namespace entwine
