@@ -11,6 +11,7 @@
 #pragma once
 
 #include <cstddef>
+#include <list>
 #include <set>
 #include <unordered_map>
 
