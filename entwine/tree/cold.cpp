@@ -28,6 +28,8 @@ namespace entwine
 
 namespace
 {
+    const std::size_t clipQueueSize(1);
+
     const std::size_t maxCreateTries(8);
     const auto createSleepTime(std::chrono::milliseconds(500));
 
@@ -51,23 +53,29 @@ namespace
     }
 }
 
-Cold::Cold(arbiter::Endpoint& endpoint, const Builder& builder)
+Cold::Cold(
+        arbiter::Endpoint& endpoint,
+        const Builder& builder,
+        const std::size_t clipPoolSize)
     : m_endpoint(endpoint)
     , m_builder(builder)
     , m_chunkVec(getNumFastTrackers(builder.structure()))
     , m_chunkMap()
     , m_mapMutex()
+    , m_pool(new Pool(clipPoolSize, clipQueueSize))
 { }
 
 Cold::Cold(
         arbiter::Endpoint& endpoint,
         const Builder& builder,
+        const std::size_t clipPoolSize,
         const Json::Value& jsonIds)
     : m_endpoint(endpoint)
     , m_builder(builder)
     , m_chunkVec(getNumFastTrackers(builder.structure()))
     , m_chunkMap()
     , m_mapMutex()
+    , m_pool(new Pool(clipPoolSize, clipQueueSize))
 {
     if (jsonIds.isArray())
     {
@@ -280,15 +288,14 @@ void Cold::ensureChunk(
 void Cold::clip(
         const Id& chunkId,
         const std::size_t chunkNum,
-        const std::size_t id,
-        Pool& pool)
+        const std::size_t id)
 {
     if (chunkNum < m_chunkVec.size())
     {
         FastSlot& slot(m_chunkVec[chunkNum]);
         CountedChunk& countedChunk(*slot.chunk);
 
-        pool.add([this, &countedChunk, id]()
+        m_pool->add([this, &countedChunk, id]()
         {
             unrefChunk(countedChunk, id, true);
         });
@@ -299,7 +306,7 @@ void Cold::clip(
         CountedChunk& countedChunk(*m_chunkMap.at(chunkId));
         mapLock.unlock();
 
-        pool.add([this, &countedChunk, id]()
+        m_pool->add([this, &countedChunk, id]()
         {
             unrefChunk(countedChunk, id, false);
         });
@@ -334,9 +341,26 @@ void Cold::unrefChunk(
     }
 }
 
+void Cold::addClipWorker()
+{
+    std::cout << "Adding clip worker!" << std::endl;
+    m_pool->addWorker();
+    std::cout << "\tClip workers: " << m_pool->numThreads() << std::endl;
+}
+
+void Cold::delClipWorker()
+{
+    m_pool->delWorker();
+}
+
 void Cold::merge(const Cold& other)
 {
     for (const Id& id : other.ids()) m_fauxIds.insert(id);
+}
+
+std::size_t Cold::clipThreads() const
+{
+    return m_pool->numThreads();
 }
 
 } // namespace entwine

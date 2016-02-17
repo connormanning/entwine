@@ -39,10 +39,15 @@ class Pool;
 class Cold
 {
 public:
-    Cold(arbiter::Endpoint& endpoint, const Builder& builder);
     Cold(
             arbiter::Endpoint& endpoint,
             const Builder& builder,
+            std::size_t clipPoolSize);
+
+    Cold(
+            arbiter::Endpoint& endpoint,
+            const Builder& builder,
+            std::size_t clipPoolSize,
             const Json::Value& meta);
 
     ~Cold();
@@ -53,11 +58,14 @@ public:
     void clip(
             const Id& chunkId,
             std::size_t chunkNum,
-            std::size_t id,
-            Pool& pool);
+            std::size_t id);
 
     std::set<Id> ids() const;
     void merge(const Cold& other);
+
+    void addClipWorker();
+    void delClipWorker();
+    std::size_t clipThreads() const;
 
 private:
     void growFast(const Climber& climber, Clipper& clipper);
@@ -101,6 +109,7 @@ private:
     std::set<Id> m_fauxIds; // Used for merging, these are added to metadata.
 
     mutable std::mutex m_mapMutex;
+    std::unique_ptr<Pool> m_pool;
 };
 
 } // namespace entwine

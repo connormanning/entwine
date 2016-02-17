@@ -37,7 +37,6 @@ class Cell;
 class Climber;
 class Clipper;
 class Cold;
-class Pool;
 class Structure;
 
 class Registry
@@ -58,6 +57,10 @@ public:
     void merge(const Registry& other);
 
     ~Registry();
+
+    void addClipWorker();
+    void delClipWorker();
+    std::size_t clipThreads() const;
 
     bool addPoint(
             PooledInfoNode& toAdd,
@@ -81,7 +84,6 @@ private:
 
     std::unique_ptr<BaseChunk> m_base;
     std::unique_ptr<Cold> m_cold;
-    std::unique_ptr<Pool> m_pool;
 };
 
 } // namespace entwine

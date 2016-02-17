@@ -37,6 +37,11 @@ public:
 
     // Wait for all currently running tasks to complete.
     void join();
+    bool joining() const;
+
+    // Dynamically add/remove worker threads.
+    void addWorker();
+    void delWorker();
 
     // Not thread-safe, pool should be joined before calling.
     const std::vector<std::string>& errors() const { return m_errors; }
@@ -45,7 +50,11 @@ public:
     // called, add() may not be called again until go() is called and completes.
     void add(std::function<void()> task);
 
-    std::size_t numThreads() const { return m_numThreads; }
+    std::size_t numThreads() const
+    {
+        std::lock_guard<std::mutex> lock(m_workMutex);
+        return m_numThreads;
+    }
 
 private:
     // Worker thread function.  Wait for a task and run it - or if stop() is
@@ -64,8 +73,11 @@ private:
     std::vector<std::string> m_errors;
     std::mutex m_errorMutex;
 
-    std::atomic<bool> m_stop;
-    std::mutex m_mutex;
+    std::size_t m_stop;
+
+    mutable std::mutex m_stopMutex;
+    mutable std::mutex m_workMutex;
+
     std::condition_variable m_produceCv;
     std::condition_variable m_consumeCv;
 

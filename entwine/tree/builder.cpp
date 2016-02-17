@@ -37,6 +37,9 @@ namespace entwine
 namespace
 {
     const double workToClipRatio(0.33);
+    const float upperClamp(.90);
+    const float lowerClamp(.70);
+    const std::size_t sleepCount(65536 * 16);
 
     std::size_t getWorkThreads(const std::size_t total)
     {
@@ -49,6 +52,8 @@ namespace
     {
         return std::max<std::size_t>(total - getWorkThreads(total), 4);
     }
+
+    std::atomic_size_t delWorkerOrigin(0);
 }
 
 Builder::Builder(
@@ -78,8 +83,11 @@ Builder::Builder(
     , m_isContinuation(false)
     , m_srs()
     , m_pool(new Pool(getWorkThreads(totalThreads)))
+    , m_initialWorkThreads(getWorkThreads(totalThreads))
+    , m_initialClipThreads(getClipThreads(totalThreads))
     , m_totalThreads(totalThreads)
     , m_threshold(threshold)
+    , m_usage(0)
     , m_executor(new Executor(m_structure->is3d()))
     , m_originId(m_schema->pdalLayout().findDim("Origin"))
     , m_origin(0)
@@ -90,8 +98,7 @@ Builder::Builder(
     , m_pointPool(new Pools(*m_schema))
     , m_registry()
 {
-    m_registry.reset(
-            new Registry(*m_outEndpoint, *this, getClipThreads(totalThreads)));
+    m_registry.reset(new Registry(*m_outEndpoint, *this, m_initialClipThreads));
     prep();
 }
 
@@ -114,8 +121,11 @@ Builder::Builder(
     , m_isContinuation(true)
     , m_srs()
     , m_pool(new Pool(getWorkThreads(totalThreads)))
+    , m_initialWorkThreads(getWorkThreads(totalThreads))
+    , m_initialClipThreads(getClipThreads(totalThreads))
     , m_totalThreads(totalThreads)
     , m_threshold(threshold)
+    , m_usage(0)
     , m_executor()
     , m_originId()
     , m_origin(0)
@@ -127,7 +137,7 @@ Builder::Builder(
     , m_registry()
 {
     prep();
-    load(getClipThreads(totalThreads));
+    load(m_initialClipThreads);
 }
 
 Builder::Builder(
@@ -148,8 +158,11 @@ Builder::Builder(
     , m_isContinuation(true)
     , m_srs()
     , m_pool()
+    , m_initialWorkThreads(0)
+    , m_initialClipThreads(0)
     , m_totalThreads(0)
     , m_threshold(2.0)
+    , m_usage(0)
     , m_executor()
     , m_originId()
     , m_origin(0)
@@ -247,6 +260,7 @@ void Builder::go(std::size_t max)
         ++added;
         std::cout << "Adding " << m_origin << " - " << path << std::endl;
         const auto origin(m_origin);
+        std::cout << "Using " << chunkMem() << " GB" << std::endl;
 
         m_pool->add([this, origin, &info, path]()
         {
@@ -360,24 +374,95 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
         }
     }
 
+    std::size_t num(0);
     Clipper clipper(*this, origin);
 
-    auto inserter([this, origin, &clipper](PooledInfoStack infoStack)
+    auto inserter([this, origin, &clipper, &num](PooledInfoStack infoStack)
     {
-        std::size_t backoff(250);
+        num += infoStack.size();
 
-        while (clipper.size() > 1 && chunkMem() > m_threshold && backoff < 2000)
+        if (num > sleepCount)
         {
-            std::cout <<
-                "\t\t" << chunkMem() << " GB - " <<
-                Chunk::getChunkCnt() << " chunks" << std::endl;
-
             clipper.clip();
-            backoff += 250;
+            num = 0;
+        }
 
-            if (chunkMem() > m_threshold)
+        if (chunkMem() > m_threshold * upperClamp)
+        {
+            if (
+                    origin > delWorkerOrigin &&
+                    origin - delWorkerOrigin > m_pool->numThreads() * 2)
             {
-                std::this_thread::sleep_for(std::chrono::milliseconds(backoff));
+                std::cout <<
+                    "\t\t" << chunkMem() << " GB - " <<
+                    Chunk::getChunkCnt() << " chunks - " <<
+                    m_pool->numThreads() << " threads" <<
+                    std::endl;
+
+                delWorkerOrigin = origin;
+
+                const std::size_t workDelta(
+                        m_initialWorkThreads - m_pool->numThreads());
+                const std::size_t clipDelta(
+                        m_initialClipThreads - m_registry->clipThreads());
+
+                if (workDelta < m_initialWorkThreads / 2)
+                {
+                    std::cout <<
+                        "WorkThreads: " << m_pool->numThreads() << " " <<
+                        "ClipThreads: " << m_registry->clipThreads() <<
+                        std::endl;
+
+                    if (clipDelta / 2 <= workDelta)
+                    {
+                        std::cout << "\tDel clip thread" << std::endl;
+                        m_registry->delClipWorker();
+                    }
+                    else
+                    {
+                        std::cout << "\tDel work thread" << std::endl;
+                        m_pool->delWorker();
+                    }
+                }
+                else
+                {
+                    std::cout << "\tAt min threads - clipping" << std::endl;
+                    clipper.clip();
+                }
+            }
+            else if (
+                    num > infoStack.size() * 128 &&
+                    clipper.size() * m_pool->numThreads() >=
+                        Chunk::getChunkCnt())
+            {
+                num = 0;
+                clipper.clip();
+            }
+        }
+        else if (chunkMem() < m_threshold * lowerClamp)
+        {
+            const std::size_t workDelta(
+                    m_initialWorkThreads - m_pool->numThreads());
+            const std::size_t clipDelta(
+                    m_initialClipThreads - m_registry->clipThreads());
+
+            std::cout <<
+                "WorkThreads: " << m_pool->numThreads() << " " <<
+                "ClipThreads: " << m_registry->clipThreads() <<
+                std::endl;
+
+            if (clipDelta)
+            {
+                if (clipDelta / 2 > workDelta)
+                {
+                    std::cout << "\tAdd clip thread" << std::endl;
+                    m_registry->addClipWorker();
+                }
+                else
+                {
+                    std::cout << "\tAdd work thread" << std::endl;
+                    m_pool->addWorker();
+                }
             }
         }
 
@@ -386,7 +471,16 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
 
     PooledPointTable table(*m_pointPool, inserter);
 
-    return m_executor->run(table, localPath, m_reprojection.get());
+    const bool result(m_executor->run(table, localPath, m_reprojection.get()));
+
+    if (m_pool->joining())
+    {
+        std::cout << "\tAdding a wind-down clip thread" << std::endl;
+        m_pool->delWorker();
+        m_registry->addClipWorker();
+    }
+
+    return result;
 }
 
 PooledInfoStack Builder::insertData(
@@ -682,11 +776,14 @@ void Builder::addError(const std::string& path, const std::string& error)
 
 float Builder::chunkMem() const
 {
+    if (usage()) return usage();
+
     static const std::size_t bytesPerPoint(
             m_schema->pointSize() + sizeof(Tube));
 
     return
-        static_cast<float>(Chunk::getChunkMem() * bytesPerPoint) / 1073741824.0;
+        static_cast<float>(Chunk::getChunkMem() * bytesPerPoint) * 1.6 /
+        1073741824.0;
 }
 
 } // namespace entwine

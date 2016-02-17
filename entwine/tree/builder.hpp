@@ -113,6 +113,18 @@ public:
     std::size_t numThreads() const { return m_totalThreads; }
     float threshold() const { return m_threshold; }
 
+    float usage() const
+    {
+        // std::lock_guard<std::mutex> lock(m_mutex);
+        return m_usage;
+    }
+
+    void usage(float set)
+    {
+        // std::lock_guard<std::mutex> lock(m_mutex);
+        m_usage = set;
+    }
+
     const arbiter::Endpoint& outEndpoint() const;
     const arbiter::Endpoint& tmpEndpoint() const;
 
@@ -230,8 +242,11 @@ private:
     std::vector<std::string> m_errors;
 
     std::unique_ptr<Pool> m_pool;
+    std::size_t m_initialWorkThreads;
+    std::size_t m_initialClipThreads;
     std::size_t m_totalThreads;
     float m_threshold;
+    float m_usage;
 
     std::unique_ptr<Executor> m_executor;
 

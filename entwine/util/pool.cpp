@@ -12,9 +12,15 @@
 
 #include <cassert>
 #include <iostream>
+#include <limits>
 
 namespace entwine
 {
+
+namespace
+{
+    const std::size_t stopAll(std::numeric_limits<std::size_t>::max());
+}
 
 Pool::Pool(const std::size_t numThreads, const std::size_t queueSize)
     : m_numThreads(numThreads)
@@ -23,8 +29,9 @@ Pool::Pool(const std::size_t numThreads, const std::size_t queueSize)
     , m_tasks()
     , m_errors()
     , m_errorMutex()
-    , m_stop(true)
-    , m_mutex()
+    , m_stop(stopAll)
+    , m_stopMutex()
+    , m_workMutex()
     , m_produceCv()
     , m_consumeCv()
 {
@@ -38,7 +45,7 @@ Pool::~Pool()
 
 void Pool::go()
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    std::lock_guard<std::mutex> lock(m_workMutex);
 
     if (!stop())
     {
@@ -58,6 +65,7 @@ void Pool::join()
 {
     if (!stop())
     {
+        std::cout << "JOIN" << std::endl;
         stop(true);
 
         for (auto& t : m_threads)
@@ -66,21 +74,20 @@ void Pool::join()
             t.join();
         }
 
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::lock_guard<std::mutex> lock(m_workMutex);
         m_threads.clear();
         assert(m_tasks.empty());
     }
 }
 
+bool Pool::joining() const
+{
+    return m_stop == stopAll;
+}
+
 void Pool::add(std::function<void()> task)
 {
-    if (stop())
-    {
-        throw std::runtime_error(
-                "Attempted to add a task to a stopped Pool");
-    }
-
-    std::unique_lock<std::mutex> lock(m_mutex);
+    std::unique_lock<std::mutex> lock(m_workMutex);
 
     m_produceCv.wait(lock, [this]() { return m_tasks.size() < m_queueSize; });
     m_tasks.emplace(task);
@@ -93,13 +100,18 @@ void Pool::add(std::function<void()> task)
 
 void Pool::work()
 {
-    std::unique_lock<std::mutex> lock(m_mutex);
+    std::unique_lock<std::mutex> lock(m_workMutex);
+    bool stopSelf(false);
 
-    while (!stop() || !m_tasks.empty())
+    while (!stopSelf)
     {
-        m_consumeCv.wait(lock, [this]() { return !m_tasks.empty() || stop(); });
+        m_consumeCv.wait(lock, [this, &stopSelf]()
+        {
+            if (!stopSelf) stopSelf = stop();
+            return stopSelf || !m_tasks.empty();
+        });
 
-        if (!m_tasks.empty())
+        if (!stopSelf && !m_tasks.empty())
         {
             auto task(std::move(m_tasks.front()));
             m_tasks.pop();
@@ -132,17 +144,53 @@ void Pool::work()
 
             lock.lock();
         }
+
+        if (!stopSelf)
+        {
+            stopSelf = stop();
+        }
     }
+
+    --m_numThreads;
+    std::cout << "Removing a thread!" << std::endl;
+}
+
+void Pool::addWorker()
+{
+    std::lock_guard<std::mutex> lock(m_workMutex);
+
+    ++m_numThreads;
+    m_threads.emplace_back([this]() { work(); });
+}
+
+void Pool::delWorker()
+{
+    std::lock_guard<std::mutex> lock(m_stopMutex);
+    if (m_stop != stopAll) ++m_stop;
+
+    // Notify waiting tasks, if there are any, one of them will stop itself.
+    m_consumeCv.notify_all();
 }
 
 bool Pool::stop()
 {
-    return m_stop.load();
+    std::lock_guard<std::mutex> lock(m_stopMutex);
+    bool result(m_stop);
+
+    if (m_stop && m_stop != stopAll)
+    {
+        --m_stop;
+    }
+
+    return result;
 }
 
 void Pool::stop(const bool val)
 {
-    m_stop.store(val);
+    std::lock_guard<std::mutex> lock(m_stopMutex);
+
+    if (val) m_stop = stopAll;
+    else m_stop = 0;
 }
 
 } // namespace entwine

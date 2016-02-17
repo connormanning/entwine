@@ -25,7 +25,6 @@
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/types/subset.hpp>
-#include <entwine/util/pool.hpp>
 #include <entwine/util/storage.hpp>
 
 namespace entwine
@@ -42,8 +41,6 @@ namespace
         if (is3d)   return candidate.sqDist3d(goal) < current.sqDist3d(goal);
         else        return candidate.sqDist2d(goal) < current.sqDist2d(goal);
     }
-
-    const std::size_t clipQueueSize(1);
 }
 
 Registry::Registry(
@@ -57,7 +54,6 @@ Registry::Registry(
     , m_as3d(m_structure.is3d() || m_structure.tubular())
     , m_base()
     , m_cold()
-    , m_pool(clipPoolSize ? new Pool(clipPoolSize, clipQueueSize) : nullptr)
 {
     if (m_structure.baseIndexSpan())
     {
@@ -74,7 +70,7 @@ Registry::Registry(
 
     if (m_structure.hasCold())
     {
-        m_cold.reset(new Cold(endpoint, m_builder));
+        m_cold.reset(new Cold(endpoint, m_builder, clipPoolSize));
     }
 }
 
@@ -90,7 +86,6 @@ Registry::Registry(
     , m_as3d(m_structure.is3d() || m_structure.tubular())
     , m_base()
     , m_cold()
-    , m_pool(new Pool(clipPoolSize, clipQueueSize))
 {
     if (m_structure.baseIndexSpan())
     {
@@ -114,7 +109,7 @@ Registry::Registry(
 
     if (m_structure.hasCold())
     {
-        m_cold.reset(new Cold(endpoint, builder, ids));
+        m_cold.reset(new Cold(endpoint, builder, clipPoolSize, ids));
     }
 }
 
@@ -206,7 +201,7 @@ void Registry::clip(
         const std::size_t chunkNum,
         const std::size_t id)
 {
-    m_cold->clip(index, chunkNum, id, *m_pool);
+    m_cold->clip(index, chunkNum, id);
 }
 
 void Registry::save()
@@ -238,6 +233,22 @@ std::set<Id> Registry::ids() const
 {
     if (m_cold) return m_cold->ids();
     else return std::set<Id>();
+}
+
+void Registry::addClipWorker()
+{
+    if (m_cold) m_cold->addClipWorker();
+}
+
+void Registry::delClipWorker()
+{
+    if (m_cold) m_cold->delClipWorker();
+}
+
+std::size_t Registry::clipThreads() const
+{
+    if (m_cold) return m_cold->clipThreads();
+    else return 0;
 }
 
 } // namespace entwine
