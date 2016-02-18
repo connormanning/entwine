@@ -65,8 +65,13 @@ void Pool::join()
 {
     if (!stop())
     {
-        std::cout << "JOIN" << std::endl;
         stop(true);
+
+        m_consumeCv.notify_all();
+
+        std::unique_lock<std::mutex> lock(m_workMutex);
+        m_consumeCv.wait(lock, [this]() { return m_tasks.empty(); });
+        lock.unlock();
 
         for (auto& t : m_threads)
         {
@@ -74,7 +79,6 @@ void Pool::join()
             t.join();
         }
 
-        std::lock_guard<std::mutex> lock(m_workMutex);
         m_threads.clear();
         assert(m_tasks.empty());
     }
@@ -100,8 +104,8 @@ void Pool::add(std::function<void()> task)
 
 void Pool::work()
 {
-    std::unique_lock<std::mutex> lock(m_workMutex);
     bool stopSelf(false);
+    std::unique_lock<std::mutex> lock(m_workMutex);
 
     while (!stopSelf)
     {
@@ -111,7 +115,7 @@ void Pool::work()
             return stopSelf || !m_tasks.empty();
         });
 
-        if (!stopSelf && !m_tasks.empty())
+        if (!m_tasks.empty())
         {
             auto task(std::move(m_tasks.front()));
             m_tasks.pop();
@@ -151,8 +155,10 @@ void Pool::work()
         }
     }
 
+    lock.unlock();
+
+    m_consumeCv.notify_all();
     --m_numThreads;
-    std::cout << "Removing a thread!" << std::endl;
 }
 
 void Pool::addWorker()
