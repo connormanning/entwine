@@ -39,11 +39,14 @@ bool Clipper::insert(const Id& chunkId, std::size_t chunkNum)
     }
 }
 
-void Clipper::clip()
+void Clipper::clip(const float ratio)
 {
-    if (m_clips.size() < 10) return;
+    if (m_clips.size() < 10 || ratio > 1.0) return;
 
-    const std::size_t count(m_clips.size() / 4);
+    const std::size_t count(
+            std::max<std::size_t>(
+                m_clips.size(),
+                static_cast<float>(m_clips.size()) * ratio));
 
     std::cout << "\t\tClipping " << id() << ": " <<
         count << " / " << m_clips.size() << std::endl;

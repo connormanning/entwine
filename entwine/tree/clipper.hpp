@@ -40,7 +40,7 @@ public:
     }
 
     bool insert(const Id& chunkId, std::size_t chunkNum);
-    void clip();
+    void clip(float ratio);
     std::size_t id() const { return m_id; }
     std::size_t size() const { return m_clips.size(); }
 

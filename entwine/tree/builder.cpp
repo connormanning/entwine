@@ -39,7 +39,7 @@ namespace
     const double workToClipRatio(0.33);
     const float upperClamp(.90);
     const float lowerClamp(.70);
-    const std::size_t sleepCount(65536 * 16);
+    const std::size_t sleepCount(65536 * 24);
 
     std::size_t getWorkThreads(const std::size_t total)
     {
@@ -383,7 +383,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
 
         if (num > sleepCount)
         {
-            clipper.clip();
+            clipper.clip(.10);
             num = 0;
         }
 
@@ -427,7 +427,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
                 else
                 {
                     std::cout << "\tAt min threads - clipping" << std::endl;
-                    clipper.clip();
+                    clipper.clip(.25);
                 }
             }
             else if (
@@ -435,8 +435,9 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
                     clipper.size() * m_pool->numThreads() >=
                         Chunk::getChunkCnt())
             {
+                std::cout << "\tLocked by origin - clipping" << std::endl;
                 num = 0;
-                clipper.clip();
+                clipper.clip(.25);
             }
         }
         else if (chunkMem() < m_threshold * lowerClamp)
