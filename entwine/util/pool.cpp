@@ -17,11 +17,6 @@
 namespace entwine
 {
 
-namespace
-{
-    const std::size_t stopAll(std::numeric_limits<std::size_t>::max());
-}
-
 Pool::Pool(const std::size_t numThreads, const std::size_t queueSize)
     : m_numThreads(numThreads)
     , m_queueSize(queueSize)
@@ -29,8 +24,9 @@ Pool::Pool(const std::size_t numThreads, const std::size_t queueSize)
     , m_tasks()
     , m_errors()
     , m_errorMutex()
-    , m_stop(stopAll)
-    , m_stopMutex()
+    , m_stop(true)
+    , m_deletions(0)
+    , m_metaMutex()
     , m_workMutex()
     , m_produceCv()
     , m_consumeCv()
@@ -86,7 +82,7 @@ void Pool::join()
 
 bool Pool::joining() const
 {
-    return m_stop == stopAll;
+    return stop();
 }
 
 void Pool::add(std::function<void()> task)
@@ -104,15 +100,15 @@ void Pool::add(std::function<void()> task)
 
 void Pool::work()
 {
-    bool stopSelf(false);
+    bool done(false);
     std::unique_lock<std::mutex> lock(m_workMutex);
 
-    while (!stopSelf)
+    while (!done)
     {
-        m_consumeCv.wait(lock, [this, &stopSelf]()
+        m_consumeCv.wait(lock, [this, &done]()
         {
-            if (!stopSelf) stopSelf = stop();
-            return stopSelf || !m_tasks.empty();
+            if (!done) done = (stop() && m_tasks.empty()) || shouldDelete();
+            return done || !m_tasks.empty();
         });
 
         if (!m_tasks.empty())
@@ -149,10 +145,7 @@ void Pool::work()
             lock.lock();
         }
 
-        if (!stopSelf)
-        {
-            stopSelf = stop();
-        }
+        if (!done) done = (stop() && m_tasks.empty()) || shouldDelete();
     }
 
     lock.unlock();
@@ -163,40 +156,56 @@ void Pool::work()
 
 void Pool::addWorker()
 {
-    std::lock_guard<std::mutex> lock(m_workMutex);
+    std::lock_guard<std::mutex> lock(m_metaMutex);
 
-    ++m_numThreads;
-    m_threads.emplace_back([this]() { work(); });
+    if (m_deletions)
+    {
+        --m_deletions;
+    }
+    else
+    {
+        ++m_numThreads;
+        m_threads.emplace_back([this]() { work(); });
+    }
 }
 
 void Pool::delWorker()
 {
-    std::lock_guard<std::mutex> lock(m_stopMutex);
-    if (m_stop != stopAll) ++m_stop;
+    std::lock_guard<std::mutex> lock(m_metaMutex);
 
-    // Notify waiting tasks, if there are any, one of them will stop itself.
+    if (++m_deletions >= m_numThreads)
+    {
+        throw std::runtime_error("No threads left in the pool");
+    }
+
+    // Notify waiting tasks, so one of them may stop itself.
     m_consumeCv.notify_all();
 }
 
-bool Pool::stop()
+bool Pool::stop() const
 {
-    std::lock_guard<std::mutex> lock(m_stopMutex);
-    bool result(m_stop);
-
-    if (m_stop && m_stop != stopAll)
-    {
-        --m_stop;
-    }
-
-    return result;
+    std::lock_guard<std::mutex> lock(m_metaMutex);
+    return m_stop;
 }
 
 void Pool::stop(const bool val)
 {
-    std::lock_guard<std::mutex> lock(m_stopMutex);
+    std::lock_guard<std::mutex> lock(m_metaMutex);
+    m_stop = val;
+}
 
-    if (val) m_stop = stopAll;
-    else m_stop = 0;
+bool Pool::shouldDelete()
+{
+    bool result(false);
+
+    std::lock_guard<std::mutex> lock(m_metaMutex);
+    if (m_deletions)
+    {
+        result = true;
+        --m_deletions;
+    }
+
+    return result;
 }
 
 } // namespace entwine

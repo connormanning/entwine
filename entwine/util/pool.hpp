@@ -61,9 +61,10 @@ private:
     // called, complete any outstanding task and return.
     void work();
 
-    // Atomically set/get the stop flag.
-    bool stop();
+    bool stop() const;
     void stop(bool val);
+
+    bool shouldDelete();
 
     std::size_t m_numThreads;
     std::size_t m_queueSize;
@@ -73,9 +74,10 @@ private:
     std::vector<std::string> m_errors;
     std::mutex m_errorMutex;
 
-    std::size_t m_stop;
+    bool m_stop;
+    std::size_t m_deletions;
 
-    mutable std::mutex m_stopMutex;
+    mutable std::mutex m_metaMutex;
     mutable std::mutex m_workMutex;
 
     std::condition_variable m_produceCv;

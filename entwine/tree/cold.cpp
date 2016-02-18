@@ -343,9 +343,7 @@ void Cold::unrefChunk(
 
 void Cold::addClipWorker()
 {
-    std::cout << "Adding clip worker!" << std::endl;
     m_pool->addWorker();
-    std::cout << "\tClip workers: " << m_pool->numThreads() << std::endl;
 }
 
 void Cold::delClipWorker()
