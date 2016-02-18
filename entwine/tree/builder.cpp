@@ -446,13 +446,13 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
             const std::size_t clipDelta(
                     m_initialClipThreads - m_registry->clipThreads());
 
-            std::cout <<
-                "WorkThreads: " << m_pool->numThreads() << " " <<
-                "ClipThreads: " << m_registry->clipThreads() <<
-                std::endl;
-
             if (clipDelta)
             {
+                std::cout <<
+                    "WorkThreads: " << m_pool->numThreads() << " " <<
+                    "ClipThreads: " << m_registry->clipThreads() <<
+                    std::endl;
+
                 if (clipDelta / 2 > workDelta)
                 {
                     std::cout << "\tAdd clip thread" << std::endl;
