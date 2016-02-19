@@ -469,7 +469,7 @@ void Builder::manageDynamics(
 {
     const bool originLocked(
             origin <= threadChangeOrigin ||
-            origin - threadChangeOrigin <= m_pool->numThreads() * 2);
+            origin - threadChangeOrigin <= m_pool->numThreads());
 
     if (chunkMem() > m_threshold * upperClamp)
     {
@@ -550,7 +550,7 @@ void Builder::memAboveThreshold(
         else
         {
             std::cout << "\tAt min threads - clipping" << std::endl;
-            clipper.clip(.15);
+            clipper.clip(.10);
         }
     }
     else if (
@@ -565,7 +565,7 @@ void Builder::memAboveThreshold(
 
         std::cout << "\tLocked by origin - clipping" << std::endl;
         duration = 0;
-        clipper.clip(.15);
+        clipper.clip(.10);
     }
 }
 
