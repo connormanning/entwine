@@ -53,7 +53,7 @@ namespace
         return std::max<std::size_t>(total - getWorkThreads(total), 4);
     }
 
-    std::atomic_size_t threadChangeOrigin(0);
+    std::atomic_size_t threadChangePos(0);
 }
 
 Builder::Builder(
@@ -92,6 +92,7 @@ Builder::Builder(
     , m_originId(m_schema->pdalLayout().findDim("Origin"))
     , m_origin(0)
     , m_end(0)
+    , m_added(0)
     , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
     , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(outPath)))
     , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
@@ -130,6 +131,7 @@ Builder::Builder(
     , m_originId()
     , m_origin(0)
     , m_end(0)
+    , m_added(0)
     , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
     , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(outPath)))
     , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
@@ -167,6 +169,7 @@ Builder::Builder(
     , m_originId()
     , m_origin(0)
     , m_end(0)
+    , m_added(0)
     , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
     , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(path)))
     , m_tmpEndpoint()
@@ -243,9 +246,7 @@ void Builder::go(std::size_t max)
 
     max = max ? std::min<std::size_t>(m_end, max) : m_end;
 
-    std::size_t added(0);
-
-    while (keepGoing() && added < max)
+    while (keepGoing() && m_added < max)
     {
         FileInfo& info(m_manifest->get(m_origin));
         const std::string path(info.path());
@@ -257,7 +258,7 @@ void Builder::go(std::size_t max)
             continue;
         }
 
-        ++added;
+        ++m_added;
         std::cout << "Adding " << m_origin << " - " << path << std::endl;
         const auto origin(m_origin);
         std::cout << "Using " << chunkMem() << " GB" << std::endl;
@@ -392,7 +393,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
 
         if (!m_pool->joining())
         {
-            manageDynamics(origin, num, infoStack.size(), clipper);
+            manageDynamics(num, infoStack.size(), clipper);
         }
 
         return insertData(std::move(infoStack), origin, clipper);
@@ -462,18 +463,15 @@ PooledInfoStack Builder::insertData(
 }
 
 void Builder::manageDynamics(
-        const Origin origin,
         std::size_t& duration,
         const std::size_t stackSize,
         Clipper& clipper)
 {
-    const bool originLocked(
-            origin <= threadChangeOrigin ||
-            origin - threadChangeOrigin <= m_pool->numThreads());
+    const bool originLocked(m_added - threadChangePos <= m_pool->numThreads());
 
     if (chunkMem() > m_threshold * upperClamp)
     {
-        memAboveThreshold(origin, duration, stackSize, originLocked, clipper);
+        memAboveThreshold(duration, stackSize, originLocked, clipper);
     }
     else if (!originLocked && chunkMem() < m_threshold * lowerClamp)
     {
@@ -484,14 +482,14 @@ void Builder::manageDynamics(
 
         if (clipDelta)
         {
-            threadChangeOrigin = origin;
+            threadChangePos = m_added;
 
             std::cout <<
                 "WorkThreads: " << m_pool->numThreads() << " " <<
                 "ClipThreads: " << m_registry->clipThreads() << " "
                 "WorkDelta: " << workDelta << " " <<
                 "ClipDelta: " << clipDelta << " " <<
-                "ThreadChangeOrigin: " << threadChangeOrigin <<
+                "ThreadChangePos: " << threadChangePos <<
                 std::endl;
 
             if (clipDelta / 2 >= workDelta)
@@ -509,7 +507,6 @@ void Builder::manageDynamics(
 }
 
 void Builder::memAboveThreshold(
-        const Origin origin,
         std::size_t& duration,
         const std::size_t stackSize,
         const bool originLocked,
@@ -523,7 +520,7 @@ void Builder::memAboveThreshold(
             m_pool->numThreads() << " threads" <<
             std::endl;
 
-        threadChangeOrigin = origin;
+        threadChangePos = m_added;
 
         const std::size_t workDelta(
                 m_initialWorkThreads - m_pool->numThreads());
@@ -537,7 +534,7 @@ void Builder::memAboveThreshold(
                 "ClipThreads: " << m_registry->clipThreads() << " " <<
                 "WorkDelta: " << workDelta << " " <<
                 "ClipDelta: " << clipDelta << " " <<
-                "ThreadChangeOrigin: " << threadChangeOrigin <<
+                "ThreadChangePos: " << threadChangePos <<
                 std::endl;
 
             if (clipDelta / 2 <= workDelta)

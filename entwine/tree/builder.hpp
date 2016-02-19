@@ -225,13 +225,11 @@ private:
     void addError(const std::string& path, const std::string& error);
 
     void manageDynamics(
-            Origin origin,
             std::size_t& duration,
             std::size_t stackSize,
             Clipper& clipper);
 
     void memAboveThreshold(
-            Origin origin,
             std::size_t& duration,
             std::size_t stackSize,
             bool originLocked,
@@ -270,6 +268,7 @@ private:
     pdal::Dimension::Id::Enum m_originId;
     Origin m_origin;
     Origin m_end;
+    std::size_t m_added;
 
     std::shared_ptr<arbiter::Arbiter> m_arbiter;
     std::unique_ptr<arbiter::Endpoint> m_outEndpoint;
