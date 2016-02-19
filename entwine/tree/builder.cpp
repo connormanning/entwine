@@ -491,6 +491,7 @@ void Builder::manageDynamics(
                 "ClipThreads: " << m_registry->clipThreads() << " "
                 "WorkDelta: " << workDelta << " " <<
                 "ClipDelta: " << clipDelta << " " <<
+                "ThreadChangeOrigin: " << threadChangeOrigin <<
                 std::endl;
 
             if (clipDelta / 2 >= workDelta)
@@ -533,7 +534,10 @@ void Builder::memAboveThreshold(
         {
             std::cout <<
                 "WorkThreads: " << m_pool->numThreads() << " " <<
-                "ClipThreads: " << m_registry->clipThreads() <<
+                "ClipThreads: " << m_registry->clipThreads() << " " <<
+                "WorkDelta: " << workDelta << " " <<
+                "ClipDelta: " << clipDelta << " " <<
+                "ThreadChangeOrigin: " << threadChangeOrigin <<
                 std::endl;
 
             if (clipDelta / 2 <= workDelta)
@@ -794,9 +798,10 @@ const arbiter::Endpoint& Builder::tmpEndpoint() const { return *m_tmpEndpoint; }
 void Builder::clip(
         const Id& index,
         const std::size_t chunkNum,
-        const std::size_t id)
+        const std::size_t id,
+        const bool tentative)
 {
-    m_registry->clip(index, chunkNum, id);
+    m_registry->clip(index, chunkNum, id, tentative);
 }
 
 void Builder::addError(const std::string& path, const std::string& error)

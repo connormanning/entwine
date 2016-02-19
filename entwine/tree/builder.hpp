@@ -193,7 +193,11 @@ private:
             Clipper& clipper);
 
     // Remove resources that are no longer needed.
-    void clip(const Id& index, std::size_t chunkNum, std::size_t id);
+    void clip(
+            const Id& index,
+            std::size_t chunkNum,
+            std::size_t id,
+            bool tentative = false);
 
     // Awaken the tree from a saved state.
     void load(std::size_t clipThreads, std::string postfix = "");

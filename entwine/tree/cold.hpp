@@ -58,7 +58,8 @@ public:
     void clip(
             const Id& chunkId,
             std::size_t chunkNum,
-            std::size_t id);
+            std::size_t id,
+            bool tentative);
 
     std::set<Id> ids() const;
     void merge(const Cold& other);
@@ -84,7 +85,11 @@ private:
             std::unique_ptr<Chunk>& chunk,
             bool exists);
 
-    void unrefChunk(CountedChunk& countedChunk, std::size_t id, bool fast);
+    void unrefChunk(
+            CountedChunk& countedChunk,
+            std::size_t id,
+            bool fast,
+            bool tentative);
 
     struct FastSlot
     {

@@ -57,7 +57,7 @@ void Clipper::clip(const float ratio)
         const auto it(m_clips.find(id));
 
         m_removed.insert(id);
-        m_builder.clip(id, it->second.chunkNum, m_id);
+        m_builder.clip(id, it->second.chunkNum, m_id, true);
 
         m_clips.erase(it);
         m_order.pop_back();

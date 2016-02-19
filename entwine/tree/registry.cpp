@@ -199,9 +199,10 @@ Cell* Registry::getCell(const Climber& climber, Clipper& clipper)
 void Registry::clip(
         const Id& index,
         const std::size_t chunkNum,
-        const std::size_t id)
+        const std::size_t id,
+        const bool tentative)
 {
-    m_cold->clip(index, chunkNum, id);
+    m_cold->clip(index, chunkNum, id, tentative);
 }
 
 void Registry::save()
