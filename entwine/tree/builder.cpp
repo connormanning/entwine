@@ -387,14 +387,16 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
 
         if (num > sleepCount)
         {
-            clipper.clip(.10);
+            clipper.clip(.15);
             num = 0;
         }
 
+        /*
         if (!m_pool->joining())
         {
             manageDynamics(num, infoStack.size(), clipper);
         }
+        */
 
         return insertData(std::move(infoStack), origin, clipper);
     });
@@ -484,6 +486,7 @@ void Builder::manageDynamics(
         {
             threadChangePos = m_added;
 
+            /*
             std::cout <<
                 "WorkThreads: " << m_pool->numThreads() << " " <<
                 "ClipThreads: " << m_registry->clipThreads() << " "
@@ -491,15 +494,16 @@ void Builder::manageDynamics(
                 "ClipDelta: " << clipDelta << " " <<
                 "ThreadChangePos: " << threadChangePos <<
                 std::endl;
+            */
 
             if (clipDelta / 2 >= workDelta)
             {
-                std::cout << "\tAdd clip thread" << std::endl;
+                std::cout << "ADD clip thread" << std::endl;
                 m_registry->addClipWorker();
             }
             else
             {
-                std::cout << "\tAdd work thread" << std::endl;
+                std::cout << "ADD work thread" << std::endl;
                 m_pool->addWorker();
             }
         }
@@ -514,14 +518,6 @@ void Builder::memAboveThreshold(
 {
     if (!originLocked)
     {
-        std::cout <<
-            "\t\t" << chunkMem() << " GB - " <<
-            Chunk::getChunkCnt() << " chunks - " <<
-            m_pool->numThreads() << " threads" <<
-            std::endl;
-
-        threadChangePos = m_added;
-
         const std::size_t workDelta(
                 m_initialWorkThreads - m_pool->numThreads());
         const std::size_t clipDelta(
@@ -530,28 +526,33 @@ void Builder::memAboveThreshold(
         if (workDelta < m_initialWorkThreads / 2)
         {
             std::cout <<
+                "\t\t" << chunkMem() << " GB - " <<
+                Chunk::getChunkCnt() << " chunks - " <<
+                m_pool->numThreads() << " threads" <<
+                std::endl;
+
+            threadChangePos = m_added;
+
+            /*
+            std::cout <<
                 "WorkThreads: " << m_pool->numThreads() << " " <<
                 "ClipThreads: " << m_registry->clipThreads() << " " <<
                 "WorkDelta: " << workDelta << " " <<
                 "ClipDelta: " << clipDelta << " " <<
                 "ThreadChangePos: " << threadChangePos <<
                 std::endl;
+            */
 
             if (clipDelta / 2 <= workDelta)
             {
-                std::cout << "\tDel clip thread" << std::endl;
+                std::cout << "DEL clip thread" << std::endl;
                 m_registry->delClipWorker();
             }
             else
             {
-                std::cout << "\tDel work thread" << std::endl;
+                std::cout << "DEL work thread" << std::endl;
                 m_pool->delWorker();
             }
-        }
-        else
-        {
-            std::cout << "\tAt min threads - clipping" << std::endl;
-            clipper.clip(.10);
         }
     }
     else if (
