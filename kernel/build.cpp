@@ -46,24 +46,40 @@ namespace
     std::string getUsageString()
     {
         return
-            "\tUsage: entwine build <config-file.json> <options>\n"
-            "\tOptions:\n"
+            "\nUsage: entwine build <config file> <options>\n"
+            "Options (overrides config values):\n"
 
-            "\t\t-u <aws-user>\n"
-            "\t\t\tSpecify AWS credential user, if not default\n"
+            "\t-i <input path>\n"
+            "\t\tSpecify the input location.  May end in '/*' for a\n"
+            "\t\tnon-recursive directory or '/**' for a recursive search.\n"
+            "\t\tMay be type-prefixed, e.g. s3://bucket/data/*.\n\n"
 
-            "\t\t-f\n"
-            "\t\t\tForce build overwrite - do not continue previous build\n"
+            "\t-o <output path>\n"
+            "\t\tOutput directory.\n\n"
 
-            "\t\t-s <subset-number> <subset-total>\n"
-            "\t\t\tBuild only a portion of the index.  If output paths are\n"
-            "\t\t\tall the same, 'merge' should be run after all subsets are\n"
-            "\t\t\tbuilt.  If output paths are different, then 'link' should\n"
-            "\t\t\tbe run after all subsets are built.\n\n"
-            "\t\t\tsubset-number - One-based subset ID in range\n"
-            "\t\t\t[1, subset-total].\n\n"
-            "\t\t\tsubset-total - Total number of subsets that will be built.\n"
-            "\t\t\tMust be a binary power.\n";
+            "\t-t <threads>\n"
+            "\t\tSet the number of worker threads.  Recommended to be no\n"
+            "\t\tmore than the physical number of cores.\n\n"
+
+            "\t-f\n"
+            "\t\tForce build overwrite - do not continue a previous build\n"
+            "\t\tthat may exist at this output location.\n\n"
+
+            "\t-u <aws user>\n"
+            "\t\tSpecify AWS credential user, if not default\n\n"
+
+            "\t-r <max inserted files>\n"
+            "\t\tFor directories, stop inserting after the specified count.\n\n"
+
+            "\t-s <subset-number> <subset-total>\n"
+            "\t\tBuild only a portion of the index.  If output paths are\n"
+            "\t\tall the same, 'merge' should be run after all subsets are\n"
+            "\t\tbuilt.  If output paths are different, then 'link' should\n"
+            "\t\tbe run after all subsets are built.\n\n"
+            "\t\tsubset-number - One-based subset ID in range\n"
+            "\t\t[1, subset-total].\n\n"
+            "\t\tsubset-total - Total number of subsets that will be built.\n"
+            "\t\tMust be a binary power.\n\n";
     }
 
     std::string getDimensionString(const Schema& schema)
@@ -99,13 +115,14 @@ void Kernel::build(std::vector<std::string> args)
 {
     if (args.empty())
     {
-        std::cout << getUsageString() << std::endl;
-        throw std::runtime_error("No config file specified.");
+        std::cout << getUsageString() << std::flush;
+        return;
     }
 
-    if (args[0] == "help")
+    std::cout << "ARG " << args[0] << std::endl;
+    if (args[0] == "help" || args[0] == "-h" || args[0] == "--help")
     {
-        std::cout << getUsageString() << std::endl;
+        std::cout << getUsageString() << std::flush;
         return;
     }
 
@@ -124,15 +141,26 @@ void Kernel::build(std::vector<std::string> args)
     {
         std::string arg(args[a]);
 
-        if (arg == "-u")
+        if (arg == "-i")
         {
             if (++a < args.size())
             {
-                user = args[a];
+                json["input"]["manifest"] = args[a];
             }
             else
             {
-                throw std::runtime_error("Invalid AWS user argument");
+                throw std::runtime_error("Invalid run count specification");
+            }
+        }
+        else if (arg == "-o")
+        {
+            if (++a < args.size())
+            {
+                json["output"]["path"] = args[a];
+            }
+            else
+            {
+                throw std::runtime_error("Invalid run count specification");
             }
         }
         else if (arg == "-f")
@@ -156,6 +184,18 @@ void Kernel::build(std::vector<std::string> args)
                 throw std::runtime_error("Invalid subset specification");
             }
         }
+        if (arg == "-u")
+        {
+            if (++a < args.size())
+            {
+                user = args[a];
+            }
+            else
+            {
+                throw std::runtime_error("Invalid AWS user argument");
+            }
+        }
+        /*
         else if (arg == "-m")
         {
             if (++a < args.size())
@@ -167,7 +207,6 @@ void Kernel::build(std::vector<std::string> args)
                 throw std::runtime_error("Invalid run count specification");
             }
         }
-        /*
         else if (arg == "-m")
         {
             if (a + 2 < args.size())
