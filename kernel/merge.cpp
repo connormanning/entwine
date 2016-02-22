@@ -32,7 +32,7 @@ namespace
 
 void Kernel::merge(std::vector<std::string> args)
 {
-    if (args.size() != 1)
+    if (args.size() < 1)
     {
         std::cout << getUsageString() << std::endl;
         throw std::runtime_error("Merge path required");

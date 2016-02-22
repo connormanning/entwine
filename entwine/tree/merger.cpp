@@ -48,7 +48,7 @@ void Merger::unsplit()
     for (std::size_t id(1); id < m_builders.size(); ++id)
     {
         auto current(Builder::create(m_path, id, m_arbiter));
-        if (!current) throw std::runtime_error("Could create split builder");
+        if (!current) throw std::runtime_error("Couldn't create split builder");
 
         m_builders[id] = unsplitOne(std::move(current));
     }
