@@ -4,12 +4,7 @@ MAINTAINER Connor Manning <connor@hobu.co>
 ENV CC clang
 ENV CXX clang++
 
-RUN mkdir -p /root/.ssh
-COPY entwine-deploy.key /root/.ssh/entwine_key
-COPY ssh_config /root/.ssh/config
-RUN chmod 600 /root/.ssh/entwine_key
-
-RUN git clone git@entwine:connormanning/entwine.git && \
+RUN git clone https://github.com/connormanning/entwine.git && \
     cd entwine && \
     mkdir build && \
     cd build && \
