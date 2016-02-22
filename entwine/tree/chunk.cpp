@@ -430,6 +430,7 @@ BaseChunk::BaseChunk(
         const std::size_t numPoints)
     : ContiguousChunk(builder, bbox, 0, id, maxPoints)
     , m_celledSchema(makeCelled(m_builder.schema()))
+    , m_pools(new Pools(m_builder.schema()))
 {
     m_numPoints = numPoints;
 
