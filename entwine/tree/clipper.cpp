@@ -24,10 +24,12 @@ bool Clipper::insert(const Id& chunkId, std::size_t chunkNum)
     }
     else
     {
+        /*
         if (m_removed.count(chunkId))
         {
             std::cout << "\t\tRe-add at " << m_id << std::endl;
         }
+        */
 
         const auto it(
                 m_clips.insert(
@@ -48,15 +50,12 @@ void Clipper::clip(const float ratio)
                 m_clips.size(),
                 static_cast<float>(m_clips.size()) * ratio));
 
-    std::cout << "\t\tClipping " << id() << ": " <<
-        count << " / " << m_clips.size() << std::endl;
-
     for (std::size_t i(0); i < count; ++i)
     {
         const Id& id(*m_order.back());
         const auto it(m_clips.find(id));
 
-        m_removed.insert(id);
+        // m_removed.insert(id);
         m_builder.clip(id, it->second.chunkNum, m_id, true);
 
         m_clips.erase(it);

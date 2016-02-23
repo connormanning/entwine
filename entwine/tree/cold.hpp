@@ -64,8 +64,6 @@ public:
     std::set<Id> ids() const;
     void merge(const Cold& other);
 
-    void addClipWorker();
-    void delClipWorker();
     std::size_t clipThreads() const;
 
 private:

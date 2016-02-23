@@ -197,17 +197,6 @@ void Kernel::build(std::vector<std::string> args)
         /*
         else if (arg == "-m")
         {
-            if (++a < args.size())
-            {
-                json["input"]["threshold"] = std::stof(args[a]);
-            }
-            else
-            {
-                throw std::runtime_error("Invalid run count specification");
-            }
-        }
-        else if (arg == "-m")
-        {
             if (a + 2 < args.size())
             {
                 ++a;
@@ -305,7 +294,6 @@ void Kernel::build(std::vector<std::string> args)
     std::cout <<
         "\tTrust file headers? " << yesNo(builder->trustHeaders()) << "\n" <<
         "\tBuild threads: " << builder->numThreads() << "\n" <<
-        "\tSoft memory threshold: " << builder->threshold() << " GB" <<
         std::endl;
 
     std::cout <<

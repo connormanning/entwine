@@ -59,7 +59,7 @@ private:
     Builder& m_builder;
 
     std::unordered_map<Id, ClipInfo> m_clips;
-    std::set<Id> m_removed;
+    // std::set<Id> m_removed;
     Order m_order;
 
     uint64_t m_id;

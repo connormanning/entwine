@@ -14,8 +14,8 @@
 
 #include <pdal/PointView.hpp>
 
-#include <entwine/third/json/json.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
+#include <entwine/third/json/json.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
@@ -123,59 +123,62 @@ bool Registry::addPoint(
 {
     bool done(false);
 
-    if (Cell* cell = getCell(climber, clipper))
+    while (!done)
     {
-        bool redo(false);
-
-        do
+        if (Cell* cell = getCell(climber, clipper))
         {
-            done = false;
-            redo = false;
+            bool redo(false);
 
-            const PointInfoAtom& atom(cell->atom());
-            if (RawInfoNode* current = atom.load())
+            do
             {
-                const Point& mid(climber.bbox().mid());
-                const Point& toAddPoint(toAdd->val().point());
+                done = false;
+                redo = false;
 
-                if (m_discardDuplicates && toAddPoint == current->val().point())
+                const PointInfoAtom& atom(cell->atom());
+                if (RawInfoNode* current = atom.load())
                 {
-                    return false;
+                    const Point& mid(climber.bbox().mid());
+                    const Point& toAddPoint(toAdd->val().point());
+
+                    if (
+                            m_discardDuplicates &&
+                            toAddPoint == current->val().point())
+                    {
+                        return false;
+                    }
+
+                    if (better(toAddPoint, current->val().point(), mid, m_as3d))
+                    {
+                        done = false;
+                        redo = !cell->swap(toAdd, current);
+                        if (!redo) toAdd.reset(current);
+                    }
                 }
-
-                if (better(toAddPoint, current->val().point(), mid, m_as3d))
+                else
                 {
-                    done = false;
-                    redo = !cell->swap(toAdd, current);
-                    if (!redo) toAdd.reset(current);
+                    done = cell->swap(toAdd);
+                    redo = !done;
                 }
             }
-            else
-            {
-                done = cell->swap(toAdd);
-                redo = !done;
-            }
+            while (redo);
         }
-        while (redo);
-    }
 
-    if (done)
-    {
-        return true;
-    }
-    else
-    {
-        climber.magnify(toAdd->val().point());
-
-        if (m_structure.inRange(climber.index()))
+        if (done)
         {
-            return addPoint(toAdd, climber, clipper);
+            return true;
         }
         else
         {
-            return false;
+            climber.magnify(toAdd->val().point());
+
+            if (!m_structure.inRange(climber.index()))
+            {
+                return false;
+            }
         }
     }
+
+    return false;
 }
 
 Cell* Registry::getCell(const Climber& climber, Clipper& clipper)
@@ -234,22 +237,6 @@ std::set<Id> Registry::ids() const
 {
     if (m_cold) return m_cold->ids();
     else return std::set<Id>();
-}
-
-void Registry::addClipWorker()
-{
-    if (m_cold) m_cold->addClipWorker();
-}
-
-void Registry::delClipWorker()
-{
-    if (m_cold) m_cold->delClipWorker();
-}
-
-std::size_t Registry::clipThreads() const
-{
-    if (m_cold) return m_cold->clipThreads();
-    else return 0;
 }
 
 } // namespace entwine

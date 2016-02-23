@@ -37,8 +37,6 @@ namespace entwine
 namespace
 {
     const double workToClipRatio(0.33);
-    const float upperClamp(.90);
-    const float lowerClamp(.70);
     const std::size_t sleepCount(65536 * 24);
 
     std::size_t getWorkThreads(const std::size_t total)
@@ -261,7 +259,6 @@ void Builder::go(std::size_t max)
         ++m_added;
         std::cout << "Adding " << m_origin << " - " << path << std::endl;
         const auto origin(m_origin);
-        std::cout << "Using " << chunkMem() << " GB" << std::endl;
 
         m_pool->add([this, origin, &info, path]()
         {
@@ -391,24 +388,12 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
             num = 0;
         }
 
-        /*
-        if (!m_pool->joining())
-        {
-            manageDynamics(num, infoStack.size(), clipper);
-        }
-        */
-
         return insertData(std::move(infoStack), origin, clipper);
     });
 
     PooledPointTable table(*m_pointPool, inserter);
 
     const bool result(m_executor->run(table, localPath, m_reprojection.get()));
-
-    if (m_pool->joining())
-    {
-        m_registry->addClipWorker();
-    }
 
     return result;
 }
@@ -462,113 +447,6 @@ PooledInfoStack Builder::insertData(
     m_manifest->add(origin, pointStats);
 
     return rejected;
-}
-
-void Builder::manageDynamics(
-        std::size_t& duration,
-        const std::size_t stackSize,
-        Clipper& clipper)
-{
-    const bool originLocked(m_added - threadChangePos <= m_pool->numThreads());
-
-    if (chunkMem() > m_threshold * upperClamp)
-    {
-        memAboveThreshold(duration, stackSize, originLocked, clipper);
-    }
-    else if (!originLocked && chunkMem() < m_threshold * lowerClamp)
-    {
-        const std::size_t workDelta(
-                m_initialWorkThreads - m_pool->numThreads());
-        const std::size_t clipDelta(
-                m_initialClipThreads - m_registry->clipThreads());
-
-        if (clipDelta)
-        {
-            threadChangePos = m_added;
-
-            /*
-            std::cout <<
-                "WorkThreads: " << m_pool->numThreads() << " " <<
-                "ClipThreads: " << m_registry->clipThreads() << " "
-                "WorkDelta: " << workDelta << " " <<
-                "ClipDelta: " << clipDelta << " " <<
-                "ThreadChangePos: " << threadChangePos <<
-                std::endl;
-            */
-
-            if (clipDelta / 2 >= workDelta)
-            {
-                std::cout << "ADD clip thread" << std::endl;
-                m_registry->addClipWorker();
-            }
-            else
-            {
-                std::cout << "ADD work thread" << std::endl;
-                m_pool->addWorker();
-            }
-        }
-    }
-}
-
-void Builder::memAboveThreshold(
-        std::size_t& duration,
-        const std::size_t stackSize,
-        const bool originLocked,
-        Clipper& clipper)
-{
-    if (!originLocked)
-    {
-        const std::size_t workDelta(
-                m_initialWorkThreads - m_pool->numThreads());
-        const std::size_t clipDelta(
-                m_initialClipThreads - m_registry->clipThreads());
-
-        if (workDelta < m_initialWorkThreads / 2)
-        {
-            std::cout <<
-                "\t\t" << chunkMem() << " GB - " <<
-                Chunk::getChunkCnt() << " chunks - " <<
-                m_pool->numThreads() << " threads" <<
-                std::endl;
-
-            threadChangePos = m_added;
-
-            /*
-            std::cout <<
-                "WorkThreads: " << m_pool->numThreads() << " " <<
-                "ClipThreads: " << m_registry->clipThreads() << " " <<
-                "WorkDelta: " << workDelta << " " <<
-                "ClipDelta: " << clipDelta << " " <<
-                "ThreadChangePos: " << threadChangePos <<
-                std::endl;
-            */
-
-            if (clipDelta / 2 <= workDelta)
-            {
-                std::cout << "DEL clip thread" << std::endl;
-                m_registry->delClipWorker();
-            }
-            else
-            {
-                std::cout << "DEL work thread" << std::endl;
-                m_pool->delWorker();
-            }
-        }
-    }
-    else if (
-            duration > stackSize * 128 &&
-            clipper.size() * m_pool->numThreads() >= Chunk::getChunkCnt())
-    {
-        std::cout <<
-            "\t\t" << chunkMem() << " GB - " <<
-            Chunk::getChunkCnt() << " chunks - " <<
-            m_pool->numThreads() << " threads" <<
-            std::endl;
-
-        std::cout << "\tLocked by origin - clipping" << std::endl;
-        duration = 0;
-        clipper.clip(.10);
-    }
 }
 
 void Builder::load(const std::size_t clipThreads, const std::string post)

@@ -12,7 +12,6 @@
 
 #include <cassert>
 #include <iostream>
-#include <limits>
 
 namespace entwine
 {
@@ -22,12 +21,8 @@ Pool::Pool(const std::size_t numThreads, const std::size_t queueSize)
     , m_queueSize(queueSize)
     , m_threads()
     , m_tasks()
-    , m_errors()
-    , m_errorMutex()
     , m_stop(true)
-    , m_deletions(0)
-    , m_metaMutex()
-    , m_workMutex()
+    , m_mutex()
     , m_produceCv()
     , m_consumeCv()
 {
@@ -41,7 +36,7 @@ Pool::~Pool()
 
 void Pool::go()
 {
-    std::lock_guard<std::mutex> lock(m_workMutex);
+    std::lock_guard<std::mutex> lock(m_mutex);
 
     if (!stop())
     {
@@ -63,31 +58,27 @@ void Pool::join()
     {
         stop(true);
 
-        m_consumeCv.notify_all();
-
-        std::unique_lock<std::mutex> lock(m_workMutex);
-        m_consumeCv.wait(lock, [this]() { return m_tasks.empty(); });
-        lock.unlock();
-
         for (auto& t : m_threads)
         {
             m_consumeCv.notify_all();
             t.join();
         }
 
+        std::lock_guard<std::mutex> lock(m_mutex);
         m_threads.clear();
         assert(m_tasks.empty());
     }
 }
 
-bool Pool::joining() const
-{
-    return stop();
-}
-
 void Pool::add(std::function<void()> task)
 {
-    std::unique_lock<std::mutex> lock(m_workMutex);
+    if (stop())
+    {
+        throw std::runtime_error(
+                "Attempted to add a task to a stopped Pool");
+    }
+
+    std::unique_lock<std::mutex> lock(m_mutex);
 
     m_produceCv.wait(lock, [this]() { return m_tasks.size() < m_queueSize; });
     m_tasks.emplace(task);
@@ -100,16 +91,11 @@ void Pool::add(std::function<void()> task)
 
 void Pool::work()
 {
-    bool done(false);
-    std::unique_lock<std::mutex> lock(m_workMutex);
+    std::unique_lock<std::mutex> lock(m_mutex);
 
-    while (!done)
+    while (!stop() || !m_tasks.empty())
     {
-        m_consumeCv.wait(lock, [this, &done]()
-        {
-            if (!done) done = (stop() && m_tasks.empty()) || shouldDelete();
-            return done || !m_tasks.empty();
-        });
+        m_consumeCv.wait(lock, [this]() { return !m_tasks.empty() || stop(); });
 
         if (!m_tasks.empty())
         {
@@ -129,83 +115,26 @@ void Pool::work()
             {
                 std::cout <<
                     "Exception caught in pool task: " << e.what() << std::endl;
-
-                std::lock_guard<std::mutex> lock(m_errorMutex);
-                m_errors.push_back(e.what());
             }
             catch (...)
             {
                 std::cout <<
                     "Unknown exception caught in pool task." << std::endl;
-
-                std::lock_guard<std::mutex> lock(m_errorMutex);
-                m_errors.push_back("Unknown error");
             }
 
             lock.lock();
         }
-
-        if (!done) done = (stop() && m_tasks.empty()) || shouldDelete();
-    }
-
-    lock.unlock();
-
-    m_consumeCv.notify_all();
-    --m_numThreads;
-}
-
-void Pool::addWorker()
-{
-    std::lock_guard<std::mutex> lock(m_metaMutex);
-
-    if (m_deletions)
-    {
-        --m_deletions;
-    }
-    else
-    {
-        ++m_numThreads;
-        m_threads.emplace_back([this]() { work(); });
     }
 }
 
-void Pool::delWorker()
+bool Pool::stop()
 {
-    std::lock_guard<std::mutex> lock(m_metaMutex);
-
-    if (++m_deletions >= m_numThreads)
-    {
-        throw std::runtime_error("No threads left in the pool");
-    }
-
-    // Notify waiting tasks, so one of them may stop itself.
-    m_consumeCv.notify_all();
-}
-
-bool Pool::stop() const
-{
-    std::lock_guard<std::mutex> lock(m_metaMutex);
-    return m_stop;
+    return m_stop.load();
 }
 
 void Pool::stop(const bool val)
 {
-    std::lock_guard<std::mutex> lock(m_metaMutex);
-    m_stop = val;
-}
-
-bool Pool::shouldDelete()
-{
-    bool result(false);
-
-    std::lock_guard<std::mutex> lock(m_metaMutex);
-    if (m_deletions)
-    {
-        result = true;
-        --m_deletions;
-    }
-
-    return result;
+    m_stop.store(val);
 }
 
 } // namespace entwine

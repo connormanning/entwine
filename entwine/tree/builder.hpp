@@ -224,17 +224,6 @@ private:
 
     void addError(const std::string& path, const std::string& error);
 
-    void manageDynamics(
-            std::size_t& duration,
-            std::size_t stackSize,
-            Clipper& clipper);
-
-    void memAboveThreshold(
-            std::size_t& duration,
-            std::size_t stackSize,
-            bool originLocked,
-            Clipper& clipper);
-
     float chunkMem() const;
 
     //

@@ -58,10 +58,6 @@ public:
 
     ~Registry();
 
-    void addClipWorker();
-    void delClipWorker();
-    std::size_t clipThreads() const;
-
     bool addPoint(
             PooledInfoNode& toAdd,
             Climber& climber,

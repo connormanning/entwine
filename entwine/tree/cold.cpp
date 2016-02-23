@@ -349,16 +349,6 @@ void Cold::unrefChunk(
     }
 }
 
-void Cold::addClipWorker()
-{
-    m_pool->addWorker();
-}
-
-void Cold::delClipWorker()
-{
-    m_pool->delWorker();
-}
-
 void Cold::merge(const Cold& other)
 {
     for (const Id& id : other.ids()) m_fauxIds.insert(id);
