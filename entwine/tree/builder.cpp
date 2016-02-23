@@ -622,7 +622,7 @@ void Builder::merge(Builder& other)
 {
     if (!subset() && !m_manifest->split())
     {
-        throw std::runtime_error("This cannot merge non-subset build");
+        throw std::runtime_error("Cannot merge non-subset build");
     }
 
     if (m_srs.empty() && !other.srs().empty())

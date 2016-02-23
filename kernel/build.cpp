@@ -119,7 +119,6 @@ void Kernel::build(std::vector<std::string> args)
         return;
     }
 
-    std::cout << "ARG " << args[0] << std::endl;
     if (args[0] == "help" || args[0] == "-h" || args[0] == "--help")
     {
         std::cout << getUsageString() << std::flush;
