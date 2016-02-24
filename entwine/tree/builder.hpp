@@ -190,7 +190,8 @@ private:
     PooledInfoStack insertData(
             PooledInfoStack infoStack,
             Origin origin,
-            Clipper& clipper);
+            Clipper& clipper,
+            Json::Value& localHierarchy);
 
     // Remove resources that are no longer needed.
     void clip(
@@ -265,6 +266,7 @@ private:
 
     mutable std::unique_ptr<Pools> m_pointPool;
     std::unique_ptr<Registry> m_registry;
+    std::unique_ptr<Json::Value> m_hierarchy;
 
     Builder(const Builder&);
     Builder& operator=(const Builder&);

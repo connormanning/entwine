@@ -16,24 +16,42 @@
 namespace entwine
 {
 
-Climber::Climber(const BBox& bbox, const Structure& structure)
+Climber::Climber(
+        const BBox& bbox,
+        const Structure& structure,
+        Json::Value& hierarchy)
     : m_structure(structure)
     , m_dimensions(structure.dimensions())
     , m_factor(structure.factor())
     , m_is3d(structure.is3d())
     , m_tubular(structure.factor())
+    , m_sparseDepthBegin(
+            structure.dynamicChunks() ? structure.sparseDepthBegin() : 0)
     , m_index(0)
     , m_chunkId(structure.nominalChunkIndex())
     , m_tick(0)
     , m_depth(0)
-    , m_sparseDepthBegin(
-            structure.dynamicChunks() ? structure.sparseDepthBegin() : 0)
     , m_depthChunks(1)
     , m_chunkNum(0)
     , m_chunkPoints(structure.baseChunkPoints())
     , m_bbox(bbox)
     , m_bboxChunk(bbox)
+    , m_hierarchy(&hierarchy)
 { }
+
+void Climber::reset(const BBox& bbox, Json::Value& hierarchy)
+{
+    m_index = 0;
+    m_chunkId = m_structure.nominalChunkIndex();
+    m_tick = 0;
+    m_depth = 0;
+    m_depthChunks = 1;
+    m_chunkNum = 0;
+    m_chunkPoints = m_structure.baseChunkPoints();
+    m_bbox = bbox;
+    m_bboxChunk = bbox;
+    m_hierarchy = &hierarchy;
+}
 
 void Climber::magnify(const Point& point)
 {

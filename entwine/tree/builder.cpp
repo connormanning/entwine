@@ -52,6 +52,22 @@ namespace
     }
 
     std::atomic_size_t threadChangePos(0);
+    const std::string count("count");
+
+    void mergeHierarchy(Json::Value& dst, Json::Value& src)
+    {
+        if (src.isMember(count))
+        {
+            dst[count] =
+                dst[count].asUInt64() +
+                src.removeMember(count).asUInt64();
+
+            for (const auto& key : src.getMemberNames())
+            {
+                mergeHierarchy(dst[key], src[key]);
+            }
+        }
+    }
 }
 
 Builder::Builder(
@@ -96,6 +112,7 @@ Builder::Builder(
     , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
     , m_pointPool(new Pools(*m_schema))
     , m_registry()
+    , m_hierarchy(new Json::Value())
 {
     m_registry.reset(new Registry(*m_outEndpoint, *this, m_initialClipThreads));
     prep();
@@ -135,6 +152,7 @@ Builder::Builder(
     , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
     , m_pointPool()
     , m_registry()
+    , m_hierarchy()
 {
     prep();
     load(m_initialClipThreads);
@@ -173,6 +191,7 @@ Builder::Builder(
     , m_tmpEndpoint()
     , m_pointPool()
     , m_registry()
+    , m_hierarchy()
 {
     prep();
     load(subsetId, splitBegin);
@@ -293,7 +312,13 @@ void Builder::go(std::size_t max)
     m_pool->join();
     std::cout << "\tJoined - saving..." << std::endl;
     save();
-    std::cout << "\tAll done." << std::endl;
+
+    /*
+    Json::FastWriter writer;
+    const auto str(writer.write(*m_hierarchy));
+    std::cout << "SZ: " << str.size() << std::endl;
+    std::cout << str << std::endl;
+    */
 }
 
 bool Builder::checkInfo(const FileInfo& info)
@@ -378,7 +403,10 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
     std::size_t num(0);
     Clipper clipper(*this, origin);
 
-    auto inserter([this, origin, &clipper, &num](PooledInfoStack infoStack)
+    Json::Value localHierarchy;
+
+    auto inserter([this, origin, &clipper, &num, &localHierarchy]
+    (PooledInfoStack infoStack)
     {
         num += infoStack.size();
 
@@ -388,12 +416,19 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
             num = 0;
         }
 
-        return insertData(std::move(infoStack), origin, clipper);
+        return insertData(
+            std::move(infoStack),
+            origin,
+            clipper,
+            localHierarchy);
     });
 
     PooledPointTable table(*m_pointPool, inserter);
 
     const bool result(m_executor->run(table, localPath, m_reprojection.get()));
+
+    std::lock_guard<std::mutex> lock(m_mutex);
+    mergeHierarchy(*m_hierarchy, localHierarchy);
 
     return result;
 }
@@ -401,7 +436,8 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
 PooledInfoStack Builder::insertData(
         PooledInfoStack infoStack,
         const Origin origin,
-        Clipper& clipper)
+        Clipper& clipper,
+        Json::Value& localHierarchy)
 {
     PointStats pointStats;
     PooledInfoStack rejected(m_pointPool->infoPool());
@@ -410,6 +446,9 @@ PooledInfoStack Builder::insertData(
     {
         rejected.push(std::move(info));
     });
+
+    std::unique_ptr<Climber> climber(
+            new Climber(*m_bbox, *m_structure, localHierarchy));
 
     while (!infoStack.empty())
     {
@@ -420,9 +459,9 @@ PooledInfoStack Builder::insertData(
         {
             if (!m_subBBox || m_subBBox->contains(point))
             {
-                Climber climber(*m_bbox, *m_structure);
+                climber->reset(*m_bbox, localHierarchy);
 
-                if (m_registry->addPoint(info, climber, clipper))
+                if (m_registry->addPoint(info, *climber, clipper))
                 {
                     pointStats.addInsert();
                 }
@@ -471,6 +510,8 @@ void Builder::load(const std::size_t clipThreads, const std::string post)
 
     m_registry.reset(
             new Registry(*m_outEndpoint, *this, clipThreads, meta["ids"]));
+
+    // TODO Initialize hierarchy from metadata.
 }
 
 void Builder::load(const std::size_t* subsetId, const std::size_t* splitBegin)
@@ -528,6 +569,7 @@ Json::Value Builder::saveProps() const
     props["srs"] = m_srs;
     props["compressed"] = m_compress;
     props["trustHeaders"] = m_trustHeaders;
+    props["hierarchy"] = *m_hierarchy;
 
     return props;
 }
@@ -538,6 +580,7 @@ void Builder::loadProps(const Json::Value& props)
     m_schema.reset(new Schema(props["schema"]));
     m_pointPool.reset(new Pools(*m_schema));
     m_structure.reset(new Structure(props["structure"]));
+    m_hierarchy.reset(new Json::Value(props["hierarchy"]));
 
     if (props.isMember("subset"))
     {
@@ -551,8 +594,8 @@ void Builder::loadProps(const Json::Value& props)
 
     m_srs = props["srs"].asString();
     m_manifest.reset(new Manifest(props["manifest"]));
-    m_trustHeaders = props["trustHeaders"].asBool();
     m_compress = props["compressed"].asBool();
+    m_trustHeaders = props["trustHeaders"].asBool();
 
     if (!m_manifest->pointStats().inserts())
     {

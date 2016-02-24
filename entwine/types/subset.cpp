@@ -87,10 +87,11 @@ void Subset::split(Structure& structure, const BBox& bbox)
     const std::size_t mask(0x3);
 
     bool set(false);
+    Json::Value dummyHierarchy;
 
     for (std::size_t curId(startOffset); curId < startOffset + boxes; ++curId)
     {
-        Climber climber(bbox, structure);
+        Climber climber(bbox, structure, dummyHierarchy);
         for (std::size_t i(iterations - 1); i < iterations; --i)
         {
             Climber::Dir dir(

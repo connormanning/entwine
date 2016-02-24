@@ -15,6 +15,7 @@
 #include <iomanip>
 #include <iostream>
 
+#include <entwine/tree/hierarchy.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/structure.hpp>
 
@@ -27,7 +28,12 @@ class Point;
 class Climber
 {
 public:
-    Climber(const BBox& bbox, const Structure& structure);
+    Climber(
+            const BBox& bbox,
+            const Structure& structure,
+            Json::Value& hierarchy);
+
+    void reset(const BBox& bbox, Json::Value& hierarchy);
 
     void magnify(const Point& point);
     const Id& index()   const { return m_index; }
@@ -45,14 +51,77 @@ public:
         else return std::numeric_limits<std::size_t>::max();
     }
 
-    void goSwd() { climb(Dir::swd); m_bbox.goSwd(); }
-    void goSed() { climb(Dir::sed); m_bbox.goSed(); }
-    void goNwd() { climb(Dir::nwd); m_bbox.goNwd(); }
-    void goNed() { climb(Dir::ned); m_bbox.goNed(); }
-    void goSwu() { climb(Dir::swu); m_bbox.goSwu(); }
-    void goSeu() { climb(Dir::seu); m_bbox.goSeu(); }
-    void goNwu() { climb(Dir::nwu); m_bbox.goNwu(); }
-    void goNeu() { climb(Dir::neu); m_bbox.goNeu(); }
+    void count()
+    {
+        if (m_depth >= hierarchyDepthBegin && m_depth < hierarchyDepthEnd)
+        {
+            (*m_hierarchy)["count"] = (*m_hierarchy)["count"].asUInt64() + 1;
+        }
+    }
+
+    void goSwd()
+    {
+        climb(Dir::swd);
+        m_bbox.goSwd();
+        if (m_depth > hierarchyDepthBegin && m_depth < hierarchyDepthEnd)
+            m_hierarchy = &(*m_hierarchy)["swd"];
+    }
+
+    void goSed()
+    {
+        climb(Dir::sed);
+        m_bbox.goSed();
+        if (m_depth > hierarchyDepthBegin && m_depth < hierarchyDepthEnd)
+            m_hierarchy = &(*m_hierarchy)["sed"];
+    }
+
+    void goNwd()
+    {
+        climb(Dir::nwd);
+        m_bbox.goNwd();
+        if (m_depth > hierarchyDepthBegin && m_depth < hierarchyDepthEnd)
+            m_hierarchy = &(*m_hierarchy)["nwd"];
+    }
+
+    void goNed()
+    {
+        climb(Dir::ned);
+        m_bbox.goNed();
+        if (m_depth > hierarchyDepthBegin && m_depth < hierarchyDepthEnd)
+            m_hierarchy = &(*m_hierarchy)["ned"];
+    }
+
+    void goSwu()
+    {
+        climb(Dir::swu);
+        m_bbox.goSwu();
+        if (m_depth > hierarchyDepthBegin && m_depth < hierarchyDepthEnd)
+            m_hierarchy = &(*m_hierarchy)["swu"];
+    }
+
+    void goSeu()
+    {
+        climb(Dir::seu);
+        m_bbox.goSeu();
+        if (m_depth > hierarchyDepthBegin && m_depth < hierarchyDepthEnd)
+            m_hierarchy = &(*m_hierarchy)["seu"];
+    }
+
+    void goNwu()
+    {
+        climb(Dir::nwu);
+        m_bbox.goNwu();
+        if (m_depth > hierarchyDepthBegin && m_depth < hierarchyDepthEnd)
+            m_hierarchy = &(*m_hierarchy)["nwu"];
+    }
+
+    void goNeu()
+    {
+        climb(Dir::neu);
+        m_bbox.goNeu();
+        if (m_depth > hierarchyDepthBegin && m_depth < hierarchyDepthEnd)
+            m_hierarchy = &(*m_hierarchy)["neu"];
+    }
 
     Climber getSwd() const { Climber c(*this); c.goSwd(); return c; }
     Climber getSed() const { Climber c(*this); c.goSed(); return c; }
@@ -77,17 +146,17 @@ public:
 
 private:
     const Structure& m_structure;
-    std::size_t m_dimensions;
-    std::size_t m_factor;
-    bool m_is3d;
-    bool m_tubular;
+    const std::size_t m_dimensions;
+    const std::size_t m_factor;
+    const bool m_is3d;
+    const bool m_tubular;
+    const std::size_t m_sparseDepthBegin;
 
     Id m_index;
     Id m_chunkId;
     std::size_t m_tick;
 
     std::size_t m_depth;
-    std::size_t m_sparseDepthBegin;
 
     std::size_t m_depthChunks;
     Id m_chunkNum;
@@ -95,6 +164,11 @@ private:
 
     BBox m_bbox;
     BBox m_bboxChunk;
+
+    Json::Value* m_hierarchy;
+
+    static const std::size_t hierarchyDepthBegin = 6;
+    static const std::size_t hierarchyDepthEnd = 12;
 
     void climb(Dir dir);
 };
