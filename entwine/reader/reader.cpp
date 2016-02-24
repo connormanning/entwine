@@ -97,6 +97,11 @@ Json::Value Reader::hierarchy(
 {
     checkQuery(depthBegin, depthEnd);
 
+    if (depthEnd > depthBegin + 6)
+    {
+        throw std::runtime_error("Maximum hierarchy depth range exceeded");
+    }
+
     Json::Value json;
 
     BoxMap grid;

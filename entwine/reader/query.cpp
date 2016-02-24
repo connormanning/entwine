@@ -233,14 +233,15 @@ Query::Query(
 
             if (isX || isY || isZ)
             {
-                if (pdal::Dimension::base(dim.type()) ==
-                        pdal::Dimension::BaseType::Floating)
-                {
-                    throw std::runtime_error("Can only scale to integral dims");
-                }
-                else if (dim.size() < 4)
+                if (dim.size() < 4)
                 {
                     throw std::runtime_error("Need at least 4 bytes to scale");
+                }
+
+                if (pdal::Dimension::base(dim.type()) ==
+                        pdal::Dimension::BaseType::Unsigned)
+                {
+                    throw std::runtime_error("Scaled types must be signed");
                 }
             }
         }
@@ -294,16 +295,34 @@ bool Query::processPoint(const PointInfo& info)
                         d /= m_scale;
                         written = true;
 
-                        if (dimSize == 4)
+                        if (pdal::Dimension::base(dim.type()) ==
+                                pdal::Dimension::BaseType::Floating)
                         {
-                            const int32_t val(d);
-                            std::memcpy(pos, &val, 4);
+                            if (dimSize == 4)
+                            {
+                                const float val(d);
+                                std::memcpy(pos, &val, 4);
+                            }
+                            else
+                            {
+                                std::memcpy(pos, &d, 8);
+                            }
                         }
                         else
                         {
-                            // Checked in the constructor.
-                            const uint64_t val(d);
-                            std::memcpy(pos, &val, 8);
+                            // Type is signed, unsigned would have thrown in
+                            // the constructor.  We also know that the size is
+                            // 4 or 8.
+                            if (dimSize == 4)
+                            {
+                                const int32_t val(d);
+                                std::memcpy(pos, &val, 4);
+                            }
+                            else
+                            {
+                                const uint64_t val(d);
+                                std::memcpy(pos, &val, 8);
+                            }
                         }
                     }
                     else if (
@@ -312,7 +331,7 @@ bool Query::processPoint(const PointInfo& info)
                                 pdal::Dimension::BaseType::Floating)
                     {
                         written = true;
-                        float f(d);
+                        const float f(d);
                         std::memcpy(pos, &f, 4);
                     }
                 }
