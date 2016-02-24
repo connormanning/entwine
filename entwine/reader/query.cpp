@@ -212,14 +212,40 @@ Query::Query(
         const BBox& qbox,
         const std::size_t depthBegin,
         const std::size_t depthEnd,
-        const bool normalize)
+        const bool normalize,
+        const double scale)
     : BaseQuery(reader, cache, qbox, depthBegin, depthEnd)
     , m_buffer(nullptr)
     , m_outSchema(schema)
-    , m_normalize(normalize)
+    , m_normalize(normalize || scale)
+    , m_scale(scale)
+    , m_readerMid(m_reader.bbox().mid())
     , m_table(reader.schema())
     , m_pointRef(m_table, 0)
-{ }
+{
+    if (m_scale)
+    {
+        for (const auto& dim : m_outSchema.dims())
+        {
+            const bool isX = dim.id() == pdal::Dimension::Id::X;
+            const bool isY = dim.id() == pdal::Dimension::Id::Y;
+            const bool isZ = dim.id() == pdal::Dimension::Id::Z;
+
+            if (isX || isY || isZ)
+            {
+                if (pdal::Dimension::base(dim.type()) ==
+                        pdal::Dimension::BaseType::Floating)
+                {
+                    throw std::runtime_error("Can only scale to integral dims");
+                }
+                else if (dim.size() < 4)
+                {
+                    throw std::runtime_error("Need at least 4 bytes to scale");
+                }
+            }
+        }
+    }
+}
 
 bool Query::next(std::vector<char>& buffer)
 {
@@ -242,34 +268,57 @@ bool Query::processPoint(const PointInfo& info)
         m_table.setPoint(info.data());
         bool isX(false), isY(false), isZ(false);
 
+        bool written(false);
+
         for (const auto& dim : m_outSchema.dims())
         {
+            written = false;
+
             if (m_normalize)
             {
                 isX = dim.id() == pdal::Dimension::Id::X;
                 isY = dim.id() == pdal::Dimension::Id::Y;
                 isZ = dim.id() == pdal::Dimension::Id::Z;
 
-                if (
-                        (isX || isY || isZ) &&
-                        pdal::Dimension::size(dim.type()) == 4)
+                if (isX || isY || isZ)
                 {
                     double d(m_pointRef.getFieldAs<double>(dim.id()));
+                    const std::size_t dimSize(dim.size());
 
-                    if (isX)        d -= m_reader.bbox().mid().x;
-                    else if (isY)   d -= m_reader.bbox().mid().y;
-                    else            d -= m_reader.bbox().mid().z;
+                    if (isX)        d -= m_readerMid.x;
+                    else if (isY)   d -= m_readerMid.y;
+                    else            d -= m_readerMid.z;
 
-                    float f(d);
+                    if (m_scale)
+                    {
+                        d /= m_scale;
+                        written = true;
 
-                    std::memcpy(pos, &f, 4);
-                }
-                else
-                {
-                    m_pointRef.getField(pos, dim.id(), dim.type());
+                        if (dimSize == 4)
+                        {
+                            const int32_t val(d);
+                            std::memcpy(pos, &val, 4);
+                        }
+                        else
+                        {
+                            // Checked in the constructor.
+                            const uint64_t val(d);
+                            std::memcpy(pos, &val, 8);
+                        }
+                    }
+                    else if (
+                            dimSize == 4 &&
+                            pdal::Dimension::base(dim.type()) ==
+                                pdal::Dimension::BaseType::Floating)
+                    {
+                        written = true;
+                        float f(d);
+                        std::memcpy(pos, &f, 4);
+                    }
                 }
             }
-            else
+
+            if (!written)
             {
                 m_pointRef.getField(pos, dim.id(), dim.type());
             }
