@@ -15,13 +15,14 @@
 #include <iomanip>
 #include <iostream>
 
-#include <entwine/tree/hierarchy.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/structure.hpp>
 
 namespace entwine
 {
 
+class Hierarchy;
+class Node;
 class Point;
 
 // Maintains the state of the current point as it traverses the virtual tree.
@@ -31,9 +32,9 @@ public:
     Climber(
             const BBox& bbox,
             const Structure& structure,
-            Json::Value& hierarchy);
+            Hierarchy& hierarchy);
 
-    void reset(const BBox& bbox, Json::Value& hierarchy);
+    void reset(const BBox& bbox, Hierarchy& hierarchy);
 
     void magnify(const Point& point);
     const Id& index()   const { return m_index; }
@@ -51,77 +52,16 @@ public:
         else return std::numeric_limits<std::size_t>::max();
     }
 
-    void count()
-    {
-        if (m_depth >= hierarchyDepthBegin && m_depth < hierarchyDepthEnd)
-        {
-            (*m_hierarchy)["count"] = (*m_hierarchy)["count"].asUInt64() + 1;
-        }
-    }
+    void count();
 
-    void goSwd()
-    {
-        climb(Dir::swd);
-        m_bbox.goSwd();
-        if (m_depth > hierarchyDepthBegin && m_depth < hierarchyDepthEnd)
-            m_hierarchy = &(*m_hierarchy)["swd"];
-    }
-
-    void goSed()
-    {
-        climb(Dir::sed);
-        m_bbox.goSed();
-        if (m_depth > hierarchyDepthBegin && m_depth < hierarchyDepthEnd)
-            m_hierarchy = &(*m_hierarchy)["sed"];
-    }
-
-    void goNwd()
-    {
-        climb(Dir::nwd);
-        m_bbox.goNwd();
-        if (m_depth > hierarchyDepthBegin && m_depth < hierarchyDepthEnd)
-            m_hierarchy = &(*m_hierarchy)["nwd"];
-    }
-
-    void goNed()
-    {
-        climb(Dir::ned);
-        m_bbox.goNed();
-        if (m_depth > hierarchyDepthBegin && m_depth < hierarchyDepthEnd)
-            m_hierarchy = &(*m_hierarchy)["ned"];
-    }
-
-    void goSwu()
-    {
-        climb(Dir::swu);
-        m_bbox.goSwu();
-        if (m_depth > hierarchyDepthBegin && m_depth < hierarchyDepthEnd)
-            m_hierarchy = &(*m_hierarchy)["swu"];
-    }
-
-    void goSeu()
-    {
-        climb(Dir::seu);
-        m_bbox.goSeu();
-        if (m_depth > hierarchyDepthBegin && m_depth < hierarchyDepthEnd)
-            m_hierarchy = &(*m_hierarchy)["seu"];
-    }
-
-    void goNwu()
-    {
-        climb(Dir::nwu);
-        m_bbox.goNwu();
-        if (m_depth > hierarchyDepthBegin && m_depth < hierarchyDepthEnd)
-            m_hierarchy = &(*m_hierarchy)["nwu"];
-    }
-
-    void goNeu()
-    {
-        climb(Dir::neu);
-        m_bbox.goNeu();
-        if (m_depth > hierarchyDepthBegin && m_depth < hierarchyDepthEnd)
-            m_hierarchy = &(*m_hierarchy)["neu"];
-    }
+    void goSwd() { climb(Dir::swd); m_bbox.goSwd(); }
+    void goSed() { climb(Dir::sed); m_bbox.goSed(); }
+    void goNwd() { climb(Dir::nwd); m_bbox.goNwd(); }
+    void goNed() { climb(Dir::ned); m_bbox.goNed(); }
+    void goSwu() { climb(Dir::swu); m_bbox.goSwu(); }
+    void goSeu() { climb(Dir::seu); m_bbox.goSeu(); }
+    void goNwu() { climb(Dir::nwu); m_bbox.goNwu(); }
+    void goNeu() { climb(Dir::neu); m_bbox.goNeu(); }
 
     Climber getSwd() const { Climber c(*this); c.goSwd(); return c; }
     Climber getSed() const { Climber c(*this); c.goSed(); return c; }
@@ -144,6 +84,30 @@ public:
         neu = 7
     };
 
+    static std::string dirToString(const Dir dir)
+    {
+        switch (dir)
+        {
+            case Dir::swd: return "swd"; break;
+            case Dir::sed: return "sed"; break;
+            case Dir::nwd: return "nwd"; break;
+            case Dir::ned: return "ned"; break;
+            case Dir::swu: return "swu"; break;
+            case Dir::seu: return "seu"; break;
+            case Dir::nwu: return "nwu"; break;
+            case Dir::neu: return "neu"; break;
+            default: throw std::runtime_error("Invalid direction");
+        }
+    }
+
+    static Dir stringToDir(const std::string& s)
+    {
+        return static_cast<Dir>(
+                (s[0] == 'n' ? 2 : 0) + // North? + 2.
+                (s[1] == 'e' ? 1 : 0) + // East? +1.
+                (s[2] == 'u' ? 4 : 0)); // Up? +4.
+    }
+
 private:
     const Structure& m_structure;
     const std::size_t m_dimensions;
@@ -165,10 +129,9 @@ private:
     BBox m_bbox;
     BBox m_bboxChunk;
 
-    Json::Value* m_hierarchy;
+    Node* m_node;
 
     static const std::size_t hierarchyDepthBegin = 6;
-    static const std::size_t hierarchyDepthEnd = 12;
 
     void climb(Dir dir);
 };

@@ -19,6 +19,7 @@
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
+#include <entwine/tree/hierarchy.hpp>
 #include <entwine/tree/registry.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/pooled-point-table.hpp>
@@ -49,24 +50,6 @@ namespace
     std::size_t getClipThreads(const std::size_t total)
     {
         return std::max<std::size_t>(total - getWorkThreads(total), 4);
-    }
-
-    std::atomic_size_t threadChangePos(0);
-    const std::string count("count");
-
-    void mergeHierarchy(Json::Value& dst, Json::Value& src)
-    {
-        if (src.isMember(count))
-        {
-            dst[count] =
-                dst[count].asUInt64() +
-                src.removeMember(count).asUInt64();
-
-            for (const auto& key : src.getMemberNames())
-            {
-                mergeHierarchy(dst[key], src[key]);
-            }
-        }
     }
 }
 
@@ -112,7 +95,7 @@ Builder::Builder(
     , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
     , m_pointPool(new Pools(*m_schema))
     , m_registry()
-    , m_hierarchy(new Json::Value())
+    , m_hierarchy(new Hierarchy())
 {
     m_registry.reset(new Registry(*m_outEndpoint, *this, m_initialClipThreads));
     prep();
@@ -312,13 +295,6 @@ void Builder::go(std::size_t max)
     m_pool->join();
     std::cout << "\tJoined - saving..." << std::endl;
     save();
-
-    /*
-    Json::FastWriter writer;
-    const auto str(writer.write(*m_hierarchy));
-    std::cout << "SZ: " << str.size() << std::endl;
-    std::cout << str << std::endl;
-    */
 }
 
 bool Builder::checkInfo(const FileInfo& info)
@@ -403,7 +379,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
     std::size_t num(0);
     Clipper clipper(*this, origin);
 
-    Json::Value localHierarchy;
+    Hierarchy localHierarchy;
 
     auto inserter([this, origin, &clipper, &num, &localHierarchy]
     (PooledInfoStack infoStack)
@@ -428,8 +404,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
     const bool result(m_executor->run(table, localPath, m_reprojection.get()));
 
     std::lock_guard<std::mutex> lock(m_mutex);
-    mergeHierarchy(*m_hierarchy, localHierarchy);
-
+    m_hierarchy->merge(localHierarchy);
     return result;
 }
 
@@ -437,7 +412,7 @@ PooledInfoStack Builder::insertData(
         PooledInfoStack infoStack,
         const Origin origin,
         Clipper& clipper,
-        Json::Value& localHierarchy)
+        Hierarchy& localHierarchy)
 {
     PointStats pointStats;
     PooledInfoStack rejected(m_pointPool->infoPool());
@@ -528,7 +503,8 @@ void Builder::save()
     m_registry->save();
 
     Json::Value jsonMeta(saveProps());
-    m_outEndpoint->putSubpath("entwine" + postfix(), jsonMeta.toStyledString());
+    Json::FastWriter writer;
+    m_outEndpoint->putSubpath("entwine" + postfix(), writer.write(jsonMeta));
 }
 
 void Builder::unsplit(Builder& other)
@@ -562,6 +538,7 @@ Json::Value Builder::saveProps() const
     props["structure"] = m_structure->toJson();
     props["manifest"] = m_manifest->toJson();
     props["ids"] = m_registry->toJson();
+    props["hierarchy"] = m_hierarchy->toJson();
 
     if (m_subset) props["subset"] = m_subset->toJson();
     if (m_reprojection) props["reprojection"] = m_reprojection->toJson();
@@ -569,7 +546,6 @@ Json::Value Builder::saveProps() const
     props["srs"] = m_srs;
     props["compressed"] = m_compress;
     props["trustHeaders"] = m_trustHeaders;
-    props["hierarchy"] = *m_hierarchy;
 
     return props;
 }
@@ -580,7 +556,7 @@ void Builder::loadProps(const Json::Value& props)
     m_schema.reset(new Schema(props["schema"]));
     m_pointPool.reset(new Pools(*m_schema));
     m_structure.reset(new Structure(props["structure"]));
-    m_hierarchy.reset(new Json::Value(props["hierarchy"]));
+    m_hierarchy.reset(new Hierarchy(props["hierarchy"]));
 
     if (props.isMember("subset"))
     {

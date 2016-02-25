@@ -39,6 +39,7 @@ class BBox;
 class Clipper;
 class Driver;
 class Executor;
+class Hierarchy;
 class Manifest;
 class Pool;
 class Pools;
@@ -191,7 +192,7 @@ private:
             PooledInfoStack infoStack,
             Origin origin,
             Clipper& clipper,
-            Json::Value& localHierarchy);
+            Hierarchy& localHierarchy);
 
     // Remove resources that are no longer needed.
     void clip(
@@ -266,7 +267,7 @@ private:
 
     mutable std::unique_ptr<Pools> m_pointPool;
     std::unique_ptr<Registry> m_registry;
-    std::unique_ptr<Json::Value> m_hierarchy;
+    std::unique_ptr<Hierarchy> m_hierarchy;
 
     Builder(const Builder&);
     Builder& operator=(const Builder&);

@@ -11,6 +11,7 @@
 #include <entwine/types/subset.hpp>
 
 #include <entwine/tree/climber.hpp>
+#include <entwine/tree/hierarchy.hpp>
 #include <entwine/types/range.hpp>
 #include <entwine/types/structure.hpp>
 
@@ -87,7 +88,7 @@ void Subset::split(Structure& structure, const BBox& bbox)
     const std::size_t mask(0x3);
 
     bool set(false);
-    Json::Value dummyHierarchy;
+    Hierarchy dummyHierarchy;
 
     for (std::size_t curId(startOffset); curId < startOffset + boxes; ++curId)
     {

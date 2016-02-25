@@ -12,6 +12,7 @@
 
 #include <entwine/types/point.hpp>
 #include <entwine/tree/cell.hpp>
+#include <entwine/tree/hierarchy.hpp>
 
 namespace entwine
 {
@@ -19,7 +20,7 @@ namespace entwine
 Climber::Climber(
         const BBox& bbox,
         const Structure& structure,
-        Json::Value& hierarchy)
+        Hierarchy& hierarchy)
     : m_structure(structure)
     , m_dimensions(structure.dimensions())
     , m_factor(structure.factor())
@@ -36,10 +37,10 @@ Climber::Climber(
     , m_chunkPoints(structure.baseChunkPoints())
     , m_bbox(bbox)
     , m_bboxChunk(bbox)
-    , m_hierarchy(&hierarchy)
+    , m_node(&hierarchy.root())
 { }
 
-void Climber::reset(const BBox& bbox, Json::Value& hierarchy)
+void Climber::reset(const BBox& bbox, Hierarchy& hierarchy)
 {
     m_index = 0;
     m_chunkId = m_structure.nominalChunkIndex();
@@ -50,7 +51,7 @@ void Climber::reset(const BBox& bbox, Json::Value& hierarchy)
     m_chunkPoints = m_structure.baseChunkPoints();
     m_bbox = bbox;
     m_bboxChunk = bbox;
-    m_hierarchy = &hierarchy;
+    m_node = &hierarchy.root();
 }
 
 void Climber::magnify(const Point& point)
@@ -142,6 +143,13 @@ void Climber::climb(Dir dir)
     m_index <<= m_dimensions;
     m_index.incSimple();
     m_index += dir;
+
+    if (m_depth > hierarchyDepthBegin) m_node = &m_node->next(dir);
+}
+
+void Climber::count()
+{
+    if (m_depth >= hierarchyDepthBegin) m_node->increment();
 }
 
 bool SplitClimber::next(bool terminate)
