@@ -95,7 +95,7 @@ Builder::Builder(
     , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
     , m_pointPool(new Pools(*m_schema))
     , m_registry()
-    , m_hierarchy(new Hierarchy())
+    , m_hierarchy(new Hierarchy(*m_bbox, Climber::hierarchyDepthBegin))
 {
     m_registry.reset(new Registry(*m_outEndpoint, *this, m_initialClipThreads));
     prep();
@@ -379,7 +379,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
     std::size_t num(0);
     Clipper clipper(*this, origin);
 
-    Hierarchy localHierarchy;
+    Hierarchy localHierarchy(*m_bbox, Climber::hierarchyDepthBegin);
 
     auto inserter([this, origin, &clipper, &num, &localHierarchy]
     (PooledInfoStack infoStack)
@@ -550,13 +550,13 @@ Json::Value Builder::saveProps() const
     return props;
 }
 
-void Builder::loadProps(const Json::Value& props)
+void Builder::loadProps(Json::Value& props)
 {
     m_bbox.reset(new BBox(props["bbox"]));
     m_schema.reset(new Schema(props["schema"]));
     m_pointPool.reset(new Pools(*m_schema));
     m_structure.reset(new Structure(props["structure"]));
-    m_hierarchy.reset(new Hierarchy(props["hierarchy"]));
+    m_hierarchy.reset(new Hierarchy(*m_bbox, props["hierarchy"]));
 
     if (props.isMember("subset"))
     {
@@ -678,6 +678,7 @@ const Schema& Builder::schema() const       { return *m_schema; }
 const Manifest& Builder::manifest() const   { return *m_manifest; }
 const Structure& Builder::structure() const { return *m_structure; }
 const Registry& Builder::registry() const   { return *m_registry; }
+const Hierarchy& Builder::hierarchy() const { return *m_hierarchy; }
 const Subset* Builder::subset() const       { return m_subset.get(); }
 
 const Reprojection* Builder::reprojection() const

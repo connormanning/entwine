@@ -17,6 +17,7 @@
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/builder.hpp>
+#include <entwine/tree/hierarchy.hpp>
 #include <entwine/tree/manifest.hpp>
 #include <entwine/tree/registry.hpp>
 #include <entwine/types/bbox.hpp>
@@ -97,13 +98,21 @@ Json::Value Reader::hierarchy(
 {
     checkQuery(depthBegin, depthEnd);
 
-    Json::Value json;
+    // OLD METHOD.
+    Json::Value old;
 
     BoxMap grid;
     grid[qbox] = BoxInfo();
-    doHierarchyLevel(json, qbox, grid, depthBegin, depthEnd);
+    doHierarchyLevel(old, qbox, grid, depthBegin, depthEnd);
 
-    return json;
+    // NEW METHOD.
+    Json::Value cur(m_builder->hierarchy().query(qbox, depthBegin, depthEnd));
+
+    // COMPARE.
+    std::cout << "OLD: " << old.toStyledString() << std::endl;
+    std::cout << "NEW: " << cur.toStyledString() << std::endl;
+
+    return cur;
 }
 
 void Reader::doHierarchyLevel(

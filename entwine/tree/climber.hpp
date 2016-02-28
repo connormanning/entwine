@@ -16,6 +16,7 @@
 #include <iostream>
 
 #include <entwine/types/bbox.hpp>
+#include <entwine/types/dir.hpp>
 #include <entwine/types/structure.hpp>
 
 namespace entwine
@@ -72,41 +73,7 @@ public:
     Climber getNwu() const { Climber c(*this); c.goNwu(); return c; }
     Climber getNeu() const { Climber c(*this); c.goNeu(); return c; }
 
-    enum Dir
-    {
-        swd = 0,
-        sed = 1,
-        nwd = 2,
-        ned = 3,
-        swu = 4,
-        seu = 5,
-        nwu = 6,
-        neu = 7
-    };
-
-    static std::string dirToString(const Dir dir)
-    {
-        switch (dir)
-        {
-            case Dir::swd: return "swd"; break;
-            case Dir::sed: return "sed"; break;
-            case Dir::nwd: return "nwd"; break;
-            case Dir::ned: return "ned"; break;
-            case Dir::swu: return "swu"; break;
-            case Dir::seu: return "seu"; break;
-            case Dir::nwu: return "nwu"; break;
-            case Dir::neu: return "neu"; break;
-            default: throw std::runtime_error("Invalid direction");
-        }
-    }
-
-    static Dir stringToDir(const std::string& s)
-    {
-        return static_cast<Dir>(
-                (s[0] == 'n' ? 2 : 0) + // North? + 2.
-                (s[1] == 'e' ? 1 : 0) + // East? +1.
-                (s[2] == 'u' ? 4 : 0)); // Up? +4.
-    }
+    static const std::size_t hierarchyDepthBegin = 6;
 
 private:
     const Structure& m_structure;
@@ -130,8 +97,6 @@ private:
     BBox m_bboxChunk;
 
     Node* m_node;
-
-    static const std::size_t hierarchyDepthBegin = 6;
 
     void climb(Dir dir);
 };

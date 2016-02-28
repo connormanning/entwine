@@ -102,6 +102,7 @@ public:
     const Manifest& manifest() const;
     const Structure& structure() const;
     const Registry& registry() const;
+    const Hierarchy& hierarchy() const;
     const Subset* subset() const;
     const Reprojection* reprojection() const;
     Pools& pools() const;
@@ -222,7 +223,7 @@ private:
 
     // Get metadata properties, and load from those serialized properties.
     Json::Value saveProps() const;
-    void loadProps(const Json::Value& props);
+    void loadProps(Json::Value& props);
 
     void addError(const std::string& path, const std::string& error);
 

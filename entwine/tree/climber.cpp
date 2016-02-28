@@ -66,10 +66,7 @@ void Climber::magnify(const Point& point)
     }
     */
 
-    switch (
-        ((m_tubular || m_is3d) && point.z >= mid.z ? 4 : 0) +   // Up? +4.
-        (point.y >= mid.y ? 2 : 0) +                            // North? +2.
-        (point.x >= mid.x ? 1 : 0))                             // East? +1.
+    switch (getDirection(point, mid))
     {
         case Dir::swd: goSwd(); break;
         case Dir::sed: goSed(); break;
@@ -142,7 +139,7 @@ void Climber::climb(Dir dir)
 
     m_index <<= m_dimensions;
     m_index.incSimple();
-    m_index += dir;
+    m_index += static_cast<std::size_t>(dir);
 
     if (m_depth > hierarchyDepthBegin) m_node = &m_node->next(dir);
 }

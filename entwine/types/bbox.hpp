@@ -11,6 +11,7 @@
 #pragma once
 
 #include <entwine/third/json/json.hpp>
+#include <entwine/types/dir.hpp>
 #include <entwine/types/point.hpp>
 
 namespace entwine
@@ -34,6 +35,9 @@ public:
 
     // Returns true if this BBox shares any area in common with another.
     bool overlaps(const BBox& other) const;
+
+    // Returns true if the requested BBox is contained within this BBox.
+    bool contains(const BBox& other) const;
 
     // Returns true if the requested point is contained within this BBox.
     bool contains(const Point& p) const;
@@ -59,6 +63,36 @@ public:
     BBox getSwd() const { BBox b(*this); b.goSwd(); return b; }
     BBox getSeu() const { BBox b(*this); b.goSeu(); return b; }
     BBox getSed() const { BBox b(*this); b.goSed(); return b; }
+
+    void go(Dir dir)
+    {
+        switch (dir)
+        {
+            case Dir::swd: goSwd(); break;
+            case Dir::sed: goSed(); break;
+            case Dir::nwd: goNwd(); break;
+            case Dir::ned: goNed(); break;
+            case Dir::swu: goSwu(); break;
+            case Dir::seu: goSeu(); break;
+            case Dir::nwu: goNwu(); break;
+            case Dir::neu: goNeu(); break;
+        }
+    }
+
+    BBox get(Dir dir) const
+    {
+        switch (dir)
+        {
+            case Dir::swd: return getSwd(); break;
+            case Dir::sed: return getSed(); break;
+            case Dir::nwd: return getNwd(); break;
+            case Dir::ned: return getNed(); break;
+            case Dir::swu: return getSwu(); break;
+            case Dir::seu: return getSeu(); break;
+            case Dir::nwu: return getNwu(); break;
+            case Dir::neu: return getNeu(); break;
+        }
+    }
 
     bool exists() const { return Point::exists(m_min) && Point::exists(m_max); }
     bool is3d() const { return m_is3d; }
@@ -100,6 +134,8 @@ public:
         m_max.z = std::floor(m_mid.z) + radius;
     }
 
+    void growBy(double ratio);
+
 private:
     Point m_min;
     Point m_max;
@@ -111,6 +147,22 @@ private:
 
     void check(const Point& min, const Point& max) const;
 };
+
+inline Point& operator+=(Point& lhs, const Point& rhs)
+{
+    lhs.x += rhs.x;
+    lhs.y += rhs.y;
+    lhs.z += rhs.z;
+    return lhs;
+}
+
+inline Point& operator-=(Point& lhs, const Point& rhs)
+{
+    lhs.x -= rhs.x;
+    lhs.y -= rhs.y;
+    lhs.z -= rhs.z;
+    return lhs;
+}
 
 std::ostream& operator<<(std::ostream& os, const BBox& bbox);
 

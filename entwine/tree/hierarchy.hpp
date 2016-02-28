@@ -13,81 +13,61 @@
 #include <string>
 
 #include <entwine/third/json/json.hpp>
-#include <entwine/tree/climber.hpp>
+#include <entwine/types/bbox.hpp>
 
 namespace entwine
 {
-
-const std::size_t step(6);
-const std::string countKey("n");
 
 class Node
 {
 public:
     Node() : m_count(0), m_children() { }
-    Node(const Json::Value& json)
-        : m_count(json[countKey].asUInt64())
-        , m_children()
-    {
-        if (!m_count) throw std::runtime_error("Invalid hierarchy count");
+    Node(const Json::Value& json);
 
-        for (const auto& key : json.getMemberNames())
-        {
-            if (key != countKey)
-            {
-                m_children[Climber::stringToDir(key)] = Node(json[key]);
-            }
-        }
+    Node& next(Dir dir) { return m_children[dir]; }
+
+    const Node* maybeNext(Dir dir) const
+    {
+        auto it(m_children.find(dir));
+
+        if (it != m_children.end()) return &it->second;
+        else return nullptr;
     }
 
-    Node& next(const Climber::Dir dir) { return m_children[dir]; }
     void increment() { ++m_count; }
+    void incrementBy(std::size_t n) { m_count += n; }
+
     std::size_t count() const { return m_count; }
 
-    void merge(Node& other)
-    {
-        m_count += other.count();
+    void merge(Node& other);
+    void insertInto(Json::Value& json) const;
 
-        for (auto& theirs : other.children())
-        {
-            auto& mine(m_children[theirs.first]);
-            if (!mine.count())
-            {
-                std::swap(mine, theirs.second);
-            }
-            else
-            {
-                mine.merge(theirs.second);
-            }
-        }
-    }
-
-    void insertInto(Json::Value& json) const
-    {
-        if (m_count)
-        {
-            json[countKey] = static_cast<Json::UInt64>(m_count);
-            for (const auto& c : m_children)
-            {
-                c.second.insertInto(json[Climber::dirToString(c.first)]);
-            }
-        }
-    }
-
-    const std::map<Climber::Dir, Node>& children() const { return m_children; }
+    typedef std::map<Dir, Node> Children;
+    const Children& children() const { return m_children; }
 
 private:
-    std::map<Climber::Dir, Node>& children() { return m_children; }
+    Children& children() { return m_children; }
 
     std::size_t m_count;
-    std::map<Climber::Dir, Node> m_children;
+    Children m_children;
 };
 
 class Hierarchy
 {
 public:
-    Hierarchy() : m_root() { }
-    Hierarchy(const Json::Value& json) : m_root(json) { }
+    Hierarchy(const BBox& bbox, std::size_t depth)
+        : m_bbox(bbox)
+        , m_depthBegin(depth)
+        , m_root()
+    { }
+
+    Hierarchy(const BBox& bbox, Json::Value& json)
+        : m_bbox(bbox)
+        , m_depthBegin(json.removeMember("depthBegin").asUInt64())
+        , m_root(json)
+    {
+        m_root = Node(json);
+    }
 
     Node& root() { return m_root; }
 
@@ -98,12 +78,35 @@ public:
         return json;
     }
 
+    Json::Value query(
+            BBox qbox,
+            std::size_t depthBegin,
+            std::size_t depthEnd) const;
+
     void merge(Hierarchy& other)
     {
         m_root.merge(other.root());
     }
 
 private:
+    void traverse(
+            Node& out,
+            const Node& cur,
+            const BBox& cbox,
+            const BBox& qbox,
+            std::size_t depth,
+            std::size_t depthBegin,
+            std::size_t depthEnd) const;
+
+    void accumulate(
+            Node& node,
+            const Node& cur,
+            std::size_t depth,
+            std::size_t depthEnd) const;
+
+    const BBox& m_bbox;
+    const std::size_t m_depthBegin;
+
     Node m_root;
 };
 

@@ -88,23 +88,21 @@ void Subset::split(Structure& structure, const BBox& bbox)
     const std::size_t mask(0x3);
 
     bool set(false);
-    Hierarchy dummyHierarchy;
+    Hierarchy dummyHierarchy(bbox, Climber::hierarchyDepthBegin);
 
     for (std::size_t curId(startOffset); curId < startOffset + boxes; ++curId)
     {
         Climber climber(bbox, structure, dummyHierarchy);
         for (std::size_t i(iterations - 1); i < iterations; --i)
         {
-            Climber::Dir dir(
-                    static_cast<Climber::Dir>(
-                        curId >> (i * dimensions) & mask));
+            Dir dir(static_cast<Dir>(curId >> (i * dimensions) & mask));
 
             switch (dir)
             {
-                case Climber::Dir::swd: climber.goSwd(); break;
-                case Climber::Dir::sed: climber.goSed(); break;
-                case Climber::Dir::nwd: climber.goNwd(); break;
-                case Climber::Dir::ned: climber.goNed(); break;
+                case Dir::swd: climber.goSwd(); break;
+                case Dir::sed: climber.goSed(); break;
+                case Dir::nwd: climber.goNwd(); break;
+                case Dir::ned: climber.goNed(); break;
                 default: throw std::runtime_error("Unexpected value");
             }
         }

@@ -36,11 +36,12 @@ public:
     { }
 };
 
+class BaseChunk;
 class BBox;
 class Builder;
 class Cache;
 class Climber;
-class BaseChunk;
+class Hierarchy;
 class Manifest;
 class Query;
 class Reprojection;
@@ -98,6 +99,12 @@ public:
     typedef std::map<BBox, BoxInfo> BoxMap;
 
 private:
+    void doHierarchyLevel(
+            Hierarchy& hierarchy,
+            const BBox& qbox,
+            std::size_t depth,
+            std::size_t depthEnd);
+
     void doHierarchyLevel(
             Json::Value& json,
             const BBox& qbox,
