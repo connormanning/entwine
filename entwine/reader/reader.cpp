@@ -170,9 +170,10 @@ std::unique_ptr<Query> Reader::query(
         const Schema& schema,
         const std::size_t depthBegin,
         const std::size_t depthEnd,
-        const bool normalize)
+        const bool normalize,
+        const double scale)
 {
-    return query(schema, bbox(), depthBegin, depthEnd, normalize);
+    return query(schema, bbox(), depthBegin, depthEnd, normalize, scale);
 }
 
 std::unique_ptr<Query> Reader::query(
@@ -180,7 +181,8 @@ std::unique_ptr<Query> Reader::query(
         const BBox& qbox,
         const std::size_t depthBegin,
         const std::size_t depthEnd,
-        const bool normalize)
+        const bool normalize,
+        const double scale)
 {
     checkQuery(depthBegin, depthEnd);
 
@@ -202,7 +204,8 @@ std::unique_ptr<Query> Reader::query(
                 normalBBox,
                 depthBegin,
                 depthEnd,
-                normalize));
+                normalize,
+                scale));
 }
 
 const BBox& Reader::bbox() const            { return m_builder->bbox(); }

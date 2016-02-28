@@ -84,7 +84,8 @@ public:
             const BBox& qbox,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            bool normalize);
+            bool normalize,
+            double scale);
 
     bool next(std::vector<char>& buffer);
 
@@ -94,6 +95,9 @@ private:
     std::vector<char>* m_buffer;
     const Schema& m_outSchema;
     const bool m_normalize;
+    const double m_scale;
+
+    const Point& m_readerMid;
 
     BinaryPointTable m_table;
     pdal::PointRef m_pointRef;
