@@ -103,32 +103,5 @@ private:
     pdal::PointRef m_pointRef;
 };
 
-class MetaQuery : public BaseQuery
-{
-public:
-    MetaQuery(
-            const Reader& reader,
-            Cache& cache,
-            const BBox& qbox,
-            Reader::BoxMap& grid,
-            std::size_t depth)
-        : BaseQuery(reader, cache, qbox, depth, depth + 1)
-        , m_grid(grid)
-        , m_loBox()
-        , m_hiBox()
-        , m_radius(qbox.width() / 2)    // TODO This assumes an actual cube.
-        , m_is3d(qbox.is3d())
-    { }
-
-private:
-    virtual bool processPoint(const PointInfo& info) override;
-
-    Reader::BoxMap& m_grid;
-    BBox m_loBox;
-    BBox m_hiBox;
-    const double m_radius;
-    const bool m_is3d;
-};
-
 } // namespace entwine
 

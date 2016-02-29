@@ -38,27 +38,6 @@ namespace
             throw InvalidQuery("Invalid depths");
         }
     }
-
-    Json::Value& traverse(Json::Value& in, std::vector<std::string> keys)
-    {
-        Json::Value* json(&in);
-
-        for (const auto& key : keys)
-        {
-            json = &((*json)[key]);
-        }
-
-        return *json;
-    }
-
-    std::vector<std::string> concat(
-            const std::vector<std::string>& in,
-            const std::string& add)
-    {
-        std::vector<std::string> out(in);
-        out.push_back(add);
-        return out;
-    }
 }
 
 Reader::Reader(
