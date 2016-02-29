@@ -33,8 +33,8 @@ Query::Query(
         const BBox& qbox,
         const std::size_t depthBegin,
         const std::size_t depthEnd,
-        const bool normalize,
-        const double scale)
+        const double scale,
+        const Point& offset)
     : m_reader(reader)
     , m_structure(reader.structure())
     , m_cache(cache)
@@ -48,36 +48,11 @@ Query::Query(
     , m_base(true)
     , m_done(false)
     , m_outSchema(schema)
-    , m_normalize(normalize || scale)
     , m_scale(scale)
-    , m_readerMid(m_reader.bbox().mid())
+    , m_offset(offset)
     , m_table(reader.schema())
     , m_pointRef(m_table, 0)
 {
-    if (m_scale)
-    {
-        for (const auto& dim : m_outSchema.dims())
-        {
-            const bool isX = dim.id() == pdal::Dimension::Id::X;
-            const bool isY = dim.id() == pdal::Dimension::Id::Y;
-            const bool isZ = dim.id() == pdal::Dimension::Id::Z;
-
-            if (isX || isY || isZ)
-            {
-                if (dim.size() < 4)
-                {
-                    throw std::runtime_error("Need at least 4 bytes to scale");
-                }
-
-                if (pdal::Dimension::base(dim.type()) ==
-                        pdal::Dimension::BaseType::Unsigned)
-                {
-                    throw std::runtime_error("Scaled types must be signed");
-                }
-            }
-        }
-    }
-
     if (!m_depthEnd || m_depthEnd > m_structure.coldDepthBegin())
     {
         SplitClimber splitter(
@@ -257,69 +232,57 @@ bool Query::processPoint(std::vector<char>& buffer, const PointInfo& info)
         {
             written = false;
 
-            if (m_normalize)
+            isX = dim.id() == pdal::Dimension::Id::X;
+            isY = dim.id() == pdal::Dimension::Id::Y;
+            isZ = dim.id() == pdal::Dimension::Id::Z;
+
+            if (isX || isY || isZ)
             {
-                isX = dim.id() == pdal::Dimension::Id::X;
-                isY = dim.id() == pdal::Dimension::Id::Y;
-                isZ = dim.id() == pdal::Dimension::Id::Z;
+                double d(m_pointRef.getFieldAs<double>(dim.id()));
 
-                if (isX || isY || isZ)
+                if (isX)        d -= m_offset.x;
+                else if (isY)   d -= m_offset.y;
+                else            d -= m_offset.z;
+
+                if (m_scale) d /= m_scale;
+
+                switch (dim.type())
                 {
-                    double d(m_pointRef.getFieldAs<double>(dim.id()));
-                    const std::size_t dimSize(dim.size());
-
-                    if (isX)        d -= m_readerMid.x;
-                    else if (isY)   d -= m_readerMid.y;
-                    else            d -= m_readerMid.z;
-
-                    if (m_scale)
-                    {
-                        d /= m_scale;
-                        written = true;
-
-                        if (pdal::Dimension::base(dim.type()) ==
-                                pdal::Dimension::BaseType::Floating)
-                        {
-                            if (dimSize == 4)
-                            {
-                                const float val(d);
-                                std::memcpy(pos, &val, 4);
-                            }
-                            else
-                            {
-                                std::memcpy(pos, &d, 8);
-                            }
-                        }
-                        else
-                        {
-                            // Type is signed, unsigned would have thrown in
-                            // the constructor.  We also know that the size is
-                            // 4 or 8.
-                            if (dimSize == 4)
-                            {
-                                const int32_t val(d);
-                                std::memcpy(pos, &val, 4);
-                            }
-                            else
-                            {
-                                const uint64_t val(d);
-                                std::memcpy(pos, &val, 8);
-                            }
-                        }
-                    }
-                    else if (
-                            dimSize == 4 &&
-                            pdal::Dimension::base(dim.type()) ==
-                                pdal::Dimension::BaseType::Floating)
-                    {
-                        written = true;
-                        const float f(d);
-                        std::memcpy(pos, &f, 4);
-                    }
+                    case pdal::Dimension::Type::Double:
+                        std::memcpy(pos, &d, 8);
+                        break;
+                    case pdal::Dimension::Type::Float:
+                        setSpatial<float>(pos, d);
+                        break;
+                    case pdal::Dimension::Type::Unsigned8:
+                        setSpatial<uint8_t>(pos, d);
+                        break;
+                    case pdal::Dimension::Type::Signed8:
+                        setSpatial<int8_t>(pos, d);
+                        break;
+                    case pdal::Dimension::Type::Unsigned16:
+                        setSpatial<uint16_t>(pos, d);
+                        break;
+                    case pdal::Dimension::Type::Signed16:
+                        setSpatial<int16_t>(pos, d);
+                        break;
+                    case pdal::Dimension::Type::Unsigned32:
+                        setSpatial<uint32_t>(pos, d);
+                        break;
+                    case pdal::Dimension::Type::Signed32:
+                        setSpatial<int32_t>(pos, d);
+                        break;
+                    case pdal::Dimension::Type::Unsigned64:
+                        setSpatial<uint64_t>(pos, d);
+                        break;
+                    case pdal::Dimension::Type::Signed64:
+                        setSpatial<int64_t>(pos, d);
+                        break;
+                    default:
+                        break;
                 }
             }
-
-            if (!written)
+            else
             {
                 m_pointRef.getField(pos, dim.id(), dim.type());
             }

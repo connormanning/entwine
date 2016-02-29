@@ -62,16 +62,16 @@ public:
             const Schema& schema,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            bool normalize,
-            double scale = 0.0);
+            double scale = 0.0,
+            Point offset = Point());
 
     std::unique_ptr<Query> query(
             const Schema& schema,
             const BBox& qbox,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            bool normalize,
-            double scale = 0.0);
+            double scale = 0.0,
+            Point offset = Point());
 
     Json::Value hierarchy(
             const BBox& qbox,

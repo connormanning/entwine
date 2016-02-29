@@ -83,10 +83,10 @@ std::unique_ptr<Query> Reader::query(
         const Schema& schema,
         const std::size_t depthBegin,
         const std::size_t depthEnd,
-        const bool normalize,
-        const double scale)
+        const double scale,
+        const Point offset)
 {
-    return query(schema, bbox(), depthBegin, depthEnd, normalize, scale);
+    return query(schema, bbox(), depthBegin, depthEnd, scale, offset);
 }
 
 std::unique_ptr<Query> Reader::query(
@@ -94,16 +94,17 @@ std::unique_ptr<Query> Reader::query(
         const BBox& qbox,
         const std::size_t depthBegin,
         const std::size_t depthEnd,
-        const bool normalize,
-        const double scale)
+        const double scale,
+        const Point offset)
 {
     checkQuery(depthBegin, depthEnd);
 
-    BBox normalBBox(qbox);
+    BBox queryCube(qbox);
 
     if (!qbox.is3d())
     {
-        normalBBox = BBox(
+        // Make sure the query is 3D.
+        queryCube = BBox(
                 Point(qbox.min().x, qbox.min().y, bbox().min().z),
                 Point(qbox.max().x, qbox.max().y, bbox().max().z),
                 true);
@@ -114,11 +115,11 @@ std::unique_ptr<Query> Reader::query(
                 *this,
                 schema,
                 m_cache,
-                normalBBox,
+                queryCube,
                 depthBegin,
                 depthEnd,
-                normalize,
-                scale));
+                scale,
+                offset));
 }
 
 const BBox& Reader::bbox() const            { return m_builder->bbox(); }

@@ -34,20 +34,25 @@ public:
             const BBox& qbox,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            bool normalize,
-            double scale);
+            double scale,
+            const Point& offset);
 
     // Returns true if next() should be called again.  If false is returned,
     // then the query is complete and next() should not be called anymore.
     bool next(std::vector<char>& buffer);
 
     bool done() const { return m_done; }
-
     std::size_t numPoints() const { return m_numPoints; }
 
 protected:
     bool getBase(std::vector<char>& buffer); // True if base data existed.
     void getChunked(std::vector<char>& buffer);
+
+    template<typename T> void setSpatial(char* pos, double d)
+    {
+        const T v(d);
+        std::memcpy(pos, &v, sizeof(T));
+    }
 
     bool processPoint(
             std::vector<char>& buffer,
@@ -71,10 +76,8 @@ protected:
     bool m_done;
 
     const Schema& m_outSchema;
-    const bool m_normalize;
     const double m_scale;
-
-    const Point& m_readerMid;
+    const Point m_offset;
 
     BinaryPointTable m_table;
     pdal::PointRef m_pointRef;
