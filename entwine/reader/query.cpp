@@ -26,12 +26,15 @@ namespace
     std::size_t fetchesPerIteration(4);
 }
 
-BaseQuery::BaseQuery(
+Query::Query(
         const Reader& reader,
+        const Schema& schema,
         Cache& cache,
         const BBox& qbox,
         const std::size_t depthBegin,
-        const std::size_t depthEnd)
+        const std::size_t depthEnd,
+        const bool normalize,
+        const double scale)
     : m_reader(reader)
     , m_structure(reader.structure())
     , m_cache(cache)
@@ -44,7 +47,37 @@ BaseQuery::BaseQuery(
     , m_numPoints(0)
     , m_base(true)
     , m_done(false)
+    , m_outSchema(schema)
+    , m_normalize(normalize || scale)
+    , m_scale(scale)
+    , m_readerMid(m_reader.bbox().mid())
+    , m_table(reader.schema())
+    , m_pointRef(m_table, 0)
 {
+    if (m_scale)
+    {
+        for (const auto& dim : m_outSchema.dims())
+        {
+            const bool isX = dim.id() == pdal::Dimension::Id::X;
+            const bool isY = dim.id() == pdal::Dimension::Id::Y;
+            const bool isZ = dim.id() == pdal::Dimension::Id::Z;
+
+            if (isX || isY || isZ)
+            {
+                if (dim.size() < 4)
+                {
+                    throw std::runtime_error("Need at least 4 bytes to scale");
+                }
+
+                if (pdal::Dimension::base(dim.type()) ==
+                        pdal::Dimension::BaseType::Unsigned)
+                {
+                    throw std::runtime_error("Scaled types must be signed");
+                }
+            }
+        }
+    }
+
     if (!m_depthEnd || m_depthEnd > m_structure.coldDepthBegin())
     {
         SplitClimber splitter(
@@ -80,7 +113,7 @@ BaseQuery::BaseQuery(
     }
 }
 
-bool BaseQuery::next()
+bool Query::next(std::vector<char>& buffer)
 {
     if (m_done) throw std::runtime_error("Called next after query completed");
 
@@ -88,21 +121,21 @@ bool BaseQuery::next()
     {
         m_base = false;
 
-        if (!getBase())
+        if (!getBase(buffer))
         {
             if (m_chunks.empty()) m_done = true;
-            else getChunked();
+            else getChunked(buffer);
         }
     }
     else
     {
-        getChunked();
+        getChunked(buffer);
     }
 
     return !m_done;
 }
 
-bool BaseQuery::getBase()
+bool Query::getBase(std::vector<char>& buffer)
 {
     bool dataExisted(false);
 
@@ -134,7 +167,10 @@ bool BaseQuery::getBase()
 
             if (!tube.empty())
             {
-                if (processPoint(tube.primaryCell().atom().load()->val()))
+                if (
+                        processPoint(
+                            buffer,
+                            tube.primaryCell().atom().load()->val()))
                 {
                     ++m_numPoints;
                     dataExisted = true;
@@ -142,7 +178,7 @@ bool BaseQuery::getBase()
 
                 for (const auto& c : tube.secondaryCells())
                 {
-                    if (processPoint(c.second.atom().load()->val()))
+                    if (processPoint(buffer, c.second.atom().load()->val()))
                     {
                         ++m_numPoints;
                         dataExisted = true;
@@ -160,7 +196,7 @@ bool BaseQuery::getBase()
     return dataExisted;
 }
 
-void BaseQuery::getChunked()
+void Query::getChunked(std::vector<char>& buffer)
 {
     if (!m_block)
     {
@@ -187,7 +223,7 @@ void BaseQuery::getChunked()
 
             while (it != range.end)
             {
-                if (processPoint(it->second)) ++m_numPoints;
+                if (processPoint(buffer, it->second)) ++m_numPoints;
                 ++it;
             }
 
@@ -205,66 +241,12 @@ void BaseQuery::getChunked()
     m_done = !m_block && m_chunks.empty();
 }
 
-Query::Query(
-        const Reader& reader,
-        const Schema& schema,
-        Cache& cache,
-        const BBox& qbox,
-        const std::size_t depthBegin,
-        const std::size_t depthEnd,
-        const bool normalize,
-        const double scale)
-    : BaseQuery(reader, cache, qbox, depthBegin, depthEnd)
-    , m_buffer(nullptr)
-    , m_outSchema(schema)
-    , m_normalize(normalize || scale)
-    , m_scale(scale)
-    , m_readerMid(m_reader.bbox().mid())
-    , m_table(reader.schema())
-    , m_pointRef(m_table, 0)
+bool Query::processPoint(std::vector<char>& buffer, const PointInfo& info)
 {
-    if (m_scale)
-    {
-        for (const auto& dim : m_outSchema.dims())
-        {
-            const bool isX = dim.id() == pdal::Dimension::Id::X;
-            const bool isY = dim.id() == pdal::Dimension::Id::Y;
-            const bool isZ = dim.id() == pdal::Dimension::Id::Z;
-
-            if (isX || isY || isZ)
-            {
-                if (dim.size() < 4)
-                {
-                    throw std::runtime_error("Need at least 4 bytes to scale");
-                }
-
-                if (pdal::Dimension::base(dim.type()) ==
-                        pdal::Dimension::BaseType::Unsigned)
-                {
-                    throw std::runtime_error("Scaled types must be signed");
-                }
-            }
-        }
-    }
-}
-
-bool Query::next(std::vector<char>& buffer)
-{
-    if (buffer.size()) throw std::runtime_error("Query buffer not empty");
-    m_buffer = &buffer;
-
-    return BaseQuery::next();
-}
-
-bool Query::processPoint(const PointInfo& info)
-{
-    if (!m_buffer) throw std::runtime_error("Query buffer not set");
-
     if (m_qbox.contains(info.point()))
     {
-        m_buffer->resize(m_buffer->size() + m_outSchema.pointSize(), 0);
-        char* pos(
-                m_buffer->data() + m_buffer->size() - m_outSchema.pointSize());
+        buffer.resize(buffer.size() + m_outSchema.pointSize(), 0);
+        char* pos(buffer.data() + buffer.size() - m_outSchema.pointSize());
 
         m_table.setPoint(info.data());
         bool isX(false), isY(false), isZ(false);
