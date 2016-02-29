@@ -101,19 +101,6 @@ public:
     typedef std::map<BBox, BoxInfo> BoxMap;
 
 private:
-    void doHierarchyLevel(
-            Hierarchy& hierarchy,
-            const BBox& qbox,
-            std::size_t depth,
-            std::size_t depthEnd);
-
-    void doHierarchyLevel(
-            Json::Value& json,
-            const BBox& qbox,
-            BoxMap grid,
-            std::size_t depth,
-            std::size_t depthEnd);
-
     arbiter::Endpoint m_endpoint;
 
     std::unique_ptr<Builder> m_builder;

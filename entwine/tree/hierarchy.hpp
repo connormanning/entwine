@@ -9,6 +9,7 @@
 ******************************************************************************/
 
 #include <cstddef>
+#include <deque>
 #include <map>
 #include <string>
 
@@ -74,6 +75,7 @@ public:
     Json::Value toJson() const
     {
         Json::Value json;
+        json["depthBegin"] = static_cast<Json::UInt64>(m_depthBegin);
         m_root.insertInto(json);
         return json;
     }
@@ -91,6 +93,7 @@ public:
 private:
     void traverse(
             Node& out,
+            std::deque<Dir>& lag,
             const Node& cur,
             const BBox& cbox,
             const BBox& qbox,
@@ -100,6 +103,7 @@ private:
 
     void accumulate(
             Node& node,
+            std::deque<Dir>& lag,
             const Node& cur,
             std::size_t depth,
             std::size_t depthEnd) const;

@@ -64,15 +64,6 @@ public:
     void goNwu() { climb(Dir::nwu); m_bbox.goNwu(); }
     void goNeu() { climb(Dir::neu); m_bbox.goNeu(); }
 
-    Climber getSwd() const { Climber c(*this); c.goSwd(); return c; }
-    Climber getSed() const { Climber c(*this); c.goSed(); return c; }
-    Climber getNwd() const { Climber c(*this); c.goNwd(); return c; }
-    Climber getNed() const { Climber c(*this); c.goNed(); return c; }
-    Climber getSwu() const { Climber c(*this); c.goSwu(); return c; }
-    Climber getSeu() const { Climber c(*this); c.goSeu(); return c; }
-    Climber getNwu() const { Climber c(*this); c.goNwu(); return c; }
-    Climber getNeu() const { Climber c(*this); c.goNeu(); return c; }
-
     static const std::size_t hierarchyDepthBegin = 6;
 
 private:
@@ -95,6 +86,7 @@ private:
 
     BBox m_bbox;
     BBox m_bboxChunk;
+    BBox m_bboxHierarchy;
 
     Node* m_node;
 

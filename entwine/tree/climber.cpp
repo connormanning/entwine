@@ -37,6 +37,7 @@ Climber::Climber(
     , m_chunkPoints(structure.baseChunkPoints())
     , m_bbox(bbox)
     , m_bboxChunk(bbox)
+    , m_bboxHierarchy(bbox)
     , m_node(&hierarchy.root())
 { }
 
@@ -51,6 +52,7 @@ void Climber::reset(const BBox& bbox, Hierarchy& hierarchy)
     m_chunkPoints = m_structure.baseChunkPoints();
     m_bbox = bbox;
     m_bboxChunk = bbox;
+    m_bboxHierarchy = bbox;
     m_node = &hierarchy.root();
 }
 
@@ -82,14 +84,17 @@ void Climber::magnify(const Point& point)
     {
         m_tick = Tube::calcTick(point, m_bboxChunk, m_depth);
     }
+
+    if (m_depth > hierarchyDepthBegin)
+    {
+        const Dir hierDir(getDirection(point, m_bboxHierarchy.mid()));
+        m_bboxHierarchy.go(hierDir);
+        m_node = &m_node->next(hierDir);
+    }
 }
 
-void Climber::climb(Dir dir)
+void Climber::climb(const Dir dir)
 {
-    // If this is a hybrid index, then we're tracking the BBox in 3d, but
-    // climbing in 2d.  If so, normalize the direction to 2d.
-    if (m_tubular) dir = static_cast<Dir>(static_cast<int>(dir) % 4);
-
     if (++m_depth > m_structure.nominalChunkDepth())
     {
         if (m_depth <= m_sparseDepthBegin || !m_sparseDepthBegin)
@@ -139,14 +144,19 @@ void Climber::climb(Dir dir)
 
     m_index <<= m_dimensions;
     m_index.incSimple();
-    m_index += static_cast<std::size_t>(dir);
 
-    if (m_depth > hierarchyDepthBegin) m_node = &m_node->next(dir);
+    // If this is a hybrid index, then we're tracking the BBox in 3d, but
+    // climbing in 2d.  If so, normalize the direction to 2d.
+    m_index += static_cast<std::size_t>(
+            m_tubular ? static_cast<Dir>(static_cast<int>(dir) % 4) : dir);
 }
 
 void Climber::count()
 {
-    if (m_depth >= hierarchyDepthBegin) m_node->increment();
+    if (m_depth >= hierarchyDepthBegin)
+    {
+        m_node->increment();
+    }
 }
 
 bool SplitClimber::next(bool terminate)

@@ -485,8 +485,6 @@ void Builder::load(const std::size_t clipThreads, const std::string post)
 
     m_registry.reset(
             new Registry(*m_outEndpoint, *this, clipThreads, meta["ids"]));
-
-    // TODO Initialize hierarchy from metadata.
 }
 
 void Builder::load(const std::size_t* subsetId, const std::size_t* splitBegin)

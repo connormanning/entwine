@@ -97,73 +97,7 @@ Json::Value Reader::hierarchy(
         const std::size_t depthEnd)
 {
     checkQuery(depthBegin, depthEnd);
-
-    // OLD METHOD.
-    Json::Value old;
-
-    BoxMap grid;
-    grid[qbox] = BoxInfo();
-    doHierarchyLevel(old, qbox, grid, depthBegin, depthEnd);
-
-    // NEW METHOD.
-    Json::Value cur(m_builder->hierarchy().query(qbox, depthBegin, depthEnd));
-
-    // COMPARE.
-    std::cout << "OLD: " << old.toStyledString() << std::endl;
-    std::cout << "NEW: " << cur.toStyledString() << std::endl;
-
-    return cur;
-}
-
-void Reader::doHierarchyLevel(
-        Json::Value& json,
-        const BBox& qbox,
-        BoxMap grid,
-        const std::size_t depth,
-        const std::size_t depthEnd)
-{
-    std::unique_ptr<MetaQuery> query(
-            new MetaQuery(
-                *this,
-                m_cache,
-                qbox,
-                grid,
-                depth));
-
-    query->run();
-
-    BoxMap next;
-    const std::size_t nextDepth(depth + 1);
-
-    for (const auto it : grid)
-    {
-        const auto& info(it.second);
-
-        if (info.numPoints)
-        {
-            const auto& box(it.first);
-
-            traverse(json, info.keys)["count"] =
-                static_cast<Json::UInt64>(info.numPoints);
-
-            if (nextDepth < depthEnd)
-            {
-                next[box.getNwu()] = BoxInfo(concat(info.keys, "nwu"));
-                next[box.getNwd()] = BoxInfo(concat(info.keys, "nwd"));
-                next[box.getNeu()] = BoxInfo(concat(info.keys, "neu"));
-                next[box.getNed()] = BoxInfo(concat(info.keys, "ned"));
-                next[box.getSwu()] = BoxInfo(concat(info.keys, "swu"));
-                next[box.getSwd()] = BoxInfo(concat(info.keys, "swd"));
-                next[box.getSeu()] = BoxInfo(concat(info.keys, "seu"));
-                next[box.getSed()] = BoxInfo(concat(info.keys, "sed"));
-            }
-        }
-    }
-
-    if (nextDepth < depthEnd)
-    {
-        doHierarchyLevel(json, qbox, next, nextDepth, depthEnd);
-    }
+    return m_builder->hierarchy().query(qbox, depthBegin, depthEnd);
 }
 
 std::unique_ptr<Query> Reader::query(
