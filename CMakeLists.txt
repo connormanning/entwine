@@ -28,6 +28,8 @@ find_package(Curl REQUIRED)
 mark_as_advanced(CLEAR PDAL_INCLUDE_DIRS)
 mark_as_advanced(CLEAR PDAL_LIBRARIES)
 include_directories(${PDAL_INCLUDE_DIRS})
+include_directories(${LAZPERF_INCLUDE_DIR})
+include_directories("/usr/local/include")
 
 if (CMAKE_MAJOR_VERSION GREATER 2)
     cmake_policy(SET CMP0022 OLD) # interface link libraries

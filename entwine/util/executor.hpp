@@ -78,11 +78,11 @@ public:
     std::unique_lock<std::mutex> getLock() const;
 
 private:
-    std::unique_ptr<pdal::Reader> createReader(
+    pdal::Reader* createReader(
             std::string driver,
             std::string path) const;
 
-    std::unique_ptr<pdal::Filter> createReprojectionFilter(
+    pdal::Filter* createReprojectionFilter(
             const Reprojection& reprojection,
             pdal::BasePointTable& pointTable) const;
 
