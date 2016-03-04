@@ -133,7 +133,7 @@ const arbiter::Endpoint& Reader::endpoint() const { return m_endpoint; }
 
 std::size_t Reader::numPoints() const
 {
-    return m_builder->manifest().pointStats().inserts();
+    return m_builder->numPointsClone();
 }
 
 } // namespace entwine

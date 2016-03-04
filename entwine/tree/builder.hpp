@@ -111,6 +111,8 @@ public:
     bool trustHeaders() const   { return m_trustHeaders; }
     bool isContinuation() const { return m_isContinuation; }
 
+    std::size_t numPointsClone() const { return m_numPointsClone; }
+
     const std::string& srs() const { return m_srs; }
     std::size_t numThreads() const { return m_totalThreads; }
     float threshold() const { return m_threshold; }
@@ -222,7 +224,7 @@ private:
     std::string localize(std::string path, Origin origin);
 
     // Get metadata properties, and load from those serialized properties.
-    Json::Value saveProps() const;
+    Json::Value saveOwnProps() const;
     void loadProps(Json::Value& props);
 
     void addError(const std::string& path, const std::string& error);
@@ -261,6 +263,7 @@ private:
     Origin m_origin;
     Origin m_end;
     std::size_t m_added;
+    std::size_t m_numPointsClone;
 
     std::shared_ptr<arbiter::Arbiter> m_arbiter;
     std::unique_ptr<arbiter::Endpoint> m_outEndpoint;

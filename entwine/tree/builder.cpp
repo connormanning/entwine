@@ -466,16 +466,49 @@ PooledInfoStack Builder::insertData(
 void Builder::load(const std::size_t clipThreads, const std::string post)
 {
     Json::Value meta;
+    Json::Reader reader;
 
+    auto check([&reader]()
     {
-        Json::Reader reader;
-        const std::string metaPath("entwine" + post);
-
-        const std::string data(m_outEndpoint->getSubpath(metaPath));
-        reader.parse(data, meta, false);
-
         const std::string err(reader.getFormattedErrorMessages());
         if (!err.empty()) throw std::runtime_error("Invalid JSON: " + err);
+    });
+
+    {
+        // Get top-level metadata.
+        const std::string strMeta(m_outEndpoint->getSubpath("entwine" + post));
+        reader.parse(strMeta, meta, false);
+        check();
+
+        // For Reader invocation only.
+        if (post.empty())
+        {
+            m_numPointsClone = meta["numPoints"].asUInt64();
+        }
+    }
+
+    {
+        const std::string strIds(
+                m_outEndpoint->getSubpath("entwine-ids" + post));
+        reader.parse(strIds, meta["ids"], false);
+        check();
+    }
+
+    {
+        const std::string strHierarchy(
+                m_outEndpoint->getSubpath("entwine-hierarchy" + post));
+        reader.parse(strHierarchy, meta["hierarchy"], false);
+        check();
+    }
+
+    // If this invocation has no postfix, then it's being called by a Reader,
+    // which doesn't need the manifest on init.
+    if (post.size())
+    {
+        const std::string strManifest(
+                m_outEndpoint->getSubpath("entwine-manifest" + post));
+        reader.parse(strManifest, meta["manifest"], false);
+        check();
     }
 
     loadProps(meta);
@@ -499,10 +532,33 @@ void Builder::load(const std::size_t* subsetId, const std::size_t* splitBegin)
 void Builder::save()
 {
     m_registry->save();
+    const auto pf(postfix());
 
-    Json::Value jsonMeta(saveProps());
     Json::FastWriter writer;
-    m_outEndpoint->putSubpath("entwine" + postfix(), writer.write(jsonMeta));
+
+    {
+        Json::Value jsonMeta(saveOwnProps());
+        m_outEndpoint->putSubpath("entwine" + pf, jsonMeta.toStyledString());
+    }
+
+    {
+        Json::Value jsonIds(m_registry->toJson());
+        m_outEndpoint->putSubpath("entwine-ids" + pf, writer.write(jsonIds));
+    }
+
+    {
+        Json::Value jsonHierarchy(m_hierarchy->toJson());
+        m_outEndpoint->putSubpath(
+                "entwine-hierarchy" + pf,
+                writer.write(jsonHierarchy));
+    }
+
+    {
+        Json::Value jsonManifest(m_manifest->toJson());
+        m_outEndpoint->putSubpath(
+                "entwine-manifest" + pf,
+                writer.write(jsonManifest));
+    }
 }
 
 void Builder::unsplit(Builder& other)
@@ -527,16 +583,19 @@ void Builder::merge(Builder& other)
     m_manifest->merge(other.manifest());
 }
 
-Json::Value Builder::saveProps() const
+Json::Value Builder::saveOwnProps() const
 {
     Json::Value props;
 
     props["bbox"] = m_bbox->toJson();
     props["schema"] = m_schema->toJson();
     props["structure"] = m_structure->toJson();
-    props["manifest"] = m_manifest->toJson();
-    props["ids"] = m_registry->toJson();
-    props["hierarchy"] = m_hierarchy->toJson();
+
+    // The infallible numPoints value is in the manifest, which is stored
+    // elsewhere to avoid the Reader needing it.  For the Reader, then,
+    // duplicat that info here.
+    props["numPoints"] =
+        static_cast<Json::UInt64>(m_manifest->pointStats().inserts());
 
     if (m_subset) props["subset"] = m_subset->toJson();
     if (m_reprojection) props["reprojection"] = m_reprojection->toJson();

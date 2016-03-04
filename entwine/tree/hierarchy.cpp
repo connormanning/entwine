@@ -15,7 +15,7 @@ namespace entwine
 
 namespace
 {
-    const std::string countKey("count");
+    const std::string countKey("n");
 }
 
 Node::Node(const Json::Value& json)
