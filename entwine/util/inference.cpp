@@ -249,7 +249,18 @@ Schema Inference::schema() const
     for (const auto& name : m_dimVec)
     {
         const pdal::Dimension::Id::Enum id(pdal::Dimension::id(name));
-        dims.emplace_back(name, id, pdal::Dimension::defaultType(id));
+
+        pdal::Dimension::Type::Enum t;
+        try
+        {
+            t = pdal::Dimension::defaultType(id);
+        }
+        catch (pdal::pdal_error&)
+        {
+            t = pdal::Dimension::Type::Double;
+        }
+
+        dims.emplace_back(name, id, t);
     }
     return Schema(dims);
 }
