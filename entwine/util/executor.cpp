@@ -54,13 +54,13 @@ bool Executor::run(
 
     if (driver.empty()) return false;
 
-    std::unique_ptr<pdal::Reader> reader(createReader(driver, path));
+    pdal::Reader* reader(createReader(driver, path));
     if (!reader) return false;
     reader->prepare(table);
 
-    pdal::Stage* executor(reader.get());
+    pdal::Stage* executor(reader);
 
-    std::unique_ptr<pdal::Filter> filter;
+    pdal::Filter* filter;
 
     if (reprojection)
     {
@@ -72,7 +72,7 @@ bool Executor::run(
         if (!filter) return false;
 
         filter->setInput(*reader);
-        executor = filter.get();
+        executor = filter;
     }
 
     executor->prepare(table);
@@ -102,7 +102,7 @@ std::unique_ptr<Preview> Executor::preview(
 
     if (!driver.empty())
     {
-        std::unique_ptr<pdal::Reader> reader(createReader(driver, path));
+        pdal::Reader* reader(createReader(driver, path));
         if (reader)
         {
             const pdal::QuickInfo quick(reader->preview());
@@ -142,7 +142,7 @@ std::unique_ptr<Preview> Executor::preview(
                     pdal::BufferReader buffer;
                     buffer.addView(view);
 
-                    std::unique_ptr<pdal::Filter> filter(
+                    pdal::Filter* filter(
                             createReprojectionFilter(
                                 srsFoundOrDefault(quick.m_srs, *reprojection),
                                 table));
@@ -183,17 +183,16 @@ std::unique_ptr<Preview> Executor::preview(
     return result;
 }
 
-std::unique_ptr<pdal::Reader> Executor::createReader(
+pdal::Reader* Executor::createReader(
         const std::string driver,
         const std::string path) const
 {
-    std::unique_ptr<pdal::Reader> reader;
 
-    if (driver.size())
+    pdal::Reader* reader(0);
+
+    if (driver.size() != 0 )
     {
-        reader.reset(
-                static_cast<pdal::Reader*>(
-                    m_stageFactory->createStage(driver)));
+        reader = static_cast<pdal::Reader*>( m_stageFactory->createStage(driver));
 
         pdal::Options options;
         options.add(pdal::Option("filename", path));
@@ -207,7 +206,7 @@ std::unique_ptr<pdal::Reader> Executor::createReader(
     return reader;
 }
 
-std::unique_ptr<pdal::Filter> Executor::createReprojectionFilter(
+pdal::Filter* Executor::createReprojectionFilter(
         const Reprojection& reproj,
         pdal::BasePointTable& pointTable) const
 {
@@ -216,9 +215,8 @@ std::unique_ptr<pdal::Filter> Executor::createReprojectionFilter(
         throw std::runtime_error("No default SRS supplied, and none inferred");
     }
 
-    std::unique_ptr<pdal::Filter> filter(
-            static_cast<pdal::Filter*>(
-                m_stageFactory->createStage("filters.reprojection")));
+    pdal::Filter* filter;
+    filter = static_cast<pdal::Filter*>( m_stageFactory->createStage("filters.reprojection"));
 
     pdal::Options options;
     options.add(
