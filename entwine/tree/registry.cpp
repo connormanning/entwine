@@ -15,7 +15,6 @@
 #include <pdal/PointView.hpp>
 
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/third/json/json.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
@@ -165,6 +164,7 @@ bool Registry::addPoint(
 
         if (done)
         {
+            climber.count();
             return true;
         }
         else

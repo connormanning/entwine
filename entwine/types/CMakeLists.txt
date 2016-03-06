@@ -18,6 +18,7 @@ set(
     "${BASE}/bbox.hpp"
     "${BASE}/blocked-data.hpp"
     "${BASE}/dim-info.hpp"
+    "${BASE}/dir.hpp"
     "${BASE}/elastic-atomic.hpp"
     "${BASE}/point.hpp"
     "${BASE}/pooled-point-table.hpp"

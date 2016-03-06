@@ -108,6 +108,11 @@ bool BBox::overlaps(const BBox& other) const
                 height() / 2.0 + other.height() / 2.0);
 }
 
+bool BBox::contains(const BBox& other) const
+{
+    return m_min <= other.m_min && m_max >= other.m_max;
+}
+
 bool BBox::contains(const Point& p) const
 {
     return
@@ -237,6 +242,17 @@ void BBox::growZ(const Range& range)
     m_min.z = std::min(m_min.z, range.min);
     m_max.z = std::max(m_max.z, range.max);
     m_mid.z = m_min.z + (m_max.z - m_min.z) / 2.0;
+}
+
+void BBox::growBy(double ratio)
+{
+    const Point delta(
+            (m_max.x - m_mid.x) * ratio,
+            (m_max.y - m_mid.y) * ratio,
+            (m_max.z - m_mid.z) * ratio);
+
+    m_min -= delta;
+    m_max += delta;
 }
 
 std::ostream& operator<<(std::ostream& os, const BBox& bbox)

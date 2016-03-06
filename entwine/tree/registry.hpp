@@ -16,12 +16,8 @@
 #include <set>
 #include <vector>
 
+#include <entwine/third/json/json.hpp>
 #include <entwine/tree/point-info.hpp>
-
-namespace Json
-{
-    class Value;
-}
 
 namespace arbiter
 {
@@ -84,6 +80,8 @@ private:
 
     std::unique_ptr<BaseChunk> m_base;
     std::unique_ptr<Cold> m_cold;
+
+    Json::Value m_hierarchy;
 };
 
 } // namespace entwine
