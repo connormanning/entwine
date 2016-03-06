@@ -108,9 +108,20 @@ bool BBox::overlaps(const BBox& other) const
                 height() / 2.0 + other.height() / 2.0);
 }
 
-bool BBox::contains(const BBox& other) const
+bool BBox::contains(const BBox& other, const bool force2d) const
 {
-    return m_min <= other.m_min && m_max >= other.m_max;
+    if (!force2d)
+    {
+        return m_min <= other.m_min && m_max >= other.m_max;
+    }
+    else
+    {
+        return
+            m_min.x <= other.m_min.x &&
+            m_min.y <= other.m_min.y &&
+            m_max.x > other.m_min.x &&
+            m_max.y > other.m_min.y;
+    }
 }
 
 bool BBox::contains(const Point& p) const

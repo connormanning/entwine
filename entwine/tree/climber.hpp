@@ -33,11 +33,17 @@ public:
     Climber(
             const BBox& bbox,
             const Structure& structure,
-            Hierarchy& hierarchy);
+            Hierarchy* hierarchy = nullptr);
 
-    void reset(const BBox& bbox, Hierarchy& hierarchy);
+    Climber(const Climber& other);
+    Climber& operator=(const Climber& other);
 
-    void magnify(const Point& point);
+    void reset();
+
+    void magnify(const Point& point, bool check = true);
+    void magnifyTo(const Point& point, std::size_t depth);
+    void magnifyTo(const BBox& bbox);
+
     const Id& index()   const { return m_index; }
     const Id& chunkId() const { return m_chunkId; }
     std::size_t tick()  const { return m_tick; }
@@ -84,10 +90,12 @@ private:
     Id m_chunkNum;
     Id m_chunkPoints;
 
+    const BBox m_bboxOriginal;
     BBox m_bbox;
     BBox m_bboxChunk;
     BBox m_bboxHierarchy;
 
+    Hierarchy* m_hierarchy;
     Node* m_node;
 
     void climb(Dir dir);

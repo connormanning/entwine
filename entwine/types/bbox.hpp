@@ -37,7 +37,7 @@ public:
     bool overlaps(const BBox& other) const;
 
     // Returns true if the requested BBox is contained within this BBox.
-    bool contains(const BBox& other) const;
+    bool contains(const BBox& other, bool force2d = false) const;
 
     // Returns true if the requested point is contained within this BBox.
     bool contains(const Point& p) const;
@@ -126,6 +126,8 @@ public:
         m_max.x = std::floor(m_mid.x) + radius;
         m_max.y = std::floor(m_mid.y) + radius;
         m_max.z = std::floor(m_mid.z) + radius;
+
+        setMid();
     }
 
     void growBy(double ratio);

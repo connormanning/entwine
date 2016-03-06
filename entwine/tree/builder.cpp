@@ -433,7 +433,7 @@ PooledInfoStack Builder::insertData(
     });
 
     std::unique_ptr<Climber> climber(
-            new Climber(*m_bbox, *m_structure, localHierarchy));
+            new Climber(*m_bbox, *m_structure, &localHierarchy));
 
     while (!infoStack.empty())
     {
@@ -444,7 +444,7 @@ PooledInfoStack Builder::insertData(
         {
             if (!m_subBBox || m_subBBox->contains(point))
             {
-                climber->reset(*m_bbox, localHierarchy);
+                climber->reset();
 
                 if (m_registry->addPoint(info, *climber, clipper))
                 {
@@ -511,9 +511,6 @@ void Builder::load(const std::size_t clipThreads, const std::string post)
         check();
     }
 
-    // If this invocation has no postfix, then it's being called by a Reader,
-    // which doesn't need the manifest on init.
-    if (post.size())
     {
         const std::string strManifest(
                 m_outEndpoint->getSubpath("entwine-manifest" + post));
