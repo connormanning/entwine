@@ -112,64 +112,24 @@ void Hierarchy::traverse(
 
         if (qbox.contains(cbox))
         {
-            const auto prelag(lag);
+            auto addChild(
+                [this, &lag, cur, cbox, qbox, next, db, de]
+                (Node& out, Dir dir)
+            {
+                if (const Node* node = cur.maybeNext(dir))
+                {
+                    auto curlag(lag);
+                    curlag.push_back(dir);
+                    traverse(
+                        out, curlag, *node, cbox.get(dir), qbox, next, db, de);
+                }
+            });
 
             // We've arrived at our query bounds.  All subsequent calls will
             // capture all children.
-            if (const Node* node = cur.maybeNext(Dir::swd))
+            for (std::size_t i(0); i < 8; ++i)
             {
-                auto curlag(prelag);
-                curlag.push_back(Dir::swd);
-                traverse(out, curlag, *node, cbox.getSwd(), qbox, next, db, de);
-            }
-
-            if (const Node* node = cur.maybeNext(Dir::sed))
-            {
-                auto curlag(prelag);
-                curlag.push_back(Dir::sed);
-                traverse(out, curlag, *node, cbox.getSed(), qbox, next, db, de);
-            }
-
-            if (const Node* node = cur.maybeNext(Dir::nwd))
-            {
-                auto curlag(prelag);
-                curlag.push_back(Dir::nwd);
-                traverse(out, curlag, *node, cbox.getNwd(), qbox, next, db, de);
-            }
-
-            if (const Node* node = cur.maybeNext(Dir::ned))
-            {
-                auto curlag(prelag);
-                curlag.push_back(Dir::ned);
-                traverse(out, curlag, *node, cbox.getNed(), qbox, next, db, de);
-            }
-
-            if (const Node* node = cur.maybeNext(Dir::swu))
-            {
-                auto curlag(prelag);
-                curlag.push_back(Dir::swu);
-                traverse(out, curlag, *node, cbox.getSwu(), qbox, next, db, de);
-            }
-
-            if (const Node* node = cur.maybeNext(Dir::seu))
-            {
-                auto curlag(prelag);
-                curlag.push_back(Dir::seu);
-                traverse(out, curlag, *node, cbox.getSeu(), qbox, next, db, de);
-            }
-
-            if (const Node* node = cur.maybeNext(Dir::nwu))
-            {
-                auto curlag(prelag);
-                curlag.push_back(Dir::nwu);
-                traverse(out, curlag, *node, cbox.getNwu(), qbox, next, db, de);
-            }
-
-            if (const Node* node = cur.maybeNext(Dir::neu))
-            {
-                auto curlag(prelag);
-                curlag.push_back(Dir::neu);
-                traverse(out, curlag, *node, cbox.getNeu(), qbox, next, db, de);
+                addChild(out, static_cast<Dir>(i));
             }
         }
         else
@@ -205,101 +165,44 @@ void Hierarchy::accumulate(
     {
         if (lag.empty())
         {
-            if (const Node* node = cur.maybeNext(Dir::swd))
-                accumulate(out.next(Dir::swd), lag, *node, nextDepth, depthEnd);
+            auto addChild(
+            [this, cur, nextDepth, depthEnd]
+            (Node& out, std::deque<Dir>& lag, Dir dir)
+            {
+                if (const Node* node = cur.maybeNext(dir))
+                {
+                    accumulate(out.next(dir), lag, *node, nextDepth, depthEnd);
+                }
+            });
 
-            if (const Node* node = cur.maybeNext(Dir::sed))
-                accumulate(out.next(Dir::sed), lag, *node, nextDepth, depthEnd);
-
-            if (const Node* node = cur.maybeNext(Dir::nwd))
-                accumulate(out.next(Dir::nwd), lag, *node, nextDepth, depthEnd);
-
-            if (const Node* node = cur.maybeNext(Dir::ned))
-                accumulate(out.next(Dir::ned), lag, *node, nextDepth, depthEnd);
-
-            if (const Node* node = cur.maybeNext(Dir::swu))
-                accumulate(out.next(Dir::swu), lag, *node, nextDepth, depthEnd);
-
-            if (const Node* node = cur.maybeNext(Dir::seu))
-                accumulate(out.next(Dir::seu), lag, *node, nextDepth, depthEnd);
-
-            if (const Node* node = cur.maybeNext(Dir::nwu))
-                accumulate(out.next(Dir::nwu), lag, *node, nextDepth, depthEnd);
-
-            if (const Node* node = cur.maybeNext(Dir::neu))
-                accumulate(out.next(Dir::neu), lag, *node, nextDepth, depthEnd);
+            for (std::size_t i(0); i < 8; ++i)
+            {
+                addChild(out, lag, static_cast<Dir>(i));
+            }
         }
         else
         {
-            const Dir dir(lag.front());
+            const Dir lagdir(lag.front());
             lag.pop_front();
-
-            const auto prelag(lag);
 
             Node* nextNode(nullptr);
 
-            if (const Node* node = cur.maybeNext(Dir::swd))
+            auto addChild(
+                [this, lagdir, &nextNode, lag, cur, nextDepth, depthEnd]
+                (Node& out, Dir curdir)
             {
-                if (!nextNode) nextNode = &out.next(dir);
-                auto curlag(prelag);
-                curlag.push_back(Dir::swd);
-                accumulate(*nextNode, curlag, *node, nextDepth, depthEnd);
-            }
+                if (const Node* node = cur.maybeNext(curdir))
+                {
+                    if (!nextNode) nextNode = &out.next(lagdir);
+                    auto curlag(lag);
+                    curlag.push_back(curdir);
+                    accumulate(*nextNode, curlag, *node, nextDepth, depthEnd);
+                }
+            });
 
-            if (const Node* node = cur.maybeNext(Dir::sed))
+            for (std::size_t i(0); i < 8; ++i)
             {
-                if (!nextNode) nextNode = &out.next(dir);
-                auto curlag(prelag);
-                curlag.push_back(Dir::sed);
-                accumulate(*nextNode, curlag, *node, nextDepth, depthEnd);
-            }
-
-            if (const Node* node = cur.maybeNext(Dir::nwd))
-            {
-                if (!nextNode) nextNode = &out.next(dir);
-                auto curlag(prelag);
-                curlag.push_back(Dir::nwd);
-                accumulate(*nextNode, curlag, *node, nextDepth, depthEnd);
-            }
-
-            if (const Node* node = cur.maybeNext(Dir::ned))
-            {
-                if (!nextNode) nextNode = &out.next(dir);
-                auto curlag(prelag);
-                curlag.push_back(Dir::ned);
-                accumulate(*nextNode, curlag, *node, nextDepth, depthEnd);
-            }
-
-            if (const Node* node = cur.maybeNext(Dir::swu))
-            {
-                if (!nextNode) nextNode = &out.next(dir);
-                auto curlag(prelag);
-                curlag.push_back(Dir::swu);
-                accumulate(*nextNode, curlag, *node, nextDepth, depthEnd);
-            }
-
-            if (const Node* node = cur.maybeNext(Dir::seu))
-            {
-                if (!nextNode) nextNode = &out.next(dir);
-                auto curlag(prelag);
-                curlag.push_back(Dir::seu);
-                accumulate(*nextNode, curlag, *node, nextDepth, depthEnd);
-            }
-
-            if (const Node* node = cur.maybeNext(Dir::nwu))
-            {
-                if (!nextNode) nextNode = &out.next(dir);
-                auto curlag(prelag);
-                curlag.push_back(Dir::nwu);
-                accumulate(*nextNode, curlag, *node, nextDepth, depthEnd);
-            }
-
-            if (const Node* node = cur.maybeNext(Dir::neu))
-            {
-                if (!nextNode) nextNode = &out.next(dir);
-                auto curlag(prelag);
-                curlag.push_back(Dir::neu);
-                accumulate(*nextNode, curlag, *node, nextDepth, depthEnd);
+                addChild(out, static_cast<Dir>(i));
             }
 
             lag.pop_back();
