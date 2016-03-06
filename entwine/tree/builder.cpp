@@ -62,13 +62,14 @@ Builder::Builder(
         const bool trustHeaders,
         const Subset* subset,
         const Reprojection* reprojection,
-        const BBox& bbox,
+        const BBox& bboxConforming,
         const Schema& schema,
         const std::size_t totalThreads,
         const float threshold,
         const Structure& structure,
         std::shared_ptr<Arbiter> arbiter)
-    : m_bbox(new BBox(bbox))
+    : m_bboxConforming(new BBox(bboxConforming))
+    , m_bbox()
     , m_subBBox(subset ? new BBox(subset->bbox()) : nullptr)
     , m_schema(new Schema(schema))
     , m_structure(new Structure(structure))
@@ -97,6 +98,13 @@ Builder::Builder(
     , m_pointPool(new Pools(*m_schema))
     , m_registry()
 {
+    m_bbox.reset(new BBox(*m_bboxConforming));
+
+    if (!m_bbox->isCubic())
+    {
+        m_bbox->cubeify();
+    }
+
     m_registry.reset(new Registry(*m_outEndpoint, *this, m_initialClipThreads));
     prep();
 }
@@ -107,7 +115,8 @@ Builder::Builder(
         const std::size_t totalThreads,
         const float threshold,
         std::shared_ptr<Arbiter> arbiter)
-    : m_bbox()
+    : m_bboxConforming()
+    , m_bbox()
     , m_subBBox()
     , m_schema()
     , m_structure()
@@ -145,7 +154,8 @@ Builder::Builder(
         const std::size_t* subsetId,
         const std::size_t* splitBegin,
         std::shared_ptr<arbiter::Arbiter> arbiter)
-    : m_bbox()
+    : m_bboxConforming()
+    , m_bbox()
     , m_subBBox()
     , m_schema()
     , m_structure()
@@ -516,6 +526,7 @@ Json::Value Builder::saveProps() const
 {
     Json::Value props;
 
+    props["bboxConforming"] = m_bboxConforming->toJson();
     props["bbox"] = m_bbox->toJson();
     props["schema"] = m_schema->toJson();
     props["structure"] = m_structure->toJson();
@@ -534,6 +545,7 @@ Json::Value Builder::saveProps() const
 
 void Builder::loadProps(const Json::Value& props)
 {
+    m_bboxConforming.reset(new BBox(props["bboxConforming"]));
     m_bbox.reset(new BBox(props["bbox"]));
     m_schema.reset(new Schema(props["schema"]));
     m_pointPool.reset(new Pools(*m_schema));
@@ -553,18 +565,6 @@ void Builder::loadProps(const Json::Value& props)
     m_manifest.reset(new Manifest(props["manifest"]));
     m_trustHeaders = props["trustHeaders"].asBool();
     m_compress = props["compressed"].asBool();
-
-    if (!m_manifest->pointStats().inserts())
-    {
-        std::vector<std::string> paths;
-        paths.push_back("fake");
-
-        m_manifest.reset(new Manifest(paths));
-
-        Json::Value json;
-        json["inserts"] = props["stats"]["numPoints"].asUInt64();
-        m_manifest->add(0, PointStats(json));
-    }
 }
 
 void Builder::prep()
@@ -654,6 +654,7 @@ bool Builder::keepGoing() const
     return m_origin < m_end;
 }
 
+const BBox& Builder::bboxConforming() const { return *m_bboxConforming; }
 const BBox& Builder::bbox() const           { return *m_bbox; }
 const Schema& Builder::schema() const       { return *m_schema; }
 const Manifest& Builder::manifest() const   { return *m_manifest; }

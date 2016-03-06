@@ -267,7 +267,6 @@ void Kernel::build(std::vector<std::string> args)
 
     const Structure& structure(builder->structure());
 
-    const BBox& bbox(builder->bbox());
     const Reprojection* reprojection(builder->reprojection());
     const Schema& schema(builder->schema());
     const std::size_t runCount(json["input"]["run"].asUInt64());
@@ -293,7 +292,7 @@ void Kernel::build(std::vector<std::string> args)
 
     std::cout <<
         "\tTrust file headers? " << yesNo(builder->trustHeaders()) << "\n" <<
-        "\tBuild threads: " << builder->numThreads() << "\n" <<
+        "\tBuild threads: " << builder->numThreads() <<
         std::endl;
 
     std::cout <<
@@ -318,7 +317,8 @@ void Kernel::build(std::vector<std::string> args)
 
     std::cout <<
         "Geometry:\n" <<
-        "\tBounds: " << bbox << "\n" <<
+        "\tConforming bounds: " << builder->bboxConforming() << "\n" <<
+        "\tCubic bounds: " << builder->bbox() << "\n" <<
         "\tReprojection: " << getReprojString(reprojection) << "\n" <<
         "\tStoring dimensions: " << getDimensionString(schema) << "\n" <<
         std::endl;

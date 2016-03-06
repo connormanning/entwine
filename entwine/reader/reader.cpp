@@ -204,6 +204,11 @@ std::unique_ptr<Query> Reader::query(
                 scale));
 }
 
+const BBox& Reader::bboxConforming() const
+{
+    return m_builder->bboxConforming();
+}
+
 const BBox& Reader::bbox() const            { return m_builder->bbox(); }
 const Schema& Reader::schema() const        { return m_builder->schema(); }
 const Structure& Reader::structure() const  { return m_builder->structure(); }

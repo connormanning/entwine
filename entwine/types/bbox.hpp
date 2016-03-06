@@ -69,27 +69,21 @@ public:
     void grow(const Point& p);
     void growZ(const Range& range);
 
-    // Bloat coordinates to nearest integer.
-    void bloat()
+    bool isCubic() const
     {
-        m_min.x = std::floor(m_min.x);
-        m_min.y = std::floor(m_min.y);
-        m_min.z = std::floor(m_min.z);
-        m_max.x = std::ceil(m_max.x);
-        m_max.y = std::ceil(m_max.y);
-        m_max.z = std::ceil(m_max.z);
-
-        setMid();
+        return width() == depth() && (!m_is3d || width() == height());
     }
 
-    // Bloat all coordinates necessary to form a cube.
+    // Bloat all coordinates necessary to form a cube and also to the nearest
+    // integer.
     void cubeify()
     {
         const double xDist(m_max.x - m_min.x);
         const double yDist(m_max.y - m_min.y);
         const double zDist(m_max.z - m_min.z);
 
-        const double radius(std::max(std::max(xDist, yDist), zDist) / 2 + 10);
+        const double radius(
+                std::ceil(std::max(std::max(xDist, yDist), zDist) / 2.0 + 10));
 
         m_min.x = std::floor(m_mid.x) - radius;
         m_min.y = std::floor(m_mid.y) - radius;

@@ -96,6 +96,7 @@ public:
     void merge(Builder& other);
 
     // Various getters.
+    const BBox& bboxConforming() const;
     const BBox& bbox() const;
     const Schema& schema() const;
     const Manifest& manifest() const;
@@ -228,6 +229,7 @@ private:
 
     //
 
+    std::unique_ptr<BBox> m_bboxConforming;
     std::unique_ptr<BBox> m_bbox;
     std::unique_ptr<BBox> m_subBBox;
     std::unique_ptr<Schema> m_schema;

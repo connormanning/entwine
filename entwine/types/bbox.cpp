@@ -50,58 +50,38 @@ BBox::BBox(const Json::Value& json)
     , m_mid()
     , m_is3d(true)
 {
-    if (json.isObject() && json.isMember("bounds") && json.isMember("is3d"))
+    if (!json.isArray() || (json.size() != 4 && json.size() != 6))
     {
-        const Json::Value& bounds(json["bounds"]);
-        m_min = Point(
-                bounds.get(Json::ArrayIndex(0), 0).asDouble(),
-                bounds.get(Json::ArrayIndex(1), 0).asDouble(),
-                bounds.get(Json::ArrayIndex(2), 0).asDouble());
-        m_max = Point(
-                bounds.get(Json::ArrayIndex(3), 0).asDouble(),
-                bounds.get(Json::ArrayIndex(4), 0).asDouble(),
-                bounds.get(Json::ArrayIndex(5), 0).asDouble());
-        m_is3d = json["is3d"].asBool();
+        std::string what(
+                "Invalid JSON BBox specification: " + json.toStyledString());
+        throw std::runtime_error(what);
     }
-    else if (json.isArray() && (json.size() == 4 || json.size() == 6))
-    {
-        m_is3d = (json.size() == 6);
 
-        if (m_is3d)
-        {
-            m_min = Point(
-                    json.get(Json::ArrayIndex(0), 0).asDouble(),
-                    json.get(Json::ArrayIndex(1), 0).asDouble(),
-                    json.get(Json::ArrayIndex(2), 0).asDouble());
-            m_max = Point(
-                    json.get(Json::ArrayIndex(3), 0).asDouble(),
-                    json.get(Json::ArrayIndex(4), 0).asDouble(),
-                    json.get(Json::ArrayIndex(5), 0).asDouble());
-        }
-        else
-        {
-            m_min = Point(
-                    json.get(Json::ArrayIndex(0), 0).asDouble(),
-                    json.get(Json::ArrayIndex(1), 0).asDouble());
-            m_max = Point(
-                    json.get(Json::ArrayIndex(2), 0).asDouble(),
-                    json.get(Json::ArrayIndex(3), 0).asDouble());
-        }
+    m_is3d = (json.size() == 6);
+
+    if (m_is3d)
+    {
+        m_min = Point(
+                json.get(Json::ArrayIndex(0), 0).asDouble(),
+                json.get(Json::ArrayIndex(1), 0).asDouble(),
+                json.get(Json::ArrayIndex(2), 0).asDouble());
+        m_max = Point(
+                json.get(Json::ArrayIndex(3), 0).asDouble(),
+                json.get(Json::ArrayIndex(4), 0).asDouble(),
+                json.get(Json::ArrayIndex(5), 0).asDouble());
     }
-    else throw std::runtime_error("Invalid JSON BBox specification.");
+    else
+    {
+        m_min = Point(
+                json.get(Json::ArrayIndex(0), 0).asDouble(),
+                json.get(Json::ArrayIndex(1), 0).asDouble());
+        m_max = Point(
+                json.get(Json::ArrayIndex(2), 0).asDouble(),
+                json.get(Json::ArrayIndex(3), 0).asDouble());
+    }
 
     check(m_min, m_max);
-
-    set(
-            Point(
-                std::min(m_min.x, m_max.x),
-                std::min(m_min.y, m_max.y),
-                std::min(m_min.z, m_max.z)),
-            Point(
-                std::max(m_min.x, m_max.x),
-                std::max(m_min.y, m_max.y),
-                std::max(m_min.z, m_max.z)),
-            m_is3d);
+    setMid();
 }
 
 void BBox::set(const Point& min, const Point& max, const bool is3d)
@@ -209,15 +189,13 @@ Json::Value BBox::toJson() const
 {
     Json::Value json;
 
-    Json::Value& bounds(json["bounds"]);
-    bounds.append(m_min.x);
-    bounds.append(m_min.y);
-    bounds.append(m_min.z);
-    bounds.append(m_max.x);
-    bounds.append(m_max.y);
-    bounds.append(m_max.z);
+    json.append(m_min.x);
+    json.append(m_min.y);
+    if (m_is3d) json.append(m_min.z);
 
-    json["is3d"] = m_is3d;
+    json.append(m_max.x);
+    json.append(m_max.y);
+    if (m_is3d) json.append(m_max.z);
 
     return json;
 }

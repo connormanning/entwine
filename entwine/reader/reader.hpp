@@ -78,6 +78,7 @@ public:
             std::size_t depthEnd);
 
     std::size_t numPoints() const;
+    const BBox& bboxConforming() const;
     const BBox& bbox() const;
     const Schema& schema() const;
     const Structure& structure() const;
