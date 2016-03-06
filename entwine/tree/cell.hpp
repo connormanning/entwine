@@ -120,7 +120,7 @@ public:
                     (bbox.max().z - bbox.min().z));
     }
 
-    // TODO Ticks parameter should maybe be an Id, for very deep points.
+    /*
     static Id calcTube(
             const Point& point,
             const BBox& bbox,
@@ -161,6 +161,7 @@ public:
 
         return (expandY << 1) | expandX;
     }
+    */
 
 private:
     std::atomic_size_t m_primaryTick;
