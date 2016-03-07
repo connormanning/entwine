@@ -204,6 +204,11 @@ void Climber::climb(const Dir dir)
             m_tubular ? static_cast<Dir>(static_cast<int>(dir) % 4) : dir);
 }
 
+HierarchyClimber& Climber::hierarchyClimber()
+{
+    return *m_hierarchyClimber;
+}
+
 void Climber::count()
 {
     if (m_depth >= m_hierarchyClimber->depthBegin())

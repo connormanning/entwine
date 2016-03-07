@@ -133,10 +133,8 @@ class HierarchyClimber
 public:
     HierarchyClimber(Hierarchy& hierarchy, std::size_t dimensions)
         : m_hierarchy(hierarchy)
-        , m_index(0)
         , m_bbox(hierarchy.bbox())
         , m_depthBegin(hierarchy.depthBegin())
-        , m_dimensions(dimensions)
         , m_depth(m_depthBegin)
         , m_step(hierarchy.step())
         , m_node(&hierarchy.root())
@@ -144,7 +142,6 @@ public:
 
     void reset()
     {
-        m_index = 0;
         m_bbox = m_hierarchy.bbox();
         m_depth = m_depthBegin;
         m_node = &m_hierarchy.root();
@@ -155,16 +152,6 @@ public:
         const Dir dir(getDirection(point, m_bbox.mid()));
         m_bbox.go(dir);
         m_node = &m_node->next(dir);
-
-        m_index <<= m_dimensions;
-        m_index.incSimple();
-        m_index += static_cast<std::size_t>(dir);
-
-        if ((m_depth - m_depthBegin) % m_step == 0)
-        {
-            // TODO Notify master hierarchy that the node at m_index needs
-            // awakening.
-        }
     }
 
     void count() { m_node->increment(); }
@@ -172,12 +159,9 @@ public:
 
 private:
     Hierarchy& m_hierarchy;
-
-    Id m_index;
     BBox m_bbox;
 
     const std::size_t m_depthBegin;
-    const std::size_t m_dimensions;
 
     std::size_t m_depth;
     std::size_t m_step;

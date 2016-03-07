@@ -39,6 +39,7 @@ namespace
 {
     const double workToClipRatio(0.33);
     const std::size_t sleepCount(65536 * 24);
+    // const std::size_t hierarchyCount(65536);
 
     std::size_t getWorkThreads(const std::size_t total)
     {
@@ -386,21 +387,22 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
         }
     }
 
-    std::size_t num(0);
+    std::size_t s(0);
+
     Clipper clipper(*this, origin);
 
     Hierarchy localHierarchy(*m_bbox);
     Climber climber(*m_bbox, *m_structure, &localHierarchy);
 
-    auto inserter([this, origin, &clipper, &num, &climber]
+    auto inserter([this, origin, &clipper, &climber, &s]
     (PooledInfoStack infoStack)
     {
-        num += infoStack.size();
+        s += infoStack.size();
 
-        if (num > sleepCount)
+        if (s > sleepCount)
         {
+            s = 0;
             clipper.clip(.15);
-            num = 0;
         }
 
         return insertData(std::move(infoStack), origin, clipper, climber);
@@ -595,7 +597,7 @@ Json::Value Builder::saveOwnProps() const
 
     // The infallible numPoints value is in the manifest, which is stored
     // elsewhere to avoid the Reader needing it.  For the Reader, then,
-    // duplicat that info here.
+    // duplicate that info here.
     props["numPoints"] =
         static_cast<Json::UInt64>(m_manifest->pointStats().inserts());
 

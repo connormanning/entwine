@@ -62,6 +62,8 @@ public:
         else return std::numeric_limits<std::size_t>::max();
     }
 
+    HierarchyClimber& hierarchyClimber();
+
     void count();
 
     void goSwd() { climb(Dir::swd); m_bbox.goSwd(); }
