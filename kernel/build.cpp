@@ -83,6 +83,10 @@ namespace
             "\t-g <max inserted files>\n"
             "\t\tFor directories, stop inserting after the specified count.\n\n"
 
+            "\t-p\n"
+            "\t\tPrefix stored IDs with a SHA (may be useful for filename-based"
+            "\t\tdistributed filesystems).\n\n"
+
             "\t-s <subset-number> <subset-total>\n"
             "\t\tBuild only a portion of the index.  If output paths are\n"
             "\t\tall the same, 'merge' should be run after all subsets are\n"
@@ -290,6 +294,10 @@ void Kernel::build(std::vector<std::string> args)
             {
                 throw std::runtime_error("Invalid run count specification");
             }
+        }
+        else if (arg == "-p")
+        {
+            json["structure"]["prefixIds"] = true;
         }
         else if (arg == "-t")
         {
