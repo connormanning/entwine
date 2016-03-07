@@ -62,6 +62,9 @@ namespace
             "\t-o <output path>\n"
             "\t\tOutput directory.\n\n"
 
+            "\t-x <tmp path>\n"
+            "\t\tDirectory for entwine-generated temporary files.\n\n"
+
             "\t-r (<input reprojection>) <output reprojection>\n"
             "\t\tSet the spatial reference system reprojection.  The input\n"
             "\t\tvalue may be omitted to infer the input SRS from the file\n"
@@ -197,7 +200,7 @@ void Kernel::build(std::vector<std::string> args)
             }
             else
             {
-                throw std::runtime_error("Invalid run count specification");
+                throw std::runtime_error("Invalid input path specification");
             }
         }
         else if (arg == "-o")
@@ -208,7 +211,18 @@ void Kernel::build(std::vector<std::string> args)
             }
             else
             {
-                throw std::runtime_error("Invalid run count specification");
+                throw std::runtime_error("Invalid output path specification");
+            }
+        }
+        else if (arg == "-x")
+        {
+            if (++a < args.size())
+            {
+                json["output"]["tmp"] = args[a];
+            }
+            else
+            {
+                throw std::runtime_error("Invalid tmp specification");
             }
         }
         else if (arg == "-f")
