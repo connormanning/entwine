@@ -96,7 +96,7 @@ Builder::Builder(
     , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
     , m_pointPool(new Pools(*m_schema))
     , m_registry()
-    , m_hierarchy(new Hierarchy(*m_bbox, Climber::hierarchyDepthBegin))
+    , m_hierarchy(new Hierarchy(*m_bbox))
 {
     m_bbox.reset(new BBox(*m_bboxConforming));
 
@@ -389,9 +389,10 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
     std::size_t num(0);
     Clipper clipper(*this, origin);
 
-    Hierarchy localHierarchy(*m_bbox, Climber::hierarchyDepthBegin);
+    Hierarchy localHierarchy(*m_bbox);
+    Climber climber(*m_bbox, *m_structure, &localHierarchy);
 
-    auto inserter([this, origin, &clipper, &num, &localHierarchy]
+    auto inserter([this, origin, &clipper, &num, &climber]
     (PooledInfoStack infoStack)
     {
         num += infoStack.size();
@@ -402,11 +403,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
             num = 0;
         }
 
-        return insertData(
-            std::move(infoStack),
-            origin,
-            clipper,
-            localHierarchy);
+        return insertData(std::move(infoStack), origin, clipper, climber);
     });
 
     PooledPointTable table(*m_pointPool, inserter);
@@ -422,7 +419,7 @@ PooledInfoStack Builder::insertData(
         PooledInfoStack infoStack,
         const Origin origin,
         Clipper& clipper,
-        Hierarchy& localHierarchy)
+        Climber& climber)
 {
     PointStats pointStats;
     PooledInfoStack rejected(m_pointPool->infoPool());
@@ -431,9 +428,6 @@ PooledInfoStack Builder::insertData(
     {
         rejected.push(std::move(info));
     });
-
-    std::unique_ptr<Climber> climber(
-            new Climber(*m_bbox, *m_structure, &localHierarchy));
 
     while (!infoStack.empty())
     {
@@ -444,9 +438,9 @@ PooledInfoStack Builder::insertData(
         {
             if (!m_subBBox || m_subBBox->contains(point))
             {
-                climber->reset();
+                climber.reset();
 
-                if (m_registry->addPoint(info, *climber, clipper))
+                if (m_registry->addPoint(info, climber, clipper))
                 {
                     pointStats.addInsert();
                 }

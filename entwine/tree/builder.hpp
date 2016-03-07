@@ -36,6 +36,7 @@ namespace entwine
 {
 
 class BBox;
+class Climber;
 class Clipper;
 class Driver;
 class Executor;
@@ -196,7 +197,7 @@ private:
             PooledInfoStack infoStack,
             Origin origin,
             Clipper& clipper,
-            Hierarchy& localHierarchy);
+            Climber& climber);
 
     // Remove resources that are no longer needed.
     void clip(

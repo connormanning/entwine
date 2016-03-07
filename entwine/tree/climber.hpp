@@ -23,6 +23,7 @@ namespace entwine
 {
 
 class Hierarchy;
+class HierarchyClimber;
 class Node;
 class Point;
 
@@ -38,9 +39,11 @@ public:
     Climber(const Climber& other);
     Climber& operator=(const Climber& other);
 
+    ~Climber();
+
     void reset();
 
-    void magnify(const Point& point, bool check = true);
+    void magnify(const Point& point);
     void magnifyTo(const Point& point, std::size_t depth);
     void magnifyTo(const BBox& bbox);
 
@@ -70,8 +73,6 @@ public:
     void goNwu() { climb(Dir::nwu); m_bbox.goNwu(); }
     void goNeu() { climb(Dir::neu); m_bbox.goNeu(); }
 
-    static const std::size_t hierarchyDepthBegin = 6;
-
 private:
     const Structure& m_structure;
     const std::size_t m_dimensions;
@@ -93,10 +94,8 @@ private:
     const BBox m_bboxOriginal;
     BBox m_bbox;
     BBox m_bboxChunk;
-    BBox m_bboxHierarchy;
 
-    Hierarchy* m_hierarchy;
-    Node* m_node;
+    std::unique_ptr<HierarchyClimber> m_hierarchyClimber;
 
     void climb(Dir dir);
 };

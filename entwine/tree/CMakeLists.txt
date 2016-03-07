@@ -26,6 +26,7 @@ set(
     "${BASE}/cold.hpp"
     "${BASE}/config-parser.hpp"
     "${BASE}/hierarchy.hpp"
+    "${BASE}/hierarchy-cache.hpp"
     "${BASE}/manifest.hpp"
     "${BASE}/merger.hpp"
     "${BASE}/point-info.hpp"

@@ -8,12 +8,15 @@
 *
 ******************************************************************************/
 
+#pragma once
+
 #include <cstddef>
 #include <deque>
 #include <map>
 #include <string>
 
 #include <entwine/third/json/json.hpp>
+#include <entwine/tree/point-info.hpp>
 #include <entwine/types/bbox.hpp>
 
 namespace entwine
@@ -56,15 +59,17 @@ private:
 class Hierarchy
 {
 public:
-    Hierarchy(const BBox& bbox, std::size_t depth)
+    Hierarchy(const BBox& bbox)
         : m_bbox(bbox)
-        , m_depthBegin(depth)
+        , m_depthBegin(defaultDepthBegin)
+        , m_step(defaultStep)
         , m_root()
     { }
 
     Hierarchy(const BBox& bbox, Json::Value& json)
         : m_bbox(bbox)
         , m_depthBegin(json.removeMember("depthBegin").asUInt64())
+        , m_step(json.removeMember("step").asUInt64())
         , m_root(json)
     {
         m_root = Node(json);
@@ -76,6 +81,7 @@ public:
     {
         Json::Value json;
         json["depthBegin"] = static_cast<Json::UInt64>(m_depthBegin);
+        json["step"] = static_cast<Json::UInt64>(m_step);
         m_root.insertInto(json);
         return json;
     }
@@ -89,6 +95,13 @@ public:
     {
         m_root.merge(other.root());
     }
+
+    std::size_t depthBegin() const { return m_depthBegin; }
+    std::size_t step() const { return m_step; }
+    const BBox& bbox() const { return m_bbox; }
+
+    static const std::size_t defaultDepthBegin = 6;
+    static const std::size_t defaultStep = 6;
 
 private:
     void traverse(
@@ -110,8 +123,66 @@ private:
 
     const BBox& m_bbox;
     const std::size_t m_depthBegin;
+    const std::size_t m_step;
 
     Node m_root;
+};
+
+class HierarchyClimber
+{
+public:
+    HierarchyClimber(Hierarchy& hierarchy, std::size_t dimensions)
+        : m_hierarchy(hierarchy)
+        , m_index(0)
+        , m_bbox(hierarchy.bbox())
+        , m_depthBegin(hierarchy.depthBegin())
+        , m_dimensions(dimensions)
+        , m_depth(m_depthBegin)
+        , m_step(hierarchy.step())
+        , m_node(&hierarchy.root())
+    { }
+
+    void reset()
+    {
+        m_index = 0;
+        m_bbox = m_hierarchy.bbox();
+        m_depth = m_depthBegin;
+        m_node = &m_hierarchy.root();
+    }
+
+    void magnify(const Point& point)
+    {
+        const Dir dir(getDirection(point, m_bbox.mid()));
+        m_bbox.go(dir);
+        m_node = &m_node->next(dir);
+
+        m_index <<= m_dimensions;
+        m_index.incSimple();
+        m_index += static_cast<std::size_t>(dir);
+
+        if ((m_depth - m_depthBegin) % m_step == 0)
+        {
+            // TODO Notify master hierarchy that the node at m_index needs
+            // awakening.
+        }
+    }
+
+    void count() { m_node->increment(); }
+    std::size_t depthBegin() const { return m_depthBegin; }
+
+private:
+    Hierarchy& m_hierarchy;
+
+    Id m_index;
+    BBox m_bbox;
+
+    const std::size_t m_depthBegin;
+    const std::size_t m_dimensions;
+
+    std::size_t m_depth;
+    std::size_t m_step;
+
+    Node* m_node;
 };
 
 } // namespace entwine

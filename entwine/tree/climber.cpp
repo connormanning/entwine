@@ -38,9 +38,12 @@ Climber::Climber(
     , m_bboxOriginal(bbox)
     , m_bbox(bbox)
     , m_bboxChunk(bbox)
-    , m_bboxHierarchy(bbox)
-    , m_hierarchy(hierarchy)
-    , m_node(hierarchy ? &hierarchy->root() : nullptr)
+    , m_hierarchyClimber(
+            hierarchy ?
+                new HierarchyClimber(
+                    *hierarchy,
+                    structure.tubular() || m_dimensions == 3 ? 3 : 2) :
+                nullptr)
 { }
 
 Climber::Climber(const Climber& other)
@@ -60,9 +63,9 @@ Climber::Climber(const Climber& other)
     , m_bboxOriginal(other.m_bboxOriginal)
     , m_bbox(other.m_bbox)
     , m_bboxChunk(other.m_bboxChunk)
-    , m_bboxHierarchy(other.m_bboxHierarchy)
-    , m_hierarchy(other.m_hierarchy)
-    , m_node(other.m_node)
+    , m_hierarchyClimber(
+            other.m_hierarchyClimber ?
+                new HierarchyClimber(*other.m_hierarchyClimber) : nullptr)
 { }
 
 Climber& Climber::operator=(const Climber& other)
@@ -76,12 +79,17 @@ Climber& Climber::operator=(const Climber& other)
     m_chunkPoints = other.m_chunkPoints;
     m_bbox = other.m_bbox;
     m_bboxChunk = other.m_bboxChunk;
-    m_bboxHierarchy = other.m_bboxHierarchy;
-    m_hierarchy = other.m_hierarchy;
-    m_node = other.m_node;
+
+    if (other.m_hierarchyClimber)
+    {
+        m_hierarchyClimber.reset(
+                new HierarchyClimber(*other.m_hierarchyClimber));
+    }
 
     return *this;
 }
+
+Climber::~Climber() { }
 
 void Climber::reset()
 {
@@ -94,11 +102,10 @@ void Climber::reset()
     m_chunkPoints = m_structure.baseChunkPoints();
     m_bbox = m_bboxOriginal;
     m_bboxChunk = m_bboxOriginal;
-    m_bboxHierarchy = m_bboxOriginal;
-    if (m_hierarchy) m_node = &m_hierarchy->root();
+    if (m_hierarchyClimber) m_hierarchyClimber->reset();
 }
 
-void Climber::magnify(const Point& point, const bool check)
+void Climber::magnify(const Point& point)
 {
     const Point& mid(m_bbox.mid());
 
@@ -120,20 +127,15 @@ void Climber::magnify(const Point& point, const bool check)
         case Dir::neu: goNeu(); break;
     }
 
-    if (m_node && m_depth > hierarchyDepthBegin)
+    if (m_hierarchyClimber && m_depth > m_hierarchyClimber->depthBegin())
     {
-        const Dir hierDir(getDirection(point, m_bboxHierarchy.mid()));
-        m_bboxHierarchy.go(hierDir);
-        m_node = &m_node->next(hierDir);
+        m_hierarchyClimber->magnify(point);
     }
 }
 
 void Climber::magnifyTo(const Point& point, const std::size_t depth)
 {
-    while (m_depth < depth)
-    {
-        magnify(point, false);
-    }
+    while (m_depth < depth) magnify(point);
 }
 
 void Climber::magnifyTo(const BBox& raw)
@@ -204,9 +206,9 @@ void Climber::climb(const Dir dir)
 
 void Climber::count()
 {
-    if (m_depth >= hierarchyDepthBegin)
+    if (m_depth >= m_hierarchyClimber->depthBegin())
     {
-        m_node->increment();
+        m_hierarchyClimber->count();
     }
 }
 
