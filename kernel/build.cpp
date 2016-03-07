@@ -47,7 +47,12 @@ namespace
     {
         return
             "\nUsage: entwine build <config file> <options>\n"
-            "Options (overrides config values):\n"
+
+            "\nConfig file:\n"
+            "\tOptional parameter, recommended only if the options below are\n"
+            "\tinsufficient.  See template at https://git.io/v2jPQ\n"
+
+            "\nOptions (overrides config values):\n"
 
             "\t-i <input path>\n"
             "\t\tSpecify the input location.  May end in '/*' for a\n"
@@ -56,6 +61,13 @@ namespace
 
             "\t-o <output path>\n"
             "\t\tOutput directory.\n\n"
+
+            "\t-r (<input reprojection>) <output reprojection>\n"
+            "\t\tSet the spatial reference system reprojection.  The input\n"
+            "\t\tvalue may be omitted to infer the input SRS from the file\n"
+            "\t\theader.  In this case the build will fail if no input SRS\n"
+            "\t\tmay be inferred.  Reprojection strings may be any of the\n"
+            "\t\tformats supported by GDAL.\n\n"
 
             "\t-t <threads>\n"
             "\t\tSet the number of worker threads.  Recommended to be no\n"
@@ -68,7 +80,7 @@ namespace
             "\t-u <aws user>\n"
             "\t\tSpecify AWS credential user, if not default\n\n"
 
-            "\t-r <max inserted files>\n"
+            "\t-g <max inserted files>\n"
             "\t\tFor directories, stop inserting after the specified count.\n\n"
 
             "\t-s <subset-number> <subset-total>\n"
@@ -109,6 +121,33 @@ namespace
             return "(none)";
         }
     }
+
+    const Json::Value defaults(([]()
+    {
+        Json::Value json;
+
+        json["input"]["manifest"] = Json::Value::null;
+        json["input"]["threads"] = 9;
+        json["input"]["trustHeaders"] = true;
+
+        json["output"]["path"] = Json::Value::null;
+        json["output"]["tmp"] = "tmp";
+        json["output"]["compress"] = true;
+
+        json["structure"]["numPointsHint"] = Json::Value::null;
+        json["structure"]["nullDepth"] = 6;
+        json["structure"]["baseDepth"] = 10;
+        json["structure"]["pointsPerChunk"] = 262144;
+        json["structure"]["dynamicChunks"] = true;
+        json["structure"]["type"] = "hybrid";
+        json["structure"]["prefixIds"] = false;
+
+        json["geometry"]["bbox"] = Json::Value::null;
+        json["geometry"]["reproject"] = Json::Value::null;
+        json["geometry"]["schema"] = Json::Value::null;
+
+        return json;
+    })());
 }
 
 void Kernel::build(std::vector<std::string> args)
@@ -126,15 +165,21 @@ void Kernel::build(std::vector<std::string> args)
     }
 
     arbiter::Arbiter localArbiter;
-
-    const std::string configPath(args[0]);
-    const std::string config(localArbiter.get(configPath));
-    Json::Value json(ConfigParser::parse(config));
+    Json::Value json(defaults);
     std::string user;
 
-    std::unique_ptr<Manifest::Split> split;
+    std::size_t a(0);
 
-    std::size_t a(1);
+    if (args[0][0] != '-')
+    {
+        // First argument is a config path.
+        const std::string configPath(args[0]);
+        const std::string config(localArbiter.get(configPath));
+        json = ConfigParser::parse(config);
+        ++a;
+    }
+
+    std::unique_ptr<Manifest::Split> split;
 
     while (a < args.size())
     {
@@ -194,6 +239,29 @@ void Kernel::build(std::vector<std::string> args)
                 throw std::runtime_error("Invalid AWS user argument");
             }
         }
+        else if (arg == "-r")
+        {
+            if (++a < args.size())
+            {
+                const bool onlyOutput(
+                        a + 1 >= args.size() ||
+                        args[a + 1][0] == '-');
+
+                if (onlyOutput)
+                {
+                    json["geometry"]["reproject"]["out"] = args[a];
+                }
+                else
+                {
+                    json["geometry"]["reproject"]["in"] = args[a];
+                    json["geometry"]["reproject"]["out"] = args[++a];
+                }
+            }
+            else
+            {
+                throw std::runtime_error("Invalid reprojection argument");
+            }
+        }
         /*
         else if (arg == "-m")
         {
@@ -212,7 +280,7 @@ void Kernel::build(std::vector<std::string> args)
             }
         }
         */
-        else if (arg == "-r")
+        else if (arg == "-g")
         {
             if (++a < args.size())
             {
