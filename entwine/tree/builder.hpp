@@ -36,9 +36,11 @@ namespace entwine
 {
 
 class BBox;
+class Climber;
 class Clipper;
 class Driver;
 class Executor;
+class Hierarchy;
 class Manifest;
 class Pool;
 class Pools;
@@ -96,11 +98,13 @@ public:
     void merge(Builder& other);
 
     // Various getters.
+    const BBox& bboxConforming() const;
     const BBox& bbox() const;
     const Schema& schema() const;
     const Manifest& manifest() const;
     const Structure& structure() const;
     const Registry& registry() const;
+    const Hierarchy& hierarchy() const;
     const Subset* subset() const;
     const Reprojection* reprojection() const;
     Pools& pools() const;
@@ -108,6 +112,8 @@ public:
     bool compress() const       { return m_compress; }
     bool trustHeaders() const   { return m_trustHeaders; }
     bool isContinuation() const { return m_isContinuation; }
+
+    std::size_t numPointsClone() const { return m_numPointsClone; }
 
     const std::string& srs() const { return m_srs; }
     std::size_t numThreads() const { return m_totalThreads; }
@@ -190,7 +196,8 @@ private:
     PooledInfoStack insertData(
             PooledInfoStack infoStack,
             Origin origin,
-            Clipper& clipper);
+            Clipper& clipper,
+            Climber& climber);
 
     // Remove resources that are no longer needed.
     void clip(
@@ -219,8 +226,8 @@ private:
     std::string localize(std::string path, Origin origin);
 
     // Get metadata properties, and load from those serialized properties.
-    Json::Value saveProps() const;
-    void loadProps(const Json::Value& props);
+    Json::Value saveOwnProps() const;
+    void loadProps(Json::Value& props);
 
     void addError(const std::string& path, const std::string& error);
 
@@ -228,6 +235,7 @@ private:
 
     //
 
+    std::unique_ptr<BBox> m_bboxConforming;
     std::unique_ptr<BBox> m_bbox;
     std::unique_ptr<BBox> m_subBBox;
     std::unique_ptr<Schema> m_schema;
@@ -258,6 +266,7 @@ private:
     Origin m_origin;
     Origin m_end;
     std::size_t m_added;
+    std::size_t m_numPointsClone;
 
     std::shared_ptr<arbiter::Arbiter> m_arbiter;
     std::unique_ptr<arbiter::Endpoint> m_outEndpoint;
@@ -265,6 +274,7 @@ private:
 
     mutable std::unique_ptr<Pools> m_pointPool;
     std::unique_ptr<Registry> m_registry;
+    std::unique_ptr<Hierarchy> m_hierarchy;
 
     Builder(const Builder&);
     Builder& operator=(const Builder&);
