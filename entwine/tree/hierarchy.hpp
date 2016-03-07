@@ -101,7 +101,7 @@ public:
     const BBox& bbox() const { return m_bbox; }
 
     static const std::size_t defaultDepthBegin = 6;
-    static const std::size_t defaultStep = 6;
+    static const std::size_t defaultStep = 0;       // Denote flat structure.
 
 private:
     void traverse(
