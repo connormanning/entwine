@@ -254,7 +254,7 @@ void Kernel::build(std::vector<std::string> args)
                 throw std::runtime_error("Invalid subset specification");
             }
         }
-        if (arg == "-u")
+        else if (arg == "-u")
         {
             if (++a < args.size())
             {
@@ -331,6 +331,10 @@ void Kernel::build(std::vector<std::string> args)
             {
                 throw std::runtime_error("Invalid thread count specification");
             }
+        }
+        else
+        {
+            throw std::runtime_error("Invalid argument: " + args[a]);
         }
 
         ++a;
