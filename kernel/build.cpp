@@ -90,6 +90,10 @@ namespace
             "\t\tPrefix stored IDs with a SHA (may be useful for filename-based"
             "\t\tdistributed filesystems).\n\n"
 
+            "\t-b\n"
+            "\t\tDo not trust file headers when determining bounds.  By"
+            "\t\tdefault, the headers are considered to be good.\n\n"
+
             "\t-s <subset-number> <subset-total>\n"
             "\t\tBuild only a portion of the index.  If output paths are\n"
             "\t\tall the same, 'merge' should be run after all subsets are\n"
@@ -177,7 +181,7 @@ void Kernel::build(std::vector<std::string> args)
 
     std::size_t a(0);
 
-    if (args[0][0] != '-')
+    if (args[0].front() != '-')
     {
         // First argument is a config path.
         const std::string configPath(args[0]);
@@ -229,6 +233,10 @@ void Kernel::build(std::vector<std::string> args)
         {
             json["output"]["force"] = true;
         }
+        else if (arg == "-b")
+        {
+            json["input"]["trustHeaders"] = false;
+        }
         else if (arg == "-s")
         {
             if (a + 2 < args.size())
@@ -263,7 +271,7 @@ void Kernel::build(std::vector<std::string> args)
             {
                 const bool onlyOutput(
                         a + 1 >= args.size() ||
-                        args[a + 1][0] == '-');
+                        args[a + 1].front() == '-');
 
                 if (onlyOutput)
                 {

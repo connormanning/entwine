@@ -370,11 +370,12 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
         std::lock_guard<std::mutex> lock(m_mutex);
         if (m_srs.empty())
         {
+            // Use the executor's lock here, since we are likely to be
+            // fighting against concurrent Executor::preview()/run() calls.
+            auto lock(m_executor->getLock());
+
             if (m_reprojection)
             {
-                // Use the executor's lock here, since we may are likely to be
-                // fighting against concurrent Executor::preview()/run() calls.
-                auto lock(m_executor->getLock());
                 m_srs = pdal::SpatialReference(m_reprojection->out()).getWKT();
             }
             else
