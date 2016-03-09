@@ -99,6 +99,7 @@ Builder::Builder(
     , m_registry()
     , m_hierarchy(new Hierarchy(*m_bbox))
 {
+    m_bboxConforming->growBy(0.005);
     m_bbox.reset(new BBox(*m_bboxConforming));
 
     if (!m_bbox->isCubic())
@@ -436,7 +437,7 @@ PooledInfoStack Builder::insertData(
         PooledInfoNode info(infoStack.popOne());
         const Point& point(info->val().point());
 
-        if (m_bbox->contains(point))
+        if (m_bboxConforming->contains(point))
         {
             if (!m_subBBox || m_subBBox->contains(point))
             {

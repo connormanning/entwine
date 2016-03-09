@@ -62,8 +62,12 @@ namespace
             "\t-o <output path>\n"
             "\t\tOutput directory.\n\n"
 
-            "\t-x <tmp path>\n"
+            "\t-a <tmp path>\n"
             "\t\tDirectory for entwine-generated temporary files.\n\n"
+
+            "\t-b [xmin, ymin, zmin, xmax, ymax, zmax]\n"
+            "\t\tSet the boundings for the index.  Points outside of the\n"
+            "\t\tgiven coordinates will be discarded.\n\n"
 
             "\t-r (<input reprojection>) <output reprojection>\n"
             "\t\tSet the spatial reference system reprojection.  The input\n"
@@ -87,11 +91,11 @@ namespace
             "\t\tFor directories, stop inserting after the specified count.\n\n"
 
             "\t-p\n"
-            "\t\tPrefix stored IDs with a SHA (may be useful for filename-based"
-            "\t\tdistributed filesystems).\n\n"
+            "\t\tPrefix stored IDs with a SHA (may be useful for\n"
+            "\t\tfilename-based distributed filesystems).\n\n"
 
-            "\t-b\n"
-            "\t\tDo not trust file headers when determining bounds.  By"
+            "\t-x\n"
+            "\t\tDo not trust file headers when determining bounds.  By\n"
             "\t\tdefault, the headers are considered to be good.\n\n"
 
             "\t-s <subset-number> <subset-total>\n"
@@ -218,7 +222,7 @@ void Kernel::build(std::vector<std::string> args)
                 throw std::runtime_error("Invalid output path specification");
             }
         }
-        else if (arg == "-x")
+        else if (arg == "-a")
         {
             if (++a < args.size())
             {
@@ -229,11 +233,35 @@ void Kernel::build(std::vector<std::string> args)
                 throw std::runtime_error("Invalid tmp specification");
             }
         }
+        else if (arg == "-b")
+        {
+            std::string str;
+            bool done(false);
+
+            while (!done && ++a < args.size())
+            {
+                str += args[a];
+                if (args[a].find(']') != std::string::npos) done = true;
+            }
+
+            if (done)
+            {
+                Json::Reader reader;
+                Json::Value bboxJson;
+
+                reader.parse(str, bboxJson, false);
+                json["geometry"]["bbox"] = bboxJson;
+            }
+            else
+            {
+                throw std::runtime_error("Invalid bbox: " + str);
+            }
+        }
         else if (arg == "-f")
         {
             json["output"]["force"] = true;
         }
-        else if (arg == "-b")
+        else if (arg == "-x")
         {
             json["input"]["trustHeaders"] = false;
         }
