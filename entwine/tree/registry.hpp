@@ -62,11 +62,7 @@ public:
     Cell* getCell(const Climber& climber, Clipper& clipper);
 
     void save();
-    void clip(
-            const Id& index,
-            std::size_t chunkNum,
-            std::size_t id,
-            bool tentative);
+    void clip(const Id& index, std::size_t chunkNum, std::size_t id);
 
     std::set<Id> ids() const;
 

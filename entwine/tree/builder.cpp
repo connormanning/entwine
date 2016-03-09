@@ -402,7 +402,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
         if (s > sleepCount)
         {
             s = 0;
-            clipper.clip(.15);
+            clipper.clip();
         }
 
         return insertData(std::move(infoStack), origin, clipper, climber);
@@ -745,10 +745,9 @@ const arbiter::Endpoint& Builder::tmpEndpoint() const { return *m_tmpEndpoint; }
 void Builder::clip(
         const Id& index,
         const std::size_t chunkNum,
-        const std::size_t id,
-        const bool tentative)
+        const std::size_t id)
 {
-    m_registry->clip(index, chunkNum, id, tentative);
+    m_registry->clip(index, chunkNum, id);
 }
 
 void Builder::addError(const std::string& path, const std::string& error)
