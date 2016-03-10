@@ -305,12 +305,13 @@ Json::Value ConfigParser::parse(const std::string& input)
 
     if (input.size())
     {
-        reader.parse(input, json, false);
-
-        const std::string jsonError(reader.getFormattedErrorMessages());
-        if (!jsonError.empty())
+        if (!reader.parse(input, json, false))
         {
-            throw std::runtime_error("Error during parsing: " + jsonError);
+            const std::string jsonError(reader.getFormattedErrorMessages());
+            if (!jsonError.empty())
+            {
+                throw std::runtime_error("Error during parsing: " + jsonError);
+            }
         }
     }
 

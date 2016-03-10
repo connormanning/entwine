@@ -183,7 +183,7 @@ bool Registry::addPoint(
 
 Cell* Registry::getCell(const Climber& climber, Clipper& clipper)
 {
-    Cell* cell(0);
+    Cell* cell(nullptr);
 
     const Id& index(climber.index());
 

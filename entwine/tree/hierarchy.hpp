@@ -26,7 +26,7 @@ class Node
 {
 public:
     Node() : m_count(0), m_children() { }
-    Node(const Json::Value& json);
+    Node(const char*& pos);
 
     Node& next(Dir dir) { return m_children[dir]; }
 
@@ -45,6 +45,7 @@ public:
 
     void merge(Node& other);
     void insertInto(Json::Value& json) const;
+    void insertInto(std::string& s) const;
 
     typedef std::map<Dir, Node> Children;
     const Children& children() const { return m_children; }
@@ -52,7 +53,7 @@ public:
 private:
     Children& children() { return m_children; }
 
-    std::size_t m_count;
+    uint64_t m_count;
     Children m_children;
 };
 
@@ -66,23 +67,30 @@ public:
         , m_root()
     { }
 
-    Hierarchy(const BBox& bbox, Json::Value& json)
+    Hierarchy(
+            const BBox& bbox,
+            const Json::Value& json,
+            const arbiter::Endpoint& ep)
         : m_bbox(bbox)
-        , m_depthBegin(json.removeMember("depthBegin").asUInt64())
-        , m_step(json.removeMember("step").asUInt64())
-        , m_root(json)
+        , m_depthBegin(json["depthBegin"].asUInt64())
+        , m_step(json["step"].asUInt64())
+        , m_root()
     {
-        m_root = Node(json);
+        const std::vector<char> bin(ep.getSubpathBinary("0"));
+        const char* pos(bin.data());
+        m_root = Node(pos);
     }
 
     Node& root() { return m_root; }
 
-    Json::Value toJson() const
+    Json::Value toJson(const arbiter::Endpoint& ep) const
     {
         Json::Value json;
         json["depthBegin"] = static_cast<Json::UInt64>(m_depthBegin);
         json["step"] = static_cast<Json::UInt64>(m_step);
-        m_root.insertInto(json);
+
+        ep.putSubpath("0", toBinary());
+
         return json;
     }
 
@@ -100,10 +108,17 @@ public:
     std::size_t step() const { return m_step; }
     const BBox& bbox() const { return m_bbox; }
 
+private:
     static const std::size_t defaultDepthBegin = 6;
     static const std::size_t defaultStep = 0;       // Denote flat structure.
 
-private:
+    std::string toBinary() const
+    {
+        std::string s;
+        m_root.insertInto(s);
+        return s;
+    }
+
     void traverse(
             Node& out,
             std::deque<Dir>& lag,

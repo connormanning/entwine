@@ -10,7 +10,6 @@
 
 #include <entwine/tree/builder.hpp>
 
-#include <chrono>
 #include <limits>
 #include <thread>
 
@@ -442,6 +441,7 @@ PooledInfoStack Builder::insertData(
             if (!m_subBBox || m_subBBox->contains(point))
             {
                 climber.reset();
+                climber.magnifyTo(point, m_structure->baseDepthBegin());
 
                 if (m_registry->addPoint(info, climber, clipper))
                 {
@@ -475,17 +475,17 @@ void Builder::load(const std::size_t clipThreads, const std::string post)
     Json::Value meta;
     Json::Reader reader;
 
-    auto check([&reader]()
+    auto error([&reader]()
     {
-        const std::string err(reader.getFormattedErrorMessages());
-        if (!err.empty()) throw std::runtime_error("Invalid JSON: " + err);
+        throw std::runtime_error(
+            "Invalid JSON: " + reader.getFormattedErrorMessages());
     });
 
     {
         // Get top-level metadata.
         const std::string strMeta(m_outEndpoint->getSubpath("entwine" + post));
-        reader.parse(strMeta, meta, false);
-        check();
+
+        if (!reader.parse(strMeta, meta, false)) error();
 
         // For Reader invocation only.
         if (post.empty())
@@ -497,22 +497,17 @@ void Builder::load(const std::size_t clipThreads, const std::string post)
     {
         const std::string strIds(
                 m_outEndpoint->getSubpath("entwine-ids" + post));
-        reader.parse(strIds, meta["ids"], false);
-        check();
+
+        if (!reader.parse(strIds, meta["ids"], false)) error();
     }
 
-    {
-        const std::string strHierarchy(
-                m_outEndpoint->getSubpath("entwine-hierarchy" + post));
-        reader.parse(strHierarchy, meta["hierarchy"], false);
-        check();
-    }
-
+    // Don't load manifest if this is a Reader wakeup.
+    if (post.size())
     {
         const std::string strManifest(
                 m_outEndpoint->getSubpath("entwine-manifest" + post));
-        reader.parse(strManifest, meta["manifest"], false);
-        check();
+
+        if (!reader.parse(strManifest, meta["manifest"], false)) error();
     }
 
     loadProps(meta);
@@ -551,13 +546,6 @@ void Builder::save()
     }
 
     {
-        Json::Value jsonHierarchy(m_hierarchy->toJson());
-        m_outEndpoint->putSubpath(
-                "entwine-hierarchy" + pf,
-                writer.write(jsonHierarchy));
-    }
-
-    {
         Json::Value jsonManifest(m_manifest->toJson());
         m_outEndpoint->putSubpath(
                 "entwine-manifest" + pf,
@@ -585,6 +573,7 @@ void Builder::merge(Builder& other)
 
     m_registry->merge(other.registry());
     m_manifest->merge(other.manifest());
+    m_hierarchy->merge(*other.m_hierarchy);
 }
 
 Json::Value Builder::saveOwnProps() const
@@ -595,6 +584,9 @@ Json::Value Builder::saveOwnProps() const
     props["bbox"] = m_bbox->toJson();
     props["schema"] = m_schema->toJson();
     props["structure"] = m_structure->toJson();
+    props["hierarchy"] = m_hierarchy->toJson(
+            m_arbiter->getEndpoint(
+                m_outEndpoint->type() + "://" + m_outEndpoint->root() + "h"));
 
     // The infallible numPoints value is in the manifest, which is stored
     // elsewhere to avoid the Reader needing it.  For the Reader, then,
@@ -619,7 +611,13 @@ void Builder::loadProps(Json::Value& props)
     m_schema.reset(new Schema(props["schema"]));
     m_pointPool.reset(new Pools(*m_schema));
     m_structure.reset(new Structure(props["structure"]));
-    m_hierarchy.reset(new Hierarchy(*m_bbox, props["hierarchy"]));
+    m_hierarchy.reset(
+            new Hierarchy(
+                *m_bbox,
+                props["hierarchy"],
+                m_arbiter->getEndpoint(
+                    m_outEndpoint->type() + "://" +
+                    m_outEndpoint->root() + "h")));
 
     if (props.isMember("subset"))
     {
@@ -631,8 +629,12 @@ void Builder::loadProps(Json::Value& props)
         m_reprojection.reset(new Reprojection(props["reprojection"]));
     }
 
+    if (props.isMember("manifest"))
+    {
+        m_manifest.reset(new Manifest(props["manifest"]));
+    }
+
     m_srs = props["srs"].asString();
-    m_manifest.reset(new Manifest(props["manifest"]));
     m_compress = props["compressed"].asBool();
     m_trustHeaders = props["trustHeaders"].asBool();
 }
@@ -652,9 +654,15 @@ void Builder::prep()
         }
 
         const std::string rootDir(m_outEndpoint->root());
-        if (!m_outEndpoint->isRemote() && !arbiter::fs::mkdirp(rootDir))
+        if (!m_outEndpoint->isRemote())
         {
-            throw std::runtime_error("Couldn't create local build directory");
+            if (
+                    !arbiter::fs::mkdirp(rootDir) ||
+                    !arbiter::fs::mkdirp(rootDir + "h"))
+            {
+                throw std::runtime_error(
+                        "Couldn't create local build directory");
+            }
         }
     }
 }
@@ -665,7 +673,7 @@ std::string Builder::postfix(const bool includeSubset) const
     // the chunks are spatially disparate anyway (except for the base chunk).
     return
         (includeSubset && m_subset ? m_subset->basePostfix() : "") +
-        (m_manifest->splitPostfix());
+        (m_manifest ? m_manifest->splitPostfix() : "");
 }
 
 void Builder::stop()

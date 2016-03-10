@@ -18,17 +18,26 @@ namespace
     const std::string countKey("n");
 }
 
-Node::Node(const Json::Value& json)
-    : m_count(json[countKey].asUInt64())
+Node::Node(const char*& pos)
+    : m_count()
     , m_children()
 {
+    std::copy(pos, pos + sizeof(uint64_t), reinterpret_cast<char*>(&m_count));
     if (!m_count) throw std::runtime_error("Invalid hierarchy count");
 
-    for (const auto& key : json.getMemberNames())
+    pos += sizeof(uint64_t);
+
+    const uint8_t mask(*pos);
+    ++pos;
+
+    if (mask)
     {
-        if (key != countKey)
+        for (std::size_t i(0); i < 8; ++i)
         {
-            m_children[stringToDir(key)] = Node(json[key]);
+            if (mask & (1 << i))
+            {
+                m_children[static_cast<Dir>(i)] = Node(pos);
+            }
         }
     }
 }
@@ -60,6 +69,27 @@ void Node::insertInto(Json::Value& json) const
         {
             c.second.insertInto(json[dirToString(c.first)]);
         }
+    }
+}
+
+void Node::insertInto(std::string& s) const
+{
+    if (m_count)
+    {
+        s.insert(
+                s.end(),
+                reinterpret_cast<const char*>(&m_count),
+                reinterpret_cast<const char*>(&m_count + 1));
+
+        uint8_t mask(0);
+        for (const auto& c : m_children)
+        {
+            mask |= (1 << static_cast<int>(c.first));
+        }
+
+        s.push_back(mask);
+
+        for (const auto& c : m_children) c.second.insertInto(s);
     }
 }
 
