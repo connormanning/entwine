@@ -256,7 +256,7 @@ Hierarchy::Hierarchy(
 void Hierarchy::awaken(const Id& id, const Node* node)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
-    if (node->count()) return;
+    if (node && node->count()) return;
 
     auto lowerAnchor(m_anchors.lower_bound(id));
 
@@ -290,6 +290,7 @@ void Hierarchy::awaken(const Id& id, const Node* node)
     }
     else
     {
+        std::cout << "Awakening " << *lowerAnchor << std::endl;
         m_awoken.insert(*lowerAnchor);
     }
 
