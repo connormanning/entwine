@@ -38,7 +38,6 @@ namespace
 {
     const double workToClipRatio(0.33);
     const std::size_t sleepCount(65536 * 24);
-    // const std::size_t hierarchyCount(65536);
 
     std::size_t getWorkThreads(const std::size_t total)
     {
@@ -512,6 +511,11 @@ void Builder::load(const std::size_t clipThreads, const std::string post)
 
     loadProps(meta);
 
+    if (post.size())
+    {
+        m_hierarchy->awakenAll();
+    }
+
     m_executor.reset(new Executor(m_structure->is3d()));
     m_originId = m_schema->pdalLayout().findDim("Origin");
 
@@ -530,8 +534,8 @@ void Builder::load(const std::size_t* subsetId, const std::size_t* splitBegin)
 
 void Builder::save()
 {
-    m_registry->save();
     const auto pf(postfix());
+    m_registry->save();
 
     Json::FastWriter writer;
 
@@ -585,8 +589,8 @@ Json::Value Builder::saveOwnProps() const
     props["schema"] = m_schema->toJson();
     props["structure"] = m_structure->toJson();
     props["hierarchy"] = m_hierarchy->toJson(
-            m_arbiter->getEndpoint(
-                m_outEndpoint->type() + "://" + m_outEndpoint->root() + "h"));
+            m_outEndpoint->getSubEndpoint("h"),
+            postfix());
 
     // The infallible numPoints value is in the manifest, which is stored
     // elsewhere to avoid the Reader needing it.  For the Reader, then,
@@ -615,9 +619,7 @@ void Builder::loadProps(Json::Value& props)
             new Hierarchy(
                 *m_bbox,
                 props["hierarchy"],
-                m_arbiter->getEndpoint(
-                    m_outEndpoint->type() + "://" +
-                    m_outEndpoint->root() + "h")));
+                m_outEndpoint->getSubEndpoint("h")));
 
     if (props.isMember("subset"))
     {
@@ -740,6 +742,7 @@ const Structure& Builder::structure() const { return *m_structure; }
 const Registry& Builder::registry() const   { return *m_registry; }
 const Hierarchy& Builder::hierarchy() const { return *m_hierarchy; }
 const Subset* Builder::subset() const       { return m_subset.get(); }
+Hierarchy& Builder::hierarchy()             { return *m_hierarchy; }
 
 const Reprojection* Builder::reprojection() const
 {

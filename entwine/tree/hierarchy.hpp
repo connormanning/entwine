@@ -13,7 +13,9 @@
 #include <cstddef>
 #include <deque>
 #include <map>
+#include <set>
 #include <string>
+#include <vector>
 
 #include <entwine/third/json/json.hpp>
 #include <entwine/tree/point-info.hpp>
@@ -25,12 +27,29 @@ namespace entwine
 class Node
 {
 public:
+    typedef std::map<Id, Node*> NodeMap;
+    typedef std::set<Id> NodeSet;
+    typedef std::map<Dir, Node> Children;
+
     Node() : m_count(0), m_children() { }
-    Node(const char*& pos);
+
+    Node(
+            const char*& pos,
+            std::size_t step,
+            NodeMap& edges,
+            Id id = 0,
+            std::size_t depth = 0);
+
+    void assign(
+            const char*& pos,
+            std::size_t step,
+            NodeMap& edges,
+            const Id& id,
+            std::size_t depth = 0);
 
     Node& next(Dir dir) { return m_children[dir]; }
 
-    const Node* maybeNext(Dir dir) const
+    Node* maybeNext(Dir dir)
     {
         auto it(m_children.find(dir));
 
@@ -45,13 +64,28 @@ public:
 
     void merge(Node& other);
     void insertInto(Json::Value& json) const;
-    void insertInto(std::string& s) const;
 
-    typedef std::map<Dir, Node> Children;
+    NodeSet insertInto(const arbiter::Endpoint& ep, std::size_t step);
+
     const Children& children() const { return m_children; }
 
 private:
     Children& children() { return m_children; }
+
+    NodeMap insertSlice(
+            NodeSet& anchors,
+            const NodeMap& slice,
+            const arbiter::Endpoint& ep,
+            std::size_t step);
+
+    void insertData(
+            std::vector<char>& data,
+            NodeMap& nextSlice,
+            const Id& id,
+            std::size_t step,
+            std::size_t depth = 0);
+
+    bool insertBinary(std::vector<char>& s) const;
 
     uint64_t m_count;
     Children m_children;
@@ -65,39 +99,24 @@ public:
         , m_depthBegin(defaultDepthBegin)
         , m_step(defaultStep)
         , m_root()
+        , m_edges()
+        , m_anchors()
+        , m_endpoint()
     { }
 
     Hierarchy(
             const BBox& bbox,
             const Json::Value& json,
-            const arbiter::Endpoint& ep)
-        : m_bbox(bbox)
-        , m_depthBegin(json["depthBegin"].asUInt64())
-        , m_step(json["step"].asUInt64())
-        , m_root()
-    {
-        const std::vector<char> bin(ep.getSubpathBinary("0"));
-        const char* pos(bin.data());
-        m_root = Node(pos);
-    }
+            const arbiter::Endpoint& ep);
 
     Node& root() { return m_root; }
 
-    Json::Value toJson(const arbiter::Endpoint& ep) const
-    {
-        Json::Value json;
-        json["depthBegin"] = static_cast<Json::UInt64>(m_depthBegin);
-        json["step"] = static_cast<Json::UInt64>(m_step);
-
-        ep.putSubpath("0", toBinary());
-
-        return json;
-    }
+    Json::Value toJson(const arbiter::Endpoint& ep, std::string postfix);
 
     Json::Value query(
             BBox qbox,
             std::size_t depthBegin,
-            std::size_t depthEnd) const;
+            std::size_t depthEnd);
 
     void merge(Hierarchy& other)
     {
@@ -108,39 +127,54 @@ public:
     std::size_t step() const { return m_step; }
     const BBox& bbox() const { return m_bbox; }
 
-private:
-    static const std::size_t defaultDepthBegin = 6;
-    static const std::size_t defaultStep = 0;       // Denote flat structure.
-
-    std::string toBinary() const
+    void awakenAll()
     {
-        std::string s;
-        m_root.insertInto(s);
-        return s;
+        for (const auto& a : m_anchors) awaken(a);
     }
 
+    void setStep(std::size_t set) { m_step = set; }
+
+    static const std::size_t defaultDepthBegin = 6;
+    static const std::size_t defaultStep = 8;
+    static const std::size_t defaultChunkBytes = 1 << 20;   // 1 MB.
+
+    static Id climb(const Id& id, Dir dir)
+    {
+        return (id << 3) + 1 + toIntegral(dir);
+    }
+
+private:
     void traverse(
             Node& out,
             std::deque<Dir>& lag,
-            const Node& cur,
+            Node& cur,
             const BBox& cbox,
             const BBox& qbox,
             std::size_t depth,
             std::size_t depthBegin,
-            std::size_t depthEnd) const;
+            std::size_t depthEnd,
+            Id id = 0);
 
     void accumulate(
             Node& node,
             std::deque<Dir>& lag,
-            const Node& cur,
+            Node& cur,
             std::size_t depth,
-            std::size_t depthEnd) const;
+            std::size_t depthEnd,
+            const Id& id);
+
+    void awaken(const Id& id);
 
     const BBox& m_bbox;
     const std::size_t m_depthBegin;
-    const std::size_t m_step;
+    std::size_t m_step;
 
     Node m_root;
+    Node::NodeMap m_edges;
+    Node::NodeSet m_anchors;
+    Node::NodeSet m_awoken;
+
+    std::unique_ptr<arbiter::Endpoint> m_endpoint;
 };
 
 class HierarchyClimber

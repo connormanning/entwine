@@ -59,5 +59,15 @@ inline Dir stringToDir(const std::string& s)
             (s[2] == 'u' ? 4 : 0)); // Up? +4.
 }
 
+inline std::size_t toIntegral(Dir dir)
+{
+    return static_cast<std::size_t>(dir);
+}
+
+inline Dir toDir(std::size_t val)
+{
+    return static_cast<Dir>(val);
+}
+
 } // namespace entwine
 

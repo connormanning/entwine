@@ -18,12 +18,30 @@ namespace
     const std::string countKey("n");
 }
 
-Node::Node(const char*& pos)
+Node::Node(
+        const char*& pos,
+        const std::size_t step,
+        NodeMap& edges,
+        const Id id,
+        std::size_t depth)
     : m_count()
     , m_children()
 {
+    assign(pos, step, edges, id, depth);
+}
+
+void Node::assign(
+        const char*& pos,
+        const std::size_t step,
+        NodeMap& edges,
+        const Id& id,
+        std::size_t depth)
+{
     std::copy(pos, pos + sizeof(uint64_t), reinterpret_cast<char*>(&m_count));
-    if (!m_count) throw std::runtime_error("Invalid hierarchy count");
+    if (!m_count)
+    {
+        throw std::runtime_error("Invalid hierarchy count " + id.str());
+    }
 
     pos += sizeof(uint64_t);
 
@@ -32,11 +50,27 @@ Node::Node(const char*& pos)
 
     if (mask)
     {
+        const bool exists(!step || ++depth % step);
+
+        Dir dir;
+        Id nextId;
+
         for (std::size_t i(0); i < 8; ++i)
         {
             if (mask & (1 << i))
             {
-                m_children[static_cast<Dir>(i)] = Node(pos);
+                dir = toDir(i);
+                nextId = Hierarchy::climb(id, dir);
+
+                if (exists)
+                {
+                    m_children[dir] = Node(pos, step, edges, nextId, depth);
+                }
+                else
+                {
+                    auto it(m_children.insert(std::make_pair(dir, Node())));
+                    edges[nextId] = &it.first->second;
+                }
             }
         }
     }
@@ -72,7 +106,92 @@ void Node::insertInto(Json::Value& json) const
     }
 }
 
-void Node::insertInto(std::string& s) const
+Node::NodeSet Node::insertInto(
+        const arbiter::Endpoint& ep,
+        const std::size_t step)
+{
+    NodeSet anchors;
+
+    NodeMap slice;
+    slice[0] = this;
+
+    while (slice.size()) slice = insertSlice(anchors, slice, ep, step);
+
+    return anchors;
+}
+
+Node::NodeMap Node::insertSlice(
+        NodeSet& anchors,
+        const NodeMap& slice,
+        const arbiter::Endpoint& ep,
+        const std::size_t step)
+{
+    std::vector<char> data;
+    NodeMap nextSlice;
+    Id anchor(0);
+
+    for (const auto& n : slice)
+    {
+        if (data.empty())
+        {
+            anchor = n.first;
+        }
+
+        n.second->insertData(data, nextSlice, n.first, step);
+
+        if (data.size() > Hierarchy::defaultChunkBytes)
+        {
+            anchors.insert(anchor);
+            ep.putSubpath(anchor.str(), data);
+            data.clear();
+        }
+    }
+
+    if (data.size())
+    {
+        anchors.insert(anchor);
+        ep.putSubpath(anchor.str(), data);
+    }
+
+    return nextSlice;
+}
+
+void Node::insertData(
+        std::vector<char>& data,
+        NodeMap& nextSlice,
+        const Id& id,
+        const std::size_t step,
+        std::size_t depth)
+{
+    if (insertBinary(data))
+    {
+        if (!step || ++depth % step)
+        {
+            for (auto& c : m_children)
+            {
+                c.second.insertData(
+                        data,
+                        nextSlice,
+                        Hierarchy::climb(id, c.first),
+                        step,
+                        depth);
+            }
+        }
+        else
+        {
+            for (auto& c : m_children)
+            {
+                nextSlice.insert(
+                        nextSlice.end(),
+                        std::make_pair(
+                            Hierarchy::climb(id, c.first),
+                            &c.second));
+            }
+        }
+    }
+}
+
+bool Node::insertBinary(std::vector<char>& s) const
 {
     if (m_count)
     {
@@ -88,15 +207,138 @@ void Node::insertInto(std::string& s) const
         }
 
         s.push_back(mask);
-
-        for (const auto& c : m_children) c.second.insertInto(s);
+        return true;
     }
+    else
+    {
+        return false;
+    }
+}
+
+Hierarchy::Hierarchy(
+        const BBox& bbox,
+        const Json::Value& json,
+        const arbiter::Endpoint& ep)
+    : m_bbox(bbox)
+    , m_depthBegin(json["depthBegin"].asUInt64())
+    , m_step(json["step"].asUInt64())
+    , m_root()
+    , m_edges()
+    , m_anchors()
+    , m_endpoint(new arbiter::Endpoint(ep))
+{
+    const std::vector<char> bin(ep.getSubpathBinary("0"));
+    const char* pos(bin.data());
+
+    m_root = Node(pos, m_step, m_edges);
+
+    if (m_step)
+    {
+        Json::Reader reader;
+        Json::Value anchorsJson;
+
+        const std::string anchorsData(ep.getSubpath("anchors"));
+        if (!reader.parse(anchorsData, anchorsJson, false))
+        {
+            throw std::runtime_error(
+                    "Anchor parse error: " +
+                    reader.getFormattedErrorMessages());
+        }
+
+        for (Json::ArrayIndex i(0); i < anchorsJson.size(); ++i)
+        {
+            m_anchors.insert(Id(anchorsJson[i].asString()));
+        }
+    }
+}
+
+void Hierarchy::awaken(const Id& id)
+{
+    auto lowerAnchor(m_anchors.lower_bound(id));
+
+    if (lowerAnchor == m_anchors.end())
+    {
+        lowerAnchor = m_anchors.find(*m_anchors.rbegin());
+    }
+    else if (*lowerAnchor != id)
+    {
+        // If the lower anchor is not exactly equal to the Id we're looking for,
+        // then it currently points to the next anchor *greater* than this Id.
+        // So decrement it by one.
+        if (*lowerAnchor != *m_anchors.begin()) --lowerAnchor;
+        else
+        {
+            std::cout <<
+                ("Invalid lower anchor " + lowerAnchor->str() + " for " +
+                id.str()) << std::endl;
+
+            throw std::runtime_error(
+                "Invalid lower anchor " + lowerAnchor->str() + " for " +
+                id.str());
+        }
+    }
+
+    if (m_awoken.count(*lowerAnchor))
+    {
+        std::cout <<
+                ("REAWAKENING " + lowerAnchor->str() + " for " + id.str()) <<
+                std::endl;
+    }
+    else
+    {
+        m_awoken.insert(*lowerAnchor);
+    }
+
+    const auto upperAnchor(m_anchors.upper_bound(id));
+    const auto end(
+            upperAnchor != m_anchors.end() ?
+                m_edges.find(*upperAnchor) : m_edges.end());
+
+    auto it(m_edges.find(*lowerAnchor));
+
+    const std::vector<char> bin(
+            m_endpoint->getSubpathBinary(lowerAnchor->str()));
+
+    const char* pos(bin.data());
+
+    Node::NodeMap newEdges;
+
+    while (it != end)
+    {
+        it->second->assign(pos, m_step, newEdges, it->first);
+        it = m_edges.erase(it);
+    }
+
+    m_edges.insert(newEdges.begin(), newEdges.end());
+}
+
+Json::Value Hierarchy::toJson(const arbiter::Endpoint& ep, std::string postfix)
+{
+    const std::size_t writeStep(postfix.empty() ? m_step : 0);
+    const Node::NodeSet anchors(m_root.insertInto(ep, writeStep));
+
+    Json::Value json;
+    json["depthBegin"] = static_cast<Json::UInt64>(m_depthBegin);
+    json["step"] = static_cast<Json::UInt64>(writeStep);
+
+    if (writeStep)
+    {
+        Json::Value jsonAnchors;
+        for (const auto& a : anchors)
+        {
+            if (!a.zero()) jsonAnchors.append(a.str());
+        }
+
+        ep.putSubpath("anchors", jsonAnchors.toStyledString());
+    }
+
+    return json;
 }
 
 Json::Value Hierarchy::query(
         BBox qbox,
         const std::size_t qDepthBegin,
-        const std::size_t qDepthEnd) const
+        const std::size_t qDepthEnd)
 {
     if (qDepthBegin < m_depthBegin)
     {
@@ -128,12 +370,13 @@ Json::Value Hierarchy::query(
 void Hierarchy::traverse(
         Node& out,
         std::deque<Dir>& lag,
-        const Node& cur,
+        Node& cur,
         const BBox& cbox,   // Current bbox.
         const BBox& qbox,   // Query bbox.
         const std::size_t depth,
         const std::size_t db,
-        const std::size_t de) const
+        const std::size_t de,
+        const Id id)
 {
     if (depth < db)
     {
@@ -143,15 +386,33 @@ void Hierarchy::traverse(
         if (qbox.contains(cbox))
         {
             auto addChild(
-                [this, &lag, cur, cbox, qbox, next, db, de]
+                [this, &lag, &cur, cbox, qbox, next, db, de, &id]
                 (Node& out, Dir dir)
             {
-                if (const Node* node = cur.maybeNext(dir))
+                if (Node* node = cur.maybeNext(dir))
                 {
+                    const Id childId(Hierarchy::climb(id, dir));
+
+                    if (m_step && (next - m_depthBegin) % m_step == 0)
+                    {
+                        if (!node->count())
+                        {
+                            awaken(childId);
+                        }
+                    }
+
                     auto curlag(lag);
                     curlag.push_back(dir);
                     traverse(
-                        out, curlag, *node, cbox.get(dir), qbox, next, db, de);
+                        out,
+                        curlag,
+                        *node,
+                        cbox.get(dir),
+                        qbox,
+                        next,
+                        db,
+                        de,
+                        childId);
                 }
             });
 
@@ -168,25 +429,36 @@ void Hierarchy::traverse(
             // we need to split our bounds in a single direction.
             const Dir dir(getDirection(qbox.mid(), cbox.mid()));
 
-            if (const Node* node = cur.maybeNext(dir))
+            if (Node* node = cur.maybeNext(dir))
             {
+                const Id childId(Hierarchy::climb(id, dir));
+
+                if (m_step && (next - m_depthBegin) % m_step == 0)
+                {
+                    if (!node->count())
+                    {
+                        awaken(childId);
+                    }
+                }
+
                 const BBox nbox(cbox.get(dir));
-                traverse(out, lag, *node, nbox, qbox, next, db, de);
+                traverse(out, lag, *node, nbox, qbox, next, db, de, childId);
             }
         }
     }
     else if (qbox.contains(cbox) && depth < de) // User error if not.
     {
-        accumulate(out, lag, cur, depth, de);
+        accumulate(out, lag, cur, depth, de, id);
     }
 }
 
 void Hierarchy::accumulate(
         Node& out,
         std::deque<Dir>& lag,
-        const Node& cur,
-        std::size_t depth,
-        const std::size_t depthEnd) const
+        Node& cur,
+        const std::size_t depth,
+        const std::size_t depthEnd,
+        const Id& id)
 {
     out.incrementBy(cur.count());
 
@@ -196,12 +468,28 @@ void Hierarchy::accumulate(
         if (lag.empty())
         {
             auto addChild(
-            [this, cur, nextDepth, depthEnd]
+            [this, &cur, nextDepth, depthEnd, &id]
             (Node& out, std::deque<Dir>& lag, Dir dir)
             {
-                if (const Node* node = cur.maybeNext(dir))
+                if (Node* node = cur.maybeNext(dir))
                 {
-                    accumulate(out.next(dir), lag, *node, nextDepth, depthEnd);
+                    const Id childId(Hierarchy::climb(id, dir));
+
+                    if (m_step && (nextDepth - m_depthBegin) % m_step == 0)
+                    {
+                        if (!node->count())
+                        {
+                            awaken(childId);
+                        }
+                    }
+
+                    accumulate(
+                        out.next(dir),
+                        lag,
+                        *node,
+                        nextDepth,
+                        depthEnd,
+                        childId);
                 }
             });
 
@@ -218,15 +506,32 @@ void Hierarchy::accumulate(
             Node* nextNode(nullptr);
 
             auto addChild(
-                [this, lagdir, &nextNode, lag, cur, nextDepth, depthEnd]
+                [this, lagdir, &nextNode, &lag, &cur, nextDepth, depthEnd, &id]
                 (Node& out, Dir curdir)
             {
-                if (const Node* node = cur.maybeNext(curdir))
+                if (Node* node = cur.maybeNext(curdir))
                 {
+                    const Id childId(Hierarchy::climb(id, curdir));
+
+                    if (m_step && (nextDepth - m_depthBegin) % m_step == 0)
+                    {
+                        if (!node->count())
+                        {
+                            awaken(childId);
+                        }
+                    }
+
                     if (!nextNode) nextNode = &out.next(lagdir);
                     auto curlag(lag);
                     curlag.push_back(curdir);
-                    accumulate(*nextNode, curlag, *node, nextDepth, depthEnd);
+
+                    accumulate(
+                        *nextNode,
+                        curlag,
+                        *node,
+                        nextDepth,
+                        depthEnd,
+                        childId);
                 }
             });
 

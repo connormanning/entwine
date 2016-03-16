@@ -229,6 +229,8 @@ private:
 
     float chunkMem() const;
 
+    Hierarchy& hierarchy();
+
     //
 
     std::unique_ptr<BBox> m_bboxConforming;
