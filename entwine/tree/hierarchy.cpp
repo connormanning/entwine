@@ -225,6 +225,7 @@ Hierarchy::Hierarchy(
     , m_root()
     , m_edges()
     , m_anchors()
+    , m_mutex()
     , m_endpoint(new arbiter::Endpoint(ep))
 {
     const std::vector<char> bin(ep.getSubpathBinary("0"));
@@ -252,8 +253,11 @@ Hierarchy::Hierarchy(
     }
 }
 
-void Hierarchy::awaken(const Id& id)
+void Hierarchy::awaken(const Id& id, const Node* node)
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (node->count()) return;
+
     auto lowerAnchor(m_anchors.lower_bound(id));
 
     if (lowerAnchor == m_anchors.end())
@@ -395,10 +399,7 @@ void Hierarchy::traverse(
 
                     if (m_step && (next - m_depthBegin) % m_step == 0)
                     {
-                        if (!node->count())
-                        {
-                            awaken(childId);
-                        }
+                        awaken(childId, node);
                     }
 
                     auto curlag(lag);
@@ -435,10 +436,7 @@ void Hierarchy::traverse(
 
                 if (m_step && (next - m_depthBegin) % m_step == 0)
                 {
-                    if (!node->count())
-                    {
-                        awaken(childId);
-                    }
+                    awaken(childId, node);
                 }
 
                 const BBox nbox(cbox.get(dir));
@@ -477,10 +475,7 @@ void Hierarchy::accumulate(
 
                     if (m_step && (nextDepth - m_depthBegin) % m_step == 0)
                     {
-                        if (!node->count())
-                        {
-                            awaken(childId);
-                        }
+                        awaken(childId, node);
                     }
 
                     accumulate(
@@ -515,10 +510,7 @@ void Hierarchy::accumulate(
 
                     if (m_step && (nextDepth - m_depthBegin) % m_step == 0)
                     {
-                        if (!node->count())
-                        {
-                            awaken(childId);
-                        }
+                        awaken(childId, node);
                     }
 
                     if (!nextNode) nextNode = &out.next(lagdir);

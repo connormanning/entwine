@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <deque>
 #include <map>
+#include <mutex>
 #include <set>
 #include <string>
 #include <vector>
@@ -101,6 +102,7 @@ public:
         , m_root()
         , m_edges()
         , m_anchors()
+        , m_mutex()
         , m_endpoint()
     { }
 
@@ -163,7 +165,7 @@ private:
             std::size_t depthEnd,
             const Id& id);
 
-    void awaken(const Id& id);
+    void awaken(const Id& id, const Node* node = nullptr);
 
     const BBox& m_bbox;
     const std::size_t m_depthBegin;
@@ -174,6 +176,7 @@ private:
     Node::NodeSet m_anchors;
     Node::NodeSet m_awoken;
 
+    mutable std::mutex m_mutex;
     std::unique_ptr<arbiter::Endpoint> m_endpoint;
 };
 
