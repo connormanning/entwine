@@ -32,6 +32,17 @@ public:
     typedef std::set<Id> NodeSet;
     typedef std::map<Dir, Node> Children;
 
+    struct AnchoredNode
+    {
+        AnchoredNode() : node(nullptr), isAnchor(false) { }
+        explicit AnchoredNode(Node* node) : node(node), isAnchor(false) { }
+
+        Node* node;
+        bool isAnchor;
+    };
+
+    typedef std::map<Id, AnchoredNode> AnchoredMap;
+
     Node() : m_count(0), m_children() { }
 
     Node(
@@ -73,15 +84,15 @@ public:
 private:
     Children& children() { return m_children; }
 
-    NodeMap insertSlice(
+    AnchoredMap insertSlice(
             NodeSet& anchors,
-            const NodeMap& slice,
+            const AnchoredMap& slice,
             const arbiter::Endpoint& ep,
             std::size_t step);
 
     void insertData(
             std::vector<char>& data,
-            NodeMap& nextSlice,
+            AnchoredMap& nextSlice,
             const Id& id,
             std::size_t step,
             std::size_t depth = 0);
@@ -146,6 +157,9 @@ public:
     }
 
 private:
+    Hierarchy(const Hierarchy& other) = delete;
+    Hierarchy& operator=(const Hierarchy& other) = delete;
+
     void traverse(
             Node& out,
             std::deque<Dir>& lag,

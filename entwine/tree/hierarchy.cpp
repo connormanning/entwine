@@ -40,6 +40,10 @@ void Node::assign(
     std::copy(pos, pos + sizeof(uint64_t), reinterpret_cast<char*>(&m_count));
     if (!m_count)
     {
+        std::cout <<
+            "Invalid hierarchy count " << id.str() <<
+            " at depth " << depth << std::endl;
+
         throw std::runtime_error("Invalid hierarchy count " + id.str());
     }
 
@@ -112,53 +116,66 @@ Node::NodeSet Node::insertInto(
 {
     NodeSet anchors;
 
-    NodeMap slice;
-    slice[0] = this;
+    AnchoredMap slice;
+    slice[0] = AnchoredNode(this);
 
     while (slice.size()) slice = insertSlice(anchors, slice, ep, step);
 
     return anchors;
 }
 
-Node::NodeMap Node::insertSlice(
+Node::AnchoredMap Node::insertSlice(
         NodeSet& anchors,
-        const NodeMap& slice,
+        const AnchoredMap& slice,
         const arbiter::Endpoint& ep,
         const std::size_t step)
 {
     std::vector<char> data;
-    NodeMap nextSlice;
-    Id anchor(0);
+    AnchoredMap fullSlice;
+    AnchoredMap nextSlice;
+    Id anchor(slice.begin()->first);
 
-    for (const auto& n : slice)
-    {
-        if (data.empty())
-        {
-            anchor = n.first;
-        }
-
-        n.second->insertData(data, nextSlice, n.first, step);
-
-        if (data.size() > Hierarchy::defaultChunkBytes)
-        {
-            anchors.insert(anchor);
-            ep.putSubpath(anchor.str(), data);
-            data.clear();
-        }
-    }
-
-    if (data.size())
+    auto write([&anchors, &ep, &anchor, &data, &nextSlice, &fullSlice]()
     {
         anchors.insert(anchor);
         ep.putSubpath(anchor.str(), data);
+        data.clear();
+
+        if (nextSlice.size())
+        {
+            nextSlice.begin()->second.isAnchor = true;
+            fullSlice.insert(nextSlice.begin(), nextSlice.end());
+            nextSlice.clear();
+        }
+    });
+
+    for (const auto& n : slice)
+    {
+        if (
+                (data.size() && n.second.isAnchor) ||
+                (data.size() > Hierarchy::defaultChunkBytes))
+        {
+            if (n.second.isAnchor)
+            {
+                std::cout << "Anchoring " << n.first << std::endl;
+            }
+
+            write();
+
+            anchor = n.first;
+        }
+
+        n.second.node->insertData(data, nextSlice, n.first, step);
     }
 
-    return nextSlice;
+    if (data.size()) write();
+
+    return fullSlice;
 }
 
 void Node::insertData(
         std::vector<char>& data,
-        NodeMap& nextSlice,
+        AnchoredMap& nextSlice,
         const Id& id,
         const std::size_t step,
         std::size_t depth)
@@ -185,7 +202,7 @@ void Node::insertData(
                         nextSlice.end(),
                         std::make_pair(
                             Hierarchy::climb(id, c.first),
-                            &c.second));
+                            AnchoredNode(&c.second)));
             }
         }
     }
@@ -294,12 +311,17 @@ void Hierarchy::awaken(const Id& id, const Node* node)
         m_awoken.insert(*lowerAnchor);
     }
 
-    const auto upperAnchor(m_anchors.upper_bound(id));
-    const auto end(
-            upperAnchor != m_anchors.end() ?
-                m_edges.find(*upperAnchor) : m_edges.end());
-
     auto it(m_edges.find(*lowerAnchor));
+    if (it == m_edges.end())
+    {
+        std::cout << ("No edge for lower anchor " + lowerAnchor->str()) <<
+            std::endl;
+        throw std::runtime_error(
+                "No edge for lower anchor " + lowerAnchor->str());
+    }
+
+    const auto upperAnchor(m_anchors.upper_bound(id));
+    const Id edgeEnd(upperAnchor != m_anchors.end() ? *upperAnchor : 0);
 
     const std::vector<char> bin(
             m_endpoint->getSubpathBinary(lowerAnchor->str()));
@@ -308,7 +330,7 @@ void Hierarchy::awaken(const Id& id, const Node* node)
 
     Node::NodeMap newEdges;
 
-    while (it != end)
+    while (it != m_edges.end() && (edgeEnd.zero() || it->first < edgeEnd))
     {
         it->second->assign(pos, m_step, newEdges, it->first);
         it = m_edges.erase(it);
@@ -357,15 +379,18 @@ Json::Value Hierarchy::query(
 
     Node node;
     std::deque<Dir> lag;
-    traverse(
-            node,
-            lag,
-            m_root,
-            m_bbox,
-            qbox,
-            m_depthBegin,
-            qDepthBegin,
-            qDepthEnd);
+
+    {
+        traverse(
+                node,
+                lag,
+                m_root,
+                m_bbox,
+                qbox,
+                m_depthBegin,
+                qDepthBegin,
+                qDepthEnd);
+    }
 
     Json::Value json;
     node.insertInto(json);
