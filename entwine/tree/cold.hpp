@@ -55,11 +55,7 @@ public:
     Cell& getCell(const Climber& climber, Clipper& clipper);
 
     Json::Value toJson() const;
-    void clip(
-            const Id& chunkId,
-            std::size_t chunkNum,
-            std::size_t id,
-            bool tentative);
+    void clip(const Id& chunkId, std::size_t chunkNum, std::size_t id);
 
     std::set<Id> ids() const;
     void merge(const Cold& other);
@@ -83,11 +79,7 @@ private:
             std::unique_ptr<Chunk>& chunk,
             bool exists);
 
-    void unrefChunk(
-            CountedChunk& countedChunk,
-            std::size_t id,
-            bool fast,
-            bool tentative);
+    void unrefChunk(CountedChunk& countedChunk, std::size_t id, bool fast);
 
     struct FastSlot
     {

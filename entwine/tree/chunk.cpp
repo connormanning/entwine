@@ -228,29 +228,25 @@ SparseChunk::SparseChunk(
                 m_numPoints,
                 m_builder.pools()));
 
-    Id tube(0);
-    std::size_t tick(0);
-
     if (m_numPoints != infoStack.size())
     {
         // TODO Non-recoverable.  Exit?
         throw std::runtime_error("Bad numPoints detected - sparse chunk");
     }
 
-    // TODO Very dense data might throw here.  See comment in calcTube for
-    // discussion on what needs to change if that happens.
-    const std::size_t ticks(sqrt(m_maxPoints).getSimple());
-    const bool tubular(m_builder.structure().tubular());
+    const Climber startClimber(builder.bbox(), builder.structure());
+    Climber climber(startClimber);
 
     for (std::size_t i(0); i < m_numPoints; ++i)
     {
         PooledInfoNode infoNode(infoStack.popOne());
         const Point& point(infoNode->val().point());
 
-        tube = Tube::calcTube(point, m_bbox, ticks);
-        if (tubular) tick = Tube::calcTick(point, m_bbox, m_zDepth);
+        climber = startClimber;
+        climber.magnifyTo(point, depth);
 
-        m_tubes[tube].addCell(tick, std::move(infoNode));
+        Tube& tube(m_tubes[normalize(climber.index())]);
+        tube.addCell(climber.tick(), std::move(infoNode));
     }
 }
 
@@ -339,27 +335,25 @@ ContiguousChunk::ContiguousChunk(
                 m_numPoints,
                 m_builder.pools()));
 
-    std::size_t tube(0);
-    std::size_t tick(0);
-
     if (m_numPoints != infoStack.size())
     {
         // TODO Non-recoverable.  Exit?
         throw std::runtime_error("Bad numPoints detected - contiguous chunk");
     }
 
-    const std::size_t ticks(std::sqrt(m_maxPoints.getSimple()));
-    const bool tubular(m_builder.structure().tubular());
+    const Climber startClimber(builder.bbox(), builder.structure());
+    Climber climber(startClimber);
 
     for (std::size_t i(0); i < m_numPoints; ++i)
     {
         PooledInfoNode infoNode(infoStack.popOne());
         const Point& point(infoNode->val().point());
 
-        tube = Tube::calcTube(point, m_bbox, ticks).getSimple();
-        if (tubular) tick = Tube::calcTick(point, m_bbox, m_zDepth);
+        climber = startClimber;
+        climber.magnifyTo(point, depth);
 
-        m_tubes.at(tube).addCell(tick, std::move(infoNode));
+        Tube& tube(m_tubes.at(normalize(climber.index())));
+        tube.addCell(climber.tick(), std::move(infoNode));
     }
 }
 
@@ -446,7 +440,6 @@ BaseChunk::BaseChunk(
     }
 
     const std::size_t celledPointSize(m_celledSchema.pointSize());
-    const bool tubular(m_builder.structure().tubular());
     const auto tubeId(m_celledSchema.pdalLayout().findDim(tubeIdDim));
 
     // Skip tube IDs.
@@ -460,9 +453,11 @@ BaseChunk::BaseChunk(
 
     std::size_t tube(0);
     std::size_t curDepth(0);
-    std::size_t tick(0);
 
     const std::size_t factor(m_builder.structure().factor());
+
+    const Climber startClimber(builder.bbox(), builder.structure());
+    Climber climber(startClimber);
 
     for (std::size_t i(0); i < m_numPoints; ++i)
     {
@@ -478,14 +473,18 @@ BaseChunk::BaseChunk(
 
         std::copy(pos + dataOffset, pos + celledPointSize, info->val().data());
 
-        if (tubular)
+        tube = pointRef.getFieldAs<uint64_t>(tubeId);
+        curDepth = ChunkInfo::calcDepth(factor, m_id + tube);
+
+        climber = startClimber;
+        climber.magnifyTo(info->val().point(), curDepth);
+
+        if (tube != normalize(climber.index()))
         {
-            tube = pointRef.getFieldAs<uint64_t>(tubeId);
-            curDepth = ChunkInfo::calcDepth(factor, m_id + tube);
-            tick = Tube::calcTick(info->val().point(), m_bbox, curDepth);
+            throw std::runtime_error("Bad serialized base tube");
         }
 
-        m_tubes.at(tube).addCell(tick, std::move(info));
+        m_tubes.at(tube).addCell(climber.tick(), std::move(info));
 
         pos += celledPointSize;
     }

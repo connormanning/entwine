@@ -1,4 +1,4 @@
-FROM pdal/master:latest
+FROM connormanning/pdal:docker-master
 MAINTAINER Connor Manning <connor@hobu.co>
 
 ENV CC clang
