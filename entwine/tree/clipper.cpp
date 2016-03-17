@@ -19,47 +19,34 @@ bool Clipper::insert(const Id& chunkId, std::size_t chunkNum)
 
     if (find != m_clips.end())
     {
-        m_order.splice(m_order.begin(), m_order, find->second.it);
+        find->second.fresh = true;
         return false;
     }
     else
     {
-        /*
-        if (m_removed.count(chunkId))
-        {
-            std::cout << "\t\tRe-add at " << m_id << std::endl;
-        }
-        */
-
-        const auto it(
-                m_clips.insert(
-                    std::make_pair(chunkId, ClipInfo(chunkNum))).first);
-
-        m_order.push_front(&it->first);
-        it->second.it = m_order.begin();
+        m_clips.insert(std::make_pair(chunkId, ClipInfo(chunkNum)));
         return true;
     }
 }
 
-void Clipper::clip(const float ratio)
+void Clipper::clip()
 {
-    if (m_clips.size() < 10 || ratio > 1.0) return;
+    if (m_clips.size() < 10) return;
 
-    const std::size_t count(
-            std::min<std::size_t>(
-                m_clips.size(),
-                static_cast<float>(m_clips.size()) * ratio));
+    auto it(m_clips.begin());
 
-    for (std::size_t i(0); i < count; ++i)
+    while (it != m_clips.end())
     {
-        const Id& id(*m_order.back());
-        const auto it(m_clips.find(id));
-
-        // m_removed.insert(id);
-        m_builder.clip(id, it->second.chunkNum, m_id, true);
-
-        m_clips.erase(it);
-        m_order.pop_back();
+        if (it->second.fresh)
+        {
+            it->second.fresh = false;
+            ++it;
+        }
+        else
+        {
+            m_builder.clip(it->first, it->second.chunkNum, m_id);
+            it = m_clips.erase(it);
+        }
     }
 }
 

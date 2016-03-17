@@ -10,7 +10,6 @@
 
 #include <entwine/tree/builder.hpp>
 
-#include <chrono>
 #include <limits>
 #include <thread>
 
@@ -19,6 +18,7 @@
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
+#include <entwine/tree/hierarchy.hpp>
 #include <entwine/tree/registry.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/pooled-point-table.hpp>
@@ -50,8 +50,6 @@ namespace
     {
         return std::max<std::size_t>(total - getWorkThreads(total), 4);
     }
-
-    std::atomic_size_t threadChangePos(0);
 }
 
 Builder::Builder(
@@ -62,13 +60,14 @@ Builder::Builder(
         const bool trustHeaders,
         const Subset* subset,
         const Reprojection* reprojection,
-        const BBox& bbox,
+        const BBox& bboxConforming,
         const Schema& schema,
         const std::size_t totalThreads,
         const float threshold,
         const Structure& structure,
         std::shared_ptr<Arbiter> arbiter)
-    : m_bbox(new BBox(bbox))
+    : m_bboxConforming(new BBox(bboxConforming))
+    , m_bbox()
     , m_subBBox(subset ? new BBox(subset->bbox()) : nullptr)
     , m_schema(new Schema(schema))
     , m_structure(new Structure(structure))
@@ -96,7 +95,16 @@ Builder::Builder(
     , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
     , m_pointPool(new Pools(*m_schema))
     , m_registry()
+    , m_hierarchy(new Hierarchy(*m_bbox))
 {
+    m_bboxConforming->growBy(0.005);
+    m_bbox.reset(new BBox(*m_bboxConforming));
+
+    if (!m_bbox->isCubic())
+    {
+        m_bbox->cubeify();
+    }
+
     m_registry.reset(new Registry(*m_outEndpoint, *this, m_initialClipThreads));
     prep();
 }
@@ -107,7 +115,8 @@ Builder::Builder(
         const std::size_t totalThreads,
         const float threshold,
         std::shared_ptr<Arbiter> arbiter)
-    : m_bbox()
+    : m_bboxConforming()
+    , m_bbox()
     , m_subBBox()
     , m_schema()
     , m_structure()
@@ -135,6 +144,7 @@ Builder::Builder(
     , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
     , m_pointPool()
     , m_registry()
+    , m_hierarchy()
 {
     prep();
     load(m_initialClipThreads);
@@ -145,7 +155,8 @@ Builder::Builder(
         const std::size_t* subsetId,
         const std::size_t* splitBegin,
         std::shared_ptr<arbiter::Arbiter> arbiter)
-    : m_bbox()
+    : m_bboxConforming()
+    , m_bbox()
     , m_subBBox()
     , m_schema()
     , m_structure()
@@ -173,6 +184,7 @@ Builder::Builder(
     , m_tmpEndpoint()
     , m_pointPool()
     , m_registry()
+    , m_hierarchy()
 {
     prep();
     load(subsetId, splitBegin);
@@ -293,7 +305,6 @@ void Builder::go(std::size_t max)
     m_pool->join();
     std::cout << "\tJoined - saving..." << std::endl;
     save();
-    std::cout << "\tAll done." << std::endl;
 }
 
 bool Builder::checkInfo(const FileInfo& info)
@@ -360,7 +371,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
         {
             if (m_reprojection)
             {
-                // Use the executor's lock here, since we may are likely to be
+                // Use the executor's lock here, since we are likely to be
                 // fighting against concurrent Executor::preview()/run() calls.
                 auto lock(m_executor->getLock());
                 m_srs = pdal::SpatialReference(m_reprojection->out()).getWKT();
@@ -375,33 +386,41 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
         }
     }
 
-    std::size_t num(0);
+    std::size_t s(0);
+
     Clipper clipper(*this, origin);
 
-    auto inserter([this, origin, &clipper, &num](PooledInfoStack infoStack)
-    {
-        num += infoStack.size();
+    Hierarchy localHierarchy(*m_bbox);
+    Climber climber(*m_bbox, *m_structure, &localHierarchy);
 
-        if (num > sleepCount)
+    auto inserter([this, origin, &clipper, &climber, &s]
+    (PooledInfoStack infoStack)
+    {
+        s += infoStack.size();
+
+        if (s > sleepCount)
         {
-            clipper.clip(.15);
-            num = 0;
+            s = 0;
+            clipper.clip();
         }
 
-        return insertData(std::move(infoStack), origin, clipper);
+        return insertData(std::move(infoStack), origin, clipper, climber);
     });
 
     PooledPointTable table(*m_pointPool, inserter);
 
     const bool result(m_executor->run(table, localPath, m_reprojection.get()));
 
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_hierarchy->merge(localHierarchy);
     return result;
 }
 
 PooledInfoStack Builder::insertData(
         PooledInfoStack infoStack,
         const Origin origin,
-        Clipper& clipper)
+        Clipper& clipper,
+        Climber& climber)
 {
     PointStats pointStats;
     PooledInfoStack rejected(m_pointPool->infoPool());
@@ -416,11 +435,12 @@ PooledInfoStack Builder::insertData(
         PooledInfoNode info(infoStack.popOne());
         const Point& point(info->val().point());
 
-        if (m_bbox->contains(point))
+        if (m_bboxConforming->contains(point))
         {
             if (!m_subBBox || m_subBBox->contains(point))
             {
-                Climber climber(*m_bbox, *m_structure);
+                climber.reset();
+                climber.magnifyTo(point, m_structure->baseDepthBegin());
 
                 if (m_registry->addPoint(info, climber, clipper))
                 {
@@ -452,19 +472,49 @@ PooledInfoStack Builder::insertData(
 void Builder::load(const std::size_t clipThreads, const std::string post)
 {
     Json::Value meta;
+    Json::Reader reader;
+
+    auto error([&reader]()
+    {
+        throw std::runtime_error(
+            "Invalid JSON: " + reader.getFormattedErrorMessages());
+    });
 
     {
-        Json::Reader reader;
-        const std::string metaPath("entwine" + post);
+        // Get top-level metadata.
+        const std::string strMeta(m_outEndpoint->getSubpath("entwine" + post));
 
-        const std::string data(m_outEndpoint->getSubpath(metaPath));
-        reader.parse(data, meta, false);
+        if (!reader.parse(strMeta, meta, false)) error();
 
-        const std::string err(reader.getFormattedErrorMessages());
-        if (!err.empty()) throw std::runtime_error("Invalid JSON: " + err);
+        // For Reader invocation only.
+        if (post.empty())
+        {
+            m_numPointsClone = meta["numPoints"].asUInt64();
+        }
+    }
+
+    {
+        const std::string strIds(
+                m_outEndpoint->getSubpath("entwine-ids" + post));
+
+        if (!reader.parse(strIds, meta["ids"], false)) error();
+    }
+
+    // Don't load manifest if this is a Reader wakeup.
+    if (post.size())
+    {
+        const std::string strManifest(
+                m_outEndpoint->getSubpath("entwine-manifest" + post));
+
+        if (!reader.parse(strManifest, meta["manifest"], false)) error();
     }
 
     loadProps(meta);
+
+    if (post.size())
+    {
+        m_hierarchy->awakenAll();
+    }
 
     m_executor.reset(new Executor(m_structure->is3d()));
     m_originId = m_schema->pdalLayout().findDim("Origin");
@@ -484,10 +534,27 @@ void Builder::load(const std::size_t* subsetId, const std::size_t* splitBegin)
 
 void Builder::save()
 {
+    const auto pf(postfix());
     m_registry->save();
 
-    Json::Value jsonMeta(saveProps());
-    m_outEndpoint->putSubpath("entwine" + postfix(), jsonMeta.toStyledString());
+    Json::FastWriter writer;
+
+    {
+        Json::Value jsonMeta(saveOwnProps());
+        m_outEndpoint->putSubpath("entwine" + pf, jsonMeta.toStyledString());
+    }
+
+    {
+        Json::Value jsonIds(m_registry->toJson());
+        m_outEndpoint->putSubpath("entwine-ids" + pf, writer.write(jsonIds));
+    }
+
+    {
+        Json::Value jsonManifest(m_manifest->toJson());
+        m_outEndpoint->putSubpath(
+                "entwine-manifest" + pf,
+                writer.write(jsonManifest));
+    }
 }
 
 void Builder::unsplit(Builder& other)
@@ -510,17 +577,26 @@ void Builder::merge(Builder& other)
 
     m_registry->merge(other.registry());
     m_manifest->merge(other.manifest());
+    m_hierarchy->merge(*other.m_hierarchy);
 }
 
-Json::Value Builder::saveProps() const
+Json::Value Builder::saveOwnProps() const
 {
     Json::Value props;
 
+    props["bboxConforming"] = m_bboxConforming->toJson();
     props["bbox"] = m_bbox->toJson();
     props["schema"] = m_schema->toJson();
     props["structure"] = m_structure->toJson();
-    props["manifest"] = m_manifest->toJson();
-    props["ids"] = m_registry->toJson();
+    props["hierarchy"] = m_hierarchy->toJson(
+            m_outEndpoint->getSubEndpoint("h"),
+            postfix());
+
+    // The infallible numPoints value is in the manifest, which is stored
+    // elsewhere to avoid the Reader needing it.  For the Reader, then,
+    // duplicate that info here.
+    props["numPoints"] =
+        static_cast<Json::UInt64>(m_manifest->pointStats().inserts());
 
     if (m_subset) props["subset"] = m_subset->toJson();
     if (m_reprojection) props["reprojection"] = m_reprojection->toJson();
@@ -532,12 +608,18 @@ Json::Value Builder::saveProps() const
     return props;
 }
 
-void Builder::loadProps(const Json::Value& props)
+void Builder::loadProps(Json::Value& props)
 {
+    m_bboxConforming.reset(new BBox(props["bboxConforming"]));
     m_bbox.reset(new BBox(props["bbox"]));
     m_schema.reset(new Schema(props["schema"]));
     m_pointPool.reset(new Pools(*m_schema));
     m_structure.reset(new Structure(props["structure"]));
+    m_hierarchy.reset(
+            new Hierarchy(
+                *m_bbox,
+                props["hierarchy"],
+                m_outEndpoint->getSubEndpoint("h")));
 
     if (props.isMember("subset"))
     {
@@ -549,22 +631,14 @@ void Builder::loadProps(const Json::Value& props)
         m_reprojection.reset(new Reprojection(props["reprojection"]));
     }
 
-    m_srs = props["srs"].asString();
-    m_manifest.reset(new Manifest(props["manifest"]));
-    m_trustHeaders = props["trustHeaders"].asBool();
-    m_compress = props["compressed"].asBool();
-
-    if (!m_manifest->pointStats().inserts())
+    if (props.isMember("manifest"))
     {
-        std::vector<std::string> paths;
-        paths.push_back("fake");
-
-        m_manifest.reset(new Manifest(paths));
-
-        Json::Value json;
-        json["inserts"] = props["stats"]["numPoints"].asUInt64();
-        m_manifest->add(0, PointStats(json));
+        m_manifest.reset(new Manifest(props["manifest"]));
     }
+
+    m_srs = props["srs"].asString();
+    m_compress = props["compressed"].asBool();
+    m_trustHeaders = props["trustHeaders"].asBool();
 }
 
 void Builder::prep()
@@ -582,9 +656,15 @@ void Builder::prep()
         }
 
         const std::string rootDir(m_outEndpoint->root());
-        if (!m_outEndpoint->isRemote() && !arbiter::fs::mkdirp(rootDir))
+        if (!m_outEndpoint->isRemote())
         {
-            throw std::runtime_error("Couldn't create local build directory");
+            if (
+                    !arbiter::fs::mkdirp(rootDir) ||
+                    !arbiter::fs::mkdirp(rootDir + "h"))
+            {
+                throw std::runtime_error(
+                        "Couldn't create local build directory");
+            }
         }
     }
 }
@@ -595,7 +675,7 @@ std::string Builder::postfix(const bool includeSubset) const
     // the chunks are spatially disparate anyway (except for the base chunk).
     return
         (includeSubset && m_subset ? m_subset->basePostfix() : "") +
-        (m_manifest->splitPostfix());
+        (m_manifest ? m_manifest->splitPostfix() : "");
 }
 
 void Builder::stop()
@@ -654,12 +734,15 @@ bool Builder::keepGoing() const
     return m_origin < m_end;
 }
 
+const BBox& Builder::bboxConforming() const { return *m_bboxConforming; }
 const BBox& Builder::bbox() const           { return *m_bbox; }
 const Schema& Builder::schema() const       { return *m_schema; }
 const Manifest& Builder::manifest() const   { return *m_manifest; }
 const Structure& Builder::structure() const { return *m_structure; }
 const Registry& Builder::registry() const   { return *m_registry; }
+const Hierarchy& Builder::hierarchy() const { return *m_hierarchy; }
 const Subset* Builder::subset() const       { return m_subset.get(); }
+Hierarchy& Builder::hierarchy()             { return *m_hierarchy; }
 
 const Reprojection* Builder::reprojection() const
 {
@@ -674,10 +757,9 @@ const arbiter::Endpoint& Builder::tmpEndpoint() const { return *m_tmpEndpoint; }
 void Builder::clip(
         const Id& index,
         const std::size_t chunkNum,
-        const std::size_t id,
-        const bool tentative)
+        const std::size_t id)
 {
-    m_registry->clip(index, chunkNum, id, tentative);
+    m_registry->clip(index, chunkNum, id);
 }
 
 void Builder::addError(const std::string& path, const std::string& error)

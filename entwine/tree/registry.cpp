@@ -15,7 +15,6 @@
 #include <pdal/PointView.hpp>
 
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/third/json/json.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
@@ -165,16 +164,16 @@ bool Registry::addPoint(
 
         if (done)
         {
+            climber.count();
             return true;
+        }
+        else if (m_structure.inRange(climber.depth() + 1))
+        {
+            climber.magnify(toAdd->val().point());
         }
         else
         {
-            climber.magnify(toAdd->val().point());
-
-            if (!m_structure.inRange(climber.index()))
-            {
-                return false;
-            }
+            return false;
         }
     }
 
@@ -183,7 +182,7 @@ bool Registry::addPoint(
 
 Cell* Registry::getCell(const Climber& climber, Clipper& clipper)
 {
-    Cell* cell(0);
+    Cell* cell(nullptr);
 
     const Id& index(climber.index());
 
@@ -202,10 +201,9 @@ Cell* Registry::getCell(const Climber& climber, Clipper& clipper)
 void Registry::clip(
         const Id& index,
         const std::size_t chunkNum,
-        const std::size_t id,
-        const bool tentative)
+        const std::size_t id)
 {
-    m_cold->clip(index, chunkNum, id, tentative);
+    m_cold->clip(index, chunkNum, id);
 }
 
 void Registry::save()

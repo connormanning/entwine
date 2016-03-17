@@ -42,39 +42,7 @@ namespace
     std::unique_ptr<BBox> getBBox(const Json::Value& json, const bool is3d)
     {
         std::unique_ptr<BBox> bbox;
-
-        if (!json.empty())
-        {
-            if (json.size() == 4 && !is3d)
-            {
-                Json::Value expanded;
-                Json::Value& bounds(expanded["bounds"]);
-
-                bounds.append(json[0].asDouble());
-                bounds.append(json[1].asDouble());
-                bounds.append(std::numeric_limits<double>::max());
-                bounds.append(json[2].asDouble());
-                bounds.append(json[3].asDouble());
-                bounds.append(std::numeric_limits<double>::lowest());
-
-                expanded["is3d"] = false;
-
-                bbox.reset(new BBox(expanded));
-            }
-            else if (is3d)
-            {
-                Json::Value expanded;
-                expanded["bounds"] = json;
-                expanded["is3d"] = true;
-                bbox.reset(new BBox(expanded));
-            }
-            else
-            {
-                throw std::runtime_error(
-                        "Invalid bbox for the requested tree type.");
-            }
-        }
-
+        if (!json.empty()) bbox.reset(new BBox(json));
         return bbox;
     }
 
@@ -155,7 +123,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
     // Geometry and spatial info.
     const Json::Value& geometry(config["geometry"]);
-    auto bbox(getBBox(geometry["bbox"], dimensions == 3 || tubular));
+    auto bboxConforming(getBBox(geometry["bbox"], dimensions == 3 || tubular));
     auto reprojection(getReprojection(geometry["reproject"]));
     Schema schema(geometry["schema"]);
 
@@ -197,7 +165,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                 });
     }
 
-    if (!bbox || !schema.pointSize() || !numPointsHint)
+    if (!exists && (!bboxConforming || !schema.pointSize() || !numPointsHint))
     {
         std::cout << "Performing dataset inference..." << std::endl;
         Inference inference(
@@ -212,9 +180,9 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         inference.go();
         manifest.reset(new Manifest(inference.manifest()));
 
-        if (!bbox)
+        if (!bboxConforming)
         {
-            bbox.reset(new BBox(inference.bbox()));
+            bboxConforming.reset(new BBox(inference.bbox()));
             std::cout << "Inferred: " << inference.bbox() << std::endl;
         }
 
@@ -237,26 +205,6 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         if (!numPointsHint) numPointsHint = inference.numPoints();
     }
 
-    Structure structure(
-            nullDepth,
-            baseDepth,
-            coldDepth,
-            chunkPoints,
-            dimensions,
-            numPointsHint,
-            tubular,
-            dynamicChunks,
-            discardDuplicates,
-            prefixIds);
-
-    if (bbox)
-    {
-        bbox->cubeify();
-        bbox->bloat();
-    }
-
-    std::unique_ptr<Subset> subset(getSubset(config, structure, *bbox));
-
     if (!force && exists)
     {
         builder.reset(
@@ -269,7 +217,24 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     }
     else
     {
-        if (!bbox) throw std::runtime_error("Missing inference");
+        if (!bboxConforming) throw std::runtime_error("Missing inference");
+
+        Structure structure(
+                nullDepth,
+                baseDepth,
+                coldDepth,
+                chunkPoints,
+                dimensions,
+                numPointsHint,
+                tubular,
+                dynamicChunks,
+                discardDuplicates,
+                prefixIds);
+
+        BBox cube(*bboxConforming);
+        if (!cube.isCubic()) cube.cubeify();
+
+        std::unique_ptr<Subset> subset(getSubset(config, structure, cube));
 
         builder.reset(
                 new Builder(
@@ -280,7 +245,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                     trustHeaders,
                     subset.get(),
                     reprojection.get(),
-                    *bbox,
+                    *bboxConforming,
                     schema,
                     threads,
                     threshold,
@@ -340,12 +305,13 @@ Json::Value ConfigParser::parse(const std::string& input)
 
     if (input.size())
     {
-        reader.parse(input, json, false);
-
-        const std::string jsonError(reader.getFormattedErrorMessages());
-        if (!jsonError.empty())
+        if (!reader.parse(input, json, false))
         {
-            throw std::runtime_error("Error during parsing: " + jsonError);
+            const std::string jsonError(reader.getFormattedErrorMessages());
+            if (!jsonError.empty())
+            {
+                throw std::runtime_error("Error during parsing: " + jsonError);
+            }
         }
     }
 

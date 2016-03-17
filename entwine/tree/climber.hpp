@@ -16,20 +16,37 @@
 #include <iostream>
 
 #include <entwine/types/bbox.hpp>
+#include <entwine/types/dir.hpp>
 #include <entwine/types/structure.hpp>
 
 namespace entwine
 {
 
+class Hierarchy;
+class HierarchyClimber;
+class Node;
 class Point;
 
 // Maintains the state of the current point as it traverses the virtual tree.
 class Climber
 {
 public:
-    Climber(const BBox& bbox, const Structure& structure);
+    Climber(
+            const BBox& bbox,
+            const Structure& structure,
+            Hierarchy* hierarchy = nullptr);
+
+    Climber(const Climber& other);
+    Climber& operator=(const Climber& other);
+
+    ~Climber();
+
+    void reset();
 
     void magnify(const Point& point);
+    void magnifyTo(const Point& point, std::size_t depth);
+    void magnifyTo(const BBox& bbox);
+
     const Id& index()   const { return m_index; }
     const Id& chunkId() const { return m_chunkId; }
     std::size_t tick()  const { return m_tick; }
@@ -45,6 +62,10 @@ public:
         else return std::numeric_limits<std::size_t>::max();
     }
 
+    HierarchyClimber& hierarchyClimber();
+
+    void count();
+
     void goSwd() { climb(Dir::swd); m_bbox.goSwd(); }
     void goSed() { climb(Dir::sed); m_bbox.goSed(); }
     void goNwd() { climb(Dir::nwd); m_bbox.goNwd(); }
@@ -54,47 +75,29 @@ public:
     void goNwu() { climb(Dir::nwu); m_bbox.goNwu(); }
     void goNeu() { climb(Dir::neu); m_bbox.goNeu(); }
 
-    Climber getSwd() const { Climber c(*this); c.goSwd(); return c; }
-    Climber getSed() const { Climber c(*this); c.goSed(); return c; }
-    Climber getNwd() const { Climber c(*this); c.goNwd(); return c; }
-    Climber getNed() const { Climber c(*this); c.goNed(); return c; }
-    Climber getSwu() const { Climber c(*this); c.goSwu(); return c; }
-    Climber getSeu() const { Climber c(*this); c.goSeu(); return c; }
-    Climber getNwu() const { Climber c(*this); c.goNwu(); return c; }
-    Climber getNeu() const { Climber c(*this); c.goNeu(); return c; }
-
-    enum Dir
-    {
-        swd = 0,
-        sed = 1,
-        nwd = 2,
-        ned = 3,
-        swu = 4,
-        seu = 5,
-        nwu = 6,
-        neu = 7
-    };
-
 private:
     const Structure& m_structure;
-    std::size_t m_dimensions;
-    std::size_t m_factor;
-    bool m_is3d;
-    bool m_tubular;
+    const std::size_t m_dimensions;
+    const std::size_t m_factor;
+    const bool m_is3d;
+    const bool m_tubular;
+    const std::size_t m_sparseDepthBegin;
 
     Id m_index;
     Id m_chunkId;
     std::size_t m_tick;
 
     std::size_t m_depth;
-    std::size_t m_sparseDepthBegin;
 
     std::size_t m_depthChunks;
     Id m_chunkNum;
     Id m_chunkPoints;
 
+    const BBox m_bboxOriginal;
     BBox m_bbox;
     BBox m_bboxChunk;
+
+    std::unique_ptr<HierarchyClimber> m_hierarchyClimber;
 
     void climb(Dir dir);
 };

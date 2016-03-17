@@ -88,8 +88,8 @@ void Arbiter::init(const Json::Value& json)
 {
     using namespace drivers;
 
-    auto fs(Fs::create(m_pool, json["fs"]));
-    if (fs) m_drivers["fs"] = std::move(fs);
+    auto fs(Fs::create(m_pool, json["file"]));
+    if (fs) m_drivers["file"] = std::move(fs);
 
     auto http(Http::create(m_pool, json["http"]));
     if (http) m_drivers["http"] = std::move(http);
@@ -199,7 +199,7 @@ std::unique_ptr<fs::LocalHandle> Arbiter::getLocalHandle(
 
 std::string Arbiter::getType(const std::string path) const
 {
-    std::string type("fs");
+    std::string type("file");
     const std::size_t pos(path.find(delimiter));
 
     if (pos != std::string::npos)
@@ -413,6 +413,11 @@ void Endpoint::putSubpath(
 std::string Endpoint::fullPath(const std::string& subpath) const
 {
     return m_root + subpath;
+}
+
+Endpoint Endpoint::getSubEndpoint(std::string subpath) const
+{
+    return Endpoint(m_driver, m_root + subpath);
 }
 
 } // namespace arbiter

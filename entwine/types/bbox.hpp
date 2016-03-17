@@ -11,6 +11,7 @@
 #pragma once
 
 #include <entwine/third/json/json.hpp>
+#include <entwine/types/dir.hpp>
 #include <entwine/types/point.hpp>
 
 namespace entwine
@@ -34,6 +35,9 @@ public:
 
     // Returns true if this BBox shares any area in common with another.
     bool overlaps(const BBox& other) const;
+
+    // Returns true if the requested BBox is contained within this BBox.
+    bool contains(const BBox& other, bool force2d = false) const;
 
     // Returns true if the requested point is contained within this BBox.
     bool contains(const Point& p) const;
@@ -60,6 +64,36 @@ public:
     BBox getSeu() const { BBox b(*this); b.goSeu(); return b; }
     BBox getSed() const { BBox b(*this); b.goSed(); return b; }
 
+    void go(Dir dir)
+    {
+        switch (dir)
+        {
+            case Dir::swd: goSwd(); break;
+            case Dir::sed: goSed(); break;
+            case Dir::nwd: goNwd(); break;
+            case Dir::ned: goNed(); break;
+            case Dir::swu: goSwu(); break;
+            case Dir::seu: goSeu(); break;
+            case Dir::nwu: goNwu(); break;
+            case Dir::neu: goNeu(); break;
+        }
+    }
+
+    BBox get(Dir dir) const
+    {
+        switch (dir)
+        {
+            case Dir::swd: return getSwd(); break;
+            case Dir::sed: return getSed(); break;
+            case Dir::nwd: return getNwd(); break;
+            case Dir::ned: return getNed(); break;
+            case Dir::swu: return getSwu(); break;
+            case Dir::seu: return getSeu(); break;
+            case Dir::nwu: return getNwu(); break;
+            case Dir::neu: return getNeu(); break;
+        }
+    }
+
     bool exists() const { return Point::exists(m_min) && Point::exists(m_max); }
     bool is3d() const { return m_is3d; }
 
@@ -69,27 +103,21 @@ public:
     void grow(const Point& p);
     void growZ(const Range& range);
 
-    // Bloat coordinates to nearest integer.
-    void bloat()
+    bool isCubic() const
     {
-        m_min.x = std::floor(m_min.x);
-        m_min.y = std::floor(m_min.y);
-        m_min.z = std::floor(m_min.z);
-        m_max.x = std::ceil(m_max.x);
-        m_max.y = std::ceil(m_max.y);
-        m_max.z = std::ceil(m_max.z);
-
-        setMid();
+        return width() == depth() && (!m_is3d || width() == height());
     }
 
-    // Bloat all coordinates necessary to form a cube.
+    // Bloat all coordinates necessary to form a cube and also to the nearest
+    // integer.
     void cubeify()
     {
         const double xDist(m_max.x - m_min.x);
         const double yDist(m_max.y - m_min.y);
         const double zDist(m_max.z - m_min.z);
 
-        const double radius(std::max(std::max(xDist, yDist), zDist) / 2 + 10);
+        const double radius(
+                std::ceil(std::max(std::max(xDist, yDist), zDist) / 2.0 + 10));
 
         m_min.x = std::floor(m_mid.x) - radius;
         m_min.y = std::floor(m_mid.y) - radius;
@@ -98,7 +126,11 @@ public:
         m_max.x = std::floor(m_mid.x) + radius;
         m_max.y = std::floor(m_mid.y) + radius;
         m_max.z = std::floor(m_mid.z) + radius;
+
+        setMid();
     }
+
+    void growBy(double ratio);
 
 private:
     Point m_min;
@@ -111,6 +143,22 @@ private:
 
     void check(const Point& min, const Point& max) const;
 };
+
+inline Point& operator+=(Point& lhs, const Point& rhs)
+{
+    lhs.x += rhs.x;
+    lhs.y += rhs.y;
+    lhs.z += rhs.z;
+    return lhs;
+}
+
+inline Point& operator-=(Point& lhs, const Point& rhs)
+{
+    lhs.x -= rhs.x;
+    lhs.y -= rhs.y;
+    lhs.z -= rhs.z;
+    return lhs;
+}
 
 std::ostream& operator<<(std::ostream& os, const BBox& bbox);
 

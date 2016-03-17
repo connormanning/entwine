@@ -24,37 +24,39 @@ namespace entwine
 
 class Schema;
 
-class BaseQuery
+class Query
 {
 public:
-    BaseQuery(
+    Query(
             const Reader& reader,
+            const Schema& schema,
             Cache& cache,
             const BBox& qbox,
             std::size_t depthBegin,
-            std::size_t depthEnd);
-
-    virtual ~BaseQuery() { }
+            std::size_t depthEnd,
+            double scale,
+            const Point& offset);
 
     // Returns true if next() should be called again.  If false is returned,
     // then the query is complete and next() should not be called anymore.
-    //
-    // This function is primarily for callers that consume the data during the
-    // query, for example data streamers.  For callers caring only about the
-    // end result (e.g. the MetaQuery), run() is simpler to use.
-    bool next();
-
-    void run() { while (next()) ; }
+    bool next(std::vector<char>& buffer);
 
     bool done() const { return m_done; }
-
     std::size_t numPoints() const { return m_numPoints; }
 
 protected:
-    virtual bool processPoint(const PointInfo& info) = 0;
+    bool getBase(std::vector<char>& buffer); // True if base data existed.
+    void getChunked(std::vector<char>& buffer);
 
-    bool getBase(); // Returns true if base data existed.
-    void getChunked();
+    template<typename T> void setSpatial(char* pos, double d)
+    {
+        const T v(d);
+        std::memcpy(pos, &v, sizeof(T));
+    }
+
+    bool processPoint(
+            std::vector<char>& buffer,
+            const PointInfo& info);
 
     const Reader& m_reader;
     const Structure& m_structure;
@@ -72,62 +74,13 @@ protected:
 
     bool m_base;
     bool m_done;
-};
 
-class Query : public BaseQuery
-{
-public:
-    Query(
-            const Reader& reader,
-            const Schema& schema,
-            Cache& cache,
-            const BBox& qbox,
-            std::size_t depthBegin,
-            std::size_t depthEnd,
-            bool normalize,
-            double scale);
-
-    bool next(std::vector<char>& buffer);
-
-private:
-    virtual bool processPoint(const PointInfo& info) override;
-
-    std::vector<char>* m_buffer;
     const Schema& m_outSchema;
-    const bool m_normalize;
     const double m_scale;
-
-    const Point& m_readerMid;
+    const Point m_offset;
 
     BinaryPointTable m_table;
     pdal::PointRef m_pointRef;
-};
-
-class MetaQuery : public BaseQuery
-{
-public:
-    MetaQuery(
-            const Reader& reader,
-            Cache& cache,
-            const BBox& qbox,
-            Reader::BoxMap& grid,
-            std::size_t depth)
-        : BaseQuery(reader, cache, qbox, depth, depth + 1)
-        , m_grid(grid)
-        , m_loBox()
-        , m_hiBox()
-        , m_radius(qbox.width() / 2)    // TODO This assumes an actual cube.
-        , m_is3d(qbox.is3d())
-    { }
-
-private:
-    virtual bool processPoint(const PointInfo& info) override;
-
-    Reader::BoxMap& m_grid;
-    BBox m_loBox;
-    BBox m_hiBox;
-    const double m_radius;
-    const bool m_is3d;
 };
 
 } // namespace entwine
