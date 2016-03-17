@@ -50,12 +50,9 @@ namespace
     {
         std::unique_ptr<Reprojection> reprojection;
 
-        const Json::Value& in(json["in"]);
-        const Json::Value& out(json["out"]);
-
-        if (!json.empty() && out.isString() && out.asString().size())
+        if (!json.empty())
         {
-            reprojection.reset(new Reprojection(in.asString(), out.asString()));
+            reprojection.reset(new Reprojection(json));
         }
 
         return reprojection;

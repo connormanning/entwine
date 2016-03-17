@@ -30,7 +30,7 @@ namespace
             const pdal::SpatialReference& found,
             const Reprojection& given)
     {
-        if (found.empty()) return given;
+        if (given.hammer() || found.empty()) return given;
         else return Reprojection(found.getWKT(), given.out());
     }
 }

@@ -76,6 +76,15 @@ namespace
             "\t\theader.  In this case the build will fail if no input SRS\n"
             "\t\tmay be inferred.  Reprojection strings may be any of the\n"
             "\t\tformats supported by GDAL.\n\n"
+            "\t\tIf an input reprojection is supplied, by default it will\n"
+            "\t\tonly be used when no SRS can be inferred from the file.  To\n"
+            "\t\toverride this behavior and use the specified input SRS even\n"
+            "\t\twhen one can be found from the file header, set the '-h'\n"
+            "\t\tflag.\n\n"
+
+            "\t-h\n"
+            "\t\tIf set, the user-supplied input SRS will always override\n"
+            "\t\tany SRS inferred from file headers.\n\n"
 
             "\t-t <threads>\n"
             "\t\tSet the number of worker threads.  Recommended to be no\n"
@@ -130,7 +139,30 @@ namespace
     {
         if (reprojection)
         {
-            return reprojection->in() + " -> " + reprojection->out();
+            std::string s;
+
+            if (reprojection->hammer())
+            {
+                s += reprojection->in() + " (OVERRIDING file headers)";
+            }
+            else
+            {
+                if (reprojection->in().size())
+                {
+                    s += "(from file headers, or a default of '";
+                    s += reprojection->in();
+                    s += "')";
+                }
+                else
+                {
+                    s += "(from file headers)";
+                }
+            }
+
+            s += " -> ";
+            s += reprojection->out();
+
+            return s;
         }
         else
         {
@@ -174,10 +206,13 @@ void Kernel::build(std::vector<std::string> args)
         return;
     }
 
-    if (args[0] == "help" || args[0] == "-h" || args[0] == "--help")
+    if (args.size() == 1)
     {
-        std::cout << getUsageString() << std::flush;
-        return;
+        if (args[0] == "help" || args[0] == "-h" || args[0] == "--help")
+        {
+            std::cout << getUsageString() << std::flush;
+            return;
+        }
     }
 
     arbiter::Arbiter localArbiter;
@@ -199,7 +234,7 @@ void Kernel::build(std::vector<std::string> args)
 
     while (a < args.size())
     {
-        std::string arg(args[a]);
+        const std::string arg(args[a]);
 
         if (arg == "-i")
         {
@@ -316,6 +351,10 @@ void Kernel::build(std::vector<std::string> args)
             {
                 throw std::runtime_error("Invalid reprojection argument");
             }
+        }
+        else if (arg == "-h")
+        {
+            json["geometry"]["reproject"]["hammer"] = true;
         }
         /*
         else if (arg == "-m")
