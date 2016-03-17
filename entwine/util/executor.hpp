@@ -83,8 +83,7 @@ private:
             std::string path) const;
 
     pdal::Filter* createReprojectionFilter(
-            const Reprojection& reprojection,
-            pdal::BasePointTable& pointTable) const;
+            const Reprojection& reprojection) const;
 
     bool m_is3d;
     std::unique_ptr<pdal::StageFactory> m_stageFactory;

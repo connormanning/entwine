@@ -65,7 +65,7 @@ bool Executor::run(
                     srsFoundOrDefault(
                         reader->getSpatialReference(), *reprojection));
 
-            if (pdal::Filter* filter = createReprojectionFilter(srs, table))
+            if (pdal::Filter* filter = createReprojectionFilter(srs))
             {
                 filter->setInput(*reader);
                 executor = filter;
@@ -146,8 +146,7 @@ std::unique_ptr<Preview> Executor::preview(
 
             if (pdal::Filter* filter =
                     createReprojectionFilter(
-                        srsFoundOrDefault(quick.m_srs, *reprojection),
-                        table))
+                        srsFoundOrDefault(quick.m_srs, *reprojection)))
             {
 
                 filter->setInput(buffer);
@@ -210,8 +209,7 @@ pdal::Reader* Executor::createReader(
 }
 
 pdal::Filter* Executor::createReprojectionFilter(
-        const Reprojection& reproj,
-        pdal::BasePointTable& pointTable) const
+        const Reprojection& reproj) const
 {
     if (reproj.in().empty())
     {

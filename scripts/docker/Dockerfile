@@ -1,4 +1,4 @@
-FROM connormanning/pdal:docker-master
+FROM connormanning/pdal:entwine-pin
 MAINTAINER Connor Manning <connor@hobu.co>
 
 ENV CC clang
