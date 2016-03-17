@@ -142,9 +142,9 @@ public:
         return lossless() || coldDepthEnd() > coldDepthBegin();
     }
 
-    bool inRange(const Id& index) const
+    bool inRange(std::size_t depth) const
     {
-        return lossless() || index < m_coldIndexEnd;
+        return lossless() || depth < m_coldDepthEnd;
     }
 
     bool lossless() const           { return m_coldDepthEnd == 0; }

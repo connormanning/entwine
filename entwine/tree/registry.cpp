@@ -167,14 +167,13 @@ bool Registry::addPoint(
             climber.count();
             return true;
         }
-        else
+        else if (m_structure.inRange(climber.depth() + 1))
         {
             climber.magnify(toAdd->val().point());
-
-            if (!m_structure.inRange(climber.index()))
-            {
-                return false;
-            }
+        }
+        else
+        {
+            return false;
         }
     }
 

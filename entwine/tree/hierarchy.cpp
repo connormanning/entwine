@@ -356,6 +356,11 @@ Json::Value Hierarchy::toJson(const arbiter::Endpoint& ep, std::string postfix)
             if (!a.zero()) jsonAnchors.append(a.str());
         }
 
+        if (jsonAnchors.empty())
+        {
+            jsonAnchors.resize(0);
+        }
+
         ep.putSubpath("anchors", jsonAnchors.toStyledString());
     }
 
