@@ -223,7 +223,7 @@ private:
 
     // Get metadata properties, and load from those serialized properties.
     Json::Value saveOwnProps() const;
-    void loadProps(Json::Value& props);
+    void loadProps(Json::Value& props, std::string pf);
 
     void addError(const std::string& path, const std::string& error);
 

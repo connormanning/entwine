@@ -469,7 +469,7 @@ PooledInfoStack Builder::insertData(
     return rejected;
 }
 
-void Builder::load(const std::size_t clipThreads, const std::string post)
+void Builder::load(const std::size_t clipThreads, const std::string pf)
 {
     Json::Value meta;
     Json::Reader reader;
@@ -482,12 +482,12 @@ void Builder::load(const std::size_t clipThreads, const std::string post)
 
     {
         // Get top-level metadata.
-        const std::string strMeta(m_outEndpoint->getSubpath("entwine" + post));
+        const std::string strMeta(m_outEndpoint->getSubpath("entwine" + pf));
 
         if (!reader.parse(strMeta, meta, false)) error();
 
         // For Reader invocation only.
-        if (post.empty())
+        if (pf.empty())
         {
             m_numPointsClone = meta["numPoints"].asUInt64();
         }
@@ -495,26 +495,23 @@ void Builder::load(const std::size_t clipThreads, const std::string post)
 
     {
         const std::string strIds(
-                m_outEndpoint->getSubpath("entwine-ids" + post));
+                m_outEndpoint->getSubpath("entwine-ids" + pf));
 
         if (!reader.parse(strIds, meta["ids"], false)) error();
     }
 
     // Don't load manifest if this is a Reader wakeup.
-    if (post.size())
+    if (pf.size())
     {
         const std::string strManifest(
-                m_outEndpoint->getSubpath("entwine-manifest" + post));
+                m_outEndpoint->getSubpath("entwine-manifest" + pf));
 
         if (!reader.parse(strManifest, meta["manifest"], false)) error();
     }
 
-    loadProps(meta);
+    loadProps(meta, pf);
 
-    if (post.size())
-    {
-        m_hierarchy->awakenAll();
-    }
+    if (pf.size()) m_hierarchy->awakenAll();
 
     m_executor.reset(new Executor(m_structure->is3d()));
     m_originId = m_schema->pdalLayout().findDim("Origin");
@@ -578,6 +575,7 @@ void Builder::merge(Builder& other)
     m_registry->merge(other.registry());
     m_manifest->merge(other.manifest());
     m_hierarchy->merge(*other.m_hierarchy);
+    m_hierarchy->setStep(Hierarchy::defaultStep);
 }
 
 Json::Value Builder::saveOwnProps() const
@@ -608,7 +606,7 @@ Json::Value Builder::saveOwnProps() const
     return props;
 }
 
-void Builder::loadProps(Json::Value& props)
+void Builder::loadProps(Json::Value& props, const std::string pf)
 {
     m_bboxConforming.reset(new BBox(props["bboxConforming"]));
     m_bbox.reset(new BBox(props["bbox"]));
@@ -619,7 +617,8 @@ void Builder::loadProps(Json::Value& props)
             new Hierarchy(
                 *m_bbox,
                 props["hierarchy"],
-                m_outEndpoint->getSubEndpoint("h")));
+                m_outEndpoint->getSubEndpoint("h"),
+                pf));
 
     if (props.isMember("subset"))
     {

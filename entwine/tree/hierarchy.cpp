@@ -112,6 +112,7 @@ void Node::insertInto(Json::Value& json) const
 
 Node::NodeSet Node::insertInto(
         const arbiter::Endpoint& ep,
+        const std::string postfix,
         const std::size_t step)
 {
     NodeSet anchors;
@@ -119,7 +120,7 @@ Node::NodeSet Node::insertInto(
     AnchoredMap slice;
     slice[0] = AnchoredNode(this);
 
-    while (slice.size()) slice = insertSlice(anchors, slice, ep, step);
+    while (slice.size()) slice = insertSlice(anchors, slice, ep, postfix, step);
 
     return anchors;
 }
@@ -128,6 +129,7 @@ Node::AnchoredMap Node::insertSlice(
         NodeSet& anchors,
         const AnchoredMap& slice,
         const arbiter::Endpoint& ep,
+        const std::string postfix,
         const std::size_t step)
 {
     std::vector<char> data;
@@ -135,10 +137,10 @@ Node::AnchoredMap Node::insertSlice(
     AnchoredMap nextSlice;
     Id anchor(slice.begin()->first);
 
-    auto write([&anchors, &ep, &anchor, &data, &nextSlice, &fullSlice]()
+    auto write([&]()
     {
         anchors.insert(anchor);
-        ep.putSubpath(anchor.str(), data);
+        ep.putSubpath(anchor.str() + postfix, data);
         data.clear();
 
         if (nextSlice.size())
@@ -235,7 +237,8 @@ bool Node::insertBinary(std::vector<char>& s) const
 Hierarchy::Hierarchy(
         const BBox& bbox,
         const Json::Value& json,
-        const arbiter::Endpoint& ep)
+        const arbiter::Endpoint& ep,
+        const std::string postfix)
     : m_bbox(bbox)
     , m_depthBegin(json["depthBegin"].asUInt64())
     , m_step(json["step"].asUInt64())
@@ -245,7 +248,7 @@ Hierarchy::Hierarchy(
     , m_mutex()
     , m_endpoint(new arbiter::Endpoint(ep))
 {
-    const std::vector<char> bin(ep.getSubpathBinary("0"));
+    const std::vector<char> bin(ep.getSubpathBinary("0" + postfix));
     const char* pos(bin.data());
 
     m_root = Node(pos, m_step, m_edges);
@@ -342,7 +345,7 @@ void Hierarchy::awaken(const Id& id, const Node* node)
 Json::Value Hierarchy::toJson(const arbiter::Endpoint& ep, std::string postfix)
 {
     const std::size_t writeStep(postfix.empty() ? m_step : 0);
-    const Node::NodeSet anchors(m_root.insertInto(ep, writeStep));
+    const Node::NodeSet anchors(m_root.insertInto(ep, postfix, writeStep));
 
     Json::Value json;
     json["depthBegin"] = static_cast<Json::UInt64>(m_depthBegin);

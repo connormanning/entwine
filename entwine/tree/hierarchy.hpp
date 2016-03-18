@@ -77,7 +77,10 @@ public:
     void merge(Node& other);
     void insertInto(Json::Value& json) const;
 
-    NodeSet insertInto(const arbiter::Endpoint& ep, std::size_t step);
+    NodeSet insertInto(
+            const arbiter::Endpoint& ep,
+            std::string postfix,
+            std::size_t step);
 
     const Children& children() const { return m_children; }
 
@@ -88,6 +91,7 @@ private:
             NodeSet& anchors,
             const AnchoredMap& slice,
             const arbiter::Endpoint& ep,
+            std::string postfix,
             std::size_t step);
 
     void insertData(
@@ -120,7 +124,8 @@ public:
     Hierarchy(
             const BBox& bbox,
             const Json::Value& json,
-            const arbiter::Endpoint& ep);
+            const arbiter::Endpoint& ep,
+            std::string postfix = "");
 
     Node& root() { return m_root; }
 
