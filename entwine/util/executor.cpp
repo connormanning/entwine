@@ -98,8 +98,6 @@ std::unique_ptr<Preview> Executor::preview(
         const std::string path,
         const Reprojection* reprojection)
 {
-    using namespace pdal;
-
     std::unique_ptr<Preview> result;
 
     auto lock(getLock());
@@ -126,20 +124,32 @@ std::unique_ptr<Preview> Executor::preview(
 
         if (reprojection)
         {
+            namespace DimId = pdal::Dimension::Id;
+
             pdal::PointTable table;
             auto layout(table.layout());
-            layout->registerDim(Dimension::Id::X);
-            layout->registerDim(Dimension::Id::Y);
-            layout->registerDim(Dimension::Id::Z);
+            layout->registerDim(DimId::X);
+            layout->registerDim(DimId::Y);
+            layout->registerDim(DimId::Z);
             layout->finalize();
 
             pdal::PointViewPtr view(new pdal::PointView(table));
-            view->setField(Dimension::Id::X, 0, bbox.min().x);
-            view->setField(Dimension::Id::Y, 0, bbox.min().y);
-            view->setField(Dimension::Id::Z, 0, bbox.min().z);
-            view->setField(Dimension::Id::X, 1, bbox.max().x);
-            view->setField(Dimension::Id::Y, 1, bbox.max().y);
-            view->setField(Dimension::Id::Z, 1, bbox.max().z);
+
+            view->setField(DimId::X, 0, bbox.min().x);
+            view->setField(DimId::Y, 0, bbox.min().y);
+            view->setField(DimId::Z, 0, bbox.min().z);
+
+            view->setField(DimId::X, 1, bbox.max().x);
+            view->setField(DimId::Y, 1, bbox.max().y);
+            view->setField(DimId::Z, 1, bbox.max().z);
+
+            view->setField(DimId::X, 2, bbox.min().x);
+            view->setField(DimId::Y, 2, bbox.max().y);
+            view->setField(DimId::Z, 2, bbox.min().z);
+
+            view->setField(DimId::X, 3, bbox.max().x);
+            view->setField(DimId::Y, 3, bbox.min().y);
+            view->setField(DimId::Z, 3, bbox.max().z);
 
             pdal::BufferReader buffer;
             buffer.addView(view);
@@ -148,22 +158,34 @@ std::unique_ptr<Preview> Executor::preview(
                     createReprojectionFilter(
                         srsFoundOrDefault(quick.m_srs, *reprojection)))
             {
-
                 filter->setInput(buffer);
 
                 filter->prepare(table);
                 filter->execute(table);
 
-                bbox = BBox(
-                        Point(
-                            view->getFieldAs<double>(Dimension::Id::X, 0),
-                            view->getFieldAs<double>(Dimension::Id::Y, 0),
-                            view->getFieldAs<double>(Dimension::Id::Z, 0)),
-                        Point(
-                            view->getFieldAs<double>(Dimension::Id::X, 1),
-                            view->getFieldAs<double>(Dimension::Id::Y, 1),
-                            view->getFieldAs<double>(Dimension::Id::Z, 1)),
-                        m_is3d);
+                const double hi(std::numeric_limits<double>::max());
+                const double lo(std::numeric_limits<double>::lowest());
+
+                Point min(hi, hi, hi);
+                Point max(lo, lo, lo);
+
+                for (std::size_t i(0); i < 4; ++i)
+                {
+                    const Point p(
+                            view->getFieldAs<double>(DimId::X, i),
+                            view->getFieldAs<double>(DimId::Y, i),
+                            view->getFieldAs<double>(DimId::Z, i));
+
+                    min.x = std::min(min.x, p.x);
+                    min.y = std::min(min.y, p.y);
+                    min.z = std::min(min.z, p.z);
+
+                    max.x = std::max(max.x, p.x);
+                    max.y = std::max(max.y, p.y);
+                    max.z = std::max(max.z, p.z);
+                }
+
+                bbox = BBox(min, max, m_is3d);
 
                 srs = pdal::SpatialReference(reprojection->out()).getWKT();
             }
