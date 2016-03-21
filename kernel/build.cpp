@@ -10,6 +10,7 @@
 
 #include "entwine.hpp"
 
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -47,7 +48,12 @@ namespace
     {
         return
             "\nUsage: entwine build <config file> <options>\n"
-            "Options (overrides config values):\n"
+
+            "\nConfig file:\n"
+            "\tOptional parameter, recommended only if the options below are\n"
+            "\tinsufficient.  See template at https://git.io/v2jPQ\n"
+
+            "\nOptions (overrides config values):\n"
 
             "\t-i <input path>\n"
             "\t\tSpecify the input location.  May end in '/*' for a\n"
@@ -56,6 +62,29 @@ namespace
 
             "\t-o <output path>\n"
             "\t\tOutput directory.\n\n"
+
+            "\t-a <tmp path>\n"
+            "\t\tDirectory for entwine-generated temporary files.\n\n"
+
+            "\t-b [xmin, ymin, zmin, xmax, ymax, zmax]\n"
+            "\t\tSet the boundings for the index.  Points outside of the\n"
+            "\t\tgiven coordinates will be discarded.\n\n"
+
+            "\t-r (<input reprojection>) <output reprojection>\n"
+            "\t\tSet the spatial reference system reprojection.  The input\n"
+            "\t\tvalue may be omitted to infer the input SRS from the file\n"
+            "\t\theader.  In this case the build will fail if no input SRS\n"
+            "\t\tmay be inferred.  Reprojection strings may be any of the\n"
+            "\t\tformats supported by GDAL.\n\n"
+            "\t\tIf an input reprojection is supplied, by default it will\n"
+            "\t\tonly be used when no SRS can be inferred from the file.  To\n"
+            "\t\toverride this behavior and use the specified input SRS even\n"
+            "\t\twhen one can be found from the file header, set the '-h'\n"
+            "\t\tflag.\n\n"
+
+            "\t-h\n"
+            "\t\tIf set, the user-supplied input SRS will always override\n"
+            "\t\tany SRS inferred from file headers.\n\n"
 
             "\t-t <threads>\n"
             "\t\tSet the number of worker threads.  Recommended to be no\n"
@@ -68,8 +97,16 @@ namespace
             "\t-u <aws user>\n"
             "\t\tSpecify AWS credential user, if not default\n\n"
 
-            "\t-r <max inserted files>\n"
+            "\t-g <max inserted files>\n"
             "\t\tFor directories, stop inserting after the specified count.\n\n"
+
+            "\t-p\n"
+            "\t\tPrefix stored IDs with a SHA (may be useful for\n"
+            "\t\tfilename-based distributed filesystems).\n\n"
+
+            "\t-x\n"
+            "\t\tDo not trust file headers when determining bounds.  By\n"
+            "\t\tdefault, the headers are considered to be good.\n\n"
 
             "\t-s <subset-number> <subset-total>\n"
             "\t\tBuild only a portion of the index.  If output paths are\n"
@@ -102,13 +139,63 @@ namespace
     {
         if (reprojection)
         {
-            return reprojection->in() + " -> " + reprojection->out();
+            std::string s;
+
+            if (reprojection->hammer())
+            {
+                s += reprojection->in() + " (OVERRIDING file headers)";
+            }
+            else
+            {
+                if (reprojection->in().size())
+                {
+                    s += "(from file headers, or a default of '";
+                    s += reprojection->in();
+                    s += "')";
+                }
+                else
+                {
+                    s += "(from file headers)";
+                }
+            }
+
+            s += " -> ";
+            s += reprojection->out();
+
+            return s;
         }
         else
         {
             return "(none)";
         }
     }
+
+    const Json::Value defaults(([]()
+    {
+        Json::Value json;
+
+        json["input"]["manifest"] = Json::Value::null;
+        json["input"]["threads"] = 9;
+        json["input"]["trustHeaders"] = true;
+
+        json["output"]["path"] = Json::Value::null;
+        json["output"]["tmp"] = "tmp";
+        json["output"]["compress"] = true;
+
+        json["structure"]["numPointsHint"] = Json::Value::null;
+        json["structure"]["nullDepth"] = 6;
+        json["structure"]["baseDepth"] = 10;
+        json["structure"]["pointsPerChunk"] = 262144;
+        json["structure"]["dynamicChunks"] = true;
+        json["structure"]["type"] = "hybrid";
+        json["structure"]["prefixIds"] = false;
+
+        json["geometry"]["bbox"] = Json::Value::null;
+        json["geometry"]["reproject"] = Json::Value::null;
+        json["geometry"]["schema"] = Json::Value::null;
+
+        return json;
+    })());
 }
 
 void Kernel::build(std::vector<std::string> args)
@@ -119,26 +206,35 @@ void Kernel::build(std::vector<std::string> args)
         return;
     }
 
-    if (args[0] == "help" || args[0] == "-h" || args[0] == "--help")
+    if (args.size() == 1)
     {
-        std::cout << getUsageString() << std::flush;
-        return;
+        if (args[0] == "help" || args[0] == "-h" || args[0] == "--help")
+        {
+            std::cout << getUsageString() << std::flush;
+            return;
+        }
     }
 
     arbiter::Arbiter localArbiter;
-
-    const std::string configPath(args[0]);
-    const std::string config(localArbiter.get(configPath));
-    Json::Value json(ConfigParser::parse(config));
+    Json::Value json(defaults);
     std::string user;
+
+    std::size_t a(0);
+
+    if (args[0].front() != '-')
+    {
+        // First argument is a config path.
+        const std::string configPath(args[0]);
+        const std::string config(localArbiter.get(configPath));
+        json = ConfigParser::parse(config);
+        ++a;
+    }
 
     std::unique_ptr<Manifest::Split> split;
 
-    std::size_t a(1);
-
     while (a < args.size())
     {
-        std::string arg(args[a]);
+        const std::string arg(args[a]);
 
         if (arg == "-i")
         {
@@ -148,7 +244,7 @@ void Kernel::build(std::vector<std::string> args)
             }
             else
             {
-                throw std::runtime_error("Invalid run count specification");
+                throw std::runtime_error("Invalid input path specification");
             }
         }
         else if (arg == "-o")
@@ -159,12 +255,51 @@ void Kernel::build(std::vector<std::string> args)
             }
             else
             {
-                throw std::runtime_error("Invalid run count specification");
+                throw std::runtime_error("Invalid output path specification");
+            }
+        }
+        else if (arg == "-a")
+        {
+            if (++a < args.size())
+            {
+                json["output"]["tmp"] = args[a];
+            }
+            else
+            {
+                throw std::runtime_error("Invalid tmp specification");
+            }
+        }
+        else if (arg == "-b")
+        {
+            std::string str;
+            bool done(false);
+
+            while (!done && ++a < args.size())
+            {
+                str += args[a];
+                if (args[a].find(']') != std::string::npos) done = true;
+            }
+
+            if (done)
+            {
+                Json::Reader reader;
+                Json::Value bboxJson;
+
+                reader.parse(str, bboxJson, false);
+                json["geometry"]["bbox"] = bboxJson;
+            }
+            else
+            {
+                throw std::runtime_error("Invalid bbox: " + str);
             }
         }
         else if (arg == "-f")
         {
             json["output"]["force"] = true;
+        }
+        else if (arg == "-x")
+        {
+            json["input"]["trustHeaders"] = false;
         }
         else if (arg == "-s")
         {
@@ -183,7 +318,7 @@ void Kernel::build(std::vector<std::string> args)
                 throw std::runtime_error("Invalid subset specification");
             }
         }
-        if (arg == "-u")
+        else if (arg == "-u")
         {
             if (++a < args.size())
             {
@@ -193,6 +328,33 @@ void Kernel::build(std::vector<std::string> args)
             {
                 throw std::runtime_error("Invalid AWS user argument");
             }
+        }
+        else if (arg == "-r")
+        {
+            if (++a < args.size())
+            {
+                const bool onlyOutput(
+                        a + 1 >= args.size() ||
+                        args[a + 1].front() == '-');
+
+                if (onlyOutput)
+                {
+                    json["geometry"]["reproject"]["out"] = args[a];
+                }
+                else
+                {
+                    json["geometry"]["reproject"]["in"] = args[a];
+                    json["geometry"]["reproject"]["out"] = args[++a];
+                }
+            }
+            else
+            {
+                throw std::runtime_error("Invalid reprojection argument");
+            }
+        }
+        else if (arg == "-h")
+        {
+            json["geometry"]["reproject"]["hammer"] = true;
         }
         /*
         else if (arg == "-m")
@@ -212,7 +374,7 @@ void Kernel::build(std::vector<std::string> args)
             }
         }
         */
-        else if (arg == "-r")
+        else if (arg == "-g")
         {
             if (++a < args.size())
             {
@@ -222,6 +384,10 @@ void Kernel::build(std::vector<std::string> args)
             {
                 throw std::runtime_error("Invalid run count specification");
             }
+        }
+        else if (arg == "-p")
+        {
+            json["structure"]["prefixIds"] = true;
         }
         else if (arg == "-t")
         {
@@ -233,6 +399,10 @@ void Kernel::build(std::vector<std::string> args)
             {
                 throw std::runtime_error("Invalid thread count specification");
             }
+        }
+        else
+        {
+            throw std::runtime_error("Invalid argument: " + args[a]);
         }
 
         ++a;
@@ -267,7 +437,6 @@ void Kernel::build(std::vector<std::string> args)
 
     const Structure& structure(builder->structure());
 
-    const BBox& bbox(builder->bbox());
     const Reprojection* reprojection(builder->reprojection());
     const Schema& schema(builder->schema());
     const std::size_t runCount(json["input"]["run"].asUInt64());
@@ -293,7 +462,7 @@ void Kernel::build(std::vector<std::string> args)
 
     std::cout <<
         "\tTrust file headers? " << yesNo(builder->trustHeaders()) << "\n" <<
-        "\tBuild threads: " << builder->numThreads() << "\n" <<
+        "\tBuild threads: " << builder->numThreads() <<
         std::endl;
 
     std::cout <<
@@ -318,7 +487,8 @@ void Kernel::build(std::vector<std::string> args)
 
     std::cout <<
         "Geometry:\n" <<
-        "\tBounds: " << bbox << "\n" <<
+        "\tConforming bounds: " << builder->bboxConforming() << "\n" <<
+        "\tCubic bounds: " << builder->bbox() << "\n" <<
         "\tReprojection: " << getReprojString(reprojection) << "\n" <<
         "\tStoring dimensions: " << getDimensionString(schema) << "\n" <<
         std::endl;

@@ -32,7 +32,6 @@ namespace
 
     const std::size_t maxCreateTries(8);
     const auto createSleepTime(std::chrono::milliseconds(500));
-    const auto tentativeSleepTime(std::chrono::milliseconds(150));
 
     const std::size_t maxFastTrackers(std::pow(4, 12));
 
@@ -289,17 +288,16 @@ void Cold::ensureChunk(
 void Cold::clip(
         const Id& chunkId,
         const std::size_t chunkNum,
-        const std::size_t id,
-        const bool tentative)
+        const std::size_t id)
 {
     if (chunkNum < m_chunkVec.size())
     {
         FastSlot& slot(m_chunkVec[chunkNum]);
         CountedChunk& countedChunk(*slot.chunk);
 
-        m_pool->add([this, &countedChunk, id, tentative]()
+        m_pool->add([this, &countedChunk, id]()
         {
-            unrefChunk(countedChunk, id, true, tentative);
+            unrefChunk(countedChunk, id, true);
         });
     }
     else
@@ -308,9 +306,9 @@ void Cold::clip(
         CountedChunk& countedChunk(*m_chunkMap.at(chunkId));
         mapLock.unlock();
 
-        m_pool->add([this, &countedChunk, id, tentative]()
+        m_pool->add([this, &countedChunk, id]()
         {
-            unrefChunk(countedChunk, id, false, tentative);
+            unrefChunk(countedChunk, id, false);
         });
     }
 }
@@ -318,14 +316,8 @@ void Cold::clip(
 void Cold::unrefChunk(
         CountedChunk& countedChunk,
         const std::size_t id,
-        const bool fast,
-        const bool tentative)
+        const bool fast)
 {
-    if (tentative)
-    {
-        std::this_thread::sleep_for(tentativeSleepTime);
-    }
-
     std::lock_guard<std::mutex> chunkLock(countedChunk.mutex);
 
     if (!--countedChunk.refs.at(id))

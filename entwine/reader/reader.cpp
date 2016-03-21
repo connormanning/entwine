@@ -17,6 +17,7 @@
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/builder.hpp>
+#include <entwine/tree/hierarchy.hpp>
 #include <entwine/tree/manifest.hpp>
 #include <entwine/tree/registry.hpp>
 #include <entwine/types/bbox.hpp>
@@ -36,27 +37,6 @@ namespace
         {
             throw InvalidQuery("Invalid depths");
         }
-    }
-
-    Json::Value& traverse(Json::Value& in, std::vector<std::string> keys)
-    {
-        Json::Value* json(&in);
-
-        for (const auto& key : keys)
-        {
-            json = &((*json)[key]);
-        }
-
-        return *json;
-    }
-
-    std::vector<std::string> concat(
-            const std::vector<std::string>& in,
-            const std::string& add)
-    {
-        std::vector<std::string> out(in);
-        out.push_back(add);
-        return out;
     }
 }
 
@@ -96,80 +76,17 @@ Json::Value Reader::hierarchy(
         const std::size_t depthEnd)
 {
     checkQuery(depthBegin, depthEnd);
-
-    if (depthEnd > depthBegin + 6)
-    {
-        throw std::runtime_error("Maximum hierarchy depth range exceeded");
-    }
-
-    Json::Value json;
-
-    BoxMap grid;
-    grid[qbox] = BoxInfo();
-    doHierarchyLevel(json, qbox, grid, depthBegin, depthEnd);
-
-    return json;
-}
-
-void Reader::doHierarchyLevel(
-        Json::Value& json,
-        const BBox& qbox,
-        BoxMap grid,
-        const std::size_t depth,
-        const std::size_t depthEnd)
-{
-    std::unique_ptr<MetaQuery> query(
-            new MetaQuery(
-                *this,
-                m_cache,
-                qbox,
-                grid,
-                depth));
-
-    query->run();
-
-    BoxMap next;
-    const std::size_t nextDepth(depth + 1);
-
-    for (const auto it : grid)
-    {
-        const auto& info(it.second);
-
-        if (info.numPoints)
-        {
-            const auto& box(it.first);
-
-            traverse(json, info.keys)["count"] =
-                static_cast<Json::UInt64>(info.numPoints);
-
-            if (nextDepth < depthEnd)
-            {
-                next[box.getNwu()] = BoxInfo(concat(info.keys, "nwu"));
-                next[box.getNwd()] = BoxInfo(concat(info.keys, "nwd"));
-                next[box.getNeu()] = BoxInfo(concat(info.keys, "neu"));
-                next[box.getNed()] = BoxInfo(concat(info.keys, "ned"));
-                next[box.getSwu()] = BoxInfo(concat(info.keys, "swu"));
-                next[box.getSwd()] = BoxInfo(concat(info.keys, "swd"));
-                next[box.getSeu()] = BoxInfo(concat(info.keys, "seu"));
-                next[box.getSed()] = BoxInfo(concat(info.keys, "sed"));
-            }
-        }
-    }
-
-    if (nextDepth < depthEnd)
-    {
-        doHierarchyLevel(json, qbox, next, nextDepth, depthEnd);
-    }
+    return m_builder->hierarchy().query(qbox, depthBegin, depthEnd);
 }
 
 std::unique_ptr<Query> Reader::query(
         const Schema& schema,
         const std::size_t depthBegin,
         const std::size_t depthEnd,
-        const bool normalize,
-        const double scale)
+        const double scale,
+        const Point offset)
 {
-    return query(schema, bbox(), depthBegin, depthEnd, normalize, scale);
+    return query(schema, bbox(), depthBegin, depthEnd, scale, offset);
 }
 
 std::unique_ptr<Query> Reader::query(
@@ -177,16 +94,17 @@ std::unique_ptr<Query> Reader::query(
         const BBox& qbox,
         const std::size_t depthBegin,
         const std::size_t depthEnd,
-        const bool normalize,
-        const double scale)
+        const double scale,
+        const Point offset)
 {
     checkQuery(depthBegin, depthEnd);
 
-    BBox normalBBox(qbox);
+    BBox queryCube(qbox);
 
     if (!qbox.is3d())
     {
-        normalBBox = BBox(
+        // Make sure the query is 3D.
+        queryCube = BBox(
                 Point(qbox.min().x, qbox.min().y, bbox().min().z),
                 Point(qbox.max().x, qbox.max().y, bbox().max().z),
                 true);
@@ -197,11 +115,16 @@ std::unique_ptr<Query> Reader::query(
                 *this,
                 schema,
                 m_cache,
-                normalBBox,
+                queryCube,
                 depthBegin,
                 depthEnd,
-                normalize,
-                scale));
+                scale,
+                offset));
+}
+
+const BBox& Reader::bboxConforming() const
+{
+    return m_builder->bboxConforming();
 }
 
 const BBox& Reader::bbox() const            { return m_builder->bbox(); }
@@ -215,7 +138,7 @@ const arbiter::Endpoint& Reader::endpoint() const { return m_endpoint; }
 
 std::size_t Reader::numPoints() const
 {
-    return m_builder->manifest().pointStats().inserts();
+    return m_builder->numPointsClone();
 }
 
 } // namespace entwine

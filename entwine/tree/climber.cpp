@@ -12,45 +12,110 @@
 
 #include <entwine/types/point.hpp>
 #include <entwine/tree/cell.hpp>
+#include <entwine/tree/hierarchy.hpp>
 
 namespace entwine
 {
 
-Climber::Climber(const BBox& bbox, const Structure& structure)
+Climber::Climber(
+        const BBox& bbox,
+        const Structure& structure,
+        Hierarchy* hierarchy)
     : m_structure(structure)
     , m_dimensions(structure.dimensions())
     , m_factor(structure.factor())
     , m_is3d(structure.is3d())
-    , m_tubular(structure.factor())
+    , m_tubular(structure.tubular())
+    , m_sparseDepthBegin(
+            structure.dynamicChunks() ? structure.sparseDepthBegin() : 0)
     , m_index(0)
     , m_chunkId(structure.nominalChunkIndex())
     , m_tick(0)
     , m_depth(0)
-    , m_sparseDepthBegin(
-            structure.dynamicChunks() ? structure.sparseDepthBegin() : 0)
     , m_depthChunks(1)
     , m_chunkNum(0)
     , m_chunkPoints(structure.baseChunkPoints())
+    , m_bboxOriginal(bbox)
     , m_bbox(bbox)
     , m_bboxChunk(bbox)
+    , m_hierarchyClimber(
+            hierarchy ?
+                new HierarchyClimber(
+                    *hierarchy,
+                    structure.tubular() || m_dimensions == 3 ? 3 : 2) :
+                nullptr)
 { }
+
+Climber::Climber(const Climber& other)
+    : m_structure(other.m_structure)
+    , m_dimensions(other.m_dimensions)
+    , m_factor(other.m_factor)
+    , m_is3d(other.m_is3d)
+    , m_tubular(other.m_tubular)
+    , m_sparseDepthBegin(other.m_sparseDepthBegin)
+    , m_index(other.m_index)
+    , m_chunkId(other.m_chunkId)
+    , m_tick(other.m_tick)
+    , m_depth(other.m_depth)
+    , m_depthChunks(other.m_depthChunks)
+    , m_chunkNum(other.m_chunkNum)
+    , m_chunkPoints(other.m_chunkPoints)
+    , m_bboxOriginal(other.m_bboxOriginal)
+    , m_bbox(other.m_bbox)
+    , m_bboxChunk(other.m_bboxChunk)
+    , m_hierarchyClimber(
+            other.m_hierarchyClimber ?
+                new HierarchyClimber(*other.m_hierarchyClimber) : nullptr)
+{ }
+
+Climber& Climber::operator=(const Climber& other)
+{
+    m_index = other.m_index;
+    m_chunkId = other.m_chunkId;
+    m_tick = other.m_tick;
+    m_depth = other.m_depth;
+    m_depthChunks = other.m_depthChunks;
+    m_chunkNum = other.m_chunkNum;
+    m_chunkPoints = other.m_chunkPoints;
+    m_bbox = other.m_bbox;
+    m_bboxChunk = other.m_bboxChunk;
+
+    if (other.m_hierarchyClimber)
+    {
+        m_hierarchyClimber.reset(
+                new HierarchyClimber(*other.m_hierarchyClimber));
+    }
+
+    return *this;
+}
+
+Climber::~Climber() { }
+
+void Climber::reset()
+{
+    m_index = 0;
+    m_chunkId = m_structure.nominalChunkIndex();
+    m_tick = 0;
+    m_depth = 0;
+    m_depthChunks = 1;
+    m_chunkNum = 0;
+    m_chunkPoints = m_structure.baseChunkPoints();
+    m_bbox = m_bboxOriginal;
+    m_bboxChunk = m_bboxOriginal;
+    if (m_hierarchyClimber) m_hierarchyClimber->reset();
+}
 
 void Climber::magnify(const Point& point)
 {
     const Point& mid(m_bbox.mid());
 
-    /*
     if (m_tubular && m_depth < Tube::maxTickDepth())
     {
         m_tick <<= 1;
         if (point.z >= mid.z) ++m_tick;
     }
-    */
 
-    switch (
-        ((m_tubular || m_is3d) && point.z >= mid.z ? 4 : 0) +   // Up? +4.
-        (point.y >= mid.y ? 2 : 0) +                            // North? +2.
-        (point.x >= mid.x ? 1 : 0))                             // East? +1.
+    switch (getDirection(point, mid))
     {
         case Dir::swd: goSwd(); break;
         case Dir::sed: goSed(); break;
@@ -62,18 +127,27 @@ void Climber::magnify(const Point& point)
         case Dir::neu: goNeu(); break;
     }
 
-    if (m_tubular && m_depth <= Tube::maxTickDepth())
+    if (m_hierarchyClimber && m_depth > m_hierarchyClimber->depthBegin())
     {
-        m_tick = Tube::calcTick(point, m_bboxChunk, m_depth);
+        m_hierarchyClimber->magnify(point);
     }
 }
 
-void Climber::climb(Dir dir)
+void Climber::magnifyTo(const Point& point, const std::size_t depth)
 {
-    // If this is a hybrid index, then we're tracking the BBox in 3d, but
-    // climbing in 2d.  If so, normalize the direction to 2d.
-    if (m_tubular) dir = static_cast<Dir>(static_cast<int>(dir) % 4);
+    while (m_depth < depth) magnify(point);
+}
 
+void Climber::magnifyTo(const BBox& raw)
+{
+    BBox bbox(raw.min(), raw.max(), m_is3d);
+    bbox.growBy(.01);
+
+    while (!bbox.contains(m_bbox, true)) magnify(bbox.mid());
+}
+
+void Climber::climb(const Dir dir)
+{
     if (++m_depth > m_structure.nominalChunkDepth())
     {
         if (m_depth <= m_sparseDepthBegin || !m_sparseDepthBegin)
@@ -123,7 +197,24 @@ void Climber::climb(Dir dir)
 
     m_index <<= m_dimensions;
     m_index.incSimple();
-    m_index += dir;
+
+    // If this is a hybrid index, then we're tracking the BBox in 3d, but
+    // climbing in 2d.  If so, normalize the direction to 2d.
+    m_index += static_cast<std::size_t>(
+            m_tubular ? static_cast<Dir>(static_cast<int>(dir) % 4) : dir);
+}
+
+HierarchyClimber& Climber::hierarchyClimber()
+{
+    return *m_hierarchyClimber;
+}
+
+void Climber::count()
+{
+    if (m_depth >= m_hierarchyClimber->depthBegin())
+    {
+        m_hierarchyClimber->count();
+    }
 }
 
 bool SplitClimber::next(bool terminate)

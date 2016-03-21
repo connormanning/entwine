@@ -14,6 +14,7 @@
 #include <list>
 #include <set>
 #include <unordered_map>
+#include <unordered_set>
 
 #include <entwine/tree/builder.hpp>
 #include <entwine/types/structure.hpp>
@@ -26,9 +27,8 @@ class Clipper
 public:
     Clipper(Builder& builder, Origin origin)
         : m_builder(builder)
-        , m_clips()
-        , m_order()
         , m_id(origin)
+        , m_clips()
     { }
 
     ~Clipper()
@@ -40,7 +40,7 @@ public:
     }
 
     bool insert(const Id& chunkId, std::size_t chunkNum);
-    void clip(float ratio);
+    void clip();
     std::size_t id() const { return m_id; }
     std::size_t size() const { return m_clips.size(); }
 
@@ -49,20 +49,21 @@ private:
 
     struct ClipInfo
     {
-        ClipInfo() : chunkNum(0), it() { }
-        explicit ClipInfo(std::size_t chunkNum) : chunkNum(chunkNum), it() { }
+        ClipInfo() : chunkNum(0), fresh(true) { }
+
+        explicit ClipInfo(std::size_t chunkNum)
+            : chunkNum(chunkNum)
+            , fresh(true)
+        { }
 
         std::size_t chunkNum;
-        Order::iterator it;
+        bool fresh;
     };
 
     Builder& m_builder;
+    uint64_t m_id;
 
     std::unordered_map<Id, ClipInfo> m_clips;
-    // std::set<Id> m_removed;
-    Order m_order;
-
-    uint64_t m_id;
 };
 
 } // namespace entwine

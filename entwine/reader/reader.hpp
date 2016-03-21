@@ -36,11 +36,12 @@ public:
     { }
 };
 
+class BaseChunk;
 class BBox;
 class Builder;
 class Cache;
 class Climber;
-class BaseChunk;
+class Hierarchy;
 class Manifest;
 class Query;
 class Reprojection;
@@ -61,16 +62,16 @@ public:
             const Schema& schema,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            bool normalize,
-            double scale = 0.0);
+            double scale = 0.0,
+            Point offset = Point());
 
     std::unique_ptr<Query> query(
             const Schema& schema,
             const BBox& qbox,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            bool normalize,
-            double scale = 0.0);
+            double scale = 0.0,
+            Point offset = Point());
 
     Json::Value hierarchy(
             const BBox& qbox,
@@ -78,6 +79,7 @@ public:
             std::size_t depthEnd);
 
     std::size_t numPoints() const;
+    const BBox& bboxConforming() const;
     const BBox& bbox() const;
     const Schema& schema() const;
     const Structure& structure() const;
@@ -100,13 +102,6 @@ public:
     typedef std::map<BBox, BoxInfo> BoxMap;
 
 private:
-    void doHierarchyLevel(
-            Json::Value& json,
-            const BBox& qbox,
-            BoxMap grid,
-            std::size_t depth,
-            std::size_t depthEnd);
-
     arbiter::Endpoint m_endpoint;
 
     std::unique_ptr<Builder> m_builder;

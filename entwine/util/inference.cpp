@@ -121,10 +121,14 @@ void Inference::go()
 
     for (std::size_t i(0); i < size; ++i)
     {
-        if (m_verbose) std::cout << i + 1 << " / " << size << std::endl;
-
         FileInfo& f(m_manifest.get(i));
         m_index = i;
+
+        if (m_verbose)
+        {
+            std::cout << i + 1 << " / " << size << ": " << f.path() <<
+                std::endl;
+        }
 
         if (m_executor.good(f.path()))
         {
@@ -249,7 +253,18 @@ Schema Inference::schema() const
     for (const auto& name : m_dimVec)
     {
         const pdal::Dimension::Id::Enum id(pdal::Dimension::id(name));
-        dims.emplace_back(name, id, pdal::Dimension::defaultType(id));
+
+        pdal::Dimension::Type::Enum t;
+        try
+        {
+            t = pdal::Dimension::defaultType(id);
+        }
+        catch (pdal::pdal_error&)
+        {
+            t = pdal::Dimension::Type::Double;
+        }
+
+        dims.emplace_back(name, id, t);
     }
     return Schema(dims);
 }

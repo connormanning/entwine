@@ -63,7 +63,7 @@ int main(int argc, char** argv)
     {
         std::string arg(argv[i]);
 
-        if (arg.size() > 2 && arg[0] == '-' && std::isalpha(arg[1]))
+        if (arg.size() > 2 && arg.front() == '-' && std::isalpha(arg[1]))
         {
             // Expand args of the format "-xvalue" to "-x value".
             args.push_back(arg.substr(0, 2));
