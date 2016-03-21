@@ -70,5 +70,11 @@ private:
     bool m_hammer;
 };
 
+inline std::ostream& operator<<(std::ostream& os, const Reprojection& r)
+{
+    os << r.in() << " -> " << r.out() << std::endl;
+    return os;
+}
+
 } // namespace entwine
 

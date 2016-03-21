@@ -243,14 +243,8 @@ pdal::Filter* Executor::createReprojectionFilter(
                 m_stageFactory->createStage("filters.reprojection")))
     {
         pdal::Options options;
-        options.add(
-                pdal::Option(
-                    "in_srs",
-                    pdal::SpatialReference(reproj.in())));
-        options.add(
-                pdal::Option(
-                    "out_srs",
-                    pdal::SpatialReference(reproj.out())));
+        options.add(pdal::Option("in_srs", reproj.in()));
+        options.add(pdal::Option("out_srs", reproj.out()));
         filter->setOptions(options);
         return filter;
     }

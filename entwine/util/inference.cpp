@@ -121,10 +121,14 @@ void Inference::go()
 
     for (std::size_t i(0); i < size; ++i)
     {
-        if (m_verbose) std::cout << i + 1 << " / " << size << std::endl;
-
         FileInfo& f(m_manifest.get(i));
         m_index = i;
+
+        if (m_verbose)
+        {
+            std::cout << i + 1 << " / " << size << ": " << f.path() <<
+                std::endl;
+        }
 
         if (m_executor.good(f.path()))
         {
