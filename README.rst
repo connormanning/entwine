@@ -1,6 +1,3 @@
-.. image:: https://travis-ci.org/connormanning/entwine.png?branch=master
-    :target: https://travis-ci.org/connormanning/entwine
-
 .. image:: ./doc/logo/color/entwine_logo_2-color-small.png
 
 Entwine is a data organization library for massive point clouds, designed to conquer datasets of hundreds of billions of points as well as desktop-scale point clouds.  Entwine can index anything that is `PDAL`_-readable, and can read/write to a variety of sources like S3 or Dropbox.  Builds are completely lossless, so no points will be discarded even for terabyte-scale datasets.
@@ -22,7 +19,7 @@ Now we have Entwine data at ``~/entwine/abc``.  We could have also passed a wild
 ::
 
     docker run -it -v ~/entwine:/opt/data -p 8080:80 connormanning/greyhound
-    
+
 Now we have Greyhound ready to serve our data, we just need a client renderer to view it.  Let's hit the URL below, which will connect to our new local Greyhound resource.
 
 http://dev.speck.ly?s=http://localhost:8080/&r=abc
@@ -38,7 +35,7 @@ The default settings are fine for many datasets, but Entwine provides many param
 - ``-t``: Specify the number of indexing threads.  The default is 9.  If you have a monster machine like an EC2 c3.8xlarge instance, you can try 30.  We recommend a number close to, but no greater than, the number of physical cores on the machine for optimal performance.
 - ``-f``: Want to write a new dataset at the same location as a previous one?  This option forces an overwrite.
 
-If the command line overrides are insufficient, you can get developer-level control over the indexing parameters by passing a JSON configuration file, for example ``entwine build config.json``.  There is a commented template for this configuration file `here <https://raw.githubusercontent.com/connormanning/entwine/master/template.json>`_. 
+If the command line overrides are insufficient, you can get developer-level control over the indexing parameters by passing a JSON configuration file, for example ``entwine build config.json``.  There is a commented template for this configuration file `here <https://raw.githubusercontent.com/connormanning/entwine/master/template.json>`_.
 
 License
 --------------------------------------------------------------------------------
