@@ -92,16 +92,15 @@
         // S3 sharding performance.
         "prefixIds": false,
 
+        // TODO Unlikely that this works for quadtree, and might also fail for
+        // octree.  Hybrid is the default.
         // Valid values are "hybrid", "quadtree", and "octree".
-        "type": "octree"
+        "type": "hybrid"
     },
     "geometry": {
         // Bounding box for the entire dataset.  Points outside this box will
-        // be discarded from the resulting index.
-        //
-        // In the case that there is only a single source file for the input,
-        // this may be set to null, in which case the bounding box will be
-        // inferred from the bounds of the sole contributing file.
+        // be discarded from the resulting index.  If omitted, the bounds will
+        // be inferred from the files in the manifest.
         //
         // Format:
         //      [ x-min, y-min, x-max, y-max] for quadtree.
