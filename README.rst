@@ -2,7 +2,7 @@
 
 Entwine is a data organization library for massive point clouds, designed to conquer datasets of hundreds of billions of points as well as desktop-scale point clouds.  Entwine can index anything that is `PDAL`_-readable, and can read/write to a variety of sources like S3 or Dropbox.  Builds are completely lossless, so no points will be discarded even for terabyte-scale datasets.
 
-You can see it in use via the dynamic `Plas.io`_ client at http://dev.speck.ly and the `PoTree`_ client at http://potree.entwine.io.
+You can see it in use via the dynamic `Plas.io`_ client at http://dev.speck.ly and the `Potree`_ client at http://potree.entwine.io.
 
 Usage
 --------------------------------------------------------------------------------
@@ -24,7 +24,7 @@ Now we have Greyhound ready to serve our data, we just need a client renderer to
 
 http://dev.speck.ly?s=http://localhost:8080/&r=abc
 
-Now we should be viewing our dataset dynamically with progressive level-of-detail.  Another client sample would be `PoTree`_, which we can try out with http://potree.entwine.io/data/custom.html?s=localhost:8080&r=abc.
+Now we should be viewing our dataset dynamically with progressive level-of-detail.  Another client sample would be `Potree`_, which we can try out with http://potree.entwine.io/data/custom.html?s=localhost:8080&r=abc.
 
 Going further
 --------------------------------------------------------------------------------
@@ -46,5 +46,5 @@ Entwine is available under the `LGPL License`_.
 .. _`Docker`: http://docker.com
 .. _`Greyhound`: https://github.com/hobu/greyhound
 .. _`Plas.io`: http://dev.speck.ly
-.. _`PoTree`: http://potree.org
+.. _`Potree`: http://potree.org
 .. _`LGPL License`: https://github.com/connormanning/entwine/blob/master/LICENSE
