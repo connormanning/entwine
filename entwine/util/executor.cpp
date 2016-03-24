@@ -61,38 +61,42 @@ bool Executor::run(
 
     if (driver.empty()) return false;
 
-    if (pdal::Reader* reader = createReader(driver, path))
+    UniqueStage scopedReader(createReader(driver, path));
+    UniqueStage scopedFilter;
+
+    if (!scopedReader) return false;
+
+    pdal::Reader* reader(scopedReader->getAs<pdal::Reader*>());
+    assert(reader);
+
+    reader->prepare(table);
+    pdal::Stage* executor(reader);
+
+    if (reprojection)
     {
-        reader->prepare(table);
-        pdal::Stage* executor(reader);
+        const auto srs(
+                srsFoundOrDefault(
+                    reader->getSpatialReference(), *reprojection));
 
-        if (reprojection)
-        {
-            const auto srs(
-                    srsFoundOrDefault(
-                        reader->getSpatialReference(), *reprojection));
+        scopedFilter = createReprojectionFilter(srs);
 
-            if (pdal::Filter* filter = createReprojectionFilter(srs))
-            {
-                filter->setInput(*reader);
-                executor = filter;
-            }
-            else
-            {
-                return false;
-            }
-        }
+        if (!scopedFilter) return false;
 
-        executor->prepare(table);
-        lock.unlock();
+        pdal::Filter* filter(scopedFilter->getAs<pdal::Filter*>());
+        assert(filter);
 
-        executor->execute(table);
-        return true;
+        filter->setInput(*reader);
+        executor = filter;
     }
-    else
-    {
-        return false;
-    }
+
+    executor->prepare(table);
+    lock.unlock();
+
+    executor->execute(table);
+
+    // We need to hold this lock during the destruction of the ScopedStages.
+    lock.lock();
+    return true;
 }
 
 bool Executor::good(const std::string path) const
@@ -110,8 +114,11 @@ std::unique_ptr<Preview> Executor::preview(
     auto lock(getLock());
     const std::string driver(m_stageFactory->inferReaderDriver(path));
 
-    if (pdal::Reader* reader = createReader(driver, path))
+    if (auto scopedReader = createReader(driver, path))
     {
+        pdal::Reader* reader(scopedReader->getAs<pdal::Reader*>());
+        assert(reader);
+
         const pdal::QuickInfo quick(reader->preview());
 
         if (!quick.valid()) return result;
@@ -161,10 +168,14 @@ std::unique_ptr<Preview> Executor::preview(
             pdal::BufferReader buffer;
             buffer.addView(view);
 
-            if (pdal::Filter* filter =
-                    createReprojectionFilter(
-                        srsFoundOrDefault(quick.m_srs, *reprojection)))
+            const auto selectedSrs(
+                    srsFoundOrDefault(quick.m_srs, *reprojection));
+
+            if (auto scopedFilter = createReprojectionFilter(selectedSrs))
             {
+                pdal::Filter* filter(scopedFilter->getAs<pdal::Filter*>());
+                assert(filter);
+
                 filter->setInput(buffer);
 
                 filter->prepare(table);
@@ -176,7 +187,7 @@ std::unique_ptr<Preview> Executor::preview(
                 Point min(hi, hi, hi);
                 Point max(lo, lo, lo);
 
-                for (std::size_t i(0); i < 4; ++i)
+                for (std::size_t i(0); i < view->size(); ++i)
                 {
                     const Point p(
                             view->getFieldAs<double>(DimId::X, i),
@@ -217,11 +228,13 @@ std::unique_ptr<Preview> Executor::preview(
     return result;
 }
 
-pdal::Reader* Executor::createReader(
+UniqueStage Executor::createReader(
         const std::string driver,
         const std::string path) const
 {
-    if (!driver.empty())
+    UniqueStage result;
+
+    if (driver.size())
     {
         if (pdal::Reader* reader = static_cast<pdal::Reader*>(
                 m_stageFactory->createStage(driver)))
@@ -230,16 +243,18 @@ pdal::Reader* Executor::createReader(
             options.add(pdal::Option("filename", path));
             reader->setOptions(options);
 
-            return reader;
+            result.reset(new ScopedStage(reader, *m_stageFactory));
         }
     }
 
-    return nullptr;
+    return result;
 }
 
-pdal::Filter* Executor::createReprojectionFilter(
+UniqueStage Executor::createReprojectionFilter(
         const Reprojection& reproj) const
 {
+    UniqueStage result;
+
     if (reproj.in().empty())
     {
         throw std::runtime_error("No default SRS supplied, and none inferred");
@@ -253,15 +268,26 @@ pdal::Filter* Executor::createReprojectionFilter(
         options.add(pdal::Option("in_srs", reproj.in()));
         options.add(pdal::Option("out_srs", reproj.out()));
         filter->setOptions(options);
-        return filter;
+
+        result.reset(new ScopedStage(filter, *m_stageFactory));
     }
 
-    return nullptr;
+    return result;
 }
 
 std::unique_lock<std::mutex> Executor::getLock() const
 {
     return std::unique_lock<std::mutex>(m_factoryMutex);
+}
+
+ScopedStage::ScopedStage(pdal::Stage* stage, pdal::StageFactory& stageFactory)
+    : m_stage(stage)
+    , m_stageFactory(stageFactory)
+{ }
+
+ScopedStage::~ScopedStage()
+{
+    m_stageFactory.destroyStage(m_stage);
 }
 
 } // namespace entwine
