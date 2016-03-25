@@ -96,11 +96,13 @@ public:
             std::string path,
             const Reprojection* reprojection);
 
-    std::unique_lock<std::mutex> getLock() const;
+    std::string getSrsString(std::string input) const;
 
 private:
     UniqueStage createReader(std::string path) const;
     UniqueStage createReprojectionFilter(const Reprojection& r) const;
+
+    std::unique_lock<std::mutex> getLock() const;
 
     bool m_is3d;
     std::unique_ptr<pdal::StageFactory> m_stageFactory;

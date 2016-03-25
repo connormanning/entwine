@@ -15,6 +15,7 @@
 #include <pdal/GlobalEnvironment.hpp>
 #include <pdal/QuickInfo.hpp>
 #include <pdal/Reader.hpp>
+#include <pdal/SpatialReference.hpp>
 #include <pdal/StageFactory.hpp>
 
 #include <entwine/types/bbox.hpp>
@@ -108,8 +109,6 @@ bool Executor::run(
     if (!scopedReader) return false;
 
     pdal::Reader* reader(scopedReader->getAs<pdal::Reader*>());
-    reader->prepare(table);
-
     pdal::Stage* executor(reader);
 
     UniqueStage scopedFilter;
@@ -129,7 +128,7 @@ bool Executor::run(
         executor = filter;
     }
 
-    executor->prepare(table);
+    { auto lock(getLock()); executor->prepare(table); }
     executor->execute(table);
 
     return true;
@@ -150,7 +149,13 @@ std::unique_ptr<Preview> Executor::preview(
     if (!scopedReader) return result;
 
     pdal::Reader* reader(scopedReader->getAs<pdal::Reader*>());
-    const pdal::QuickInfo qi(reader->preview());
+    const pdal::QuickInfo qi(([this, reader]()
+    {
+        auto lock(getLock());
+        pdal::QuickInfo q = reader->preview();
+        return q;
+    })());
+
     if (!qi.valid() || qi.m_bounds.empty()) return result;
 
     BBox bbox(
@@ -179,7 +184,7 @@ std::unique_ptr<Preview> Executor::preview(
         pdal::Filter* filter(scopedFilter->getAs<pdal::Filter*>());
 
         filter->setInput(bufferState.getBuffer());
-        filter->prepare(bufferState.getTable());
+        { auto lock(getLock()); filter->prepare(bufferState.getTable()); }
         filter->execute(bufferState.getTable());
 
         Point min(hi, hi, hi);
@@ -202,11 +207,19 @@ std::unique_ptr<Preview> Executor::preview(
         }
 
         bbox = BBox(min, max, m_is3d);
+
+        auto lock(getLock());
         srs = pdal::SpatialReference(reprojection->out()).getWKT();
     }
 
     result.reset(new Preview(bbox, qi.m_pointCount, srs, qi.m_dimNames));
     return result;
+}
+
+std::string Executor::getSrsString(const std::string input) const
+{
+    auto lock(getLock());
+    return pdal::SpatialReference(input).getWKT();
 }
 
 UniqueStage Executor::createReader(const std::string path) const

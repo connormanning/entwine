@@ -371,10 +371,9 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
         {
             if (m_reprojection)
             {
-                // Use the executor's lock here, since we are likely to be
-                // fighting against concurrent Executor::preview()/run() calls.
-                auto lock(m_executor->getLock());
-                m_srs = pdal::SpatialReference(m_reprojection->out()).getWKT();
+                // Don't construct the pdal::SpatialReference ourself, since
+                // we need to use the Executors lock to do so.
+                m_srs = m_executor->getSrsString(m_reprojection->out());
             }
             else
             {
