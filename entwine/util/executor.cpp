@@ -40,6 +40,54 @@ namespace
         pdal::GlobalEnvironment::startup();
         return true;
     })());
+
+    const double hi(std::numeric_limits<double>::max());
+    const double lo(std::numeric_limits<double>::lowest());
+
+    class BufferState
+    {
+    public:
+        BufferState(const BBox& bbox)
+            : m_table()
+            , m_view(new pdal::PointView(m_table))
+            , m_buffer()
+        {
+            namespace DimId = pdal::Dimension::Id;
+
+            auto layout(m_table.layout());
+            layout->registerDim(DimId::X);
+            layout->registerDim(DimId::Y);
+            layout->registerDim(DimId::Z);
+            layout->finalize();
+
+            m_view->setField(DimId::X, 0, bbox.min().x);
+            m_view->setField(DimId::Y, 0, bbox.min().y);
+            m_view->setField(DimId::Z, 0, bbox.min().z);
+
+            m_view->setField(DimId::X, 1, bbox.max().x);
+            m_view->setField(DimId::Y, 1, bbox.max().y);
+            m_view->setField(DimId::Z, 1, bbox.max().z);
+
+            m_view->setField(DimId::X, 2, bbox.min().x);
+            m_view->setField(DimId::Y, 2, bbox.max().y);
+            m_view->setField(DimId::Z, 2, bbox.min().z);
+
+            m_view->setField(DimId::X, 3, bbox.max().x);
+            m_view->setField(DimId::Y, 3, bbox.min().y);
+            m_view->setField(DimId::Z, 3, bbox.max().z);
+
+            m_buffer.addView(m_view);
+        }
+
+        pdal::PointTable& getTable() { return m_table; }
+        pdal::PointView& getView() { return *m_view; }
+        pdal::BufferReader& getBuffer() { return m_buffer; }
+
+    private:
+        pdal::PointTable m_table;
+        pdal::PointViewPtr m_view;
+        pdal::BufferReader m_buffer;
+    };
 }
 
 Executor::Executor(bool is3d)
@@ -56,21 +104,15 @@ bool Executor::run(
         const std::string path,
         const Reprojection* reprojection)
 {
-    auto lock(getLock());
-    const std::string driver(m_stageFactory->inferReaderDriver(path));
-
-    if (driver.empty()) return false;
-
-    UniqueStage scopedReader(createReader(driver, path));
-    UniqueStage scopedFilter;
-
+    UniqueStage scopedReader(createReader(path));
     if (!scopedReader) return false;
 
     pdal::Reader* reader(scopedReader->getAs<pdal::Reader*>());
-    assert(reader);
-
     reader->prepare(table);
+
     pdal::Stage* executor(reader);
+
+    UniqueStage scopedFilter;
 
     if (reprojection)
     {
@@ -79,29 +121,22 @@ bool Executor::run(
                     reader->getSpatialReference(), *reprojection));
 
         scopedFilter = createReprojectionFilter(srs);
-
         if (!scopedFilter) return false;
 
         pdal::Filter* filter(scopedFilter->getAs<pdal::Filter*>());
-        assert(filter);
-
         filter->setInput(*reader);
+
         executor = filter;
     }
 
     executor->prepare(table);
-    lock.unlock();
-
     executor->execute(table);
 
-    // We need to hold this lock during the destruction of the ScopedStages.
-    lock.lock();
     return true;
 }
 
 bool Executor::good(const std::string path) const
 {
-    auto lock(getLock());
     return !m_stageFactory->inferReaderDriver(path).empty();
 }
 
@@ -111,140 +146,90 @@ std::unique_ptr<Preview> Executor::preview(
 {
     std::unique_ptr<Preview> result;
 
-    auto lock(getLock());
-    const std::string driver(m_stageFactory->inferReaderDriver(path));
+    UniqueStage scopedReader(createReader(path));
+    if (!scopedReader) return result;
 
-    if (auto scopedReader = createReader(driver, path))
+    pdal::Reader* reader(scopedReader->getAs<pdal::Reader*>());
+    const pdal::QuickInfo qi(reader->preview());
+    if (!qi.valid() || qi.m_bounds.empty()) return result;
+
+    BBox bbox(
+            Point(qi.m_bounds.minx, qi.m_bounds.miny, qi.m_bounds.minz),
+            Point(qi.m_bounds.maxx, qi.m_bounds.maxy, qi.m_bounds.maxz),
+            m_is3d);
+
+    std::string srs;
+
+    if (!reprojection)
     {
-        pdal::Reader* reader(scopedReader->getAs<pdal::Reader*>());
-        assert(reader);
+        srs = qi.m_srs.getWKT();
+    }
+    else
+    {
+        namespace DimId = pdal::Dimension::Id;
 
-        const pdal::QuickInfo quick(reader->preview());
+        BufferState bufferState(bbox);
 
-        if (!quick.valid()) return result;
+        const auto selectedSrs(
+                srsFoundOrDefault(qi.m_srs, *reprojection));
 
-        std::string srs;
+        UniqueStage scopedFilter(createReprojectionFilter(selectedSrs));
+        if (!scopedFilter) return result;
 
-        BBox bbox(
-                Point(
-                    quick.m_bounds.minx,
-                    quick.m_bounds.miny,
-                    quick.m_bounds.minz),
-                Point(
-                    quick.m_bounds.maxx,
-                    quick.m_bounds.maxy,
-                    quick.m_bounds.maxz),
-                m_is3d);
+        pdal::Filter* filter(scopedFilter->getAs<pdal::Filter*>());
 
-        if (reprojection)
+        filter->setInput(bufferState.getBuffer());
+        filter->prepare(bufferState.getTable());
+        filter->execute(bufferState.getTable());
+
+        Point min(hi, hi, hi);
+        Point max(lo, lo, lo);
+
+        for (std::size_t i(0); i < bufferState.getView().size(); ++i)
         {
-            namespace DimId = pdal::Dimension::Id;
+            const Point p(
+                    bufferState.getView().getFieldAs<double>(DimId::X, i),
+                    bufferState.getView().getFieldAs<double>(DimId::Y, i),
+                    bufferState.getView().getFieldAs<double>(DimId::Z, i));
 
-            pdal::PointTable table;
-            auto layout(table.layout());
-            layout->registerDim(DimId::X);
-            layout->registerDim(DimId::Y);
-            layout->registerDim(DimId::Z);
-            layout->finalize();
+            min.x = std::min(min.x, p.x);
+            min.y = std::min(min.y, p.y);
+            min.z = std::min(min.z, p.z);
 
-            pdal::PointViewPtr view(new pdal::PointView(table));
-
-            view->setField(DimId::X, 0, bbox.min().x);
-            view->setField(DimId::Y, 0, bbox.min().y);
-            view->setField(DimId::Z, 0, bbox.min().z);
-
-            view->setField(DimId::X, 1, bbox.max().x);
-            view->setField(DimId::Y, 1, bbox.max().y);
-            view->setField(DimId::Z, 1, bbox.max().z);
-
-            view->setField(DimId::X, 2, bbox.min().x);
-            view->setField(DimId::Y, 2, bbox.max().y);
-            view->setField(DimId::Z, 2, bbox.min().z);
-
-            view->setField(DimId::X, 3, bbox.max().x);
-            view->setField(DimId::Y, 3, bbox.min().y);
-            view->setField(DimId::Z, 3, bbox.max().z);
-
-            pdal::BufferReader buffer;
-            buffer.addView(view);
-
-            const auto selectedSrs(
-                    srsFoundOrDefault(quick.m_srs, *reprojection));
-
-            if (auto scopedFilter = createReprojectionFilter(selectedSrs))
-            {
-                pdal::Filter* filter(scopedFilter->getAs<pdal::Filter*>());
-                assert(filter);
-
-                filter->setInput(buffer);
-
-                filter->prepare(table);
-                filter->execute(table);
-
-                const double hi(std::numeric_limits<double>::max());
-                const double lo(std::numeric_limits<double>::lowest());
-
-                Point min(hi, hi, hi);
-                Point max(lo, lo, lo);
-
-                for (std::size_t i(0); i < view->size(); ++i)
-                {
-                    const Point p(
-                            view->getFieldAs<double>(DimId::X, i),
-                            view->getFieldAs<double>(DimId::Y, i),
-                            view->getFieldAs<double>(DimId::Z, i));
-
-                    min.x = std::min(min.x, p.x);
-                    min.y = std::min(min.y, p.y);
-                    min.z = std::min(min.z, p.z);
-
-                    max.x = std::max(max.x, p.x);
-                    max.y = std::max(max.y, p.y);
-                    max.z = std::max(max.z, p.z);
-                }
-
-                bbox = BBox(min, max, m_is3d);
-
-                srs = pdal::SpatialReference(reprojection->out()).getWKT();
-            }
-            else
-            {
-                return result;
-            }
-        }
-        else
-        {
-            srs = quick.m_srs.getWKT();
+            max.x = std::max(max.x, p.x);
+            max.y = std::max(max.y, p.y);
+            max.z = std::max(max.z, p.z);
         }
 
-        result.reset(
-                new Preview(
-                    bbox,
-                    quick.m_pointCount,
-                    srs,
-                    quick.m_dimNames));
+        bbox = BBox(min, max, m_is3d);
+        srs = pdal::SpatialReference(reprojection->out()).getWKT();
     }
 
+    result.reset(new Preview(bbox, qi.m_pointCount, srs, qi.m_dimNames));
     return result;
 }
 
-UniqueStage Executor::createReader(
-        const std::string driver,
-        const std::string path) const
+UniqueStage Executor::createReader(const std::string path) const
 {
     UniqueStage result;
 
-    if (driver.size())
-    {
-        if (pdal::Reader* reader = static_cast<pdal::Reader*>(
-                m_stageFactory->createStage(driver)))
-        {
-            pdal::Options options;
-            options.add(pdal::Option("filename", path));
-            reader->setOptions(options);
+    const std::string driver(m_stageFactory->inferReaderDriver(path));
+    if (driver.empty()) return result;
 
-            result.reset(new ScopedStage(reader, *m_stageFactory));
-        }
+    auto lock(getLock());
+
+    if (pdal::Reader* reader = static_cast<pdal::Reader*>(
+            m_stageFactory->createStage(driver)))
+    {
+        pdal::Options options;
+        options.add(pdal::Option("filename", path));
+        reader->setOptions(options);
+
+        // Unlock before creating the ScopedStage, in case of a throw we can't
+        // hold the lock during its destructor.
+        lock.unlock();
+
+        result.reset(new ScopedStage(reader, *m_stageFactory, m_factoryMutex));
     }
 
     return result;
@@ -260,6 +245,8 @@ UniqueStage Executor::createReprojectionFilter(
         throw std::runtime_error("No default SRS supplied, and none inferred");
     }
 
+    auto lock(getLock());
+
     if (pdal::Filter* filter =
             static_cast<pdal::Filter*>(
                 m_stageFactory->createStage("filters.reprojection")))
@@ -269,7 +256,11 @@ UniqueStage Executor::createReprojectionFilter(
         options.add(pdal::Option("out_srs", reproj.out()));
         filter->setOptions(options);
 
-        result.reset(new ScopedStage(filter, *m_stageFactory));
+        // Unlock before creating the ScopedStage, in case of a throw we can't
+        // hold the lock during its destructor.
+        lock.unlock();
+
+        result.reset(new ScopedStage(filter, *m_stageFactory, m_factoryMutex));
     }
 
     return result;
@@ -280,13 +271,18 @@ std::unique_lock<std::mutex> Executor::getLock() const
     return std::unique_lock<std::mutex>(m_factoryMutex);
 }
 
-ScopedStage::ScopedStage(pdal::Stage* stage, pdal::StageFactory& stageFactory)
+ScopedStage::ScopedStage(
+        pdal::Stage* stage,
+        pdal::StageFactory& stageFactory,
+        std::mutex& factoryMutex)
     : m_stage(stage)
     , m_stageFactory(stageFactory)
+    , m_factoryMutex(factoryMutex)
 { }
 
 ScopedStage::~ScopedStage()
 {
+    std::lock_guard<std::mutex> lock(m_factoryMutex);
     m_stageFactory.destroyStage(m_stage);
 }
 

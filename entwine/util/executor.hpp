@@ -38,7 +38,11 @@ class Schema;
 class ScopedStage
 {
 public:
-    explicit ScopedStage(pdal::Stage* stage, pdal::StageFactory& stageFactory);
+    explicit ScopedStage(
+            pdal::Stage* stage,
+            pdal::StageFactory& stageFactory,
+            std::mutex& factoryMutex);
+
     ~ScopedStage();
 
     template<typename T> T getAs() { return static_cast<T>(m_stage); }
@@ -46,6 +50,7 @@ public:
 private:
     pdal::Stage* m_stage;
     pdal::StageFactory& m_stageFactory;
+    std::mutex& m_factoryMutex;
 };
 
 typedef std::unique_ptr<ScopedStage> UniqueStage;
@@ -94,12 +99,8 @@ public:
     std::unique_lock<std::mutex> getLock() const;
 
 private:
-    UniqueStage createReader(
-            std::string driver,
-            std::string path) const;
-
-    UniqueStage createReprojectionFilter(
-            const Reprojection& reprojection) const;
+    UniqueStage createReader(std::string path) const;
+    UniqueStage createReprojectionFilter(const Reprojection& r) const;
 
     bool m_is3d;
     std::unique_ptr<pdal::StageFactory> m_stageFactory;
