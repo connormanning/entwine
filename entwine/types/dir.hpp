@@ -49,6 +49,8 @@ inline std::string dirToString(Dir dir)
         case Dir::nwu: return "nwu"; break;
         case Dir::neu: return "neu"; break;
     }
+
+    throw std::runtime_error("Cannot convert invalid Dir to string");
 }
 
 inline Dir stringToDir(const std::string& s)

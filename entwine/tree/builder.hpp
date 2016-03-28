@@ -171,11 +171,11 @@ private:
             std::size_t subsetId,
             std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
 
-    // Also used for merging, after an initial Builder::create has provided
-    // us with enough metadata info to fetch the other pieces directly.
-    //
     // Read-only.  Used by the Reader to avoid duplicating metadata logic (if
     // no subset/split is passed) or by the Merger to awaken partial builds.
+    //
+    // Also used for merging, after an initial Builder::create has provided
+    // us with enough metadata info to fetch the other pieces directly.
     Builder(
             std::string path,
             const std::size_t* subsetId = nullptr,

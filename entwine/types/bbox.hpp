@@ -92,6 +92,8 @@ public:
             case Dir::nwu: return getNwu(); break;
             case Dir::neu: return getNeu(); break;
         }
+
+        throw std::runtime_error("Invalid Dir to BBox::get");
     }
 
     bool exists() const { return Point::exists(m_min) && Point::exists(m_max); }
