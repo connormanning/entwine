@@ -69,7 +69,6 @@ public:
             const BBox& bbox,
             const Schema& schema,
             std::size_t numThreads,
-            float threshold,
             const Structure& structure,
             std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
 
@@ -78,7 +77,8 @@ public:
             std::string outPath,
             std::string tmpPath,
             std::size_t numThreads,
-            float threshold,
+            std::string postfix = "",
+            Json::Value subsetJson = Json::Value(),
             std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
 
     ~Builder();
@@ -117,19 +117,6 @@ public:
 
     const std::string& srs() const { return m_srs; }
     std::size_t numThreads() const { return m_totalThreads; }
-    float threshold() const { return m_threshold; }
-
-    float usage() const
-    {
-        // std::lock_guard<std::mutex> lock(m_mutex);
-        return m_usage;
-    }
-
-    void usage(float set)
-    {
-        // std::lock_guard<std::mutex> lock(m_mutex);
-        m_usage = set;
-    }
 
     const arbiter::Endpoint& outEndpoint() const;
     const arbiter::Endpoint& tmpEndpoint() const;
@@ -255,8 +242,6 @@ private:
     std::size_t m_initialWorkThreads;
     std::size_t m_initialClipThreads;
     std::size_t m_totalThreads;
-    float m_threshold;
-    float m_usage;
 
     std::unique_ptr<Executor> m_executor;
 

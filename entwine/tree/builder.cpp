@@ -63,7 +63,6 @@ Builder::Builder(
         const BBox& bboxConforming,
         const Schema& schema,
         const std::size_t totalThreads,
-        const float threshold,
         const Structure& structure,
         std::shared_ptr<Arbiter> arbiter)
     : m_bboxConforming(new BBox(bboxConforming))
@@ -83,8 +82,6 @@ Builder::Builder(
     , m_initialWorkThreads(getWorkThreads(totalThreads))
     , m_initialClipThreads(getClipThreads(totalThreads))
     , m_totalThreads(totalThreads)
-    , m_threshold(threshold)
-    , m_usage(0)
     , m_executor(new Executor(m_structure->is3d()))
     , m_originId(m_schema->pdalLayout().findDim("Origin"))
     , m_origin(0)
@@ -113,7 +110,8 @@ Builder::Builder(
         const std::string outPath,
         const std::string tmpPath,
         const std::size_t totalThreads,
-        const float threshold,
+        const std::string pf,
+        const Json::Value subsetJson,
         std::shared_ptr<Arbiter> arbiter)
     : m_bboxConforming()
     , m_bbox()
@@ -132,8 +130,6 @@ Builder::Builder(
     , m_initialWorkThreads(getWorkThreads(totalThreads))
     , m_initialClipThreads(getClipThreads(totalThreads))
     , m_totalThreads(totalThreads)
-    , m_threshold(threshold)
-    , m_usage(0)
     , m_executor()
     , m_originId()
     , m_origin(0)
@@ -147,7 +143,13 @@ Builder::Builder(
     , m_hierarchy()
 {
     prep();
-    load(m_initialClipThreads);
+    load(m_initialClipThreads, pf);
+
+    if (!subsetJson.empty())
+    {
+        m_subset.reset(new Subset(*m_structure, *m_bbox, subsetJson));
+        m_subBBox.reset(new BBox(m_subset->bbox()));
+    }
 }
 
 Builder::Builder(
@@ -172,8 +174,6 @@ Builder::Builder(
     , m_initialWorkThreads(0)
     , m_initialClipThreads(0)
     , m_totalThreads(0)
-    , m_threshold(2.0)
-    , m_usage(0)
     , m_executor()
     , m_originId()
     , m_origin(0)
@@ -772,8 +772,6 @@ void Builder::addError(const std::string& path, const std::string& error)
 
 float Builder::chunkMem() const
 {
-    if (usage()) return usage();
-
     static const std::size_t bytesPerPoint(
             m_schema->pointSize() + sizeof(Tube));
 

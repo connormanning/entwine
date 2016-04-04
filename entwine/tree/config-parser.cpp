@@ -85,10 +85,6 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     const Json::Value jsonInput(config["input"]);
     const bool trustHeaders(jsonInput["trustHeaders"].asBool());
     const std::size_t threads(jsonInput["threads"].asUInt64());
-    const float threshold(
-            jsonInput.isMember("threshold") ?
-                std::max(jsonInput["threshold"].asDouble(), 0.5) :
-                2.0);
 
     // Build specifications and path info.
     const Json::Value& jsonOutput(config["output"]);
@@ -125,17 +121,17 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     Schema schema(geometry["schema"]);
 
     bool exists(false);
+    std::string postfix;
 
     if (!force)
     {
         // TODO Should probably just try to construct a Builder here using
         // the subset/split constructor instead of reimplementing the postfix
         // logic.
-        std::string postfix;
-
         if (config.isMember("subset"))
         {
-            postfix += "-" + config["subset"]["id"].asString();
+            const std::size_t id(config["subset"]["id"].asUInt64() - 1);
+            postfix += "-" + std::to_string(id);
         }
 
         if (manifest->split() && manifest->split()->begin())
@@ -209,7 +205,8 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                     outPath,
                     tmpPath,
                     threads,
-                    threshold,
+                    postfix,
+                    config["subset"],
                     arbiter));
     }
     else
@@ -228,8 +225,13 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                 discardDuplicates,
                 prefixIds);
 
+        // TODO This cubeifying code is duplicated from the Builder constructor.
         BBox cube(*bboxConforming);
-        if (!cube.isCubic()) cube.cubeify();
+        if (!cube.isCubic())
+        {
+            cube.growBy(0.005);
+            cube.cubeify();
+        }
 
         std::unique_ptr<Subset> subset(getSubset(config, structure, cube));
 
@@ -245,7 +247,6 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                     *bboxConforming,
                     schema,
                     threads,
-                    threshold,
                     structure,
                     arbiter));
     }

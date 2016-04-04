@@ -248,28 +248,36 @@ Hierarchy::Hierarchy(
     , m_mutex()
     , m_endpoint(new arbiter::Endpoint(ep))
 {
-    const std::vector<char> bin(ep.getSubpathBinary("0" + postfix));
-    const char* pos(bin.data());
+    const auto bin(ep.tryGetSubpathBinary("0" + postfix));
 
-    m_root = Node(pos, m_step, m_edges);
-
-    if (m_step)
+    if (bin && bin->size())
     {
-        Json::Reader reader;
-        Json::Value anchorsJson;
+        const char* pos(bin->data());
+        m_root = Node(pos, m_step, m_edges);
 
-        const std::string anchorsData(ep.getSubpath("anchors"));
-        if (!reader.parse(anchorsData, anchorsJson, false))
+        if (m_step)
         {
-            throw std::runtime_error(
-                    "Anchor parse error: " +
-                    reader.getFormattedErrorMessages());
-        }
 
-        for (Json::ArrayIndex i(0); i < anchorsJson.size(); ++i)
-        {
-            m_anchors.insert(Id(anchorsJson[i].asString()));
+            Json::Reader reader;
+            Json::Value anchorsJson;
+
+            const std::string anchorsData(ep.getSubpath("anchors"));
+            if (!reader.parse(anchorsData, anchorsJson, false))
+            {
+                throw std::runtime_error(
+                        "Anchor parse error: " +
+                        reader.getFormattedErrorMessages());
+            }
+
+            for (Json::ArrayIndex i(0); i < anchorsJson.size(); ++i)
+            {
+                m_anchors.insert(Id(anchorsJson[i].asString()));
+            }
         }
+    }
+    else
+    {
+        std::cout << "No hierarchy data found" << std::endl;
     }
 }
 
