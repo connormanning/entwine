@@ -134,7 +134,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
             postfix += "-" + std::to_string(id);
         }
 
-        if (manifest->split() && manifest->split()->begin())
+        if (manifest && manifest->split() && manifest->split()->begin())
         {
             postfix += "-" + std::to_string(manifest->split()->begin());
         }
@@ -146,7 +146,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         }
     }
 
-    if (!numPointsHint)
+    if (!numPointsHint && manifest)
     {
         numPointsHint = std::accumulate(
                 manifest->paths().begin(),
@@ -158,7 +158,9 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                 });
     }
 
-    if (!exists && (!bboxConforming || !schema.pointSize() || !numPointsHint))
+    if (
+            manifest && !exists &&
+            (!bboxConforming || !schema.pointSize() || !numPointsHint))
     {
         std::cout << "Performing dataset inference..." << std::endl;
         Inference inference(
