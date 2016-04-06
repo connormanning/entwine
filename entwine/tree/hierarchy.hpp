@@ -107,6 +107,32 @@ private:
     Children m_children;
 };
 
+inline bool operator==(const Node& lhs, const Node& rhs)
+{
+    if (lhs.count() == rhs.count())
+    {
+        const auto& lhsChildren(lhs.children());
+        const auto& rhsChildren(rhs.children());
+
+        if (lhsChildren.size() == rhsChildren.size())
+        {
+            for (const auto& c : lhsChildren)
+            {
+                if (
+                        !rhsChildren.count(c.first) ||
+                        !(c.second == rhsChildren.at(c.first)))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
 class Hierarchy
 {
 public:

@@ -38,15 +38,6 @@ void Node::assign(
         std::size_t depth)
 {
     std::copy(pos, pos + sizeof(uint64_t), reinterpret_cast<char*>(&m_count));
-    if (!m_count)
-    {
-        std::cout <<
-            "Invalid hierarchy count " << id.str() <<
-            " at depth " << depth << std::endl;
-
-        throw std::runtime_error("Invalid hierarchy count " + id.str());
-    }
-
     pos += sizeof(uint64_t);
 
     const uint8_t mask(*pos);
@@ -54,7 +45,8 @@ void Node::assign(
 
     if (mask)
     {
-        const bool exists(!step || ++depth % step);
+        ++depth;
+        const bool exists(!step || depth % step);
 
         Dir dir;
         Id nextId;
@@ -100,9 +92,10 @@ void Node::merge(Node& other)
 
 void Node::insertInto(Json::Value& json) const
 {
+    json[countKey] = static_cast<Json::UInt64>(m_count);
+
     if (m_count)
     {
-        json[countKey] = static_cast<Json::UInt64>(m_count);
         for (const auto& c : m_children)
         {
             c.second.insertInto(json[dirToString(c.first)]);
@@ -212,26 +205,24 @@ void Node::insertData(
 
 bool Node::insertBinary(std::vector<char>& s) const
 {
+    s.insert(
+            s.end(),
+            reinterpret_cast<const char*>(&m_count),
+            reinterpret_cast<const char*>(&m_count + 1));
+
+    uint8_t mask(0);
+
     if (m_count)
     {
-        s.insert(
-                s.end(),
-                reinterpret_cast<const char*>(&m_count),
-                reinterpret_cast<const char*>(&m_count + 1));
-
-        uint8_t mask(0);
         for (const auto& c : m_children)
         {
             mask |= (1 << static_cast<int>(c.first));
         }
+    }
 
-        s.push_back(mask);
-        return true;
-    }
-    else
-    {
-        return false;
-    }
+    s.push_back(mask);
+
+    return m_count;
 }
 
 Hierarchy::Hierarchy(
@@ -354,6 +345,14 @@ Json::Value Hierarchy::toJson(const arbiter::Endpoint& ep, std::string postfix)
 {
     const std::size_t writeStep(postfix.empty() ? m_step : 0);
     const Node::NodeSet anchors(m_root.insertInto(ep, postfix, writeStep));
+
+    {
+        Json::FastWriter writer;
+        Json::Value json;
+
+        m_root.insertInto(json);
+        ep.putSubpath("0-json", writer.write(json));
+    }
 
     Json::Value json;
     json["depthBegin"] = static_cast<Json::UInt64>(m_depthBegin);
