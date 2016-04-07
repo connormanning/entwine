@@ -18,98 +18,70 @@ namespace entwine
 Merger::Merger(
         const std::string path,
         std::shared_ptr<arbiter::Arbiter> arbiter)
-    : m_builders()
+    : m_builder()
     , m_path(path)
-    , m_arbiter(arbiter)
+    , m_outerScope(new OuterScope())
 {
-    auto first(Builder::create(path, arbiter));
-    if (!first) throw std::runtime_error("Path not mergeable");
+    m_outerScope->setArbiter(arbiter);
 
-    std::size_t subs(first->subset() ? first->subset()->of() : 1);
-    m_builders.resize(subs);
+    m_builder = Builder::create(path, *m_outerScope);
+    if (!m_builder) throw std::runtime_error("Path not mergeable");
 
-    m_builders.front() = std::move(first);
+    m_outerScope->setPointPool(m_builder->sharedPointPool());
+
+    m_numSubsets = m_builder->subset() ? m_builder->subset()->of() : 1;
 }
 
 Merger::~Merger() { }
 
 void Merger::go()
 {
-    unsplit();
-    merge();
+    std::cout << "\t1 / " << m_numSubsets << std::flush;
+    unsplit(*m_builder);
+    std::cout << " done." << std::endl;
 
-    m_builders.front()->save();
-}
-
-void Merger::unsplit()
-{
-    m_builders[0] = unsplitOne(std::move(m_builders.front()));
-
-    for (std::size_t id(1); id < m_builders.size(); ++id)
+    for (std::size_t id(1); id < m_numSubsets; ++id)
     {
-        auto current(Builder::create(m_path, id, m_arbiter));
+        std::cout << "\t" << (id + 1) << " / " << m_numSubsets << std::flush;
+
+        auto current(Builder::create(m_path, id, *m_outerScope));
         if (!current) throw std::runtime_error("Couldn't create split builder");
 
-        m_builders[id] = unsplitOne(std::move(current));
+        unsplit(*current);
+
+        std::cout << " merging..." << std::flush;
+        m_builder->merge(*current);
+
+        std::cout << " done." << std::endl;
     }
+
+    m_builder->makeWhole();
+    m_builder->save();
 }
 
-std::unique_ptr<Builder> Merger::unsplitOne(
-        std::unique_ptr<Builder> builder) const
+void Merger::unsplit(Builder& builder)
 {
-    if (!builder->manifest().split()) return builder;
+    if (!builder.manifest().split()) return;
+
+    std::cout << " unsplitting..." << std::flush;
 
     std::unique_ptr<std::size_t> subsetId(
-            builder->subset() ?
-                new std::size_t(builder->subset()->id()) : nullptr);
+            builder.subset() ?
+                new std::size_t(builder.subset()->id()) : nullptr);
 
-    std::size_t pos(builder->manifest().split()->end());
+    std::size_t pos(builder.manifest().split()->end());
 
-    while (pos < builder->manifest().size())
+    while (pos < builder.manifest().size())
     {
-        std::unique_ptr<Builder> current(
+        std::unique_ptr<Builder> nextSplit(
                 new Builder(
-                    builder->outEndpoint().root(),
+                    builder.outEndpoint().root(),
                     subsetId.get(),
                     &pos));
 
-        pos = current->manifest().split()->end();
-
-        builder = doUnsplit(std::move(builder), std::move(current));
+        pos = nextSplit->manifest().split()->end();
+        builder.unsplit(*nextSplit);
     }
-
-    return builder;
-}
-
-std::unique_ptr<Builder> Merger::doUnsplit(
-        std::unique_ptr<Builder> small,
-        std::unique_ptr<Builder> large) const
-{
-    if (
-            small->manifest().pointStats().inserts() >
-            large->manifest().pointStats().inserts())
-    {
-        std::swap(small, large);
-    }
-
-    large->unsplit(*small);
-
-    return large;
-}
-
-
-void Merger::merge()
-{
-    if (m_builders.size() == 1) return;
-
-    std::cout << "\t1 / " << m_builders.size() << std::endl;
-    for (std::size_t id(1); id < m_builders.size(); ++id)
-    {
-        std::cout << "\t" << id + 1 << " / " << m_builders.size() << std::endl;
-        m_builders.front()->merge(*m_builders[id]);
-    }
-
-    m_builders.front()->makeWhole();
 }
 
 } // namespace entwine

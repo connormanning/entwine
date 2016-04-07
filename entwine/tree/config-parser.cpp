@@ -200,6 +200,9 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         if (!numPointsHint) numPointsHint = inference.numPoints();
     }
 
+    OuterScope outerScope;
+    outerScope.setArbiter(arbiter);
+
     if (!force && exists)
     {
         builder.reset(
@@ -209,7 +212,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                     threads,
                     postfix,
                     config["subset"],
-                    arbiter));
+                    outerScope));
     }
     else
     {
@@ -250,7 +253,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                     schema,
                     threads,
                     structure,
-                    arbiter));
+                    outerScope));
     }
 
     return builder;

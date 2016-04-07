@@ -412,7 +412,6 @@ BaseChunk::BaseChunk(
         const Id& maxPoints)
     : ContiguousChunk(builder, bbox, 0, id, maxPoints)
     , m_celledSchema(makeCelled(m_builder.schema()))
-    , m_pointPool(new PointPool(m_builder.schema()))
 { }
 
 BaseChunk::BaseChunk(
@@ -424,7 +423,6 @@ BaseChunk::BaseChunk(
         const std::size_t numPoints)
     : ContiguousChunk(builder, bbox, 0, id, maxPoints)
     , m_celledSchema(makeCelled(m_builder.schema()))
-    , m_pointPool(new PointPool(m_builder.schema()))
 {
     m_numPoints = numPoints;
 
@@ -448,8 +446,9 @@ BaseChunk::BaseChunk(
     BinaryPointTable table(m_celledSchema);
     pdal::PointRef pointRef(table, 0);
 
-    PooledInfoStack infoStack(m_pointPool->infoPool().acquire(m_numPoints));
-    PooledDataStack dataStack(m_pointPool->dataPool().acquire(m_numPoints));
+    auto& pointPool(m_builder.pointPool());
+    PooledInfoStack infoStack(pointPool.infoPool().acquire(m_numPoints));
+    PooledDataStack dataStack(pointPool.dataPool().acquire(m_numPoints));
 
     std::size_t tube(0);
     std::size_t curDepth(0);
@@ -495,8 +494,8 @@ void BaseChunk::save(arbiter::Endpoint& endpoint)
     Compressor compressor(m_celledSchema, m_numPoints);
     std::vector<char> data;
 
-    PooledDataStack dataStack(m_pointPool->dataPool());
-    PooledInfoStack infoStack(m_pointPool->infoPool());
+    PooledDataStack dataStack(m_builder.pointPool().dataPool());
+    PooledInfoStack infoStack(m_builder.pointPool().infoPool());
 
     for (std::size_t i(0); i < m_tubes.size(); ++i)
     {

@@ -18,18 +18,14 @@
 
 #include <pdal/Dimension.hpp>
 
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/manifest.hpp>
 #include <entwine/tree/point-info.hpp>
+#include <entwine/types/outer-scope.hpp>
 
 namespace Json
 {
     class Value;
-}
-
-namespace arbiter
-{
-    class Arbiter;
-    class Endpoint;
 }
 
 namespace entwine
@@ -43,7 +39,6 @@ class Executor;
 class Hierarchy;
 class Manifest;
 class Pool;
-class PointPool;
 class Registry;
 class Reprojection;
 class Schema;
@@ -70,7 +65,7 @@ public:
             const Schema& schema,
             std::size_t numThreads,
             const Structure& structure,
-            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
+            OuterScope outerScope = OuterScope());
 
     // Continue an existing build.
     Builder(
@@ -79,7 +74,7 @@ public:
             std::size_t numThreads,
             std::string postfix = "",
             Json::Value subsetJson = Json::Value(),
-            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
+            OuterScope outerScope = OuterScope());
 
     ~Builder();
 
@@ -108,6 +103,7 @@ public:
     const Subset* subset() const;
     const Reprojection* reprojection() const;
     PointPool& pointPool() const;
+    std::shared_ptr<PointPool> sharedPointPool() const;
 
     bool compress() const       { return m_compress; }
     bool trustHeaders() const   { return m_trustHeaders; }
@@ -151,12 +147,12 @@ private:
     // state.  Used for merging.
     static std::unique_ptr<Builder> create(
             std::string path,
-            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
+            OuterScope outerScope = OuterScope());
 
     static std::unique_ptr<Builder> create(
             std::string path,
             std::size_t subsetId,
-            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
+            OuterScope outerScope = OuterScope());
 
     // Read-only.  Used by the Reader to avoid duplicating metadata logic (if
     // no subset/split is passed) or by the Merger to awaken partial builds.
@@ -167,7 +163,7 @@ private:
             std::string path,
             const std::size_t* subsetId = nullptr,
             const std::size_t* splitBegin = nullptr,
-            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
+            OuterScope outerScope = OuterScope());
 
     // Returns true if we should insert this file based on its info.
     bool checkInfo(const FileInfo& info);
@@ -190,8 +186,15 @@ private:
     void clip(const Id& index, std::size_t chunkNum, std::size_t id);
 
     // Awaken the tree from a saved state.
-    void load(std::size_t clipThreads, std::string postfix = "");
-    void load(const std::size_t* subsetId, const std::size_t* splitBegin);
+    void load(
+            OuterScope outerScope,
+            std::size_t clipThreads,
+            std::string postfix = "");
+
+    void load(
+            OuterScope outerScope,
+            const std::size_t* subsetId,
+            const std::size_t* splitBegin);
 
     // Validate sources.
     void prep();
@@ -210,7 +213,7 @@ private:
 
     // Get metadata properties, and load from those serialized properties.
     Json::Value saveOwnProps() const;
-    void loadProps(Json::Value& props, std::string pf);
+    void loadProps(OuterScope outerScope, Json::Value& props, std::string pf);
 
     void addError(const std::string& path, const std::string& error);
 
@@ -255,7 +258,8 @@ private:
     std::unique_ptr<arbiter::Endpoint> m_outEndpoint;
     std::unique_ptr<arbiter::Endpoint> m_tmpEndpoint;
 
-    mutable std::unique_ptr<PointPool> m_pointPool;
+    mutable std::shared_ptr<PointPool> m_pointPool;
+
     std::unique_ptr<Registry> m_registry;
     std::unique_ptr<Hierarchy> m_hierarchy;
 

@@ -211,7 +211,6 @@ public:
 
 private:
     Schema m_celledSchema;
-    std::unique_ptr<PointPool> m_pointPool;
 };
 
 } // namespace entwine
