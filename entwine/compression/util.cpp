@@ -64,20 +64,20 @@ std::unique_ptr<std::vector<char>> Compression::decompress(
 PooledInfoStack Compression::decompress(
         const std::vector<char>& data,
         const std::size_t numPoints,
-        Pools& pools)
+        PointPool& pointPool)
 {
-    PooledDataStack dataStack(pools.dataPool().acquire(numPoints));
-    PooledInfoStack infoStack(pools.infoPool().acquire(numPoints));
+    PooledDataStack dataStack(pointPool.dataPool().acquire(numPoints));
+    PooledInfoStack infoStack(pointPool.infoPool().acquire(numPoints));
 
-    BinaryPointTable table(pools.schema());
+    BinaryPointTable table(pointPool.schema());
     pdal::PointRef pointRef(table, 0);
 
-    const std::size_t pointSize(pools.schema().pointSize());
+    const std::size_t pointSize(pointPool.schema().pointSize());
 
     DecompressionStream decompressionStream(data);
     pdal::LazPerfDecompressor<DecompressionStream> decompressor(
             decompressionStream,
-            pools.schema().pdalLayout().dimTypes());
+            pointPool.schema().pdalLayout().dimTypes());
 
     RawInfoNode* info(infoStack.head());
     char* pos(nullptr);

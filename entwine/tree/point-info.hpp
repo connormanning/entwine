@@ -83,10 +83,10 @@ typedef InfoPool::NodeType RawInfoNode;
 typedef InfoPool::UniqueNodeType PooledInfoNode;
 typedef InfoPool::UniqueStackType PooledInfoStack;
 
-class Pools
+class PointPool
 {
 public:
-    Pools(const Schema& schema)
+    PointPool(const Schema& schema)
         : m_schema(schema)
         , m_dataPool(schema.pointSize(), 4096 * 32)
         , m_infoPool(4096 * 32)

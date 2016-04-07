@@ -90,7 +90,7 @@ Builder::Builder(
     , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
     , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(outPath)))
     , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
-    , m_pointPool(new Pools(*m_schema))
+    , m_pointPool(new PointPool(*m_schema))
     , m_registry()
     , m_hierarchy(new Hierarchy(*m_bbox))
 {
@@ -610,7 +610,7 @@ void Builder::loadProps(Json::Value& props, const std::string pf)
     m_bboxConforming.reset(new BBox(props["bboxConforming"]));
     m_bbox.reset(new BBox(props["bbox"]));
     m_schema.reset(new Schema(props["schema"]));
-    m_pointPool.reset(new Pools(*m_schema));
+    m_pointPool.reset(new PointPool(*m_schema));
     m_structure.reset(new Structure(props["structure"]));
     m_hierarchy.reset(
             new Hierarchy(
@@ -747,7 +747,7 @@ const Reprojection* Builder::reprojection() const
     return m_reprojection.get();
 }
 
-Pools& Builder::pools() const { return *m_pointPool; }
+PointPool& Builder::pointPool() const { return *m_pointPool; }
 
 const arbiter::Endpoint& Builder::outEndpoint() const { return *m_outEndpoint; }
 const arbiter::Endpoint& Builder::tmpEndpoint() const { return *m_tmpEndpoint; }

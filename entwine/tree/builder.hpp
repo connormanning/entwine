@@ -43,7 +43,7 @@ class Executor;
 class Hierarchy;
 class Manifest;
 class Pool;
-class Pools;
+class PointPool;
 class Registry;
 class Reprojection;
 class Schema;
@@ -107,7 +107,7 @@ public:
     const Hierarchy& hierarchy() const;
     const Subset* subset() const;
     const Reprojection* reprojection() const;
-    Pools& pools() const;
+    PointPool& pointPool() const;
 
     bool compress() const       { return m_compress; }
     bool trustHeaders() const   { return m_trustHeaders; }
@@ -255,7 +255,7 @@ private:
     std::unique_ptr<arbiter::Endpoint> m_outEndpoint;
     std::unique_ptr<arbiter::Endpoint> m_tmpEndpoint;
 
-    mutable std::unique_ptr<Pools> m_pointPool;
+    mutable std::unique_ptr<PointPool> m_pointPool;
     std::unique_ptr<Registry> m_registry;
     std::unique_ptr<Hierarchy> m_hierarchy;
 
