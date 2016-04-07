@@ -346,14 +346,6 @@ Json::Value Hierarchy::toJson(const arbiter::Endpoint& ep, std::string postfix)
     const std::size_t writeStep(postfix.empty() ? m_step : 0);
     const Node::NodeSet anchors(m_root.insertInto(ep, postfix, writeStep));
 
-    {
-        Json::FastWriter writer;
-        Json::Value json;
-
-        m_root.insertInto(json);
-        ep.putSubpath("0-json", writer.write(json));
-    }
-
     Json::Value json;
     json["depthBegin"] = static_cast<Json::UInt64>(m_depthBegin);
     json["step"] = static_cast<Json::UInt64>(writeStep);
