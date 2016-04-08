@@ -198,6 +198,8 @@ void Node::insertData(
                         Hierarchy::climb(id, c.first),
                         step,
                         depth);
+
+                c.second.reset();
             }
         }
         else
