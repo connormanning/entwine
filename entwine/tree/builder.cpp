@@ -18,7 +18,6 @@
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
-#include <entwine/tree/hierarchy.hpp>
 #include <entwine/tree/registry.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/pooled-point-table.hpp>
@@ -91,8 +90,9 @@ Builder::Builder(
     , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(outPath)))
     , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
     , m_pointPool(outerScope.getPointPool(*m_schema))
+    , m_nodePool(outerScope.getNodePool())
     , m_registry()
-    , m_hierarchy(new Hierarchy(*m_bbox))
+    , m_hierarchy(new Hierarchy(*m_bbox, *m_nodePool))
 {
     m_bboxConforming->growBy(0.005);
     m_bbox.reset(new BBox(*m_bboxConforming));
@@ -139,6 +139,7 @@ Builder::Builder(
     , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(outPath)))
     , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
     , m_pointPool()
+    , m_nodePool()
     , m_registry()
     , m_hierarchy()
 {
@@ -183,6 +184,7 @@ Builder::Builder(
     , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(path)))
     , m_tmpEndpoint()
     , m_pointPool()
+    , m_nodePool()
     , m_registry()
     , m_hierarchy()
 {
@@ -389,7 +391,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
 
     Clipper clipper(*this, origin);
 
-    Hierarchy localHierarchy(*m_bbox);
+    Hierarchy localHierarchy(*m_bbox, *m_nodePool);
     Climber climber(*m_bbox, *m_structure, &localHierarchy);
 
     auto inserter([this, origin, &clipper, &climber, &s]
@@ -624,10 +626,12 @@ void Builder::loadProps(
     m_bbox.reset(new BBox(props["bbox"]));
     m_schema.reset(new Schema(props["schema"]));
     m_pointPool = outerScope.getPointPool(*m_schema);
+    m_nodePool = outerScope.getNodePool();
     m_structure.reset(new Structure(props["structure"]));
     m_hierarchy.reset(
             new Hierarchy(
                 *m_bbox,
+                *m_nodePool,
                 props["hierarchy"],
                 m_outEndpoint->getSubEndpoint("h"),
                 pf));
@@ -764,6 +768,12 @@ PointPool& Builder::pointPool() const { return *m_pointPool; }
 std::shared_ptr<PointPool> Builder::sharedPointPool() const
 {
     return m_pointPool;
+}
+
+Node::NodePool& Builder::nodePool() const { return *m_nodePool; }
+std::shared_ptr<Node::NodePool> Builder::sharedNodePool() const
+{
+    return m_nodePool;
 }
 
 const arbiter::Endpoint& Builder::outEndpoint() const { return *m_outEndpoint; }

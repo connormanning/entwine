@@ -19,6 +19,7 @@
 #include <pdal/Dimension.hpp>
 
 #include <entwine/third/arbiter/arbiter.hpp>
+#include <entwine/tree/hierarchy.hpp>
 #include <entwine/tree/manifest.hpp>
 #include <entwine/tree/point-info.hpp>
 #include <entwine/types/outer-scope.hpp>
@@ -36,7 +37,6 @@ class Climber;
 class Clipper;
 class Driver;
 class Executor;
-class Hierarchy;
 class Manifest;
 class Pool;
 class Registry;
@@ -102,8 +102,11 @@ public:
     const Hierarchy& hierarchy() const;
     const Subset* subset() const;
     const Reprojection* reprojection() const;
+
     PointPool& pointPool() const;
     std::shared_ptr<PointPool> sharedPointPool() const;
+    Node::NodePool& nodePool() const;
+    std::shared_ptr<Node::NodePool> sharedNodePool() const;
 
     bool compress() const       { return m_compress; }
     bool trustHeaders() const   { return m_trustHeaders; }
@@ -259,6 +262,7 @@ private:
     std::unique_ptr<arbiter::Endpoint> m_tmpEndpoint;
 
     mutable std::shared_ptr<PointPool> m_pointPool;
+    mutable std::shared_ptr<Node::NodePool> m_nodePool;
 
     std::unique_ptr<Registry> m_registry;
     std::unique_ptr<Hierarchy> m_hierarchy;

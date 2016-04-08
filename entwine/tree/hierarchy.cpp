@@ -19,6 +19,7 @@ namespace
 }
 
 Node::Node(
+        Node::NodePool& nodePool,
         const char*& pos,
         const std::size_t step,
         NodeMap& edges,
@@ -27,10 +28,11 @@ Node::Node(
     : m_count()
     , m_children()
 {
-    assign(pos, step, edges, id, depth);
+    assign(nodePool, pos, step, edges, id, depth);
 }
 
 void Node::assign(
+        Node::NodePool& nodePool,
         const char*& pos,
         const std::size_t step,
         NodeMap& edges,
@@ -60,12 +62,21 @@ void Node::assign(
 
                 if (exists)
                 {
-                    m_children[dir] = Node(pos, step, edges, nextId, depth);
+                    m_children[dir] = nodePool.acquireOne(
+                            nodePool,
+                            pos,
+                            step,
+                            edges,
+                            nextId,
+                            depth);
                 }
                 else
                 {
-                    auto it(m_children.insert(std::make_pair(dir, Node())));
-                    edges[nextId] = &it.first->second;
+                    auto it(
+                            m_children.insert(
+                                std::make_pair(dir, nodePool.acquireOne())));
+
+                    edges[nextId] = &it.first->second->val();
                 }
             }
         }
@@ -79,13 +90,13 @@ void Node::merge(Node& other)
     for (auto& theirs : other.children())
     {
         auto& mine(m_children[theirs.first]);
-        if (!mine.count())
+        if (!mine)
         {
             std::swap(mine, theirs.second);
         }
         else
         {
-            mine.merge(theirs.second);
+            mine->val().merge(theirs.second->val());
         }
     }
 }
@@ -98,7 +109,7 @@ void Node::insertInto(Json::Value& json) const
     {
         for (const auto& c : m_children)
         {
-            c.second.insertInto(json[dirToString(c.first)]);
+            c.second->val().insertInto(json[dirToString(c.first)]);
         }
     }
 }
@@ -181,7 +192,7 @@ void Node::insertData(
         {
             for (auto& c : m_children)
             {
-                c.second.insertData(
+                c.second->val().insertData(
                         data,
                         nextSlice,
                         Hierarchy::climb(id, c.first),
@@ -197,7 +208,7 @@ void Node::insertData(
                         nextSlice.end(),
                         std::make_pair(
                             Hierarchy::climb(id, c.first),
-                            AnchoredNode(&c.second)));
+                            AnchoredNode(&c.second->val())));
             }
         }
     }
@@ -227,10 +238,12 @@ bool Node::insertBinary(std::vector<char>& s) const
 
 Hierarchy::Hierarchy(
         const BBox& bbox,
+        Node::NodePool& nodePool,
         const Json::Value& json,
         const arbiter::Endpoint& ep,
         const std::string postfix)
     : m_bbox(bbox)
+    , m_nodePool(nodePool)
     , m_depthBegin(json["depthBegin"].asUInt64())
     , m_step(json["step"].asUInt64())
     , m_root()
@@ -244,11 +257,10 @@ Hierarchy::Hierarchy(
     if (bin && bin->size())
     {
         const char* pos(bin->data());
-        m_root = Node(pos, m_step, m_edges);
+        m_root = Node(nodePool, pos, m_step, m_edges);
 
         if (m_step)
         {
-
             Json::Reader reader;
             Json::Value anchorsJson;
 
@@ -334,7 +346,7 @@ void Hierarchy::awaken(const Id& id, const Node* node)
 
     while (it != m_edges.end() && (edgeEnd.zero() || it->first < edgeEnd))
     {
-        it->second->assign(pos, m_step, newEdges, it->first);
+        it->second->assign(m_nodePool, pos, m_step, newEdges, it->first);
         it = m_edges.erase(it);
     }
 
@@ -512,7 +524,7 @@ void Hierarchy::accumulate(
                     }
 
                     accumulate(
-                        out.next(dir),
+                        out.next(dir, m_nodePool),
                         lag,
                         *node,
                         nextDepth,
@@ -546,7 +558,7 @@ void Hierarchy::accumulate(
                         awaken(childId, node);
                     }
 
-                    if (!nextNode) nextNode = &out.next(lagdir);
+                    if (!nextNode) nextNode = &out.next(lagdir, m_nodePool);
                     auto curlag(lag);
                     curlag.push_back(curdir);
 
