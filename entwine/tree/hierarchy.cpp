@@ -144,7 +144,8 @@ Node::AnchoredMap Node::insertSlice(
     auto write([&]()
     {
         anchors.insert(anchor);
-        ep.putSubpath(anchor.str() + postfix, data);
+        const std::string path(anchor.str() + (anchor.zero() ? postfix : ""));
+        ep.putSubpath(path, data);
         data.clear();
 
         if (nextSlice.size())
@@ -198,8 +199,6 @@ void Node::insertData(
                         Hierarchy::climb(id, c.first),
                         step,
                         depth);
-
-                c.second.reset();
             }
         }
         else
@@ -253,6 +252,7 @@ Hierarchy::Hierarchy(
     , m_anchors()
     , m_mutex()
     , m_endpoint(new arbiter::Endpoint(ep))
+    , m_postfix(postfix)
 {
     const auto bin(ep.tryGetSubpathBinary("0" + postfix));
 
@@ -266,7 +266,7 @@ Hierarchy::Hierarchy(
             Json::Reader reader;
             Json::Value anchorsJson;
 
-            const std::string anchorsData(ep.getSubpath("anchors"));
+            const std::string anchorsData(ep.getSubpath("anchors" + postfix));
             if (!reader.parse(anchorsData, anchorsJson, false))
             {
                 throw std::runtime_error(
@@ -340,7 +340,7 @@ void Hierarchy::awaken(const Id& id, const Node* node)
     const Id edgeEnd(upperAnchor != m_anchors.end() ? *upperAnchor : 0);
 
     const std::vector<char> bin(
-            m_endpoint->getSubpathBinary(lowerAnchor->str()));
+            m_endpoint->getSubpathBinary(lowerAnchor->str() + m_postfix));
 
     const char* pos(bin.data());
 
@@ -357,28 +357,26 @@ void Hierarchy::awaken(const Id& id, const Node* node)
 
 Json::Value Hierarchy::toJson(const arbiter::Endpoint& ep, std::string postfix)
 {
-    const std::size_t writeStep(postfix.empty() ? m_step : 0);
-    const Node::NodeSet anchors(m_root.insertInto(ep, postfix, writeStep));
+    // Postfixing is only applied to the anchors file and the base anchor.
+    const Node::NodeSet newAnchors(m_root.insertInto(ep, postfix, m_step));
+    m_anchors.insert(newAnchors.begin(), newAnchors.end());
 
     Json::Value json;
     json["depthBegin"] = static_cast<Json::UInt64>(m_depthBegin);
-    json["step"] = static_cast<Json::UInt64>(writeStep);
+    json["step"] = static_cast<Json::UInt64>(m_step);
 
-    if (writeStep)
+    Json::Value jsonAnchors;
+    for (const auto& a : m_anchors)
     {
-        Json::Value jsonAnchors;
-        for (const auto& a : anchors)
-        {
-            if (!a.zero()) jsonAnchors.append(a.str());
-        }
-
-        if (jsonAnchors.empty())
-        {
-            jsonAnchors.resize(0);
-        }
-
-        ep.putSubpath("anchors", jsonAnchors.toStyledString());
+        if (!a.zero()) jsonAnchors.append(a.str());
     }
+
+    if (jsonAnchors.empty())
+    {
+        jsonAnchors.resize(0);
+    }
+
+    ep.putSubpath("anchors" + postfix, jsonAnchors.toStyledString());
 
     return json;
 }

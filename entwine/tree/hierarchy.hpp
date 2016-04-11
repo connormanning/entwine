@@ -162,6 +162,7 @@ public:
         , m_anchors()
         , m_mutex()
         , m_endpoint()
+        , m_postfix()
     { }
 
     Hierarchy(
@@ -183,6 +184,7 @@ public:
     void merge(Hierarchy& other)
     {
         m_root.merge(other.root());
+        m_anchors.insert(other.m_anchors.begin(), other.m_anchors.end());
     }
 
     std::size_t depthBegin() const { return m_depthBegin; }
@@ -192,6 +194,7 @@ public:
     void awakenAll()
     {
         for (const auto& a : m_anchors) awaken(a);
+        m_anchors.clear();
     }
 
     void setStep(std::size_t set) { m_step = set; }
@@ -245,6 +248,7 @@ private:
 
     mutable std::mutex m_mutex;
     std::unique_ptr<arbiter::Endpoint> m_endpoint;
+    std::string m_postfix;
 };
 
 class HierarchyClimber

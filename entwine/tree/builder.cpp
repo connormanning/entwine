@@ -151,6 +151,8 @@ Builder::Builder(
         m_subset.reset(new Subset(*m_structure, *m_bbox, subsetJson));
         m_subBBox.reset(new BBox(m_subset->bbox()));
     }
+
+    m_hierarchy->awakenAll();
 }
 
 Builder::Builder(
@@ -515,8 +517,6 @@ void Builder::load(
 
     loadProps(outerScope, meta, pf);
 
-    if (pf.size()) m_hierarchy->awakenAll();
-
     m_executor.reset(new Executor(m_structure->is3d()));
     m_originId = m_schema->pdalLayout().findDim("Origin");
 
@@ -585,8 +585,7 @@ void Builder::merge(Builder& other)
 
     m_registry->merge(other.registry());
     m_manifest->merge(other.manifest());
-    m_hierarchy->merge(*other.m_hierarchy);
-    m_hierarchy->setStep(Hierarchy::defaultStep);
+    m_hierarchy->merge(other.hierarchy());
 }
 
 Json::Value Builder::saveOwnProps() const

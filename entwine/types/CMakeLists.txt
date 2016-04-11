@@ -20,6 +20,7 @@ set(
     "${BASE}/dim-info.hpp"
     "${BASE}/dir.hpp"
     "${BASE}/elastic-atomic.hpp"
+    "${BASE}/outer-scope.hpp"
     "${BASE}/point.hpp"
     "${BASE}/pooled-point-table.hpp"
     "${BASE}/range.hpp"
