@@ -50,12 +50,9 @@ namespace
     {
         std::unique_ptr<Reprojection> reprojection;
 
-        const Json::Value& in(json["in"]);
-        const Json::Value& out(json["out"]);
-
-        if (!json.empty() && out.isString() && out.asString().size())
+        if (!json.empty())
         {
-            reprojection.reset(new Reprojection(in.asString(), out.asString()));
+            reprojection.reset(new Reprojection(json));
         }
 
         return reprojection;
@@ -88,10 +85,6 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     const Json::Value jsonInput(config["input"]);
     const bool trustHeaders(jsonInput["trustHeaders"].asBool());
     const std::size_t threads(jsonInput["threads"].asUInt64());
-    const float threshold(
-            jsonInput.isMember("threshold") ?
-                std::max(jsonInput["threshold"].asDouble(), 0.5) :
-                2.0);
 
     // Build specifications and path info.
     const Json::Value& jsonOutput(config["output"]);
@@ -128,20 +121,20 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     Schema schema(geometry["schema"]);
 
     bool exists(false);
+    std::string postfix;
 
     if (!force)
     {
         // TODO Should probably just try to construct a Builder here using
         // the subset/split constructor instead of reimplementing the postfix
         // logic.
-        std::string postfix;
-
         if (config.isMember("subset"))
         {
-            postfix += "-" + config["subset"]["id"].asString();
+            const std::size_t id(config["subset"]["id"].asUInt64() - 1);
+            postfix += "-" + std::to_string(id);
         }
 
-        if (manifest->split() && manifest->split()->begin())
+        if (manifest && manifest->split() && manifest->split()->begin())
         {
             postfix += "-" + std::to_string(manifest->split()->begin());
         }
@@ -153,7 +146,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         }
     }
 
-    if (!numPointsHint)
+    if (!numPointsHint && manifest)
     {
         numPointsHint = std::accumulate(
                 manifest->paths().begin(),
@@ -165,7 +158,9 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                 });
     }
 
-    if (!exists && (!bboxConforming || !schema.pointSize() || !numPointsHint))
+    if (
+            manifest && !exists &&
+            (!bboxConforming || !schema.pointSize() || !numPointsHint))
     {
         std::cout << "Performing dataset inference..." << std::endl;
         Inference inference(
@@ -205,6 +200,9 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         if (!numPointsHint) numPointsHint = inference.numPoints();
     }
 
+    OuterScope outerScope;
+    outerScope.setArbiter(arbiter);
+
     if (!force && exists)
     {
         builder.reset(
@@ -212,8 +210,9 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                     outPath,
                     tmpPath,
                     threads,
-                    threshold,
-                    arbiter));
+                    postfix,
+                    config["subset"],
+                    outerScope));
     }
     else
     {
@@ -231,8 +230,13 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                 discardDuplicates,
                 prefixIds);
 
+        // TODO This cubeifying code is duplicated from the Builder constructor.
         BBox cube(*bboxConforming);
-        if (!cube.isCubic()) cube.cubeify();
+        if (!cube.isCubic())
+        {
+            cube.growBy(0.005);
+            cube.cubeify();
+        }
 
         std::unique_ptr<Subset> subset(getSubset(config, structure, cube));
 
@@ -248,9 +252,8 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                     *bboxConforming,
                     schema,
                     threads,
-                    threshold,
                     structure,
-                    arbiter));
+                    outerScope));
     }
 
     return builder;

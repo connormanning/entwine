@@ -93,9 +93,24 @@ Registry::Registry(
                 m_builder.postfix());
 
         std::unique_ptr<std::vector<char>> data(
-                new std::vector<char>(m_endpoint.getSubpathBinary(basePath)));
+                m_endpoint.tryGetSubpathBinary(basePath));
 
-        m_base.reset(
+        if (data)
+        {
+            m_base.reset(
+                    static_cast<BaseChunk*>(
+                        Chunk::create(
+                            m_builder,
+                            m_builder.bbox(),
+                            0,
+                            m_structure.baseIndexBegin(),
+                            m_structure.baseIndexSpan(),
+                            std::move(data)).release()));
+        }
+        else
+        {
+            std::cout << "No base data found" << std::endl;
+            m_base.reset(
                 static_cast<BaseChunk*>(
                     Chunk::create(
                         m_builder,
@@ -103,7 +118,8 @@ Registry::Registry(
                         0,
                         m_structure.baseIndexBegin(),
                         m_structure.baseIndexSpan(),
-                        std::move(data)).release()));
+                        true).release()));
+        }
     }
 
     if (m_structure.hasCold())

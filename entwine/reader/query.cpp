@@ -226,12 +226,8 @@ bool Query::processPoint(std::vector<char>& buffer, const PointInfo& info)
         m_table.setPoint(info.data());
         bool isX(false), isY(false), isZ(false);
 
-        bool written(false);
-
         for (const auto& dim : m_outSchema.dims())
         {
-            written = false;
-
             isX = dim.id() == pdal::Dimension::Id::X;
             isY = dim.id() == pdal::Dimension::Id::Y;
             isZ = dim.id() == pdal::Dimension::Id::Z;

@@ -19,6 +19,7 @@ namespace entwine
 {
 
 class Builder;
+class OuterScope;
 
 class Merger
 {
@@ -31,18 +32,12 @@ public:
     void go();
 
 private:
-    void unsplit();
-    void merge();
+    void unsplit(Builder& builder);
 
-    std::unique_ptr<Builder> unsplitOne(std::unique_ptr<Builder> builder) const;
-
-    std::unique_ptr<Builder> doUnsplit(
-            std::unique_ptr<Builder> one,
-            std::unique_ptr<Builder> two) const;
-
-    std::vector<std::unique_ptr<Builder>> m_builders;
+    std::unique_ptr<Builder> m_builder;
+    std::size_t m_numSubsets;
     std::string m_path;
-    std::shared_ptr<arbiter::Arbiter> m_arbiter;
+    std::unique_ptr<OuterScope> m_outerScope;
 };
 
 } // namespace entwine

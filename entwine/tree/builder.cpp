@@ -18,7 +18,6 @@
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
-#include <entwine/tree/hierarchy.hpp>
 #include <entwine/tree/registry.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/pooled-point-table.hpp>
@@ -63,9 +62,8 @@ Builder::Builder(
         const BBox& bboxConforming,
         const Schema& schema,
         const std::size_t totalThreads,
-        const float threshold,
         const Structure& structure,
-        std::shared_ptr<Arbiter> arbiter)
+        const OuterScope outerScope)
     : m_bboxConforming(new BBox(bboxConforming))
     , m_bbox()
     , m_subBBox(subset ? new BBox(subset->bbox()) : nullptr)
@@ -83,19 +81,18 @@ Builder::Builder(
     , m_initialWorkThreads(getWorkThreads(totalThreads))
     , m_initialClipThreads(getClipThreads(totalThreads))
     , m_totalThreads(totalThreads)
-    , m_threshold(threshold)
-    , m_usage(0)
     , m_executor(new Executor(m_structure->is3d()))
     , m_originId(m_schema->pdalLayout().findDim("Origin"))
     , m_origin(0)
     , m_end(0)
     , m_added(0)
-    , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
+    , m_arbiter(outerScope.getArbiter())
     , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(outPath)))
     , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
-    , m_pointPool(new Pools(*m_schema))
+    , m_pointPool(outerScope.getPointPool(*m_schema))
+    , m_nodePool(outerScope.getNodePool())
     , m_registry()
-    , m_hierarchy(new Hierarchy(*m_bbox))
+    , m_hierarchy(new Hierarchy(*m_bbox, *m_nodePool))
 {
     m_bboxConforming->growBy(0.005);
     m_bbox.reset(new BBox(*m_bboxConforming));
@@ -113,8 +110,9 @@ Builder::Builder(
         const std::string outPath,
         const std::string tmpPath,
         const std::size_t totalThreads,
-        const float threshold,
-        std::shared_ptr<Arbiter> arbiter)
+        const std::string pf,
+        const Json::Value subsetJson,
+        const OuterScope outerScope)
     : m_bboxConforming()
     , m_bbox()
     , m_subBBox()
@@ -132,29 +130,36 @@ Builder::Builder(
     , m_initialWorkThreads(getWorkThreads(totalThreads))
     , m_initialClipThreads(getClipThreads(totalThreads))
     , m_totalThreads(totalThreads)
-    , m_threshold(threshold)
-    , m_usage(0)
     , m_executor()
     , m_originId()
     , m_origin(0)
     , m_end(0)
     , m_added(0)
-    , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
+    , m_arbiter(outerScope.getArbiter())
     , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(outPath)))
     , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
     , m_pointPool()
+    , m_nodePool()
     , m_registry()
     , m_hierarchy()
 {
     prep();
-    load(m_initialClipThreads);
+    load(outerScope, m_initialClipThreads, pf);
+
+    if (!subsetJson.empty())
+    {
+        m_subset.reset(new Subset(*m_structure, *m_bbox, subsetJson));
+        m_subBBox.reset(new BBox(m_subset->bbox()));
+    }
+
+    m_hierarchy->awakenAll();
 }
 
 Builder::Builder(
         const std::string path,
         const std::size_t* subsetId,
         const std::size_t* splitBegin,
-        std::shared_ptr<arbiter::Arbiter> arbiter)
+        const OuterScope outerScope)
     : m_bboxConforming()
     , m_bbox()
     , m_subBBox()
@@ -172,43 +177,42 @@ Builder::Builder(
     , m_initialWorkThreads(0)
     , m_initialClipThreads(0)
     , m_totalThreads(0)
-    , m_threshold(2.0)
-    , m_usage(0)
     , m_executor()
     , m_originId()
     , m_origin(0)
     , m_end(0)
     , m_added(0)
-    , m_arbiter(arbiter ? arbiter : std::shared_ptr<Arbiter>(new Arbiter()))
+    , m_arbiter(outerScope.getArbiter())
     , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(path)))
     , m_tmpEndpoint()
     , m_pointPool()
+    , m_nodePool()
     , m_registry()
     , m_hierarchy()
 {
     prep();
-    load(subsetId, splitBegin);
+    load(outerScope, subsetId, splitBegin);
 }
 
 std::unique_ptr<Builder> Builder::create(
         const std::string path,
-        std::shared_ptr<arbiter::Arbiter> arbiter)
+        const OuterScope outerScope)
 {
     std::unique_ptr<Builder> builder;
     const std::size_t zero(0);
 
     // Try a subset, but not split, build.
-    try { builder.reset(new Builder(path, &zero, nullptr, arbiter)); }
+    try { builder.reset(new Builder(path, &zero, nullptr, outerScope)); }
     catch (...) { builder.reset(); }
     if (builder) return builder;
 
     // Try a split, but not subset, build.
-    try { builder.reset(new Builder(path, nullptr, &zero, arbiter)); }
+    try { builder.reset(new Builder(path, nullptr, &zero, outerScope)); }
     catch (...) { builder.reset(); }
     if (builder) return builder;
 
     // Try a split and subset build.
-    try { builder.reset(new Builder(path, &zero, &zero, arbiter)); }
+    try { builder.reset(new Builder(path, &zero, &zero, outerScope)); }
     catch (...) { builder.reset(); }
     if (builder) return builder;
 
@@ -218,18 +222,18 @@ std::unique_ptr<Builder> Builder::create(
 std::unique_ptr<Builder> Builder::create(
         const std::string path,
         const std::size_t subsetId,
-        std::shared_ptr<arbiter::Arbiter> arbiter)
+        const OuterScope outerScope)
 {
     std::unique_ptr<Builder> builder;
     const std::size_t zero(0);
 
     // Try a subset, but not split, build.
-    try { builder.reset(new Builder(path, &subsetId, nullptr, arbiter)); }
+    try { builder.reset(new Builder(path, &subsetId, nullptr, outerScope)); }
     catch (...) { builder.reset(); }
     if (builder) return builder;
 
     // Try a split and subset build.
-    try { builder.reset(new Builder(path, &subsetId, &zero, arbiter)); }
+    try { builder.reset(new Builder(path, &subsetId, &zero, outerScope)); }
     catch (...) { builder.reset(); }
     if (builder) return builder;
 
@@ -371,10 +375,9 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
         {
             if (m_reprojection)
             {
-                // Use the executor's lock here, since we are likely to be
-                // fighting against concurrent Executor::preview()/run() calls.
-                auto lock(m_executor->getLock());
-                m_srs = pdal::SpatialReference(m_reprojection->out()).getWKT();
+                // Don't construct the pdal::SpatialReference ourself, since
+                // we need to use the Executors lock to do so.
+                m_srs = m_executor->getSrsString(m_reprojection->out());
             }
             else
             {
@@ -390,7 +393,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
 
     Clipper clipper(*this, origin);
 
-    Hierarchy localHierarchy(*m_bbox);
+    Hierarchy localHierarchy(*m_bbox, *m_nodePool);
     Climber climber(*m_bbox, *m_structure, &localHierarchy);
 
     auto inserter([this, origin, &clipper, &climber, &s]
@@ -469,7 +472,10 @@ PooledInfoStack Builder::insertData(
     return rejected;
 }
 
-void Builder::load(const std::size_t clipThreads, const std::string post)
+void Builder::load(
+        const OuterScope outerScope,
+        const std::size_t clipThreads,
+        const std::string pf)
 {
     Json::Value meta;
     Json::Reader reader;
@@ -482,12 +488,12 @@ void Builder::load(const std::size_t clipThreads, const std::string post)
 
     {
         // Get top-level metadata.
-        const std::string strMeta(m_outEndpoint->getSubpath("entwine" + post));
+        const std::string strMeta(m_outEndpoint->getSubpath("entwine" + pf));
 
         if (!reader.parse(strMeta, meta, false)) error();
 
         // For Reader invocation only.
-        if (post.empty())
+        if (pf.empty())
         {
             m_numPointsClone = meta["numPoints"].asUInt64();
         }
@@ -495,41 +501,43 @@ void Builder::load(const std::size_t clipThreads, const std::string post)
 
     {
         const std::string strIds(
-                m_outEndpoint->getSubpath("entwine-ids" + post));
+                m_outEndpoint->getSubpath("entwine-ids" + pf));
 
         if (!reader.parse(strIds, meta["ids"], false)) error();
     }
 
     // Don't load manifest if this is a Reader wakeup.
-    if (post.size())
+    if (pf.size())
     {
         const std::string strManifest(
-                m_outEndpoint->getSubpath("entwine-manifest" + post));
+                m_outEndpoint->getSubpath("entwine-manifest" + pf));
 
         if (!reader.parse(strManifest, meta["manifest"], false)) error();
     }
 
-    loadProps(meta);
-
-    if (post.size())
-    {
-        m_hierarchy->awakenAll();
-    }
+    loadProps(outerScope, meta, pf);
 
     m_executor.reset(new Executor(m_structure->is3d()));
     m_originId = m_schema->pdalLayout().findDim("Origin");
 
     m_registry.reset(
-            new Registry(*m_outEndpoint, *this, clipThreads, meta["ids"]));
+            new Registry(
+                *m_outEndpoint,
+                *this,
+                clipThreads,
+                meta["ids"]));
 }
 
-void Builder::load(const std::size_t* subsetId, const std::size_t* splitBegin)
+void Builder::load(
+        const OuterScope outerScope,
+        const std::size_t* subsetId,
+        const std::size_t* splitBegin)
 {
     std::string post(
             (subsetId ? "-" + std::to_string(*subsetId) : "") +
             (splitBegin ? "-" + std::to_string(*splitBegin) : ""));
 
-    load(0, post);
+    load(outerScope, 0, post);
 }
 
 void Builder::save()
@@ -577,7 +585,7 @@ void Builder::merge(Builder& other)
 
     m_registry->merge(other.registry());
     m_manifest->merge(other.manifest());
-    m_hierarchy->merge(*other.m_hierarchy);
+    m_hierarchy->merge(other.hierarchy());
 }
 
 Json::Value Builder::saveOwnProps() const
@@ -608,18 +616,24 @@ Json::Value Builder::saveOwnProps() const
     return props;
 }
 
-void Builder::loadProps(Json::Value& props)
+void Builder::loadProps(
+        const OuterScope outerScope,
+        Json::Value& props,
+        const std::string pf)
 {
     m_bboxConforming.reset(new BBox(props["bboxConforming"]));
     m_bbox.reset(new BBox(props["bbox"]));
     m_schema.reset(new Schema(props["schema"]));
-    m_pointPool.reset(new Pools(*m_schema));
+    m_pointPool = outerScope.getPointPool(*m_schema);
+    m_nodePool = outerScope.getNodePool();
     m_structure.reset(new Structure(props["structure"]));
     m_hierarchy.reset(
             new Hierarchy(
                 *m_bbox,
+                *m_nodePool,
                 props["hierarchy"],
-                m_outEndpoint->getSubEndpoint("h")));
+                m_outEndpoint->getSubEndpoint("h"),
+                pf));
 
     if (props.isMember("subset"))
     {
@@ -749,7 +763,17 @@ const Reprojection* Builder::reprojection() const
     return m_reprojection.get();
 }
 
-Pools& Builder::pools() const { return *m_pointPool; }
+PointPool& Builder::pointPool() const { return *m_pointPool; }
+std::shared_ptr<PointPool> Builder::sharedPointPool() const
+{
+    return m_pointPool;
+}
+
+Node::NodePool& Builder::nodePool() const { return *m_nodePool; }
+std::shared_ptr<Node::NodePool> Builder::sharedNodePool() const
+{
+    return m_nodePool;
+}
 
 const arbiter::Endpoint& Builder::outEndpoint() const { return *m_outEndpoint; }
 const arbiter::Endpoint& Builder::tmpEndpoint() const { return *m_tmpEndpoint; }
@@ -774,8 +798,6 @@ void Builder::addError(const std::string& path, const std::string& error)
 
 float Builder::chunkMem() const
 {
-    if (usage()) return usage();
-
     static const std::size_t bytesPerPoint(
             m_schema->pointSize() + sizeof(Tube));
 

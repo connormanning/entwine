@@ -23,7 +23,7 @@ public:
 
     char* allocate(std::size_t n)
     {
-        if (m_buf + N - m_ptr >= n)
+        if (static_cast<std::size_t>(m_buf + N - m_ptr) >= n)
         {
             char* r = m_ptr;
             m_ptr += n;

@@ -24,6 +24,7 @@ namespace pdal
     class Filter;
     class PointView;
     class Reader;
+    class Stage;
     class StageFactory;
 }
 
@@ -33,6 +34,26 @@ namespace entwine
 class PooledPointTable;
 class Reprojection;
 class Schema;
+
+class ScopedStage
+{
+public:
+    explicit ScopedStage(
+            pdal::Stage* stage,
+            pdal::StageFactory& stageFactory,
+            std::mutex& factoryMutex);
+
+    ~ScopedStage();
+
+    template<typename T> T getAs() { return static_cast<T>(m_stage); }
+
+private:
+    pdal::Stage* m_stage;
+    pdal::StageFactory& m_stageFactory;
+    std::mutex& m_factoryMutex;
+};
+
+typedef std::unique_ptr<ScopedStage> UniqueStage;
 
 class Preview
 {
@@ -75,16 +96,13 @@ public:
             std::string path,
             const Reprojection* reprojection);
 
-    std::unique_lock<std::mutex> getLock() const;
+    std::string getSrsString(std::string input) const;
 
 private:
-    pdal::Reader* createReader(
-            std::string driver,
-            std::string path) const;
+    UniqueStage createReader(std::string path) const;
+    UniqueStage createReprojectionFilter(const Reprojection& r) const;
 
-    pdal::Filter* createReprojectionFilter(
-            const Reprojection& reprojection,
-            pdal::BasePointTable& pointTable) const;
+    std::unique_lock<std::mutex> getLock() const;
 
     bool m_is3d;
     std::unique_ptr<pdal::StageFactory> m_stageFactory;

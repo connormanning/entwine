@@ -68,7 +68,7 @@ private:
     void add(std::string localPath, FileInfo& fileInfo);
 
     Executor m_executor;
-    Pools m_pools;
+    PointPool m_pointPool;
     const Reprojection* m_reproj;
     std::size_t m_threads;
     bool m_verbose;

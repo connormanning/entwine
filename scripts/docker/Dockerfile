@@ -1,9 +1,10 @@
-FROM connormanning/pdal:docker-master
+FROM pdal/pdal:1.2
 MAINTAINER Connor Manning <connor@hobu.co>
 
 ENV CC clang
 ENV CXX clang++
 
+ADD http://www.timeapi.org/utc/now /tmp/bust-cache
 RUN git clone https://github.com/connormanning/entwine.git && \
     cd entwine && \
     mkdir build && \

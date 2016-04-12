@@ -45,7 +45,7 @@ public:
     static PooledInfoStack decompress(
             const std::vector<char>& data,
             std::size_t numPoints,
-            Pools& pools);
+            PointPool& pointPool);
 };
 
 class Compressor

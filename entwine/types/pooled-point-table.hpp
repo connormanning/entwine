@@ -45,7 +45,7 @@ public:
     // The processing function may acquire nodes from the incoming stack, and
     // can return any that do not need to be kept for reuse.
     PooledPointTable(
-            Pools& pools,
+            PointPool& pointPool,
             std::function<PooledInfoStack(PooledInfoStack)> process);
 
     virtual pdal::point_count_t capacity() const override;
@@ -61,7 +61,7 @@ protected:
 private:
     void allocate();
 
-    Pools& m_pools;
+    PointPool& m_pointPool;
     PooledInfoStack m_stack;
     std::deque<RawInfoNode*> m_nodes;   // m_nodes[0] -> m_stack.head()
     std::size_t m_size;

@@ -19,6 +19,7 @@ namespace
 }
 
 Node::Node(
+        Node::NodePool& nodePool,
         const char*& pos,
         const std::size_t step,
         NodeMap& edges,
@@ -27,10 +28,11 @@ Node::Node(
     : m_count()
     , m_children()
 {
-    assign(pos, step, edges, id, depth);
+    assign(nodePool, pos, step, edges, id, depth);
 }
 
 void Node::assign(
+        Node::NodePool& nodePool,
         const char*& pos,
         const std::size_t step,
         NodeMap& edges,
@@ -38,15 +40,6 @@ void Node::assign(
         std::size_t depth)
 {
     std::copy(pos, pos + sizeof(uint64_t), reinterpret_cast<char*>(&m_count));
-    if (!m_count)
-    {
-        std::cout <<
-            "Invalid hierarchy count " << id.str() <<
-            " at depth " << depth << std::endl;
-
-        throw std::runtime_error("Invalid hierarchy count " + id.str());
-    }
-
     pos += sizeof(uint64_t);
 
     const uint8_t mask(*pos);
@@ -54,7 +47,8 @@ void Node::assign(
 
     if (mask)
     {
-        const bool exists(!step || ++depth % step);
+        ++depth;
+        const bool exists(!step || depth % step);
 
         Dir dir;
         Id nextId;
@@ -68,12 +62,21 @@ void Node::assign(
 
                 if (exists)
                 {
-                    m_children[dir] = Node(pos, step, edges, nextId, depth);
+                    m_children[dir] = nodePool.acquireOne(
+                            nodePool,
+                            pos,
+                            step,
+                            edges,
+                            nextId,
+                            depth);
                 }
                 else
                 {
-                    auto it(m_children.insert(std::make_pair(dir, Node())));
-                    edges[nextId] = &it.first->second;
+                    auto it(
+                            m_children.insert(
+                                std::make_pair(dir, nodePool.acquireOne())));
+
+                    edges[nextId] = &it.first->second->val();
                 }
             }
         }
@@ -87,31 +90,33 @@ void Node::merge(Node& other)
     for (auto& theirs : other.children())
     {
         auto& mine(m_children[theirs.first]);
-        if (!mine.count())
+        if (!mine)
         {
             std::swap(mine, theirs.second);
         }
         else
         {
-            mine.merge(theirs.second);
+            mine->val().merge(theirs.second->val());
         }
     }
 }
 
 void Node::insertInto(Json::Value& json) const
 {
+    json[countKey] = static_cast<Json::UInt64>(m_count);
+
     if (m_count)
     {
-        json[countKey] = static_cast<Json::UInt64>(m_count);
         for (const auto& c : m_children)
         {
-            c.second.insertInto(json[dirToString(c.first)]);
+            c.second->val().insertInto(json[dirToString(c.first)]);
         }
     }
 }
 
 Node::NodeSet Node::insertInto(
         const arbiter::Endpoint& ep,
+        const std::string postfix,
         const std::size_t step)
 {
     NodeSet anchors;
@@ -119,7 +124,7 @@ Node::NodeSet Node::insertInto(
     AnchoredMap slice;
     slice[0] = AnchoredNode(this);
 
-    while (slice.size()) slice = insertSlice(anchors, slice, ep, step);
+    while (slice.size()) slice = insertSlice(anchors, slice, ep, postfix, step);
 
     return anchors;
 }
@@ -128,6 +133,7 @@ Node::AnchoredMap Node::insertSlice(
         NodeSet& anchors,
         const AnchoredMap& slice,
         const arbiter::Endpoint& ep,
+        const std::string postfix,
         const std::size_t step)
 {
     std::vector<char> data;
@@ -135,10 +141,11 @@ Node::AnchoredMap Node::insertSlice(
     AnchoredMap nextSlice;
     Id anchor(slice.begin()->first);
 
-    auto write([&anchors, &ep, &anchor, &data, &nextSlice, &fullSlice]()
+    auto write([&]()
     {
         anchors.insert(anchor);
-        ep.putSubpath(anchor.str(), data);
+        const std::string path(anchor.str() + (anchor.zero() ? postfix : ""));
+        ep.putSubpath(path, data);
         data.clear();
 
         if (nextSlice.size())
@@ -186,7 +193,7 @@ void Node::insertData(
         {
             for (auto& c : m_children)
             {
-                c.second.insertData(
+                c.second->val().insertData(
                         data,
                         nextSlice,
                         Hierarchy::climb(id, c.first),
@@ -202,7 +209,7 @@ void Node::insertData(
                         nextSlice.end(),
                         std::make_pair(
                             Hierarchy::climb(id, c.first),
-                            AnchoredNode(&c.second)));
+                            AnchoredNode(&c.second->val())));
             }
         }
     }
@@ -210,33 +217,34 @@ void Node::insertData(
 
 bool Node::insertBinary(std::vector<char>& s) const
 {
+    s.insert(
+            s.end(),
+            reinterpret_cast<const char*>(&m_count),
+            reinterpret_cast<const char*>(&m_count + 1));
+
+    uint8_t mask(0);
+
     if (m_count)
     {
-        s.insert(
-                s.end(),
-                reinterpret_cast<const char*>(&m_count),
-                reinterpret_cast<const char*>(&m_count + 1));
-
-        uint8_t mask(0);
         for (const auto& c : m_children)
         {
             mask |= (1 << static_cast<int>(c.first));
         }
+    }
 
-        s.push_back(mask);
-        return true;
-    }
-    else
-    {
-        return false;
-    }
+    s.push_back(mask);
+
+    return m_count;
 }
 
 Hierarchy::Hierarchy(
         const BBox& bbox,
+        Node::NodePool& nodePool,
         const Json::Value& json,
-        const arbiter::Endpoint& ep)
+        const arbiter::Endpoint& ep,
+        const std::string postfix)
     : m_bbox(bbox)
+    , m_nodePool(nodePool)
     , m_depthBegin(json["depthBegin"].asUInt64())
     , m_step(json["step"].asUInt64())
     , m_root()
@@ -244,29 +252,37 @@ Hierarchy::Hierarchy(
     , m_anchors()
     , m_mutex()
     , m_endpoint(new arbiter::Endpoint(ep))
+    , m_postfix(postfix)
 {
-    const std::vector<char> bin(ep.getSubpathBinary("0"));
-    const char* pos(bin.data());
+    const auto bin(ep.tryGetSubpathBinary("0" + postfix));
 
-    m_root = Node(pos, m_step, m_edges);
-
-    if (m_step)
+    if (bin && bin->size())
     {
-        Json::Reader reader;
-        Json::Value anchorsJson;
+        const char* pos(bin->data());
+        m_root = Node(nodePool, pos, m_step, m_edges);
 
-        const std::string anchorsData(ep.getSubpath("anchors"));
-        if (!reader.parse(anchorsData, anchorsJson, false))
+        if (m_step)
         {
-            throw std::runtime_error(
-                    "Anchor parse error: " +
-                    reader.getFormattedErrorMessages());
-        }
+            Json::Reader reader;
+            Json::Value anchorsJson;
 
-        for (Json::ArrayIndex i(0); i < anchorsJson.size(); ++i)
-        {
-            m_anchors.insert(Id(anchorsJson[i].asString()));
+            const std::string anchorsData(ep.getSubpath("anchors" + postfix));
+            if (!reader.parse(anchorsData, anchorsJson, false))
+            {
+                throw std::runtime_error(
+                        "Anchor parse error: " +
+                        reader.getFormattedErrorMessages());
+            }
+
+            for (Json::ArrayIndex i(0); i < anchorsJson.size(); ++i)
+            {
+                m_anchors.insert(Id(anchorsJson[i].asString()));
+            }
         }
+    }
+    else
+    {
+        std::cout << "No hierarchy data found" << std::endl;
     }
 }
 
@@ -324,7 +340,7 @@ void Hierarchy::awaken(const Id& id, const Node* node)
     const Id edgeEnd(upperAnchor != m_anchors.end() ? *upperAnchor : 0);
 
     const std::vector<char> bin(
-            m_endpoint->getSubpathBinary(lowerAnchor->str()));
+            m_endpoint->getSubpathBinary(lowerAnchor->str() + m_postfix));
 
     const char* pos(bin.data());
 
@@ -332,7 +348,7 @@ void Hierarchy::awaken(const Id& id, const Node* node)
 
     while (it != m_edges.end() && (edgeEnd.zero() || it->first < edgeEnd))
     {
-        it->second->assign(pos, m_step, newEdges, it->first);
+        it->second->assign(m_nodePool, pos, m_step, newEdges, it->first);
         it = m_edges.erase(it);
     }
 
@@ -341,28 +357,26 @@ void Hierarchy::awaken(const Id& id, const Node* node)
 
 Json::Value Hierarchy::toJson(const arbiter::Endpoint& ep, std::string postfix)
 {
-    const std::size_t writeStep(postfix.empty() ? m_step : 0);
-    const Node::NodeSet anchors(m_root.insertInto(ep, writeStep));
+    // Postfixing is only applied to the anchors file and the base anchor.
+    const Node::NodeSet newAnchors(m_root.insertInto(ep, postfix, m_step));
+    m_anchors.insert(newAnchors.begin(), newAnchors.end());
 
     Json::Value json;
     json["depthBegin"] = static_cast<Json::UInt64>(m_depthBegin);
-    json["step"] = static_cast<Json::UInt64>(writeStep);
+    json["step"] = static_cast<Json::UInt64>(m_step);
 
-    if (writeStep)
+    Json::Value jsonAnchors;
+    for (const auto& a : m_anchors)
     {
-        Json::Value jsonAnchors;
-        for (const auto& a : anchors)
-        {
-            if (!a.zero()) jsonAnchors.append(a.str());
-        }
-
-        if (jsonAnchors.empty())
-        {
-            jsonAnchors.resize(0);
-        }
-
-        ep.putSubpath("anchors", jsonAnchors.toStyledString());
+        if (!a.zero()) jsonAnchors.append(a.str());
     }
+
+    if (jsonAnchors.empty())
+    {
+        jsonAnchors.resize(0);
+    }
+
+    ep.putSubpath("anchors" + postfix, jsonAnchors.toStyledString());
 
     return json;
 }
@@ -510,7 +524,7 @@ void Hierarchy::accumulate(
                     }
 
                     accumulate(
-                        out.next(dir),
+                        out.next(dir, m_nodePool),
                         lag,
                         *node,
                         nextDepth,
@@ -544,7 +558,7 @@ void Hierarchy::accumulate(
                         awaken(childId, node);
                     }
 
-                    if (!nextNode) nextNode = &out.next(lagdir);
+                    if (!nextNode) nextNode = &out.next(lagdir, m_nodePool);
                     auto curlag(lag);
                     curlag.push_back(curdir);
 
