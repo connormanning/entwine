@@ -97,6 +97,10 @@ namespace
             "\t-u <aws user>\n"
             "\t\tSpecify AWS credential user, if not default\n\n"
 
+            "\t-e <aws server-side-encryption key>\n"
+            "\t\tSpecify AWS SSE key, if server-side encryption should be\n"
+            "requested.\n\n"
+
             "\t-g <max inserted files>\n"
             "\t\tFor directories, stop inserting after the specified count.\n\n"
 
@@ -218,6 +222,7 @@ void Kernel::build(std::vector<std::string> args)
     arbiter::Arbiter localArbiter;
     Json::Value json(defaults);
     std::string user;
+    std::string sse;
 
     std::size_t a(0);
 
@@ -329,6 +334,17 @@ void Kernel::build(std::vector<std::string> args)
                 throw std::runtime_error("Invalid AWS user argument");
             }
         }
+        else if (arg == "-e")
+        {
+            if (++a < args.size())
+            {
+                sse = args[a];
+            }
+            else
+            {
+                throw std::runtime_error("Invalid S3 SSE argument");
+            }
+        }
         else if (arg == "-r")
         {
             if (++a < args.size())
@@ -410,6 +426,7 @@ void Kernel::build(std::vector<std::string> args)
 
     Json::Value arbiterConfig(json["arbiter"]);
     arbiterConfig["s3"]["user"] = user;
+    if (!sse.empty()) arbiterConfig["sse"] = sse;
 
     std::shared_ptr<arbiter::Arbiter> arbiter(
             std::make_shared<arbiter::Arbiter>(arbiterConfig));

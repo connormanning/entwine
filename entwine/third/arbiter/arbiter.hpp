@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: b5690b47948ab0dc8be37dae832fb80f2d21ac22
+// Git SHA: 28450a774475c24dd744869177720db6ac826d63
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -2162,7 +2162,8 @@ class HttpPool;
  *
  * Derived classes must override Driver::type,
  * Driver::put(std::string, const std::vector<char>&) const, and
- * Driver::get(std::string, std::vector<char>&) const - and may optionally
+ * Driver::get(std::string, std::vector<char>&) const,
+ * Driver::size(std::string) const - and may optionally
  * override Driver::glob if possible.
  */
 class Driver
@@ -2205,6 +2206,12 @@ public:
 
     /** Get string data. */
     std::string get(std::string path) const;
+
+    /** Get the file size in bytes, if available. */
+    virtual std::unique_ptr<std::size_t> tryGetSize(std::string path) const = 0;
+
+    /** Get the file size in bytes, or throw if it does not exist. */
+    std::size_t getSize(std::string path) const;
 
     /** Write string data. */
     void put(std::string path, const std::string& data) const;
@@ -2281,7 +2288,18 @@ typedef std::map<std::string, std::unique_ptr<Driver>> DriverMap;
 
 #ifndef ARBITER_IS_AMALGAMATION
 #include <arbiter/driver.hpp>
+
+#ifndef ARBITER_EXTERNAL_JSON
 #include <arbiter/third/json/json.hpp>
+#endif
+
+#endif
+
+
+
+
+#ifdef ARBITER_EXTERNAL_JSON
+#include <json/json.h>
 #endif
 
 namespace arbiter
@@ -2289,16 +2307,26 @@ namespace arbiter
 
 class Arbiter;
 
+/**
+ * \addtogroup fs
+ * @{
+ */
+
+/** Filesystem utilities. */
 namespace fs
 {
-    // Returns true if created, false if already existed.
+    /** @brief Returns true if created, false if already existed. */
     bool mkdirp(std::string dir);
 
-    // Returns true if removed, otherwise false.
+    /** @brief Returns true if removed, otherwise false. */
     bool remove(std::string filename);
 
-    // Performs tilde expansion to a fully-qualified path, if possible.
+    /** @brief Performs tilde expansion to a fully-qualified path, if possible.
+     */
     std::string expandTilde(std::string path);
+
+    /** @brief Get temporary path from environment. */
+    std::string getTempPath();
 
     /** @brief A scoped local filehandle for a possibly remote path.
      *
@@ -2327,13 +2355,26 @@ namespace fs
          */
         std::string localPath() const { return m_localPath; }
 
+        /** @brief Release the managed local path and return the path from
+         * LocalHandle::localPath.
+         *
+         * After this call, destruction of the LocalHandle will not erase the
+         * temporary file that may have been created.
+         */
+        std::string release()
+        {
+            m_erase = false;
+            return localPath();
+        }
+
     private:
         LocalHandle(std::string localPath, bool isRemote);
 
         const std::string m_localPath;
-        const bool m_isRemote;
+        bool m_erase;
     };
 }
+/** @} */
 
 namespace drivers
 {
@@ -2345,6 +2386,10 @@ public:
     static std::unique_ptr<Fs> create(HttpPool& pool, const Json::Value& json);
 
     virtual std::string type() const override { return "file"; }
+
+    virtual std::unique_ptr<std::size_t> tryGetSize(
+            std::string path) const override;
+
     virtual void put(
             std::string path,
             const std::vector<char>& data) const override;
@@ -2455,11 +2500,15 @@ public:
             const Json::Value& json);
 
     virtual std::string type() const override { return "http"; }
+
+    virtual std::unique_ptr<std::size_t> tryGetSize(
+            std::string path) const override;
+
     virtual void put(
             std::string path,
             const std::vector<char>& data) const override;
 
-    static std::string sanitize(std::string path);
+    static std::string sanitize(std::string path, std::string exclusions = "/");
 
 private:
     virtual bool get(
@@ -2481,6 +2530,7 @@ public:
     ~Curl();
 
     HttpResponse get(std::string path, Headers headers);
+    HttpResponse head(std::string path, Headers headers);
     HttpResponse put(
             std::string path,
             const std::vector<char>& data,
@@ -2513,6 +2563,10 @@ public:
     ~HttpResource();
 
     HttpResponse get(
+            std::string path,
+            Headers headers = Headers());
+
+    HttpResponse head(
             std::string path,
             Headers headers = Headers());
 
@@ -5212,7 +5266,15 @@ namespace rapidxml
 // //////////////////////////////////////////////////////////////////////
 
 #ifndef ARBITER_IS_AMALGAMATION
+
+#ifndef ARBITER_EXTERNAL_XML
 #include <arbiter/third/xml/rapidxml.hpp>
+#endif
+
+#endif
+
+#ifdef ARBITER_EXTERNAL_XML
+#include <rapidxml.hpp>
 #endif
 
 namespace Xml = rapidxml;
@@ -5228,7 +5290,120 @@ namespace Xml = rapidxml;
 
 
 // //////////////////////////////////////////////////////////////////////
-// Beginning of content of file: arbiter/util/crypto.hpp
+// Beginning of content of file: arbiter/util/macros.hpp
+// //////////////////////////////////////////////////////////////////////
+
+#pragma once
+
+#define ROTLEFT(a,b) (((a) << (b)) | ((a) >> (32-(b))))
+#define ROTRIGHT(a,b) (((a) >> (b)) | ((a) << (32-(b))))
+
+// SHA256.
+#define CH(x,y,z) (((x) & (y)) ^ (~(x) & (z)))
+#define MAJ(x,y,z) (((x) & (y)) ^ ((x) & (z)) ^ ((y) & (z)))
+#define EP0(x) (ROTRIGHT(x,2) ^ ROTRIGHT(x,13) ^ ROTRIGHT(x,22))
+#define EP1(x) (ROTRIGHT(x,6) ^ ROTRIGHT(x,11) ^ ROTRIGHT(x,25))
+#define SIG0(x) (ROTRIGHT(x,7) ^ ROTRIGHT(x,18) ^ ((x) >> 3))
+#define SIG1(x) (ROTRIGHT(x,17) ^ ROTRIGHT(x,19) ^ ((x) >> 10))
+
+// MD5.
+#define F(x,y,z) ((x & y) | (~x & z))
+#define G(x,y,z) ((x & z) | (y & ~z))
+#define H(x,y,z) (x ^ y ^ z)
+#define I(x,y,z) (y ^ (x | ~z))
+
+#define FF(a,b,c,d,m,s,t) { a += F(b,c,d) + m + t; \
+                            a = b + ROTLEFT(a,s); }
+#define GG(a,b,c,d,m,s,t) { a += G(b,c,d) + m + t; \
+                            a = b + ROTLEFT(a,s); }
+#define HH(a,b,c,d,m,s,t) { a += H(b,c,d) + m + t; \
+                            a = b + ROTLEFT(a,s); }
+#define II(a,b,c,d,m,s,t) { a += I(b,c,d) + m + t; \
+                            a = b + ROTLEFT(a,s); }
+
+
+// //////////////////////////////////////////////////////////////////////
+// End of content of file: arbiter/util/macros.hpp
+// //////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+// //////////////////////////////////////////////////////////////////////
+// Beginning of content of file: arbiter/util/md5.hpp
+// //////////////////////////////////////////////////////////////////////
+
+#pragma once
+
+#include <cstddef>
+#include <string>
+#include <vector>
+
+// MD5 implementation adapted from:
+//      https://github.com/B-Con/crypto-algorithms
+
+namespace arbiter
+{
+namespace crypto
+{
+
+std::string md5(const std::string& data);
+
+} // namespace crypto
+} // namespace arbiter
+
+
+// //////////////////////////////////////////////////////////////////////
+// End of content of file: arbiter/util/md5.hpp
+// //////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+// //////////////////////////////////////////////////////////////////////
+// Beginning of content of file: arbiter/util/sha256.hpp
+// //////////////////////////////////////////////////////////////////////
+
+#pragma once
+
+#include <cstddef>
+#include <string>
+#include <vector>
+
+// SHA256 implementation adapted from:
+//      https://github.com/B-Con/crypto-algorithms
+// HMAC:
+//      https://en.wikipedia.org/wiki/Hash-based_message_authentication_code
+
+namespace arbiter
+{
+namespace crypto
+{
+
+std::vector<char> sha256(const std::vector<char>& data);
+std::string sha256(const std::string& data);
+
+std::string hmacSha256(const std::string& key, const std::string& data);
+
+} // namespace crypto
+} // namespace arbiter
+
+
+// //////////////////////////////////////////////////////////////////////
+// End of content of file: arbiter/util/sha256.hpp
+// //////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+// //////////////////////////////////////////////////////////////////////
+// Beginning of content of file: arbiter/util/transforms.hpp
 // //////////////////////////////////////////////////////////////////////
 
 #pragma once
@@ -5241,14 +5416,17 @@ namespace arbiter
 namespace crypto
 {
 
-std::vector<char> hmacSha1(std::string key, std::string message);
+std::string encodeBase64(const std::vector<char>& data);
+std::string encodeAsHex(const std::vector<char>& data);
+std::string encodeAsHex(const std::string& data);
+std::string md5(const std::string& data);
 
 } // namespace crypto
 } // namespace arbiter
 
 
 // //////////////////////////////////////////////////////////////////////
-// End of content of file: arbiter/util/crypto.hpp
+// End of content of file: arbiter/util/transforms.hpp
 // //////////////////////////////////////////////////////////////////////
 
 
@@ -5306,7 +5484,10 @@ private:
 class S3 : public CustomHeaderDriver
 {
 public:
-    S3(HttpPool& pool, AwsAuth awsAuth);
+    S3(
+            HttpPool& pool,
+            AwsAuth awsAuth,
+            std::string serverSideEncryptionKey = "");
 
     /** Try to construct an S3 Driver.  Searches @p json primarily for the keys
      * `access` and `hidden` to construct an AwsAuth.  If not found, common
@@ -5316,6 +5497,10 @@ public:
     static std::unique_ptr<S3> create(HttpPool& pool, const Json::Value& json);
 
     virtual std::string type() const override { return "s3"; }
+
+    virtual std::unique_ptr<std::size_t> tryGetSize(
+            std::string path) const override;
+
     virtual void put(
             std::string path,
             const std::vector<char>& data) const override;
@@ -5334,34 +5519,90 @@ private:
             std::string path,
             bool verbose) const override;
 
-    bool buildRequestAndGet(
+    bool get(
             std::string rawPath,
             const Query& query,
-            std::vector<char>& data,
-            Headers = Headers()) const;
+            const Headers& headers,
+            std::vector<char>& data) const;
 
-    Headers httpGetHeaders(std::string filePath) const;
-    Headers httpPutHeaders(std::string filePath) const;
+    struct Resource
+    {
+        Resource(std::string fullPath);
 
-    std::string getHttpDate() const;
+        std::string buildPath(Query query = Query()) const;
+        std::string host() const;
 
-    std::string getSignedEncodedString(
-            std::string command,
-            std::string file,
-            std::string httpDate,
-            std::string contentType = "") const;
+        std::string bucket;
+        std::string object;
+    };
 
-    std::string getStringToSign(
-            std::string command,
-            std::string file,
-            std::string httpDate,
-            std::string contentType) const;
+    class FormattedTime
+    {
+    public:
+        FormattedTime();
 
-    std::vector<char> signString(std::string input) const;
-    std::string encodeBase64(std::vector<char> input) const;
+        const std::string& date() const { return m_date; }
+        const std::string& time() const { return m_time; }
+
+        std::string amazonDate() const
+        {
+            return date() + 'T' + time() + 'Z';
+        }
+
+    private:
+        std::string formatTime(const std::string& format) const;
+
+        const std::string m_date;
+        const std::string m_time;
+    };
+
+    class AuthV4
+    {
+    public:
+        AuthV4(
+                std::string verb,
+                const Resource& resource,
+                const AwsAuth& auth,
+                const Query& query,
+                const Headers& headers,
+                const std::vector<char>& data);
+
+        const Headers& headers() const { return m_headers; }
+
+        const std::string& signedHeadersString() const
+        {
+            return m_signedHeadersString;
+        }
+
+    private:
+        std::string buildCanonicalRequest(
+                std::string verb,
+                const Resource& resource,
+                const Query& query,
+                const std::vector<char>& data) const;
+
+        std::string buildStringToSign(
+                const std::string& canonicalRequest) const;
+
+        std::string calculateSignature(
+                const std::string& stringToSign) const;
+
+        std::string getAuthHeader(
+                const std::string& signedHeadersString,
+                const std::string& signature) const;
+
+        const AwsAuth& m_auth;
+        const FormattedTime m_formattedTime;
+
+        Headers m_headers;
+        std::string m_canonicalHeadersString;
+        std::string m_signedHeadersString;
+    };
 
     HttpPool& m_pool;
     AwsAuth m_auth;
+
+    std::unique_ptr<Headers> m_sseHeaders;
 };
 
 } // namespace drivers
@@ -5437,6 +5678,10 @@ public:
 
 private:
     virtual bool get(std::string path, std::vector<char>& data) const override;
+
+    virtual std::unique_ptr<std::size_t> tryGetSize(
+            std::string path) const override;
+
     virtual std::vector<std::string> glob(
             std::string path,
             bool verbose) const override;
@@ -5476,6 +5721,7 @@ private:
 
 #include <string>
 #include <vector>
+#include <memory>
 
 namespace arbiter
 {
@@ -5508,6 +5754,9 @@ public:
 
     /** Passthrough to Driver::isRemote. */
     bool isRemote() const;
+
+    /** Negation of Endpoint::isRemote. */
+    bool isLocal() const;
 
     /** Passthrough to Driver::get. */
     std::string getSubpath(std::string subpath) const;
@@ -5571,13 +5820,24 @@ private:
 #endif
 
 #ifndef ARBITER_IS_AMALGAMATION
+
 #include <arbiter/driver.hpp>
 #include <arbiter/endpoint.hpp>
 #include <arbiter/drivers/fs.hpp>
 #include <arbiter/drivers/http.hpp>
 #include <arbiter/drivers/s3.hpp>
 #include <arbiter/drivers/dropbox.hpp>
+
+#ifndef ARBITER_EXTERNAL_JSON
 #include <arbiter/third/json/json.hpp>
+#endif
+
+#endif
+
+
+
+#ifdef ARBITER_EXTERNAL_JSON
+#include <json/json.h>
 #endif
 
 namespace arbiter
@@ -5638,16 +5898,32 @@ public:
     /** Get data in binary form if accessible. */
     std::unique_ptr<std::vector<char>> tryGetBinary(std::string path) const;
 
+    /** Get file size in bytes or throw if inaccessible. */
+    std::size_t getSize(std::string path) const;
+
+    /** Get file size in bytes if accessible. */
+    std::unique_ptr<std::size_t> tryGetSize(std::string path) const;
+
     /** Write data to path. */
     void put(std::string path, const std::string& data) const;
 
     /** Write data to path. */
     void put(std::string path, const std::vector<char>& data) const;
 
+    /** Copy data from @p from to @p to.  @p from will be resolved with
+     * Arbiter::resolve prior to the copy, so globbed directories are supported.
+     */
+    void copy(std::string from, std::string to) const;
+
     /** Returns true if this path is a remote path, or false if it is on the
      * local filesystem.
      */
     bool isRemote(std::string path) const;
+
+    /** Returns true if this path is on the local filesystem, or false if it is
+     * remote.
+     */
+    bool isLocal(std::string path) const;
 
     /** @brief Resolve a possibly globbed path.
      *
@@ -5693,7 +5969,7 @@ public:
      * driver is returned.  If the delimiter exists but a corresponding driver
      * type is not found, ArbiterError is thrown.
      *
-     * Optionally, filesystem paths may be explicitly prefixed with `fs://`.
+     * Optionally, filesystem paths may be explicitly prefixed with `file://`.
      */
     const Driver& getDriver(std::string path) const;
 
@@ -5721,18 +5997,39 @@ public:
             std::string path,
             const Endpoint& tempEndpoint) const;
 
+    /** @brief Get a fs::LocalHandle to a possibly remote file.
+     *
+     * If @p tempPath is not specified, the environment will be searched for a
+     * temporary location.
+     */
+    std::unique_ptr<fs::LocalHandle> getLocalHandle(
+            std::string path,
+            std::string tempPath = "") const;
+
+    /** If no delimiter of "://" is found, returns "file".  Otherwise, returns
+     * the substring prior to but not including this delimiter.
+     */
+    static std::string getType(const std::string path);
+
     /** Strip the type and delimiter `://`, if they exist. */
     static std::string stripType(std::string path);
+
+    /** Returns the portion of @p fullPath following the last instance of the
+     * character `/`, if any instances exist aside from possibly the delimiter
+     * `://`.  If there are no other instances of `/`, then @p fullPath itself
+     * will be returned.
+     *
+     * If @p fullPath ends with a trailing `/` or a glob indication (i.e. is a
+     * directory), these trailing characters will be stripped prior to the
+     * logic above, thus the innermost directory in the full path will be
+     * returned.
+     */
+    static std::string getTerminus(const std::string fullPath);
 
     /** Fetch the common HTTP pool, which may be useful when dynamically
      * constructing adding a Driver via Arbiter::addDriver.
      */
     HttpPool& httpPool() { return m_pool; }
-
-    /** If no delimiter of "://" is found, returns "fs".  Otherwise, returns
-     * the substring prior to but not including this delimiter.
-     */
-    std::string getType(const std::string path) const;
 
 private:
     // Registers all available default Driver instances.
