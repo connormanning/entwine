@@ -12,6 +12,7 @@
 
 #include <cstdint>
 #include <deque>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <set>
@@ -24,6 +25,7 @@ namespace entwine
 {
 
 typedef uint64_t Origin;
+static const Origin invalidOrigin = std::numeric_limits<Origin>::max();
 
 class PointStats
 {
