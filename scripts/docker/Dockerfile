@@ -1,4 +1,4 @@
-FROM pdal/pdal:1.2
+FROM connormanning/pdal:entwine-pin
 MAINTAINER Connor Manning <connor@hobu.co>
 
 ENV CC clang
