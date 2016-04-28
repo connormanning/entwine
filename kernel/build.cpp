@@ -425,7 +425,7 @@ void Kernel::build(std::vector<std::string> args)
     }
 
     Json::Value arbiterConfig(json["arbiter"]);
-    arbiterConfig["s3"]["user"] = user;
+    arbiterConfig["s3"]["profile"] = user;
     if (!sse.empty()) arbiterConfig["sse"] = sse;
 
     std::shared_ptr<arbiter::Arbiter> arbiter(
