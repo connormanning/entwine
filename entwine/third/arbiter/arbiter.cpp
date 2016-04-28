@@ -6619,7 +6619,8 @@ namespace
                             std::remove_if(
                                 current.begin(),
                                 current.end(),
-                                [](char c) { return std::isspace(c); }));
+                                [](char c) { return std::isspace(c); }),
+                            current.end());
 
                     out.push_back(current);
                     return out;
