@@ -6841,7 +6841,10 @@ std::unique_ptr<S3> S3::create(HttpPool& pool, const Json::Value& json)
 
 std::string S3::extractProfile(const Json::Value& json)
 {
-    if (!json.isNull() && json.isMember("profile"))
+    if (
+            !json.isNull() &&
+            json.isMember("profile") &&
+            json["profile"].asString().size())
     {
         return json["profile"].asString();
     }
