@@ -105,7 +105,7 @@ bool Executor::run(
     pdal::Stage* executor(reader);
 
     // Needed so that getSpatialReference has been initialized.
-    reader->prepare(table);
+    { auto lock(getLock()); reader->prepare(table); }
 
     UniqueStage scopedFilter;
 
