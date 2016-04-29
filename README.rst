@@ -15,7 +15,7 @@ Getting started with Entwine is easy with `Docker`_.  Pull the most recent image
 ::
 
     mkdir ~/entwine
-    docker run -it -v ~:/opt/data connormanning/entwine \
+    docker run -it -v $HOME:/opt/data connormanning/entwine \
         entwine build -i /opt/data/abc.laz -o /opt/data/entwine/abc
 
 |
@@ -24,7 +24,7 @@ Now we have Entwine data at ``~/entwine/abc``.  We could have also passed a wild
 
 ::
 
-    docker run -it -v ~/entwine:/opt/data -p 8080:80 connormanning/greyhound
+    docker run -it -v $HOME/entwine:/opt/data -p 8080:80 connormanning/greyhound
     
 |
 
