@@ -201,7 +201,7 @@ void Kernel::infer(std::vector<std::string> args)
         ++a;
     }
 
-    arbiter::fs::mkdirp(tmpPath);
+    entwine::arbiter::fs::mkdirp(tmpPath);
 
     std::unique_ptr<Reprojection> reprojection;
 
@@ -213,8 +213,7 @@ void Kernel::infer(std::vector<std::string> args)
     Json::Value arbiterConfig;
     arbiterConfig["s3"]["profile"] = user;
 
-    std::shared_ptr<arbiter::Arbiter> arbiter(
-            std::make_shared<arbiter::Arbiter>(arbiterConfig));
+    auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(arbiterConfig));
 
     const auto reprojString(getReprojString(reprojection.get()));
     const auto trustHeadersString(trustHeaders ? "yes" : "no");

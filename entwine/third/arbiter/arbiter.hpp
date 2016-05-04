@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 8dde2a6036408000f8c58330f8ef9a9df2cdfb8b
+// Git SHA: 2eb3c7abfbf97ae59691d165f65b46444a1ccd00
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -45,6 +45,7 @@ SOFTWARE.
 /// If defined, indicates that the source file is amalgamated
 /// to prevent private header inclusion.
 #define ARBITER_IS_AMALGAMATION
+#define ARBITER_CUSTOM_NAMESPACE entwine
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: arbiter/third/json/json.hpp
@@ -2147,6 +2148,11 @@ JSON_API std::ostream& operator<<(std::ostream&, const Value& root);
 #include <string>
 #include <vector>
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
+
 namespace arbiter
 {
 
@@ -2270,6 +2276,10 @@ typedef std::map<std::string, std::unique_ptr<Driver>> DriverMap;
 
 } // namespace arbiter
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/driver.hpp
@@ -2300,6 +2310,11 @@ typedef std::map<std::string, std::unique_ptr<Driver>> DriverMap;
 
 #ifdef ARBITER_EXTERNAL_JSON
 #include <json/json.h>
+#endif
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
 #endif
 
 namespace arbiter
@@ -2408,6 +2423,10 @@ protected:
 
 } // namespace arbiter
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/drivers/fs.hpp
@@ -2436,6 +2455,11 @@ protected:
 
 #ifndef ARBITER_IS_AMALGAMATION
 #include <arbiter/driver.hpp>
+#endif
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
 #endif
 
 namespace arbiter
@@ -2615,6 +2639,10 @@ private:
 /** @endcond */
 
 } // namespace arbiter
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
 
 
 // //////////////////////////////////////////////////////////////////////
@@ -5344,6 +5372,11 @@ namespace Xml = rapidxml;
 // MD5 implementation adapted from:
 //      https://github.com/B-Con/crypto-algorithms
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
+
 namespace arbiter
 {
 namespace crypto
@@ -5353,6 +5386,10 @@ std::string md5(const std::string& data);
 
 } // namespace crypto
 } // namespace arbiter
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
 
 
 // //////////////////////////////////////////////////////////////////////
@@ -5379,6 +5416,11 @@ std::string md5(const std::string& data);
 // HMAC:
 //      https://en.wikipedia.org/wiki/Hash-based_message_authentication_code
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
+
 namespace arbiter
 {
 namespace crypto
@@ -5391,6 +5433,10 @@ std::string hmacSha256(const std::string& key, const std::string& data);
 
 } // namespace crypto
 } // namespace arbiter
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
 
 
 // //////////////////////////////////////////////////////////////////////
@@ -5411,6 +5457,11 @@ std::string hmacSha256(const std::string& key, const std::string& data);
 #include <string>
 #include <vector>
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
+
 namespace arbiter
 {
 namespace crypto
@@ -5424,6 +5475,10 @@ std::string encodeAsHex(const std::string& data);
 
 } // namespace crypto
 } // namespace arbiter
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
 
 
 // //////////////////////////////////////////////////////////////////////
@@ -5442,6 +5497,11 @@ std::string encodeAsHex(const std::string& data);
 #pragma once
 
 #include <string>
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
 
 namespace arbiter
 {
@@ -5534,6 +5594,10 @@ namespace util
 
 } // namespace arbiter
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/util/util.hpp
@@ -5557,6 +5621,11 @@ namespace util
 #ifndef ARBITER_IS_AMALGAMATION
 #include <arbiter/driver.hpp>
 #include <arbiter/drivers/http.hpp>
+#endif
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
 #endif
 
 namespace arbiter
@@ -5725,6 +5794,10 @@ private:
 } // namespace drivers
 } // namespace arbiter
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/drivers/s3.hpp
@@ -5748,6 +5821,11 @@ private:
 #ifndef ARBITER_IS_AMALGAMATION
 #include <arbiter/driver.hpp>
 #include <arbiter/drivers/http.hpp>
+#endif
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
 #endif
 
 namespace arbiter
@@ -5820,6 +5898,10 @@ private:
 } // namespace drivers
 } // namespace arbiter
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/drivers/dropbox.hpp
@@ -5839,6 +5921,11 @@ private:
 #include <string>
 #include <vector>
 #include <memory>
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
 
 namespace arbiter
 {
@@ -5913,6 +6000,10 @@ private:
 
 } // namespace arbiter
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/endpoint.hpp
@@ -5955,6 +6046,11 @@ private:
 
 #ifdef ARBITER_EXTERNAL_JSON
 #include <json/json.h>
+#endif
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
 #endif
 
 namespace arbiter
@@ -6146,6 +6242,9 @@ private:
 
 } // namespace arbiter
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/arbiter.hpp

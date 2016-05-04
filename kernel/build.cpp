@@ -219,7 +219,7 @@ void Kernel::build(std::vector<std::string> args)
         }
     }
 
-    arbiter::Arbiter localArbiter;
+    entwine::arbiter::Arbiter localArbiter;
     Json::Value json(defaults);
     std::string user;
     std::string sse;
@@ -428,8 +428,7 @@ void Kernel::build(std::vector<std::string> args)
     arbiterConfig["s3"]["profile"] = user;
     if (!sse.empty()) arbiterConfig["sse"] = sse;
 
-    std::shared_ptr<arbiter::Arbiter> arbiter(
-            std::make_shared<arbiter::Arbiter>(arbiterConfig));
+    auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(arbiterConfig));
 
     std::unique_ptr<Manifest> manifest(
             ConfigParser::getManifest(json, *arbiter));

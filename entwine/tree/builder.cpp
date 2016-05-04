@@ -28,10 +28,10 @@
 #include <entwine/util/executor.hpp>
 #include <entwine/util/pool.hpp>
 
-using namespace arbiter;
-
 namespace entwine
 {
+
+using namespace arbiter;
 
 namespace
 {
