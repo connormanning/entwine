@@ -28,6 +28,15 @@ Now we have Entwine data at ``~/entwine/abc``.  We could have also passed a wild
     
 |
 
+You may need to forward port 8080 from your docker virtual machine to your host OS; `this post <https://jlordiales.me/2015/04/02/boot2docker-port-forward/>`_ describes one way to do this.
+For the impatient, use this one-liner:
+
+::
+
+    VBoxManage controlvm default natpf1 "greyhound,tcp,127.0.0.1,8080,,8080"
+
+|
+
 Now we have Greyhound ready to serve our data, we just need a client renderer to view it.  Let's hit the URL below, which will connect to our new local Greyhound resource.
 
 http://dev.speck.ly?s=http://localhost:8080/&r=abc
