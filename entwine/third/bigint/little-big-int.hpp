@@ -1,5 +1,30 @@
+/******************************************************************************
+* The MIT License (MIT)
+*
+* Copyright (c) 2015 Connor Manning
+*
+* Permission is hereby granted, free of charge, to any person obtaining a copy
+* of this software and associated documentation files (the "Software"), to deal
+* in the Software without restriction, including without limitation the rights
+* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+* copies of the Software, and to permit persons to whom the Software is
+* furnished to do so, subject to the following conditions:
+*
+* The above copyright notice and this permission notice shall be included in all
+* copies or substantial portions of the Software.
+*
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+* SOFTWARE.
+******************************************************************************/
+
 #pragma once
 
+#include <cassert>
 #include <climits>
 #include <cstddef>
 #include <cstdint>
@@ -13,31 +38,68 @@ typedef unsigned long long Block;
 static const std::size_t bitsPerBlock(CHAR_BIT * sizeof(Block));
 static const std::size_t blockMax(std::numeric_limits<Block>::max());
 
+/******************************************************************************
+* The stack allocator (classes Arena and ShortAlloc) is adapted from
+*       https://howardhinnant.github.io/short_alloc.h
+*
+* These classes are also licensed as MIT, reproduced below:
+*
+* The MIT License (MIT)
+*
+* Copyright (c) 2015 Howard Hinnant
+*
+* Permission is hereby granted, free of charge, to any person obtaining a copy
+* of this software and associated documentation files (the "Software"), to deal
+* in the Software without restriction, including without limitation the rights
+* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+* copies of the Software, and to permit persons to whom the Software is
+* furnished to do so, subject to the following conditions:
+*
+* The above copyright notice and this permission notice shall be included in all
+* copies or substantial portions of the Software.
+*
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+* SOFTWARE.
+******************************************************************************/
+
 // Adapted from https://howardhinnant.github.io/stack_alloc.html
-template <std::size_t N>
+template <std::size_t N, std::size_t A = alignof(std::max_align_t)>
 class Arena
 {
 public:
-    Arena() noexcept : m_ptr(m_buf) { }
-    ~Arena() { m_ptr = nullptr; }
+    Arena() noexcept : m_buf(), m_ptr(m_buf)  { }
+
+    Arena(const Arena&) = delete;
+    Arena& operator=(const Arena&) = delete;
 
     char* allocate(std::size_t n)
     {
-        if (static_cast<std::size_t>(m_buf + N - m_ptr) >= n)
+        n = alignUp(n);
+
+        if (m_ptr + n <= end())
         {
-            char* r = m_ptr;
+            char* r(m_ptr);
             m_ptr += n;
             return r;
         }
         else
         {
+            static_assert(
+                    A <= alignof(std::max_align_t),
+                    "Operator new cannot guarantee the selected alignment");
+
             return static_cast<char*>(::operator new(n));
         }
     }
 
     void deallocate(char* p, std::size_t n) noexcept
     {
-        if (inRange(p))
+        if (stacked(p))
         {
             if (p + n == m_ptr) m_ptr = p;
         }
@@ -47,42 +109,65 @@ public:
         }
     }
 
-    static constexpr std::size_t size() { return N; }
-    std::size_t used() const { return static_cast<std::size_t>(m_ptr - m_buf); }
-    void reset() { m_ptr = m_buf; }
+    static constexpr std::size_t size() noexcept { return N; }
+    void reset() noexcept { m_ptr = m_buf; }
 
-private:
-    Arena(const Arena&) = delete;
-    Arena& operator=(const Arena&) = delete;
-
-    bool inRange(char* p) const noexcept
+    std::size_t used() const noexcept
     {
-        return m_buf <= p && p <= m_buf + N;
+        return static_cast<std::size_t>(m_ptr - m_buf);
     }
 
-    static const std::size_t alignment = 16;
-    alignas(alignment) char m_buf[N];
+private:
+    bool stacked(char* p) const noexcept
+    {
+        return p >= m_buf && p <= end();
+    }
+
+    const char* const end() const noexcept
+    {
+        return m_buf + N;
+    }
+
+    static std::size_t alignUp(std::size_t n) noexcept
+    {
+        return (n + A - 1) & ~(A - 1);
+    }
+
+    alignas(A) char m_buf[N];
     char* m_ptr;
 };
 
-template <class T, std::size_t N>
+template <class T, std::size_t N, std::size_t A = alignof(std::max_align_t)>
 class ShortAlloc
 {
 public:
-    ShortAlloc(Arena<N>& a) noexcept : m_arena(a) { }
+    using value_type = T;
+    using ArenaType = Arena<N, A>;
+
+    ShortAlloc(ArenaType& a) noexcept
+        : m_arena(a)
+    {
+        static_assert(N % A == 0, "Invalid size for this alignment");
+    }
 
     template <class U>
-    ShortAlloc(const ShortAlloc<U, N>& a) noexcept : m_arena(a.m_arena) { }
+    ShortAlloc(const ShortAlloc<U, N, A>& a) noexcept
+        : m_arena(a.m_arena)
+    { }
+
     ShortAlloc(const ShortAlloc&) = default;
+    ShortAlloc& operator=(const ShortAlloc&) = delete;
+
+    template <class V> struct rebind { using other = ShortAlloc<V, N, A>; };
 
     T* allocate(std::size_t n)
     {
-        return reinterpret_cast<T*>(m_arena.allocate(n*sizeof(T)));
+        return reinterpret_cast<T*>(m_arena.allocate(n * sizeof(T)));
     }
 
     void deallocate(T* p, std::size_t n) noexcept
     {
-        m_arena.deallocate(reinterpret_cast<char*>(p), n*sizeof(T));
+        m_arena.deallocate(reinterpret_cast<char*>(p), n * sizeof(T));
     }
 
     template <class T1, std::size_t N1, class U, std::size_t M>
@@ -90,26 +175,29 @@ public:
             const ShortAlloc<T1, N1>& x,
             const ShortAlloc<U, M>& y) noexcept;
 
-    template <class U, std::size_t M> friend class ShortAlloc;
-
-    typedef T value_type;
-    template <class _Up> struct rebind { typedef ShortAlloc<_Up, N> other; };
-
 private:
-    ShortAlloc& operator=(const ShortAlloc&) = delete;
-
-    Arena<N>& m_arena;
+    ArenaType& m_arena;
 };
 
 class BigUint
 {
 public:
-    BigUint();
-    BigUint(unsigned long long val);
+    BigUint() : m_arena(), m_val(1, 0, Alloc(m_arena)) { }
+    BigUint(const Block val) : m_arena(), m_val(1, val, Alloc(m_arena)) { }
     explicit BigUint(const std::string& val);
 
-    BigUint(const BigUint& other);
-    BigUint& operator=(const BigUint& other);
+    BigUint(const BigUint& other)
+        : m_arena()
+        , m_val(other.m_val, Alloc(m_arena))
+    { }
+
+    BigUint& operator=(const BigUint& other)
+    {
+        m_val = other.m_val;
+        return *this;
+    }
+
+    ~BigUint() { }
 
     // True if this object represents zero.
     bool zero() const { return trivial() && !m_val.front(); }
@@ -123,7 +211,11 @@ public:
     std::string bin() const;    // Get binary representation.
 
     // Get as an unsigned long long.  Throws std::overflow_error if !trivial().
-    unsigned long long getSimple() const;
+    unsigned long long getSimple() const
+    {
+        if (m_val.size() == 1) return m_val.front();
+        throw std::overflow_error("This BigUint is too large to get as long.");
+    }
 
     // If both the quotient and remainder are required, using the result of
     // this function is more efficient than calling both / and % operators
@@ -140,8 +232,10 @@ public:
     // increment.  For example, after a positive bit-shift left.
     void incSimple() { ++m_val.front(); }
 
-    static const unsigned int N = 8;
-    typedef ShortAlloc<Block, N> Alloc;
+    static const unsigned int N = sizeof(Block);
+    static const unsigned int A = alignof(Block);
+
+    typedef ShortAlloc<Block, N, A> Alloc;
     typedef std::vector<Block, Alloc> Data;
 
     // Get raw blocks.  For the non-const version, if the result is modified,
@@ -156,7 +250,12 @@ public:
     friend BigUint operator<<(const BigUint&, Block);
 
 private:
-    BigUint(std::vector<Block> blocks);
+    BigUint(std::vector<Block> blocks)
+        : m_arena()
+        , m_val(blocks.begin(), blocks.end(), Alloc(m_arena))
+    {
+        if (m_val.empty()) m_val.push_back(0);
+    }
 
     // Equivalent to:
     //      *this += (other << shift)
@@ -164,7 +263,7 @@ private:
     // ...without the copy overhead of performing the shift in advance.
     void add(const BigUint& other, Block shift);
 
-    Arena<N> m_arena;
+    Arena<N, A> m_arena;
     Data m_val;
 };
 
