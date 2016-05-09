@@ -30,7 +30,6 @@
 #include <cmath>
 #include <iostream>
 #include <sstream>
-#include <stdexcept>
 
 BigUint::BigUint(const std::string& str)
     : m_arena()

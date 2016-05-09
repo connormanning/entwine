@@ -30,6 +30,7 @@
 #include <cstdint>
 #include <limits>
 #include <ostream>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -193,7 +194,7 @@ public:
 
     BigUint& operator=(const BigUint& other)
     {
-        m_val = other.m_val;
+        m_val.assign(other.m_val.begin(), other.m_val.end());
         return *this;
     }
 
