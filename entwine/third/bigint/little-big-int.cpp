@@ -28,7 +28,6 @@
 #include <bitset>
 #include <cassert>
 #include <cmath>
-#include <deque>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -46,9 +45,9 @@ BigUint::BigUint(const std::string& str)
         factor *= 100000000;
     }
 
-    if (size % 8)
+    if (std::size_t mod = size % 8)
     {
-        *this += BigUint(std::stoull(str.substr(0, size % 8)) * factor);
+        *this += BigUint(std::stoull(str.substr(0, mod)) * factor);
     }
 }
 
@@ -61,36 +60,26 @@ std::string BigUint::str() const
     else
     {
         // Guess the number of digits with an approximation of log10(*this).
-        std::deque<char> digits(log2(*this) * 1000 / 3322 + 1, 48);
+        std::string digits;
+        digits.reserve(log2(*this) * 1000 / 3322 + 1);
+
         BigUint factor(10);
         BigUint lagged(1);
 
         std::pair<BigUint, BigUint> current;
 
-        std::size_t i(0);
-
         do
         {
             current = divMod(factor);
 
-            digits.at(i++) = 48 + (current.second / lagged).getSimple();
+            digits.push_back('0' + (current.second / lagged).getSimple());
 
             lagged = factor;
             factor *= 10;
         }
-        while (!current.first.zero() && i < digits.size());
+        while (!current.first.zero());
 
-        while (!current.first.zero())
-        {
-            current = divMod(factor);
-
-            digits.push_back(48 + (current.second / lagged).getSimple());
-
-            lagged = factor;
-            factor *= 10;
-        }
-
-        while (digits.back() == 48) digits.pop_back();
+        while (digits.back() == '0') digits.pop_back();
 
         return std::string(digits.rbegin(), digits.rend());
     }
@@ -98,17 +87,15 @@ std::string BigUint::str() const
 
 std::string BigUint::bin() const
 {
-    std::ostringstream stream;
+    std::string result("0b");
     const std::size_t size(m_val.size());
-
-    stream << "0b";
 
     for (std::size_t i(0); i < size; ++i)
     {
-        stream << std::bitset<bitsPerBlock>(m_val[size - i - 1]);
+        result += std::bitset<bitsPerBlock>(m_val[size - i - 1]).to_string();
     }
 
-    return stream.str();
+    return result;
 }
 
 void BigUint::add(const BigUint& rhs, const Block shift)
