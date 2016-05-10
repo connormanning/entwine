@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: d8e74997a2dd2be3549f9f959c757c0cfcdc8057
+// Git SHA: 2eb3c7abfbf97ae59691d165f65b46444a1ccd00
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -45,6 +45,7 @@ SOFTWARE.
 /// If defined, indicates that the source file is amalgamated
 /// to prevent private header inclusion.
 #define ARBITER_IS_AMALGAMATION
+#define ARBITER_CUSTOM_NAMESPACE entwine
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: arbiter/third/json/json.hpp
@@ -2147,6 +2148,11 @@ JSON_API std::ostream& operator<<(std::ostream&, const Value& root);
 #include <string>
 #include <vector>
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
+
 namespace arbiter
 {
 
@@ -2270,6 +2276,10 @@ typedef std::map<std::string, std::unique_ptr<Driver>> DriverMap;
 
 } // namespace arbiter
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/driver.hpp
@@ -2300,6 +2310,11 @@ typedef std::map<std::string, std::unique_ptr<Driver>> DriverMap;
 
 #ifdef ARBITER_EXTERNAL_JSON
 #include <json/json.h>
+#endif
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
 #endif
 
 namespace arbiter
@@ -2408,6 +2423,10 @@ protected:
 
 } // namespace arbiter
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/drivers/fs.hpp
@@ -2436,6 +2455,11 @@ protected:
 
 #ifndef ARBITER_IS_AMALGAMATION
 #include <arbiter/driver.hpp>
+#endif
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
 #endif
 
 namespace arbiter
@@ -2615,6 +2639,10 @@ private:
 /** @endcond */
 
 } // namespace arbiter
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
 
 
 // //////////////////////////////////////////////////////////////////////
@@ -5344,6 +5372,11 @@ namespace Xml = rapidxml;
 // MD5 implementation adapted from:
 //      https://github.com/B-Con/crypto-algorithms
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
+
 namespace arbiter
 {
 namespace crypto
@@ -5353,6 +5386,10 @@ std::string md5(const std::string& data);
 
 } // namespace crypto
 } // namespace arbiter
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
 
 
 // //////////////////////////////////////////////////////////////////////
@@ -5379,6 +5416,11 @@ std::string md5(const std::string& data);
 // HMAC:
 //      https://en.wikipedia.org/wiki/Hash-based_message_authentication_code
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
+
 namespace arbiter
 {
 namespace crypto
@@ -5391,6 +5433,10 @@ std::string hmacSha256(const std::string& key, const std::string& data);
 
 } // namespace crypto
 } // namespace arbiter
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
 
 
 // //////////////////////////////////////////////////////////////////////
@@ -5411,6 +5457,11 @@ std::string hmacSha256(const std::string& key, const std::string& data);
 #include <string>
 #include <vector>
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
+
 namespace arbiter
 {
 namespace crypto
@@ -5425,9 +5476,131 @@ std::string encodeAsHex(const std::string& data);
 } // namespace crypto
 } // namespace arbiter
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/util/transforms.hpp
+// //////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+// //////////////////////////////////////////////////////////////////////
+// Beginning of content of file: arbiter/util/util.hpp
+// //////////////////////////////////////////////////////////////////////
+
+#pragma once
+
+#include <string>
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
+
+namespace arbiter
+{
+
+/** General utilities. */
+namespace util
+{
+    /** Returns the portion of @p fullPath following the last instance of the
+     * character `/`, if any instances exist aside from possibly the delimiter
+     * `://`.  If there are no other instances of `/`, then @p fullPath itself
+     * will be returned.
+     *
+     * If @p fullPath ends with a trailing `/` or a glob indication (i.e. is a
+     * directory), these trailing characters will be stripped prior to the
+     * logic above, thus the innermost directory in the full path will be
+     * returned.
+     */
+    std::string getBasename(const std::string fullPath);
+
+    /** @cond arbiter_internal */
+    inline bool isSlash(char c) { return c == '/' || c == '\\'; }
+    inline std::string joinImpl(bool first = false) { return std::string(); }
+
+    template <typename ...Paths>
+    inline std::string joinImpl(
+            bool first,
+            std::string current,
+            Paths&&... paths)
+    {
+        std::string next(joinImpl(false, std::forward<Paths>(paths)...));
+        while (next.size() && isSlash(next.front())) next = next.substr(1);
+
+        if (first)
+        {
+            if (
+                    current.size() > 1 &&
+                    isSlash(current.back()) &&
+                    !isSlash(current.at(current.size() - 2)))
+            {
+                current.pop_back();
+            }
+        }
+        else
+        {
+            while (current.size() && isSlash(current.back()))
+            {
+                current.pop_back();
+            }
+            if (current.empty()) return next;
+        }
+
+        const std::string sep(
+                next.size() && (current.empty() || !isSlash(current.back())) ?
+                    "/" : "");
+
+        return current + sep + next;
+    }
+    /** @endcond */
+
+    /** @brief Join one or more path components "intelligently".
+     *
+     * The result is the concatenation of @p path and any members of @p paths
+     * with exactly one slash preceding each non-empty portion of @p path or
+     * @p paths.  Portions of @p paths will be stripped of leading slashes prior
+     * to processing, so portions containing only slashes are considered empty.
+     *
+     * If @p path contains a single trailing slash preceded by a non-slash
+     * character, then that slash will be stripped prior to processing.
+     *
+     * @code
+     * join("")                                 // ""
+     * join("/")                                // "/"
+     * join("/var", "log", "arbiter.log")       // "/var/log/arbiter.log"
+     * join("/var/", "log", "arbiter.log")      // "/var/log/arbiter.log"
+     * join("", "var", "log", "arbiter.log")    // "/var/log/arbiter.log"
+     * join("/", "/var", "log", "arbiter.log")  // "/var/log/arbiter.log"
+     * join("", "/var", "log", "arbiter.log")   // "/var/log/arbiter.log"
+     * join("~", "code", "", "test.cpp", "/")   // "~/code/test.cpp"
+     * join("C:\\", "My Documents")             // "C:/My Documents"
+     * join("s3://", "bucket", "object.txt")    // "s3://bucket/object.txt"
+     * @endcode
+     */
+    template <typename ...Paths>
+    inline std::string join(std::string path, Paths&&... paths)
+    {
+        return joinImpl(true, path, std::forward<Paths>(paths)...);
+    }
+
+} // namespace util
+
+} // namespace arbiter
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
+
+// //////////////////////////////////////////////////////////////////////
+// End of content of file: arbiter/util/util.hpp
 // //////////////////////////////////////////////////////////////////////
 
 
@@ -5448,6 +5621,11 @@ std::string encodeAsHex(const std::string& data);
 #ifndef ARBITER_IS_AMALGAMATION
 #include <arbiter/driver.hpp>
 #include <arbiter/drivers/http.hpp>
+#endif
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
 #endif
 
 namespace arbiter
@@ -5616,6 +5794,10 @@ private:
 } // namespace drivers
 } // namespace arbiter
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/drivers/s3.hpp
@@ -5639,6 +5821,11 @@ private:
 #ifndef ARBITER_IS_AMALGAMATION
 #include <arbiter/driver.hpp>
 #include <arbiter/drivers/http.hpp>
+#endif
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
 #endif
 
 namespace arbiter
@@ -5711,6 +5898,10 @@ private:
 } // namespace drivers
 } // namespace arbiter
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/drivers/dropbox.hpp
@@ -5730,6 +5921,11 @@ private:
 #include <string>
 #include <vector>
 #include <memory>
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
 
 namespace arbiter
 {
@@ -5804,6 +6000,10 @@ private:
 
 } // namespace arbiter
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/endpoint.hpp
@@ -5846,6 +6046,11 @@ private:
 
 #ifdef ARBITER_EXTERNAL_JSON
 #include <json/json.h>
+#endif
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
 #endif
 
 namespace arbiter
@@ -6022,18 +6227,6 @@ public:
     /** Strip the type and delimiter `://`, if they exist. */
     static std::string stripType(std::string path);
 
-    /** Returns the portion of @p fullPath following the last instance of the
-     * character `/`, if any instances exist aside from possibly the delimiter
-     * `://`.  If there are no other instances of `/`, then @p fullPath itself
-     * will be returned.
-     *
-     * If @p fullPath ends with a trailing `/` or a glob indication (i.e. is a
-     * directory), these trailing characters will be stripped prior to the
-     * logic above, thus the innermost directory in the full path will be
-     * returned.
-     */
-    static std::string getTerminus(const std::string fullPath);
-
     /** Fetch the common HTTP pool, which may be useful when dynamically
      * constructing adding a Driver via Arbiter::addDriver.
      */
@@ -6049,6 +6242,9 @@ private:
 
 } // namespace arbiter
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/arbiter.hpp

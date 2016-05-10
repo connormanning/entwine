@@ -10,12 +10,39 @@
 
 #include <entwine/types/schema.hpp>
 
+#include <numeric>
+
 #include <entwine/types/simple-point-layout.hpp>
+
+namespace entwine
+{
 
 namespace
 {
-    std::unique_ptr<pdal::PointLayout> makePointLayout(
-            std::vector<entwine::DimInfo>& dims)
+    DimList makeDims(const Json::Value& json)
+    {
+        return std::accumulate(
+                json.begin(),
+                json.end(),
+                DimList(),
+                [](const DimList& in, const Json::Value& d)
+                {
+                    const auto sizeDim(d["size"]);
+
+                    DimList out(in);
+                    out.push_back(
+                        DimInfo(
+                            d["name"].asString(),
+                            d["type"].asString(),
+                            sizeDim.isIntegral() ?
+                                sizeDim.asUInt64() :
+                                std::stoul(sizeDim.asString())));
+
+                    return out;
+                });
+    }
+
+    std::unique_ptr<pdal::PointLayout> makePointLayout(DimList& dims)
     {
         std::unique_ptr<pdal::PointLayout> layout(new SimplePointLayout());
 
@@ -29,9 +56,6 @@ namespace
         return layout;
     }
 }
-
-namespace entwine
-{
 
 Schema::Schema()
     : m_layout(new SimplePointLayout())
@@ -47,19 +71,28 @@ Schema::Schema(const Json::Value& json)
     : m_layout()
     , m_dims()
 {
-    for (Json::ArrayIndex i(0); i < json.size(); ++i)
-    {
-        const Json::Value& jsonDim(json[i]);
-        const Json::Value& sizeDim(jsonDim["size"]);
-        m_dims.push_back(
-                DimInfo(
-                    jsonDim["name"].asString(),
-                    jsonDim["type"].asString(),
-                    sizeDim.isIntegral() ?
-                        sizeDim.asUInt64() : std::stoul(sizeDim.asString())));
-    }
-
+    m_dims = makeDims(json);
     m_layout = makePointLayout(m_dims);
+}
+
+Schema::Schema(const std::string& s)
+    : m_layout()
+    , m_dims()
+{
+    Json::Value json;
+    Json::Reader reader;
+
+    if (reader.parse(s, json, false))
+    {
+        m_dims = makeDims(json);
+        m_layout = makePointLayout(m_dims);
+    }
+    else
+    {
+        throw std::runtime_error(
+                "Could not parse schema as JSON: " +
+                reader.getFormattedErrorMessages());
+    }
 }
 
 Schema::Schema(const Schema& other)
@@ -86,10 +119,7 @@ void Schema::finalize()
     for (const auto& id : m_layout->dims())
     {
         m_dims.push_back(
-                entwine::DimInfo(
-                    m_layout->dimName(id),
-                    id,
-                    m_layout->dimType(id)));
+                DimInfo(m_layout->dimName(id), id, m_layout->dimType(id)));
     }
 }
 

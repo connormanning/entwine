@@ -31,6 +31,7 @@ public:
     // Schema layout will be finalized with these dims.
     explicit Schema(DimList dims);
     explicit Schema(const Json::Value& json);
+    explicit Schema(const std::string& s);  // Will be parsed as JSON.
 
     Schema(const Schema& other);
     Schema& operator=(const Schema& other);

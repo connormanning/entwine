@@ -21,10 +21,16 @@
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/manifest.hpp>
 #include <entwine/tree/point-info.hpp>
+#include <entwine/types/outer-scope.hpp>
 
 namespace Json
 {
     class Value;
+}
+
+namespace pdal
+{
+    class PointView;
 }
 
 namespace arbiter
@@ -33,22 +39,14 @@ namespace arbiter
     class Endpoint;
 }
 
-namespace pdal
-{
-    class PointView;
-}
-
 namespace entwine
 {
 
 class BBox;
 class Clipper;
-class Driver;
 class Executor;
-class Hierarchy;
 class Manifest;
 class Pool;
-class Pools;
 class Registry;
 class Reprojection;
 class Schema;
@@ -76,17 +74,17 @@ public:
             const BBox& bbox,
             const Schema& schema,
             std::size_t numThreads,
-            float threshold,
             const Structure& structure,
-            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
+            OuterScope outerScope = OuterScope());
 
     // Continue an existing build.
     Builder(
             std::string outPath,
             std::string tmpPath,
             std::size_t numThreads,
-            float threshold,
-            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
+            std::string postfix = "",
+            Json::Value subsetJson = Json::Value(),
+            OuterScope outerScope = OuterScope());
 
     ~Builder();
 
@@ -116,7 +114,11 @@ public:
     const Subset* subset() const;
     const Reprojection* reprojection() const;
     const arbiter::Arbiter& arbiter() const;
-    Pools& pools() const;
+
+    PointPool& pointPool() const;
+    std::shared_ptr<PointPool> sharedPointPool() const;
+    Node::NodePool& nodePool() const;
+    std::shared_ptr<Node::NodePool> sharedNodePool() const;
 
     bool compress() const       { return m_compress; }
     bool trustHeaders() const   { return m_trustHeaders; }
@@ -126,19 +128,6 @@ public:
 
     const std::string& srs() const { return m_srs; }
     std::size_t numThreads() const { return m_totalThreads; }
-    float threshold() const { return m_threshold; }
-
-    float usage() const
-    {
-        // std::lock_guard<std::mutex> lock(m_mutex);
-        return m_usage;
-    }
-
-    void usage(float set)
-    {
-        // std::lock_guard<std::mutex> lock(m_mutex);
-        m_usage = set;
-    }
 
     const arbiter::Endpoint& outEndpoint() const;
     const arbiter::Endpoint& tmpEndpoint() const;
@@ -181,6 +170,20 @@ public:
 
     std::string postfix(bool isColdChunk = false) const;
 
+private:
+    // Attempt to wake up a subset or split build with indeterminate metadata
+    // state.  Used for merging.
+    static std::unique_ptr<Builder> create(
+            std::string path,
+            std::size_t threads,
+            OuterScope outerScope = OuterScope());
+
+    static std::unique_ptr<Builder> create(
+            std::string path,
+            std::size_t threads,
+            std::size_t subsetId,
+            OuterScope outerScope = OuterScope());
+
     // Read-only.  Used by the Reader to avoid duplicating metadata logic (if
     // no subset/split is passed) or by the Merger to awaken partial builds.
     //
@@ -193,22 +196,7 @@ public:
             std::size_t threads = 1,
             const std::size_t* subsetId = nullptr,
             const std::size_t* splitBegin = nullptr,
-            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr,
-            Pools* pointPool = nullptr);
-
-private:
-    // Attempt to wake up a subset or split build with indeterminate metadata
-    // state.  Used for merging.
-    static std::unique_ptr<Builder> create(
-            std::string path,
-            std::size_t threads,
-            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
-
-    static std::unique_ptr<Builder> create(
-            std::string path,
-            std::size_t threads,
-            std::size_t subsetId,
-            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
+            OuterScope outerScope = OuterScope());
 
     // Returns true if we should insert this file based on its info.
     bool checkInfo(const FileInfo& info);
@@ -244,8 +232,15 @@ private:
     void clip(const Id& index, std::size_t chunkNum, std::size_t id);
 
     // Awaken the tree from a saved state.
-    void load(std::string postfix = "");
-    void load(const std::size_t* subsetId, const std::size_t* splitBegin);
+    void load(
+            OuterScope outerScope,
+            std::size_t clipThreads,
+            std::string postfix = "");
+
+    void load(
+            OuterScope outerScope,
+            const std::size_t* subsetId,
+            const std::size_t* splitBegin);
 
     // Validate sources.
     void prep();
@@ -264,7 +259,7 @@ private:
 
     // Get metadata properties, and load from those serialized properties.
     Json::Value saveOwnProps() const;
-    void loadProps(Json::Value& props, std::string pf);
+    void loadProps(OuterScope outerScope, Json::Value& props, std::string pf);
 
     void addError(const std::string& path, const std::string& error);
 
@@ -294,8 +289,6 @@ private:
     std::size_t m_initialWorkThreads;
     std::size_t m_initialClipThreads;
     std::size_t m_totalThreads;
-    float m_threshold;
-    float m_usage;
 
     std::unique_ptr<Executor> m_executor;
 
@@ -309,8 +302,8 @@ private:
     std::unique_ptr<arbiter::Endpoint> m_outEndpoint;
     std::unique_ptr<arbiter::Endpoint> m_tmpEndpoint;
 
-    mutable std::unique_ptr<Pools> m_ownedPointPool;
-    mutable Pools* m_pointPool;
+    mutable std::shared_ptr<PointPool> m_pointPool;
+    mutable std::shared_ptr<Node::NodePool> m_nodePool;
 
     std::unique_ptr<Registry> m_registry;
     std::unique_ptr<Hierarchy> m_hierarchy;

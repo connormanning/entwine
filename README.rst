@@ -15,7 +15,7 @@ Getting started with Entwine is easy with `Docker`_.  Pull the most recent image
 ::
 
     mkdir ~/entwine
-    docker run -it -v ~:/opt/data connormanning/entwine \
+    docker run -it -v $HOME:/opt/data connormanning/entwine \
         entwine build -i /opt/data/abc.laz -o /opt/data/entwine/abc
 
 |
@@ -24,8 +24,17 @@ Now we have Entwine data at ``~/entwine/abc``.  We could have also passed a wild
 
 ::
 
-    docker run -it -v ~/entwine:/opt/data -p 8080:80 connormanning/greyhound
+    docker run -it -v $HOME/entwine:/opt/data -p 8080:80 connormanning/greyhound
     
+|
+
+You may need to forward port 8080 from your docker virtual machine to your host OS; `this post <https://jlordiales.me/2015/04/02/boot2docker-port-forward/>`_ describes one way to do this.
+For the impatient, use this one-liner:
+
+::
+
+    VBoxManage controlvm default natpf1 "greyhound,tcp,127.0.0.1,8080,,8080"
+
 |
 
 Now we have Greyhound ready to serve our data, we just need a client renderer to view it.  Let's hit the URL below, which will connect to our new local Greyhound resource.

@@ -26,7 +26,7 @@ namespace entwine
 {
 
 typedef uint64_t Origin;
-const Origin invalidOrigin(std::numeric_limits<Origin>::max());
+static const Origin invalidOrigin = std::numeric_limits<Origin>::max();
 
 class PointStats
 {

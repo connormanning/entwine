@@ -48,7 +48,7 @@ set(OBJS
 
 add_library(entwine SHARED ${OBJS})
 
-target_link_libraries(entwine ${PDAL_LIBRARIES})
+target_link_libraries(entwine pdalcpp)
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     target_link_libraries(entwine atomic)

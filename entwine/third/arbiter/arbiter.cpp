@@ -55,10 +55,16 @@ SOFTWARE.
 #include <arbiter/arbiter.hpp>
 
 #include <arbiter/driver.hpp>
+#include <arbiter/util/util.hpp>
 #endif
 
 #include <algorithm>
 #include <cstdlib>
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
 
 namespace arbiter
 {
@@ -155,7 +161,7 @@ void Arbiter::copy(const std::string from, const std::string to) const
 
     for (const auto& path : paths)
     {
-        outEndpoint.putSubpath(getTerminus(path), getBinary(path));
+        outEndpoint.putSubpath(util::getBasename(path), getBinary(path));
     }
 }
 
@@ -259,35 +265,11 @@ std::string Arbiter::stripType(const std::string raw)
     return result;
 }
 
-std::string Arbiter::getTerminus(const std::string fullPath)
-{
-    std::string result(fullPath);
-
-    std::string stripped(stripType(fullPath));
-
-    for (std::size_t i(0); i < 2; ++i)
-    {
-        // Pop trailing asterisk, or double-trailing-asterisks for both non- and
-        // recursive globs.
-        if (!stripped.empty() && stripped.back() == '*') stripped.pop_back();
-    }
-
-    // Pop trailing slash, in which case the result is the innermost directory.
-    if (!stripped.empty() && stripped.back() == '/') stripped.pop_back();
-
-    // Now do the real slash searching.
-    const std::size_t pos(stripped.rfind('/'));
-
-    if (pos != std::string::npos)
-    {
-        const std::string sub(stripped.substr(pos));
-        if (!sub.empty()) result = sub;
-    }
-
-    return result;
-}
-
 } // namespace arbiter
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
 
 
 // //////////////////////////////////////////////////////////////////////
@@ -307,6 +289,11 @@ std::string Arbiter::getTerminus(const std::string fullPath)
 #include <arbiter/driver.hpp>
 
 #include <arbiter/arbiter.hpp>
+#endif
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
 #endif
 
 namespace arbiter
@@ -390,6 +377,10 @@ std::vector<std::string> Driver::glob(std::string path, bool verbose) const
 
 } // namespace arbiter
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/driver.cpp
@@ -409,6 +400,11 @@ std::vector<std::string> Driver::glob(std::string path, bool verbose) const
 
 #include <arbiter/arbiter.hpp>
 #include <arbiter/driver.hpp>
+#endif
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
 #endif
 
 namespace arbiter
@@ -496,6 +492,10 @@ Endpoint Endpoint::getSubEndpoint(std::string subpath) const
 }
 
 } // namespace arbiter
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
 
 
 // //////////////////////////////////////////////////////////////////////
@@ -5729,21 +5729,19 @@ std::ostream& operator<<(std::ostream& sout, Value const& root) {
 #include <sys/stat.h>
 #else
 
-#ifndef UNICODE
-#define UNICODE
-#endif
-
-#ifndef _UNICODE
-#define _UNICODE
-#endif
-
 #include <locale>
 #include <codecvt>
+#include <windows.h>
 #endif
 
 #include <cstdlib>
 #include <fstream>
 #include <stdexcept>
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
 
 namespace arbiter
 {
@@ -5859,7 +5857,7 @@ std::vector<std::string> Fs::glob(std::string path, bool) const
     std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
     const std::wstring wide(converter.from_bytes(path));
 
-    WIN32_FIND_DATA data{};
+    LPWIN32_FIND_DATAW data{};
     HANDLE hFind(FindFirstFileW(wide.c_str(), data));
 
     if (hFind != INVALID_HANDLE_VALUE)
@@ -5950,19 +5948,17 @@ std::string expandTilde(std::string in)
 
 std::string getTempPath()
 {
-    std::string result;
-
 #ifndef ARBITER_WINDOWS
     if (const char* t = getenv("TMPDIR"))   return t;
     if (const char* t = getenv("TMP"))      return t;
     if (const char* t = getenv("TEMP"))     return t;
     if (const char* t = getenv("TEMPDIR"))  return t;
-    if (result.empty()) return "/tmp";
+    return "/tmp";
 #else
-    throw ArbiterError("Windows getTempPath not done yet.");
+    std::vector<char> path(MAX_PATH, '\0');
+    if (GetTempPath(MAX_PATH, path.data())) return path.data();
+    else throw ArbiterError("Could not find a temp path.");
 #endif
-
-    return result;
 }
 
 LocalHandle::LocalHandle(const std::string localPath, const bool isRemote)
@@ -5977,6 +5973,10 @@ LocalHandle::~LocalHandle()
 
 } // namespace fs
 } // namespace arbiter
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
 
 
 // //////////////////////////////////////////////////////////////////////
@@ -6005,6 +6005,14 @@ LocalHandle::~LocalHandle()
 #include <algorithm>
 #include <cstring>
 #include <iostream>
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
+
+namespace arbiter
+{
 
 namespace
 {
@@ -6112,10 +6120,8 @@ namespace
         { '}', "%7D" },
         { '~', "%7E" }
     };
-}
+} // unnamed namespace
 
-namespace arbiter
-{
 namespace drivers
 {
 
@@ -6525,6 +6531,10 @@ void HttpPool::release(const std::size_t id)
 
 } // namespace arbiter
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/drivers/http.cpp
@@ -6562,6 +6572,11 @@ void HttpPool::release(const std::size_t id)
 #include <arbiter/util/md5.hpp>
 #include <arbiter/util/transforms.hpp>
 #include <arbiter/util/sha256.hpp>
+#endif
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
 #endif
 
 namespace arbiter
@@ -6655,7 +6670,8 @@ namespace
                             std::remove_if(
                                 current.begin(),
                                 current.end(),
-                                [](char c) { return std::isspace(c); }));
+                                [](char c) { return std::isspace(c); }),
+                            current.end());
 
                     out.push_back(current);
                     return out;
@@ -6877,7 +6893,10 @@ std::unique_ptr<S3> S3::create(HttpPool& pool, const Json::Value& json)
 
 std::string S3::extractProfile(const Json::Value& json)
 {
-    if (!json.isNull() && json.isMember("profile"))
+    if (
+            !json.isNull() &&
+            json.isMember("profile") &&
+            json["profile"].asString().size())
     {
         return json["profile"].asString();
     }
@@ -7158,7 +7177,7 @@ std::string S3::AuthV4::buildCanonicalRequest(
                 Http::sanitize(q.first, "") + '=' +
                 Http::sanitize(q.second, ""));
 
-        return (s.size() ? "&" : "") + keyVal;
+        return s + (s.size() ? "&" : "") + keyVal;
     });
 
     const std::string canonicalQuery(
@@ -7292,6 +7311,10 @@ std::string S3::FormattedTime::formatTime(const std::string& format) const
 } // namespace drivers
 } // namespace arbiter
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/drivers/s3.cpp
@@ -7331,6 +7354,11 @@ std::string S3::FormattedTime::formatTime(const std::string& format) const
 
 #ifdef ARBITER_EXTERNAL_JSON
 #include <json/json.h>
+#endif
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
 #endif
 
 namespace arbiter
@@ -7673,6 +7701,10 @@ std::string Dropbox::get(std::string rawPath, Headers headers) const
 } // namespace drivers
 } // namespace arbiter
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/drivers/dropbox.cpp
@@ -7694,6 +7726,11 @@ std::string Dropbox::get(std::string rawPath, Headers headers) const
 #ifndef ARBITER_IS_AMALGAMATION
 #include <arbiter/util/md5.hpp>
 #include <arbiter/util/macros.hpp>
+#endif
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
 #endif
 
 namespace arbiter
@@ -7847,14 +7884,14 @@ void md5_final(Md5Context *ctx, uint8_t hash[])
 
     // Append to the padding the total message's length in bits and transform.
     ctx->bitlen += ctx->datalen * 8;
-    ctx->data[56] = ctx->bitlen;
-    ctx->data[57] = ctx->bitlen >> 8;
-    ctx->data[58] = ctx->bitlen >> 16;
-    ctx->data[59] = ctx->bitlen >> 24;
-    ctx->data[60] = ctx->bitlen >> 32;
-    ctx->data[61] = ctx->bitlen >> 40;
-    ctx->data[62] = ctx->bitlen >> 48;
-    ctx->data[63] = ctx->bitlen >> 56;
+    ctx->data[56] = static_cast<uint8_t>(ctx->bitlen);
+    ctx->data[57] = static_cast<uint8_t>(ctx->bitlen >> 8);
+    ctx->data[58] = static_cast<uint8_t>(ctx->bitlen >> 16);
+    ctx->data[59] = static_cast<uint8_t>(ctx->bitlen >> 24);
+    ctx->data[60] = static_cast<uint8_t>(ctx->bitlen >> 32);
+    ctx->data[61] = static_cast<uint8_t>(ctx->bitlen >> 40);
+    ctx->data[62] = static_cast<uint8_t>(ctx->bitlen >> 48);
+    ctx->data[63] = static_cast<uint8_t>(ctx->bitlen >> 56);
     md5_transform(ctx, ctx->data);
 
     // Since this implementation uses little endian byte ordering and MD uses
@@ -7887,6 +7924,10 @@ std::string md5(const std::string& data)
 } // namespace crypto
 } // namespace arbiter
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/util/md5.cpp
@@ -7907,6 +7948,11 @@ std::string md5(const std::string& data)
 #ifndef ARBITER_IS_AMALGAMATION
 #include <arbiter/util/sha256.hpp>
 #include <arbiter/util/macros.hpp>
+#endif
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
 #endif
 
 namespace arbiter
@@ -8125,6 +8171,10 @@ std::string hmacSha256(const std::string& rawKey, const std::string& data)
 } // namespace crypto
 } // namespace arbiter
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/util/sha256.cpp
@@ -8144,6 +8194,11 @@ std::string hmacSha256(const std::string& rawKey, const std::string& data)
 #endif
 
 #include <cstdint>
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
 
 namespace arbiter
 {
@@ -8233,9 +8288,78 @@ std::string encodeAsHex(const std::string& input)
 } // namespace crypto
 } // namespace arbiter
 
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/util/transforms.cpp
+// //////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+// //////////////////////////////////////////////////////////////////////
+// Beginning of content of file: arbiter/util/util.cpp
+// //////////////////////////////////////////////////////////////////////
+
+#ifndef ARBITER_IS_AMALGAMATION
+#include <arbiter/util/util.hpp>
+
+#include <arbiter/arbiter.hpp>
+#endif
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
+
+namespace arbiter
+{
+namespace util
+{
+
+std::string getBasename(const std::string fullPath)
+{
+    std::string result(fullPath);
+
+    std::string stripped(Arbiter::stripType(fullPath));
+
+    for (std::size_t i(0); i < 2; ++i)
+    {
+        // Pop trailing asterisk, or double-trailing-asterisks for both non- and
+        // recursive globs.
+        if (!stripped.empty() && stripped.back() == '*') stripped.pop_back();
+    }
+
+    // Pop trailing slash, in which case the result is the innermost directory.
+    while (!stripped.empty() && isSlash(stripped.back())) stripped.pop_back();
+
+    // Now do the real slash searching.
+    const std::size_t pos(stripped.rfind('/'));
+
+    if (pos != std::string::npos)
+    {
+        const std::string sub(stripped.substr(pos + 1));
+        if (!sub.empty()) result = sub;
+    }
+
+    return result;
+}
+
+} // namespace util
+} // namespace arbiter
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
+
+// //////////////////////////////////////////////////////////////////////
+// End of content of file: arbiter/util/util.cpp
 // //////////////////////////////////////////////////////////////////////
 
 

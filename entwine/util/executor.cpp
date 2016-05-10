@@ -104,6 +104,9 @@ bool Executor::run(
     pdal::Reader* reader(scopedReader->getAs<pdal::Reader*>());
     pdal::Stage* executor(reader);
 
+    // Needed so that getSpatialReference has been initialized.
+    { auto lock(getLock()); reader->prepare(table); }
+
     UniqueStage scopedFilter;
 
     if (reprojection)

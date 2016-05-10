@@ -28,9 +28,12 @@ namespace entwine
 class Node
 {
 public:
+    typedef splicer::ObjectPool<Node> NodePool;
+    typedef NodePool::UniqueNodeType PooledNode;
+
     typedef std::map<Id, Node*> NodeMap;
     typedef std::set<Id> NodeSet;
-    typedef std::map<Dir, Node> Children;
+    typedef std::map<Dir, PooledNode> Children;
 
     struct AnchoredNode
     {
@@ -46,6 +49,7 @@ public:
     Node() : m_count(0), m_children() { }
 
     Node(
+            NodePool& nodePool,
             const char*& pos,
             std::size_t step,
             NodeMap& edges,
@@ -53,19 +57,31 @@ public:
             std::size_t depth = 0);
 
     void assign(
+            NodePool& nodePool,
             const char*& pos,
             std::size_t step,
             NodeMap& edges,
             const Id& id,
             std::size_t depth = 0);
 
-    Node& next(Dir dir) { return m_children[dir]; }
+    Node& next(Dir dir, NodePool& nodePool)
+    {
+        if (Node* node = maybeNext(dir)) return *node;
+        else
+        {
+            auto result(
+                    m_children.emplace(
+                        std::make_pair(dir, nodePool.acquireOne())));
+
+            return result.first->second->val();
+        }
+    }
 
     Node* maybeNext(Dir dir)
     {
         auto it(m_children.find(dir));
 
-        if (it != m_children.end()) return &it->second;
+        if (it != m_children.end()) return &it->second->val();
         else return nullptr;
     }
 
@@ -107,11 +123,38 @@ private:
     Children m_children;
 };
 
+inline bool operator==(const Node& lhs, const Node& rhs)
+{
+    if (lhs.count() == rhs.count())
+    {
+        const auto& lhsChildren(lhs.children());
+        const auto& rhsChildren(rhs.children());
+
+        if (lhsChildren.size() == rhsChildren.size())
+        {
+            for (const auto& c : lhsChildren)
+            {
+                if (
+                        !rhsChildren.count(c.first) ||
+                        !(c.second->val() == rhsChildren.at(c.first)->val()))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
 class Hierarchy
 {
 public:
-    Hierarchy(const BBox& bbox)
+    Hierarchy(const BBox& bbox, Node::NodePool& nodePool)
         : m_bbox(bbox)
+        , m_nodePool(nodePool)
         , m_depthBegin(defaultDepthBegin)
         , m_step(defaultStep)
         , m_root()
@@ -119,10 +162,12 @@ public:
         , m_anchors()
         , m_mutex()
         , m_endpoint()
+        , m_postfix()
     { }
 
     Hierarchy(
             const BBox& bbox,
+            Node::NodePool& nodePool,
             const Json::Value& json,
             const arbiter::Endpoint& ep,
             std::string postfix = "");
@@ -139,6 +184,7 @@ public:
     void merge(Hierarchy& other)
     {
         m_root.merge(other.root());
+        m_anchors.insert(other.m_anchors.begin(), other.m_anchors.end());
     }
 
     std::size_t depthBegin() const { return m_depthBegin; }
@@ -148,6 +194,7 @@ public:
     void awakenAll()
     {
         for (const auto& a : m_anchors) awaken(a);
+        m_anchors.clear();
     }
 
     void setStep(std::size_t set) { m_step = set; }
@@ -160,6 +207,8 @@ public:
     {
         return (id << 3) + 1 + toIntegral(dir);
     }
+
+    Node::NodePool& nodePool() { return m_nodePool; }
 
 private:
     Hierarchy(const Hierarchy& other) = delete;
@@ -187,6 +236,8 @@ private:
     void awaken(const Id& id, const Node* node = nullptr);
 
     const BBox& m_bbox;
+    Node::NodePool& m_nodePool;
+
     const std::size_t m_depthBegin;
     std::size_t m_step;
 
@@ -223,7 +274,7 @@ public:
     {
         const Dir dir(getDirection(point, m_bbox.mid()));
         m_bbox.go(dir);
-        m_node = &m_node->next(dir);
+        m_node = &m_node->next(dir, m_hierarchy.nodePool());
     }
 
     void count() { m_node->increment(); }

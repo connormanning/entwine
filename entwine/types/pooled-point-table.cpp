@@ -19,33 +19,18 @@ namespace
 }
 
 PooledPointTable::PooledPointTable(
-        Pools& pools,
+        PointPool& pointPool,
         std::function<PooledInfoStack(PooledInfoStack)> process,
-        const pdal::Dimension::Id::Enum originId,
-        const Origin origin)
-    : pdal::StreamPointTable(pools.schema().pdalLayout())
-    , m_pools(pools)
-    , m_stack(pools.infoPool())
+        pdal::Dimension::Id::Enum originId,
+        Origin origin)
+    : pdal::StreamPointTable(pointPool.schema().pdalLayout())
+    , m_pointPool(pointPool)
+    , m_stack(pointPool.infoPool())
     , m_nodes(blockSize, nullptr)
     , m_size(0)
     , m_process(process)
     , m_originId(originId)
     , m_origin(origin)
-{
-    allocate();
-}
-
-PooledPointTable::PooledPointTable(
-        Pools& pools,
-        std::function<PooledInfoStack(PooledInfoStack)> process)
-    : pdal::StreamPointTable(pools.schema().pdalLayout())
-    , m_pools(pools)
-    , m_stack(pools.infoPool())
-    , m_nodes(blockSize, nullptr)
-    , m_size(0)
-    , m_process(process)
-    , m_originId(pdal::Dimension::Id::Unknown)
-    , m_origin(invalidOrigin)
 {
     allocate();
 }
@@ -80,8 +65,8 @@ void PooledPointTable::allocate()
 {
     const std::size_t needs(blockSize - m_stack.size());
 
-    PooledInfoStack infoStack(m_pools.infoPool().acquire(needs));
-    PooledDataStack dataStack(m_pools.dataPool().acquire(needs));
+    PooledInfoStack infoStack(m_pointPool.infoPool().acquire(needs));
+    PooledDataStack dataStack(m_pointPool.dataPool().acquire(needs));
 
     RawInfoNode* info(infoStack.head());
 
