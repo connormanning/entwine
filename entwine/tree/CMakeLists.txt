@@ -14,6 +14,7 @@ set(
     "${BASE}/manifest.cpp"
     "${BASE}/merger.cpp"
     "${BASE}/registry.cpp"
+    "${BASE}/traverser.cpp"
 )
 
 set(
@@ -30,6 +31,7 @@ set(
     "${BASE}/merger.hpp"
     "${BASE}/point-info.hpp"
     "${BASE}/registry.hpp"
+    "${BASE}/traverser.hpp"
 )
 
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})

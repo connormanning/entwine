@@ -12,7 +12,6 @@
 
 #include <pdal/BufferReader.hpp>
 #include <pdal/Filter.hpp>
-#include <pdal/GlobalEnvironment.hpp>
 #include <pdal/QuickInfo.hpp>
 #include <pdal/Reader.hpp>
 #include <pdal/SpatialReference.hpp>
@@ -35,12 +34,6 @@ namespace
         if (given.hammer() || found.empty()) return given;
         else return Reprojection(found.getWKT(), given.out());
     }
-
-    const auto env(([]()
-    {
-        pdal::GlobalEnvironment::startup();
-        return true;
-    })());
 
     const double hi(std::numeric_limits<double>::max());
     const double lo(std::numeric_limits<double>::lowest());

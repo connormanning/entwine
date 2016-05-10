@@ -247,8 +247,9 @@ Hierarchy::Hierarchy(
     , m_anchors()
     , m_mutex()
     , m_endpoint(new arbiter::Endpoint(ep))
+    , m_postfix(postfix)
 {
-    const std::vector<char> bin(ep.getSubpathBinary("0" + postfix));
+    const std::vector<char> bin(ep.getSubpathBinary("0" + m_postfix));
     const char* pos(bin.data());
 
     m_root = Node(pos, m_step, m_edges);
@@ -258,7 +259,7 @@ Hierarchy::Hierarchy(
         Json::Reader reader;
         Json::Value anchorsJson;
 
-        const std::string anchorsData(ep.getSubpath("anchors"));
+        const std::string anchorsData(ep.getSubpath("anchors" + m_postfix));
         if (!reader.parse(anchorsData, anchorsJson, false))
         {
             throw std::runtime_error(
@@ -327,7 +328,7 @@ void Hierarchy::awaken(const Id& id, const Node* node)
     const Id edgeEnd(upperAnchor != m_anchors.end() ? *upperAnchor : 0);
 
     const std::vector<char> bin(
-            m_endpoint->getSubpathBinary(lowerAnchor->str()));
+            m_endpoint->getSubpathBinary(lowerAnchor->str() + m_postfix));
 
     const char* pos(bin.data());
 
@@ -344,14 +345,13 @@ void Hierarchy::awaken(const Id& id, const Node* node)
 
 Json::Value Hierarchy::toJson(const arbiter::Endpoint& ep, std::string postfix)
 {
-    const std::size_t writeStep(postfix.empty() ? m_step : 0);
-    const Node::NodeSet anchors(m_root.insertInto(ep, postfix, writeStep));
+    const Node::NodeSet anchors(m_root.insertInto(ep, postfix, m_step));
 
     Json::Value json;
     json["depthBegin"] = static_cast<Json::UInt64>(m_depthBegin);
-    json["step"] = static_cast<Json::UInt64>(writeStep);
+    json["step"] = static_cast<Json::UInt64>(m_step);
 
-    if (writeStep)
+    if (m_step)
     {
         Json::Value jsonAnchors;
         for (const auto& a : anchors)
@@ -359,12 +359,9 @@ Json::Value Hierarchy::toJson(const arbiter::Endpoint& ep, std::string postfix)
             if (!a.zero()) jsonAnchors.append(a.str());
         }
 
-        if (jsonAnchors.empty())
-        {
-            jsonAnchors.resize(0);
-        }
+        if (jsonAnchors.empty()) jsonAnchors.resize(0);
 
-        ep.putSubpath("anchors", jsonAnchors.toStyledString());
+        ep.putSubpath("anchors" + postfix, jsonAnchors.toStyledString());
     }
 
     return json;

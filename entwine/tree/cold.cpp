@@ -63,7 +63,9 @@ Cold::Cold(
     , m_chunkMap()
     , m_mapMutex()
     , m_pool(new Pool(clipPoolSize, clipQueueSize))
-{ }
+{
+    std::cout << "Clip size: " << m_pool->numThreads() << std::endl;
+}
 
 Cold::Cold(
         arbiter::Endpoint& endpoint,
@@ -101,6 +103,7 @@ Cold::Cold(
             }
         }
     }
+    std::cout << "Clip size: " << m_pool->numThreads() << std::endl;
 }
 
 Cold::~Cold()
@@ -245,6 +248,10 @@ void Cold::ensureChunk(
     {
         if (exists)
         {
+            const std::string path(
+                    m_builder.structure().maybePrefix(chunkId) +
+                    m_builder.postfix(true));
+
             chunk =
                     Chunk::create(
                         m_builder,
@@ -252,9 +259,7 @@ void Cold::ensureChunk(
                         climber.depth(),
                         chunkId,
                         climber.chunkPoints(),
-                        Storage::ensureGet(
-                            m_endpoint,
-                            m_builder.structure().maybePrefix(chunkId)));
+                        Storage::ensureGet(m_endpoint, path));
         }
         else
         {

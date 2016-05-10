@@ -42,9 +42,12 @@ public:
     // Returns true if the requested point is contained within this BBox.
     bool contains(const Point& p) const;
 
-    double width() const;   // Length in X.
-    double depth() const;   // Length in Y.
-    double height() const;  // Length in Z.
+    double width()  const { return m_max.x - m_min.x; } // Length in X.
+    double depth()  const { return m_max.y - m_min.y; } // Length in Y.
+    double height() const { return m_max.z - m_min.z; } // Length in Z.
+
+    double area() const { return width() * depth(); }
+    double volume() const { return width() * depth() * height(); }
 
     void goNwu();
     void goNwd(bool force2d = false);
@@ -55,14 +58,30 @@ public:
     void goSeu();
     void goSed(bool force2d = false);
 
+    BBox getNwd(bool force2d = false) const
+    {
+        BBox b(*this); b.goNwd(force2d); return b;
+    }
+
+    BBox getNed(bool force2d = false) const
+    {
+        BBox b(*this); b.goNed(force2d); return b;
+    }
+
+    BBox getSwd(bool force2d = false) const
+    {
+        BBox b(*this); b.goSwd(force2d); return b;
+    }
+
+    BBox getSed(bool force2d = false) const
+    {
+        BBox b(*this); b.goSed(force2d); return b;
+    }
+
     BBox getNwu() const { BBox b(*this); b.goNwu(); return b; }
-    BBox getNwd() const { BBox b(*this); b.goNwd(); return b; }
     BBox getNeu() const { BBox b(*this); b.goNeu(); return b; }
-    BBox getNed() const { BBox b(*this); b.goNed(); return b; }
     BBox getSwu() const { BBox b(*this); b.goSwu(); return b; }
-    BBox getSwd() const { BBox b(*this); b.goSwd(); return b; }
     BBox getSeu() const { BBox b(*this); b.goSeu(); return b; }
-    BBox getSed() const { BBox b(*this); b.goSed(); return b; }
 
     void go(Dir dir)
     {
@@ -93,7 +112,9 @@ public:
             case Dir::neu: return getNeu(); break;
         }
 
-        throw std::runtime_error("Invalid Dir to BBox::get");
+        throw std::runtime_error(
+                "Invalid Dir to BBox::get: " +
+                std::to_string(static_cast<int>(dir)));
     }
 
     bool exists() const { return Point::exists(m_min) && Point::exists(m_max); }
@@ -180,6 +201,11 @@ inline bool operator<(const BBox& lhs, const BBox& rhs)
 inline bool operator==(const BBox& lhs, const BBox& rhs)
 {
     return lhs.min() == rhs.min() && lhs.max() == rhs.max();
+}
+
+inline bool operator!=(const BBox& lhs, const BBox& rhs)
+{
+    return !(lhs == rhs);
 }
 
 } // namespace entwine

@@ -197,6 +197,7 @@ private:
 
     mutable std::mutex m_mutex;
     std::unique_ptr<arbiter::Endpoint> m_endpoint;
+    std::string m_postfix;
 };
 
 class HierarchyClimber

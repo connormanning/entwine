@@ -18,6 +18,7 @@
 
 #include <pdal/Dimension.hpp>
 
+#include <entwine/tree/climber.hpp>
 #include <entwine/tree/manifest.hpp>
 #include <entwine/tree/point-info.hpp>
 
@@ -32,11 +33,15 @@ namespace arbiter
     class Endpoint;
 }
 
+namespace pdal
+{
+    class PointView;
+}
+
 namespace entwine
 {
 
 class BBox;
-class Climber;
 class Clipper;
 class Driver;
 class Executor;
@@ -49,6 +54,8 @@ class Reprojection;
 class Schema;
 class Structure;
 class Subset;
+
+typedef std::function<bool(pdal::PointView& view, BBox bbox)> TileFunction;
 
 class Builder
 {
@@ -90,6 +97,7 @@ public:
     // Save the current state of the tree.  Files may no longer be inserted
     // after this call, but getters are still valid.
     void save();
+    std::map<std::string, std::string> propsToSave() const;
 
     // Aggregate manifest-split build.
     void unsplit(Builder& other);
@@ -107,6 +115,7 @@ public:
     const Hierarchy& hierarchy() const;
     const Subset* subset() const;
     const Reprojection* reprojection() const;
+    const arbiter::Arbiter& arbiter() const;
     Pools& pools() const;
 
     bool compress() const       { return m_compress; }
@@ -157,29 +166,48 @@ public:
     // work and will complete the entirety of the build.
     std::unique_ptr<Manifest::Split> takeWork();
 
-    std::string postfix(bool includeSubset = true) const;
+    void traverse(
+            std::string output,
+            std::size_t threads,
+            double maxArea,
+            const TileFunction& f,
+            const Schema* schema = nullptr) const;
 
-private:
-    // Attempt to wake up a subset or split build with indeterminate metadata
-    // state.  Used for merging.
-    static std::unique_ptr<Builder> create(
-            std::string path,
-            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
+    void traverse(
+            std::size_t threads,
+            double maxArea,
+            const TileFunction& f,
+            const Schema* schema = nullptr) const;
 
-    static std::unique_ptr<Builder> create(
-            std::string path,
-            std::size_t subsetId,
-            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
+    std::string postfix(bool isColdChunk = false) const;
 
     // Read-only.  Used by the Reader to avoid duplicating metadata logic (if
     // no subset/split is passed) or by the Merger to awaken partial builds.
     //
     // Also used for merging, after an initial Builder::create has provided
     // us with enough metadata info to fetch the other pieces directly.
+    //
+    // Also used for traversing.
     Builder(
             std::string path,
+            std::size_t threads = 1,
             const std::size_t* subsetId = nullptr,
             const std::size_t* splitBegin = nullptr,
+            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr,
+            Pools* pointPool = nullptr);
+
+private:
+    // Attempt to wake up a subset or split build with indeterminate metadata
+    // state.  Used for merging.
+    static std::unique_ptr<Builder> create(
+            std::string path,
+            std::size_t threads,
+            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
+
+    static std::unique_ptr<Builder> create(
+            std::string path,
+            std::size_t threads,
+            std::size_t subsetId,
             std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
 
     // Returns true if we should insert this file based on its info.
@@ -199,11 +227,24 @@ private:
             Clipper& clipper,
             Climber& climber);
 
+    typedef std::map<Id, std::vector<InfoState>> Reserves;
+
+    // Insert within a previously-identified depth range.
+    void insertHinted(
+            Reserves& reserves,
+            PooledInfoStack infoStack,
+            PointStatsMap& pointStatsMap,
+            Clipper& clipper,
+            Hierarchy& localHierarchy,
+            const Id& chunkId,
+            std::size_t depthBegin,
+            std::size_t depthEnd = 0);
+
     // Remove resources that are no longer needed.
     void clip(const Id& index, std::size_t chunkNum, std::size_t id);
 
     // Awaken the tree from a saved state.
-    void load(std::size_t clipThreads, std::string postfix = "");
+    void load(std::string postfix = "");
     void load(const std::size_t* subsetId, const std::size_t* splitBegin);
 
     // Validate sources.
@@ -226,8 +267,6 @@ private:
     void loadProps(Json::Value& props, std::string pf);
 
     void addError(const std::string& path, const std::string& error);
-
-    float chunkMem() const;
 
     Hierarchy& hierarchy();
 
@@ -270,7 +309,9 @@ private:
     std::unique_ptr<arbiter::Endpoint> m_outEndpoint;
     std::unique_ptr<arbiter::Endpoint> m_tmpEndpoint;
 
-    mutable std::unique_ptr<Pools> m_pointPool;
+    mutable std::unique_ptr<Pools> m_ownedPointPool;
+    mutable Pools* m_pointPool;
+
     std::unique_ptr<Registry> m_registry;
     std::unique_ptr<Hierarchy> m_hierarchy;
 

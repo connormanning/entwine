@@ -61,6 +61,45 @@ std::unique_ptr<std::vector<char>> Compression::decompress(
     return decompressed;
 }
 
+std::unique_ptr<std::vector<char>> Compression::decompress(
+        const std::vector<char>& data,
+        const Schema& nativeSchema,
+        const Schema& wantedSchema,
+        const std::size_t numPoints)
+{
+    std::unique_ptr<std::vector<char>> decompressed(
+            new std::vector<char>(numPoints * wantedSchema.pointSize(), 0));
+
+    BinaryPointTable table(nativeSchema);
+    pdal::PointRef pointRef(table, 0);
+    const std::size_t nativePointSize(nativeSchema.pointSize());
+
+    DecompressionStream decompressionStream(data);
+    pdal::LazPerfDecompressor<DecompressionStream> decompressor(
+            decompressionStream,
+            nativeSchema.pdalLayout().dimTypes());
+
+    char* pos(decompressed->data());
+    const char* end(pos + decompressed->size());
+
+    std::vector<char> nativePoint(nativePointSize);
+    char* from(nativePoint.data());
+
+    while (pos < end)
+    {
+        decompressor.decompress(from, nativePointSize);
+        table.setPoint(from);
+
+        for (const auto& d : wantedSchema.dims())
+        {
+            pointRef.getField(pos, d.id(), d.type());
+            pos += d.size();
+        }
+    }
+
+    return decompressed;
+}
+
 PooledInfoStack Compression::decompress(
         const std::vector<char>& data,
         const std::size_t numPoints,

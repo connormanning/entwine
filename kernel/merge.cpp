@@ -12,6 +12,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <string>
 
 #include <entwine/tree/merger.hpp>
 
@@ -43,6 +44,7 @@ void Kernel::merge(std::vector<std::string> args)
     std::string user;
 
     std::size_t a(1);
+    std::size_t threads(1);
 
     while (a < args.size())
     {
@@ -59,6 +61,19 @@ void Kernel::merge(std::vector<std::string> args)
                 throw std::runtime_error("Invalid credential path argument");
             }
         }
+        else if (arg == "-t")
+        {
+            if (++a < args.size())
+            {
+                threads = std::stoul(args[a]);
+            }
+            else
+            {
+                throw std::runtime_error("Invalid credential path argument");
+            }
+        }
+
+        ++a;
     }
 
     Json::Value arbiterConfig;
@@ -67,7 +82,7 @@ void Kernel::merge(std::vector<std::string> args)
     std::shared_ptr<arbiter::Arbiter> arbiter(
             std::make_shared<arbiter::Arbiter>(arbiterConfig));
 
-    Merger merger(path, arbiter);
+    Merger merger(path, threads, arbiter);
 
     std::cout << "Merging " << path << "..." << std::endl;
     merger.go();

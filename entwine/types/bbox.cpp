@@ -97,14 +97,14 @@ bool BBox::overlaps(const BBox& other) const
     Point otherMid(other.mid());
 
     return
-        std::abs(m_mid.x - otherMid.x) <=
+        std::abs(m_mid.x - otherMid.x) <
             width() / 2.0  + other.width() / 2.0 &&
-        std::abs(m_mid.y - otherMid.y) <=
+        std::abs(m_mid.y - otherMid.y) <
             depth() / 2.0 + other.depth() / 2.0 &&
         (
             !m_is3d ||
             !other.m_is3d ||
-            std::abs(m_mid.z - otherMid.z) <=
+            std::abs(m_mid.z - otherMid.z) <
                 height() / 2.0 + other.height() / 2.0);
 }
 
@@ -119,8 +119,8 @@ bool BBox::contains(const BBox& other, const bool force2d) const
         return
             m_min.x <= other.m_min.x &&
             m_min.y <= other.m_min.y &&
-            m_max.x > other.m_min.x &&
-            m_max.y > other.m_min.y;
+            m_max.x >= other.m_min.x &&
+            m_max.y >= other.m_min.y;
     }
 }
 
@@ -132,10 +132,6 @@ bool BBox::contains(const Point& p) const
         (!m_is3d || (p.z >= m_min.z && p.z < m_max.z));
 
 }
-
-double BBox::width()    const { return m_max.x - m_min.x; }
-double BBox::depth()    const { return m_max.y - m_min.y; }
-double BBox::height()   const { return m_max.z - m_min.z; }
 
 void BBox::goNwu()
 {

@@ -1,30 +1,39 @@
+/******************************************************************************
+* The MIT License (MIT)
+*
+* Copyright (c) 2015 Connor Manning
+*
+* Permission is hereby granted, free of charge, to any person obtaining a copy
+* of this software and associated documentation files (the "Software"), to deal
+* in the Software without restriction, including without limitation the rights
+* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+* copies of the Software, and to permit persons to whom the Software is
+* furnished to do so, subject to the following conditions:
+*
+* The above copyright notice and this permission notice shall be included in all
+* copies or substantial portions of the Software.
+*
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+* SOFTWARE.
+******************************************************************************/
+
 #include "little-big-int.hpp"
 
 #include <algorithm>
 #include <bitset>
 #include <cassert>
 #include <cmath>
-#include <deque>
 #include <iostream>
 #include <sstream>
-#include <stdexcept>
-
-BigUint::BigUint()
-    : m_val{1, 0, Alloc(m_arena)}
-{ }
-
-BigUint::BigUint(const Block val)
-    : m_val{1, val, Alloc(m_arena)}
-{ }
-
-BigUint::BigUint(std::vector<Block> blocks)
-    : m_val(blocks.begin(), blocks.end(), Alloc(m_arena))
-{
-    if (m_val.empty()) m_val.push_back(0);
-}
 
 BigUint::BigUint(const std::string& str)
-    : m_val{1, 0, Alloc(m_arena)}
+    : m_arena()
+    , m_val(1, 0, Alloc(m_arena))
 {
     BigUint factor(1);
     const std::size_t size(str.size());
@@ -35,20 +44,10 @@ BigUint::BigUint(const std::string& str)
         factor *= 100000000;
     }
 
-    if (size % 8)
+    if (std::size_t mod = size % 8)
     {
-        *this += BigUint(std::stoull(str.substr(0, size % 8)) * factor);
+        *this += BigUint(std::stoull(str.substr(0, mod)) * factor);
     }
-}
-
-BigUint::BigUint(const BigUint& other)
-    : m_val(other.m_val, Alloc(m_arena))
-{ }
-
-BigUint& BigUint::operator=(const BigUint& other)
-{
-    m_val = other.m_val;
-    return *this;
 }
 
 std::string BigUint::str() const
@@ -60,36 +59,26 @@ std::string BigUint::str() const
     else
     {
         // Guess the number of digits with an approximation of log10(*this).
-        std::deque<char> digits(log2(*this) * 1000 / 3322 + 1, 48);
+        std::string digits;
+        digits.reserve(log2(*this) * 1000 / 3322 + 1);
+
         BigUint factor(10);
         BigUint lagged(1);
 
         std::pair<BigUint, BigUint> current;
 
-        std::size_t i(0);
-
         do
         {
             current = divMod(factor);
 
-            digits.at(i++) = 48 + (current.second / lagged).getSimple();
+            digits.push_back('0' + (current.second / lagged).getSimple());
 
             lagged = factor;
             factor *= 10;
         }
-        while (!current.first.zero() && i < digits.size());
+        while (!current.first.zero());
 
-        while (!current.first.zero())
-        {
-            current = divMod(factor);
-
-            digits.push_back(48 + (current.second / lagged).getSimple());
-
-            lagged = factor;
-            factor *= 10;
-        }
-
-        while (digits.back() == 48) digits.pop_back();
+        while (digits.back() == '0') digits.pop_back();
 
         return std::string(digits.rbegin(), digits.rend());
     }
@@ -97,29 +86,15 @@ std::string BigUint::str() const
 
 std::string BigUint::bin() const
 {
-    std::ostringstream stream;
+    std::string result("0b");
     const std::size_t size(m_val.size());
-
-    stream << "0b";
 
     for (std::size_t i(0); i < size; ++i)
     {
-        stream << std::bitset<bitsPerBlock>(m_val[size - i - 1]);
+        result += std::bitset<bitsPerBlock>(m_val[size - i - 1]).to_string();
     }
 
-    return stream.str();
-}
-
-unsigned long long BigUint::getSimple() const
-{
-    if (m_val.size() == 1)
-    {
-        return m_val[0];
-    }
-    else
-    {
-        throw std::overflow_error("This BigUint is too large to get as long.");
-    }
+    return result;
 }
 
 void BigUint::add(const BigUint& rhs, const Block shift)

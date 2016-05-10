@@ -356,7 +356,6 @@ void Kernel::build(std::vector<std::string> args)
         {
             json["geometry"]["reproject"]["hammer"] = true;
         }
-        /*
         else if (arg == "-m")
         {
             if (a + 2 < args.size())
@@ -373,7 +372,6 @@ void Kernel::build(std::vector<std::string> args)
                 throw std::runtime_error("Invalid manifest specification");
             }
         }
-        */
         else if (arg == "-g")
         {
             if (++a < args.size())
@@ -448,6 +446,24 @@ void Kernel::build(std::vector<std::string> args)
         "\tBuilding from " << builder->manifest().size() << " source file" <<
             (builder->manifest().size() > 1 ? "s" : "") << "\n";
 
+    if (const Subset* subset = builder->subset())
+    {
+        std::cout <<
+            "\tSubset: " <<
+                subset->id() + 1 << " of " <<
+                subset->of() << "\n" <<
+            "\tSubset bounds: " << subset->bbox() <<
+            std::endl;
+    }
+
+    if (const Manifest::Split* split = builder->manifest().split())
+    {
+        std::cout <<
+            "\tManifest split: [" << split->begin() << ", " <<
+            split->end() << ")" <<
+            std::endl;
+    }
+
     if (runCount)
     {
         std::cout <<
@@ -492,22 +508,6 @@ void Kernel::build(std::vector<std::string> args)
         "\tReprojection: " << getReprojString(reprojection) << "\n" <<
         "\tStoring dimensions: " << getDimensionString(schema) << "\n" <<
         std::endl;
-
-    if (const Subset* subset = builder->subset())
-    {
-        std::cout <<
-            "Subset: " << subset->id() + 1 << " of " << subset->of() << "\n" <<
-            "Subset bounds: " << subset->bbox() << "\n" <<
-            std::endl;
-    }
-
-    if (const Manifest::Split* split = builder->manifest().split())
-    {
-        std::cout <<
-            "Manifest split: [" << split->begin() << ", " <<
-            split->end() << ")\n" <<
-            std::endl;
-    }
 
     auto start = now();
     builder->go(runCount);

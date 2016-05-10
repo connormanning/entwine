@@ -17,12 +17,14 @@ namespace entwine
 
 Merger::Merger(
         const std::string path,
+        const std::size_t threads,
         std::shared_ptr<arbiter::Arbiter> arbiter)
     : m_builders()
     , m_path(path)
+    , m_threads(threads)
     , m_arbiter(arbiter)
 {
-    auto first(Builder::create(path, arbiter));
+    auto first(Builder::create(path, m_threads, arbiter));
     if (!first) throw std::runtime_error("Path not mergeable");
 
     std::size_t subs(first->subset() ? first->subset()->of() : 1);
@@ -38,6 +40,8 @@ void Merger::go()
     unsplit();
     merge();
 
+    m_builders.front()->makeWhole();
+    std::cout << "Made whole, saving..." << std::endl;
     m_builders.front()->save();
 }
 
@@ -47,7 +51,7 @@ void Merger::unsplit()
 
     for (std::size_t id(1); id < m_builders.size(); ++id)
     {
-        auto current(Builder::create(m_path, id, m_arbiter));
+        auto current(Builder::create(m_path, m_threads, id, m_arbiter));
         if (!current) throw std::runtime_error("Couldn't create split builder");
 
         m_builders[id] = unsplitOne(std::move(current));
@@ -70,33 +74,19 @@ std::unique_ptr<Builder> Merger::unsplitOne(
         std::unique_ptr<Builder> current(
                 new Builder(
                     builder->outEndpoint().root(),
+                    m_threads,
                     subsetId.get(),
-                    &pos));
+                    &pos,
+                    nullptr,
+                    builder->m_pointPool));
 
         pos = current->manifest().split()->end();
 
-        builder = doUnsplit(std::move(builder), std::move(current));
+        builder->unsplit(*current);
     }
 
     return builder;
 }
-
-std::unique_ptr<Builder> Merger::doUnsplit(
-        std::unique_ptr<Builder> small,
-        std::unique_ptr<Builder> large) const
-{
-    if (
-            small->manifest().pointStats().inserts() >
-            large->manifest().pointStats().inserts())
-    {
-        std::swap(small, large);
-    }
-
-    large->unsplit(*small);
-
-    return large;
-}
-
 
 void Merger::merge()
 {
@@ -108,8 +98,6 @@ void Merger::merge()
         std::cout << "\t" << id + 1 << " / " << m_builders.size() << std::endl;
         m_builders.front()->merge(*m_builders[id]);
     }
-
-    m_builders.front()->makeWhole();
 }
 
 } // namespace entwine

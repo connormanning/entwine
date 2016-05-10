@@ -29,14 +29,6 @@ namespace
     std::atomic_size_t chunkCnt(0);
 
     const std::string tubeIdDim("TubeId");
-
-    Schema makeCelled(const Schema& in)
-    {
-        DimList dims;
-        dims.push_back(DimInfo(tubeIdDim, "unsigned", 8));
-        dims.insert(dims.end(), in.dims().begin(), in.dims().end());
-        return Schema(dims);
-    }
 }
 
 Chunk::Chunk(
@@ -298,7 +290,7 @@ void SparseChunk::save(arbiter::Endpoint& endpoint)
     pushTail(*compressed, Tail(m_numPoints, Sparse));
     Storage::ensurePut(
             endpoint,
-            m_builder.structure().maybePrefix(m_id) + m_builder.postfix(false),
+            m_builder.structure().maybePrefix(m_id) + m_builder.postfix(true),
             *compressed);
 }
 
@@ -399,7 +391,7 @@ void ContiguousChunk::save(arbiter::Endpoint& endpoint)
     pushTail(*compressed, Tail(m_numPoints, Contiguous));
     Storage::ensurePut(
             endpoint,
-            m_builder.structure().maybePrefix(m_id) + m_builder.postfix(false),
+            m_builder.structure().maybePrefix(m_id) + m_builder.postfix(true),
             *compressed);
 }
 
@@ -412,7 +404,6 @@ BaseChunk::BaseChunk(
         const Id& maxPoints)
     : ContiguousChunk(builder, bbox, 0, id, maxPoints)
     , m_celledSchema(makeCelled(m_builder.schema()))
-    , m_pools(new Pools(m_builder.schema()))
 { }
 
 BaseChunk::BaseChunk(
@@ -424,8 +415,8 @@ BaseChunk::BaseChunk(
         const std::size_t numPoints)
     : ContiguousChunk(builder, bbox, 0, id, maxPoints)
     , m_celledSchema(makeCelled(m_builder.schema()))
-    , m_pools(new Pools(m_builder.schema()))
 {
+    std::cout << "Waking up base" << std::endl;
     m_numPoints = numPoints;
 
     std::unique_ptr<std::vector<char>> data(
@@ -448,8 +439,9 @@ BaseChunk::BaseChunk(
     BinaryPointTable table(m_celledSchema);
     pdal::PointRef pointRef(table, 0);
 
-    PooledInfoStack infoStack(m_pools->infoPool().acquire(m_numPoints));
-    PooledDataStack dataStack(m_pools->dataPool().acquire(m_numPoints));
+    Pools& pointPool(m_builder.pools());
+    PooledInfoStack infoStack(pointPool.infoPool().acquire(m_numPoints));
+    PooledDataStack dataStack(pointPool.dataPool().acquire(m_numPoints));
 
     std::size_t tube(0);
     std::size_t curDepth(0);
@@ -490,13 +482,22 @@ BaseChunk::BaseChunk(
     }
 }
 
+Schema BaseChunk::makeCelled(const Schema& in)
+{
+    DimList dims;
+    dims.push_back(DimInfo(tubeIdDim, "unsigned", 8));
+    dims.insert(dims.end(), in.dims().begin(), in.dims().end());
+    return Schema(dims);
+}
+
 void BaseChunk::save(arbiter::Endpoint& endpoint)
 {
     Compressor compressor(m_celledSchema, m_numPoints);
     std::vector<char> data;
 
-    PooledDataStack dataStack(m_pools->dataPool());
-    PooledInfoStack infoStack(m_pools->infoPool());
+    Pools& pointPool(m_builder.pools());
+    PooledDataStack dataStack(pointPool.dataPool());
+    PooledInfoStack infoStack(pointPool.infoPool());
 
     for (std::size_t i(0); i < m_tubes.size(); ++i)
     {
@@ -535,6 +536,18 @@ void BaseChunk::merge(BaseChunk& other)
             ours = theirs;
         }
     }
+}
+
+PooledInfoStack BaseChunk::acquire(InfoPool& infoPool)
+{
+    PooledInfoStack infoStack(infoPool);
+
+    for (std::size_t i(0); i < m_tubes.size(); ++i)
+    {
+        infoStack.push(m_tubes.at(i).acquire(infoPool));
+    }
+
+    return infoStack;
 }
 
 } // namespace entwine

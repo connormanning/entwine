@@ -10,8 +10,10 @@
 
 #pragma once
 
+#include <pdal/Dimension.hpp>
 #include <pdal/PointTable.hpp>
 
+#include <entwine/tree/manifest.hpp>
 #include <entwine/tree/point-info.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
@@ -46,6 +48,12 @@ public:
     // can return any that do not need to be kept for reuse.
     PooledPointTable(
             Pools& pools,
+            std::function<PooledInfoStack(PooledInfoStack)> process,
+            pdal::Dimension::Id::Enum originId,
+            Origin origin);
+
+    PooledPointTable(
+            Pools& pools,
             std::function<PooledInfoStack(PooledInfoStack)> process);
 
     virtual pdal::point_count_t capacity() const override;
@@ -67,6 +75,9 @@ private:
     std::size_t m_size;
 
     std::function<PooledInfoStack(PooledInfoStack)> m_process;
+
+    const pdal::Dimension::Id::Enum m_originId;
+    const Origin m_origin;
 };
 
 } // namespace entwine

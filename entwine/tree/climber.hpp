@@ -15,6 +15,7 @@
 #include <iomanip>
 #include <iostream>
 
+#include <entwine/tree/point-info.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/dir.hpp>
 #include <entwine/types/structure.hpp>
@@ -24,8 +25,6 @@ namespace entwine
 
 class Hierarchy;
 class HierarchyClimber;
-class Node;
-class Point;
 
 // Maintains the state of the current point as it traverses the virtual tree.
 class Climber
@@ -100,6 +99,22 @@ private:
     std::unique_ptr<HierarchyClimber> m_hierarchyClimber;
 
     void climb(Dir dir);
+};
+
+class InfoState
+{
+public:
+    InfoState(const Climber& climber, PooledInfoNode pointInfo)
+        : m_climber(climber)
+        , m_pointInfo(std::move(pointInfo))
+    { }
+
+    Climber& climber() { return m_climber; }
+    PooledInfoNode acquireInfoNode() { return std::move(m_pointInfo); }
+
+private:
+    Climber m_climber;
+    PooledInfoNode m_pointInfo;
 };
 
 class SplitClimber

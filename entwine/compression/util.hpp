@@ -42,6 +42,12 @@ public:
             const Schema& schema,
             std::size_t numPoints);
 
+    static std::unique_ptr<std::vector<char>> decompress(
+            const std::vector<char>& data,
+            const Schema& nativeSchema,
+            const Schema& wantedSchema,
+            std::size_t numPoints);
+
     static PooledInfoStack decompress(
             const std::vector<char>& data,
             std::size_t numPoints,
