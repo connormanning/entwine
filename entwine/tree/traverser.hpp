@@ -192,7 +192,11 @@ private:
 class Tiler
 {
 public:
-    Tiler(const Builder& builder, std::size_t threads, double maxArea);
+    Tiler(
+            const Builder& builder,
+            std::size_t threads,
+            double maxArea,
+            const Schema* wantedSchema = nullptr);
 
     Tiler(
             const Builder& builder,
@@ -254,10 +258,14 @@ private:
     std::size_t m_sliceDepth;
 
     std::set<BBox> m_processing;
+
+    const Schema* m_wantedSchema;
 };
 
 class TiledPointTable : public pdal::BasePointTable
 {
+    friend class Tiler;
+
 public:
     TiledPointTable(
             const Schema& schema,
@@ -313,7 +321,8 @@ private:
 class SizedPointView : public pdal::PointView
 {
 public:
-    SizedPointView(TiledPointTable& table)
+    template<typename Table>
+    SizedPointView(Table& table)
         : PointView(table)
     {
         m_size = table.size();

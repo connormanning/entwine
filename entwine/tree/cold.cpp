@@ -63,9 +63,7 @@ Cold::Cold(
     , m_chunkMap()
     , m_mapMutex()
     , m_pool(new Pool(clipPoolSize, clipQueueSize))
-{
-    std::cout << "Clip size: " << m_pool->numThreads() << std::endl;
-}
+{ }
 
 Cold::Cold(
         arbiter::Endpoint& endpoint,
@@ -103,7 +101,6 @@ Cold::Cold(
             }
         }
     }
-    std::cout << "Clip size: " << m_pool->numThreads() << std::endl;
 }
 
 Cold::~Cold()

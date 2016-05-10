@@ -30,7 +30,8 @@ Traverser::Traverser(const Builder& builder, const std::set<Id>* ids)
 Tiler::Tiler(
         const Builder& builder,
         const std::size_t threads,
-        const double maxArea)
+        const double maxArea,
+        const Schema* wantedSchema)
     : m_builder(builder)
     , m_traverser(builder)
     , m_outEndpoint()
@@ -42,6 +43,7 @@ Tiler::Tiler(
     , m_tiles()
     , m_sliceDepth(0)
     , m_processing()
+    , m_wantedSchema(wantedSchema)
 {
     init(maxArea);
 }
@@ -62,6 +64,7 @@ Tiler::Tiler(
     , m_tiles()
     , m_sliceDepth(0)
     , m_processing()
+    , m_wantedSchema(nullptr)
 {
     init(maxArea);
 }
@@ -449,7 +452,7 @@ void Tiler::explodeAbove(const TileFunction& f, const BBox& superTile)
 
 void Tiler::actuallyProcess(const TileFunction& f, const BBox& base)
 {
-    TiledPointTable table(
+    TiledPointTable nativeTable(
             m_builder.schema(),
             base,
             m_tiles,
@@ -457,8 +460,34 @@ void Tiler::actuallyProcess(const TileFunction& f, const BBox& base)
             m_baseChunk.get(),
             m_mutex);
 
-    SizedPointView view(table);
-    f(view, base);
+    SizedPointView nativeView(nativeTable);
+
+    if (m_outEndpoint || !m_wantedSchema)
+    {
+        f(nativeView, base);
+    }
+    else
+    {
+        // If this is a read-only call and we want a different schema,
+        // provide it as a contiguous chunk.
+        std::vector<char> data(
+                nativeTable.size() * m_wantedSchema->pointSize());
+
+        char* pos(data.data());
+
+        for (std::size_t i(0); i < nativeTable.size(); ++i)
+        {
+            for (const auto& d : m_wantedSchema->dims())
+            {
+                nativeView.getField(pos, d.id(), d.type(), i);
+                pos += d.size();
+            }
+        }
+
+        VectorPointTable wantedTable(*m_wantedSchema, data);
+        SizedPointView wantedView(wantedTable);
+        f(wantedView, base);
+    }
 }
 
 TiledPointTable::TiledPointTable(

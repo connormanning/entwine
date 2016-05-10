@@ -1035,8 +1035,7 @@ void Builder::traverse(
         const std::string output,
         const std::size_t threads,
         const double maxArea,
-        const TileFunction& f,
-        const Schema* schema) const
+        const TileFunction& f) const
 {
 
     Tiler traverser(
@@ -1054,7 +1053,7 @@ void Builder::traverse(
         const TileFunction& f,
         const Schema* schema) const
 {
-    Tiler traverser(*this, threads, maxArea);
+    Tiler traverser(*this, threads, maxArea, schema);
     traverser.go(f);
 }
 

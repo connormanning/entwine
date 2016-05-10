@@ -159,8 +159,7 @@ public:
             std::string output,
             std::size_t threads,
             double maxArea,
-            const TileFunction& f,
-            const Schema* schema = nullptr) const;
+            const TileFunction& f) const;
 
     void traverse(
             std::size_t threads,
@@ -169,20 +168,6 @@ public:
             const Schema* schema = nullptr) const;
 
     std::string postfix(bool isColdChunk = false) const;
-
-private:
-    // Attempt to wake up a subset or split build with indeterminate metadata
-    // state.  Used for merging.
-    static std::unique_ptr<Builder> create(
-            std::string path,
-            std::size_t threads,
-            OuterScope outerScope = OuterScope());
-
-    static std::unique_ptr<Builder> create(
-            std::string path,
-            std::size_t threads,
-            std::size_t subsetId,
-            OuterScope outerScope = OuterScope());
 
     // Read-only.  Used by the Reader to avoid duplicating metadata logic (if
     // no subset/split is passed) or by the Merger to awaken partial builds.
@@ -196,6 +181,20 @@ private:
             std::size_t threads = 1,
             const std::size_t* subsetId = nullptr,
             const std::size_t* splitBegin = nullptr,
+            OuterScope outerScope = OuterScope());
+
+private:
+    // Attempt to wake up a subset or split build with indeterminate metadata
+    // state.  Used for merging.
+    static std::unique_ptr<Builder> create(
+            std::string path,
+            std::size_t threads,
+            OuterScope outerScope = OuterScope());
+
+    static std::unique_ptr<Builder> create(
+            std::string path,
+            std::size_t threads,
+            std::size_t subsetId,
             OuterScope outerScope = OuterScope());
 
     // Returns true if we should insert this file based on its info.
