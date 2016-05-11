@@ -64,8 +64,7 @@ void Kernel::merge(std::vector<std::string> args)
     Json::Value arbiterConfig;
     arbiterConfig["s3"]["user"] = user;
 
-    std::shared_ptr<arbiter::Arbiter> arbiter(
-            std::make_shared<arbiter::Arbiter>(arbiterConfig));
+    auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(arbiterConfig));
 
     Merger merger(path, arbiter);
 

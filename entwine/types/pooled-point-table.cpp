@@ -20,13 +20,17 @@ namespace
 
 PooledPointTable::PooledPointTable(
         PointPool& pointPool,
-        std::function<PooledInfoStack(PooledInfoStack)> process)
+        std::function<PooledInfoStack(PooledInfoStack)> process,
+        const pdal::Dimension::Id::Enum originId,
+        const Origin origin)
     : pdal::StreamPointTable(pointPool.schema().pdalLayout())
     , m_pointPool(pointPool)
     , m_stack(pointPool.infoPool())
     , m_nodes(blockSize, nullptr)
     , m_size(0)
     , m_process(process)
+    , m_originId(originId)
+    , m_origin(origin)
 {
     allocate();
 }
@@ -48,6 +52,7 @@ void PooledPointTable::reset()
     {
         pointRef.setPointId(i);
         m_nodes[i]->val().point(pointRef);
+        if (m_origin != invalidOrigin) pointRef.setField(m_originId, m_origin);
     }
 
     m_stack.push(m_process(m_stack.pop(fixedSize)));
