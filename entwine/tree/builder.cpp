@@ -15,12 +15,14 @@
 #include <random>
 #include <thread>
 
+#include <entwine/compression/util.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/third/splice-pool/splice-pool.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
 #include <entwine/tree/registry.hpp>
+#include <entwine/tree/tiler.hpp>
 #include <entwine/tree/traverser.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/pooled-point-table.hpp>

@@ -16,11 +16,10 @@
 #include <pdal/PointView.hpp>
 
 #include <entwine/tree/builder.hpp>
+#include <entwine/tree/registry.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/util/pool.hpp>
-#include <entwine/util/storage.hpp>
-#include <entwine/compression/util.hpp>
 
 namespace entwine
 {
@@ -54,7 +53,11 @@ class Traverser
 public:
     // TODO This class really only works for hybrid trees right now.  It should
     // be genericized similar to Climber.
-    Traverser(const Builder& builder, const std::set<Id>* ids = nullptr);
+    Traverser(const Builder& builder, const std::set<Id>* ids = nullptr)
+        : m_builder(builder)
+        , m_structure(m_builder.structure())
+        , m_ids(ids ? *ids : m_builder.registry().ids())
+    { }
 
     template<typename F> void go(const F& f)
     {
@@ -187,198 +190,6 @@ private:
     const Builder& m_builder;
     const Structure& m_structure;
     const std::set<Id> m_ids;
-};
-
-class Tiler
-{
-public:
-    Tiler(
-            const Builder& builder,
-            std::size_t threads,
-            double maxArea,
-            const Schema* wantedSchema = nullptr);
-
-    Tiler(
-            const Builder& builder,
-            const arbiter::Endpoint& output,
-            std::size_t threads,
-            double maxArea);
-
-    typedef std::function<bool(pdal::PointView& view, BBox bbox)> TileFunction;
-
-    void go(const TileFunction& f);
-
-    typedef std::map<Id, std::unique_ptr<std::vector<char>>> ChunkData;
-    typedef std::map<BBox, ChunkData> Tiles;
-
-private:
-    void init(double maxArea);
-
-    void insert(
-            const TileFunction& f,
-            const Id& chunkId,
-            std::size_t depth,
-            const BBox& bbox,
-            bool exists);
-
-    void maybeProcess(
-            const TileFunction& f,
-            std::size_t depth,
-            const BBox& base);
-
-    void actuallyProcess(const TileFunction& f, const BBox& base);
-
-    // True only if all overlapping tiles above this base have been fetched and
-    // all tiles within this base have been fetched.
-    bool allHere(const BBox& base) const;
-
-    // Takes a tile from above the slice-depth and splits it down to the
-    // actual tile bounds (for the tiles that current have corresponding
-    // outstanding data), calling maybeProcess on each actual tile.  Caller
-    // must not hold a lock on m_mutex.
-    void explodeAbove(const TileFunction& f, const BBox& superTile);
-
-    std::unique_ptr<std::vector<char>> acquire(const Id& chunkId)
-    {
-        const std::string path(m_builder.structure().maybePrefix(chunkId));
-        return Storage::ensureGet(m_builder.outEndpoint(), path);
-    }
-
-    const Builder& m_builder;
-
-    Traverser m_traverser;
-    std::unique_ptr<arbiter::Endpoint> m_outEndpoint;
-    Pool m_pool;
-    mutable std::mutex m_mutex;
-
-    std::unique_ptr<std::vector<char>> m_baseChunk;
-    std::unique_ptr<BBox> m_current;
-    Tiles m_above;
-    Tiles m_tiles;
-    std::size_t m_sliceDepth;
-
-    std::set<BBox> m_processing;
-
-    const Schema* m_wantedSchema;
-};
-
-class TiledPointTable : public pdal::BasePointTable
-{
-    friend class Tiler;
-
-public:
-    TiledPointTable(
-            const Schema& schema,
-            const BBox& bbox,
-            Tiler::Tiles& tiles,
-            Tiler::Tiles& above,
-            std::vector<char>* baseChunk,
-            std::mutex& mutex);
-
-    std::size_t size() const { return m_points.size(); }
-
-private:
-    void addAll(std::vector<char>& chunk);
-    void addInRange(std::vector<char>& chunk, const BBox& bbox);
-
-    virtual void setFieldInternal(
-            pdal::Dimension::Id::Enum dimId,
-            pdal::PointId i,
-            const void* pos)
-    {
-        const pdal::Dimension::Detail& dimDetail(
-                *m_schema.pdalLayout().dimDetail(dimId));
-        const char* src(static_cast<const char*>(pos));
-        char* dst(getPoint(i) + dimDetail.offset());
-
-        std::copy(src, src + dimDetail.size(), dst);
-    }
-
-    virtual void getFieldInternal(
-            pdal::Dimension::Id::Enum dimId,
-            pdal::PointId i,
-            void* pos) const
-    {
-        const pdal::Dimension::Detail& dimDetail(
-                *m_schema.pdalLayout().dimDetail(dimId));
-        const char* src(getPoint(i) + dimDetail.offset());
-
-        std::copy(src, src + dimDetail.size(), static_cast<char*>(pos));
-    }
-
-    virtual pdal::PointId addPoint()
-    {
-        throw std::runtime_error("Cannot add points to a TiledPointTable");
-    }
-
-    virtual char* getPoint(pdal::PointId i)         { return m_points.at(i); }
-    const   char* getPoint(pdal::PointId i) const   { return m_points.at(i); }
-
-    const Schema& m_schema;
-    std::vector<char*> m_points;
-};
-
-class SizedPointView : public pdal::PointView
-{
-public:
-    template<typename Table>
-    SizedPointView(Table& table)
-        : PointView(table)
-    {
-        m_size = table.size();
-        for (std::size_t i(0); i < m_size; ++i) m_index.push_back(i);
-    }
-};
-
-class VectorPointTable : public pdal::BasePointTable
-{
-public:
-    VectorPointTable(const Schema& schema, std::vector<char>& data)
-        : BasePointTable(schema.pdalLayout())
-        , m_schema(schema)
-        , m_data(data)
-    { }
-
-    std::size_t size() const { return m_data.size() / m_schema.pointSize(); }
-
-    virtual char* getPoint(pdal::PointId i)
-    {
-        return m_data.data() + (i * m_schema.pointSize());
-    }
-
-private:
-    virtual void setFieldInternal(
-            pdal::Dimension::Id::Enum dimId,
-            pdal::PointId i,
-            const void* pos)
-    {
-        throw std::runtime_error("VectorPointTable is read-only");
-    }
-
-    virtual void getFieldInternal(
-            pdal::Dimension::Id::Enum dimId,
-            pdal::PointId i,
-            void* pos) const
-    {
-        const pdal::Dimension::Detail& dimDetail(
-                *m_schema.pdalLayout().dimDetail(dimId));
-        const char* src(getPoint(i) + dimDetail.offset());
-
-        std::copy(src, src + dimDetail.size(), static_cast<char*>(pos));
-    }
-
-    virtual pdal::PointId addPoint()
-    {
-        throw std::runtime_error("Cannot add points to a TiledPointTable");
-    }
-
-    const char* getPoint(pdal::PointId i) const
-    {
-        return m_data.data() + (i * m_schema.pointSize());
-    }
-
-    const Schema& m_schema;
-    std::vector<char>& m_data;
 };
 
 } // namespace entwine

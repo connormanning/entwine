@@ -64,33 +64,36 @@ std::unique_ptr<std::vector<char>> Compression::decompress(
 std::unique_ptr<std::vector<char>> Compression::decompress(
         const std::vector<char>& data,
         const Schema& nativeSchema,
-        const Schema& wantedSchema,
+        const Schema* const wantedSchema,
         const std::size_t numPoints)
 {
-    std::unique_ptr<std::vector<char>> decompressed(
-            new std::vector<char>(numPoints * wantedSchema.pointSize(), 0));
+    if (!wantedSchema || *wantedSchema == nativeSchema)
+    {
+        return decompress(data, nativeSchema, numPoints);
+    }
 
-    BinaryPointTable table(nativeSchema);
-    pdal::PointRef pointRef(table, 0);
-    const std::size_t nativePointSize(nativeSchema.pointSize());
-
+    // Get decompressor in the native schema.
     DecompressionStream decompressionStream(data);
     pdal::LazPerfDecompressor<DecompressionStream> decompressor(
             decompressionStream,
             nativeSchema.pdalLayout().dimTypes());
 
+    // Allocate room for a single point in the native schema.
+    std::vector<char> nativePoint(nativeSchema.pointSize());
+    BinaryPointTable table(nativeSchema, nativePoint.data());
+    pdal::PointRef pointRef(table, 0);
+
+    // Get our result space, in the desired schema, ready.
+    std::unique_ptr<std::vector<char>> decompressed(
+            new std::vector<char>(numPoints * wantedSchema->pointSize(), 0));
     char* pos(decompressed->data());
     const char* end(pos + decompressed->size());
 
-    std::vector<char> nativePoint(nativePointSize);
-    char* from(nativePoint.data());
-
     while (pos < end)
     {
-        decompressor.decompress(from, nativePointSize);
-        table.setPoint(from);
+        decompressor.decompress(nativePoint.data(), nativePoint.size());
 
-        for (const auto& d : wantedSchema.dims())
+        for (const auto& d : wantedSchema->dims())
         {
             pointRef.getField(pos, d.id(), d.type());
             pos += d.size();

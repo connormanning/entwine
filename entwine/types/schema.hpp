@@ -62,6 +62,16 @@ private:
     DimList m_dims;
 };
 
+inline bool operator==(const Schema& lhs, const Schema& rhs)
+{
+    return lhs.dims() == rhs.dims();
+}
+
+inline bool operator!=(const Schema& lhs, const Schema& rhs)
+{
+    return !(lhs == rhs);
+}
+
 inline std::ostream& operator<<(std::ostream& os, const Schema& schema)
 {
     os << schema.toJson();

@@ -12,6 +12,7 @@
 
 #include <cmath>
 #include <limits>
+#include <numeric>
 #include <iostream>
 
 #include <entwine/types/range.hpp>
@@ -82,6 +83,14 @@ BBox::BBox(const Json::Value& json)
 
     check(m_min, m_max);
     setMid();
+}
+
+void BBox::set(const BBox& other)
+{
+    m_min = other.m_min;
+    m_max = other.m_max;
+    m_mid = other.m_mid;
+    m_is3d = other.m_is3d;
 }
 
 void BBox::set(const Point& min, const Point& max, const bool is3d)
@@ -260,6 +269,35 @@ void BBox::growBy(double ratio)
 
     m_min -= delta;
     m_max += delta;
+}
+
+std::vector<BBox> BBox::explode() const
+{
+    return std::vector<BBox> {
+        getNwd(true), getNed(true), getSwd(true), getSed(true)
+    };
+}
+
+std::vector<BBox> BBox::explode(std::size_t delta) const
+{
+    std::vector<BBox> result { *this };
+
+    for (std::size_t i(0); i < delta; ++i)
+    {
+        result = std::accumulate(
+                result.begin(),
+                result.end(),
+                std::vector<BBox>(),
+                [](const std::vector<BBox>& in, const BBox& b)
+                {
+                    auto out(in);
+                    auto next(b.explode());
+                    out.insert(out.end(), next.begin(), next.end());
+                    return out;
+                });
+    }
+
+    return result;
 }
 
 std::ostream& operator<<(std::ostream& os, const BBox& bbox)

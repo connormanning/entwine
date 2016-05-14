@@ -53,7 +53,7 @@ class Schema;
 class Structure;
 class Subset;
 
-typedef std::function<bool(pdal::PointView& view, BBox bbox)> TileFunction;
+using TileFunction = std::function<void(pdal::PointView& view, BBox bbox)>;
 
 class Builder
 {

@@ -27,6 +27,7 @@ public:
     BBox(const BBox& other);
     BBox(const Json::Value& json);
 
+    void set(const BBox& other);
     void set(const Point& min, const Point& max, bool is3d);
 
     const Point& min() const { return m_min; }
@@ -83,14 +84,16 @@ public:
     BBox getSwu() const { BBox b(*this); b.goSwu(); return b; }
     BBox getSeu() const { BBox b(*this); b.goSeu(); return b; }
 
-    void go(Dir dir)
+    void go(Dir dir, bool force2d = false)
     {
+        if (force2d) dir = toDir(toIntegral(dir) % 4);
+
         switch (dir)
         {
-            case Dir::swd: goSwd(); break;
-            case Dir::sed: goSed(); break;
-            case Dir::nwd: goNwd(); break;
-            case Dir::ned: goNed(); break;
+            case Dir::swd: goSwd(force2d); break;
+            case Dir::sed: goSed(force2d); break;
+            case Dir::nwd: goNwd(force2d); break;
+            case Dir::ned: goNed(force2d); break;
             case Dir::swu: goSwu(); break;
             case Dir::seu: goSeu(); break;
             case Dir::nwu: goNwu(); break;
@@ -154,6 +157,9 @@ public:
     }
 
     void growBy(double ratio);
+
+    std::vector<BBox> explode() const;
+    std::vector<BBox> explode(std::size_t delta) const;
 
 private:
     Point m_min;

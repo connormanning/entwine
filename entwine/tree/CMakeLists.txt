@@ -14,7 +14,7 @@ set(
     "${BASE}/manifest.cpp"
     "${BASE}/merger.cpp"
     "${BASE}/registry.cpp"
-    "${BASE}/traverser.cpp"
+    "${BASE}/tiler.cpp"
 )
 
 set(
@@ -31,6 +31,7 @@ set(
     "${BASE}/merger.hpp"
     "${BASE}/point-info.hpp"
     "${BASE}/registry.hpp"
+    "${BASE}/tiler.hpp"
     "${BASE}/traverser.hpp"
 )
 
