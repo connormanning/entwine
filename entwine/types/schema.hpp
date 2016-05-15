@@ -50,6 +50,17 @@ public:
         return m_dims;
     }
 
+    bool contains(const std::string& name) const
+    {
+        const auto it(
+                std::find_if(
+                    m_dims.begin(),
+                    m_dims.end(),
+                    [&name](const DimInfo& d) { return d.name() == name; }));
+
+        return it != m_dims.end();
+    }
+
     pdal::PointLayout& pdalLayout() const
     {
         return *m_layout.get();

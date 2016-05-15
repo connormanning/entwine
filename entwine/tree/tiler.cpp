@@ -30,7 +30,7 @@ void Above::populate(std::unique_ptr<std::vector<char>> data)
     VectorPointTable table(m_schema, *data);
     pdal::PointRef pointRef(table, 0);
 
-    Point p;
+    Point p(0, 0, m_bbox.mid().z);
     BBox b;
 
     char* pos(data->data());
@@ -41,7 +41,6 @@ void Above::populate(std::unique_ptr<std::vector<char>> data)
 
         p.x = pointRef.getFieldAs<double>(pdal::Dimension::Id::X);
         p.y = pointRef.getFieldAs<double>(pdal::Dimension::Id::Y);
-        p.z = pointRef.getFieldAs<double>(pdal::Dimension::Id::Z);
 
         // It's likely that the points will arrive in an order such that
         // many points in a row will belong to the same sub-box.
@@ -70,7 +69,7 @@ void Base::populate(std::unique_ptr<std::vector<char>> data)
     VectorPointTable table(m_schema, *data);
     pdal::PointRef pointRef(table, 0);
 
-    Point p;
+    Point p(0, 0, m_bbox.mid().z);
     BBox b;
     Climber c(m_bbox, m_structure);
 
@@ -82,7 +81,6 @@ void Base::populate(std::unique_ptr<std::vector<char>> data)
 
         p.x = pointRef.getFieldAs<double>(pdal::Dimension::Id::X);
         p.y = pointRef.getFieldAs<double>(pdal::Dimension::Id::Y);
-        p.z = pointRef.getFieldAs<double>(pdal::Dimension::Id::Z);
 
         // It's likely that the points will arrive in an order such that
         // many points in a row will belong to the same sub-box.
@@ -187,6 +185,11 @@ Tiler::Tiler(
 
 void Tiler::init(const double tileWidth)
 {
+    if (!activeSchema().contains("X") || !activeSchema().contains("Y"))
+    {
+        throw std::runtime_error("Schema must contain X and Y");
+    }
+
     const double fullWidth(m_builder.bbox().width());
     const Structure& structure(m_builder.structure());
 
