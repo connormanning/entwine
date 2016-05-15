@@ -146,7 +146,7 @@ Base::Base(const Tiler& tiler)
 Tiler::Tiler(
         const Builder& builder,
         const std::size_t threads,
-        const double maxArea,
+        const double tileWidth,
         const Schema* wantedSchema)
     : m_builder(builder)
     , m_traverser(new Traverser(builder))
@@ -161,14 +161,14 @@ Tiler::Tiler(
     , m_current()
     , m_processing()
 {
-    init(maxArea);
+    init(tileWidth);
 }
 
 Tiler::Tiler(
         const Builder& builder,
         const arbiter::Endpoint& outEndpoint,
         const std::size_t threads,
-        const double maxArea)
+        const double tileWidth)
     : m_builder(builder)
     , m_traverser(new Traverser(builder))
     , m_outEndpoint(new arbiter::Endpoint(outEndpoint))
@@ -182,27 +182,25 @@ Tiler::Tiler(
     , m_current()
     , m_processing()
 {
-    init(maxArea);
+    init(tileWidth);
 }
 
-void Tiler::init(const double maxArea)
+void Tiler::init(const double tileWidth)
 {
     const double fullWidth(m_builder.bbox().width());
-    const double maxWidth(std::sqrt(maxArea));
-
     const Structure& structure(m_builder.structure());
 
     m_sliceDepth = m_builder.structure().coldDepthBegin();
     double div(structure.numChunksAtDepth(m_sliceDepth) / 2.0);
 
     std::cout << "Full width: " << fullWidth << std::endl;
-    std::cout << "Max width:  " << maxWidth  << std::endl;
+    std::cout << "Max width:  " << tileWidth  << std::endl;
 
     while (
-            fullWidth / div > maxWidth &&
+            fullWidth / div > tileWidth &&
             m_sliceDepth < structure.sparseDepthBegin())
     {
-        std::cout << fullWidth / div << " : " << maxWidth << std::endl;
+        std::cout << fullWidth / div << " : " << tileWidth << std::endl;
         div = structure.numChunksAtDepth(++m_sliceDepth) / 2.0;
     }
 

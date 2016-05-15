@@ -158,12 +158,12 @@ public:
     void traverse(
             std::string output,
             std::size_t threads,
-            double maxArea,
+            double tileWidth,
             const TileFunction& f) const;
 
     void traverse(
             std::size_t threads,
-            double maxArea,
+            double tileWidth,
             const TileFunction& f,
             const Schema* schema = nullptr) const;
 

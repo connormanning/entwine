@@ -1036,7 +1036,7 @@ void Builder::addError(const std::string& path, const std::string& error)
 void Builder::traverse(
         const std::string output,
         const std::size_t threads,
-        const double maxArea,
+        const double tileWidth,
         const TileFunction& f) const
 {
 
@@ -1044,18 +1044,18 @@ void Builder::traverse(
             *this,
             m_arbiter->getEndpoint(output),
             threads,
-            maxArea);
+            tileWidth);
 
     traverser.go(f);
 }
 
 void Builder::traverse(
         const std::size_t threads,
-        const double maxArea,
+        const double tileWidth,
         const TileFunction& f,
         const Schema* schema) const
 {
-    Tiler traverser(*this, threads, maxArea, schema);
+    Tiler traverser(*this, threads, tileWidth, schema);
     traverser.go(f);
 }
 
