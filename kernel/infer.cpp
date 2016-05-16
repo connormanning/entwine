@@ -44,6 +44,10 @@ namespace
             "\t\twhen one can be found from the file header, set the '-h'\n"
             "\t\tflag.\n\n"
 
+            "\t-o <output-path>\n"
+            "\t\tIf provided, detailed per-file information will be written\n"
+            "\t\tto this file in JSON format.\n\n"
+
             "\t-h\n"
             "\t\tIf set, the user-supplied input SRS will always override\n"
             "\t\tany SRS inferred from file headers.\n\n"
@@ -123,6 +127,8 @@ void Kernel::infer(std::vector<std::string> args)
     std::string tmpPath("tmp");
     bool trustHeaders(true);
 
+    std::string output;
+
     std::size_t a(0);
 
     while (a < args.size())
@@ -143,7 +149,7 @@ void Kernel::infer(std::vector<std::string> args)
                         path + "' and '" + arg + "'");
             }
         }
-        if (arg == "-a")
+        else if (arg == "-a")
         {
             if (++a < args.size())
             {
@@ -152,6 +158,17 @@ void Kernel::infer(std::vector<std::string> args)
             else
             {
                 throw std::runtime_error("Invalid tmp specification");
+            }
+        }
+        else if (arg == "-o")
+        {
+            if (++a < args.size())
+            {
+                output = args[a];
+            }
+            else
+            {
+                throw std::runtime_error("Invalid output specification");
             }
         }
         else if (arg == "-r")
@@ -244,6 +261,14 @@ void Kernel::infer(std::vector<std::string> args)
             arbiter.get());
 
     inference.go();
+
+    if (output.size())
+    {
+        std::cout << "Writing details to " << output << "..." << std::endl;
+        arbiter->put(
+                output,
+                inference.manifest().toInferenceJson().toStyledString());
+    }
 
     std::cout << "Schema: " << inference.schema() << std::endl;
     std::cout << "Bounds: " << inference.bbox() << std::endl;
