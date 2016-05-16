@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 2eb3c7abfbf97ae59691d165f65b46444a1ccd00
+// Git SHA: f1491cd12c762c89cf05f2b00e68c5e465005f62
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -5667,12 +5667,15 @@ public:
             HttpPool& pool,
             AwsAuth awsAuth,
             std::string region = "us-east-1",
-            std::string serverSideEncryptionKey = "");
+            bool sse = false);
 
     /** Try to construct an S3 Driver.  Searches @p json primarily for the keys
      * `access` and `hidden` to construct an AwsAuth.  If not found, common
      * filesystem locations and then the environment will be searched (see
      * AwsAuth::find).
+     *
+     * Server-side encryption may be enabled by setting key `sse` to `true` in
+     * @p json.
      */
     static std::unique_ptr<S3> create(HttpPool& pool, const Json::Value& json);
     static std::string extractProfile(const Json::Value& json);
@@ -5788,7 +5791,7 @@ private:
 
     std::string m_region;
     std::string m_baseUrl;
-    std::unique_ptr<Headers> m_sseHeaders;
+    Headers m_baseHeaders;
 };
 
 } // namespace drivers
