@@ -115,7 +115,7 @@ void Kernel::infer(std::vector<std::string> args)
         }
     }
 
-    const std::string path(args.at(0));
+    std::string path;
 
     std::size_t threads(4);
     Json::Value jsonReprojection;
@@ -123,12 +123,26 @@ void Kernel::infer(std::vector<std::string> args)
     std::string tmpPath("tmp");
     bool trustHeaders(true);
 
-    std::size_t a(1);
+    std::size_t a(0);
 
     while (a < args.size())
     {
         const std::string arg(args[a]);
 
+        if (arg.front() != '-')
+        {
+            // If this is not an option argument, use it as the path.
+            if (path.empty())
+            {
+                path = arg;
+            }
+            else
+            {
+                throw std::runtime_error(
+                        "Only one path allowed - found both '" +
+                        path + "' and '" + arg + "'");
+            }
+        }
         if (arg == "-a")
         {
             if (++a < args.size())
