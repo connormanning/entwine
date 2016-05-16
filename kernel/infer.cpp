@@ -54,10 +54,6 @@ namespace
             "\t-u <aws user>\n"
             "\t\tSpecify AWS credential user, if not default\n\n"
 
-            "\t-e <aws server-side-encryption key>\n"
-            "\t\tSpecify AWS SSE key, if server-side encryption should be\n"
-            "requested.\n\n"
-
             "\t-a <tmp path>\n"
             "\t\tDirectory for entwine-generated temporary files.\n\n"
 

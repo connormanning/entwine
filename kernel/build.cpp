@@ -97,9 +97,8 @@ namespace
             "\t-u <aws user>\n"
             "\t\tSpecify AWS credential user, if not default\n\n"
 
-            "\t-e <aws server-side-encryption key>\n"
-            "\t\tSpecify AWS SSE key, if server-side encryption should be\n"
-            "requested.\n\n"
+            "\t-e\n"
+            "\t\tEnable AWS server-side-encryption.\n\n"
 
             "\t-g <max inserted files>\n"
             "\t\tFor directories, stop inserting after the specified count.\n\n"
@@ -222,7 +221,7 @@ void Kernel::build(std::vector<std::string> args)
     entwine::arbiter::Arbiter localArbiter;
     Json::Value json(defaults);
     std::string user;
-    std::string sse;
+    bool sse(false);
 
     std::size_t a(0);
 
@@ -298,13 +297,13 @@ void Kernel::build(std::vector<std::string> args)
                 throw std::runtime_error("Invalid bbox: " + str);
             }
         }
-        else if (arg == "-f")
+        else if (arg == "-f") { json["output"]["force"] = true; }
+        else if (arg == "-x") { json["input"]["trustHeaders"] = false; }
+        else if (arg == "-e") { sse = true; }
+        else if (arg == "-p") { json["structure"]["prefixIds"] = true; }
+        else if (arg == "-h")
         {
-            json["output"]["force"] = true;
-        }
-        else if (arg == "-x")
-        {
-            json["input"]["trustHeaders"] = false;
+            json["geometry"]["reproject"]["hammer"] = true;
         }
         else if (arg == "-s")
         {
@@ -334,17 +333,6 @@ void Kernel::build(std::vector<std::string> args)
                 throw std::runtime_error("Invalid AWS user argument");
             }
         }
-        else if (arg == "-e")
-        {
-            if (++a < args.size())
-            {
-                sse = args[a];
-            }
-            else
-            {
-                throw std::runtime_error("Invalid S3 SSE argument");
-            }
-        }
         else if (arg == "-r")
         {
             if (++a < args.size())
@@ -367,10 +355,6 @@ void Kernel::build(std::vector<std::string> args)
             {
                 throw std::runtime_error("Invalid reprojection argument");
             }
-        }
-        else if (arg == "-h")
-        {
-            json["geometry"]["reproject"]["hammer"] = true;
         }
         /*
         else if (arg == "-m")
@@ -401,10 +385,6 @@ void Kernel::build(std::vector<std::string> args)
                 throw std::runtime_error("Invalid run count specification");
             }
         }
-        else if (arg == "-p")
-        {
-            json["structure"]["prefixIds"] = true;
-        }
         else if (arg == "-t")
         {
             if (++a < args.size())
@@ -426,7 +406,7 @@ void Kernel::build(std::vector<std::string> args)
 
     Json::Value arbiterConfig(json["arbiter"]);
     arbiterConfig["s3"]["profile"] = user;
-    if (!sse.empty()) arbiterConfig["sse"] = sse;
+    if (sse) arbiterConfig["s3"]["sse"] = true;
 
     auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(arbiterConfig));
 
