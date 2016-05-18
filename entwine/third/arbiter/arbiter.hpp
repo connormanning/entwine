@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: f1491cd12c762c89cf05f2b00e68c5e465005f62
+// Git SHA: 55f3d386d3de12f0ae541a28e4a9c9059ed1b244
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -2137,6 +2137,214 @@ JSON_API std::ostream& operator<<(std::ostream&, const Value& root);
 
 
 // //////////////////////////////////////////////////////////////////////
+// Beginning of content of file: arbiter/util/http.hpp
+// //////////////////////////////////////////////////////////////////////
+
+#pragma once
+
+#include <map>
+#include <mutex>
+#include <string>
+#include <vector>
+
+#include <curl/curl.h>
+
+#ifndef ARBITER_IS_AMALGAMATION
+#ifndef ARBITER_EXTERNAL_JSON
+#include <arbiter/third/json/json.hpp>
+#endif
+#endif
+
+#ifdef ARBITER_EXTERNAL_JSON
+#include <json/json.h>
+#endif
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
+
+namespace arbiter
+{
+namespace http
+{
+
+/** HTTP header fields. */
+using Headers = std::map<std::string, std::string>;
+
+/** HTTP query parameters. */
+using Query = std::map<std::string, std::string>;
+
+/** Perform URI percent-encoding, without encoding characters included in
+ * @p exclusions.
+ */
+std::string sanitize(std::string path, std::string exclusions = "/");
+
+/** Build a query string from key-value pairs.  If @p query is empty, the
+ * result is an empty string.  Otherwise, the result will start with the
+ * '?' character.
+ */
+std::string buildQueryString(const http::Query& query);
+
+/** @cond arbiter_internal */
+
+class Response
+{
+public:
+    Response(int code = 0)
+        : m_code(code)
+        , m_data()
+    { }
+
+    Response(int code, std::vector<char> data)
+        : m_code(code)
+        , m_data(data)
+    { }
+
+    Response(
+            int code,
+            const std::vector<char>& data,
+            const Headers& headers)
+        : m_code(code)
+        , m_data(data)
+        , m_headers(headers)
+    { }
+
+    ~Response() { }
+
+    bool ok() const             { return m_code / 100 == 2; }
+    bool clientError() const    { return m_code / 100 == 4; }
+    bool serverError() const    { return m_code / 100 == 5; }
+    int code() const            { return m_code; }
+
+    std::vector<char> data() const { return m_data; }
+    const Headers& headers() const { return m_headers; }
+
+private:
+    int m_code;
+    std::vector<char> m_data;
+    Headers m_headers;
+};
+
+class Pool;
+
+class Curl
+{
+    friend class Pool;
+
+public:
+    ~Curl();
+
+    http::Response get(std::string path, Headers headers, Query query);
+    http::Response head(std::string path, Headers headers, Query query);
+    http::Response put(
+            std::string path,
+            const std::vector<char>& data,
+            Headers headers,
+            Query query);
+    http::Response post(
+            std::string path,
+            const std::vector<char>& data,
+            Headers headers,
+            Query query);
+
+private:
+    Curl(bool verbose, std::size_t timeout);
+
+    void init(std::string path, const Headers& headers, const Query& query);
+
+    Curl(const Curl&);
+    Curl& operator=(const Curl&);
+
+    CURL* m_curl;
+    curl_slist* m_headers;
+    const bool m_verbose;
+    const std::size_t m_timeout;
+
+    std::vector<char> m_data;
+};
+
+class Resource
+{
+public:
+    Resource(Pool& pool, Curl& curl, std::size_t id, std::size_t retry);
+    ~Resource();
+
+    http::Response get(
+            std::string path,
+            Headers headers = Headers(),
+            Query query = Query());
+
+    http::Response head(
+            std::string path,
+            Headers headers = Headers(),
+            Query query = Query());
+
+    http::Response put(
+            std::string path,
+            const std::vector<char>& data,
+            Headers headers = Headers(),
+            Query query = Query());
+
+    http::Response post(
+            std::string path,
+            const std::vector<char>& data,
+            Headers headers = Headers(),
+            Query query = Query());
+
+private:
+    Pool& m_pool;
+    Curl& m_curl;
+    std::size_t m_id;
+    std::size_t m_retry;
+
+    http::Response exec(std::function<http::Response()> f);
+};
+
+class Pool
+{
+    // Only HttpResource may release.
+    friend class Resource;
+
+public:
+    Pool(
+            std::size_t concurrent,
+            std::size_t retry,
+            const Json::Value& json);
+
+    Resource acquire();
+
+private:
+    void release(std::size_t id);
+
+    std::vector<std::unique_ptr<Curl>> m_curls;
+    std::vector<std::size_t> m_available;
+    std::size_t m_retry;
+
+    std::mutex m_mutex;
+    std::condition_variable m_cv;
+};
+
+/** @endcond */
+
+} // namespace http
+} // namespace arbiter
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
+
+// //////////////////////////////////////////////////////////////////////
+// End of content of file: arbiter/util/http.hpp
+// //////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+// //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: arbiter/driver.hpp
 // //////////////////////////////////////////////////////////////////////
 
@@ -2156,8 +2364,6 @@ namespace ARBITER_CUSTOM_NAMESPACE
 namespace arbiter
 {
 
-typedef std::map<std::string, std::string> Headers;
-
 class HttpPool;
 
 /** @brief Base class for interacting with a storage type.
@@ -2169,8 +2375,11 @@ class HttpPool;
  * Derived classes must override Driver::type,
  * Driver::put(std::string, const std::vector<char>&) const, and
  * Driver::get(std::string, std::vector<char>&) const,
- * Driver::size(std::string) const - and may optionally
+ * Driver::getSize(std::string) const - and may optionally
  * override Driver::glob if possible.
+ *
+ * HTTP-derived classes should override the PUT and GET versions that accept
+ * http::Headers and http::Query parameters instead.
  */
 class Driver
 {
@@ -2187,11 +2396,17 @@ public:
      */
     virtual std::string type() const = 0;
 
-    /** Get binary data, if available. */
-    std::unique_ptr<std::vector<char>> tryGetBinary(std::string path) const;
+    /** Get string data. */
+    std::string get(std::string path) const;
+
+    /** Get string data, if available. */
+    std::unique_ptr<std::string> tryGet(std::string path) const;
 
     /** Get binary data. */
     std::vector<char> getBinary(std::string path) const;
+
+    /** Get binary data, if available. */
+    std::unique_ptr<std::vector<char>> tryGetBinary(std::string path) const;
 
     /**
      * Write @p data to the given @p path.
@@ -2206,12 +2421,6 @@ public:
      * request will download and write this file to the local filesystem.
      */
     virtual bool isRemote() const { return true; }
-
-    /** Get string data, if available. */
-    std::unique_ptr<std::string> tryGet(std::string path) const;
-
-    /** Get string data. */
-    std::string get(std::string path) const;
 
     /** Get the file size in bytes, if available. */
     virtual std::unique_ptr<std::size_t> tryGetSize(std::string path) const = 0;
@@ -2252,24 +2461,6 @@ protected:
      * @param[out] data Empty vector in which to write resulting data.
      */
     virtual bool get(std::string path, std::vector<char>& data) const = 0;
-};
-
-class CustomHeaderDriver : public Driver
-{
-    using Driver::get;
-
-public:
-    /** A GET method allowing user-defined headers. Accessible only via the
-     * Arbiter::getDriver directly, and not through the Arbiter.
-     */
-    virtual std::string get(std::string path, Headers headers) const = 0;
-
-    /** A GET method allowing user-defined headers. Accessible only via the
-     * Arbiter::getDriver directly, and not through the Arbiter.
-     */
-    virtual std::vector<char> getBinary(
-            std::string path,
-            Headers headers) const = 0;
 };
 
 typedef std::map<std::string, std::unique_ptr<Driver>> DriverMap;
@@ -2319,6 +2510,8 @@ namespace ARBITER_CUSTOM_NAMESPACE
 
 namespace arbiter
 {
+
+namespace http { class Pool; }
 
 class Arbiter;
 
@@ -2398,7 +2591,7 @@ namespace drivers
 class Fs : public Driver
 {
 public:
-    static std::unique_ptr<Fs> create(HttpPool& pool, const Json::Value& json);
+    static std::unique_ptr<Fs> create(http::Pool&, const Json::Value& json);
 
     virtual std::string type() const override { return "file"; }
 
@@ -2444,16 +2637,10 @@ protected:
 #pragma once
 
 #include <vector>
-#include <string>
-#include <thread>
 #include <memory>
-#include <condition_variable>
-#include <mutex>
-#include <map>
-
-#include <curl/curl.h>
 
 #ifndef ARBITER_IS_AMALGAMATION
+#include <arbiter/util/http.hpp>
 #include <arbiter/driver.hpp>
 #endif
 
@@ -2464,180 +2651,128 @@ namespace ARBITER_CUSTOM_NAMESPACE
 
 namespace arbiter
 {
-
-typedef std::map<std::string, std::string> Query;
-
-/** @cond arbiter_internal */
-class HttpResponse
-{
-public:
-    HttpResponse(int code = 0)
-        : m_code(code)
-        , m_data()
-    { }
-
-    HttpResponse(int code, std::vector<char> data)
-        : m_code(code)
-        , m_data(data)
-    { }
-
-    HttpResponse(
-            int code,
-            const std::vector<char>& data,
-            const Headers& headers)
-        : m_code(code)
-        , m_data(data)
-        , m_headers(headers)
-    { }
-
-    ~HttpResponse() { }
-
-    bool ok() const             { return m_code / 100 == 2; }
-    bool clientError() const    { return m_code / 100 == 4; }
-    bool serverError() const    { return m_code / 100 == 5; }
-    int code() const            { return m_code; }
-
-    std::vector<char> data() const { return m_data; }
-    const Headers& headers() const { return m_headers; }
-
-private:
-    int m_code;
-    std::vector<char> m_data;
-    Headers m_headers;
-};
-/** @endcond */
-
-///////////////////////////////////////////////////////////////////////////////
-
-class HttpPool;
-
 namespace drivers
 {
 
-/** @brief HTTP driver. */
+/** @brief HTTP driver.  Intended as both a standalone driver as well as a base
+ * for derived drivers build atop HTTP.  Derivers should overload the
+ * HTTP-specific put/get methods that accept headers and query parameters
+ * rather than Driver::put and Driver::get, which are overridden as `final`
+ * here as they will be routed to the more specific methods.
+ */
 class Http : public Driver
 {
 public:
-    Http(HttpPool& pool);
+    Http(http::Pool& pool);
     static std::unique_ptr<Http> create(
-            HttpPool& pool,
+            http::Pool& pool,
             const Json::Value& json);
 
+    // Inherited from Driver.
     virtual std::string type() const override { return "http"; }
 
+    /** By default, performs a HEAD request and returns the contents of the
+     * Content-Length header.
+     */
     virtual std::unique_ptr<std::size_t> tryGetSize(
             std::string path) const override;
 
     virtual void put(
             std::string path,
-            const std::vector<char>& data) const override;
+            const std::vector<char>& data) const final override
+    {
+        put(path, data, http::Headers(), http::Query());
+    }
 
-    static std::string sanitize(std::string path, std::string exclusions = "/");
+    /* HTTP-specific driver methods follow.  Since many drivers (S3, Dropbox,
+     * etc.) are built atop HTTP, we'll provide HTTP-specific methods for
+     * derived classes to use in addition to the generic PUT/GET combinations.
+     *
+     * Specifically, we'll add POST/HEAD calls, and allow headers and query
+     * parameters to be passed as well.
+     */
+    std::string get(
+            std::string path,
+            http::Headers headers,
+            http::Query query) const;
+
+    std::unique_ptr<std::string> tryGet(
+            std::string path,
+            http::Headers headers,
+            http::Query query) const;
+
+    std::vector<char> getBinary(
+            std::string path,
+            http::Headers headers,
+            http::Query query) const;
+
+    std::unique_ptr<std::vector<char>> tryGetBinary(
+            std::string path,
+            http::Headers headers,
+            http::Query query) const;
+
+    void put(
+            std::string path,
+            const std::string& data,
+            http::Headers headers,
+            http::Query query) const;
+
+    /** HTTP-derived Drivers should override this version of PUT to allow for
+     * custom headers and query parameters.
+     */
+    virtual void put(
+            std::string path,
+            const std::vector<char>& data,
+            http::Headers headers,
+            http::Query query) const;
+
+protected:
+    /** HTTP-derived Drivers should override this version of GET to allow for
+     * custom headers and query parameters.
+     */
+    virtual bool get(
+            std::string path,
+            std::vector<char>& data,
+            http::Headers headers,
+            http::Query query) const;
+
+    /* These operations are other HTTP-specific calls that derived drivers may
+     * need for their underlying API use.
+     */
+    http::Response internalGet(
+            std::string path,
+            http::Headers headers = http::Headers(),
+            http::Query query = http::Query()) const;
+
+    http::Response internalPut(
+            std::string path,
+            const std::vector<char>& data,
+            http::Headers headers = http::Headers(),
+            http::Query query = http::Query()) const;
+
+    http::Response internalHead(
+            std::string path,
+            http::Headers headers = http::Headers(),
+            http::Query query = http::Query()) const;
+
+    http::Response internalPost(
+            std::string path,
+            const std::vector<char>& data,
+            http::Headers headers = http::Headers(),
+            http::Query query = http::Query()) const;
 
 private:
     virtual bool get(
             std::string path,
-            std::vector<char>& data) const override;
+            std::vector<char>& data) const final override
+    {
+        return get(path, data, http::Headers(), http::Query());
+    }
 
-    HttpPool& m_pool;
+    http::Pool& m_pool;
 };
 
 } // namespace drivers
-
-/** @cond arbiter_internal */
-class Curl
-{
-    // Only HttpPool may create.
-    friend class HttpPool;
-
-public:
-    ~Curl();
-
-    HttpResponse get(std::string path, Headers headers);
-    HttpResponse head(std::string path, Headers headers);
-    HttpResponse put(
-            std::string path,
-            const std::vector<char>& data,
-            Headers headers);
-    HttpResponse post(
-            std::string path,
-            const std::vector<char>& data,
-            Headers headers);
-
-private:
-    Curl(bool verbose, std::size_t timeout);
-
-    void init(std::string path, const Headers& headers);
-
-    Curl(const Curl&);
-    Curl& operator=(const Curl&);
-
-    CURL* m_curl;
-    curl_slist* m_headers;
-    const bool m_verbose;
-    const std::size_t m_timeout;
-
-    std::vector<char> m_data;
-};
-
-class HttpResource
-{
-public:
-    HttpResource(HttpPool& pool, Curl& curl, std::size_t id, std::size_t retry);
-    ~HttpResource();
-
-    HttpResponse get(
-            std::string path,
-            Headers headers = Headers());
-
-    HttpResponse head(
-            std::string path,
-            Headers headers = Headers());
-
-    HttpResponse put(
-            std::string path,
-            const std::vector<char>& data,
-            Headers headers = Headers());
-
-    HttpResponse post(
-            std::string path,
-            const std::vector<char>& data,
-            Headers headers);
-
-private:
-    HttpPool& m_pool;
-    Curl& m_curl;
-    std::size_t m_id;
-    std::size_t m_retry;
-
-    HttpResponse exec(std::function<HttpResponse()> f);
-};
-
-class HttpPool
-{
-    // Only HttpResource may release.
-    friend class HttpResource;
-
-public:
-    HttpPool(
-            std::size_t concurrent,
-            std::size_t retry,
-            const Json::Value& json);
-
-    HttpResource acquire();
-
-private:
-    void release(std::size_t id);
-
-    std::vector<std::unique_ptr<Curl>> m_curls;
-    std::vector<std::size_t> m_available;
-    std::size_t m_retry;
-
-    std::mutex m_mutex;
-    std::condition_variable m_cv;
-};
-/** @endcond */
-
 } // namespace arbiter
 
 #ifdef ARBITER_CUSTOM_NAMESPACE
@@ -5590,6 +5725,11 @@ namespace util
         return joinImpl(true, path, std::forward<Paths>(paths)...);
     }
 
+    /** @brief Extract an environment variable, if it exists, independent of
+     * platform.
+     */
+    std::unique_ptr<std::string> env(const std::string& var);
+
 } // namespace util
 
 } // namespace arbiter
@@ -5619,7 +5759,6 @@ namespace util
 #include <vector>
 
 #ifndef ARBITER_IS_AMALGAMATION
-#include <arbiter/driver.hpp>
 #include <arbiter/drivers/http.hpp>
 #endif
 
@@ -5660,11 +5799,11 @@ private:
 };
 
 /** @brief Amazon %S3 driver. */
-class S3 : public CustomHeaderDriver
+class S3 : public Http
 {
 public:
     S3(
-            HttpPool& pool,
+            http::Pool& pool,
             AwsAuth awsAuth,
             std::string region = "us-east-1",
             bool sse = false);
@@ -5677,7 +5816,10 @@ public:
      * Server-side encryption may be enabled by setting key `sse` to `true` in
      * @p json.
      */
-    static std::unique_ptr<S3> create(HttpPool& pool, const Json::Value& json);
+    static std::unique_ptr<S3> create(
+            http::Pool& pool,
+            const Json::Value& json);
+
     static std::string extractProfile(const Json::Value& json);
 
     virtual std::string type() const override { return "s3"; }
@@ -5685,35 +5827,30 @@ public:
     virtual std::unique_ptr<std::size_t> tryGetSize(
             std::string path) const override;
 
+    /** Inherited from Drivers::Http. */
     virtual void put(
             std::string path,
-            const std::vector<char>& data) const override;
-
-    /** Inherited from CustomHeaderDriver. */
-    virtual std::string get(std::string path, Headers headers) const override;
-
-    /** Inherited from CustomHeaderDriver. */
-    virtual std::vector<char> getBinary(
-            std::string path,
-            Headers headers) const override;
+            const std::vector<char>& data,
+            http::Headers headers,
+            http::Query query) const override;
 
 private:
-    virtual bool get(std::string path, std::vector<char>& data) const override;
+    /** Inherited from Drivers::Http. */
+    virtual bool get(
+            std::string path,
+            std::vector<char>& data,
+            http::Headers headers,
+            http::Query query) const override;
+
     virtual std::vector<std::string> glob(
             std::string path,
             bool verbose) const override;
-
-    bool get(
-            std::string rawPath,
-            const Query& query,
-            const Headers& headers,
-            std::vector<char>& data) const;
 
     struct Resource
     {
         Resource(std::string baseUrl, std::string fullPath);
 
-        std::string buildPath(Query query = Query()) const;
+        std::string url() const;
         std::string host() const;
 
         std::string baseUrl;
@@ -5749,11 +5886,12 @@ private:
                 const std::string& region,
                 const Resource& resource,
                 const AwsAuth& auth,
-                const Query& query,
-                const Headers& headers,
+                const http::Query& query,
+                const http::Headers& headers,
                 const std::vector<char>& data);
 
-        const Headers& headers() const { return m_headers; }
+        const http::Headers& headers() const { return m_headers; }
+        const http::Query& query() const { return m_query; }
 
         const std::string& signedHeadersString() const
         {
@@ -5764,7 +5902,7 @@ private:
         std::string buildCanonicalRequest(
                 std::string verb,
                 const Resource& resource,
-                const Query& query,
+                const http::Query& query,
                 const std::vector<char>& data) const;
 
         std::string buildStringToSign(
@@ -5781,17 +5919,17 @@ private:
         const std::string m_region;
         const FormattedTime m_formattedTime;
 
-        Headers m_headers;
+        http::Headers m_headers;
+        http::Query m_query;
         std::string m_canonicalHeadersString;
         std::string m_signedHeadersString;
     };
 
-    HttpPool& m_pool;
     AwsAuth m_auth;
 
     std::string m_region;
     std::string m_baseUrl;
-    Headers m_baseHeaders;
+    http::Headers m_baseHeaders;
 };
 
 } // namespace drivers
@@ -5822,7 +5960,6 @@ private:
 #include <vector>
 
 #ifndef ARBITER_IS_AMALGAMATION
-#include <arbiter/driver.hpp>
 #include <arbiter/drivers/http.hpp>
 #endif
 
@@ -5849,33 +5986,31 @@ private:
 };
 
 /** @brief %Dropbox driver. */
-class Dropbox : public CustomHeaderDriver
+class Dropbox : public Http
 {
 public:
-    Dropbox(HttpPool& pool, DropboxAuth auth);
+    Dropbox(http::Pool& pool, DropboxAuth auth);
 
     /** Try to construct a %Dropbox Driver.  Searches @p json for the key
      * `token` to construct a DropboxAuth.
      */
     static std::unique_ptr<Dropbox> create(
-            HttpPool& pool,
+            http::Pool& pool,
             const Json::Value& json);
 
     virtual std::string type() const override { return "dropbox"; }
     virtual void put(
             std::string path,
-            const std::vector<char>& data) const override;
-
-    /** Inherited from CustomHeaderDriver. */
-    virtual std::string get(std::string path, Headers headers) const override;
-
-    /** Inherited from CustomHeaderDriver. */
-    virtual std::vector<char> getBinary(
-            std::string path,
-            Headers headers) const override;
+            const std::vector<char>& data,
+            http::Headers headers,
+            http::Query query = http::Query()) const override;
 
 private:
-    virtual bool get(std::string path, std::vector<char>& data) const override;
+    virtual bool get(
+            std::string path,
+            std::vector<char>& data,
+            http::Headers headers,
+            http::Query query) const override;
 
     virtual std::unique_ptr<std::size_t> tryGetSize(
             std::string path) const override;
@@ -5884,17 +6019,11 @@ private:
             std::string path,
             bool verbose) const override;
 
-    bool buildRequestAndGet(
-            std::string path,
-            std::vector<char>& data,
-            Headers headers = Headers()) const;
-
     std::string continueFileInfo(std::string cursor) const;
 
-    Headers httpGetHeaders() const;
-    Headers httpPostHeaders() const;
+    http::Headers httpGetHeaders() const;
+    http::Headers httpPostHeaders() const;
 
-    HttpPool& m_pool;
     DropboxAuth m_auth;
 };
 
@@ -6126,6 +6255,50 @@ public:
     /** Write data to path. */
     void put(std::string path, const std::vector<char>& data) const;
 
+    /** Get data with additional HTTP-specific parameters.  Throws if
+     * isHttpDerived is false for this path. */
+    std::string get(
+            std::string path,
+            http::Headers headers,
+            http::Query query = http::Query()) const;
+
+    /** Get data with additional HTTP-specific parameters.  Throws if
+     * isHttpDerived is false for this path. */
+    std::unique_ptr<std::string> tryGet(
+            std::string path,
+            http::Headers headers,
+            http::Query query = http::Query()) const;
+
+    /** Get data in binary form with additional HTTP-specific parameters.
+     * Throws if isHttpDerived is false for this path. */
+    std::vector<char> getBinary(
+            std::string path,
+            http::Headers headers,
+            http::Query query = http::Query()) const;
+
+    /** Get data in binary form with additional HTTP-specific parameters.
+     * Throws if isHttpDerived is false for this path. */
+    std::unique_ptr<std::vector<char>> tryGetBinary(
+            std::string path,
+            http::Headers headers,
+            http::Query query = http::Query()) const;
+
+    /** Write data to path with additional HTTP-specific parameters.
+     * Throws if isHttpDerived is false for this path. */
+    void put(
+            std::string path,
+            const std::string& data,
+            http::Headers headers,
+            http::Query query = http::Query()) const;
+
+    /** Write data to path with additional HTTP-specific parameters.
+     * Throws if isHttpDerived is false for this path. */
+    void put(
+            std::string path,
+            const std::vector<char>& data,
+            http::Headers headers,
+            http::Query query = http::Query()) const;
+
     /** Copy data from @p from to @p to.  @p from will be resolved with
      * Arbiter::resolve prior to the copy, so globbed directories are supported.
      */
@@ -6140,6 +6313,12 @@ public:
      * remote.
      */
     bool isLocal(std::string path) const;
+
+    /** Returns true if the protocol for this driver is build on HTTP, like the
+     * S3 and Dropbox drivers are.  If this returns true, http::Headers and
+     * http::Query parameter methods may be used for this path.
+     */
+    bool isHttpDerived(std::string path) const;
 
     /** @brief Resolve a possibly globbed path.
      *
@@ -6225,22 +6404,29 @@ public:
     /** If no delimiter of "://" is found, returns "file".  Otherwise, returns
      * the substring prior to but not including this delimiter.
      */
-    static std::string getType(const std::string path);
+    static std::string getType(std::string path);
 
     /** Strip the type and delimiter `://`, if they exist. */
     static std::string stripType(std::string path);
 
+    /** Get the characters following the final instance of '.', or an empty
+     * string if there are no '.' characters. */
+    static std::string getExtension(std::string path);
+
     /** Fetch the common HTTP pool, which may be useful when dynamically
      * constructing adding a Driver via Arbiter::addDriver.
      */
-    HttpPool& httpPool() { return m_pool; }
+    http::Pool& httpPool() { return m_pool; }
 
 private:
     // Registers all available default Driver instances.
     void init(const Json::Value& json);
 
+    const drivers::Http* tryGetHttpDriver(std::string path) const;
+    const drivers::Http& getHttpDriver(std::string path) const;
+
     DriverMap m_drivers;
-    HttpPool m_pool;
+    http::Pool m_pool;
 };
 
 } // namespace arbiter
