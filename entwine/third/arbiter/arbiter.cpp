@@ -7026,13 +7026,7 @@ namespace arbiter
 namespace
 {
     const std::string baseGetUrl("https://content.dropboxapi.com/");
-    const std::string getUrlV1(baseGetUrl + "1/files/auto/");
-    const std::string getUrlV2(baseGetUrl + "2/files/download");
-
-    // We still need to use API V1 for GET requests since V2 is poorly
-    // documented and doesn't correctly support the Range header.  Hopefully
-    // we can switch to V2 at some point.
-    const bool legacy(true);
+    const std::string getUrl(baseGetUrl + "2/files/download");
 
     const std::string listUrl("https://api.dropboxapi.com/2/files/list_folder");
     const std::string metaUrl("https://api.dropboxapi.com/2/files/get_metadata");
@@ -7083,11 +7077,8 @@ Headers Dropbox::httpGetHeaders() const
 
     headers["Authorization"] = "Bearer " + m_auth.token();
 
-    if (!legacy)
-    {
-        headers["Transfer-Encoding"] = "";
-        headers["Expect"] = "";
-    }
+    headers["Transfer-Encoding"] = "";
+    headers["Expect"] = "";
 
     return headers;
 }
@@ -7145,54 +7136,46 @@ bool Dropbox::get(
 
     Headers headers(httpGetHeaders());
 
-    if (!legacy)
-    {
-        Json::Value json;
-        json["path"] = std::string("/" + path);
-        headers["Dropbox-API-Arg"] = toSanitizedString(json);
-    }
+    Json::Value json;
+    json["path"] = std::string("/" + path);
+    headers["Dropbox-API-Arg"] = toSanitizedString(json);
 
     headers.insert(userHeaders.begin(), userHeaders.end());
 
-    Response res(
-            legacy ?
-                Http::internalGet(getUrlV1 + path, headers, query) :
-                Http::internalGet(getUrlV2, headers, query));
+    const Response res(Http::internalGet(getUrl, headers, query));
 
     if (res.ok())
     {
-        if (
-                (legacy && !res.headers().count("Content-Length")) ||
-                (!legacy && !res.headers().count("original-content-length")))
+        if (!userHeaders.count("Range"))
         {
-            return false;
-        }
+            if (!res.headers().count("size")) return false;
 
-        const std::size_t size(
-                std::stol(
-                    legacy ?
-                        res.headers().at("Content-Length") :
-                        res.headers().at("original-content-length")));
+            const std::size_t size(std::stoul(res.headers().at("size")));
+            data = res.data();
 
-        data = res.data();
-
-        if (size == res.data().size())
-        {
-            return true;
+            if (size == data.size()) return true;
+            else
+            {
+                std::cout <<
+                    "Data size check failed - got " <<
+                    size << " of " << res.data().size() << " bytes." <<
+                    std::endl;
+            }
         }
         else
         {
-            throw ArbiterError(
-                    "Data size check failed - got " + std::to_string(size) +
-                    " of " + std::to_string(res.data().size()) + " bytes.");
+            data = res.data();
+            return true;
         }
     }
     else
     {
-        std::string message(res.data().data(), res.data().size());
-        throw ArbiterError(
-                "Server response: " + std::to_string(res.code()) + " - '" +
-                message + "'");
+        const auto data(res.data());
+        std::string message(data.data(), data.size());
+
+        std::cout <<
+                "Server response: " << res.code() << " - '" << message << "'" <<
+                std::endl;
     }
 
     return false;
