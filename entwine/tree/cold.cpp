@@ -249,6 +249,8 @@ void Cold::ensureChunk(
                     m_builder.structure().maybePrefix(chunkId) +
                     m_builder.postfix(true));
 
+            auto data(Storage::ensureGet(m_endpoint, path));
+
             chunk =
                     Chunk::create(
                         m_builder,
@@ -256,7 +258,7 @@ void Cold::ensureChunk(
                         climber.depth(),
                         chunkId,
                         climber.chunkPoints(),
-                        Storage::ensureGet(m_endpoint, path));
+                        std::move(data));
         }
         else
         {
@@ -274,7 +276,10 @@ void Cold::ensureChunk(
         {
             if (++tries < maxCreateTries)
             {
-                std::cout << "Failed chunk create " << chunkId << std::endl;
+                std::cout <<
+                    "Failed chunk create on " <<
+                    (exists ? "existing" : "new") << " chunk: " << chunkId <<
+                    std::endl;
                 std::this_thread::sleep_for(createSleepTime);
             }
             else
