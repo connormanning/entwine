@@ -6521,11 +6521,11 @@ std::unique_ptr<S3> S3::create(Pool& pool, const Json::Value& json)
 
     // Try to get the region from the config file, or default to US standard.
     std::string region("us-east-1");
+    bool regionFound(false);
 
     if (std::unique_ptr<std::string> config = fsDriver.tryGet("~/.aws/config"))
     {
         const std::vector<std::string> lines(condense(split(*config)));
-        bool regionFound(false);
 
         if (lines.size() >= 3)
         {
@@ -6539,27 +6539,48 @@ std::unique_ptr<S3> S3::create(Pool& pool, const Json::Value& json)
             {
                 if (lines[i].find(profileFind) != std::string::npos)
                 {
-                    const std::string& outputLine(lines[i + 1]);
-                    const std::string& regionLine(lines[i + 2]);
-
-                    std::size_t outputPos(outputLine.find(outputFind));
-                    std::size_t regionPos(regionLine.find(regionFind));
-
-                    if (
-                            outputPos != std::string::npos &&
-                            regionPos != std::string::npos)
+                    auto parse([&](
+                                const std::string& outputLine,
+                                const std::string& regionLine)
                     {
-                        region = regionLine.substr(
-                                regionPos + regionFind.size(),
-                                regionLine.find(';'));
+                        std::size_t outputPos(outputLine.find(outputFind));
+                        std::size_t regionPos(regionLine.find(regionFind));
 
-                        regionFound = true;
-                    }
+                        if (
+                                outputPos != std::string::npos &&
+                                regionPos != std::string::npos)
+                        {
+                            region = regionLine.substr(
+                                    regionPos + regionFind.size(),
+                                    regionLine.find(';'));
+
+                            return true;
+                        }
+
+                        return false;
+                    });
+
+
+                    const std::string& l1(lines[i + 1]);
+                    const std::string& l2(lines[i + 2]);
+
+                    regionFound = parse(l1, l2) || parse(l2, l1);
                 }
 
                 ++i;
             }
         }
+    }
+    else
+    {
+        std::cout <<
+            "~/.aws/config not found - using region us-east-1" << std::endl;
+    }
+
+    if (!regionFound)
+    {
+        std::cout <<
+            "Region not found in ~/.aws/config - using us-east-1" << std::endl;
     }
 
     s3.reset(new S3(pool, *auth, region, sse));

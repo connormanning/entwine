@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: c82c0d4ef9088ec12deffec74e52a9ef009a22df
+// Git SHA: de4a4c90505f538342cc908e57b8b2e9934577f6
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -2142,7 +2142,9 @@ JSON_API std::ostream& operator<<(std::ostream&, const Value& root);
 
 #pragma once
 
+#include <condition_variable>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
