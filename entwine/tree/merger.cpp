@@ -48,7 +48,7 @@ void Merger::go()
     {
         std::cout << "\t" << (id + 1) << " / " << m_numSubsets << std::flush;
 
-        auto current(Builder::create(m_path, id, *m_outerScope));
+        auto current(Builder::create(m_path, m_threads, id, *m_outerScope));
         if (!current) throw std::runtime_error("Couldn't create split builder");
 
         unsplit(*current);

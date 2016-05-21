@@ -7253,10 +7253,12 @@ std::vector<std::string> Dropbox::glob(std::string rawPath, bool verbose) const
         request["include_media_info"] = false;
         request["include_deleted"] = false;
 
-        std::string f = toSanitizedString(request);
-
+        const std::string f(toSanitizedString(request));
         std::vector<char> postData(f.begin(), f.end());
-        Response res(Http::internalPost(listUrl, postData, headers));
+
+        // Can't fully qualify this protected method within the lambda due to a
+        // GCC bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=61148
+        Response res(internalPost(listUrl, postData, headers));
 
         if (res.ok())
         {
