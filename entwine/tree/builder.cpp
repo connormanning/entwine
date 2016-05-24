@@ -68,7 +68,7 @@ Builder::Builder(
         const Schema& schema,
         const std::size_t totalThreads,
         const Structure& structure,
-        const OuterScope outerScope)
+        OuterScope outerScope)
     : m_bboxConforming(new BBox(bboxConforming))
     , m_bbox()
     , m_subBBox(subset ? new BBox(subset->bbox()) : nullptr)
@@ -117,7 +117,7 @@ Builder::Builder(
         const std::size_t totalThreads,
         const std::string pf,
         const Json::Value subsetJson,
-        const OuterScope outerScope)
+        OuterScope outerScope)
     : m_bboxConforming()
     , m_bbox()
     , m_subBBox()
@@ -165,7 +165,7 @@ Builder::Builder(
         const std::size_t totalThreads,
         const std::size_t* subsetId,
         const std::size_t* splitBegin,
-        const OuterScope outerScope)
+        OuterScope outerScope)
     : m_bboxConforming()
     , m_bbox()
     , m_subBBox()
@@ -203,7 +203,7 @@ Builder::Builder(
 std::unique_ptr<Builder> Builder::create(
         const std::string path,
         const std::size_t threads,
-        const OuterScope os)
+        OuterScope os)
 {
     std::unique_ptr<Builder> builder;
     const std::size_t zero(0);
@@ -230,7 +230,7 @@ std::unique_ptr<Builder> Builder::create(
         const std::string path,
         const std::size_t threads,
         const std::size_t subsetId,
-        const OuterScope os)
+        OuterScope os)
 {
     std::unique_ptr<Builder> b;
     const std::size_t zero(0);
@@ -481,7 +481,7 @@ PooledInfoStack Builder::insertData(
 }
 
 void Builder::load(
-        const OuterScope outerScope,
+        OuterScope outerScope,
         const std::size_t clipThreads,
         const std::string pf)
 {
@@ -535,7 +535,7 @@ void Builder::load(
 }
 
 void Builder::load(
-        const OuterScope outerScope,
+        OuterScope outerScope,
         const std::size_t* subsetId,
         const std::size_t* splitBegin)
 {
@@ -833,7 +833,7 @@ Json::Value Builder::saveOwnProps() const
 }
 
 void Builder::loadProps(
-        const OuterScope outerScope,
+        OuterScope outerScope,
         Json::Value& props,
         const std::string pf)
 {
