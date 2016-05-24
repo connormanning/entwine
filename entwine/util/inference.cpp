@@ -129,11 +129,7 @@ void Inference::go()
                 const arbiter::http::Headers range(([&f]()
                 {
                     arbiter::http::Headers h;
-                    std::string& val(h["Range"]);
-                    const auto ext(arbiter::Arbiter::getExtension(f.path()));
-                    if (ext == "laz" || ext == "las") val = "bytes=0-512";
-                    else val = "bytes=0-16384";
-
+                    h["Range"] = "bytes=0-16384";
                     return h;
                 })());
 
