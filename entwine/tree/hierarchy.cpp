@@ -62,13 +62,16 @@ void Node::assign(
 
                 if (exists)
                 {
-                    m_children[dir] = nodePool.acquireOne(
-                            nodePool,
-                            pos,
-                            step,
-                            edges,
-                            nextId,
-                            depth);
+                    m_children.emplace(
+                            std::make_pair(
+                                dir,
+                                nodePool.acquireOne(
+                                    nodePool,
+                                    pos,
+                                    step,
+                                    edges,
+                                    nextId,
+                                    depth)));;
                 }
                 else
                 {
@@ -76,7 +79,7 @@ void Node::assign(
                             m_children.insert(
                                 std::make_pair(dir, nodePool.acquireOne())));
 
-                    edges[nextId] = &it.first->second->val();
+                    edges[nextId] = &*it.first->second;
                 }
             }
         }
@@ -89,14 +92,15 @@ void Node::merge(Node& other)
 
     for (auto& theirs : other.children())
     {
-        auto& mine(m_children[theirs.first]);
-        if (!mine)
+        const Dir dir(theirs.first);;
+
+        if (m_children.count(dir))
         {
-            std::swap(mine, theirs.second);
+            m_children.at(dir)->merge(*theirs.second);
         }
         else
         {
-            mine->val().merge(theirs.second->val());
+            m_children.emplace(std::make_pair(dir, std::move(theirs.second)));
         }
     }
 }
@@ -109,7 +113,7 @@ void Node::insertInto(Json::Value& json) const
     {
         for (const auto& c : m_children)
         {
-            c.second->val().insertInto(json[dirToString(c.first)]);
+            c.second->insertInto(json[dirToString(c.first)]);
         }
     }
 }
@@ -193,7 +197,7 @@ void Node::insertData(
         {
             for (auto& c : m_children)
             {
-                c.second->val().insertData(
+                c.second->insertData(
                         data,
                         nextSlice,
                         Hierarchy::climb(id, c.first),
@@ -209,7 +213,7 @@ void Node::insertData(
                         nextSlice.end(),
                         std::make_pair(
                             Hierarchy::climb(id, c.first),
-                            AnchoredNode(&c.second->val())));
+                            AnchoredNode(&*c.second)));
             }
         }
     }

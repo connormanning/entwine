@@ -15,9 +15,9 @@
 #include <iomanip>
 #include <iostream>
 
-#include <entwine/tree/point-info.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/dir.hpp>
+#include <entwine/types/point-pool.hpp>
 #include <entwine/types/structure.hpp>
 
 namespace entwine
@@ -101,20 +101,20 @@ private:
     void climb(Dir dir);
 };
 
-class InfoState
+class CellState
 {
 public:
-    InfoState(const Climber& climber, PooledInfoNode pointInfo)
+    CellState(const Climber& climber, Cell::PooledNode&& cell)
         : m_climber(climber)
-        , m_pointInfo(std::move(pointInfo))
+        , m_cell(std::move(cell))
     { }
 
     Climber& climber() { return m_climber; }
-    PooledInfoNode acquireInfoNode() { return std::move(m_pointInfo); }
+    Cell::PooledNode acquireCellNode() { return std::move(m_cell); }
 
 private:
     Climber m_climber;
-    PooledInfoNode m_pointInfo;
+    Cell::PooledNode m_cell;
 };
 
 class SplitClimber

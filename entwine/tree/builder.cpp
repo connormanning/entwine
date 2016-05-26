@@ -15,7 +15,6 @@
 #include <random>
 #include <thread>
 
-#include <entwine/compression/util.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/third/splice-pool/splice-pool.hpp>
 #include <entwine/tree/chunk.hpp>
@@ -30,6 +29,7 @@
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/types/subset.hpp>
+#include <entwine/util/compression.hpp>
 #include <entwine/util/executor.hpp>
 #include <entwine/util/pool.hpp>
 
@@ -405,9 +405,9 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
     Climber climber(*m_bbox, *m_structure, &localHierarchy);
 
     auto inserter([this, origin, &clipper, &climber, &s]
-    (PooledInfoStack infoStack)
+    (Cell::PooledStack cells)
     {
-        s += infoStack.size();
+        s += cells.size();
 
         if (s > sleepCount)
         {
@@ -415,7 +415,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
             clipper.clip();
         }
 
-        return insertData(std::move(infoStack), origin, clipper, climber);
+        return insertData(std::move(cells), origin, clipper, climber);
     });
 
     PooledPointTable table(*m_pointPool, inserter, m_originId, origin);
@@ -427,24 +427,24 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
     return result;
 }
 
-PooledInfoStack Builder::insertData(
-        PooledInfoStack infoStack,
+Cell::PooledStack Builder::insertData(
+        Cell::PooledStack cells,
         const Origin origin,
         Clipper& clipper,
         Climber& climber)
 {
     PointStats pointStats;
-    PooledInfoStack rejected(m_pointPool->infoPool());
+    Cell::PooledStack rejected(m_pointPool->cellPool());
 
-    auto reject([&rejected](PooledInfoNode& info)
+    auto reject([&rejected](Cell::PooledNode& cell)
     {
-        rejected.push(std::move(info));
+        rejected.push(std::move(cell));
     });
 
-    while (!infoStack.empty())
+    while (!cells.empty())
     {
-        PooledInfoNode info(infoStack.popOne());
-        const Point& point(info->val().point());
+        Cell::PooledNode cell(cells.popOne());
+        const Point& point(cell->point());
 
         if (m_bboxConforming->contains(point))
         {
@@ -453,24 +453,24 @@ PooledInfoStack Builder::insertData(
                 climber.reset();
                 climber.magnifyTo(point, m_structure->baseDepthBegin());
 
-                if (m_registry->addPoint(info, climber, clipper))
+                if (m_registry->addPoint(cell, climber, clipper))
                 {
                     pointStats.addInsert();
                 }
                 else
                 {
-                    reject(info);
+                    reject(cell);
                     pointStats.addOverflow();
                 }
             }
             else
             {
-                reject(info);
+                reject(cell);
             }
         }
         else
         {
-            reject(info);
+            reject(cell);
             pointStats.addOutOfBounds();
         }
     }
@@ -549,8 +549,6 @@ void Builder::load(
 void Builder::save()
 {
     const auto pf(postfix());
-    m_registry->save();
-
     const auto props(propsToSave());
     for (const auto& p : props) m_outEndpoint->putSubpath(p.first, p.second);
 }
@@ -604,7 +602,7 @@ void Builder::unsplit(Builder& other)
 
         insertHinted(
                 reserves,
-                otherBase->acquire(m_pointPool->infoPool()),
+                otherBase->acquire(),
                 pointStatsMap,
                 clipper,
                 localHierarchy,
@@ -649,7 +647,7 @@ void Builder::unsplit(Builder& other)
 
                 const auto tail(Chunk::popTail(compressed));
 
-                PooledInfoStack infoStack(
+                Cell::PooledStack cells(
                         Compression::decompress(
                             compressed,
                             tail.numPoints,
@@ -659,7 +657,7 @@ void Builder::unsplit(Builder& other)
 
                 insertHinted(
                     reserves,
-                    std::move(infoStack),
+                    std::move(cells),
                     pointStatsMap,
                     clipper,
                     localHierarchy,
@@ -684,7 +682,7 @@ void Builder::unsplit(Builder& other)
 
 void Builder::insertHinted(
         Reserves& reserves,
-        PooledInfoStack infoStack,
+        Cell::PooledStack cells,
         PointStatsMap& pointStatsMap,
         Clipper& clipper,
         Hierarchy& localHierarchy,
@@ -692,7 +690,8 @@ void Builder::insertHinted(
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
-    std::cout << "Inserting: " << infoStack.size() << std::endl;
+    /*
+    std::cout << "Inserting: " << cells.size() << std::endl;
 
     Climber climber(*m_bbox, *m_structure, &localHierarchy);
 
@@ -785,6 +784,7 @@ void Builder::insertHinted(
     }
 
     std::cout << "Rejected: " << rejects << std::endl;
+    */
 }
 
 void Builder::merge(Builder& other)

@@ -1,3 +1,24 @@
+/******************************************************************************
+    Copyright (c) 2016 Connor Manning
+
+    Permission is hereby granted, free of charge, to any person obtaining a
+    copy of this software and associated documentation files (the "Software"),
+    to deal in the Software without restriction, including without limitation
+    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+    and/or sell copies of the Software, and to permit persons to whom the
+    Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+    DEALINGS IN THE SOFTWARE.
+******************************************************************************/
 #pragma once
 
 #include <algorithm>
@@ -32,12 +53,23 @@ public:
         new (&m_val) T(std::forward<Args>(args)...);
     }
 
+    T& operator=(const T& val)
+    {
+        m_val = val;
+        return m_val;
+    }
+
     T& operator*() { return m_val; }
     const T& operator*() const { return m_val; }
+
     T& val() { return m_val; }
     const T& val() const { return m_val; }
 
+    T* operator->() { return &m_val; }
+    const T* operator->() const { return &m_val; }
+
     Node* next() { return m_next; }
+    const Node* next() const { return m_next; }
 
 private:
     void setNext(Node* node) { m_next = node; }
@@ -53,6 +85,37 @@ class Stack
 
 public:
     Stack() : m_tail(nullptr), m_head(nullptr), m_size(0) { }
+
+    Stack(const Stack& other)
+        : m_tail(other.m_tail)
+        , m_head(other.m_head)
+        , m_size(other.m_size)
+    { }
+
+    Stack& operator=(const Stack& other)
+    {
+        m_tail = other.m_tail;
+        m_head = other.m_head;
+        m_size = other.m_size;
+        return *this;
+    }
+
+    Stack(Stack&& other)
+        : m_tail(other.m_tail)
+        , m_head(other.m_head)
+        , m_size(other.m_size)
+    {
+        other.clear();
+    }
+
+    Stack& operator=(Stack&& other)
+    {
+        m_tail = other.m_tail;
+        m_head = other.m_head;
+        m_size = other.m_size;
+        other.clear();
+        return *this;
+    }
 
     void push(Node<T>* node)
     {
@@ -144,6 +207,90 @@ public:
     }
 
     Node<T>* head() { return m_head; }
+    const Node<T>* head() const { return m_head; }
+
+    class Iterator;
+
+    class ConstIterator
+    {
+        friend class Iterator;
+
+    public:
+        explicit ConstIterator(const Node<T>* node) : m_node(node) { }
+
+        ConstIterator& operator++()
+        {
+            m_node = m_node->next();
+            return *this;
+        }
+
+        ConstIterator operator++(int)
+        {
+            Iterator it(m_node);
+            m_node = m_node->next();
+            return it;
+        }
+
+        const T& operator*() const { return **m_node; }
+
+        bool operator!=(const ConstIterator& other) const
+        {
+            return m_node != other.m_node;
+        }
+
+        bool operator!=(const Iterator& other) const
+        {
+            return m_node != other.m_node;
+        }
+
+    private:
+        const Node<T>* m_node;
+    };
+
+    class Iterator
+    {
+        friend class ConstIterator;
+
+    public:
+        explicit Iterator(Node<T>* node) : m_node(node) { }
+
+        Iterator& operator++()
+        {
+            m_node = m_node->next();
+            return *this;
+        }
+
+        Iterator operator++(int)
+        {
+            Iterator it(m_node);
+            m_node = m_node->next();
+            return it;
+        }
+
+        T& operator*() { return **m_node; }
+        const T& operator*() const { return **m_node; }
+
+        bool operator!=(const ConstIterator& other) const
+        {
+            return m_node != other.m_node;
+        }
+
+        bool operator!=(const Iterator& other) const
+        {
+            return m_node != other.m_node;
+        }
+
+    private:
+        Node<T>* m_node;
+    };
+
+    Iterator begin() { return Iterator(head()); }
+    ConstIterator begin() const { return ConstIterator(head()); }
+    ConstIterator cbegin() const { return begin(); }
+
+    Iterator end() { return Iterator(nullptr); }
+    ConstIterator end() const { return ConstIterator(nullptr); }
+    ConstIterator cend() const { return end(); }
 
 protected:
     void clear()
@@ -160,26 +307,104 @@ private:
 };
 
 template<typename T>
+class UniqueNode
+{
+public:
+    explicit UniqueNode(SplicePool<T>& splicePool) noexcept
+        : m_splicePool(splicePool)
+        , m_node(nullptr)
+    { }
+
+    UniqueNode(SplicePool<T>& splicePool, Node<T>* node) noexcept
+        : m_splicePool(splicePool)
+        , m_node(node)
+    { }
+
+    UniqueNode(UniqueNode&& other)
+        : m_splicePool(other.m_splicePool)
+        , m_node(other.release())
+    { }
+
+    UniqueNode& operator=(UniqueNode&& other)
+    {
+        m_node = other.release();
+        return *this;
+    }
+
+    UniqueNode(const UniqueNode&) = delete;
+    UniqueNode& operator=(const UniqueNode&) = delete;
+
+    ~UniqueNode() { reset(); }
+
+    bool empty() const { return m_node == nullptr; }
+
+    Node<T>* release()
+    {
+        Node<T>* result(m_node);
+        m_node = nullptr;
+        return result;
+    }
+
+    void reset(Node<T>* node = nullptr)
+    {
+        if (m_node) m_splicePool.release(m_node);
+        m_node = node;
+    }
+
+    void swap(UniqueNode& other)
+    {
+        Node<T>* copy(m_node);
+        m_node = other.m_node;
+        other.m_node = copy;
+    }
+
+    Node<T>* get() const { return m_node; }
+    explicit operator bool() const { return m_node != nullptr; }
+
+    T& operator*() { return **m_node; }
+    const T& operator*() const { return **m_node; }
+
+    T* operator->() { return &m_node->val(); }
+    const T* operator->() const { return &m_node->val(); }
+
+    SplicePool<T>& pool() { return m_splicePool; }
+    const SplicePool<T>& pool() const { return m_splicePool; }
+
+private:
+    SplicePool<T>& m_splicePool;
+    Node<T>* m_node;
+};
+
+template<typename T>
 class UniqueStack
 {
 public:
-    UniqueStack(SplicePool<T>& splicePool)
+    using Iterator = typename Stack<T>::Iterator;
+    using ConstIterator = typename Stack<T>::ConstIterator;
+    using NodeType = typename SplicePool<T>::NodeType;
+    using UniqueNodeType = typename SplicePool<T>::UniqueNodeType;
+
+    explicit UniqueStack(SplicePool<T>& splicePool)
         : m_splicePool(splicePool)
-        , m_nodeDelete(&splicePool)
         , m_stack()
     { }
 
     UniqueStack(SplicePool<T>& splicePool, Stack<T>&& stack)
         : m_splicePool(splicePool)
-        , m_nodeDelete(&splicePool)
         , m_stack(stack)
     {
         stack.clear();
     }
 
+    explicit UniqueStack(UniqueNodeType&& node)
+        : m_splicePool(node.pool())
+        , m_stack()
+    {
+        push(std::move(node));
+    }
+
     UniqueStack(UniqueStack&& other)
         : m_splicePool(other.m_splicePool)
-        , m_nodeDelete(other.m_nodeDelete)
         , m_stack(other.release())
     { }
 
@@ -212,8 +437,9 @@ public:
 
     void push(Node<T>* node) { m_stack.push(node); }
     void push(Stack<T>& other) { m_stack.push(other); }
+    void push(Stack<T>&& other) { m_stack.push(other); other.clear(); }
 
-    void push(typename SplicePool<T>::UniqueNodeType&& node)
+    void push(UniqueNodeType&& node)
     {
         Node<T>* pushing(node.release());
         m_stack.push(pushing);
@@ -225,11 +451,22 @@ public:
         m_stack.push(pushing);
     }
 
-    typename SplicePool<T>::UniqueNodeType popOne()
+    UniqueNodeType popOne()
     {
-        return typename SplicePool<T>::UniqueNodeType(
-                m_stack.pop(),
-                m_nodeDelete);
+        return UniqueNodeType(m_splicePool, m_stack.pop());
+    }
+
+    template<class... Args>
+    UniqueNodeType popOne(Args&&... args)
+    {
+        UniqueNodeType node(m_splicePool, m_stack.pop());
+
+        if (!std::is_pointer<T>::value)
+        {
+            node.get()->construct(std::forward<Args>(args)...);
+        }
+
+        return node;
     }
 
     UniqueStack pop(std::size_t count)
@@ -242,14 +479,23 @@ public:
     std::size_t size() const { return m_stack.size(); }
     void print(std::size_t maxElements) const { m_stack.print(maxElements); }
     void swap(UniqueStack&& other) { m_stack.swap(other.m_stack); }
+
     Node<T>* head() { return m_stack.head(); }
+    const Node<T>* head() const { return m_stack.head(); }
+
+    Iterator begin() { return Iterator(head()); }
+    ConstIterator begin() const { return ConstIterator(head()); }
+    ConstIterator cbegin() const { return begin(); }
+
+    Iterator end() { return Iterator(nullptr); }
+    ConstIterator end() const { return ConstIterator(nullptr); }
+    ConstIterator cend() const { return end(); }
 
 private:
     UniqueStack(const UniqueStack&) = delete;
     UniqueStack& operator=(UniqueStack&) = delete;
 
     SplicePool<T>& m_splicePool;
-    const typename SplicePool<T>::NodeDelete m_nodeDelete;
     Stack<T> m_stack;
 };
 
@@ -257,34 +503,17 @@ template<typename T>
 class SplicePool
 {
 public:
-    typedef Node<T> NodeType;
+    using NodeType = Node<T>;
+    using UniqueNodeType = UniqueNode<T>;
 
-    struct NodeDelete
-    {
-        explicit NodeDelete(SplicePool* splicePool = nullptr)
-            : m_splicePool(splicePool)
-        { }
-
-        void operator()(NodeType* node)
-        {
-            if (m_splicePool) m_splicePool->release(node);
-        }
-
-    private:
-        SplicePool* m_splicePool;
-    };
-
-    typedef std::unique_ptr<NodeType, NodeDelete> UniqueNodeType;
-
-    typedef Stack<T> StackType;
-    typedef UniqueStack<T> UniqueStackType;
+    using StackType = Stack<T>;
+    using UniqueStackType = UniqueStack<T>;
 
     SplicePool(std::size_t blockSize)
         : m_blockSize(blockSize)
         , m_stack()
         , m_mutex()
         , m_allocated(0)
-        , m_nodeDelete(this)
     { }
 
     virtual ~SplicePool() { }
@@ -337,7 +566,7 @@ public:
     template<class... Args>
     UniqueNodeType acquireOne(Args&&... args)
     {
-        UniqueNodeType node(nullptr, m_nodeDelete);
+        UniqueNodeType node(*this);
 
         {
             std::lock_guard<std::mutex> lock(m_mutex);
@@ -357,7 +586,7 @@ public:
 
         if (!std::is_pointer<T>::value)
         {
-            node->construct(std::forward<Args>(args)...);
+            node.get()->construct(std::forward<Args>(args)...);
         }
 
         return node;
@@ -420,7 +649,6 @@ private:
     mutable std::mutex m_mutex;
 
     std::size_t m_allocated;
-    const NodeDelete m_nodeDelete;
 };
 
 template<typename T>

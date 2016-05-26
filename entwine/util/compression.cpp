@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include <entwine/compression/util.hpp>
+#include <entwine/util/compression.hpp>
 
 #include <pdal/PointLayout.hpp>
 
@@ -103,13 +103,13 @@ std::unique_ptr<std::vector<char>> Compression::decompress(
     return decompressed;
 }
 
-PooledInfoStack Compression::decompress(
+Cell::PooledStack Compression::decompress(
         const std::vector<char>& data,
         const std::size_t numPoints,
         PointPool& pointPool)
 {
-    PooledDataStack dataStack(pointPool.dataPool().acquire(numPoints));
-    PooledInfoStack infoStack(pointPool.infoPool().acquire(numPoints));
+    Data::PooledStack dataStack(pointPool.dataPool().acquire(numPoints));
+    Cell::PooledStack cellStack(pointPool.cellPool().acquire(numPoints));
 
     BinaryPointTable table(pointPool.schema());
     pdal::PointRef pointRef(table, 0);
@@ -121,23 +121,17 @@ PooledInfoStack Compression::decompress(
             decompressionStream,
             pointPool.schema().pdalLayout().dimTypes());
 
-    RawInfoNode* info(infoStack.head());
-    char* pos(nullptr);
-
-    while (info)
+    for (Cell& cell : cellStack)
     {
-        info->construct(dataStack.popOne());
-        pos = info->val().data();
+        Data::PooledNode dataNode(dataStack.popOne());
 
-        decompressor.decompress(pos, pointSize);
+        decompressor.decompress(*dataNode, pointSize);
 
-        table.setPoint(pos);
-        info->val().point(pointRef);
-
-        info = info->next();
+        table.setPoint(*dataNode);
+        cell.set(pointRef, std::move(dataNode));
     }
 
-    return infoStack;
+    return cellStack;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

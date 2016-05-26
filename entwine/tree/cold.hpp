@@ -19,7 +19,7 @@
 #include <unordered_map>
 
 #include <entwine/third/json/json.hpp>
-#include <entwine/tree/point-info.hpp>
+#include <entwine/types/point-pool.hpp>
 
 namespace arbiter
 {
@@ -52,7 +52,10 @@ public:
 
     ~Cold();
 
-    Cell& getCell(const Climber& climber, Clipper& clipper);
+    bool insert(
+            const Climber& climber,
+            Clipper& clipper,
+            Cell::PooledNode& cell);
 
     Json::Value toJson() const;
     void clip(const Id& chunkId, std::size_t chunkNum, std::size_t id);

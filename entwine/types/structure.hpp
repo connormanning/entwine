@@ -14,7 +14,7 @@
 #include <memory>
 
 #include <entwine/third/json/json.hpp>
-#include <entwine/tree/point-info.hpp>
+#include <entwine/types/point-pool.hpp>
 
 namespace entwine
 {

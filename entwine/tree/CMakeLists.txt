@@ -4,7 +4,6 @@ set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 set(
     SOURCES
     "${BASE}/builder.cpp"
-    "${BASE}/cell.cpp"
     "${BASE}/chunk.cpp"
     "${BASE}/climber.cpp"
     "${BASE}/clipper.cpp"
@@ -20,7 +19,6 @@ set(
 set(
     HEADERS
     "${BASE}/builder.hpp"
-    "${BASE}/cell.hpp"
     "${BASE}/chunk.hpp"
     "${BASE}/climber.hpp"
     "${BASE}/clipper.hpp"
@@ -29,7 +27,6 @@ set(
     "${BASE}/hierarchy.hpp"
     "${BASE}/manifest.hpp"
     "${BASE}/merger.hpp"
-    "${BASE}/point-info.hpp"
     "${BASE}/registry.hpp"
     "${BASE}/tiler.hpp"
     "${BASE}/traverser.hpp"

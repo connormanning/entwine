@@ -19,7 +19,6 @@
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
 #include <entwine/tree/cold.hpp>
-#include <entwine/tree/point-info.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
@@ -28,19 +27,6 @@
 
 namespace entwine
 {
-
-namespace
-{
-    bool better(
-            const Point& candidate,
-            const Point& current,
-            const Point& goal,
-            const bool is3d)
-    {
-        if (is3d)   return candidate.sqDist3d(goal) < current.sqDist3d(goal);
-        else        return candidate.sqDist2d(goal) < current.sqDist2d(goal);
-    }
-}
 
 Registry::Registry(
         arbiter::Endpoint& endpoint,
@@ -63,8 +49,7 @@ Registry::Registry(
                         m_builder.bbox(),
                         0,
                         m_structure.baseIndexBegin(),
-                        m_structure.baseIndexSpan(),
-                        true).release()));
+                        m_structure.baseIndexSpan()).release()));
     }
 
     if (m_structure.hasCold())
@@ -117,8 +102,7 @@ Registry::Registry(
                         m_builder.bbox(),
                         0,
                         m_structure.baseIndexBegin(),
-                        m_structure.baseIndexSpan(),
-                        true).release()));
+                        m_structure.baseIndexSpan()).release()));
         }
     }
 
@@ -132,86 +116,47 @@ Registry::~Registry()
 { }
 
 bool Registry::addPoint(
-        PooledInfoNode& toAdd,
+        Cell::PooledNode& cell,
         Climber& climber,
         Clipper& clipper,
         const std::size_t maxDepth)
 {
-    bool done(false);
-
-    while (!done)
+    while (true)
     {
-        if (Cell* cell = getCell(climber, clipper))
+        if (!insert(climber, clipper, cell))
         {
-            bool redo(false);
-
-            do
+            if (
+                    m_structure.inRange(climber.depth() + 1) &&
+                    (!maxDepth || climber.depth() + 1 < maxDepth))
             {
-                done = false;
-                redo = false;
-
-                const PointInfoAtom& atom(cell->atom());
-                if (RawInfoNode* current = atom.load())
-                {
-                    const Point& mid(climber.bbox().mid());
-                    const Point& toAddPoint(toAdd->val().point());
-                    const Point& currentPoint(current->val().point());
-
-                    if (m_discardDuplicates && toAddPoint == currentPoint)
-                    {
-                        return false;
-                    }
-
-                    if (better(toAddPoint, currentPoint, mid, m_as3d))
-                    {
-                        done = false;
-                        redo = !cell->swap(toAdd, current);
-                        if (!redo) toAdd.reset(current);
-                    }
-                }
-                else
-                {
-                    done = cell->swap(toAdd);
-                    redo = !done;
-                }
+                climber.magnify(cell->point());
             }
-            while (redo);
+            else
+            {
+                return false;
+            }
         }
-
-        if (done)
+        else
         {
             climber.count();
             return true;
         }
-        else if (
-                m_structure.inRange(climber.depth() + 1) &&
-                (!maxDepth || climber.depth() + 1 < maxDepth))
-        {
-            climber.magnify(toAdd->val().point());
-        }
-        else
-        {
-            return false;
-        }
     }
-
-    return false;
 }
 
-Cell* Registry::getCell(const Climber& climber, Clipper& clipper)
+bool Registry::insert(
+        const Climber& climber,
+        Clipper& clipper,
+        Cell::PooledNode& cell)
 {
-    Cell* cell(nullptr);
-
     if (m_structure.isWithinBase(climber.depth()))
     {
-        cell = &m_base->getCell(climber);
+        return m_base->insert(climber, cell);
     }
-    else if (m_structure.isWithinCold(climber.depth()))
+    else
     {
-        cell = &m_cold->getCell(climber, clipper);
+        return m_cold->insert(climber, clipper, cell);
     }
-
-    return cell;
 }
 
 void Registry::clip(
@@ -222,23 +167,10 @@ void Registry::clip(
     m_cold->clip(index, chunkNum, id);
 }
 
-void Registry::save()
-{
-    m_base->save(m_endpoint);
-    m_base.reset();
-}
-
 void Registry::merge(const Registry& other)
 {
-    if (m_cold && other.m_cold)
-    {
-        m_cold->merge(*other.m_cold);
-    }
-
-    if (m_base && other.m_base)
-    {
-        m_base->merge(*other.m_base);
-    }
+    if (m_cold && other.m_cold) m_cold->merge(*other.m_cold);
+    if (m_base && other.m_base) m_base->merge(*other.m_base);
 }
 
 Json::Value Registry::toJson() const

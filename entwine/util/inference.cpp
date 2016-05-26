@@ -222,19 +222,13 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
     BBox curBBox(expander);
     std::size_t curNumPoints(0);
 
-    auto tracker([this, &curBBox, &curNumPoints](PooledInfoStack infoStack)
+    auto tracker([this, &curBBox, &curNumPoints](Cell::PooledStack stack)
     {
-        curNumPoints += infoStack.size();
-        RawInfoNode* info(infoStack.head());
-
-        while (info)
-        {
-            curBBox.grow(info->val().point());
-            info = info->next();
-        }
+        curNumPoints += stack.size();
+        for (const auto& cell : stack) curBBox.grow(cell.point());
 
         // Return the entire stack since we aren't a consumer of this data.
-        return infoStack;
+        return stack;
     });
 
     PooledPointTable table(m_pointPool, tracker);

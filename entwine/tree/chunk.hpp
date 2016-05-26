@@ -20,11 +20,13 @@
 
 #include <pdal/PointTable.hpp>
 
-#include <entwine/tree/cell.hpp>
+#include <entwine/tree/builder.hpp>
+#include <entwine/tree/climber.hpp>
 #include <entwine/types/blocked-data.hpp>
 #include <entwine/types/dim-info.hpp>
 #include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/tube.hpp>
 #include <entwine/util/locker.hpp>
 
 namespace arbiter
@@ -35,8 +37,6 @@ namespace arbiter
 namespace entwine
 {
 
-class Builder;
-class Climber;
 class Pools;
 class Structure;
 
@@ -48,8 +48,7 @@ public:
             const BBox& bbox,
             std::size_t depth,
             const Id& id,
-            const Id& maxPoints,
-            std::size_t numPoints = 0);
+            const Id& maxPoints);
 
     virtual ~Chunk();
 
@@ -58,8 +57,7 @@ public:
             const BBox& bbox,
             std::size_t depth,
             const Id& id,
-            const Id& maxPoints,
-            bool contiguous);
+            const Id& maxPoints);
 
     static std::unique_ptr<Chunk> create(
             const Builder& builder,
@@ -69,7 +67,7 @@ public:
             const Id& maxPoints,
             std::unique_ptr<std::vector<char>> data);
 
-    enum Type
+    enum class Type : char
     {
         Sparse = 0,
         Contiguous,
@@ -89,25 +87,35 @@ public:
     static void pushTail(std::vector<char>& data, Tail tail);
     static Tail popTail(std::vector<char>& data);
 
-    static std::size_t getChunkMem();
-    static std::size_t getChunkCnt();
-
     const Id& maxPoints() const { return m_maxPoints; }
     const Id& id() const { return m_id; }
 
-    virtual void save(arbiter::Endpoint& endpoint) = 0;
-    virtual Cell& getCell(const Climber& climber) = 0;
+    bool insert(const Climber& climber, Cell::PooledNode& cell)
+    {
+        return getTube(climber.index()).insert(climber, cell);
+    }
 
 protected:
+    void populate(
+            std::unique_ptr<std::vector<char>> compressedData,
+            std::size_t numPoints);
+
+    void collect(Type type);
+
+    virtual Cell::PooledStack acquire() = 0;
+    virtual Tube& getTube(const Id& index) = 0;
+
     Id endId() const { return m_id + m_maxPoints; }
 
     const Builder& m_builder;
     const BBox m_bbox;
+    const std::size_t m_depth;
     const std::size_t m_zDepth;
     const Id m_id;
 
     const Id m_maxPoints;
-    std::atomic_size_t m_numPoints;
+
+    std::unique_ptr<std::vector<char>> m_data;
 };
 
 class SparseChunk : public Chunk
@@ -129,12 +137,19 @@ public:
             std::unique_ptr<std::vector<char>> compressedData,
             std::size_t numPoints);
 
-    ~SparseChunk();
-
-    virtual void save(arbiter::Endpoint& endpoint) override;
-    virtual Cell& getCell(const Climber& climber) override;
+    virtual ~SparseChunk();
 
 private:
+    virtual Cell::PooledStack acquire() override;
+
+    virtual Tube& getTube(const Id& index) override
+    {
+        const Id norm(normalize(index));
+
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_tubes[norm];
+    }
+
     Id normalize(const Id& rawIndex) const
     {
         assert(rawIndex >= m_id);
@@ -166,17 +181,16 @@ public:
             std::unique_ptr<std::vector<char>> compressedData,
             std::size_t numPoints);
 
-    ~ContiguousChunk();
+    virtual ~ContiguousChunk();
 
-    virtual void save(arbiter::Endpoint& endpoint) override;
-    virtual Cell& getCell(const Climber& climber) override;
+protected:
+    virtual Cell::PooledStack acquire() override;
 
-    const Tube& getTube(const Id& index) const
+    virtual Tube& getTube(const Id& index) override
     {
         return m_tubes.at(normalize(index));
     }
 
-protected:
     std::size_t normalize(const Id& rawIndex) const
     {
         assert(rawIndex >= m_id);
@@ -205,9 +219,9 @@ public:
             std::unique_ptr<std::vector<char>> compressedData,
             std::size_t numPoints);
 
-    virtual void save(arbiter::Endpoint& endpoint) override;
+    virtual ~BaseChunk();
 
-    PooledInfoStack acquire(InfoPool& infoPool);
+    Cell::PooledStack acquire() override { return ContiguousChunk::acquire(); }
     void merge(BaseChunk& other);
 
     static Schema makeCelled(const Schema& in);

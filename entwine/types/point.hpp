@@ -95,6 +95,11 @@ inline bool operator==(const Point& lhs, const Point& rhs)
     return lhs.x == rhs.x && lhs.y == rhs.y && lhs.z == rhs.z;
 }
 
+inline bool operator!=(const Point& lhs, const Point& rhs)
+{
+    return !(lhs == rhs);
+}
+
 inline Point operator+(const Point& in, double offset)
 {
     return Point(in.x + offset, in.y + offset, in.z + offset);

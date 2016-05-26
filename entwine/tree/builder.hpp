@@ -20,8 +20,8 @@
 
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/manifest.hpp>
-#include <entwine/tree/point-info.hpp>
 #include <entwine/types/outer-scope.hpp>
+#include <entwine/types/point-pool.hpp>
 
 namespace Json
 {
@@ -208,18 +208,18 @@ private:
     bool insertPath(Origin origin, FileInfo& info);
 
     // Returns a stack of rejected info nodes so that they may be reused.
-    PooledInfoStack insertData(
-            PooledInfoStack infoStack,
+    Cell::PooledStack insertData(
+            Cell::PooledStack cells,
             Origin origin,
             Clipper& clipper,
             Climber& climber);
 
-    typedef std::map<Id, std::vector<InfoState>> Reserves;
+    typedef std::map<Id, std::vector<CellState>> Reserves;
 
     // Insert within a previously-identified depth range.
     void insertHinted(
             Reserves& reserves,
-            PooledInfoStack infoStack,
+            Cell::PooledStack cells,
             PointStatsMap& pointStatsMap,
             Clipper& clipper,
             Hierarchy& localHierarchy,

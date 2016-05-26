@@ -20,13 +20,13 @@ namespace
 
 PooledPointTable::PooledPointTable(
         PointPool& pointPool,
-        std::function<PooledInfoStack(PooledInfoStack)> process,
+        std::function<Cell::PooledStack(Cell::PooledStack)> process,
         pdal::Dimension::Id::Enum originId,
         Origin origin)
     : pdal::StreamPointTable(pointPool.schema().pdalLayout())
     , m_pointPool(pointPool)
-    , m_stack(pointPool.infoPool())
-    , m_nodes(blockSize, nullptr)
+    , m_dataNodes(m_pointPool.dataPool())
+    , m_refs(blockSize, nullptr)
     , m_size(0)
     , m_process(process)
     , m_originId(originId)
@@ -47,15 +47,19 @@ void PooledPointTable::reset()
     // Using the pointRef during the loop ends up calling into this->getPoint,
     // which will hammer over our m_size as we're traversing - so store a copy.
     const std::size_t fixedSize(m_size);
+    Cell::PooledStack cells(m_pointPool.cellPool().acquire(fixedSize));
+    Cell::RawNode* cell(cells.head());
 
     for (std::size_t i(0); i < fixedSize; ++i)
     {
         pointRef.setPointId(i);
-        m_nodes[i]->val().point(pointRef);
+        (*cell)->set(pointRef, m_dataNodes.popOne());
         if (m_origin != invalidOrigin) pointRef.setField(m_originId, m_origin);
+
+        cell = cell->next();
     }
 
-    m_stack.push(m_process(m_stack.pop(fixedSize)));
+    m_process(std::move(cells));
     m_size = 0;
 
     allocate();
@@ -63,26 +67,14 @@ void PooledPointTable::reset()
 
 void PooledPointTable::allocate()
 {
-    const std::size_t needs(blockSize - m_stack.size());
+    const std::size_t needs(blockSize - m_dataNodes.size());
+    m_dataNodes.push(m_pointPool.dataPool().acquire(needs));
 
-    PooledInfoStack infoStack(m_pointPool.infoPool().acquire(needs));
-    PooledDataStack dataStack(m_pointPool.dataPool().acquire(needs));
-
-    RawInfoNode* info(infoStack.head());
-
-    for (std::size_t i(0); i < needs; ++i)
-    {
-        info->construct(dataStack.popOne());
-        info = info->next();
-    }
-
-    m_stack.push(std::move(infoStack));
-    info = m_stack.head();
-
+    Data::RawNode* node(m_dataNodes.head());
     for (std::size_t i(0); i < blockSize; ++i)
     {
-        m_nodes[i] = info;
-        info = info->next();
+        m_refs[i] = node;
+        node = node->next();
     }
 }
 

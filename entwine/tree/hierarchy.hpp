@@ -19,8 +19,8 @@
 #include <vector>
 
 #include <entwine/third/json/json.hpp>
-#include <entwine/tree/point-info.hpp>
 #include <entwine/types/bbox.hpp>
+#include <entwine/types/point-pool.hpp>
 
 namespace entwine
 {
@@ -73,7 +73,7 @@ public:
                     m_children.emplace(
                         std::make_pair(dir, nodePool.acquireOne())));
 
-            return result.first->second->val();
+            return *result.first->second;
         }
     }
 
@@ -81,7 +81,7 @@ public:
     {
         auto it(m_children.find(dir));
 
-        if (it != m_children.end()) return &it->second->val();
+        if (it != m_children.end()) return &*it->second;
         else return nullptr;
     }
 
@@ -136,7 +136,7 @@ inline bool operator==(const Node& lhs, const Node& rhs)
             {
                 if (
                         !rhsChildren.count(c.first) ||
-                        !(c.second->val() == rhsChildren.at(c.first)->val()))
+                        !(*c.second == *rhsChildren.at(c.first)))
                 {
                     return false;
                 }

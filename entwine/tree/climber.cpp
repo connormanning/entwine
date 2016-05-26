@@ -11,7 +11,7 @@
 #include <entwine/tree/climber.hpp>
 
 #include <entwine/types/point.hpp>
-#include <entwine/tree/cell.hpp>
+#include <entwine/types/tube.hpp>
 #include <entwine/tree/hierarchy.hpp>
 
 namespace entwine

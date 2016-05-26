@@ -14,9 +14,9 @@
 
 #include <entwine/reader/cache.hpp>
 #include <entwine/reader/chunk-reader.hpp>
-#include <entwine/tree/cell.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/tube.hpp>
 
 namespace entwine
 {
@@ -135,6 +135,7 @@ bool Query::getBase(std::vector<char>& buffer)
 
         do
         {
+            /*
             terminate = false;
 
             const Id& index(splitter.index());
@@ -164,6 +165,7 @@ bool Query::getBase(std::vector<char>& buffer)
             {
                 terminate = true;
             }
+            */
         }
         while (splitter.next(terminate));
     }

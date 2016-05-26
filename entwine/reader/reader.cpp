@@ -10,7 +10,6 @@
 
 #include <entwine/reader/reader.hpp>
 
-#include <entwine/compression/util.hpp>
 #include <entwine/reader/cache.hpp>
 #include <entwine/reader/query.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
@@ -25,6 +24,7 @@
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/types/subset.hpp>
+#include <entwine/util/compression.hpp>
 
 namespace entwine
 {

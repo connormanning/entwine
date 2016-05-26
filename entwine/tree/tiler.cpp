@@ -12,11 +12,11 @@
 
 #include <numeric>
 
-#include <entwine/compression/util.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/traverser.hpp>
+#include <entwine/util/compression.hpp>
 #include <entwine/util/storage.hpp>
 
 namespace entwine

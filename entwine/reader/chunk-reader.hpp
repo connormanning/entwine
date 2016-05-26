@@ -15,7 +15,7 @@
 #include <memory>
 #include <vector>
 
-#include <entwine/tree/point-info.hpp>
+#include <entwine/types/point-pool.hpp>
 
 namespace entwine
 {

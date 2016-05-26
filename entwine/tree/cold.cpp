@@ -106,7 +106,10 @@ Cold::Cold(
 Cold::~Cold()
 { }
 
-Cell& Cold::getCell(const Climber& climber, Clipper& clipper)
+bool Cold::insert(
+        const Climber& climber,
+        Clipper& clipper,
+        Cell::PooledNode& cell)
 {
     CountedChunk* countedChunk(nullptr);
 
@@ -131,7 +134,7 @@ Cell& Cold::getCell(const Climber& climber, Clipper& clipper)
         throw std::runtime_error("CountedChunk has missing contents.");
     }
 
-    return countedChunk->chunk->getCell(climber);
+    return countedChunk->chunk->insert(climber, cell);
 }
 
 std::set<Id> Cold::ids() const
@@ -160,6 +163,8 @@ std::set<Id> Cold::ids() const
 
 Json::Value Cold::toJson() const
 {
+    m_pool->join();
+
     Json::Value json;
     for (const auto& id : ids()) json.append(id.str());
     return json;
@@ -249,6 +254,8 @@ void Cold::ensureChunk(
                     m_builder.structure().maybePrefix(chunkId) +
                     m_builder.postfix(true));
 
+            auto data(Storage::ensureGet(m_endpoint, path));
+
             chunk =
                     Chunk::create(
                         m_builder,
@@ -256,7 +263,7 @@ void Cold::ensureChunk(
                         climber.depth(),
                         chunkId,
                         climber.chunkPoints(),
-                        Storage::ensureGet(m_endpoint, path));
+                        std::move(data));
         }
         else
         {
@@ -266,15 +273,17 @@ void Cold::ensureChunk(
                         climber.bboxChunk(),
                         climber.depth(),
                         chunkId,
-                        climber.chunkPoints(),
-                        chunkId < m_builder.structure().mappedIndexBegin());
+                        climber.chunkPoints());
         }
 
         if (!chunk)
         {
             if (++tries < maxCreateTries)
             {
-                std::cout << "Failed chunk create " << chunkId << std::endl;
+                std::cout <<
+                    "Failed chunk create on " <<
+                    (exists ? "existing" : "new") << " chunk: " << chunkId <<
+                    std::endl;
                 std::this_thread::sleep_for(createSleepTime);
             }
             else
@@ -322,21 +331,17 @@ void Cold::unrefChunk(
 {
     std::lock_guard<std::mutex> chunkLock(countedChunk.mutex);
 
-    if (!--countedChunk.refs.at(id))
-    {
-        countedChunk.refs.erase(id);
-    }
+    if (!--countedChunk.refs.at(id)) countedChunk.refs.erase(id);
 
     if (countedChunk.refs.empty())
     {
         if (countedChunk.chunk)
         {
-            countedChunk.chunk->save(m_endpoint);
             countedChunk.chunk.reset(nullptr);
         }
         else
         {
-            std::cout << "Tried to clip null chunk - ";
+            std::cout << "Tried to clip null chunk " << id << " - ";
             std::cout << (fast ? "fast" : "slow") << std::endl;
             exit(1);
         }

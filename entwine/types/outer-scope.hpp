@@ -12,7 +12,7 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/hierarchy.hpp>
-#include <entwine/tree/point-info.hpp>
+#include <entwine/types/point-pool.hpp>
 
 namespace entwine
 {

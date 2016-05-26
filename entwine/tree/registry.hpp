@@ -17,7 +17,7 @@
 #include <vector>
 
 #include <entwine/third/json/json.hpp>
-#include <entwine/tree/point-info.hpp>
+#include <entwine/types/point-pool.hpp>
 
 namespace arbiter
 {
@@ -29,7 +29,6 @@ namespace entwine
 
 class BaseChunk;
 class Builder;
-class Cell;
 class Climber;
 class Clipper;
 class Cold;
@@ -57,18 +56,20 @@ public:
     ~Registry();
 
     bool addPoint(
-            PooledInfoNode& toAdd,
+            Cell::PooledNode& cell,
             Climber& climber,
             Clipper& clipper,
             std::size_t maxDepth = 0);
 
-    void save();
     void clip(const Id& index, std::size_t chunkNum, std::size_t id);
 
     std::set<Id> ids() const;
 
 private:
-    Cell* getCell(const Climber& climber, Clipper& clipper);
+    bool insert(
+            const Climber& climber,
+            Clipper& clipper,
+            Cell::PooledNode& cell);
 
     BaseChunk* base() { return m_base.get(); }
     Cold* cold() { return m_cold.get(); }

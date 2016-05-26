@@ -11,6 +11,7 @@ set(
     "${BASE}/simple-point-layout.cpp"
     "${BASE}/structure.cpp"
     "${BASE}/subset.cpp"
+    "${BASE}/tube.cpp"
 )
 
 set(
@@ -22,6 +23,7 @@ set(
     "${BASE}/elastic-atomic.hpp"
     "${BASE}/outer-scope.hpp"
     "${BASE}/point.hpp"
+    "${BASE}/point-pool.hpp"
     "${BASE}/pooled-point-table.hpp"
     "${BASE}/range.hpp"
     "${BASE}/reprojection.hpp"
@@ -29,6 +31,7 @@ set(
     "${BASE}/simple-point-layout.hpp"
     "${BASE}/structure.hpp"
     "${BASE}/subset.hpp"
+    "${BASE}/tube.hpp"
 )
 
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})
