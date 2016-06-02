@@ -9,7 +9,9 @@
 ******************************************************************************/
 
 #include <entwine/tree/builder.hpp>
+#include <entwine/tree/manifest.hpp>
 #include <entwine/tree/merger.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/types/subset.hpp>
 
 namespace entwine
@@ -21,7 +23,7 @@ Merger::Merger(
         std::shared_ptr<arbiter::Arbiter> arbiter)
     : m_builder()
     , m_path(path)
-    , m_numSubsets(0)
+    , m_numSubsets(1)
     , m_threads(threads)
     , m_outerScope(new OuterScope())
 {
@@ -33,7 +35,10 @@ Merger::Merger(
 
     m_outerScope->setPointPool(m_builder->sharedPointPool());
 
-    m_numSubsets = m_builder->subset() ? m_builder->subset()->of() : 1;
+    if (const Subset* subset = m_builder->metadata().subset())
+    {
+        m_numSubsets = subset->of();
+    }
 }
 
 Merger::~Merger() { }
@@ -65,17 +70,19 @@ void Merger::go()
 
 void Merger::unsplit(Builder& builder)
 {
-    if (!builder.manifest().split()) return;
+    const Manifest& manifest(builder.metadata().manifest());
+    if (!manifest.split()) return;
 
     std::cout << " unsplitting..." << std::flush;
 
+    /*
     std::unique_ptr<std::size_t> subsetId(
             builder.subset() ?
                 new std::size_t(builder.subset()->id()) : nullptr);
 
-    std::size_t pos(builder.manifest().split()->end());
+    std::size_t pos(manifest.split()->end());
 
-    while (pos < builder.manifest().size())
+    while (pos < manifest.size())
     {
         std::unique_ptr<Builder> nextSplit(
                 new Builder(
@@ -84,9 +91,10 @@ void Merger::unsplit(Builder& builder)
                     subsetId.get(),
                     &pos));
 
-        pos = nextSplit->manifest().split()->end();
+        pos = nextSplit->metadata().manifest().split()->end();
         builder.unsplit(*nextSplit);
     }
+    */
 }
 
 } // namespace entwine

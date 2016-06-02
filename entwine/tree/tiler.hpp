@@ -215,10 +215,7 @@ public:
     const Schema* wantedSchema() const { return m_wantedSchema; }
     std::size_t sliceDepth() const { return m_sliceDepth; }
 
-    const Schema& activeSchema() const
-    {
-        return m_wantedSchema ? *m_wantedSchema : m_builder.schema();
-    }
+    const Schema& activeSchema() const;
 
 private:
     void init(double maxArea);

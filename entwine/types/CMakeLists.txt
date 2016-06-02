@@ -4,8 +4,8 @@ set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 set(
     SOURCES
     "${BASE}/bbox.cpp"
-    "${BASE}/blocked-data.cpp"
     "${BASE}/dim-info.cpp"
+    "${BASE}/metadata.cpp"
     "${BASE}/pooled-point-table.cpp"
     "${BASE}/schema.cpp"
     "${BASE}/simple-point-layout.cpp"
@@ -17,10 +17,10 @@ set(
 set(
     HEADERS
     "${BASE}/bbox.hpp"
-    "${BASE}/blocked-data.hpp"
+    "${BASE}/defs.hpp"
     "${BASE}/dim-info.hpp"
     "${BASE}/dir.hpp"
-    "${BASE}/elastic-atomic.hpp"
+    "${BASE}/metadata.hpp"
     "${BASE}/outer-scope.hpp"
     "${BASE}/point.hpp"
     "${BASE}/point-pool.hpp"

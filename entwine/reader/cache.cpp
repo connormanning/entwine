@@ -241,7 +241,7 @@ const ChunkReader* Cache::fetch(
     {
         std::unique_ptr<std::vector<char>> rawData(
                 new std::vector<char>(
-                    fetchInfo.reader.endpoint().getSubpathBinary(
+                    fetchInfo.reader.endpoint().getBinary(
                         fetchInfo.reader.structure().maybePrefix(
                             fetchInfo.id))));
 

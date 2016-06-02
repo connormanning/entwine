@@ -34,7 +34,7 @@ Climber::Climber(
     , m_depth(0)
     , m_depthChunks(1)
     , m_chunkNum(0)
-    , m_chunkPoints(structure.baseChunkPoints())
+    , m_pointsPerChunk(structure.basePointsPerChunk())
     , m_bboxOriginal(bbox)
     , m_bbox(bbox)
     , m_bboxChunk(bbox)
@@ -59,7 +59,7 @@ Climber::Climber(const Climber& other)
     , m_depth(other.m_depth)
     , m_depthChunks(other.m_depthChunks)
     , m_chunkNum(other.m_chunkNum)
-    , m_chunkPoints(other.m_chunkPoints)
+    , m_pointsPerChunk(other.m_pointsPerChunk)
     , m_bboxOriginal(other.m_bboxOriginal)
     , m_bbox(other.m_bbox)
     , m_bboxChunk(other.m_bboxChunk)
@@ -76,7 +76,7 @@ Climber& Climber::operator=(const Climber& other)
     m_depth = other.m_depth;
     m_depthChunks = other.m_depthChunks;
     m_chunkNum = other.m_chunkNum;
-    m_chunkPoints = other.m_chunkPoints;
+    m_pointsPerChunk = other.m_pointsPerChunk;
     m_bbox = other.m_bbox;
     m_bboxChunk = other.m_bboxChunk;
 
@@ -99,7 +99,7 @@ void Climber::reset()
     m_depth = 0;
     m_depthChunks = 1;
     m_chunkNum = 0;
-    m_chunkPoints = m_structure.baseChunkPoints();
+    m_pointsPerChunk = m_structure.basePointsPerChunk();
     m_bbox = m_bboxOriginal;
     m_bboxChunk = m_bboxOriginal;
     if (m_hierarchyClimber) m_hierarchyClimber->reset();
@@ -140,9 +140,7 @@ void Climber::magnifyTo(const Point& point, const std::size_t depth)
 
 void Climber::magnifyTo(const BBox& raw)
 {
-    BBox bbox(raw.min(), raw.max(), m_is3d);
-    bbox.growBy(.01);
-
+    BBox bbox(BBox(raw.min(), raw.max(), m_is3d).growBy(.01));
     while (!bbox.contains(m_bbox, true)) magnify(bbox.mid());
 }
 
@@ -154,13 +152,13 @@ void Climber::climb(const Dir dir)
         {
             const std::size_t chunkRatio(
                     (m_index - m_chunkId).getSimple() /
-                    (m_chunkPoints.getSimple() / m_factor));
+                    (m_pointsPerChunk.getSimple() / m_factor));
 
             assert(chunkRatio < m_factor);
 
             m_chunkId <<= m_dimensions;
             m_chunkId.incSimple();
-            m_chunkId += chunkRatio * m_chunkPoints;
+            m_chunkId += chunkRatio * m_pointsPerChunk;
 
             assert(chunkRatio < m_factor);
 
@@ -179,7 +177,8 @@ void Climber::climb(const Dir dir)
             if (m_depth >= m_structure.coldDepthBegin())
             {
                 m_chunkNum =
-                    (m_chunkId - m_structure.coldIndexBegin()) / m_chunkPoints;
+                    (m_chunkId - m_structure.coldIndexBegin()) /
+                    m_pointsPerChunk;
             }
 
             m_depthChunks *= m_factor;
@@ -191,7 +190,7 @@ void Climber::climb(const Dir dir)
             m_chunkId <<= m_dimensions;
             m_chunkId.incSimple();
 
-            m_chunkPoints *= m_factor;
+            m_pointsPerChunk *= m_factor;
         }
     }
 

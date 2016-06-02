@@ -38,11 +38,11 @@ public:
 
 class BaseChunk;
 class BBox;
-class Builder;
 class Cache;
 class Climber;
 class Hierarchy;
 class Manifest;
+class Metadata;
 class Query;
 class Reprojection;
 class Schema;
@@ -104,7 +104,7 @@ public:
 private:
     arbiter::Endpoint m_endpoint;
 
-    std::unique_ptr<Builder> m_builder;
+    std::unique_ptr<Metadata> m_metadata;
     std::unique_ptr<BaseChunk> m_base;
 
     Cache& m_cache;

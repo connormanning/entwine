@@ -56,7 +56,7 @@ Inference::Inference(
         const Reprojection* reprojection,
         const bool trustHeaders,
         arbiter::Arbiter* arbiter)
-    : m_executor(true)
+    : m_executor()
     , m_pointPool(xyzSchema)
     , m_reproj(reprojection)
     , m_threads(threads)
@@ -81,7 +81,7 @@ Inference::Inference(
         const Reprojection* reprojection,
         const bool trustHeaders,
         arbiter::Arbiter* arbiter)
-    : m_executor(true)
+    : m_executor()
     , m_pointPool(xyzSchema)
     , m_reproj(reprojection)
     , m_threads(threads)
@@ -145,7 +145,7 @@ void Inference::go()
                     std::replace(name.begin(), name.end(), '/', '-');
                     std::replace(name.begin(), name.end(), '\\', '-');
 
-                    m_tmp.putSubpath(name, data);
+                    m_tmp.put(name, data);
 
                     add(m_tmp.fullPath(name), f);
 

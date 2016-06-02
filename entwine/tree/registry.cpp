@@ -20,6 +20,7 @@
 #include <entwine/tree/clipper.hpp>
 #include <entwine/tree/cold.hpp>
 #include <entwine/types/bbox.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/types/subset.hpp>
@@ -28,92 +29,64 @@
 namespace entwine
 {
 
-Registry::Registry(
-        arbiter::Endpoint& endpoint,
-        const Builder& builder,
-        const std::size_t clipPoolSize)
-    : m_endpoint(endpoint)
-    , m_builder(builder)
-    , m_structure(builder.structure())
-    , m_discardDuplicates(m_structure.discardDuplicates())
-    , m_as3d(m_structure.is3d() || m_structure.tubular())
+Registry::Registry(const Builder& builder, const bool exists)
+    : m_builder(builder)
+    , m_structure(m_builder.metadata().structure())
     , m_base()
     , m_cold()
 {
+    const Metadata& metadata(m_builder.metadata());
+
     if (m_structure.baseIndexSpan())
     {
-        m_base.reset(
-                static_cast<BaseChunk*>(
-                    Chunk::create(
-                        m_builder,
-                        m_builder.bbox(),
-                        0,
-                        m_structure.baseIndexBegin(),
-                        m_structure.baseIndexSpan()).release()));
-    }
-
-    if (m_structure.hasCold())
-    {
-        m_cold.reset(new Cold(endpoint, m_builder, clipPoolSize));
-    }
-}
-
-Registry::Registry(
-        arbiter::Endpoint& endpoint,
-        const Builder& builder,
-        const std::size_t clipPoolSize,
-        const Json::Value& ids)
-    : m_endpoint(endpoint)
-    , m_builder(builder)
-    , m_structure(builder.structure())
-    , m_discardDuplicates(m_structure.discardDuplicates())
-    , m_as3d(m_structure.is3d() || m_structure.tubular())
-    , m_base()
-    , m_cold()
-{
-    if (m_structure.baseIndexSpan())
-    {
-        const std::string basePath(
-                m_structure.baseIndexBegin().str() +
-                m_builder.postfix());
-
-        std::unique_ptr<std::vector<char>> data(
-                m_endpoint.tryGetSubpathBinary(basePath));
-
-        if (data)
+        if (!exists)
         {
             m_base.reset(
                     static_cast<BaseChunk*>(
                         Chunk::create(
                             m_builder,
-                            m_builder.bbox(),
+                            metadata.bbox(),
                             0,
                             m_structure.baseIndexBegin(),
-                            m_structure.baseIndexSpan(),
-                            std::move(data)).release()));
+                            m_structure.baseIndexSpan()).release()));
         }
         else
         {
-            std::cout << "No base data found" << std::endl;
-            m_base.reset(
-                static_cast<BaseChunk*>(
-                    Chunk::create(
-                        m_builder,
-                        m_builder.bbox(),
-                        0,
-                        m_structure.baseIndexBegin(),
-                        m_structure.baseIndexSpan()).release()));
+            const std::string basePath(
+                    m_structure.baseIndexBegin().str() + metadata.postfix());
+
+            if (auto data = m_builder.outEndpoint().tryGetBinary(basePath))
+            {
+                m_base.reset(
+                        static_cast<BaseChunk*>(
+                            Chunk::create(
+                                m_builder,
+                                metadata.bbox(),
+                                0,
+                                m_structure.baseIndexBegin(),
+                                m_structure.baseIndexSpan(),
+                                std::move(data)).release()));
+            }
+            else
+            {
+                throw std::runtime_error("No base data found");
+            }
         }
     }
 
     if (m_structure.hasCold())
     {
-        m_cold.reset(new Cold(endpoint, builder, clipPoolSize, ids));
+        m_cold.reset(new Cold(m_builder, exists));
     }
 }
 
 Registry::~Registry()
 { }
+
+void Registry::save() const
+{
+    if (m_cold) m_cold->save(m_builder.outEndpoint());
+}
 
 bool Registry::addPoint(
         Cell::PooledNode& cell,
@@ -171,12 +144,6 @@ void Registry::merge(const Registry& other)
 {
     if (m_cold && other.m_cold) m_cold->merge(*other.m_cold);
     if (m_base && other.m_base) m_base->merge(*other.m_base);
-}
-
-Json::Value Registry::toJson() const
-{
-    if (m_cold) return m_cold->toJson();
-    else return Json::Value();
 }
 
 std::set<Id> Registry::ids() const

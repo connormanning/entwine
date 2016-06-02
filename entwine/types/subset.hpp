@@ -23,18 +23,11 @@ namespace Json
 namespace entwine
 {
 
-class Structure;
-
 class Subset
 {
 public:
-    Subset(
-            Structure& structure,
-            const BBox& bbox,
-            std::size_t id,
-            std::size_t of);
-
-    Subset(Structure& structure, const BBox& bbox, const Json::Value& json);
+    Subset(const BBox& bbox, std::size_t id, std::size_t of);
+    Subset(const BBox& bbox, const Json::Value& json);
 
     Json::Value toJson() const;
 
@@ -45,13 +38,16 @@ public:
     std::string postfix() const { return "-" + std::to_string(m_id); }
     bool primary() const { return !m_id; }
 
+    std::size_t minimumNullDepth() const { return m_minimumNullDepth; }
+
 private:
-    void split(Structure& structure, const BBox& fullBBox);
+    void split(const BBox& fullBBox);
 
     std::size_t m_id;
     std::size_t m_of;
 
     BBox m_sub;
+    std::size_t m_minimumNullDepth;
 };
 
 } // namespace entwine

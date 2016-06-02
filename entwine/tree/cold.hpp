@@ -39,17 +39,7 @@ class Pool;
 class Cold
 {
 public:
-    Cold(
-            arbiter::Endpoint& endpoint,
-            const Builder& builder,
-            std::size_t clipPoolSize);
-
-    Cold(
-            arbiter::Endpoint& endpoint,
-            const Builder& builder,
-            std::size_t clipPoolSize,
-            const Json::Value& meta);
-
+    Cold(const Builder& builder, bool exists);
     ~Cold();
 
     bool insert(
@@ -57,7 +47,7 @@ public:
             Clipper& clipper,
             Cell::PooledNode& cell);
 
-    Json::Value toJson() const;
+    void save(const arbiter::Endpoint& endpoint) const;
     void clip(const Id& chunkId, std::size_t chunkNum, std::size_t id);
 
     std::set<Id> ids() const;
@@ -96,18 +86,15 @@ private:
         std::unique_ptr<CountedChunk> chunk;
     };
 
-    typedef std::unordered_map<Id, std::unique_ptr<CountedChunk>> ChunkMap;
+    using ChunkMap = std::unordered_map<Id, std::unique_ptr<CountedChunk>>;
 
-    arbiter::Endpoint& m_endpoint;
     const Builder& m_builder;
-
     std::vector<FastSlot> m_chunkVec;
-
     ChunkMap m_chunkMap;
     std::set<Id> m_fauxIds; // Used for merging, these are added to metadata.
 
     mutable std::mutex m_mapMutex;
-    std::unique_ptr<Pool> m_pool;
+    Pool& m_pool;
 };
 
 } // namespace entwine

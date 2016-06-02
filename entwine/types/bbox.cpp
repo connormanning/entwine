@@ -22,7 +22,14 @@ namespace entwine
 
 BBox::BBox() : m_min(), m_max(), m_mid(), m_is3d(false) { }
 
-BBox::BBox(const Point min, const Point max, const bool is3d)
+BBox::BBox(const Point& min, const Point& max)
+    : BBox(
+            min,
+            max,
+            min.z != Point::emptyCoord() || max.z != Point::emptyCoord())
+{ }
+
+BBox::BBox(const Point& min, const Point& max, const bool is3d)
     : m_min(
             std::min(min.x, max.x),
             std::min(min.y, max.y),
@@ -260,15 +267,14 @@ void BBox::growZ(const Range& range)
     m_mid.z = m_min.z + (m_max.z - m_min.z) / 2.0;
 }
 
-void BBox::growBy(double ratio)
+BBox BBox::growBy(double ratio) const
 {
     const Point delta(
             (m_max.x - m_mid.x) * ratio,
             (m_max.y - m_mid.y) * ratio,
             (m_max.z - m_mid.z) * ratio);
 
-    m_min -= delta;
-    m_max += delta;
+    return BBox(m_min - delta, m_max + delta, m_is3d);
 }
 
 std::vector<BBox> BBox::explode() const

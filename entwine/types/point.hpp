@@ -110,6 +110,32 @@ inline Point operator-(const Point& in, double offset)
     return in + (-offset);
 }
 
+inline Point operator+(const Point& lhs, const Point& rhs)
+{
+    return Point(lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z);
+}
+
+inline Point operator-(const Point& lhs, const Point& rhs)
+{
+    return Point(lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z);
+}
+
+inline Point& operator+=(Point& lhs, const Point& rhs)
+{
+    lhs.x += rhs.x;
+    lhs.y += rhs.y;
+    lhs.z += rhs.z;
+    return lhs;
+}
+
+inline Point& operator-=(Point& lhs, const Point& rhs)
+{
+    lhs.x -= rhs.x;
+    lhs.y -= rhs.y;
+    lhs.z -= rhs.z;
+    return lhs;
+}
+
 inline std::ostream& operator<<(std::ostream& os, const Point& point)
 {
     auto flags(os.flags());

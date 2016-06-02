@@ -149,7 +149,7 @@ Node::AnchoredMap Node::insertSlice(
     {
         anchors.insert(anchor);
         const std::string path(anchor.str() + (anchor.zero() ? postfix : ""));
-        ep.putSubpath(path, data);
+        ep.put(path, data);
         data.clear();
 
         if (nextSlice.size())
@@ -258,7 +258,7 @@ Hierarchy::Hierarchy(
     , m_endpoint(new arbiter::Endpoint(ep))
     , m_postfix(postfix)
 {
-    const auto bin(ep.tryGetSubpathBinary("0" + postfix));
+    const auto bin(ep.tryGetBinary("0" + postfix));
 
     if (bin && bin->size())
     {
@@ -270,7 +270,7 @@ Hierarchy::Hierarchy(
             Json::Reader reader;
             Json::Value anchorsJson;
 
-            const std::string anchorsData(ep.getSubpath("anchors" + postfix));
+            const std::string anchorsData(ep.get("anchors" + postfix));
             if (!reader.parse(anchorsData, anchorsJson, false))
             {
                 throw std::runtime_error(
@@ -344,7 +344,7 @@ void Hierarchy::awaken(const Id& id, const Node* node)
     const Id edgeEnd(upperAnchor != m_anchors.end() ? *upperAnchor : 0);
 
     const std::vector<char> bin(
-            m_endpoint->getSubpathBinary(lowerAnchor->str() + m_postfix));
+            m_endpoint->getBinary(lowerAnchor->str() + m_postfix));
 
     const char* pos(bin.data());
 
@@ -377,7 +377,7 @@ Json::Value Hierarchy::toJson(const arbiter::Endpoint& ep, std::string postfix)
 
     if (jsonAnchors.empty()) jsonAnchors.resize(0);
 
-    ep.putSubpath("anchors" + postfix, jsonAnchors.toStyledString());
+    ep.put("anchors" + postfix, jsonAnchors.toStyledString());
 
     return json;
 }
@@ -395,7 +395,7 @@ Json::Value Hierarchy::query(
 
     // To get rid of any possible floating point mismatches, grow the box by a
     // bit and only include nodes that are entirely encapsulated by the qbox.
-    qbox.growBy(.01);
+    qbox = qbox.growBy(.01);
 
     Node node;
     std::deque<Dir> lag;

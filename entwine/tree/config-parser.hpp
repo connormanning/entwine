@@ -13,15 +13,12 @@
 #include <memory>
 #include <vector>
 
-#include <entwine/third/json/json.hpp>
-
-namespace arbiter
-{
-    class Arbiter;
-}
+namespace Json { class Value; }
 
 namespace entwine
 {
+
+namespace arbiter { class Arbiter; }
 
 class Builder;
 class Manifest;
@@ -38,7 +35,13 @@ public:
             const Json::Value& json,
             const arbiter::Arbiter& arbiter);
 
-    static Json::Value parse(const std::string& input);
+private:
+    static std::unique_ptr<Builder> tryGetExisting(
+            const Json::Value& config,
+            const arbiter::Arbiter& arbiter,
+            const std::string& outPath,
+            const std::string& tmpPath,
+            std::size_t numThreads);
 };
 
 } // namespace entwine

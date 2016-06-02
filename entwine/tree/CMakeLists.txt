@@ -13,7 +13,8 @@ set(
     "${BASE}/manifest.cpp"
     "${BASE}/merger.cpp"
     "${BASE}/registry.cpp"
-    "${BASE}/tiler.cpp"
+    "${BASE}/thread-pools.cpp"
+    # "${BASE}/tiler.cpp"
 )
 
 set(
@@ -28,7 +29,8 @@ set(
     "${BASE}/manifest.hpp"
     "${BASE}/merger.hpp"
     "${BASE}/registry.hpp"
-    "${BASE}/tiler.hpp"
+    "${BASE}/thread-pools.hpp"
+    # "${BASE}/tiler.hpp"
     "${BASE}/traverser.hpp"
 )
 

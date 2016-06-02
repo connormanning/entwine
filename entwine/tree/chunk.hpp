@@ -10,7 +10,6 @@
 
 #pragma once
 
-#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -20,7 +19,6 @@
 
 #include <pdal/PointTable.hpp>
 
-#include <entwine/tree/builder.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/types/blocked-data.hpp>
 #include <entwine/types/dim-info.hpp>
@@ -37,8 +35,8 @@ namespace arbiter
 namespace entwine
 {
 
-class Pools;
-class Structure;
+class Builder;
+class Metadata;
 
 class Chunk
 {
@@ -108,6 +106,9 @@ protected:
     Id endId() const { return m_id + m_maxPoints; }
 
     const Builder& m_builder;
+    const Metadata& m_metadata;
+    PointPool& m_pointPool;
+
     const BBox m_bbox;
     const std::size_t m_depth;
     const std::size_t m_zDepth;

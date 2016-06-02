@@ -72,7 +72,7 @@ void Storage::ensurePut(
     {
         try
         {
-            endpoint.putSubpath(path, data);
+            endpoint.put(path, data);
             done = true;
         }
         catch (...)
@@ -94,7 +94,7 @@ std::unique_ptr<std::vector<char>> Storage::ensureGet(
 
     while (!done)
     {
-        data = endpoint.tryGetSubpathBinary(path);
+        data = endpoint.tryGetBinary(path);
 
         if (data)
         {

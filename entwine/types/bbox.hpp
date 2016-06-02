@@ -23,7 +23,8 @@ class BBox
 {
 public:
     BBox();
-    BBox(Point min, Point max, bool is3d);
+    BBox(const Point& min, const Point& max);
+    BBox(const Point& min, const Point& max, bool is3d);
     BBox(const BBox& other);
     BBox(const Json::Value& json);
 
@@ -136,7 +137,7 @@ public:
 
     // Bloat all coordinates necessary to form a cube and also to the nearest
     // integer.
-    void cubeify()
+    BBox cubeify() const
     {
         const double xDist(m_max.x - m_min.x);
         const double yDist(m_max.y - m_min.y);
@@ -145,18 +146,18 @@ public:
         const double radius(
                 std::ceil(std::max(std::max(xDist, yDist), zDist) / 2.0 + 10));
 
-        m_min.x = std::floor(m_mid.x) - radius;
-        m_min.y = std::floor(m_mid.y) - radius;
-        m_min.z = std::floor(m_mid.z) - radius;
-
-        m_max.x = std::floor(m_mid.x) + radius;
-        m_max.y = std::floor(m_mid.y) + radius;
-        m_max.z = std::floor(m_mid.z) + radius;
-
-        setMid();
+        return BBox(
+                Point(
+                    std::floor(m_mid.x - radius),
+                    std::floor(m_mid.y - radius),
+                    std::floor(m_mid.z - radius)),
+                Point(
+                    std::floor(m_mid.x + radius),
+                    std::floor(m_mid.y + radius),
+                    std::floor(m_mid.z + radius)));
     }
 
-    void growBy(double ratio);
+    BBox growBy(double ratio) const;
 
     std::vector<BBox> explode() const;
     std::vector<BBox> explode(std::size_t delta) const;
@@ -172,22 +173,6 @@ private:
 
     void check(const Point& min, const Point& max) const;
 };
-
-inline Point& operator+=(Point& lhs, const Point& rhs)
-{
-    lhs.x += rhs.x;
-    lhs.y += rhs.y;
-    lhs.z += rhs.z;
-    return lhs;
-}
-
-inline Point& operator-=(Point& lhs, const Point& rhs)
-{
-    lhs.x -= rhs.x;
-    lhs.y -= rhs.y;
-    lhs.z -= rhs.z;
-    return lhs;
-}
 
 std::ostream& operator<<(std::ostream& os, const BBox& bbox);
 

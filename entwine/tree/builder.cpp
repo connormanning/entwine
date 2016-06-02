@@ -21,9 +21,11 @@
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
 #include <entwine/tree/registry.hpp>
-#include <entwine/tree/tiler.hpp>
-#include <entwine/tree/traverser.hpp>
+#include <entwine/tree/thread-pools.hpp>
+// #include <entwine/tree/tiler.hpp>
+// #include <entwine/tree/traverser.hpp>
 #include <entwine/types/bbox.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
@@ -32,6 +34,7 @@
 #include <entwine/util/compression.hpp>
 #include <entwine/util/executor.hpp>
 #include <entwine/util/pool.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
@@ -40,126 +43,63 @@ using namespace arbiter;
 
 namespace
 {
-    const double workToClipRatio(0.33);
     const std::size_t sleepCount(65536 * 24);
-
-    std::size_t getWorkThreads(const std::size_t total)
-    {
-        std::size_t num(
-                std::round(static_cast<double>(total) * workToClipRatio));
-        return std::max<std::size_t>(num, 1);
-    }
-
-    std::size_t getClipThreads(const std::size_t total)
-    {
-        return std::max<std::size_t>(total - getWorkThreads(total), 4);
-    }
 }
 
 Builder::Builder(
-        std::unique_ptr<Manifest> manifest,
+        const Metadata& metadata,
         const std::string outPath,
         const std::string tmpPath,
-        const bool compress,
-        const bool trustHeaders,
-        const Subset* subset,
-        const Reprojection* reprojection,
-        const BBox& bboxConforming,
-        const Schema& schema,
         const std::size_t totalThreads,
-        const Structure& structure,
         const OuterScope outerScope)
-    : m_bboxConforming(new BBox(bboxConforming))
-    , m_bbox()
-    , m_subBBox(subset ? new BBox(subset->bbox()) : nullptr)
-    , m_schema(new Schema(schema))
-    , m_structure(new Structure(structure))
-    , m_manifest(std::move(manifest))
-    , m_subset(subset ? new Subset(*subset) : nullptr)
-    , m_reprojection(reprojection ? new Reprojection(*reprojection) : nullptr)
+    : m_arbiter(outerScope.getArbiter())
+    , m_outEndpoint(makeUnique<Endpoint>(m_arbiter->getEndpoint(outPath)))
+    , m_tmpEndpoint(makeUnique<Endpoint>(m_arbiter->getEndpoint(tmpPath)))
+    , m_metadata(makeUnique<Metadata>(metadata))
     , m_mutex()
-    , m_compress(compress)
-    , m_trustHeaders(trustHeaders)
     , m_isContinuation(false)
-    , m_srs()
-    , m_pool(new Pool(getWorkThreads(totalThreads)))
-    , m_initialWorkThreads(getWorkThreads(totalThreads))
-    , m_initialClipThreads(getClipThreads(totalThreads))
-    , m_totalThreads(totalThreads)
-    , m_executor(new Executor(m_structure->is3d()))
-    , m_originId(m_schema->pdalLayout().findDim("Origin"))
+    , m_threadPools(makeUnique<ThreadPools>(totalThreads))
+    , m_executor(makeUnique<Executor>())
+    , m_originId(m_metadata->schema().pdalLayout().findDim("Origin"))
     , m_origin(0)
     , m_end(0)
     , m_added(0)
-    , m_arbiter(outerScope.getArbiter())
-    , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(outPath)))
-    , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
-    , m_pointPool(outerScope.getPointPool(*m_schema))
+    , m_pointPool(outerScope.getPointPool(m_metadata->schema()))
     , m_nodePool(outerScope.getNodePool())
-    , m_registry()
-    , m_hierarchy(new Hierarchy(*m_bbox, *m_nodePool))
+    , m_hierarchy(makeUnique<Hierarchy>(m_metadata->bbox(), *m_nodePool))
+    , m_registry(makeUnique<Registry>(*this))
 {
-    m_bboxConforming->growBy(0.005);
-    m_bbox.reset(new BBox(*m_bboxConforming));
-
-    if (!m_bbox->isCubic())
-    {
-        m_bbox->cubeify();
-    }
-
-    m_registry.reset(new Registry(*m_outEndpoint, *this, m_initialClipThreads));
-    prep();
+    prepareEndpoints();
 }
 
 Builder::Builder(
         const std::string outPath,
         const std::string tmpPath,
         const std::size_t totalThreads,
-        const std::string pf,
-        const Json::Value subsetJson,
+        const std::size_t* subId,
         const OuterScope outerScope)
-    : m_bboxConforming()
-    , m_bbox()
-    , m_subBBox()
-    , m_schema()
-    , m_structure()
-    , m_manifest()
-    , m_subset()
-    , m_reprojection()
+    : m_arbiter(outerScope.getArbiter())
+    , m_outEndpoint(makeUnique<Endpoint>(m_arbiter->getEndpoint(outPath)))
+    , m_tmpEndpoint(makeUnique<Endpoint>(m_arbiter->getEndpoint(tmpPath)))
+    , m_metadata(makeUnique<Metadata>(m_arbiter->getEndpoint(outPath), subId))
     , m_mutex()
-    , m_compress(true)
-    , m_trustHeaders(false)
     , m_isContinuation(true)
-    , m_srs()
-    , m_pool(new Pool(getWorkThreads(totalThreads)))
-    , m_initialWorkThreads(getWorkThreads(totalThreads))
-    , m_initialClipThreads(getClipThreads(totalThreads))
-    , m_totalThreads(totalThreads)
-    , m_executor()
-    , m_originId()
+    , m_threadPools(makeUnique<ThreadPools>(totalThreads))
+    , m_executor(makeUnique<Executor>())
+    , m_originId(m_metadata->schema().pdalLayout().findDim("Origin"))
     , m_origin(0)
     , m_end(0)
     , m_added(0)
-    , m_arbiter(outerScope.getArbiter())
-    , m_outEndpoint(new Endpoint(m_arbiter->getEndpoint(outPath)))
-    , m_tmpEndpoint(new Endpoint(m_arbiter->getEndpoint(tmpPath)))
-    , m_pointPool()
-    , m_nodePool()
-    , m_registry()
-    , m_hierarchy()
+    , m_pointPool(outerScope.getPointPool(m_metadata->schema()))
+    , m_nodePool(outerScope.getNodePool())
+    , m_hierarchy(makeUnique<Hierarchy>(m_metadata->bbox(), *m_nodePool))
+    , m_registry(makeUnique<Registry>(*this, true))
 {
-    prep();
-    load(outerScope, m_initialClipThreads, pf);
-
-    if (!subsetJson.empty())
-    {
-        m_subset.reset(new Subset(*m_structure, *m_bbox, subsetJson));
-        m_subBBox.reset(new BBox(m_subset->bbox()));
-    }
-
+    prepareEndpoints();
     m_hierarchy->awakenAll();
 }
 
+/*
 Builder::Builder(
         const std::string path,
         const std::size_t totalThreads,
@@ -180,8 +120,8 @@ Builder::Builder(
     , m_isContinuation(true)
     , m_srs()
     , m_pool(new Pool(getWorkThreads(totalThreads)))
-    , m_initialWorkThreads(getWorkThreads(totalThreads))
-    , m_initialClipThreads(getClipThreads(totalThreads))
+    , m_workThreads(getWorkThreads(totalThreads))
+    , m_clipThreads(getClipThreads(totalThreads))
     , m_totalThreads(0)
     , m_executor()
     , m_originId()
@@ -196,9 +136,10 @@ Builder::Builder(
     , m_registry()
     , m_hierarchy()
 {
-    prep();
+    prepareEndpoints();
     load(outerScope, subsetId, splitBegin);
 }
+*/
 
 std::unique_ptr<Builder> Builder::create(
         const std::string path,
@@ -208,20 +149,9 @@ std::unique_ptr<Builder> Builder::create(
     std::unique_ptr<Builder> builder;
     const std::size_t zero(0);
 
-    // Try a subset, but not split, build.
-    try { builder.reset(new Builder(path, threads, &zero, nullptr, os)); }
-    catch (...) { builder.reset(); }
-    if (builder) return builder;
-
-    // Try a split, but not subset, build.
-    try { builder.reset(new Builder(path, threads, nullptr, &zero, os)); }
-    catch (...) { builder.reset(); }
-    if (builder) return builder;
-
-    // Try a split and subset build.
-    try { builder.reset(new Builder(path, threads, &zero, &zero, os)); }
-    catch (...) { builder.reset(); }
-    if (builder) return builder;
+    // Try a subset build.
+    try { builder = makeUnique<Builder>(path, ".", threads, &zero, os); }
+    catch (...) { }
 
     return builder;
 }
@@ -229,23 +159,16 @@ std::unique_ptr<Builder> Builder::create(
 std::unique_ptr<Builder> Builder::create(
         const std::string path,
         const std::size_t threads,
-        const std::size_t subsetId,
+        const std::size_t subId,
         const OuterScope os)
 {
-    std::unique_ptr<Builder> b;
-    const std::size_t zero(0);
+    std::unique_ptr<Builder> builder;
 
-    // Try a subset, but not split, build.
-    try { b.reset(new Builder(path, threads, &subsetId, nullptr, os)); }
+    // Try a subset build.
+    try { builder = makeUnique<Builder>(path, ".", threads, &subId, os); }
     catch (...) { }
-    if (b) return b;
 
-    // Try a split and subset build.
-    try { b.reset(new Builder(path, threads, &subsetId, &zero, os)); }
-    catch (...) { }
-    if (b) return b;
-
-    return b;
+    return builder;
 }
 
 Builder::~Builder()
@@ -258,9 +181,10 @@ void Builder::go(std::size_t max)
         throw std::runtime_error("Cannot add to read-only builder");
     }
 
-    m_end = m_manifest->size();
+    Manifest& manifest(m_metadata->manifest());
+    m_end = manifest.size();
 
-    if (const Manifest::Split* split = m_manifest->split())
+    if (const Manifest::Split* split = manifest.split())
     {
         m_origin = split->begin();
         m_end = split->end();
@@ -270,7 +194,7 @@ void Builder::go(std::size_t max)
 
     while (keepGoing() && m_added < max)
     {
-        FileInfo& info(m_manifest->get(m_origin));
+        FileInfo& info(manifest.get(m_origin));
         const std::string path(info.path());
 
         if (!checkInfo(info))
@@ -284,7 +208,7 @@ void Builder::go(std::size_t max)
         std::cout << "Adding " << m_origin << " - " << path << std::endl;
         const auto origin(m_origin);
 
-        m_pool->add([this, origin, &info, path]()
+        m_threadPools->workPool().add([this, origin, &info, path]()
         {
             FileInfo::Status status(FileInfo::Status::Inserted);
 
@@ -307,15 +231,12 @@ void Builder::go(std::size_t max)
                 addError(path, "Unknown error");
             }
 
-            m_manifest->set(origin, status);
+            m_metadata->manifest().set(origin, status);
         });
 
         next();
     }
 
-    std::cout << "\tPushes complete - joining..." << std::endl;
-    m_pool->join();
-    std::cout << "\tJoined - saving..." << std::endl;
     save();
 }
 
@@ -327,14 +248,14 @@ bool Builder::checkInfo(const FileInfo& info)
     }
     else if (!m_executor->good(info.path()))
     {
-        m_manifest->set(m_origin, FileInfo::Status::Omitted);
+        m_metadata->manifest().set(m_origin, FileInfo::Status::Omitted);
         return false;
     }
     else if (const BBox* bbox = info.bbox())
     {
         if (!checkBounds(m_origin, *bbox, info.numPoints()))
         {
-            m_manifest->set(m_origin, FileInfo::Status::Inserted);
+            m_metadata->manifest().set(m_origin, FileInfo::Status::Inserted);
             return false;
         }
     }
@@ -347,15 +268,16 @@ bool Builder::checkBounds(
         const BBox& bbox,
         const std::size_t numPoints)
 {
-    if (!bbox.overlaps(*m_bbox))
+    if (!m_metadata->bbox().overlaps(bbox))
     {
-        const bool primary(!m_subset || m_subset->primary());
-        m_manifest->addOutOfBounds(origin, numPoints, primary);
+        const Subset* subset(m_metadata->subset());
+        const bool primary(!subset || subset->primary());
+        m_metadata->manifest().addOutOfBounds(origin, numPoints, primary);
         return false;
     }
-    else if (m_subBBox && !bbox.overlaps(*m_subBBox))
+    else if (const BBox* bboxSubset = m_metadata->bboxSubset())
     {
-        return false;
+        if (!bboxSubset->overlaps(bbox)) return false;
     }
 
     return true;
@@ -366,10 +288,12 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
     auto localHandle(m_arbiter->getLocalHandle(info.path(), *m_tmpEndpoint));
     const std::string& localPath(localHandle->localPath());
 
+    const Reprojection* reprojection(m_metadata->reprojection());
+
     // If we don't have an inferred bbox, check against the actual file.
     if (!info.bbox())
     {
-        auto pre(m_executor->preview(localPath, m_reprojection.get()));
+        auto pre(m_executor->preview(localPath, reprojection));
 
         if (pre && !checkBounds(origin, pre->bbox, pre->numPoints))
         {
@@ -379,39 +303,43 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
 
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        if (m_srs.empty())
+        std::string& srs(m_metadata->srs());
+
+        if (srs.empty())
         {
-            if (m_reprojection)
+            if (reprojection)
             {
                 // Don't construct the pdal::SpatialReference ourself, since
                 // we need to use the Executors lock to do so.
-                m_srs = m_executor->getSrsString(m_reprojection->out());
+                srs = m_executor->getSrsString(reprojection->out());
             }
             else
             {
                 auto preview(m_executor->preview(localPath, nullptr));
-                if (preview) m_srs = preview->srs;
+                if (preview) srs = preview->srs;
             }
 
-            if (m_srs.size()) std::cout << "Found an SRS" << std::endl;
+            if (srs.size()) std::cout << "Found an SRS" << std::endl;
         }
     }
 
-    std::size_t s(0);
+    std::size_t inserted(0);
 
     Clipper clipper(*this, origin);
+    Hierarchy localHierarchy(m_metadata->bbox(), *m_nodePool);
+    Climber climber(
+            m_metadata->bbox(),
+            m_metadata->structure(),
+            &localHierarchy);
 
-    Hierarchy localHierarchy(*m_bbox, *m_nodePool);
-    Climber climber(*m_bbox, *m_structure, &localHierarchy);
-
-    auto inserter([this, origin, &clipper, &climber, &s]
+    auto inserter([this, origin, &clipper, &climber, &inserted]
     (Cell::PooledStack cells)
     {
-        s += cells.size();
+        inserted += cells.size();
 
-        if (s > sleepCount)
+        if (inserted > sleepCount)
         {
-            s = 0;
+            inserted = 0;
             clipper.clip();
         }
 
@@ -420,7 +348,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
 
     PooledPointTable table(*m_pointPool, inserter, m_originId, origin);
 
-    const bool result(m_executor->run(table, localPath, m_reprojection.get()));
+    const bool result(m_executor->run(table, localPath, reprojection));
 
     std::lock_guard<std::mutex> lock(m_mutex);
     m_hierarchy->merge(localHierarchy);
@@ -441,17 +369,21 @@ Cell::PooledStack Builder::insertData(
         rejected.push(std::move(cell));
     });
 
+    const BBox& bboxConforming(m_metadata->bboxEpsilon());
+    const BBox* bboxSubset(m_metadata->bboxSubset());
+    const std::size_t baseDepthBegin(m_metadata->structure().baseDepthBegin());
+
     while (!cells.empty())
     {
         Cell::PooledNode cell(cells.popOne());
         const Point& point(cell->point());
 
-        if (m_bboxConforming->contains(point))
+        if (bboxConforming.contains(point))
         {
-            if (!m_subBBox || m_subBBox->contains(point))
+            if (!bboxSubset || bboxSubset->contains(point))
             {
                 climber.reset();
-                climber.magnifyTo(point, m_structure->baseDepthBegin());
+                climber.magnifyTo(point, baseDepthBegin);
 
                 if (m_registry->addPoint(cell, climber, clipper))
                 {
@@ -475,11 +407,12 @@ Cell::PooledStack Builder::insertData(
         }
     }
 
-    if (origin != invalidOrigin) m_manifest->add(origin, pointStats);
+    if (origin != invalidOrigin) m_metadata->manifest().add(origin, pointStats);
 
     return rejected;
 }
 
+/*
 void Builder::load(
         const OuterScope outerScope,
         const std::size_t clipThreads,
@@ -488,25 +421,6 @@ void Builder::load(
     Json::Value meta;
     Json::Reader reader;
 
-    auto error([&reader]()
-    {
-        throw std::runtime_error(
-            "Invalid JSON: " + reader.getFormattedErrorMessages());
-    });
-
-    {
-        // Get top-level metadata.
-        const std::string strMeta(m_outEndpoint->getSubpath("entwine" + pf));
-
-        if (!reader.parse(strMeta, meta, false)) error();
-
-        // For Reader invocation only.
-        if (pf.empty())
-        {
-            m_numPointsClone = meta["numPoints"].asUInt64();
-        }
-    }
-
     {
         const std::string strIds(
                 m_outEndpoint->getSubpath("entwine-ids" + pf));
@@ -514,14 +428,13 @@ void Builder::load(
         if (!reader.parse(strIds, meta["ids"], false)) error();
     }
 
-    {
-        const std::string strManifest(
-                m_outEndpoint->getSubpath("entwine-manifest" + pf));
-
-        if (!reader.parse(strManifest, meta["manifest"], false)) error();
-    }
-
-    loadProps(outerScope, meta, pf);
+    m_hierarchy.reset(
+            new Hierarchy(
+                *m_bbox,
+                *m_nodePool,
+                props["hierarchy"],
+                m_outEndpoint->getSubEndpoint("h"),
+                pf));
 
     m_executor.reset(new Executor(m_structure->is3d()));
     m_originId = m_schema->pdalLayout().findDim("Origin");
@@ -545,41 +458,21 @@ void Builder::load(
 
     load(outerScope, 0, post);
 }
+*/
 
 void Builder::save()
 {
-    const auto pf(postfix());
-    const auto props(propsToSave());
-    for (const auto& p : props) m_outEndpoint->putSubpath(p.first, p.second);
-}
+    std::cout << "\tPushes complete - joining..." << std::endl;
+    m_threadPools->join();
+    std::cout << "\tJoined - saving..." << std::endl;
 
-std::map<std::string, std::string> Builder::propsToSave() const
-{
-    std::map<std::string, std::string> props;
-
-    const auto pf(postfix());
-    Json::FastWriter writer;
-
-    {
-        Json::Value jsonMeta(saveOwnProps());
-        props["entwine" + pf] = jsonMeta.toStyledString();
-    }
-
-    {
-        Json::Value jsonIds(m_registry->toJson());
-        props["entwine-ids" + pf] = writer.write(jsonIds);
-    }
-
-    {
-        Json::Value jsonManifest(m_manifest->toJson());
-        props["entwine-manifest" + pf] = writer.write(jsonManifest);
-    }
-
-    return props;
+    m_metadata->save(*m_outEndpoint);
+    m_registry->save();
 }
 
 void Builder::unsplit(Builder& other)
 {
+    /*
     Reserves reserves;
 
     auto countReserves([&reserves]()->std::size_t
@@ -678,6 +571,7 @@ void Builder::unsplit(Builder& other)
     std::cout << "Rejected more: " << countReserves() << std::endl;
 
     m_hierarchy->setStep(Hierarchy::defaultStep);
+    */
 }
 
 void Builder::insertHinted(
@@ -789,89 +683,17 @@ void Builder::insertHinted(
 
 void Builder::merge(Builder& other)
 {
-    if (!subset())
+    if (!m_metadata->subset())
     {
         throw std::runtime_error("Cannot merge non-subset build");
     }
 
-    if (m_srs.empty() && !other.srs().empty())
-    {
-        m_srs = other.srs();
-    }
-
-    m_registry->merge(other.registry());
-    m_manifest->merge(other.manifest());
-    m_hierarchy->merge(other.hierarchy());
+    m_registry->merge(*other.m_registry);
+    m_metadata->merge(*other.m_metadata);
+    m_hierarchy->merge(*other.m_hierarchy);
 }
 
-Json::Value Builder::saveOwnProps() const
-{
-    Json::Value props;
-
-    props["bboxConforming"] = m_bboxConforming->toJson();
-    props["bbox"] = m_bbox->toJson();
-    props["schema"] = m_schema->toJson();
-    props["structure"] = m_structure->toJson();
-    props["hierarchy"] = m_hierarchy->toJson(
-            m_outEndpoint->getSubEndpoint("h"),
-            postfix());
-
-    // The infallible numPoints value is in the manifest, which is stored
-    // elsewhere to avoid the Reader needing it.  For the Reader, then,
-    // duplicate that info here.
-    props["numPoints"] =
-        static_cast<Json::UInt64>(m_manifest->pointStats().inserts());
-
-    if (m_subset) props["subset"] = m_subset->toJson();
-    if (m_reprojection) props["reprojection"] = m_reprojection->toJson();
-
-    props["srs"] = m_srs;
-    props["compressed"] = m_compress;
-    props["trustHeaders"] = m_trustHeaders;
-
-    return props;
-}
-
-void Builder::loadProps(
-        const OuterScope outerScope,
-        Json::Value& props,
-        const std::string pf)
-{
-    m_bboxConforming.reset(new BBox(props["bboxConforming"]));
-    m_bbox.reset(new BBox(props["bbox"]));
-    m_schema.reset(new Schema(props["schema"]));
-    m_pointPool = outerScope.getPointPool(*m_schema);
-    m_nodePool = outerScope.getNodePool();
-    m_structure.reset(new Structure(props["structure"]));
-    m_hierarchy.reset(
-            new Hierarchy(
-                *m_bbox,
-                *m_nodePool,
-                props["hierarchy"],
-                m_outEndpoint->getSubEndpoint("h"),
-                pf));
-
-    if (props.isMember("subset"))
-    {
-        m_subset.reset(new Subset(*m_structure, *m_bbox, props["subset"]));
-    }
-
-    if (props.isMember("reprojection"))
-    {
-        m_reprojection.reset(new Reprojection(props["reprojection"]));
-    }
-
-    if (props.isMember("manifest"))
-    {
-        m_manifest.reset(new Manifest(props["manifest"]));
-    }
-
-    m_srs = props["srs"].asString();
-    m_compress = props["compressed"].asBool();
-    m_trustHeaders = props["trustHeaders"].asBool();
-}
-
-void Builder::prep()
+void Builder::prepareEndpoints()
 {
     if (m_tmpEndpoint)
     {
@@ -899,33 +721,6 @@ void Builder::prep()
     }
 }
 
-std::string Builder::postfix(const bool isColdChunk) const
-{
-    // Things we save, and their postfixing.
-    //
-    // Metadata files (main meta, ids, manifest):
-    //      All postfixes applied.
-    //
-    // Base chunk:
-    //      All postfixes applied.
-    //
-    // Other chunks:
-    //      No subset postfixing.
-    //      Split postfixing applied to splits except for the nominal split.
-    //
-    // Hierarchy:
-    //      All postfixes applied.
-    std::string pf;
-
-    if (!isColdChunk && m_subset) pf += m_subset->postfix();
-    if (const Manifest::Split* split = m_manifest->split())
-    {
-        if (!isColdChunk || split->begin()) pf += split->postfix();
-    }
-
-    return pf;
-}
-
 void Builder::stop()
 {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -935,35 +730,29 @@ void Builder::stop()
 
 void Builder::makeWhole()
 {
-    if (m_subset) m_subset.reset();
-    m_subBBox.reset();
-
-    m_manifest->unsplit();
-}
-
-const std::vector<std::string>& Builder::errors() const
-{
-    return m_errors;
+    m_metadata->makeWhole();
 }
 
 std::unique_ptr<Manifest::Split> Builder::takeWork()
 {
-    std::unique_ptr<Manifest::Split> manifestSplit;
+    std::unique_ptr<Manifest::Split> split;
 
     std::lock_guard<std::mutex> lock(m_mutex);
+
+    Manifest& manifest(m_metadata->manifest());
 
     const std::size_t remaining(m_end - m_origin);
     const double ratioRemaining(
             static_cast<double>(remaining) /
-            static_cast<double>(m_manifest->size()));
+            static_cast<double>(manifest.size()));
 
     if (remaining > 2 && ratioRemaining > 0.05)
     {
         m_end = m_origin + remaining / 2;
-        manifestSplit = m_manifest->split(m_end);
+        split = manifest.split(m_end);
     }
 
-    return manifestSplit;
+    return split;
 }
 
 Origin Builder::end() const
@@ -984,21 +773,12 @@ bool Builder::keepGoing() const
     return m_origin < m_end;
 }
 
-const BBox& Builder::bboxConforming() const { return *m_bboxConforming; }
-const BBox& Builder::bbox() const           { return *m_bbox; }
-const Schema& Builder::schema() const       { return *m_schema; }
-const Manifest& Builder::manifest() const   { return *m_manifest; }
-const Structure& Builder::structure() const { return *m_structure; }
-const Registry& Builder::registry() const   { return *m_registry; }
-const Hierarchy& Builder::hierarchy() const { return *m_hierarchy; }
-const Subset* Builder::subset() const       { return m_subset.get(); }
-const arbiter::Arbiter& Builder::arbiter() const { return *m_arbiter; }
-Hierarchy& Builder::hierarchy()             { return *m_hierarchy; }
+const Metadata& Builder::metadata() const           { return *m_metadata; }
+const Registry& Builder::registry() const           { return *m_registry; }
+const Hierarchy& Builder::hierarchy() const         { return *m_hierarchy; }
+const arbiter::Arbiter& Builder::arbiter() const    { return *m_arbiter; }
 
-const Reprojection* Builder::reprojection() const
-{
-    return m_reprojection.get();
-}
+ThreadPools& Builder::threadPools() const { return *m_threadPools; }
 
 PointPool& Builder::pointPool() const { return *m_pointPool; }
 std::shared_ptr<PointPool> Builder::sharedPointPool() const
@@ -1030,9 +810,10 @@ void Builder::addError(const std::string& path, const std::string& error)
     const std::size_t lastSlash(path.find_last_of('/'));
     const std::string file(
             lastSlash != std::string::npos ? path.substr(lastSlash + 1) : path);
-    m_errors.push_back(file + ": " + error);
+    m_metadata->errors().push_back(file + ": " + error);
 }
 
+/*
 void Builder::traverse(
         const std::string output,
         const std::size_t threads,
@@ -1058,6 +839,7 @@ void Builder::traverse(
     Tiler traverser(*this, threads, tileWidth, schema);
     traverser.go(f);
 }
+*/
 
 } // namespace entwine
 

@@ -48,13 +48,13 @@ private:
     std::map<Id, Branch> m_children;
 };
 
+/*
 class Traverser
 {
 public:
     // TODO This class really only works for hybrid trees right now.  It should
     // be genericized similar to Climber.
     Traverser(const Builder& builder, const std::set<Id>* ids = nullptr)
-        : m_builder(builder)
         , m_structure(m_builder.structure())
         , m_ids(ids ? *ids : m_builder.registry().ids())
     { }
@@ -191,6 +191,7 @@ private:
     const Structure& m_structure;
     const std::set<Id> m_ids;
 };
+*/
 
 } // namespace entwine
 

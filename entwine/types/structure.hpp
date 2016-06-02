@@ -44,11 +44,11 @@ public:
     static std::size_t logN(std::size_t val, std::size_t n);
     static std::size_t isPerfectLogN(std::size_t val, std::size_t n);
 
-    std::size_t depth()         const { return m_depth; }
-    const Id&   chunkId()       const { return m_chunkId; }
-    const Id&   chunkOffset()   const { return m_chunkOffset; }
-    const Id&   chunkPoints()   const { return m_chunkPoints; }
-    std::size_t chunkNum()      const { return m_chunkNum; }
+    std::size_t depth()             const { return m_depth; }
+    const Id&   chunkId()           const { return m_chunkId; }
+    const Id&   chunkOffset()       const { return m_chunkOffset; }
+    const Id&   pointsPerChunk()    const { return m_pointsPerChunk; }
+    std::size_t chunkNum()          const { return m_chunkNum; }
 
 private:
     const Structure& m_structure;
@@ -57,7 +57,7 @@ private:
     Id m_chunkId;
     std::size_t m_depth;
     Id m_chunkOffset;
-    Id m_chunkPoints;
+    Id m_pointsPerChunk;
     std::size_t m_chunkNum;
 };
 
@@ -66,32 +66,8 @@ class Structure
     friend class Subset;
 
 public:
-    // Capped max depth.
-    Structure(
-            std::size_t nullDepth,
-            std::size_t baseDepth,
-            std::size_t coldDepth,
-            std::size_t chunkPoints,
-            std::size_t dimensions,
-            std::size_t numPointsHint,
-            bool tubular,
-            bool dynamicChunks,
-            bool discardDuplicates,
-            bool prefixIds);
-
-    // Lossless.
-    Structure(
-            std::size_t nullDepth,
-            std::size_t baseDepth,
-            std::size_t chunkPoints,
-            std::size_t dimensions,
-            std::size_t numPointsHint,
-            bool tubular,
-            bool dynamicChunks,
-            bool discardDuplicates,
-            bool prefixIds);
-
     Structure(const Json::Value& json);
+    Structure(const Structure& other, std::size_t minNullDepth);
 
     Json::Value toJson() const;
 
@@ -102,7 +78,6 @@ public:
     std::size_t coldDepthBegin() const   { return m_coldDepthBegin; }
     std::size_t coldDepthEnd() const     { return m_coldDepthEnd; }
     std::size_t sparseDepthBegin() const { return m_sparseDepthBegin; }
-    std::size_t mappedDepthBegin() const { return m_mappedDepthBegin; }
 
     const Id& nullIndexBegin() const   { return m_nullIndexBegin; }
     const Id& nullIndexEnd() const     { return m_nullIndexEnd; }
@@ -111,7 +86,6 @@ public:
     const Id& coldIndexBegin() const   { return m_coldIndexBegin; }
     const Id& coldIndexEnd() const     { return m_coldIndexEnd; }
     const Id& sparseIndexBegin() const { return m_sparseIndexBegin; }
-    const Id& mappedIndexBegin() const { return m_mappedIndexBegin; }
 
     std::size_t baseIndexSpan() const
     {
@@ -150,12 +124,12 @@ public:
     bool lossless() const           { return m_coldDepthEnd == 0; }
     bool tubular() const            { return m_tubular; }
     bool dynamicChunks() const      { return m_dynamicChunks; }
-    bool discardDuplicates() const  { return m_discardDuplicates; }
     bool prefixIds() const          { return m_prefixIds; }
     bool is3d() const               { return m_dimensions == 3; }
 
     ChunkInfo getInfo(const Id& index) const { return ChunkInfo(*this, index); }
     std::size_t numPointsHint() const { return m_numPointsHint; }
+    void numPointsHint(std::size_t v);
 
     std::string typeString() const
     {
@@ -167,7 +141,7 @@ public:
     ChunkInfo getInfoFromNum(std::size_t chunkNum) const;
     std::size_t numChunksAtDepth(std::size_t depth) const;
 
-    std::size_t baseChunkPoints() const { return m_chunkPoints; }
+    std::size_t basePointsPerChunk() const { return m_pointsPerChunk; }
     std::size_t dimensions() const { return m_dimensions; }
     std::size_t factor() const { return m_factor; } // Quadtree: 4, octree: 8.
 
@@ -202,6 +176,18 @@ public:
     }
 
 private:
+    Structure(
+            std::size_t nullDepth,
+            std::size_t baseDepth,
+            std::size_t coldDepth,
+            std::size_t pointsPerChunk,
+            std::size_t dimensions,
+            std::size_t numPointsHint,
+            bool tubular,
+            bool dynamicChunks,
+            bool prefixIds,
+            std::size_t sparseDepth = 0);
+
     void loadIndexValues();
     void accomodateSubset(const Subset& subset, std::size_t minNullDepth);
 
@@ -215,7 +201,6 @@ private:
     std::size_t m_coldDepthBegin;
     std::size_t m_coldDepthEnd;
     std::size_t m_sparseDepthBegin;
-    std::size_t m_mappedDepthBegin;
 
     Id m_nullIndexBegin;
     Id m_nullIndexEnd;
@@ -224,9 +209,8 @@ private:
     Id m_coldIndexBegin;
     Id m_coldIndexEnd;
     Id m_sparseIndexBegin;
-    Id m_mappedIndexBegin;
 
-    std::size_t m_chunkPoints;
+    std::size_t m_pointsPerChunk;
 
     // Chunk ID that spans the full bounds.  May not be an actual chunk since
     // it may reside in the base branch.

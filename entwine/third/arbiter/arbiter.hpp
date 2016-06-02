@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: c82c0d4ef9088ec12deffec74e52a9ef009a22df
+// Git SHA: 4480b295da9166d122f090eebcfe6e90d15a4ac8
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -2142,7 +2142,9 @@ JSON_API std::ostream& operator<<(std::ostream&, const Value& root);
 
 #pragma once
 
+#include <condition_variable>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -2655,10 +2657,12 @@ namespace drivers
 {
 
 /** @brief HTTP driver.  Intended as both a standalone driver as well as a base
- * for derived drivers build atop HTTP.  Derivers should overload the
- * HTTP-specific put/get methods that accept headers and query parameters
- * rather than Driver::put and Driver::get, which are overridden as `final`
- * here as they will be routed to the more specific methods.
+ * for derived drivers build atop HTTP.
+ *
+ * Derivers should overload the HTTP-specific put/get methods that accept
+ * headers and query parameters rather than Driver::put and Driver::get.
+ *
+ * Internal methods for derivers are provided as protected methods.
  */
 class Http : public Driver
 {
@@ -2691,26 +2695,32 @@ public:
      * Specifically, we'll add POST/HEAD calls, and allow headers and query
      * parameters to be passed as well.
      */
+
+    /** Perform an HTTP GET request. */
     std::string get(
             std::string path,
             http::Headers headers,
             http::Query query) const;
 
+    /** Perform an HTTP GET request. */
     std::unique_ptr<std::string> tryGet(
             std::string path,
             http::Headers headers,
             http::Query query) const;
 
+    /** Perform an HTTP GET request. */
     std::vector<char> getBinary(
             std::string path,
             http::Headers headers,
             http::Query query) const;
 
+    /** Perform an HTTP GET request. */
     std::unique_ptr<std::vector<char>> tryGetBinary(
             std::string path,
             http::Headers headers,
             http::Query query) const;
 
+    /** Perform an HTTP PUT request. */
     void put(
             std::string path,
             const std::string& data,
@@ -2720,6 +2730,8 @@ public:
     /** HTTP-derived Drivers should override this version of PUT to allow for
      * custom headers and query parameters.
      */
+
+    /** Perform an HTTP PUT request. */
     virtual void put(
             std::string path,
             const std::vector<char>& data,
@@ -5773,45 +5785,22 @@ namespace arbiter
 namespace drivers
 {
 
-/** @brief AWS authentication information. */
-class AwsAuth
-{
-public:
-    AwsAuth(std::string access, std::string hidden);
-
-    /** @brief Search for credentials in some common locations.
-     *
-     * See:
-     * https://docs.aws.amazon.com/AWSJavaScriptSDK/guide/node-configuring.html
-     *
-     * Uses methods 2 and 3 of "Setting AWS Credentials":
-     *      - Check for them in `~/.aws/credentials`.
-     *      - If not found, try the environment settings.
-     */
-    static std::unique_ptr<AwsAuth> find(std::string profile = "");
-
-    std::string access() const;
-    std::string hidden() const;
-
-private:
-    std::string m_access;
-    std::string m_hidden;
-};
-
 /** @brief Amazon %S3 driver. */
 class S3 : public Http
 {
 public:
+    class Auth;
+
     S3(
             http::Pool& pool,
-            AwsAuth awsAuth,
+            const Auth& auth,
             std::string region = "us-east-1",
             bool sse = false);
 
     /** Try to construct an S3 Driver.  Searches @p json primarily for the keys
-     * `access` and `hidden` to construct an AwsAuth.  If not found, common
+     * `access` and `hidden` to construct an S3::Auth.  If not found, common
      * filesystem locations and then the environment will be searched (see
-     * AwsAuth::find).
+     * S3::Auth::find).
      *
      * Server-side encryption may be enabled by setting key `sse` to `true` in
      * @p json.
@@ -5833,6 +5822,31 @@ public:
             const std::vector<char>& data,
             http::Headers headers,
             http::Query query) const override;
+
+    /** @brief AWS authentication information. */
+    class Auth
+    {
+    public:
+        Auth(std::string access, std::string hidden);
+
+        /** @brief Search for credentials in some common locations.
+         *
+         * See:
+         * docs.aws.amazon.com/AWSJavaScriptSDK/guide/node-configuring.html
+         *
+         * Uses methods 2 and 3 of "Setting AWS Credentials":
+         *      - Check for them in `~/.aws/credentials`.
+         *      - If not found, try the environment settings.
+         */
+        static std::unique_ptr<Auth> find(std::string profile = "");
+
+        std::string access() const;
+        std::string hidden() const;
+
+    private:
+        std::string m_access;
+        std::string m_hidden;
+    };
 
 private:
     /** Inherited from Drivers::Http. */
@@ -5878,14 +5892,14 @@ private:
         const std::string m_time;
     };
 
-    class AuthV4
+    class ApiV4
     {
     public:
-        AuthV4(
+        ApiV4(
                 std::string verb,
                 const std::string& region,
                 const Resource& resource,
-                const AwsAuth& auth,
+                const S3::Auth& auth,
                 const http::Query& query,
                 const http::Headers& headers,
                 const std::vector<char>& data);
@@ -5915,7 +5929,7 @@ private:
                 const std::string& signedHeadersString,
                 const std::string& signature) const;
 
-        const AwsAuth& m_auth;
+        const S3::Auth& m_auth;
         const std::string m_region;
         const FormattedTime m_formattedTime;
 
@@ -5925,7 +5939,7 @@ private:
         std::string m_signedHeadersString;
     };
 
-    AwsAuth m_auth;
+    Auth m_auth;
 
     std::string m_region;
     std::string m_baseUrl;
@@ -5974,22 +5988,12 @@ namespace arbiter
 namespace drivers
 {
 
-/** @brief %Dropbox authentication information. */
-class DropboxAuth
-{
-public:
-    explicit DropboxAuth(std::string token) : m_token(token) { }
-    std::string token() const { return m_token; }
-
-private:
-    std::string m_token;
-};
-
 /** @brief %Dropbox driver. */
 class Dropbox : public Http
 {
 public:
-    Dropbox(http::Pool& pool, DropboxAuth auth);
+    class Auth;
+    Dropbox(http::Pool& pool, const Auth& auth);
 
     /** Try to construct a %Dropbox Driver.  Searches @p json for the key
      * `token` to construct a DropboxAuth.
@@ -6004,6 +6008,17 @@ public:
             const std::vector<char>& data,
             http::Headers headers,
             http::Query query = http::Query()) const override;
+
+    /** @brief %Dropbox authentication information. */
+    class Auth
+    {
+    public:
+        explicit Auth(std::string token) : m_token(token) { }
+        const std::string& token() const { return m_token; }
+
+    private:
+        std::string m_token;
+    };
 
 private:
     virtual bool get(
@@ -6024,7 +6039,7 @@ private:
     http::Headers httpGetHeaders() const;
     http::Headers httpPostHeaders() const;
 
-    DropboxAuth m_auth;
+    Auth m_auth;
 };
 
 } // namespace drivers
@@ -6054,6 +6069,12 @@ private:
 #include <vector>
 #include <memory>
 
+#ifndef ARBITER_IS_AMALGAMATION
+
+#include <arbiter/util/http.hpp>
+
+#endif
+
 #ifdef ARBITER_CUSTOM_NAMESPACE
 namespace ARBITER_CUSTOM_NAMESPACE
 {
@@ -6061,6 +6082,8 @@ namespace ARBITER_CUSTOM_NAMESPACE
 
 namespace arbiter
 {
+
+namespace drivers { class Http; }
 
 class Driver;
 
@@ -6085,6 +6108,8 @@ public:
      */
     std::string root() const;
 
+    // Driver passthroughs.
+
     /** Passthrough to Driver::type. */
     std::string type() const;
 
@@ -6094,26 +6119,86 @@ public:
     /** Negation of Endpoint::isRemote. */
     bool isLocal() const;
 
+    /** See Arbiter::isHttpDerived. */
+    bool isHttpDerived() const;
+
     /** Passthrough to Driver::get. */
-    std::string getSubpath(std::string subpath) const;
+    std::string get(std::string subpath) const;
 
     /** Passthrough to Driver::tryGet. */
-    std::unique_ptr<std::string> tryGetSubpath(std::string subpath) const;
+    std::unique_ptr<std::string> tryGet(std::string subpath) const;
 
     /** Passthrough to Driver::getBinary. */
-    std::vector<char> getSubpathBinary(std::string subpath) const;
+    std::vector<char> getBinary(std::string subpath) const;
 
     /** Passthrough to Driver::tryGetBinary. */
-    std::unique_ptr<std::vector<char>> tryGetSubpathBinary(
-            std::string subpath) const;
+    std::unique_ptr<std::vector<char>> tryGetBinary(std::string subpath) const;
+
+    /** Passthrough to Driver::getSize. */
+    std::size_t getSize(std::string subpath) const;
+
+    /** Passthrough to Driver::tryGetSize. */
+    std::unique_ptr<std::size_t> tryGetSize(std::string subpath) const;
 
     /** Passthrough to Driver::put(std::string, const std::string&) const. */
-    void putSubpath(std::string subpath, const std::string& data) const;
+    void put(std::string subpath, const std::string& data) const;
 
     /** Passthrough to
      * Driver::put(std::string, const std::vector<char>&) const.
      */
-    void putSubpath(std::string subpath, const std::vector<char>& data) const;
+    void put(std::string subpath, const std::vector<char>& data) const;
+
+    // HTTP-specific passthroughs.
+
+    /** Passthrough to
+     * drivers::Http::get(std::string, http::Headers, http::Query) const. */
+    std::string get(
+            std::string subpath,
+            http::Headers headers,
+            http::Query = http::Query()) const;
+
+    /** Passthrough to
+     * drivers::Http::tryGet(std::string, http::Headers, http::Query) const. */
+    std::unique_ptr<std::string> tryGet(
+            std::string subpath,
+            http::Headers headers,
+            http::Query = http::Query()) const;
+
+    /** Passthrough to
+     * drivers::Http::getBinary(std::string, http::Headers, http::Query) const.
+     */
+    std::vector<char> getBinary(
+            std::string path,
+            http::Headers headers,
+            http::Query query = http::Query()) const;
+
+    /** Passthrough to
+     * drivers::Http::tryGetBinary(std::string, http::Headers, http::Query) const.
+     */
+    std::unique_ptr<std::vector<char>> tryGetBinary(
+            std::string path,
+            http::Headers headers,
+            http::Query query = http::Query()) const;
+
+    /** Passthrough to
+     * drivers::Http::put(std::string, const std::string&, http::Headers, http::Query) const.
+     */
+    void put(
+            std::string path,
+            const std::string& data,
+            http::Headers headers,
+            http::Query query = http::Query()) const;
+
+    /** Passthrough to
+     * drivers::Http::put(std::string, const std::vector<char>&, http::Headers, http::Query) const.
+     */
+    void put(
+            std::string path,
+            const std::vector<char>& data,
+            http::Headers headers,
+            http::Query query = http::Query()) const;
+
+    // Endpoint specifics.
 
     /** Get the full path corresponding to this subpath.  The path will not
      * be prefixed with the driver type or the `://` delimiter.
@@ -6125,6 +6210,9 @@ public:
 
 private:
     Endpoint(const Driver& driver, std::string root);
+
+    const drivers::Http* tryGetHttpDriver() const;
+    const drivers::Http& getHttpDriver() const;
 
     const Driver& m_driver;
     std::string m_root;

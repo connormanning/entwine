@@ -78,7 +78,7 @@ public:
 class Executor
 {
 public:
-    Executor(bool is3d);
+    Executor();
     ~Executor();
 
     // Returns true if no errors occurred during insertion.
@@ -104,7 +104,6 @@ private:
 
     std::unique_lock<std::mutex> getLock() const;
 
-    bool m_is3d;
     std::unique_ptr<pdal::StageFactory> m_stageFactory;
     mutable std::mutex m_factoryMutex;
 };

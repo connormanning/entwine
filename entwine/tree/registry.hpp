@@ -36,24 +36,12 @@ class Structure;
 
 class Registry
 {
-    friend class Builder;
-
 public:
-    Registry(
-            arbiter::Endpoint& endpoint,
-            const Builder& builder,
-            std::size_t clipPoolSize);
-
-    Registry(
-            arbiter::Endpoint& endpoint,
-            const Builder& builder,
-            std::size_t clipPoolSize,
-            const Json::Value& meta);
-
-    Json::Value toJson() const;
-    void merge(const Registry& other);
-
+    Registry(const Builder& builder, bool exists = false);
     ~Registry();
+
+    void save() const;
+    void merge(const Registry& other);
 
     bool addPoint(
             Cell::PooledNode& cell,
@@ -66,6 +54,9 @@ public:
     std::set<Id> ids() const;
 
 private:
+    void loadAsNew();
+    void loadFromRemote();
+
     bool insert(
             const Climber& climber,
             Clipper& clipper,
@@ -74,12 +65,8 @@ private:
     BaseChunk* base() { return m_base.get(); }
     Cold* cold() { return m_cold.get(); }
 
-    arbiter::Endpoint& m_endpoint;
     const Builder& m_builder;
     const Structure& m_structure;
-
-    const bool m_discardDuplicates;
-    const bool m_as3d;
 
     std::unique_ptr<BaseChunk> m_base;
     std::unique_ptr<Cold> m_cold;

@@ -183,6 +183,11 @@ Tiler::Tiler(
     init(tileWidth);
 }
 
+const Schema& Tiler::activeSchema() const
+{
+    return m_wantedSchema ? *m_wantedSchema : m_builder.schema();
+}
+
 void Tiler::init(const double tileWidth)
 {
     if (!activeSchema().contains("X") || !activeSchema().contains("Y"))

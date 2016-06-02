@@ -54,7 +54,7 @@ public:
 
     const BBox& bboxChunk() const { return m_bboxChunk; }
 
-    const Id& chunkPoints() const { return m_chunkPoints; }
+    const Id& pointsPerChunk() const { return m_pointsPerChunk; }
     std::size_t chunkNum() const
     {
         if (m_chunkNum.trivial()) return m_chunkNum.getSimple();
@@ -90,7 +90,7 @@ private:
 
     std::size_t m_depthChunks;
     Id m_chunkNum;
-    Id m_chunkPoints;
+    Id m_pointsPerChunk;
 
     const BBox m_bboxOriginal;
     BBox m_bbox;
@@ -137,7 +137,7 @@ public:
         , m_depthEnd(depthEnd)
         , m_chunked(chunked)
         , m_startDepth(m_chunked ? m_structure.nominalChunkDepth() : 0)
-        , m_step(m_chunked ? m_structure.baseChunkPoints() : 1)
+        , m_step(m_chunked ? m_structure.basePointsPerChunk() : 1)
         , m_index(m_chunked ? m_structure.nominalChunkIndex() : 0)
         , m_splits(1)
         , m_traversal()

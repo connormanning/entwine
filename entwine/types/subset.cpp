@@ -13,35 +13,28 @@
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/hierarchy.hpp>
 #include <entwine/types/range.hpp>
-#include <entwine/types/structure.hpp>
 
 namespace entwine
 {
 
 Subset::Subset(
-        Structure& structure,
         const BBox& bbox,
         const std::size_t id,
         const std::size_t of)
     : m_id(id - 1)
     , m_of(of)
     , m_sub()
+    , m_minimumNullDepth(1)
 {
     if (!id) throw std::runtime_error("Subset IDs should be 1-based.");
+    if (id > of) throw std::runtime_error("Invalid subset ID - too large.");
 
-    split(structure, bbox);
+    split(bbox);
 }
 
-Subset::Subset(
-        Structure& structure,
-        const BBox& bbox,
-        const Json::Value& json)
-    : m_id(json["id"].asUInt64() - 1)
-    , m_of(json["of"].asUInt64())
-    , m_sub()
-{
-    split(structure, bbox);
-}
+Subset::Subset(const BBox& bbox, const Json::Value& json)
+    : Subset(bbox, json["id"].asUInt64(), json["of"].asUInt64())
+{ }
 
 Json::Value Subset::toJson() const
 {
@@ -53,7 +46,7 @@ Json::Value Subset::toJson() const
     return json;
 }
 
-void Subset::split(Structure& structure, const BBox& bbox)
+void Subset::split(const BBox& bbox)
 {
     if (m_of <= 1 || m_of > 64)
     {
@@ -72,12 +65,11 @@ void Subset::split(Structure& structure, const BBox& bbox)
         throw std::runtime_error("Subset range must be a power of 2");
     }
 
-    std::size_t minNullDepth(1);
     std::size_t cap(factor);
 
     while (cap < m_of)
     {
-        ++minNullDepth;
+        ++m_minimumNullDepth;
         cap *= factor;
     }
 
@@ -91,37 +83,24 @@ void Subset::split(Structure& structure, const BBox& bbox)
 
     for (std::size_t curId(startOffset); curId < startOffset + boxes; ++curId)
     {
-        Climber climber(bbox, structure);
+        BBox current(bbox);
+
         for (std::size_t i(iterations - 1); i < iterations; --i)
         {
-            Dir dir(static_cast<Dir>(curId >> (i * dimensions) & mask));
-
-            switch (dir)
-            {
-                case Dir::swd: climber.goSwd(); break;
-                case Dir::sed: climber.goSed(); break;
-                case Dir::nwd: climber.goNwd(); break;
-                case Dir::ned: climber.goNed(); break;
-                default: throw std::runtime_error("Unexpected value");
-            }
+            const Dir dir(toDir(curId >> (i * dimensions) & mask));
+            current.go(dir, true);
         }
 
         if (!set)
         {
-            m_sub = climber.bbox();
+            m_sub = current;
             set = true;
         }
         else
         {
-            m_sub.grow(climber.bbox());
+            m_sub.grow(current);
         }
     }
-
-    // For octrees, we've shrunken our Z coordinates - blow them back up to
-    // span the whole set.
-    m_sub.growZ(Range(bbox.min().z, bbox.max().z));
-
-    structure.accomodateSubset(*this, minNullDepth);
 }
 
 } // namespace entwine

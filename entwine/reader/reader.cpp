@@ -20,11 +20,14 @@
 #include <entwine/tree/manifest.hpp>
 #include <entwine/tree/registry.hpp>
 #include <entwine/types/bbox.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/compression.hpp>
+#include <entwine/util/json.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
@@ -45,31 +48,51 @@ Reader::Reader(
         const arbiter::Arbiter& arbiter,
         Cache& cache)
     : m_endpoint(endpoint)
-    , m_builder(new Builder(endpoint.type() + "://" + endpoint.root()))
+    , m_metadata(makeUnique<Metadata>(m_endpoint))
     , m_base()
     , m_cache(cache)
-    , m_ids(m_builder->registry().ids())
+    , m_ids()
 {
-    using namespace arbiter;
+    /*
+    if (m_metadata->structure().hasBase())
+    {
+        auto compressed(endpoint.getBinary(structure().baseIndexBegin().str()));
+        const Tail tail(popTail(decompressed));
 
-    std::unique_ptr<std::vector<char>> data(
-            new std::vector<char>(
-                endpoint.getSubpathBinary(structure().baseIndexBegin().str())));
+        std::unique_ptr<std::vector<char>> data(
+                Compression::decompress(
+                    compressed,
+                    BaseChunk::makeCelled(m_metadata->schema()),
+                    tail.numPoints));
 
-    m_base.reset(
-            static_cast<BaseChunk*>(
-                Chunk::create(
-                    *m_builder,
-                    bbox(),
-                    0,
-                    structure().baseIndexBegin(),
-                    structure().baseIndexSpan(),
-                    std::move(data)).release()));
+        m_base.reset(
+                static_cast<BaseChunk*>(
+                    Chunk::create(
+                        *m_builder,
+                        bbox(),
+                        0,
+                        structure().baseIndexBegin(),
+                        structure().baseIndexSpan(),
+                        std::move(data)).release()));
+    }
+
+    if (m_metadata->structure().hasCold())
+    {
+        const auto idData(parse(m_endpoint.get("entwine-ids")));
+        const auto strIds(extract<std::string>(idData));
+        m_ids = std::accumulate(
+                strIds.begin(),
+                strIds.end(),
+                std::set<Id>(),
+                [](const std::string& s) { return Id(s) });
+    }
+    */
 }
 
 Reader::~Reader()
 { }
 
+/*
 Json::Value Reader::hierarchy(
         const BBox& qbox,
         const std::size_t depthBegin,
@@ -140,6 +163,7 @@ std::size_t Reader::numPoints() const
 {
     return m_builder->numPointsClone();
 }
+*/
 
 } // namespace entwine
 

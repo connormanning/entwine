@@ -15,6 +15,7 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/util/compression.hpp>
 #include <entwine/util/storage.hpp>
@@ -34,6 +35,8 @@ Chunk::Chunk(
         const Id& id,
         const Id& maxPoints)
     : m_builder(builder)
+    , m_metadata(m_builder.metadata())
+    , m_pointPool(m_builder.pointPool())
     , m_bbox(bbox)
     , m_depth(depth)
     , m_zDepth(std::min(Tube::maxTickDepth(), depth))
@@ -47,12 +50,9 @@ void Chunk::populate(
         const std::size_t numPoints)
 {
     Cell::PooledStack cells(
-            Compression::decompress(
-                *compressedData,
-                numPoints,
-                m_builder.pointPool()));
+            Compression::decompress(*compressedData, numPoints, m_pointPool));
 
-    const Climber startClimber(m_builder.bbox(), m_builder.structure());
+    const Climber startClimber(m_metadata.bbox(), m_metadata.structure());
     Climber climber(startClimber);
 
     for (std::size_t i(0); i < numPoints; ++i)
@@ -71,14 +71,14 @@ void Chunk::collect(Type type)
     assert(!m_data);
 
     Cell::PooledStack cellStack(acquire());
-    Data::PooledStack dataStack(m_builder.pointPool().dataPool());
+    Data::PooledStack dataStack(m_pointPool.dataPool());
 
     for (Cell& cell : cellStack) dataStack.push(cell.acquire());
 
     cellStack.reset();
 
-    const std::size_t pointSize(m_builder.schema().pointSize());
-    Compressor compressor(m_builder.schema(), dataStack.size());
+    const std::size_t pointSize(m_metadata.schema().pointSize());
+    Compressor compressor(m_metadata.schema(), dataStack.size());
 
     for (const char* pos : dataStack) compressor.push(pos, pointSize);
 
@@ -91,8 +91,8 @@ Chunk::~Chunk()
     if (m_data)
     {
         const std::string path(
-                m_builder.structure().maybePrefix(m_id) +
-                m_builder.postfix(true));
+                m_metadata.structure().maybePrefix(m_id) +
+                m_metadata.postfix(true));
 
         Storage::ensurePut(m_builder.outEndpoint(), path, *m_data);
     }
@@ -107,7 +107,7 @@ std::unique_ptr<Chunk> Chunk::create(
 {
     std::unique_ptr<Chunk> chunk;
 
-    if (id < builder.structure().mappedIndexBegin())
+    if (id < builder.metadata().structure().sparseIndexBegin())
     {
         if (depth)
         {
@@ -259,7 +259,7 @@ SparseChunk::~SparseChunk()
 
 Cell::PooledStack SparseChunk::acquire()
 {
-    Cell::PooledStack cells(m_builder.pointPool().cellPool());
+    Cell::PooledStack cells(m_pointPool.cellPool());
 
     for (auto& outer : m_tubes)
     {
@@ -309,7 +309,7 @@ ContiguousChunk::~ContiguousChunk()
 
 Cell::PooledStack ContiguousChunk::acquire()
 {
-    Cell::PooledStack cells(m_builder.pointPool().cellPool());
+    Cell::PooledStack cells(m_pointPool.cellPool());
 
     for (Tube& tube : m_tubes)
     {
@@ -327,7 +327,7 @@ BaseChunk::BaseChunk(
         const Id& id,
         const Id& maxPoints)
     : ContiguousChunk(builder, bbox, 0, id, maxPoints)
-    , m_celledSchema(makeCelled(m_builder.schema()))
+    , m_celledSchema(makeCelled(m_metadata.schema()))
 { }
 
 BaseChunk::BaseChunk(
@@ -338,7 +338,7 @@ BaseChunk::BaseChunk(
         std::unique_ptr<std::vector<char>> compressedData,
         const std::size_t numPoints)
     : ContiguousChunk(builder, bbox, 0, id, maxPoints)
-    , m_celledSchema(makeCelled(m_builder.schema()))
+    , m_celledSchema(makeCelled(m_metadata.schema()))
 {
     std::cout << "Waking up base" << std::endl;
 
@@ -360,13 +360,12 @@ BaseChunk::BaseChunk(
     BinaryPointTable table(m_celledSchema);
     pdal::PointRef pointRef(table, 0);
 
-    auto& pointPool(m_builder.pointPool());
-    Cell::PooledStack cellStack(pointPool.cellPool().acquire(numPoints));
-    Data::PooledStack dataStack(pointPool.dataPool().acquire(numPoints));
+    Cell::PooledStack cellStack(m_pointPool.cellPool().acquire(numPoints));
+    Data::PooledStack dataStack(m_pointPool.dataPool().acquire(numPoints));
 
-    const std::size_t factor(m_builder.structure().factor());
+    const std::size_t factor(m_metadata.structure().factor());
 
-    const Climber startClimber(builder.bbox(), builder.structure());
+    const Climber startClimber(m_metadata.bbox(), m_metadata.structure());
     Climber climber(startClimber);
 
     const char* pos(data->data());
@@ -400,10 +399,10 @@ BaseChunk::BaseChunk(
 
 BaseChunk::~BaseChunk()
 {
-    Data::PooledStack dataStack(m_builder.pointPool().dataPool());
-    Cell::PooledStack cellStack(m_builder.pointPool().cellPool());
+    Data::PooledStack dataStack(m_pointPool.dataPool());
+    Cell::PooledStack cellStack(m_pointPool.cellPool());
 
-    const std::size_t pointSize(m_builder.schema().pointSize());
+    const std::size_t pointSize(m_metadata.schema().pointSize());
     Compressor compressor(m_celledSchema);
 
     std::vector<char> point(m_celledSchema.pointSize());

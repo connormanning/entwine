@@ -21,6 +21,7 @@ namespace entwine
 {
 
 class BBox;
+class Metadata;
 class Schema;
 
 class ChunkReader
@@ -33,7 +34,7 @@ public:
             std::size_t depth,
             std::unique_ptr<std::vector<char>> data);
 
-    typedef std::multimap<uint64_t, PointInfoNonPooled>::const_iterator It;
+    using It = std::multimap<uint64_t, PointInfoNonPooled>::const_iterator;
 
     struct QueryRange
     {
@@ -62,6 +63,17 @@ private:
 
     std::unique_ptr<std::vector<char>> m_data;
     std::multimap<uint64_t, PointInfoNonPooled> m_points;
+};
+
+class BaseChunkReader
+{
+public:
+    BaseChunkReader(
+            const Metadata& metadata,
+            const Schema& celledSchema,
+            std::unique_ptr<std::vector<char>> data);
+
+private:
 };
 
 } // namespace entwine

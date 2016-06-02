@@ -21,12 +21,10 @@
 
 #include <entwine/third/json/json.hpp>
 #include <entwine/types/bbox.hpp>
+#include <entwine/types/defs.hpp>
 
 namespace entwine
 {
-
-typedef uint64_t Origin;
-static const Origin invalidOrigin = std::numeric_limits<Origin>::max();
 
 class PointStats
 {
@@ -269,6 +267,14 @@ public:
     void split(std::size_t begin, std::size_t end)
     {
         m_split.reset(new Split(begin, end));
+    }
+
+    bool remote(const arbiter::Arbiter& a) const
+    {
+        return std::any_of(
+                m_paths.begin(),
+                m_paths.end(),
+                [&a](const FileInfo& f) { return a.isRemote(f.path()); });
     }
 
 private:

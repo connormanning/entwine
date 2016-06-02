@@ -21,6 +21,7 @@
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
@@ -43,7 +44,7 @@ namespace
     public:
         BufferState(const BBox& bbox)
             : m_table()
-            , m_view(new pdal::PointView(m_table))
+            , m_view(makeUnique<pdal::PointView>(m_table))
             , m_buffer()
         {
             namespace DimId = pdal::Dimension::Id;
@@ -84,9 +85,8 @@ namespace
     };
 }
 
-Executor::Executor(bool is3d)
-    : m_is3d(is3d)
-    , m_stageFactory(new pdal::StageFactory())
+Executor::Executor()
+    : m_stageFactory(makeUnique<pdal::StageFactory>())
     , m_factoryMutex()
 { }
 
@@ -156,8 +156,7 @@ std::unique_ptr<Preview> Executor::preview(
 
     BBox bbox(
             Point(qi.m_bounds.minx, qi.m_bounds.miny, qi.m_bounds.minz),
-            Point(qi.m_bounds.maxx, qi.m_bounds.maxy, qi.m_bounds.maxz),
-            m_is3d);
+            Point(qi.m_bounds.maxx, qi.m_bounds.maxy, qi.m_bounds.maxz));
 
     std::string srs;
 
@@ -202,7 +201,7 @@ std::unique_ptr<Preview> Executor::preview(
             max.z = std::max(max.z, p.z);
         }
 
-        bbox = BBox(min, max, m_is3d);
+        bbox = BBox(min, max);
 
         auto lock(getLock());
         srs = pdal::SpatialReference(reprojection->out()).getWKT();

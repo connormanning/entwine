@@ -10,28 +10,17 @@
 
 #pragma once
 
-#include <cstddef>
-#include <vector>
+#include <entwine/types/bbox.hpp>
+
+namespace pdal { class PointView; }
 
 namespace entwine
 {
 
-class BlockedData
-{
-public:
-    BlockedData(std::size_t pointSize);
+using Origin = uint64_t;
+static constexpr Origin invalidOrigin = std::numeric_limits<Origin>::max();
 
-    void assign(std::size_t numPoints);
-    char* getPointPos();
-
-private:
-    std::size_t m_pointSize;
-
-    std::size_t m_index;
-    std::size_t m_nextBlockPoints;
-
-    std::vector<std::vector<char>> m_data;
-};
+using TileFunction = std::function<void(pdal::PointView& view, BBox bbox)>;
 
 } // namespace entwine
 

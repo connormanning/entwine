@@ -76,7 +76,7 @@ Query::Query(
                         FetchInfo(
                             m_reader,
                             chunkId,
-                            m_structure.getInfo(chunkId).chunkPoints(),
+                            m_structure.getInfo(chunkId).pointsPerChunk(),
                             splitter.depth()));
             }
             else
@@ -112,6 +112,8 @@ bool Query::next(std::vector<char>& buffer)
 
 bool Query::getBase(std::vector<char>& buffer)
 {
+    return false; // TODO.
+    /*
     bool dataExisted(false);
 
     if (
@@ -135,7 +137,6 @@ bool Query::getBase(std::vector<char>& buffer)
 
         do
         {
-            /*
             terminate = false;
 
             const Id& index(splitter.index());
@@ -165,12 +166,12 @@ bool Query::getBase(std::vector<char>& buffer)
             {
                 terminate = true;
             }
-            */
         }
         while (splitter.next(terminate));
     }
 
     return dataExisted;
+            */
 }
 
 void Query::getChunked(std::vector<char>& buffer)

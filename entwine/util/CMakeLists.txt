@@ -15,10 +15,12 @@ set(
     "${BASE}/compression.hpp"
     "${BASE}/executor.hpp"
     "${BASE}/inference.hpp"
+    "${BASE}/json.hpp"
     "${BASE}/locker.hpp"
     "${BASE}/pool.hpp"
     "${BASE}/spin-lock.hpp"
     "${BASE}/storage.hpp"
+    "${BASE}/unique.hpp"
 )
 
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})
