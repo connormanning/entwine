@@ -118,20 +118,20 @@ public:
         return (m_baseIndexEnd - m_baseIndexBegin).getSimple();
     }
 
-    bool isWithinNull(const Id& index) const
+    bool isWithinNull(std::size_t depth) const
     {
-        return index >= m_nullIndexBegin && index < m_nullIndexEnd;
+        return depth >= m_nullDepthBegin && depth < m_nullDepthEnd;
     }
 
-    bool isWithinBase(const Id& index) const
+    bool isWithinBase(std::size_t depth) const
     {
-        return index >= m_baseIndexBegin && index < m_baseIndexEnd;
+        return depth >= m_baseDepthBegin && depth < m_baseDepthEnd;
     }
 
-    bool isWithinCold(const Id& index) const
+    bool isWithinCold(std::size_t depth) const
     {
         return
-            index >= m_coldIndexBegin && (lossless() || index < m_coldIndexEnd);
+            depth >= m_coldDepthBegin && (lossless() || depth < m_coldDepthEnd);
     }
 
     bool hasNull() const    { return nullIndexEnd() > nullIndexBegin(); }

@@ -47,7 +47,17 @@ private:
     std::string m_typeString;
 };
 
-typedef std::vector<DimInfo> DimList;
+using DimList = std::vector<DimInfo>;
+
+inline bool operator==(const DimInfo& lhs, const DimInfo& rhs)
+{
+    return lhs.name() == rhs.name() && lhs.type() == rhs.type();
+}
+
+inline bool operator!=(const DimInfo& lhs, const DimInfo& rhs)
+{
+    return !(lhs == rhs);
+}
 
 } // namespace entwine
 

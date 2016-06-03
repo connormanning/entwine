@@ -18,7 +18,7 @@ namespace entwine
 
 Pool::Pool(const std::size_t numThreads, const std::size_t queueSize)
     : m_numThreads(numThreads)
-    , m_queueSize(queueSize)
+    , m_queueSize(std::min(queueSize, std::size_t(1)))
     , m_threads()
     , m_tasks()
     , m_stop(true)
@@ -74,8 +74,12 @@ void Pool::add(std::function<void()> task)
 {
     if (stop())
     {
-        throw std::runtime_error(
-                "Attempted to add a task to a stopped Pool");
+        throw std::runtime_error("Attempted to add a task to a stopped Pool");
+    }
+
+    if (!numThreads())
+    {
+        throw std::runtime_error("Attempted to add a task to an empty Pool");
     }
 
     std::unique_lock<std::mutex> lock(m_mutex);

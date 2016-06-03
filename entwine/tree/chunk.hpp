@@ -207,7 +207,10 @@ public:
 
     virtual void save(arbiter::Endpoint& endpoint) override;
 
+    PooledInfoStack acquire(InfoPool& infoPool);
     void merge(BaseChunk& other);
+
+    static Schema makeCelled(const Schema& in);
 
 private:
     Schema m_celledSchema;

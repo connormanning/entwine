@@ -154,5 +154,18 @@ void Tube::saveBase(
     }
 }
 
+PooledInfoStack Tube::acquire(InfoPool& infoPool)
+{
+    PooledInfoStack infoStack(infoPool);
+
+    if (!empty())
+    {
+        infoStack.push(m_primaryCell.atom().load());
+        for (const auto& c : m_cells) infoStack.push(c.second.atom().load());
+    }
+
+    return infoStack;
+}
+
 } // namespace entwine
 

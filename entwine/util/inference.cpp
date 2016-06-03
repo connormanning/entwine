@@ -21,16 +21,6 @@ namespace entwine
 
 namespace
 {
-    const arbiter::Headers previewRange(([]()
-    {
-        // Just get 16 kB for the preview attempt.
-        const std::size_t bytes(16384);
-
-        arbiter::Headers headers;
-        headers["Range"] = "bytes=0-" + std::to_string(bytes);
-        return headers;
-    })());
-
     const BBox expander(([]()
     {
         // Use BBox::set to avoid malformed bounds warning.
@@ -134,14 +124,18 @@ void Inference::go()
         {
             valid = true;
 
-            const arbiter::Driver& driver(m_arbiter->getDriver(f.path()));
-
-            if (const auto custom =
-                    dynamic_cast<const arbiter::CustomHeaderDriver*>(&driver))
+            if (m_arbiter->isHttpDerived(f.path()))
             {
-                m_pool->add([&f, custom, this]()
+                const arbiter::http::Headers range(([&f]()
                 {
-                    const auto data(custom->getBinary(f.path(), previewRange));
+                    arbiter::http::Headers h;
+                    h["Range"] = "bytes=0-16384";
+                    return h;
+                })());
+
+                m_pool->add([this, &f, range]()
+                {
+                    const auto data(m_arbiter->getBinary(f.path(), range));
 
                     std::string name(f.path());
                     std::replace(name.begin(), name.end(), '/', '-');

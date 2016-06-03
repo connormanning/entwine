@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <deque>
 #include <limits>
@@ -82,6 +83,8 @@ private:
     std::size_t m_omits;
     std::size_t m_errors;
 };
+
+typedef std::map<Origin, PointStats> PointStatsMap;
 
 class FileInfo
 {
@@ -165,6 +168,17 @@ public:
         m_pointStats.add(stats);
     }
 
+    void add(const PointStatsMap& statsMap)
+    {
+        std::for_each(
+                statsMap.begin(),
+                statsMap.end(),
+                [this](const PointStatsMap::value_type& p)
+                {
+                    add(p.first, p.second);
+                });
+    }
+
     void addOutOfBounds(Origin origin, std::size_t count, bool primary)
     {
         m_paths[origin].pointStats().addOutOfBounds(count);
@@ -216,6 +230,8 @@ public:
 
         void end(std::size_t set) { m_end = set; }
 
+        std::string postfix() const { return "-" + std::to_string(m_begin); }
+
     private:
         std::size_t m_begin;
         std::size_t m_end;
@@ -253,11 +269,6 @@ public:
     void split(std::size_t begin, std::size_t end)
     {
         m_split.reset(new Split(begin, end));
-    }
-
-    std::string splitPostfix() const
-    {
-        return m_split ? "-" + std::to_string(m_split->begin()) : "";
     }
 
 private:

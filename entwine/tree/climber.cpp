@@ -201,7 +201,7 @@ void Climber::climb(const Dir dir)
     // If this is a hybrid index, then we're tracking the BBox in 3d, but
     // climbing in 2d.  If so, normalize the direction to 2d.
     m_index += static_cast<std::size_t>(
-            m_tubular ? static_cast<Dir>(static_cast<int>(dir) % 4) : dir);
+            m_tubular ? toDir((toIntegral(dir) % 4)) : dir);
 }
 
 HierarchyClimber& Climber::hierarchyClimber()

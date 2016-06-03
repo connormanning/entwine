@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <pdal/Dimension.hpp>
 #include <pdal/PointTable.hpp>
 
 #include <entwine/tree/manifest.hpp>
@@ -25,6 +26,12 @@ class BinaryPointTable : public pdal::StreamPointTable
 public:
     BinaryPointTable(const Schema& schema)
         : pdal::StreamPointTable(schema.pdalLayout())
+        , m_pos(nullptr)
+    { }
+
+    BinaryPointTable(const Schema& schema, const char* pos)
+        : pdal::StreamPointTable(schema.pdalLayout())
+        , m_pos(pos)
     { }
 
     virtual pdal::point_count_t capacity() const override { return 1; }

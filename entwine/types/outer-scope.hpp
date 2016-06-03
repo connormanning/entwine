@@ -35,45 +35,43 @@ public:
         m_nodePool = nodePool;
     }
 
+    arbiter::Arbiter* getArbiterPtr() const { return m_arbiter.get(); }
+    PointPool* getPointPoolPtr() const { return m_pointPool.get(); }
+    Node::NodePool* getNodePoolPtr() const { return m_nodePool.get(); }
+
     template<class... Args>
-    std::shared_ptr<arbiter::Arbiter> getArbiter(Args&&... args) const
+    std::shared_ptr<arbiter::Arbiter> getArbiter(Args&&... args)
     {
-        if (m_arbiter)
+        if (!m_arbiter)
         {
-            return m_arbiter;
-        }
-        else
-        {
-            return std::make_shared<arbiter::Arbiter>(
+            m_arbiter = std::make_shared<arbiter::Arbiter>(
                     std::forward<Args>(args)...);
         }
+
+        return m_arbiter;
     }
 
     template<class... Args>
-    std::shared_ptr<PointPool> getPointPool(Args&&... args) const
+    std::shared_ptr<PointPool> getPointPool(Args&&... args)
     {
-        if (m_pointPool)
-        {
-            return m_pointPool;
-        }
-        else
+        if (!m_pointPool)
         {
             return std::make_shared<PointPool>(std::forward<Args>(args)...);
         }
+
+        return m_pointPool;
     }
 
     template<class... Args>
-    std::shared_ptr<Node::NodePool> getNodePool(Args&&... args) const
+    std::shared_ptr<Node::NodePool> getNodePool(Args&&... args)
     {
-        if (m_nodePool)
-        {
-            return m_nodePool;
-        }
-        else
+        if (!m_nodePool)
         {
             return std::make_shared<Node::NodePool>(
                     std::forward<Args>(args)...);
         }
+
+        return m_nodePool;
     }
 
 private:

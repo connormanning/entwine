@@ -59,9 +59,7 @@ void Storage::ensurePut(
     {
         throw std::runtime_error("Tried to save empty chunk");
     }
-    else if (
-            data.back() != Chunk::Contiguous &&
-            data.back() != Chunk::Sparse)
+    else if (data.back() != Chunk::Contiguous && data.back() != Chunk::Sparse)
     {
         throw std::runtime_error("Tried to save improperly marked chunk");
     }

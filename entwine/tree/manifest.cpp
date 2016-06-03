@@ -232,6 +232,8 @@ void Manifest::merge(const Manifest& other)
 
     FileStats fileStats;
 
+    // TODO This logic needs to be expanded to handle split builds, specifically
+    // to merge Outstanding statuses.
     for (std::size_t i(0); i < size(); ++i)
     {
         FileInfo& ours(m_paths[i]);

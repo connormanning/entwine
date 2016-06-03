@@ -42,15 +42,20 @@ namespace
 
 Reader::Reader(
         const arbiter::Endpoint& endpoint,
-        const arbiter::Arbiter& arbiter,
-        Cache& cache)
+        Cache& cache,
+        OuterScope outerScope)
     : m_endpoint(endpoint)
-    , m_builder(new Builder(endpoint.type() + "://" + endpoint.root()))
+    , m_builder(
+            new Builder(
+                endpoint.type() + "://" + endpoint.root(),
+                1,
+                nullptr,
+                nullptr,
+                outerScope))
     , m_base()
     , m_cache(cache)
     , m_ids(m_builder->registry().ids())
 {
-    using namespace arbiter;
 
     std::unique_ptr<std::vector<char>> data(
             new std::vector<char>(

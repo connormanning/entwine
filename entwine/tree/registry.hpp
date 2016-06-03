@@ -37,6 +37,8 @@ class Structure;
 
 class Registry
 {
+    friend class Builder;
+
 public:
     Registry(
             arbiter::Endpoint& endpoint,
@@ -57,9 +59,8 @@ public:
     bool addPoint(
             PooledInfoNode& toAdd,
             Climber& climber,
-            Clipper& clipper);
-
-    Cell* getCell(const Climber& climber, Clipper& clipper);
+            Clipper& clipper,
+            std::size_t maxDepth = 0);
 
     void save();
     void clip(const Id& index, std::size_t chunkNum, std::size_t id);
@@ -67,6 +68,11 @@ public:
     std::set<Id> ids() const;
 
 private:
+    Cell* getCell(const Climber& climber, Clipper& clipper);
+
+    BaseChunk* base() { return m_base.get(); }
+    Cold* cold() { return m_cold.get(); }
+
     arbiter::Endpoint& m_endpoint;
     const Builder& m_builder;
     const Structure& m_structure;
@@ -76,8 +82,6 @@ private:
 
     std::unique_ptr<BaseChunk> m_base;
     std::unique_ptr<Cold> m_cold;
-
-    Json::Value m_hierarchy;
 };
 
 } // namespace entwine

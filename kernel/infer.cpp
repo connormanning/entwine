@@ -44,6 +44,10 @@ namespace
             "\t\twhen one can be found from the file header, set the '-h'\n"
             "\t\tflag.\n\n"
 
+            "\t-o <output-path>\n"
+            "\t\tIf provided, detailed per-file information will be written\n"
+            "\t\tto this file in JSON format.\n\n"
+
             "\t-h\n"
             "\t\tIf set, the user-supplied input SRS will always override\n"
             "\t\tany SRS inferred from file headers.\n\n"
@@ -53,10 +57,6 @@ namespace
 
             "\t-u <aws user>\n"
             "\t\tSpecify AWS credential user, if not default\n\n"
-
-            "\t-e <aws server-side-encryption key>\n"
-            "\t\tSpecify AWS SSE key, if server-side encryption should be\n"
-            "requested.\n\n"
 
             "\t-a <tmp path>\n"
             "\t\tDirectory for entwine-generated temporary files.\n\n"
@@ -119,7 +119,7 @@ void Kernel::infer(std::vector<std::string> args)
         }
     }
 
-    const std::string path(args.at(0));
+    std::string path;
 
     std::size_t threads(4);
     Json::Value jsonReprojection;
@@ -127,13 +127,29 @@ void Kernel::infer(std::vector<std::string> args)
     std::string tmpPath("tmp");
     bool trustHeaders(true);
 
-    std::size_t a(1);
+    std::string output;
+
+    std::size_t a(0);
 
     while (a < args.size())
     {
         const std::string arg(args[a]);
 
-        if (arg == "-a")
+        if (arg.front() != '-')
+        {
+            // If this is not an option argument, use it as the path.
+            if (path.empty())
+            {
+                path = arg;
+            }
+            else
+            {
+                throw std::runtime_error(
+                        "Only one path allowed - found both '" +
+                        path + "' and '" + arg + "'");
+            }
+        }
+        else if (arg == "-a")
         {
             if (++a < args.size())
             {
@@ -142,6 +158,17 @@ void Kernel::infer(std::vector<std::string> args)
             else
             {
                 throw std::runtime_error("Invalid tmp specification");
+            }
+        }
+        else if (arg == "-o")
+        {
+            if (++a < args.size())
+            {
+                output = args[a];
+            }
+            else
+            {
+                throw std::runtime_error("Invalid output specification");
             }
         }
         else if (arg == "-r")
@@ -234,6 +261,14 @@ void Kernel::infer(std::vector<std::string> args)
             arbiter.get());
 
     inference.go();
+
+    if (output.size())
+    {
+        std::cout << "Writing details to " << output << "..." << std::endl;
+        arbiter->put(
+                output,
+                inference.manifest().toInferenceJson().toStyledString());
+    }
 
     std::cout << "Schema: " << inference.schema() << std::endl;
     std::cout << "Bounds: " << inference.bbox() << std::endl;

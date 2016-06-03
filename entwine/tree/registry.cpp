@@ -134,7 +134,8 @@ Registry::~Registry()
 bool Registry::addPoint(
         PooledInfoNode& toAdd,
         Climber& climber,
-        Clipper& clipper)
+        Clipper& clipper,
+        const std::size_t maxDepth)
 {
     bool done(false);
 
@@ -154,15 +155,14 @@ bool Registry::addPoint(
                 {
                     const Point& mid(climber.bbox().mid());
                     const Point& toAddPoint(toAdd->val().point());
+                    const Point& currentPoint(current->val().point());
 
-                    if (
-                            m_discardDuplicates &&
-                            toAddPoint == current->val().point())
+                    if (m_discardDuplicates && toAddPoint == currentPoint)
                     {
                         return false;
                     }
 
-                    if (better(toAddPoint, current->val().point(), mid, m_as3d))
+                    if (better(toAddPoint, currentPoint, mid, m_as3d))
                     {
                         done = false;
                         redo = !cell->swap(toAdd, current);
@@ -183,7 +183,9 @@ bool Registry::addPoint(
             climber.count();
             return true;
         }
-        else if (m_structure.inRange(climber.depth() + 1))
+        else if (
+                m_structure.inRange(climber.depth() + 1) &&
+                (!maxDepth || climber.depth() + 1 < maxDepth))
         {
             climber.magnify(toAdd->val().point());
         }
@@ -200,13 +202,11 @@ Cell* Registry::getCell(const Climber& climber, Clipper& clipper)
 {
     Cell* cell(nullptr);
 
-    const Id& index(climber.index());
-
-    if (m_structure.isWithinBase(index))
+    if (m_structure.isWithinBase(climber.depth()))
     {
         cell = &m_base->getCell(climber);
     }
-    else if (m_structure.isWithinCold(index))
+    else if (m_structure.isWithinCold(climber.depth()))
     {
         cell = &m_cold->getCell(climber, clipper);
     }

@@ -18,6 +18,7 @@
 #include <set>
 #include <vector>
 
+#include <entwine/types/outer-scope.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 
@@ -54,8 +55,8 @@ public:
     // Will throw if entwine's meta files cannot be fetched from this endpoint.
     Reader(
             const arbiter::Endpoint& endpoint,
-            const arbiter::Arbiter& arbiter,
-            Cache& cache);
+            Cache& cache,
+            OuterScope outerScope = OuterScope());
     ~Reader();
 
     std::unique_ptr<Query> query(

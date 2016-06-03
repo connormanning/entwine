@@ -17,15 +17,18 @@ namespace entwine
 
 Merger::Merger(
         const std::string path,
+        const std::size_t threads,
         std::shared_ptr<arbiter::Arbiter> arbiter)
     : m_builder()
     , m_path(path)
+    , m_numSubsets(0)
+    , m_threads(threads)
     , m_outerScope(new OuterScope())
 {
     m_outerScope->setArbiter(arbiter);
     m_outerScope->setNodePool(std::make_shared<Node::NodePool>());
 
-    m_builder = Builder::create(path, *m_outerScope);
+    m_builder = Builder::create(path, threads, *m_outerScope);
     if (!m_builder) throw std::runtime_error("Path not mergeable");
 
     m_outerScope->setPointPool(m_builder->sharedPointPool());
@@ -45,7 +48,7 @@ void Merger::go()
     {
         std::cout << "\t" << (id + 1) << " / " << m_numSubsets << std::flush;
 
-        auto current(Builder::create(m_path, id, *m_outerScope));
+        auto current(Builder::create(m_path, m_threads, id, *m_outerScope));
         if (!current) throw std::runtime_error("Couldn't create split builder");
 
         unsplit(*current);
@@ -77,6 +80,7 @@ void Merger::unsplit(Builder& builder)
         std::unique_ptr<Builder> nextSplit(
                 new Builder(
                     builder.outEndpoint().root(),
+                    m_threads,
                     subsetId.get(),
                     &pos));
 

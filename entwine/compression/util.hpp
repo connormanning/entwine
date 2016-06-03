@@ -42,6 +42,13 @@ public:
             const Schema& schema,
             std::size_t numPoints);
 
+    // If wantedSchema is nullptr, then the result will be in the native schema.
+    static std::unique_ptr<std::vector<char>> decompress(
+            const std::vector<char>& data,
+            const Schema& nativeSchema,
+            const Schema* const wantedSchema,
+            std::size_t numPoints);
+
     static PooledInfoStack decompress(
             const std::vector<char>& data,
             std::size_t numPoints,

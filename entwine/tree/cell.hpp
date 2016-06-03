@@ -107,6 +107,8 @@ public:
     const Cell& primaryCell() const { return m_primaryCell; }
     const MapType& secondaryCells() const { return m_cells; }
 
+    PooledInfoStack acquire(InfoPool& infoPool);
+
     static std::size_t maxTickDepth() { return 64; }
 
     static std::size_t calcTick(

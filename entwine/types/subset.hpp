@@ -42,7 +42,7 @@ public:
     std::size_t of() const { return m_of; }
     const BBox& bbox() const { return m_sub; }
 
-    std::string basePostfix() const { return "-" + std::to_string(m_id); }
+    std::string postfix() const { return "-" + std::to_string(m_id); }
     bool primary() const { return !m_id; }
 
 private:

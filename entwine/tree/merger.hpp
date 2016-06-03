@@ -26,6 +26,7 @@ class Merger
 public:
     Merger(
             std::string path,
+            std::size_t threads,
             std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
     ~Merger();
 
@@ -35,8 +36,9 @@ private:
     void unsplit(Builder& builder);
 
     std::unique_ptr<Builder> m_builder;
-    std::size_t m_numSubsets;
     std::string m_path;
+    std::size_t m_numSubsets;
+    std::size_t m_threads;
     std::unique_ptr<OuterScope> m_outerScope;
 };
 

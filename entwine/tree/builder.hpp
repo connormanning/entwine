@@ -18,8 +18,7 @@
 
 #include <pdal/Dimension.hpp>
 
-#include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/tree/hierarchy.hpp>
+#include <entwine/tree/climber.hpp>
 #include <entwine/tree/manifest.hpp>
 #include <entwine/tree/point-info.hpp>
 #include <entwine/types/outer-scope.hpp>
@@ -29,13 +28,22 @@ namespace Json
     class Value;
 }
 
+namespace pdal
+{
+    class PointView;
+}
+
+namespace arbiter
+{
+    class Arbiter;
+    class Endpoint;
+}
+
 namespace entwine
 {
 
 class BBox;
-class Climber;
 class Clipper;
-class Driver;
 class Executor;
 class Manifest;
 class Pool;
@@ -44,6 +52,8 @@ class Reprojection;
 class Schema;
 class Structure;
 class Subset;
+
+using TileFunction = std::function<void(pdal::PointView& view, BBox bbox)>;
 
 class Builder
 {
@@ -85,6 +95,7 @@ public:
     // Save the current state of the tree.  Files may no longer be inserted
     // after this call, but getters are still valid.
     void save();
+    std::map<std::string, std::string> propsToSave() const;
 
     // Aggregate manifest-split build.
     void unsplit(Builder& other);
@@ -102,6 +113,7 @@ public:
     const Hierarchy& hierarchy() const;
     const Subset* subset() const;
     const Reprojection* reprojection() const;
+    const arbiter::Arbiter& arbiter() const;
 
     PointPool& pointPool() const;
     std::shared_ptr<PointPool> sharedPointPool() const;
@@ -143,29 +155,46 @@ public:
     // work and will complete the entirety of the build.
     std::unique_ptr<Manifest::Split> takeWork();
 
-    std::string postfix(bool includeSubset = true) const;
+    void traverse(
+            std::string output,
+            std::size_t threads,
+            double tileWidth,
+            const TileFunction& f) const;
 
-private:
-    // Attempt to wake up a subset or split build with indeterminate metadata
-    // state.  Used for merging.
-    static std::unique_ptr<Builder> create(
-            std::string path,
-            OuterScope outerScope = OuterScope());
+    void traverse(
+            std::size_t threads,
+            double tileWidth,
+            const TileFunction& f,
+            const Schema* schema = nullptr) const;
 
-    static std::unique_ptr<Builder> create(
-            std::string path,
-            std::size_t subsetId,
-            OuterScope outerScope = OuterScope());
+    std::string postfix(bool isColdChunk = false) const;
 
     // Read-only.  Used by the Reader to avoid duplicating metadata logic (if
     // no subset/split is passed) or by the Merger to awaken partial builds.
     //
     // Also used for merging, after an initial Builder::create has provided
     // us with enough metadata info to fetch the other pieces directly.
+    //
+    // Also used for traversing.
     Builder(
             std::string path,
+            std::size_t threads = 1,
             const std::size_t* subsetId = nullptr,
             const std::size_t* splitBegin = nullptr,
+            OuterScope outerScope = OuterScope());
+
+private:
+    // Attempt to wake up a subset or split build with indeterminate metadata
+    // state.  Used for merging.
+    static std::unique_ptr<Builder> create(
+            std::string path,
+            std::size_t threads,
+            OuterScope outerScope = OuterScope());
+
+    static std::unique_ptr<Builder> create(
+            std::string path,
+            std::size_t threads,
+            std::size_t subsetId,
             OuterScope outerScope = OuterScope());
 
     // Returns true if we should insert this file based on its info.
@@ -184,6 +213,19 @@ private:
             Origin origin,
             Clipper& clipper,
             Climber& climber);
+
+    typedef std::map<Id, std::vector<InfoState>> Reserves;
+
+    // Insert within a previously-identified depth range.
+    void insertHinted(
+            Reserves& reserves,
+            PooledInfoStack infoStack,
+            PointStatsMap& pointStatsMap,
+            Clipper& clipper,
+            Hierarchy& localHierarchy,
+            const Id& chunkId,
+            std::size_t depthBegin,
+            std::size_t depthEnd = 0);
 
     // Remove resources that are no longer needed.
     void clip(const Id& index, std::size_t chunkNum, std::size_t id);
@@ -219,8 +261,6 @@ private:
     void loadProps(OuterScope outerScope, Json::Value& props, std::string pf);
 
     void addError(const std::string& path, const std::string& error);
-
-    float chunkMem() const;
 
     Hierarchy& hierarchy();
 

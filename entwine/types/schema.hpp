@@ -50,6 +50,17 @@ public:
         return m_dims;
     }
 
+    bool contains(const std::string& name) const
+    {
+        const auto it(
+                std::find_if(
+                    m_dims.begin(),
+                    m_dims.end(),
+                    [&name](const DimInfo& d) { return d.name() == name; }));
+
+        return it != m_dims.end();
+    }
+
     pdal::PointLayout& pdalLayout() const
     {
         return *m_layout.get();
@@ -61,6 +72,16 @@ private:
     std::unique_ptr<pdal::PointLayout> m_layout;
     DimList m_dims;
 };
+
+inline bool operator==(const Schema& lhs, const Schema& rhs)
+{
+    return lhs.dims() == rhs.dims();
+}
+
+inline bool operator!=(const Schema& lhs, const Schema& rhs)
+{
+    return !(lhs == rhs);
+}
 
 inline std::ostream& operator<<(std::ostream& os, const Schema& schema)
 {
