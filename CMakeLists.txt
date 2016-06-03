@@ -19,15 +19,17 @@ include_directories("${CMAKE_CURRENT_SOURCE_DIR}")
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/entwine/third")
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/entwine/third/json")
 
-find_package(PDAL 1.1 REQUIRED CONFIG NO_POLICY_SCOPE)
+find_package(PDAL 1.2 REQUIRED CONFIG NO_POLICY_SCOPE)
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 find_package(Threads REQUIRED)
 find_package(LazPerf REQUIRED)
 find_package(Curl REQUIRED)
 
 mark_as_advanced(CLEAR PDAL_INCLUDE_DIRS)
+mark_as_advanced(CLEAR LazPerf_INCLUDE_DIR)
 mark_as_advanced(CLEAR PDAL_LIBRARIES)
 include_directories(${PDAL_INCLUDE_DIRS})
+include_directories(${LAZPERF_INCLUDE_DIR})
 
 if (CMAKE_MAJOR_VERSION GREATER 2)
     cmake_policy(SET CMP0022 OLD) # interface link libraries
