@@ -10,12 +10,15 @@
 
 #pragma once
 
+#include <entwine/third/bigint/little-big-int.hpp>
 #include <entwine/types/bbox.hpp>
 
 namespace pdal { class PointView; }
 
 namespace entwine
 {
+
+using Id = BigUint;
 
 using Origin = uint64_t;
 static constexpr Origin invalidOrigin = std::numeric_limits<Origin>::max();

@@ -38,7 +38,7 @@ add_subdirectory(entwine)
 add_subdirectory(kernel)
 
 set(OBJS
-    # $<TARGET_OBJECTS:reader>
+    $<TARGET_OBJECTS:reader>
     $<TARGET_OBJECTS:third>
     $<TARGET_OBJECTS:tree>
     $<TARGET_OBJECTS:types>

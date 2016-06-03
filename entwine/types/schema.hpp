@@ -61,6 +61,11 @@ public:
         return it != m_dims.end();
     }
 
+    pdal::Dimension::Id::Enum getId(const std::string& name) const
+    {
+        return pdalLayout().findDim(name);
+    }
+
     pdal::PointLayout& pdalLayout() const
     {
         return *m_layout.get();

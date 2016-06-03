@@ -14,15 +14,13 @@
 
 #include <pdal/PointRef.hpp>
 
+#include <entwine/types/defs.hpp>
 #include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
-#include <entwine/third/bigint/little-big-int.hpp>
 #include <entwine/third/splice-pool/splice-pool.hpp>
 
 namespace entwine
 {
-
-using Id = BigUint;
 
 class Data
 {
@@ -55,7 +53,7 @@ public:
 
     void push(Cell::PooledNode&& other)
     {
-        assert(point() == other.point());
+        assert(point() == other->point());
         m_dataStack.push(other->m_dataStack);
     }
 
@@ -104,32 +102,6 @@ private:
 
     Data::Pool m_dataPool;
     Cell::Pool m_cellPool;
-};
-
-// TODO Legacy code currently used by the Reader - needs reworking.
-class PointInfo
-{
-public:
-    virtual ~PointInfo() { }
-
-    virtual const Point& point() const = 0;
-    virtual const char* data() const = 0;
-};
-
-class PointInfoNonPooled : public PointInfo
-{
-public:
-    PointInfoNonPooled(const Point& point, const char* pos)
-        : m_point(point)
-        , m_pos(pos)
-    { }
-
-    virtual const Point& point() const override { return m_point; }
-    virtual const char* data() const override { return m_pos; }
-
-private:
-    const Point m_point;
-    const char* m_pos;
 };
 
 } // namespace entwine

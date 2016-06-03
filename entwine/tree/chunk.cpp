@@ -352,7 +352,7 @@ BaseChunk::BaseChunk(
     }
 
     const std::size_t celledPointSize(m_celledSchema.pointSize());
-    const auto tubeId(m_celledSchema.pdalLayout().findDim(tubeIdDim));
+    const auto tubeId(m_celledSchema.getId(tubeIdDim));
 
     // Skip tube IDs.
     const std::size_t dataOffset(sizeof(uint64_t));

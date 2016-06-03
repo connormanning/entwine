@@ -11,8 +11,10 @@
 #include <entwine/reader/cache.hpp>
 
 #include <entwine/reader/chunk-reader.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/util/pool.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
@@ -239,19 +241,17 @@ const ChunkReader* Cache::fetch(
 
     if (!chunkState.chunkReader)
     {
-        std::unique_ptr<std::vector<char>> rawData(
-                new std::vector<char>(
-                    fetchInfo.reader.endpoint().getBinary(
-                        fetchInfo.reader.structure().maybePrefix(
-                            fetchInfo.id))));
+        const Reader& reader(fetchInfo.reader);
+        const Metadata& metadata(reader.metadata());
+        const std::string path(metadata.structure().maybePrefix(fetchInfo.id));
 
-        chunkState.chunkReader.reset(
-                new ChunkReader(
-                    fetchInfo.reader.schema(),
-                    fetchInfo.reader.bbox(),
-                    fetchInfo.id,
-                    fetchInfo.depth,
-                    std::move(rawData)));
+        chunkState.chunkReader = makeUnique<ChunkReader>(
+                metadata.schema(),
+                metadata.bbox(),
+                fetchInfo.id,
+                fetchInfo.depth,
+                makeUnique<std::vector<char>>(
+                    reader.endpoint().getBinary(path)));
     }
 
     return chunkState.chunkReader.get();

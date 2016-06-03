@@ -57,7 +57,7 @@ private:
 
     virtual pdal::PointId addPoint()
     {
-        throw std::runtime_error("Cannot add points to a TiledPointTable");
+        throw std::runtime_error("Cannot add points to a VectorPointTable");
     }
 
     const char* getPoint(pdal::PointId i) const

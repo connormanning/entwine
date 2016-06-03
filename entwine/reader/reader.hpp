@@ -36,17 +36,12 @@ public:
     { }
 };
 
-class BaseChunk;
+class BaseChunkReader;
 class BBox;
 class Cache;
-class Climber;
-class Hierarchy;
-class Manifest;
 class Metadata;
 class Query;
-class Reprojection;
 class Schema;
-class SinglePointTable;
 
 class Reader
 {
@@ -78,16 +73,11 @@ public:
             std::size_t depthBegin,
             std::size_t depthEnd);
 
-    std::size_t numPoints() const;
-    const BBox& bboxConforming() const;
-    const BBox& bbox() const;
-    const Schema& schema() const;
-    const Structure& structure() const;
-    const std::string& srs() const;
-    std::string path() const;
+    const Metadata& metadata() const { return *m_metadata; }
+    std::string path() const { return m_endpoint.root(); }
 
-    const BaseChunk* base() const;
-    const arbiter::Endpoint& endpoint() const;
+    const BaseChunkReader* base() const { return m_base.get(); }
+    const arbiter::Endpoint& endpoint() const { return m_endpoint; }
     bool exists(const Id& id) const { return m_ids.count(id); }
 
     struct BoxInfo
@@ -102,10 +92,12 @@ public:
     typedef std::map<BBox, BoxInfo> BoxMap;
 
 private:
+    const BBox& bbox() const;
+
     arbiter::Endpoint m_endpoint;
 
     std::unique_ptr<Metadata> m_metadata;
-    std::unique_ptr<BaseChunk> m_base;
+    std::unique_ptr<BaseChunkReader> m_base;
 
     Cache& m_cache;
     std::set<Id> m_ids;

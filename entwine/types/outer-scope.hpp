@@ -38,48 +38,47 @@ public:
     template<class... Args>
     std::shared_ptr<arbiter::Arbiter> getArbiter(Args&&... args) const
     {
-        if (m_arbiter)
+        if (!m_arbiter)
         {
-            return m_arbiter;
-        }
-        else
-        {
-            return std::make_shared<arbiter::Arbiter>(
+            m_arbiter = std::make_shared<arbiter::Arbiter>(
                     std::forward<Args>(args)...);
         }
+
+        return m_arbiter;
     }
 
     template<class... Args>
     std::shared_ptr<PointPool> getPointPool(Args&&... args) const
     {
-        if (m_pointPool)
+        if (!m_pointPool)
         {
-            return m_pointPool;
+            m_pointPool = std::make_shared<PointPool>(
+                    std::forward<Args>(args)...);
         }
-        else
-        {
-            return std::make_shared<PointPool>(std::forward<Args>(args)...);
-        }
+
+        return m_pointPool;
     }
 
     template<class... Args>
     std::shared_ptr<Node::NodePool> getNodePool(Args&&... args) const
     {
-        if (m_nodePool)
+        if (!m_nodePool)
         {
-            return m_nodePool;
-        }
-        else
-        {
-            return std::make_shared<Node::NodePool>(
+            m_nodePool = std::make_shared<Node::NodePool>(
                     std::forward<Args>(args)...);
         }
+
+        return m_nodePool;
     }
 
+    arbiter::Arbiter* getArbiterPtr() const { return m_arbiter.get(); }
+    PointPool* getPointPoolPtr() const { return m_pointPool.get(); }
+    Node::NodePool* getNodePoolPtr() const { return m_nodePool.get(); }
+
 private:
-    std::shared_ptr<arbiter::Arbiter> m_arbiter;
-    std::shared_ptr<PointPool> m_pointPool;
-    std::shared_ptr<Node::NodePool> m_nodePool;
+    mutable std::shared_ptr<arbiter::Arbiter> m_arbiter;
+    mutable std::shared_ptr<PointPool> m_pointPool;
+    mutable std::shared_ptr<Node::NodePool> m_nodePool;
 };
 
 } // namespace entwine

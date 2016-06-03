@@ -22,6 +22,7 @@
 namespace entwine
 {
 
+class PointInfo;
 class Schema;
 
 class Query
@@ -54,9 +55,7 @@ protected:
         std::memcpy(pos, &v, sizeof(T));
     }
 
-    bool processPoint(
-            std::vector<char>& buffer,
-            const PointInfo& info);
+    bool processPoint(std::vector<char>& buffer, const PointInfo& info);
 
     const Reader& m_reader;
     const Structure& m_structure;

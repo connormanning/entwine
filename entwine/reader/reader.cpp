@@ -10,7 +10,10 @@
 
 #include <entwine/reader/reader.hpp>
 
+#include <numeric>
+
 #include <entwine/reader/cache.hpp>
+#include <entwine/reader/chunk-reader.hpp>
 #include <entwine/reader/query.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/chunk.hpp>
@@ -53,53 +56,49 @@ Reader::Reader(
     , m_cache(cache)
     , m_ids()
 {
-    /*
-    if (m_metadata->structure().hasBase())
+    const Structure& structure(m_metadata->structure());
+
+    if (structure.hasBase())
     {
-        auto compressed(endpoint.getBinary(structure().baseIndexBegin().str()));
-        const Tail tail(popTail(decompressed));
+        auto compressed(
+                makeUnique<std::vector<char>>(
+                    endpoint.getBinary(structure.baseIndexBegin().str())));
 
-        std::unique_ptr<std::vector<char>> data(
-                Compression::decompress(
-                    compressed,
-                    BaseChunk::makeCelled(m_metadata->schema()),
-                    tail.numPoints));
-
-        m_base.reset(
-                static_cast<BaseChunk*>(
-                    Chunk::create(
-                        *m_builder,
-                        bbox(),
-                        0,
-                        structure().baseIndexBegin(),
-                        structure().baseIndexSpan(),
-                        std::move(data)).release()));
+        m_base = makeUnique<BaseChunkReader>(
+                *m_metadata,
+                BaseChunk::makeCelled(m_metadata->schema()),
+                structure.baseIndexBegin(),
+                std::move(compressed));
     }
 
-    if (m_metadata->structure().hasCold())
+    if (structure.hasCold())
     {
-        const auto idData(parse(m_endpoint.get("entwine-ids")));
-        const auto strIds(extract<std::string>(idData));
+        std::vector<Id> ids(extract<Id>(parse(m_endpoint.get("entwine-ids"))));
         m_ids = std::accumulate(
-                strIds.begin(),
-                strIds.end(),
-                std::set<Id>(),
-                [](const std::string& s) { return Id(s) });
+            ids.begin(),
+            ids.end(),
+            std::set<Id>(),
+            [](const std::set<Id> set, const Id& id)
+            {
+                auto next(set);
+                next.insert(id);
+                return next;
+            });
     }
-    */
 }
 
 Reader::~Reader()
 { }
 
-/*
 Json::Value Reader::hierarchy(
         const BBox& qbox,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
     checkQuery(depthBegin, depthEnd);
-    return m_builder->hierarchy().query(qbox, depthBegin, depthEnd);
+    // TODO
+    // return m_builder->hierarchy().query(qbox, depthBegin, depthEnd);
+    return Json::Value();
 }
 
 std::unique_ptr<Query> Reader::query(
@@ -145,25 +144,7 @@ std::unique_ptr<Query> Reader::query(
                 offset));
 }
 
-const BBox& Reader::bboxConforming() const
-{
-    return m_builder->bboxConforming();
-}
-
-const BBox& Reader::bbox() const            { return m_builder->bbox(); }
-const Schema& Reader::schema() const        { return m_builder->schema(); }
-const Structure& Reader::structure() const  { return m_builder->structure(); }
-const std::string& Reader::srs() const      { return m_builder->srs(); }
-std::string Reader::path() const            { return m_endpoint.root(); }
-
-const BaseChunk* Reader::base() const { return m_base.get(); }
-const arbiter::Endpoint& Reader::endpoint() const { return m_endpoint; }
-
-std::size_t Reader::numPoints() const
-{
-    return m_builder->numPointsClone();
-}
-*/
+const BBox& Reader::bbox() const { return m_metadata->bbox(); }
 
 } // namespace entwine
 

@@ -13,6 +13,7 @@
 #include <string>
 
 #include <entwine/third/json/json.hpp>
+#include <entwine/types/defs.hpp>
 
 namespace entwine
 {
@@ -119,6 +120,17 @@ namespace extraction
             return doExtract<std::string>(
                     json,
                     [](const Json::Value& v) { return v.asString(); });
+        }
+    };
+
+    template<>
+    struct E<Id>
+    {
+        static std::vector<Id> go(const Json::Value& json)
+        {
+            return doExtract<Id>(
+                    json,
+                    [](const Json::Value& v) { return Id(v.asString()); });
         }
     };
 }

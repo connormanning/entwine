@@ -15,6 +15,7 @@
 #include <entwine/reader/cache.hpp>
 #include <entwine/reader/chunk-reader.hpp>
 #include <entwine/tree/chunk.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/tube.hpp>
 
@@ -36,7 +37,7 @@ Query::Query(
         const double scale,
         const Point& offset)
     : m_reader(reader)
-    , m_structure(reader.structure())
+    , m_structure(m_reader.metadata().structure())
     , m_cache(cache)
     , m_qbox(qbox)
     , m_depthBegin(depthBegin)
@@ -50,14 +51,14 @@ Query::Query(
     , m_outSchema(schema)
     , m_scale(scale)
     , m_offset(offset)
-    , m_table(reader.schema())
+    , m_table(m_reader.metadata().schema())
     , m_pointRef(m_table, 0)
 {
     if (!m_depthEnd || m_depthEnd > m_structure.coldDepthBegin())
     {
         SplitClimber splitter(
                 m_structure,
-                m_reader.bbox(),
+                m_reader.metadata().bbox(),
                 m_qbox,
                 m_depthBegin,
                 m_depthEnd,
@@ -70,7 +71,7 @@ Query::Query(
             terminate = false;
             const Id& chunkId(splitter.index());
 
-            if (reader.exists(chunkId))
+            if (m_reader.exists(chunkId))
             {
                 m_chunks.insert(
                         FetchInfo(
@@ -112,66 +113,55 @@ bool Query::next(std::vector<char>& buffer)
 
 bool Query::getBase(std::vector<char>& buffer)
 {
-    return false; // TODO.
-    /*
-    bool dataExisted(false);
+    const std::size_t startNumPoints(m_numPoints);
+    auto dataExisted([this, startNumPoints]()
+    {
+        return m_numPoints != startNumPoints;
+    });
 
     if (
             m_reader.base() &&
             m_depthBegin < m_structure.baseDepthEnd() &&
             m_depthEnd   > m_structure.baseDepthBegin())
     {
-        const BaseChunk& base(*m_reader.base());
+        const BaseChunkReader& base(*m_reader.base());
         bool terminate(false);
         SplitClimber splitter(
                 m_structure,
-                m_reader.bbox(),
+                m_reader.metadata().bbox(),
                 m_qbox,
                 m_depthBegin,
                 std::min(m_depthEnd, m_structure.baseDepthEnd()));
 
         if (splitter.index() < m_structure.baseIndexBegin())
         {
-            return dataExisted;
+            return dataExisted();
         }
 
         do
         {
             terminate = false;
+            const auto& tube(base.getTubeData(splitter.index()));
 
-            const Id& index(splitter.index());
-            const Tube& tube(base.getTube(index));
-
-            if (!tube.empty())
+            if (tube.empty())
             {
-                if (
-                        processPoint(
-                            buffer,
-                            tube.primaryCell().atom().load()->val()))
-                {
-                    ++m_numPoints;
-                    dataExisted = true;
-                }
-
-                for (const auto& c : tube.secondaryCells())
-                {
-                    if (processPoint(buffer, c.second.atom().load()->val()))
-                    {
-                        ++m_numPoints;
-                        dataExisted = true;
-                    }
-                }
+                terminate = true;
             }
             else
             {
-                terminate = true;
+                for (const PointInfo& pointInfo : tube)
+                {
+                    if (processPoint(buffer, pointInfo))
+                    {
+                        ++m_numPoints;
+                    }
+                }
             }
         }
         while (splitter.next(terminate));
     }
 
-    return dataExisted;
-            */
+    return dataExisted();
 }
 
 void Query::getChunked(std::vector<char>& buffer)
