@@ -78,7 +78,7 @@ Reader::Reader(
             ids.begin(),
             ids.end(),
             std::set<Id>(),
-            [](const std::set<Id> set, const Id& id)
+            [](const std::set<Id>& set, const Id& id)
             {
                 auto next(set);
                 next.insert(id);
