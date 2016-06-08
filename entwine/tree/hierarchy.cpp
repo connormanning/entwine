@@ -9,6 +9,7 @@
 ******************************************************************************/
 
 #include <entwine/tree/hierarchy.hpp>
+#include <entwine/types/structure.hpp>
 
 namespace entwine
 {
@@ -534,10 +535,7 @@ void Hierarchy::accumulate(
                 }
             });
 
-            for (std::size_t i(0); i < 8; ++i)
-            {
-                addChild(out, lag, static_cast<Dir>(i));
-            }
+            for (std::size_t i(0); i < 8; ++i) addChild(out, lag, toDir(i));
         }
         else
         {
@@ -573,10 +571,7 @@ void Hierarchy::accumulate(
                 }
             });
 
-            for (std::size_t i(0); i < 8; ++i)
-            {
-                addChild(out, static_cast<Dir>(i));
-            }
+            for (std::size_t i(0); i < 8; ++i) addChild(out, toDir(i));
 
             lag.pop_back();
         }

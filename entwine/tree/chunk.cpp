@@ -52,14 +52,13 @@ void Chunk::populate(
     Cell::PooledStack cells(
             Compression::decompress(*compressedData, numPoints, m_pointPool));
 
-    const Climber startClimber(m_metadata.bbox(), m_metadata.structure());
-    Climber climber(startClimber);
+    Climber climber(m_metadata);
 
     for (std::size_t i(0); i < numPoints; ++i)
     {
         Cell::PooledNode cell(cells.popOne());
 
-        climber = startClimber;
+        climber.reset();
         climber.magnifyTo(cell->point(), m_depth);
 
         insert(climber, cell);
@@ -365,8 +364,7 @@ BaseChunk::BaseChunk(
 
     const std::size_t factor(m_metadata.structure().factor());
 
-    const Climber startClimber(m_metadata.bbox(), m_metadata.structure());
-    Climber climber(startClimber);
+    Climber climber(m_metadata);
 
     const char* pos(data->data());
 
@@ -383,7 +381,7 @@ BaseChunk::BaseChunk(
         const std::size_t tube(pointRef.getFieldAs<uint64_t>(tubeId));
         const std::size_t curDepth(ChunkInfo::calcDepth(factor, m_id + tube));
 
-        climber = startClimber;
+        climber.reset();
         climber.magnifyTo(cell->point(), curDepth);
 
         if (tube != normalize(climber.index()))

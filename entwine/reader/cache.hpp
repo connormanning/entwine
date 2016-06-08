@@ -73,10 +73,10 @@ typedef std::list<GlobalChunkInfo> InactiveList;
 
 
 
-struct ChunkState
+struct DataChunkState
 {
-    ChunkState();
-    ~ChunkState();
+    DataChunkState();
+    ~DataChunkState();
 
     std::unique_ptr<ChunkReader> chunkReader;
     std::unique_ptr<InactiveList::iterator> inactiveIt;
@@ -87,7 +87,7 @@ struct ChunkState
 
 
 
-typedef std::map<Id, std::unique_ptr<ChunkState>> LocalManager;
+typedef std::map<Id, std::unique_ptr<DataChunkState>> LocalManager;
 typedef std::map<std::string, LocalManager> GlobalManager;
 typedef std::map<Id, const ChunkReader*> ChunkMap;
 

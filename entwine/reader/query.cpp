@@ -14,6 +14,7 @@
 
 #include <entwine/reader/cache.hpp>
 #include <entwine/reader/chunk-reader.hpp>
+#include <entwine/reader/split-climber.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>

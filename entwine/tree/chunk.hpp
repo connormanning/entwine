@@ -14,7 +14,6 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
-#include <unordered_map>
 #include <vector>
 
 #include <pdal/PointTable.hpp>
@@ -159,7 +158,7 @@ private:
         return rawIndex - m_id;
     }
 
-    std::unordered_map<Id, Tube> m_tubes;
+    std::map<Id, Tube> m_tubes;
     std::mutex m_mutex;
 };
 

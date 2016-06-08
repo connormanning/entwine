@@ -15,7 +15,6 @@
 
 #include <entwine/reader/cache.hpp>
 #include <entwine/reader/reader.hpp>
-#include <entwine/tree/climber.hpp>
 #include <entwine/types/point.hpp>
 #include <entwine/types/pooled-point-table.hpp>
 

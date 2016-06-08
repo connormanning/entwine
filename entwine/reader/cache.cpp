@@ -54,14 +54,14 @@ void Block::set(const Id& id, const ChunkReader* chunkReader)
     m_chunkMap.at(id) = chunkReader;
 }
 
-ChunkState::ChunkState()
+DataChunkState::DataChunkState()
     : chunkReader()
     , inactiveIt()
     , refs(0)
     , mutex()
 { }
 
-ChunkState::~ChunkState() { }
+DataChunkState::~DataChunkState() { }
 
 
 
@@ -103,7 +103,7 @@ void Cache::release(const Block& block)
     {
         const Id& id(c.first);
 
-        std::unique_ptr<ChunkState>& chunkState(localManager.at(id));
+        std::unique_ptr<DataChunkState>& chunkState(localManager.at(id));
 
         if (chunkState)
         {
@@ -165,11 +165,11 @@ std::unique_ptr<Block> Cache::reserve(
     //      - If already existed and inactive, remove from the inactive list
     for (const auto& f : fetches)
     {
-        std::unique_ptr<ChunkState>& chunkState(localManager[f.id]);
+        std::unique_ptr<DataChunkState>& chunkState(localManager[f.id]);
 
         if (!chunkState)
         {
-            chunkState.reset(new ChunkState());
+            chunkState.reset(new DataChunkState());
             ++m_activeCount;
         }
         else if (chunkState->inactiveIt)
@@ -234,7 +234,7 @@ const ChunkReader* Cache::fetch(
         const FetchInfo& fetchInfo)
 {
     std::unique_lock<std::mutex> globalLock(m_mutex);
-    ChunkState& chunkState(*m_chunkManager.at(readerPath).at(fetchInfo.id));
+    DataChunkState& chunkState(*m_chunkManager.at(readerPath).at(fetchInfo.id));
     globalLock.unlock();
 
     std::lock_guard<std::mutex> lock(chunkState.mutex);

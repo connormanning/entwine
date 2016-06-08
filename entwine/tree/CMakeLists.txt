@@ -3,9 +3,9 @@ set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 set(
     SOURCES
+    "${BASE}/climber.cpp"
     "${BASE}/builder.cpp"
     "${BASE}/chunk.cpp"
-    "${BASE}/climber.cpp"
     "${BASE}/clipper.cpp"
     "${BASE}/cold.cpp"
     "${BASE}/config-parser.cpp"

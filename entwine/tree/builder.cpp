@@ -327,10 +327,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
 
     Clipper clipper(*this, origin);
     Hierarchy localHierarchy(m_metadata->bbox(), *m_nodePool);
-    Climber climber(
-            m_metadata->bbox(),
-            m_metadata->structure(),
-            &localHierarchy);
+    Climber climber(*m_metadata, &localHierarchy);
 
     auto inserter([this, origin, &clipper, &climber, &inserted]
     (Cell::PooledStack cells)
