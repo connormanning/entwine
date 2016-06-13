@@ -27,6 +27,8 @@ enum class Dir
     neu = 7
 };
 
+inline constexpr std::size_t dirEnd() { return 8; }
+
 // Get the direction of point P in relation to an origin O.
 inline Dir getDirection(const Point& p, const Point& o)
 {
@@ -61,15 +63,26 @@ inline Dir stringToDir(const std::string& s)
             (s[2] == 'u' ? 4 : 0)); // Up? +4.
 }
 
-inline std::size_t toIntegral(Dir dir)
+inline std::size_t toIntegral(Dir dir, bool force2d = false)
 {
-    return static_cast<std::size_t>(dir);
+    std::size_t result(static_cast<std::size_t>(dir));
+    if (force2d) result %= 4;
+    return result;
 }
 
 inline Dir toDir(std::size_t val)
 {
     return static_cast<Dir>(val);
 }
+
+inline bool isSouth(Dir dir) { return toIntegral(dir) % 4 < 2; } // 0, 1, 4, 5
+inline bool isNorth(Dir dir) { return !isSouth(dir); }
+
+inline bool isWest(Dir dir) { return toIntegral(dir) % 2 == 0; } // 0, 2, 4, 6
+inline bool isEast(Dir dir) { return !isWest(dir); }
+
+inline bool isDown(Dir dir) { return toIntegral(dir) < 4; }      // 0, 1, 2, 3
+inline bool isUp(Dir dir) { return !isDown(dir); }
 
 } // namespace entwine
 

@@ -28,98 +28,81 @@ namespace entwine
 class PointState
 {
 public:
-    PointState(const Metadata& metadata);
-    PointState(const PointState&);
-    PointState& operator=(const PointState&);
+    PointState(
+            const Structure& structure,
+            const BBox& bbox,
+            std::size_t startDepth = 0);
 
-    void climb(const Point& point);
+    virtual ~PointState() { }
+
+    void climb(Dir dir);
+    void climb(const Point& point) { climb(getDirection(point, m_bbox.mid())); }
+
+    PointState getClimb(Dir dir) const
+    {
+        PointState pointState(*this);
+        pointState.climb(dir);
+        return pointState;
+    }
+
     void reset()
     {
-        m_bbox = m_metadata.bbox();
+        m_bbox = m_bboxOriginal;
         m_index = 0;
         m_depth = 0;
         m_tick = 0;
+
+        m_chunkId = m_structure.nominalChunkIndex();
+        m_chunkNum = 0;
+        m_pointsPerChunk = m_structure.basePointsPerChunk();
     }
 
     const BBox& bbox() const    { return m_bbox; }
     const Id& index() const     { return m_index; }
-    std::size_t depth() const   { return m_depth; }
+    std::size_t depth() const   { return m_depth - m_startDepth; }
     std::size_t tick() const    { return m_tick; }
 
-private:
-    const Metadata& m_metadata;
-    const Structure& m_structure;
-
-    BBox m_bbox;
-    Id m_index;
-    std::size_t m_depth;
-    std::size_t m_tick;
-};
-
-class ChunkState
-{
-public:
-    ChunkState(const Metadata& metadata, const PointState& pointState);
-    ChunkState(const ChunkState&, const PointState& pointState);
-    ChunkState& operator=(const ChunkState&);
-
-    void climb();
-    void reset()
-    {
-        m_bbox = m_metadata.bbox();
-        m_chunkId = m_structure.nominalChunkIndex();
-        m_depth = 0;
-        m_chunkNum = 0;
-        m_pointsPerChunk = m_structure.basePointsPerChunk();
-        m_chunksAtDepth = 1;
-    }
-
-    const BBox& bbox() const    { return m_bbox; }
     const Id& chunkId() const   { return m_chunkId; }
     const Id& pointsPerChunk() const    { return m_pointsPerChunk; }
-    std::size_t chunksAtDepth() const   { return m_chunksAtDepth; }
-
     std::size_t chunkNum() const
     {
         if (m_chunkNum.trivial()) return m_chunkNum.getSimple();
         else return std::numeric_limits<std::size_t>::max();
     }
 
-private:
-    const Metadata& m_metadata;
+protected:
     const Structure& m_structure;
-    const PointState& m_pointState;
+    const BBox& m_bboxOriginal;
+    const std::size_t m_startDepth;
 
     BBox m_bbox;
-    Id m_chunkId;
+    Id m_index;
     std::size_t m_depth;
+    std::size_t m_tick;
 
+    Id m_chunkId;
     Id m_chunkNum;
     Id m_pointsPerChunk;
-    std::size_t m_chunksAtDepth;
 };
 
-class HierarchyState
+class HierarchyState : public PointState
 {
 public:
-    HierarchyState(const Metadata& metadata, Hierarchy* hierarchy);
-    HierarchyState(const HierarchyState&);
-    HierarchyState& operator=(const HierarchyState&);
+    HierarchyState(const Metadata& metadata, Hierarchy* hierarchy)
+        : PointState(
+                metadata.hierarchyStructure(),
+                metadata.bbox(),
+                Hierarchy::startDepth())
+        , m_hierarchy(hierarchy)
+    { }
 
-    void climb(const Point& point)
+    void count(int delta)
     {
-        if (m_climber && ++m_depth > m_climber->depthBegin())
-        {
-            m_climber->magnify(point);
-        }
+        if (m_hierarchy) m_hierarchy->count(*this, delta);
     }
 
-    void reset() { if (m_climber) m_climber->reset(); }
-    void count() { if (m_depth >= m_climber->depthBegin()) m_climber->count(); }
-
 private:
-    std::size_t m_depth;
-    std::unique_ptr<HierarchyClimber> m_climber;
+    Hierarchy* m_hierarchy;
 };
 
 class Climber
@@ -127,39 +110,20 @@ class Climber
 public:
     Climber(const Metadata& metadata, Hierarchy* hierarchy = nullptr)
         : m_metadata(metadata)
-        , m_pointState(metadata)
-        , m_chunkState(metadata, m_pointState)
+        , m_pointState(metadata.structure(), metadata.bbox())
         , m_hierarchyState(metadata, hierarchy)
     { }
-
-    Climber(const Climber& other)
-        : m_metadata(other.m_metadata)
-        , m_pointState(other.m_pointState)
-        , m_chunkState(other.m_chunkState, m_pointState)
-        , m_hierarchyState(other.m_hierarchyState)
-    { }
-
-    Climber& operator=(const Climber& other)
-    {
-        m_pointState = other.m_pointState;
-        m_chunkState = other.m_chunkState;
-        m_hierarchyState = other.m_hierarchyState;
-
-        return *this;
-    }
 
     void reset()
     {
         m_pointState.reset();
-        m_chunkState.reset();
         m_hierarchyState.reset();
     }
 
-    void count() { m_hierarchyState.count(); }
+    void count(int delta = 1) { m_hierarchyState.count(delta); }
 
     void magnify(const Point& point)
     {
-        m_chunkState.climb();
         m_pointState.climb(point);
         m_hierarchyState.climb(point);
     }
@@ -181,17 +145,16 @@ public:
     std::size_t depth() const { return m_pointState.depth(); }
     const BBox& bbox()  const { return m_pointState.bbox(); }
 
-    const Id& chunkId() const { return m_chunkState.chunkId(); }
-    const BBox& bboxChunk() const { return m_chunkState.bbox(); }
-    const Id& pointsPerChunk() const { return m_chunkState.pointsPerChunk(); }
-    std::size_t chunkNum() const { return m_chunkState.chunkNum(); }
+    const Id& chunkId() const { return m_pointState.chunkId(); }
+    const Id& pointsPerChunk() const { return m_pointState.pointsPerChunk(); }
+    std::size_t chunkNum() const { return m_pointState.chunkNum(); }
 
 private:
     const Metadata& m_metadata;
 
     PointState m_pointState;
-    ChunkState m_chunkState;
     HierarchyState m_hierarchyState;
+    // OHierarchyState m_ohierarchyState;
 };
 
 class CellState
@@ -208,6 +171,31 @@ public:
 private:
     Climber m_climber;
     Cell::PooledNode m_cell;
+};
+
+
+
+
+
+class OHierarchyState
+{
+public:
+    OHierarchyState(const Metadata& metadata, OHierarchy* hierarchy);
+
+    void climb(const Point& point)
+    {
+        if (m_climber && ++m_depth > m_climber->depthBegin())
+        {
+            m_climber->magnify(point);
+        }
+    }
+
+    void reset() { if (m_climber) m_climber->reset(); }
+    void count() { if (m_depth >= m_climber->depthBegin()) m_climber->count(); }
+
+private:
+    std::size_t m_depth;
+    std::unique_ptr<HierarchyClimber> m_climber;
 };
 
 } // namespace entwine

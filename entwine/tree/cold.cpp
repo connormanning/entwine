@@ -100,7 +100,7 @@ Cold::Cold(const Builder& builder, bool exists)
 Cold::~Cold()
 { }
 
-bool Cold::insert(
+Tube::Insertion Cold::insert(
         const Climber& climber,
         Clipper& clipper,
         Cell::PooledNode& cell)
@@ -258,7 +258,6 @@ void Cold::ensureChunk(
             chunk =
                     Chunk::create(
                         m_builder,
-                        climber.bboxChunk(),
                         climber.depth(),
                         chunkId,
                         climber.pointsPerChunk(),
@@ -269,7 +268,6 @@ void Cold::ensureChunk(
             chunk =
                     Chunk::create(
                         m_builder,
-                        climber.bboxChunk(),
                         climber.depth(),
                         chunkId,
                         climber.pointsPerChunk());

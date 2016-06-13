@@ -7,7 +7,6 @@ set(
     "${BASE}/chunk-reader.cpp"
     "${BASE}/query.cpp"
     "${BASE}/reader.cpp"
-    "${BASE}/split-climber.cpp"
 )
 
 set(
@@ -16,7 +15,6 @@ set(
     "${BASE}/chunk-reader.hpp"
     "${BASE}/query.hpp"
     "${BASE}/reader.hpp"
-    "${BASE}/split-climber.hpp"
 )
 
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})

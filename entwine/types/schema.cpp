@@ -57,11 +57,6 @@ namespace
     }
 }
 
-Schema::Schema()
-    : m_layout(new SimplePointLayout())
-    , m_dims()
-{ }
-
 Schema::Schema(DimList dims)
     : m_layout(makePointLayout(dims))
     , m_dims(dims)
@@ -111,17 +106,6 @@ Schema& Schema::operator=(const Schema& other)
 
 Schema::~Schema()
 { }
-
-void Schema::finalize()
-{
-    m_layout->finalize();
-
-    for (const auto& id : m_layout->dims())
-    {
-        m_dims.push_back(
-                DimInfo(m_layout->dimName(id), id, m_layout->dimType(id)));
-    }
-}
 
 Json::Value Schema::toJson() const
 {

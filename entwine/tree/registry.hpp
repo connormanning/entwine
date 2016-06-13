@@ -17,7 +17,10 @@
 #include <vector>
 
 #include <entwine/third/json/json.hpp>
+#include <entwine/tree/chunk.hpp>
+#include <entwine/tree/cold.hpp>
 #include <entwine/types/point-pool.hpp>
+#include <entwine/types/tube.hpp>
 
 namespace arbiter
 {
@@ -27,11 +30,9 @@ namespace arbiter
 namespace entwine
 {
 
-class BaseChunk;
 class Builder;
 class Climber;
 class Clipper;
-class Cold;
 class Structure;
 
 class Registry
@@ -57,10 +58,20 @@ private:
     void loadAsNew();
     void loadFromRemote();
 
-    bool insert(
+    Tube::Insertion insert(
             const Climber& climber,
             Clipper& clipper,
-            Cell::PooledNode& cell);
+            Cell::PooledNode& cell)
+    {
+        if (m_structure.isWithinBase(climber.depth()))
+        {
+            return m_base->insert(climber, cell);
+        }
+        else
+        {
+            return m_cold->insert(climber, clipper, cell);
+        }
+    }
 
     BaseChunk* base() { return m_base.get(); }
     Cold* cold() { return m_cold.get(); }

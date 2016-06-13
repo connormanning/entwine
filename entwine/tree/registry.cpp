@@ -15,10 +15,8 @@
 #include <pdal/PointView.hpp>
 
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
-#include <entwine/tree/cold.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
@@ -45,7 +43,6 @@ Registry::Registry(const Builder& builder, const bool exists)
                     static_cast<BaseChunk*>(
                         Chunk::create(
                             m_builder,
-                            metadata.bbox(),
                             0,
                             m_structure.baseIndexBegin(),
                             m_structure.baseIndexSpan()).release()));
@@ -61,7 +58,6 @@ Registry::Registry(const Builder& builder, const bool exists)
                         static_cast<BaseChunk*>(
                             Chunk::create(
                                 m_builder,
-                                metadata.bbox(),
                                 0,
                                 m_structure.baseIndexBegin(),
                                 m_structure.baseIndexSpan(),
@@ -94,10 +90,16 @@ bool Registry::addPoint(
         Clipper& clipper,
         const std::size_t maxDepth)
 {
+    Tube::Insertion attempt;
+
     while (true)
     {
-        if (!insert(climber, clipper, cell))
+        attempt = insert(climber, clipper, cell);
+
+        if (!attempt.done())
         {
+            if (attempt.delta()) climber.count(attempt.delta());
+
             if (
                     m_structure.inRange(climber.depth() + 1) &&
                     (!maxDepth || climber.depth() + 1 < maxDepth))
@@ -114,21 +116,6 @@ bool Registry::addPoint(
             climber.count();
             return true;
         }
-    }
-}
-
-bool Registry::insert(
-        const Climber& climber,
-        Clipper& clipper,
-        Cell::PooledNode& cell)
-{
-    if (m_structure.isWithinBase(climber.depth()))
-    {
-        return m_base->insert(climber, cell);
-    }
-    else
-    {
-        return m_cold->insert(climber, clipper, cell);
     }
 }
 

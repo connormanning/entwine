@@ -35,8 +35,10 @@ void Tube::insert(std::size_t tick, Cell::PooledNode& cell)
     }
 }
 
-bool Tube::insert(const Climber& climber, Cell::PooledNode& cell)
+Tube::Insertion Tube::insert(const Climber& climber, Cell::PooledNode& cell)
 {
+    Insertion result;
+
     SpinGuard lock(m_spinner);
 
     const auto it(m_cells.find(climber.tick()));
@@ -51,24 +53,28 @@ bool Tube::insert(const Climber& climber, Cell::PooledNode& cell)
 
             if (cell->point().sqDist3d(center) < curr->point().sqDist3d(center))
             {
-                // Store our new cell, and send the previous one further down
-                // the tree.
+                // We are inserting cell, and extracting curr.  Store our new
+                // cell, and send the previous one further down the tree.
+                result.setDelta(
+                        static_cast<int>(cell->size()) -
+                        static_cast<int>(curr->size()));
                 std::swap(cell, curr);
             }
-
-            return false;
+            // Else, the default-constructed result is correct.
         }
         else
         {
             it->second->push(std::move(cell));
-            return true;
+            result.setDone();
         }
     }
     else
     {
         m_cells.emplace(std::make_pair(climber.tick(), std::move(cell)));
-        return true;
+        result.setDone();
     }
+
+    return result;
 }
 
 } // namespace entwine

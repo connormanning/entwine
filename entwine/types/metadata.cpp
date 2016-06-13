@@ -24,6 +24,7 @@ Metadata::Metadata(
         const BBox& bboxConforming,
         const Schema& schema,
         const Structure& structure,
+        const Structure& hierarchyStructure,
         const Manifest& manifest,
         const Reprojection* reprojection,
         const Subset* subset,
@@ -34,6 +35,7 @@ Metadata::Metadata(
     , m_bbox(makeUnique<BBox>(m_bboxConforming->cubeify()))
     , m_schema(makeUnique<Schema>(schema))
     , m_structure(makeUnique<Structure>(structure))
+    , m_hierarchyStructure(makeUnique<Structure>(hierarchyStructure))
     , m_manifest(makeUnique<Manifest>(manifest))
     , m_reprojection(maybeClone(reprojection))
     , m_subset(maybeClone(subset))
@@ -55,6 +57,7 @@ Metadata::Metadata(const arbiter::Endpoint& ep, const std::size_t* subsetId)
     m_bbox = makeUnique<BBox>(meta["bbox"]);
     m_schema = makeUnique<Schema>(meta["schema"]);
     m_structure = makeUnique<Structure>(meta["structure"]);
+    m_hierarchyStructure = makeUnique<Structure>(meta["hierarchyStructure"]);
 
     m_manifest = makeUnique<Manifest>(manifest);
 
@@ -89,6 +92,7 @@ Metadata::Metadata(const Metadata& other)
     , m_bbox(makeUnique<BBox>(other.bbox()))
     , m_schema(makeUnique<Schema>(other.schema()))
     , m_structure(makeUnique<Structure>(other.structure()))
+    , m_hierarchyStructure(makeUnique<Structure>(other.hierarchyStructure()))
     , m_manifest(makeUnique<Manifest>(other.manifest()))
     , m_reprojection(maybeClone(other.reprojection()))
     , m_subset(maybeClone(other.subset()))
@@ -106,6 +110,7 @@ void Metadata::save(const arbiter::Endpoint& endpoint) const
     json["bbox"] = m_bbox->toJson();
     json["schema"] = m_schema->toJson();
     json["structure"] = m_structure->toJson();
+    json["hierarchyStructure"] = m_hierarchyStructure->toJson();
     json["srs"] = m_srs;
     json["trustHeaders"] = m_trustHeaders;
     json["compressed"] = m_compress;
@@ -163,38 +168,10 @@ void Metadata::makeWhole()
     m_manifest->unsplit();
 }
 
-const BBox& Metadata::bboxConforming() const { return *m_bboxConforming; }
-const BBox& Metadata::bboxEpsilon() const { return *m_bboxEpsilon; }
-const BBox& Metadata::bbox() const { return *m_bbox; }
-
 const BBox* Metadata::bboxSubset() const
 {
     return m_subset ? &m_subset->bbox() : nullptr;
 }
-
-const Schema& Metadata::schema() const { return *m_schema; }
-const Structure& Metadata::structure() const { return *m_structure; }
-const Manifest& Metadata::manifest() const { return *m_manifest; }
-
-/*
-const Reprojection* Metadata::reprojection() const
-{
-    return m_reprojection.get();
-}
-
-const Subset* Metadata::subset() const
-{
-    return m_subset.get();
-}
-*/
-
-/*
-BBox& Metadata::bboxConforming() { return *m_bboxConforming; }
-BBox& Metadata::bbox() { return *m_bbox; }
-Schema& Metadata::schema() { return *m_schema; }
-Structure& Metadata::structure() { return *m_structure; }
-*/
-Manifest& Metadata::manifest() { return *m_manifest; }
 
 } // namespace entwine
 

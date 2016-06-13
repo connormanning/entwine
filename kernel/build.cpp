@@ -498,6 +498,7 @@ void Kernel::build(std::vector<std::string> args)
         "\tNull depth: " << structure.nullDepthEnd() << "\n" <<
         "\tBase depth: " << structure.baseDepthEnd() << "\n" <<
         "\tCold depth: " << coldDepthString << "\n" <<
+        "\tSparse depth: " << structure.sparseDepthBegin() << "\n" <<
         "\tChunk size: " << structure.basePointsPerChunk() << " points\n" <<
         "\tDynamic chunks? " << yesNo(structure.dynamicChunks()) << "\n" <<
         "\tPrefix IDs? " << yesNo(structure.prefixIds()) << "\n" <<

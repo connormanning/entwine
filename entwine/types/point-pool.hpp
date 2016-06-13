@@ -43,10 +43,7 @@ public:
     using PooledNode = Pool::UniqueNodeType;
     using PooledStack = Pool::UniqueStackType;
 
-    Cell() noexcept
-        : m_point()
-        , m_dataStack()
-    { }
+    Cell() noexcept : m_point(), m_dataStack() { }
 
     const Point& point() const { return m_point; }
     Data::RawStack&& acquire() { return std::move(m_dataStack); }
@@ -57,6 +54,7 @@ public:
         m_dataStack.push(other->m_dataStack);
     }
 
+    std::size_t size() const { return m_dataStack.size(); }
     bool unique() const { return m_dataStack.size() == 1; }
     bool empty() const { return m_dataStack.empty(); }
 

@@ -36,7 +36,7 @@ public:
     const Point& mid() const { return m_mid; }
 
     // Returns true if this BBox shares any area in common with another.
-    bool overlaps(const BBox& other) const;
+    bool overlaps(const BBox& other, bool force2d = false) const;
 
     // Returns true if the requested BBox is contained within this BBox.
     bool contains(const BBox& other, bool force2d = false) const;
@@ -51,14 +51,69 @@ public:
     double area() const { return width() * depth(); }
     double volume() const { return width() * depth() * height(); }
 
-    void goNwu();
-    void goNwd(bool force2d = false);
-    void goNeu();
-    void goNed(bool force2d = false);
-    void goSwu();
-    void goSwd(bool force2d = false);
-    void goSeu();
-    void goSed(bool force2d = false);
+    void goNwu()
+    {
+        m_max.x = m_mid.x;
+        m_min.y = m_mid.y;
+        if (m_is3d) m_min.z = m_mid.z;
+        setMid();
+    }
+
+    void goNwd(const bool force2d = false)
+    {
+        m_max.x = m_mid.x;
+        m_min.y = m_mid.y;
+        if (!force2d && m_is3d) m_max.z = m_mid.z;
+        setMid();
+    }
+
+    void goNeu()
+    {
+        m_min.x = m_mid.x;
+        m_min.y = m_mid.y;
+        if (m_is3d) m_min.z = m_mid.z;
+        setMid();
+    }
+
+    void goNed(const bool force2d = false)
+    {
+        m_min.x = m_mid.x;
+        m_min.y = m_mid.y;
+        if (!force2d && m_is3d) m_max.z = m_mid.z;
+        setMid();
+    }
+
+    void goSwu()
+    {
+        m_max.x = m_mid.x;
+        m_max.y = m_mid.y;
+        if (m_is3d) m_min.z = m_mid.z;
+        setMid();
+    }
+
+    void goSwd(const bool force2d = false)
+    {
+        m_max.x = m_mid.x;
+        m_max.y = m_mid.y;
+        if (!force2d && m_is3d) m_max.z = m_mid.z;
+        setMid();
+    }
+
+    void goSeu()
+    {
+        m_min.x = m_mid.x;
+        m_max.y = m_mid.y;
+        if (m_is3d) m_min.z = m_mid.z;
+        setMid();
+    }
+
+    void goSed(const bool force2d = false)
+    {
+        m_min.x = m_mid.x;
+        m_max.y = m_mid.y;
+        if (!force2d && m_is3d) m_max.z = m_mid.z;
+        setMid();
+    }
 
     BBox getNwd(bool force2d = false) const
     {
@@ -87,7 +142,7 @@ public:
 
     void go(Dir dir, bool force2d = false)
     {
-        if (force2d) dir = toDir(toIntegral(dir) % 4);
+        if (force2d) dir = toDir(toIntegral(dir, true));
 
         switch (dir)
         {
@@ -117,8 +172,7 @@ public:
         }
 
         throw std::runtime_error(
-                "Invalid Dir to BBox::get: " +
-                std::to_string(static_cast<int>(dir)));
+                "Invalid Dir to BBox::get: " + std::to_string(toIntegral(dir)));
     }
 
     bool exists() const { return Point::exists(m_min) && Point::exists(m_max); }

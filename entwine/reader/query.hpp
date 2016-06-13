@@ -15,6 +15,7 @@
 
 #include <entwine/reader/cache.hpp>
 #include <entwine/reader/reader.hpp>
+#include <entwine/types/dir.hpp>
 #include <entwine/types/point.hpp>
 #include <entwine/types/pooled-point-table.hpp>
 
@@ -22,7 +23,70 @@ namespace entwine
 {
 
 class PointInfo;
+class PointState;
 class Schema;
+
+class ChunkState
+{
+public:
+    ChunkState(const Structure& structure, const BBox& bbox)
+        : m_structure(structure)
+        , m_bbox(bbox)
+        , m_depth(m_structure.nominalChunkDepth())
+        , m_chunkId(m_structure.nominalChunkIndex())
+        , m_pointsPerChunk(m_structure.basePointsPerChunk())
+    { }
+
+    bool allDirections() const
+    {
+        return
+                m_depth + 1 <= m_structure.sparseDepthBegin() ||
+                !m_structure.sparseDepthBegin();
+    }
+
+    // Call this if allDirections() == true.
+    ChunkState getClimb(Dir dir) const
+    {
+        ChunkState result(*this);
+        ++result.m_depth;
+        result.m_bbox.go(dir, m_structure.tubular());
+
+        if (result.m_depth > m_structure.sparseDepthBegin()) throw; // TODO
+
+        result.m_chunkId <<= m_structure.dimensions();
+        result.m_chunkId.incSimple();
+        result.m_chunkId += toIntegral(dir) * m_pointsPerChunk;
+
+        return result;
+    }
+
+    // Else call this.
+    ChunkState getClimb() const
+    {
+        ChunkState result(*this);
+        ++result.m_depth;
+        result.m_chunkId <<= m_structure.dimensions();
+        result.m_chunkId.incSimple();
+        result.m_pointsPerChunk *= m_structure.factor();
+
+        return result;
+    }
+
+    const BBox& bbox() const { return m_bbox; }
+    std::size_t depth() const { return m_depth; }
+    const Id& chunkId() const { return m_chunkId; }
+    const Id& pointsPerChunk() const { return m_pointsPerChunk; }
+
+private:
+    ChunkState(const ChunkState& other) = default;
+
+    const Structure& m_structure;
+    BBox m_bbox;
+    std::size_t m_depth;
+
+    Id m_chunkId;
+    Id m_pointsPerChunk;
+};
 
 class Query
 {
@@ -47,6 +111,9 @@ public:
 protected:
     bool getBase(std::vector<char>& buffer); // True if base data existed.
     void getChunked(std::vector<char>& buffer);
+
+    void getFetches(const ChunkState& chunkState);
+    void getBase(std::vector<char>& buffer, const PointState& pointState);
 
     template<typename T> void setSpatial(char* pos, double d)
     {

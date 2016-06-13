@@ -42,7 +42,6 @@ class Chunk
 public:
     Chunk(
             const Builder& builder,
-            const BBox& bbox,
             std::size_t depth,
             const Id& id,
             const Id& maxPoints);
@@ -51,14 +50,12 @@ public:
 
     static std::unique_ptr<Chunk> create(
             const Builder& builder,
-            const BBox& bbox,
             std::size_t depth,
             const Id& id,
             const Id& maxPoints);
 
     static std::unique_ptr<Chunk> create(
             const Builder& builder,
-            const BBox& bbox,
             std::size_t depth,
             const Id& id,
             const Id& maxPoints,
@@ -87,7 +84,7 @@ public:
     const Id& maxPoints() const { return m_maxPoints; }
     const Id& id() const { return m_id; }
 
-    bool insert(const Climber& climber, Cell::PooledNode& cell)
+    Tube::Insertion insert(const Climber& climber, Cell::PooledNode& cell)
     {
         return getTube(climber.index()).insert(climber, cell);
     }
@@ -108,7 +105,6 @@ protected:
     const Metadata& m_metadata;
     PointPool& m_pointPool;
 
-    const BBox m_bbox;
     const std::size_t m_depth;
     const std::size_t m_zDepth;
     const Id m_id;
@@ -123,14 +119,12 @@ class SparseChunk : public Chunk
 public:
     SparseChunk(
             const Builder& builder,
-            const BBox& bbox,
             std::size_t depth,
             const Id& id,
             const Id& maxPoints);
 
     SparseChunk(
             const Builder& builder,
-            const BBox& bbox,
             std::size_t depth,
             const Id& id,
             const Id& maxPoints,
@@ -167,14 +161,12 @@ class ContiguousChunk : public Chunk
 public:
     ContiguousChunk(
             const Builder& builder,
-            const BBox& bbox,
             std::size_t depth,
             const Id& id,
             const Id& maxPoints);
 
     ContiguousChunk(
             const Builder& builder,
-            const BBox& bbox,
             std::size_t depth,
             const Id& id,
             const Id& maxPoints,
@@ -207,13 +199,11 @@ class BaseChunk : public ContiguousChunk
 public:
     BaseChunk(
             const Builder& builder,
-            const BBox& bbox,
             const Id& id,
             const Id& maxPoints);
 
     BaseChunk(
             const Builder& builder,
-            const BBox& bbox,
             const Id& id,
             const Id& maxPoints,
             std::unique_ptr<std::vector<char>> compressedData,

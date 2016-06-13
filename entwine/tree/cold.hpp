@@ -20,6 +20,7 @@
 
 #include <entwine/third/json/json.hpp>
 #include <entwine/types/point-pool.hpp>
+#include <entwine/types/tube.hpp>
 
 namespace arbiter
 {
@@ -42,7 +43,7 @@ public:
     Cold(const Builder& builder, bool exists);
     ~Cold();
 
-    bool insert(
+    Tube::Insertion insert(
             const Climber& climber,
             Clipper& clipper,
             Cell::PooledNode& cell);

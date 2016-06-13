@@ -39,6 +39,7 @@ public:
 class BaseChunkReader;
 class BBox;
 class Cache;
+class Hierarchy;
 class Metadata;
 class Query;
 class Schema;
@@ -97,6 +98,7 @@ private:
     arbiter::Endpoint m_endpoint;
 
     std::unique_ptr<Metadata> m_metadata;
+    std::unique_ptr<Hierarchy> m_hierarchy;
     std::unique_ptr<BaseChunkReader> m_base;
 
     Cache& m_cache;

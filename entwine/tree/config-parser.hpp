@@ -27,7 +27,7 @@ class ConfigParser
 {
 public:
     static std::unique_ptr<Builder> getBuilder(
-            const Json::Value& json,
+            Json::Value json,
             std::shared_ptr<arbiter::Arbiter> arbiter,
             std::unique_ptr<Manifest> manifest);
 

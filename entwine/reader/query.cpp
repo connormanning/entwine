@@ -14,8 +14,9 @@
 
 #include <entwine/reader/cache.hpp>
 #include <entwine/reader/chunk-reader.hpp>
-#include <entwine/reader/split-climber.hpp>
 #include <entwine/tree/chunk.hpp>
+#include <entwine/tree/climber.hpp>
+#include <entwine/types/dir.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/tube.hpp>
@@ -57,36 +58,40 @@ Query::Query(
 {
     if (!m_depthEnd || m_depthEnd > m_structure.coldDepthBegin())
     {
-        SplitClimber splitter(
-                m_structure,
-                m_reader.metadata().bbox(),
-                m_qbox,
-                m_depthBegin,
-                m_depthEnd,
-                true);
+        ChunkState chunkState(m_structure, m_reader.metadata().bbox());
+        getFetches(chunkState);
+    }
+}
 
-        bool terminate(false);
+void Query::getFetches(const ChunkState& chunkState)
+{
+    if (!m_qbox.overlaps(chunkState.bbox(), true)) return;
 
-        do
+    if (
+            chunkState.depth() >= m_depthBegin &&
+            chunkState.depth() >= m_structure.coldDepthBegin() &&
+            m_reader.exists(chunkState.chunkId()))
+    {
+        m_chunks.emplace(
+                m_reader,
+                chunkState.chunkId(),
+                chunkState.pointsPerChunk(),
+                chunkState.depth());
+    }
+
+    if (chunkState.depth() + 1 < m_depthEnd)
+    {
+        if (chunkState.allDirections())
         {
-            terminate = false;
-            const Id& chunkId(splitter.index());
-
-            if (m_reader.exists(chunkId))
+            for (std::size_t i(0); i < 4; ++i)
             {
-                m_chunks.insert(
-                        FetchInfo(
-                            m_reader,
-                            chunkId,
-                            m_structure.getInfo(chunkId).pointsPerChunk(),
-                            splitter.depth()));
-            }
-            else
-            {
-                terminate = true;
+                getFetches(chunkState.getClimb(toDir(i)));
             }
         }
-        while (splitter.next(terminate));
+        else
+        {
+            getFetches(chunkState.getClimb());
+        }
     }
 }
 
@@ -98,7 +103,13 @@ bool Query::next(std::vector<char>& buffer)
     {
         m_base = false;
 
-        if (!getBase(buffer))
+        if (m_reader.base())
+        {
+            PointState pointState(m_structure, m_reader.metadata().bbox());
+            getBase(buffer, pointState);
+        }
+
+        if (buffer.empty())
         {
             if (m_chunks.empty()) m_done = true;
             else getChunked(buffer);
@@ -112,57 +123,34 @@ bool Query::next(std::vector<char>& buffer)
     return !m_done;
 }
 
-bool Query::getBase(std::vector<char>& buffer)
+void Query::getBase(std::vector<char>& buffer, const PointState& pointState)
 {
-    const std::size_t startNumPoints(m_numPoints);
-    auto dataExisted([this, startNumPoints]()
+    if (!m_qbox.overlaps(pointState.bbox(), true)) return;
+
+    if (pointState.depth() >= m_structure.baseDepthBegin())
     {
-        return m_numPoints != startNumPoints;
-    });
+        const auto& cell(m_reader.base()->getTubeData(pointState.index()));
+        if (cell.empty()) return;
 
-    if (
-            m_reader.base() &&
-            m_depthBegin < m_structure.baseDepthEnd() &&
-            m_depthEnd   > m_structure.baseDepthBegin())
-    {
-        const BaseChunkReader& base(*m_reader.base());
-        bool terminate(false);
-        SplitClimber splitter(
-                m_structure,
-                m_reader.metadata().bbox(),
-                m_qbox,
-                m_depthBegin,
-                std::min(m_depthEnd, m_structure.baseDepthEnd()));
-
-        if (splitter.index() < m_structure.baseIndexBegin())
+        if (pointState.depth() >= m_depthBegin)
         {
-            return dataExisted();
-        }
-
-        do
-        {
-            terminate = false;
-            const auto& tube(base.getTubeData(splitter.index()));
-
-            if (tube.empty())
+            for (const PointInfo& pointInfo : cell)
             {
-                terminate = true;
-            }
-            else
-            {
-                for (const PointInfo& pointInfo : tube)
-                {
-                    if (processPoint(buffer, pointInfo))
-                    {
-                        ++m_numPoints;
-                    }
-                }
+                if (processPoint(buffer, pointInfo)) ++m_numPoints;
             }
         }
-        while (splitter.next(terminate));
     }
 
-    return dataExisted();
+    if (
+            pointState.depth() + 1 < m_structure.baseDepthEnd() &&
+            pointState.depth() + 1 < m_depthEnd)
+    {
+        // Always climb in 2d.
+        for (std::size_t i(0); i < 4; ++i)
+        {
+            getBase(buffer, pointState.getClimb(toDir(i)));
+        }
+    }
 }
 
 void Query::getChunked(std::vector<char>& buffer)

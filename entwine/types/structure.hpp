@@ -66,8 +66,19 @@ class Structure
     friend class Subset;
 
 public:
+    Structure(
+            std::size_t nullDepth,
+            std::size_t baseDepth,
+            std::size_t coldDepth,
+            std::size_t pointsPerChunk,
+            std::size_t dimensions,
+            std::size_t numPointsHint,
+            bool tubular,
+            bool dynamicChunks,
+            bool prefixIds,
+            std::size_t sparseDepth = 0);
+
     Structure(const Json::Value& json);
-    Structure(const Structure& other, std::size_t minNullDepth);
 
     Json::Value toJson() const;
 
@@ -129,7 +140,6 @@ public:
 
     ChunkInfo getInfo(const Id& index) const { return ChunkInfo(*this, index); }
     std::size_t numPointsHint() const { return m_numPointsHint; }
-    void numPointsHint(std::size_t v);
 
     std::string typeString() const
     {
@@ -175,22 +185,9 @@ public:
         }
     }
 
+    std::size_t maxChunksPerDepth() const { return m_maxChunksPerDepth; }
+
 private:
-    Structure(
-            std::size_t nullDepth,
-            std::size_t baseDepth,
-            std::size_t coldDepth,
-            std::size_t pointsPerChunk,
-            std::size_t dimensions,
-            std::size_t numPointsHint,
-            bool tubular,
-            bool dynamicChunks,
-            bool prefixIds,
-            std::size_t sparseDepth = 0);
-
-    void loadIndexValues();
-    void accomodateSubset(const Subset& subset, std::size_t minNullDepth);
-
     // Redundant values (since the beginning of one level is equal to the end
     // of the previous level) help to maintain a logical distinction between
     // layers.
@@ -210,13 +207,6 @@ private:
     Id m_coldIndexEnd;
     Id m_sparseIndexBegin;
 
-    std::size_t m_pointsPerChunk;
-
-    // Chunk ID that spans the full bounds.  May not be an actual chunk since
-    // it may reside in the base branch.
-    std::size_t m_nominalChunkIndex;
-    std::size_t m_nominalChunkDepth;
-
     bool m_tubular;
     bool m_dynamicChunks;
     bool m_discardDuplicates;
@@ -225,6 +215,15 @@ private:
     std::size_t m_dimensions;
     std::size_t m_factor;
     std::size_t m_numPointsHint;
+
+    std::size_t m_maxChunksPerDepth;
+
+    std::size_t m_pointsPerChunk;
+
+    // Chunk ID that spans the full bounds.  May not be an actual chunk since
+    // it may reside in the base branch.
+    std::size_t m_nominalChunkDepth;
+    std::size_t m_nominalChunkIndex;
 };
 
 } // namespace entwine

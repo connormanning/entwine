@@ -37,6 +37,7 @@ public:
             const BBox& bboxConforming,
             const Schema& schema,
             const Structure& structure,
+            const Structure& hierarchyStructure,
             const Manifest& manifest,
             const Reprojection* reprojection = nullptr,
             const Subset* subset = nullptr,
@@ -53,13 +54,17 @@ public:
 
     void save(const arbiter::Endpoint& endpoint) const;
 
-    const BBox& bboxConforming() const;
-    const BBox& bboxEpsilon() const;
-    const BBox& bbox() const;
+    const BBox& bboxConforming() const { return *m_bboxConforming; }
+    const BBox& bboxEpsilon() const { return *m_bboxEpsilon; }
+    const BBox& bbox() const { return *m_bbox; }
     const BBox* bboxSubset() const;
-    const Schema& schema() const;
-    const Structure& structure() const;
-    const Manifest& manifest() const;
+    const Schema& schema() const { return *m_schema; }
+    const Structure& structure() const { return *m_structure; }
+    const Structure& hierarchyStructure() const
+    {
+        return *m_hierarchyStructure;
+    }
+    const Manifest& manifest() const { return *m_manifest; }
     const Reprojection* reprojection() const { return m_reprojection.get(); }
     const Subset* subset() const { return m_subset.get(); }
 
@@ -74,7 +79,7 @@ public:
 
 private:
     // These are aggregated as the Builder runs.
-    Manifest& manifest();
+    Manifest& manifest() { return *m_manifest; }
     std::string& srs() { return m_srs; }
     std::vector<std::string>& errors() { return m_errors; }
 
@@ -83,6 +88,7 @@ private:
     std::unique_ptr<BBox> m_bbox;
     std::unique_ptr<Schema> m_schema;
     std::unique_ptr<Structure> m_structure;
+    std::unique_ptr<Structure> m_hierarchyStructure;
     std::unique_ptr<Manifest> m_manifest;
     std::unique_ptr<Reprojection> m_reprojection;
     std::unique_ptr<Subset> m_subset;

@@ -66,7 +66,7 @@ Builder::Builder(
     , m_added(0)
     , m_pointPool(outerScope.getPointPool(m_metadata->schema()))
     , m_nodePool(outerScope.getNodePool())
-    , m_hierarchy(makeUnique<Hierarchy>(m_metadata->bbox(), *m_nodePool))
+    , m_hierarchy(makeUnique<Hierarchy>(*m_metadata))
     , m_registry(makeUnique<Registry>(*this))
 {
     prepareEndpoints();
@@ -92,7 +92,7 @@ Builder::Builder(
     , m_added(0)
     , m_pointPool(outerScope.getPointPool(m_metadata->schema()))
     , m_nodePool(outerScope.getNodePool())
-    , m_hierarchy(makeUnique<Hierarchy>(m_metadata->bbox(), *m_nodePool))
+    , m_hierarchy(makeUnique<Hierarchy>(*m_metadata))
     , m_registry(makeUnique<Registry>(*this, true))
 {
     prepareEndpoints();
@@ -326,8 +326,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
     std::size_t inserted(0);
 
     Clipper clipper(*this, origin);
-    Hierarchy localHierarchy(m_metadata->bbox(), *m_nodePool);
-    Climber climber(*m_metadata, &localHierarchy);
+    Climber climber(*m_metadata, m_hierarchy.get());
 
     auto inserter([this, origin, &clipper, &climber, &inserted]
     (Cell::PooledStack cells)
@@ -344,12 +343,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
     });
 
     PooledPointTable table(*m_pointPool, inserter, m_originId, origin);
-
-    const bool result(m_executor->run(table, localPath, reprojection));
-
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_hierarchy->merge(localHierarchy);
-    return result;
+    return m_executor->run(table, localPath, reprojection);
 }
 
 Cell::PooledStack Builder::insertData(
@@ -405,7 +399,6 @@ Cell::PooledStack Builder::insertData(
     }
 
     if (origin != invalidOrigin) m_metadata->manifest().add(origin, pointStats);
-
     return rejected;
 }
 
@@ -465,6 +458,8 @@ void Builder::save()
 
     m_metadata->save(*m_outEndpoint);
     m_registry->save();
+    m_hierarchy->save(
+            m_outEndpoint->getSubEndpoint("h"), m_metadata->postfix());
 }
 
 void Builder::unsplit(Builder& other)

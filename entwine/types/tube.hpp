@@ -38,13 +38,38 @@ public:
     // cell or this will throw.
     void insert(std::size_t tick, Cell::PooledNode& cell);
 
-    // Returns true if this insertion was successful and the cell has been
-    // consumed.
+    class Insertion
+    {
+    public:
+        Insertion() : m_done(false), m_delta(0) { }
+
+        Insertion(bool done, int delta)
+            : m_done(done)
+            , m_delta(delta)
+        { }
+
+        bool done() const { return m_done; }
+        int delta() const { return m_delta; }
+
+        void setDelta(int delta) { m_delta = delta; }
+        void setDone() { m_done = true; m_delta = 1; }
+
+    private:
+        bool m_done;
+        int m_delta;
+    };
+
+    // If result.done() == true, then this cell has been consumed and may no
+    // longer be accessed.
     //
-    // If false, the cell should be reinserted.  In this case, it's possible
-    // that the cell was swapped with another - so cell values should not be
-    // cached through calls to insert.
-    bool insert(const Climber& climber, Cell::PooledNode& cell);
+    // The value of result.delta() is equal to (pointsInserted - pointsRemoved),
+    // which may be any value if result.done() == false.  If result.done() ==
+    // true, then result.delta() will always equal 1.
+    //
+    // If result.done() == false, the cell should be reinserted.  In this case,
+    // it's possible that the cell was swapped with another - so cell values
+    // should not be cached through calls to insert.
+    Insertion insert(const Climber& climber, Cell::PooledNode& cell);
 
     using Cells = std::unordered_map<uint64_t, Cell::PooledNode>;
 

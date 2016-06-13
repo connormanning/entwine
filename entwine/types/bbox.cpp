@@ -108,19 +108,20 @@ void BBox::set(const Point& min, const Point& max, const bool is3d)
     setMid();
 }
 
-bool BBox::overlaps(const BBox& other) const
+bool BBox::overlaps(const BBox& other, const bool force2d) const
 {
     Point otherMid(other.mid());
 
     return
-        std::abs(m_mid.x - otherMid.x) <
+        std::abs(m_mid.x - otherMid.x) <=
             width() / 2.0  + other.width() / 2.0 &&
-        std::abs(m_mid.y - otherMid.y) <
+        std::abs(m_mid.y - otherMid.y) <=
             depth() / 2.0 + other.depth() / 2.0 &&
         (
+            force2d ||
             !m_is3d ||
             !other.m_is3d ||
-            std::abs(m_mid.z - otherMid.z) <
+            std::abs(m_mid.z - otherMid.z) <=
                 height() / 2.0 + other.height() / 2.0);
 }
 
@@ -147,70 +148,6 @@ bool BBox::contains(const Point& p) const
         p.y >= m_min.y && p.y < m_max.y &&
         (!m_is3d || (p.z >= m_min.z && p.z < m_max.z));
 
-}
-
-void BBox::goNwu()
-{
-    m_max.x = m_mid.x;
-    m_min.y = m_mid.y;
-    if (m_is3d) m_min.z = m_mid.z;
-    setMid();
-}
-
-void BBox::goNwd(const bool force2d)
-{
-    m_max.x = m_mid.x;
-    m_min.y = m_mid.y;
-    if (!force2d && m_is3d) m_max.z = m_mid.z;
-    setMid();
-}
-
-void BBox::goNeu()
-{
-    m_min.x = m_mid.x;
-    m_min.y = m_mid.y;
-    if (m_is3d) m_min.z = m_mid.z;
-    setMid();
-}
-
-void BBox::goNed(const bool force2d)
-{
-    m_min.x = m_mid.x;
-    m_min.y = m_mid.y;
-    if (!force2d && m_is3d) m_max.z = m_mid.z;
-    setMid();
-}
-
-void BBox::goSwu()
-{
-    m_max.x = m_mid.x;
-    m_max.y = m_mid.y;
-    if (m_is3d) m_min.z = m_mid.z;
-    setMid();
-}
-
-void BBox::goSwd(const bool force2d)
-{
-    m_max.x = m_mid.x;
-    m_max.y = m_mid.y;
-    if (!force2d && m_is3d) m_max.z = m_mid.z;
-    setMid();
-}
-
-void BBox::goSeu()
-{
-    m_min.x = m_mid.x;
-    m_max.y = m_mid.y;
-    if (m_is3d) m_min.z = m_mid.z;
-    setMid();
-}
-
-void BBox::goSed(const bool force2d)
-{
-    m_min.x = m_mid.x;
-    m_max.y = m_mid.y;
-    if (!force2d && m_is3d) m_max.z = m_mid.z;
-    setMid();
 }
 
 Json::Value BBox::toJson() const

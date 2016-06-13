@@ -139,20 +139,6 @@ Structure::Structure(const Json::Value& json)
             json["sparseDepth"].asUInt64())
 { }
 
-Structure::Structure(const Structure& other, const std::size_t minNullDepth)
-    : Structure(
-            std::min(minNullDepth, other.nullDepthBegin()),
-            other.baseDepthBegin(),
-            other.coldDepthBegin(),
-            other.basePointsPerChunk(),
-            other.dimensions(),
-            other.numPointsHint(),
-            other.tubular(),
-            other.dynamicChunks(),
-            other.prefixIds(),
-            other.sparseDepthBegin())
-{ }
-
 Structure::Structure(
         const std::size_t nullDepth,
         const std::size_t baseDepth,
@@ -164,94 +150,41 @@ Structure::Structure(
         const bool dynamicChunks,
         const bool prefixIds,
         const std::size_t sparseDepth)
+    // Depths.
     : m_nullDepthBegin(0)
     , m_nullDepthEnd(nullDepth)
     , m_baseDepthBegin(m_nullDepthEnd)
     , m_baseDepthEnd(std::max(m_baseDepthBegin, baseDepth))
     , m_coldDepthBegin(m_baseDepthEnd)
     , m_coldDepthEnd(coldDepth ? std::max(m_coldDepthBegin, coldDepth) : 0)
-    , m_sparseDepthBegin(sparseDepth)
-    , m_sparseIndexBegin(0)
-    , m_pointsPerChunk(pointsPerChunk)
+    , m_sparseDepthBegin(std::max(sparseDepth, m_coldDepthBegin))
+
+    // Indices.
+    , m_nullIndexBegin(0)
+    , m_nullIndexEnd(ChunkInfo::calcLevelIndex(dimensions, m_nullDepthEnd))
+    , m_baseIndexBegin(m_nullIndexEnd)
+    , m_baseIndexEnd(ChunkInfo::calcLevelIndex(dimensions, m_baseDepthEnd))
+    , m_coldIndexBegin(m_baseIndexEnd)
+    , m_coldIndexEnd(m_coldDepthEnd ?
+            ChunkInfo::calcLevelIndex(dimensions, m_coldDepthEnd) : 0)
+    , m_sparseIndexBegin(
+            ChunkInfo::calcLevelIndex(dimensions, m_sparseDepthBegin))
+
+    // Various.
     , m_tubular(tubular)
     , m_dynamicChunks(dynamicChunks)
     , m_prefixIds(prefixIds)
     , m_dimensions(dimensions)
     , m_factor(1ULL << m_dimensions)
     , m_numPointsHint(numPointsHint)
-{
-    loadIndexValues();
-}
 
-void Structure::accomodateSubset(
-        const Subset& subset,
-        const std::size_t minNullDepth)
-{
-    if (m_nullDepthEnd < minNullDepth)
-    {
-        std::cout << "Bumping null depth to accommodate subset" <<
-            std::endl;
-    }
-
-    m_nullDepthEnd = std::max(m_nullDepthEnd, minNullDepth);
-    m_baseDepthBegin = m_nullDepthEnd;
-    m_baseDepthEnd = std::max(m_baseDepthBegin, m_baseDepthEnd);
-    m_coldDepthBegin = m_baseDepthEnd;
-
-    // Only snap coldDepthEnd upward if it's non-zero, since a zero value
-    // means that the index is lossless.
-    if (m_coldDepthEnd)
-    {
-        m_coldDepthEnd = std::max(m_coldDepthBegin, m_coldDepthEnd);
-    }
-
-    if (hasCold())
-    {
-        bool done(false);
-        std::size_t bumped(0);
-
-        do
-        {
-            const std::size_t coldFirstSpan(
-                    ChunkInfo::pointsAtDepth(
-                        m_dimensions,
-                        m_coldDepthBegin).getSimple());
-
-            std::size_t splits(m_factor);
-            while (splits < subset.of()) splits *= m_factor;
-
-            if (
-                    (coldFirstSpan / m_pointsPerChunk) < splits ||
-                    (coldFirstSpan / m_pointsPerChunk) % splits)
-            {
-                ++m_baseDepthEnd;
-                ++m_coldDepthBegin;
-
-                if (++bumped > 8)
-                {
-                    throw std::runtime_error(
-                            "Base depth is far too shallow for the "
-                            "specified subset");
-                }
-            }
-            else
-            {
-                done = true;
-            }
-        }
-        while (!done);
-
-        if (bumped)
-        {
-            std::cout << "Bumping cold depth to accommodate subset" <<
-                std::endl;
-        }
-    }
-
-    loadIndexValues();
-}
-
-void Structure::loadIndexValues()
+    // Chunk-related.
+    , m_pointsPerChunk(pointsPerChunk)
+    , m_nominalChunkDepth(ChunkInfo::logN(m_pointsPerChunk, m_factor))
+    , m_nominalChunkIndex(
+            ChunkInfo::calcLevelIndex(
+                m_dimensions,
+                m_nominalChunkDepth).getSimple())
 {
     if (m_baseDepthEnd < 4)
     {
@@ -271,36 +204,25 @@ void Structure::loadIndexValues()
                 "must be of the form 4^n for quadtree, or 8^n for octree");
     }
 
+    if (m_numPointsHint)
+    {
+        m_sparseDepthBegin =
+            std::ceil(std::log2(m_numPointsHint) / std::log2(m_factor));
 
-    m_nominalChunkDepth = ChunkInfo::logN(m_pointsPerChunk, m_factor);
-    m_nominalChunkIndex =
-        ChunkInfo::calcLevelIndex(
-                m_dimensions,
-                m_nominalChunkDepth).getSimple();
+        m_sparseDepthBegin = std::max(m_sparseDepthBegin, m_coldDepthBegin);
 
-    m_nullIndexBegin = 0;
-    m_nullIndexEnd = ChunkInfo::calcLevelIndex(m_dimensions, m_nullDepthEnd);
-    m_baseIndexBegin = m_nullIndexEnd;
-    m_baseIndexEnd = ChunkInfo::calcLevelIndex(m_dimensions, m_baseDepthEnd);
-    m_coldIndexBegin = m_baseIndexEnd;
-    m_coldIndexEnd =
-        m_coldDepthEnd ?
-            ChunkInfo::calcLevelIndex(m_dimensions, m_coldDepthEnd) : 0;
+        m_sparseIndexBegin =
+            ChunkInfo::calcLevelIndex(m_dimensions, m_sparseDepthBegin);
 
-    if (m_numPointsHint) numPointsHint(m_numPointsHint);
-}
-
-void Structure::numPointsHint(const std::size_t v)
-{
-    m_numPointsHint = v;
-
-    m_sparseDepthBegin =
-        std::ceil(std::log2(m_numPointsHint) / std::log2(m_factor));
-
-    m_sparseDepthBegin = std::max(m_sparseDepthBegin, m_coldDepthBegin);
-
-    m_sparseIndexBegin =
-        ChunkInfo::calcLevelIndex(m_dimensions, m_sparseDepthBegin);
+        if (m_sparseDepthBegin)
+        {
+            m_maxChunksPerDepth = 1;
+            for (auto i(m_nominalChunkDepth); i < m_sparseDepthBegin; ++i)
+            {
+                m_maxChunksPerDepth *= m_factor;
+            }
+        }
+    }
 }
 
 Json::Value Structure::toJson() const

@@ -26,7 +26,6 @@ class Schema
 public:
     // Populate this schema later.  Call finalize() when done populating the
     // layout.
-    Schema();
 
     // Schema layout will be finalized with these dims.
     explicit Schema(DimList dims);
@@ -37,8 +36,6 @@ public:
     Schema& operator=(const Schema& other);
 
     ~Schema();
-
-    void finalize();
 
     std::size_t pointSize() const
     {

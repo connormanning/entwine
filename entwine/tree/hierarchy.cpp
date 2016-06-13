@@ -8,8 +8,8 @@
 *
 ******************************************************************************/
 
+#include <entwine/tree/climber.hpp>
 #include <entwine/tree/hierarchy.hpp>
-#include <entwine/types/structure.hpp>
 
 namespace entwine
 {
@@ -18,6 +18,322 @@ namespace
 {
     const std::string countKey("n");
 }
+
+uint64_t HierarchyBlock::get(const PointState& pointState) const
+{
+    return get(pointState.index(), pointState.tick());
+}
+
+void Hierarchy::count(const PointState& state, const int delta)
+{
+    if (m_structure.isWithinBase(state.depth()))
+    {
+        m_base.count(state.index(), state.tick(), delta);
+    }
+    else
+    {
+        std::cout << state.depth() << std::endl;
+        std::cout << "D: " << state.chunkNum() << std::endl;
+    }
+}
+
+uint64_t Hierarchy::get(const PointState& pointState) const
+{
+    // TODO Check the actual block.
+    return m_base.get(pointState);
+}
+
+Json::Value Hierarchy::query(
+        const BBox& qbox,
+        const std::size_t depthBegin,
+        const std::size_t depthEnd)
+{
+    // TODO Should add startDepth to Metadata (not Structure - as that would
+    // complicate the Hierarchy query Climber vs the building Climber).
+    if (depthBegin < Hierarchy::startDepth())
+    {
+        throw std::runtime_error(
+                "Request was less than hierarchy base depth");
+    }
+
+    Json::Value json;
+
+    // To get rid of any possible floating point mismatches, grow the box by a
+    // bit and only include nodes that are entirely encapsulated by the qbox.
+    // Also normalize depths to match our internal mapping.
+    Query query(
+            qbox.growBy(.01),
+            depthBegin - Hierarchy::startDepth(),
+            depthEnd - Hierarchy::startDepth());
+
+    PointState pointState(m_structure, m_bbox);
+    std::deque<Dir> lag;
+
+    traverse(json, query, pointState, lag);
+
+    return json;
+}
+
+void Hierarchy::traverse(
+        Json::Value& json,
+        const Hierarchy::Query& query,
+        const PointState& pointState,
+        std::deque<Dir>& lag)
+{
+    const uint64_t inc(get(pointState));
+    if (!inc) return;
+
+    if (pointState.depth() < query.depthBegin())
+    {
+        if (query.bbox().contains(pointState.bbox()))
+        {
+            // We've arrived at our query bounds.  All subsequent calls will
+            // capture all children.
+            //
+            // In this case, the query base depth is higher than ours, meaning
+            // we'll need to aggregate multiple nodes into a single node to
+            // match the reference frame of the incoming query.
+            for (std::size_t i(0); i < dirEnd(); ++i)
+            {
+                const Dir dir(toDir(i));
+                auto curlag(lag);
+                curlag.push_back(dir);
+                traverse(json, query, pointState.getClimb(dir), curlag);
+            }
+        }
+        else
+        {
+            // Query bounds is smaller than our current position's bounds, so
+            // we need to split our bounds in a single direction.
+            const Dir dir(
+                    getDirection(query.bbox().mid(), pointState.bbox().mid()));
+
+            traverse(json, query, pointState.getClimb(dir), lag);
+        }
+    }
+    else if (
+            query.bbox().contains(pointState.bbox()) &&
+            pointState.depth() < query.depthEnd())
+    {
+        accumulate(json, query, pointState, lag, inc);
+    }
+}
+
+void Hierarchy::accumulate(
+        Json::Value& json,
+        const Hierarchy::Query& query,
+        const PointState& pointState,
+        std::deque<Dir>& lag,
+        uint64_t inc)
+{
+    // Caller should not call if inc == 0 to avoid creating null keys.
+    json[countKey] = json[countKey].asUInt64() + inc;
+
+    if (pointState.depth() + 1 >= query.depthEnd()) return;
+
+    if (lag.empty())
+    {
+        for (std::size_t i(0); i < dirEnd(); ++i)
+        {
+            const Dir dir(toDir(i));
+            const PointState nextState(pointState.getClimb(dir));
+
+            if (const uint64_t inc = get(nextState))
+            {
+                accumulate(json[dirToString(dir)], query, nextState, lag, inc);
+            }
+        }
+    }
+    else
+    {
+        const Dir lagdir(lag.front());
+        lag.pop_front();
+
+        // Don't traverse into lagdir until we've confirmed that a child exists.
+        Json::Value* nextJson(nullptr);
+
+        for (std::size_t i(0); i < dirEnd(); ++i)
+        {
+            const Dir curdir(toDir(i));
+            const PointState nextState(pointState.getClimb(curdir));
+
+            if (const uint64_t inc = get(nextState))
+            {
+                if (!nextJson) nextJson = &json[dirToString(lagdir)];
+                auto curlag(lag);
+                curlag.push_back(curdir);
+
+                accumulate(*nextJson, query, nextState, curlag, inc);
+            }
+        }
+
+        lag.pop_back();
+    }
+}
+
+void OHierarchy::accumulate(
+        Node& out,
+        std::deque<Dir>& lag,
+        Node& cur,
+        const std::size_t depth,
+        const std::size_t depthEnd,
+        const Id& id)
+{
+    out.incrementBy(cur.count());
+
+    const std::size_t nextDepth(depth + 1);
+    if (nextDepth >= depthEnd) return;
+
+    if (lag.empty())
+    {
+        auto addChild(
+        [this, &cur, nextDepth, depthEnd, &id]
+        (Node& out, std::deque<Dir>& lag, Dir dir)
+        {
+            if (Node* node = cur.maybeNext(dir))
+            {
+                const Id childId(OHierarchy::climb(id, dir));
+
+                if (m_step && (nextDepth - m_depthBegin) % m_step == 0)
+                {
+                    awaken(childId, node);
+                }
+
+                accumulate(
+                    out.next(dir, m_nodePool),
+                    lag,
+                    *node,
+                    nextDepth,
+                    depthEnd,
+                    childId);
+            }
+        });
+
+        for (std::size_t i(0); i < 8; ++i) addChild(out, lag, toDir(i));
+    }
+    else
+    {
+        const Dir lagdir(lag.front());
+        lag.pop_front();
+
+        Node* nextNode(nullptr);
+
+        auto addChild(
+            [this, lagdir, &nextNode, &lag, &cur, nextDepth, depthEnd, &id]
+            (Node& out, Dir curdir)
+        {
+            if (Node* node = cur.maybeNext(curdir))
+            {
+                const Id childId(OHierarchy::climb(id, curdir));
+
+                if (m_step && (nextDepth - m_depthBegin) % m_step == 0)
+                {
+                    awaken(childId, node);
+                }
+
+                if (!nextNode) nextNode = &out.next(lagdir, m_nodePool);
+                auto curlag(lag);
+                curlag.push_back(curdir);
+
+                accumulate(
+                    *nextNode,
+                    curlag,
+                    *node,
+                    nextDepth,
+                    depthEnd,
+                    childId);
+            }
+        });
+
+        for (std::size_t i(0); i < 8; ++i) addChild(out, toDir(i));
+
+        lag.pop_back();
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 Node::Node(
         Node::NodePool& nodePool,
@@ -59,7 +375,7 @@ void Node::assign(
             if (mask & (1 << i))
             {
                 dir = toDir(i);
-                nextId = Hierarchy::climb(id, dir);
+                nextId = OHierarchy::climb(id, dir);
 
                 if (exists)
                 {
@@ -165,7 +481,7 @@ Node::AnchoredMap Node::insertSlice(
     {
         if (
                 (data.size() && n.second.isAnchor) ||
-                (data.size() > Hierarchy::defaultChunkBytes))
+                (data.size() > OHierarchy::defaultChunkBytes))
         {
             if (n.second.isAnchor)
             {
@@ -201,7 +517,7 @@ void Node::insertData(
                 c.second->insertData(
                         data,
                         nextSlice,
-                        Hierarchy::climb(id, c.first),
+                        OHierarchy::climb(id, c.first),
                         step,
                         depth);
             }
@@ -213,7 +529,7 @@ void Node::insertData(
                 nextSlice.insert(
                         nextSlice.end(),
                         std::make_pair(
-                            Hierarchy::climb(id, c.first),
+                            OHierarchy::climb(id, c.first),
                             AnchoredNode(&*c.second)));
             }
         }
@@ -242,7 +558,7 @@ bool Node::insertBinary(std::vector<char>& s) const
     return m_count;
 }
 
-Hierarchy::Hierarchy(
+OHierarchy::OHierarchy(
         const BBox& bbox,
         Node::NodePool& nodePool,
         const Json::Value& json,
@@ -287,11 +603,11 @@ Hierarchy::Hierarchy(
     }
     else
     {
-        std::cout << "No hierarchy data found" << std::endl;
+        std::cout << "No Ohierarchy data found" << std::endl;
     }
 }
 
-void Hierarchy::awaken(const Id& id, const Node* node)
+void OHierarchy::awaken(const Id& id, const Node* node)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     if (node && node->count()) return;
@@ -360,7 +676,7 @@ void Hierarchy::awaken(const Id& id, const Node* node)
     m_edges.insert(newEdges.begin(), newEdges.end());
 }
 
-Json::Value Hierarchy::toJson(const arbiter::Endpoint& ep, std::string postfix)
+Json::Value OHierarchy::toJson(const arbiter::Endpoint& ep, std::string postfix)
 {
     // Postfixing is only applied to the anchors file and the base anchor.
     const Node::NodeSet newAnchors(m_root.insertInto(ep, postfix, m_step));
@@ -383,7 +699,7 @@ Json::Value Hierarchy::toJson(const arbiter::Endpoint& ep, std::string postfix)
     return json;
 }
 
-Json::Value Hierarchy::query(
+Json::Value OHierarchy::query(
         BBox qbox,
         const std::size_t qDepthBegin,
         const std::size_t qDepthEnd)
@@ -418,7 +734,7 @@ Json::Value Hierarchy::query(
     return json;
 }
 
-void Hierarchy::traverse(
+void OHierarchy::traverse(
         Node& out,
         std::deque<Dir>& lag,
         Node& cur,
@@ -442,7 +758,7 @@ void Hierarchy::traverse(
             {
                 if (Node* node = cur.maybeNext(dir))
                 {
-                    const Id childId(Hierarchy::climb(id, dir));
+                    const Id childId(OHierarchy::climb(id, dir));
 
                     if (m_step && (next - m_depthBegin) % m_step == 0)
                     {
@@ -479,7 +795,7 @@ void Hierarchy::traverse(
 
             if (Node* node = cur.maybeNext(dir))
             {
-                const Id childId(Hierarchy::climb(id, dir));
+                const Id childId(OHierarchy::climb(id, dir));
 
                 if (m_step && (next - m_depthBegin) % m_step == 0)
                 {
@@ -494,87 +810,6 @@ void Hierarchy::traverse(
     else if (qbox.contains(cbox) && depth < de) // User error if not.
     {
         accumulate(out, lag, cur, depth, de, id);
-    }
-}
-
-void Hierarchy::accumulate(
-        Node& out,
-        std::deque<Dir>& lag,
-        Node& cur,
-        const std::size_t depth,
-        const std::size_t depthEnd,
-        const Id& id)
-{
-    out.incrementBy(cur.count());
-
-    const std::size_t nextDepth(depth + 1);
-    if (nextDepth < depthEnd)
-    {
-        if (lag.empty())
-        {
-            auto addChild(
-            [this, &cur, nextDepth, depthEnd, &id]
-            (Node& out, std::deque<Dir>& lag, Dir dir)
-            {
-                if (Node* node = cur.maybeNext(dir))
-                {
-                    const Id childId(Hierarchy::climb(id, dir));
-
-                    if (m_step && (nextDepth - m_depthBegin) % m_step == 0)
-                    {
-                        awaken(childId, node);
-                    }
-
-                    accumulate(
-                        out.next(dir, m_nodePool),
-                        lag,
-                        *node,
-                        nextDepth,
-                        depthEnd,
-                        childId);
-                }
-            });
-
-            for (std::size_t i(0); i < 8; ++i) addChild(out, lag, toDir(i));
-        }
-        else
-        {
-            const Dir lagdir(lag.front());
-            lag.pop_front();
-
-            Node* nextNode(nullptr);
-
-            auto addChild(
-                [this, lagdir, &nextNode, &lag, &cur, nextDepth, depthEnd, &id]
-                (Node& out, Dir curdir)
-            {
-                if (Node* node = cur.maybeNext(curdir))
-                {
-                    const Id childId(Hierarchy::climb(id, curdir));
-
-                    if (m_step && (nextDepth - m_depthBegin) % m_step == 0)
-                    {
-                        awaken(childId, node);
-                    }
-
-                    if (!nextNode) nextNode = &out.next(lagdir, m_nodePool);
-                    auto curlag(lag);
-                    curlag.push_back(curdir);
-
-                    accumulate(
-                        *nextNode,
-                        curlag,
-                        *node,
-                        nextDepth,
-                        depthEnd,
-                        childId);
-                }
-            });
-
-            for (std::size_t i(0); i < 8; ++i) addChild(out, toDir(i));
-
-            lag.pop_back();
-        }
     }
 }
 

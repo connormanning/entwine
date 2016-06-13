@@ -30,14 +30,12 @@ namespace
 
 Chunk::Chunk(
         const Builder& builder,
-        const BBox& bbox,
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints)
     : m_builder(builder)
     , m_metadata(m_builder.metadata())
     , m_pointPool(m_builder.pointPool())
-    , m_bbox(bbox)
     , m_depth(depth)
     , m_zDepth(std::min(Tube::maxTickDepth(), depth))
     , m_id(id)
@@ -99,7 +97,6 @@ Chunk::~Chunk()
 
 std::unique_ptr<Chunk> Chunk::create(
         const Builder& builder,
-        const BBox& bbox,
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints)
@@ -110,17 +107,16 @@ std::unique_ptr<Chunk> Chunk::create(
     {
         if (depth)
         {
-            chunk.reset(
-                    new ContiguousChunk(builder, bbox, depth, id, maxPoints));
+            chunk.reset(new ContiguousChunk(builder, depth, id, maxPoints));
         }
         else
         {
-            chunk.reset(new BaseChunk(builder, bbox, id, maxPoints));
+            chunk.reset(new BaseChunk(builder, id, maxPoints));
         }
     }
     else
     {
-        chunk.reset(new SparseChunk(builder, bbox, depth, id, maxPoints));
+        chunk.reset(new SparseChunk(builder, depth, id, maxPoints));
     }
 
     return chunk;
@@ -128,7 +124,6 @@ std::unique_ptr<Chunk> Chunk::create(
 
 std::unique_ptr<Chunk> Chunk::create(
         const Builder& builder,
-        const BBox& bbox,
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints,
@@ -146,7 +141,6 @@ std::unique_ptr<Chunk> Chunk::create(
             chunk.reset(
                     new ContiguousChunk(
                         builder,
-                        bbox,
                         depth,
                         id,
                         maxPoints,
@@ -158,7 +152,6 @@ std::unique_ptr<Chunk> Chunk::create(
             chunk.reset(
                     new BaseChunk(
                         builder,
-                        bbox,
                         id,
                         maxPoints,
                         std::move(data),
@@ -170,7 +163,6 @@ std::unique_ptr<Chunk> Chunk::create(
         chunk.reset(
                 new SparseChunk(
                     builder,
-                    bbox,
                     depth,
                     id,
                     maxPoints,
@@ -227,24 +219,22 @@ Chunk::Tail Chunk::popTail(std::vector<char>& data)
 
 SparseChunk::SparseChunk(
         const Builder& builder,
-        const BBox& bbox,
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints)
-    : Chunk(builder, bbox, depth, id, maxPoints)
+    : Chunk(builder, depth, id, maxPoints)
     , m_tubes()
     , m_mutex()
 { }
 
 SparseChunk::SparseChunk(
         const Builder& builder,
-        const BBox& bbox,
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints,
         std::unique_ptr<std::vector<char>> compressedData,
         const std::size_t numPoints)
-    : Chunk(builder, bbox, depth, id, maxPoints)
+    : Chunk(builder, depth, id, maxPoints)
     , m_tubes()
     , m_mutex()
 {
@@ -277,23 +267,21 @@ Cell::PooledStack SparseChunk::acquire()
 
 ContiguousChunk::ContiguousChunk(
         const Builder& builder,
-        const BBox& bbox,
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints)
-    : Chunk(builder, bbox, depth, id, maxPoints)
+    : Chunk(builder, depth, id, maxPoints)
     , m_tubes(maxPoints.getSimple())
 { }
 
 ContiguousChunk::ContiguousChunk(
         const Builder& builder,
-        const BBox& bbox,
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints,
         std::unique_ptr<std::vector<char>> compressedData,
         const std::size_t numPoints)
-    : Chunk(builder, bbox, depth, id, maxPoints)
+    : Chunk(builder, depth, id, maxPoints)
     , m_tubes(maxPoints.getSimple())
 {
     populate(std::move(compressedData), numPoints);
@@ -322,21 +310,19 @@ Cell::PooledStack ContiguousChunk::acquire()
 
 BaseChunk::BaseChunk(
         const Builder& builder,
-        const BBox& bbox,
         const Id& id,
         const Id& maxPoints)
-    : ContiguousChunk(builder, bbox, 0, id, maxPoints)
+    : ContiguousChunk(builder, 0, id, maxPoints)
     , m_celledSchema(makeCelled(m_metadata.schema()))
 { }
 
 BaseChunk::BaseChunk(
         const Builder& builder,
-        const BBox& bbox,
         const Id& id,
         const Id& maxPoints,
         std::unique_ptr<std::vector<char>> compressedData,
         const std::size_t numPoints)
-    : ContiguousChunk(builder, bbox, 0, id, maxPoints)
+    : ContiguousChunk(builder, 0, id, maxPoints)
     , m_celledSchema(makeCelled(m_metadata.schema()))
 {
     std::cout << "Waking up base" << std::endl;

@@ -53,14 +53,14 @@ namespace
 }
 
 std::unique_ptr<Builder> ConfigParser::getBuilder(
-        const Json::Value& config,
+        Json::Value config,
         std::shared_ptr<arbiter::Arbiter> arbiter,
         std::unique_ptr<Manifest> manifest)
 {
     const Json::Value& jsonInput(config["input"]);
     const Json::Value& jsonOutput(config["output"]);
-    const Json::Value& jsonStructure(config["structure"]);
     const Json::Value& jsonGeometry(config["geometry"]);
+    Json::Value& jsonStructure(config["structure"]);
 
     // Build specifications and path info.
     const std::string outPath(jsonOutput["path"].asString());
@@ -84,15 +84,32 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         if (builder) return builder;
     }
 
-    // Tree structure.
-    Structure structure(jsonStructure);
-
     // Geometry and spatial info.
     auto bboxConforming(getBBox(jsonGeometry["bbox"]));
     auto reprojection(getReprojection(jsonGeometry["reproject"]));
     Schema schema(jsonGeometry["schema"]);
 
-    std::size_t numPointsHint(structure.numPointsHint());
+    std::unique_ptr<Subset> subset;
+
+    if (config.isMember("subset"))
+    {
+        BBox cube(*bboxConforming);
+        if (!cube.isCubic()) cube.cubeify();
+
+        subset = makeUnique<Subset>(cube, config["subset"]);
+
+        const std::size_t configNullDepth(
+                jsonStructure["nullDepth"].asUInt64());
+
+        if (configNullDepth < subset->minimumNullDepth())
+        {
+            std::cout << "Bumping null depth to accomodate subset" << std::endl;
+            jsonStructure["nullDepth"] =
+                Json::UInt64(subset->minimumNullDepth());
+        }
+    }
+
+    std::size_t numPointsHint(jsonStructure["numPointsHint"].asUInt64());
     if (!numPointsHint && manifest)
     {
         numPointsHint = std::accumulate(
@@ -103,8 +120,6 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                 {
                     return sum + f.numPoints();
                 });
-
-        structure.numPointsHint(numPointsHint);
     }
 
     if (manifest && (!bboxConforming || !schema.pointSize() || !numPointsHint))
@@ -144,28 +159,19 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
             schema = Schema(dims);
         }
 
-        if (!numPointsHint) structure.numPointsHint(inference.numPoints());
+        if (!numPointsHint) numPointsHint = inference.numPoints();
     }
 
-    std::unique_ptr<Subset> subset;
 
-    if (config.isMember("subset"))
-    {
-        BBox cube(*bboxConforming);
-        if (!cube.isCubic()) cube.cubeify();
-
-        subset = makeUnique<Subset>(cube, config["subset"]);
-
-        if (subset->minimumNullDepth() > structure.nullDepthBegin())
-        {
-            structure = Structure(structure, subset->minimumNullDepth());
-        }
-    }
+    jsonStructure["numPointsHint"] = static_cast<Json::UInt64>(numPointsHint);
+    Structure structure(jsonStructure);
+    Structure hierarchyStructure(Hierarchy::structure(structure));
 
     const Metadata metadata(
             *bboxConforming,
             schema,
             structure,
+            hierarchyStructure,
             *manifest,
             reprojection.get(),
             subset.get(),

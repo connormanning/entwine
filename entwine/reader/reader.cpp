@@ -52,6 +52,8 @@ Reader::Reader(
         Cache& cache)
     : m_endpoint(endpoint)
     , m_metadata(makeUnique<Metadata>(m_endpoint))
+    , m_hierarchy(
+            makeUnique<Hierarchy>(*m_metadata, endpoint.getSubEndpoint("h")))
     , m_base()
     , m_cache(cache)
     , m_ids()
@@ -96,9 +98,7 @@ Json::Value Reader::hierarchy(
         const std::size_t depthEnd)
 {
     checkQuery(depthBegin, depthEnd);
-    // TODO
-    // return m_builder->hierarchy().query(qbox, depthBegin, depthEnd);
-    return Json::Value();
+    return m_hierarchy->query(qbox, depthBegin, depthEnd);
 }
 
 std::unique_ptr<Query> Reader::query(
