@@ -92,7 +92,9 @@ public:
         : PointState(
                 metadata.hierarchyStructure(),
                 metadata.bbox(),
-                Hierarchy::startDepth())
+                std::max(
+                    Hierarchy::startDepth(),
+                    metadata.structure().baseDepthBegin()))
         , m_hierarchy(hierarchy)
     { }
 

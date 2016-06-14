@@ -8,8 +8,12 @@
 *
 ******************************************************************************/
 
-#include <entwine/tree/climber.hpp>
 #include <entwine/tree/hierarchy.hpp>
+
+#include <cassert>
+
+#include <entwine/tree/climber.hpp>
+#include <entwine/tree/cold.hpp>
 
 namespace entwine
 {
@@ -19,28 +23,68 @@ namespace
     const std::string countKey("n");
 }
 
-uint64_t HierarchyBlock::get(const PointState& pointState) const
-{
-    return get(pointState.index(), pointState.tick());
-}
+Hierarchy::Hierarchy(const Metadata& metadata)
+    : m_bbox(metadata.bbox())
+    , m_structure(metadata.hierarchyStructure())
+    , m_base(0, m_structure.baseIndexSpan())
+    , m_blockVec(Cold::getNumFastTrackers(m_structure))
+    , m_blockMap()
+    , m_spinner()
+{ }
 
-void Hierarchy::count(const PointState& state, const int delta)
+Hierarchy::Hierarchy(
+        const Metadata& metadata,
+        const arbiter::Endpoint& ep,
+        std::string postfix)
+    : m_bbox(metadata.bbox())
+    , m_structure(metadata.hierarchyStructure())
+    , m_base(0, m_structure.baseIndexSpan(), ep.getBinary("0" + postfix))
+    , m_blockVec(Cold::getNumFastTrackers(m_structure))
+    , m_blockMap()
+{ }
+
+void Hierarchy::count(const PointState& pointState, const int delta)
 {
-    if (m_structure.isWithinBase(state.depth()))
+    if (m_structure.isWithinBase(pointState.depth()))
     {
-        m_base.count(state.index(), state.tick(), delta);
+        m_base.count(pointState.index(), pointState.tick(), delta);
     }
-    else
+    else if (pointState.chunkNum() < m_blockVec.size())
     {
-        std::cout << state.depth() << std::endl;
-        std::cout << "D: " << state.chunkNum() << std::endl;
+        /*
+        FastBlock& block(m_blockVec.at(pointState.chunkNum()));
+
+        SpinGuard lock(block.spinner);
+        if (!block) block = HierarchyBlock::create();
+        block->count(pointState.id(), pointState.tick(), delta);
+        */
     }
 }
 
 uint64_t Hierarchy::get(const PointState& pointState) const
 {
-    // TODO Check the actual block.
-    return m_base.get(pointState);
+    const HierarchyBlock* block(nullptr);
+
+    if (m_structure.isWithinBase(pointState.depth()))
+    {
+        block = &m_base;
+    }
+    else if (pointState.chunkNum() < m_blockVec.size())
+    {
+        if (m_blockVec.at(pointState.chunkNum()))
+        {
+            block = m_blockVec.at(pointState.chunkNum()).get();
+            assert(block);
+        }
+    }
+    else if (m_blockMap.count(pointState.chunkId()))
+    {
+        block = m_blockMap.at(pointState.chunkId()).get();
+        assert(block);
+    }
+
+    if (block) return block->get(pointState.index(), pointState.tick());
+    else return 0;
 }
 
 Json::Value Hierarchy::query(
@@ -48,9 +92,7 @@ Json::Value Hierarchy::query(
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
-    // TODO Should add startDepth to Metadata (not Structure - as that would
-    // complicate the Hierarchy query Climber vs the building Climber).
-    if (depthBegin < Hierarchy::startDepth())
+    if (depthBegin < m_structure.baseDepthBegin())
     {
         throw std::runtime_error(
                 "Request was less than hierarchy base depth");

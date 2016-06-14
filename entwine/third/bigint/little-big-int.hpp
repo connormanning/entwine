@@ -35,10 +35,6 @@
 #include <utility>
 #include <vector>
 
-typedef unsigned long long Block;
-static const std::size_t bitsPerBlock(CHAR_BIT * sizeof(Block));
-static const std::size_t blockMax(std::numeric_limits<Block>::max());
-
 /******************************************************************************
 * The stack allocator (classes Arena and ShortAlloc) is adapted from
 *       https://howardhinnant.github.io/short_alloc.h
@@ -183,9 +179,18 @@ private:
 class BigUint
 {
 public:
+    using Block = unsigned long long;
+    static constexpr std::size_t bitsPerBlock = CHAR_BIT * sizeof(Block);
+    static const std::size_t blockMax;
+
     BigUint() : m_arena(), m_val(1, 0, Alloc(m_arena)) { }
     BigUint(const Block val) : m_arena(), m_val(1, val, Alloc(m_arena)) { }
     explicit BigUint(const std::string& val);
+
+    BigUint(const Block* begin, const Block* end)
+        : m_arena()
+        , m_val(begin, end, Alloc(m_arena))
+    { }
 
     BigUint(const BigUint& other)
         : m_arena()
@@ -236,13 +241,13 @@ public:
     static const unsigned int N = sizeof(Block);
     static const unsigned int A = alignof(Block);
 
-    typedef ShortAlloc<Block, N, A> Alloc;
-    typedef std::vector<Block, Alloc> Data;
+    using Alloc = ShortAlloc<Block, N, A>;
+    using Data = std::vector<Block, Alloc>;
 
     // Get raw blocks.  For the non-const version, if the result is modified,
     // all future operations may be incorrect.
-    Data& val() { return m_val; }
-    const Data& val() const { return m_val; }
+    Data& data() { return m_val; }
+    const Data& data() const { return m_val; }
 
     // These ones need access to private members.
     friend BigUint& operator*=(BigUint& lhs, const BigUint& rhs);
@@ -277,8 +282,8 @@ BigUint& operator%=(BigUint& lhs, const BigUint& rhs);
 
 BigUint& operator&=(BigUint& lhs, const BigUint& rhs);
 BigUint& operator|=(BigUint& lhs, const BigUint& rhs);
-BigUint& operator<<=(BigUint& lhs, Block rhs);
-BigUint& operator>>=(BigUint& lhs, Block rhs);
+BigUint& operator<<=(BigUint& lhs, BigUint::Block rhs);
+BigUint& operator>>=(BigUint& lhs, BigUint::Block rhs);
 
 // Copying.
 inline BigUint operator+(const BigUint& lhs, const BigUint& rhs)
@@ -312,8 +317,8 @@ inline BigUint operator|(const BigUint& lhs, const BigUint& rhs)
 }
 
 BigUint operator&(const BigUint& lhs, const BigUint& rhs);
-BigUint operator<<(const BigUint& lhs, Block rhs);
-BigUint operator>>(const BigUint& lhs, Block rhs);
+BigUint operator<<(const BigUint& lhs, BigUint::Block rhs);
+BigUint operator>>(const BigUint& lhs, BigUint::Block rhs);
 
 // Pre/post-fixes.  These return *this or a copy, as expected.
 BigUint& operator--(BigUint& lhs);      // Pre-decrement.
@@ -332,7 +337,7 @@ bool operator>=(const BigUint& lhs, const BigUint& rhs);
 inline bool operator!(const BigUint& val) { return val.zero(); }
 std::ostream& operator<<(std::ostream& out, const BigUint& val);
 
-Block log2(const BigUint& val);
+BigUint::Block log2(const BigUint& val);
 BigUint sqrt(const BigUint& in);
 
 namespace std
@@ -344,18 +349,18 @@ template<> struct hash<BigUint>
     // https://sites.google.com/site/murmurhash/
     std::size_t operator()(const BigUint& big) const
     {
-        const Block seed(0xc70f6907ULL);
-        const Block m(0xc6a4a7935bd1e995ULL);
-        const Block r(47);
+        const BigUint::Block seed(0xc70f6907ULL);
+        const BigUint::Block m(0xc6a4a7935bd1e995ULL);
+        const BigUint::Block r(47);
 
-        const auto& val(big.val());
+        const auto& val(big.data());
 
-        Block h(seed ^ (val.size() * sizeof(Block) * m));
+        BigUint::Block h(seed ^ (val.size() * sizeof(BigUint::Block) * m));
 
-        const Block* cur(val.data());
-        const Block* end(val.data() + val.size());
+        const BigUint::Block* cur(val.data());
+        const BigUint::Block* end(val.data() + val.size());
 
-        Block k(0);
+        BigUint::Block k(0);
 
         while (cur != end)
         {

@@ -36,31 +36,14 @@ namespace
     const auto createSleepTime(std::chrono::milliseconds(500));
 
     const std::size_t maxFastTrackers(std::pow(4, 12));
-
-    std::size_t getNumFastTrackers(const Structure& structure)
-    {
-        std::size_t count(0);
-        std::size_t depth(structure.coldDepthBegin());
-
-        while (
-                count < maxFastTrackers &&
-                depth < 64 &&
-                (depth < structure.coldDepthEnd() || !structure.coldDepthEnd()))
-        {
-            count += structure.numChunksAtDepth(depth);
-            ++depth;
-        }
-
-        return count;
-    }
 }
 
 Cold::Cold(const Builder& builder, bool exists)
     : m_builder(builder)
-    , m_chunkVec(getNumFastTrackers(builder.metadata().structure()))
+    , m_chunkVec(getNumFastTrackers(m_builder.metadata().structure()))
     , m_chunkMap()
     , m_mapMutex()
-    , m_pool(builder.threadPools().clipPool())
+    , m_pool(m_builder.threadPools().clipPool())
 {
     if (exists)
     {
@@ -178,8 +161,7 @@ void Cold::growFast(const Climber& climber, Clipper& clipper)
     {
         FastSlot& slot(m_chunkVec[chunkNum]);
 
-        while (slot.flag.test_and_set())
-            ;
+        UniqueSpin lock(slot.spinner);
 
         const bool exists(slot.mark.load());
         slot.mark.store(true);
@@ -188,7 +170,7 @@ void Cold::growFast(const Climber& climber, Clipper& clipper)
         if (!countedChunk) countedChunk.reset(new CountedChunk());
 
         std::lock_guard<std::mutex> chunkLock(countedChunk->mutex);
-        slot.flag.clear();
+        lock.unlock();
 
         if (!countedChunk->refs.count(clipper.id()))
         {
@@ -349,6 +331,25 @@ void Cold::merge(const Cold& other)
 {
     for (const Id& id : other.ids()) m_fauxIds.insert(id);
 }
+
+std::size_t Cold::getNumFastTrackers(const Structure& structure)
+{
+    std::size_t count(0);
+    std::size_t depth(structure.coldDepthBegin());
+
+    while (
+            count < maxFastTrackers &&
+            depth < 64 &&
+            (depth < structure.coldDepthEnd() || !structure.coldDepthEnd()))
+    {
+        count += structure.numChunksAtDepth(depth);
+        ++depth;
+    }
+
+    return count;
+}
+
+Cold::CountedChunk::~CountedChunk() { }
 
 } // namespace entwine
 

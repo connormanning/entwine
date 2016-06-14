@@ -11,6 +11,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <deque>
 #include <map>
 #include <mutex>
@@ -19,9 +20,9 @@
 #include <vector>
 
 #include <entwine/third/json/json.hpp>
+#include <entwine/tree/hierarchy-block.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/metadata.hpp>
-#include <entwine/types/point-pool.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/util/spin-lock.hpp>
 
@@ -30,190 +31,14 @@ namespace entwine
 
 class PointState;
 
-class HierarchyCell
-{
-public:
-    HierarchyCell() : m_val(0), m_spinner() { }
-    HierarchyCell(uint64_t val) : m_val(val), m_spinner() { }
-
-    HierarchyCell& operator=(const HierarchyCell& other)
-    {
-        m_val = other.val();
-        return *this;
-    }
-
-    void count(int delta)
-    {
-        SpinGuard lock(m_spinner);
-        m_val = static_cast<int>(m_val) + delta;
-    }
-
-    uint64_t val() const { return m_val; }
-
-private:
-    uint64_t m_val;
-    SpinLock m_spinner;
-};
-
-using HierarchyTube = std::map<uint64_t, HierarchyCell>;
-
-class HierarchyBlock
-{
-public:
-    HierarchyBlock(const Id& id) : m_id(id) { }
-
-    // Only count must be thread-safe.  Get/save are single-threaded.
-    virtual void count(const Id& id, uint64_t tick, int delta) = 0;
-
-    virtual uint64_t get(const Id& id, uint64_t tick) const = 0;
-    virtual void save(const arbiter::Endpoint& ep, std::string pf = "") = 0;
-
-    uint64_t get(const PointState& pointState) const;
-
-protected:
-    Id normalize(const Id& id) const { return id - m_id; }
-    void push(std::vector<char>& data, uint64_t val)
-    {
-        data.insert(
-                data.end(),
-                reinterpret_cast<const char*>(&val),
-                reinterpret_cast<const char*>(&val) + sizeof(val));
-    }
-
-    const Id m_id;
-};
-
-class ContiguousBlock : public HierarchyBlock
-{
-public:
-    using HierarchyBlock::get;
-
-    ContiguousBlock(const Id& id, std::size_t maxPoints)
-        : HierarchyBlock(id)
-        , m_tubes(maxPoints)
-    { }
-
-    ContiguousBlock(
-            const Id& id,
-            std::size_t maxPoints,
-            const std::vector<char>& data)
-        : HierarchyBlock(id)
-        , m_tubes(maxPoints)
-    {
-        const char* pos(data.data());
-        const char* end(data.data() + data.size());
-
-        uint64_t tube, tick, cell;
-
-        auto extract([&pos]()
-        {
-            const uint64_t v(*reinterpret_cast<const uint64_t*>(pos));
-            pos += sizeof(uint64_t);
-            return v;
-        });
-
-        while (pos < end)
-        {
-            tube = extract();
-            tick = extract();
-            cell = extract();
-
-            m_tubes.at(tube)[tick] = cell;
-        }
-    }
-
-    virtual void count(const Id& id, uint64_t tick, int delta) override
-    {
-        m_tubes.at(normalize(id).getSimple())[tick].count(delta);
-    }
-
-    virtual uint64_t get(const Id& id, uint64_t tick) const override
-    {
-        const HierarchyTube& tube(m_tubes.at(normalize(id).getSimple()));
-        const auto it(tube.find(tick));
-        if (it != tube.end()) return it->second.val();
-        else return 0;
-    }
-
-    virtual void save(const arbiter::Endpoint& ep, std::string pf = "") override
-    {
-        std::vector<char> data;
-
-        for (std::size_t tube(0); tube < m_tubes.size(); ++tube)
-        {
-            for (const auto& cell : m_tubes[tube])
-            {
-                push(data, tube);
-                push(data, cell.first);
-                push(data, cell.second.val());
-            }
-        }
-
-        ep.put(m_id.str() + pf, data);
-    }
-
-private:
-    std::vector<HierarchyTube> m_tubes;
-};
-
-class SparseBlock : public HierarchyBlock
-{
-public:
-    using HierarchyBlock::get;
-
-    virtual void count(const Id& id, uint64_t tick, int delta) override
-    {
-        SpinGuard lock(m_spinner);
-        m_tubes[normalize(id)][tick].count(delta);
-    }
-
-    virtual uint64_t get(const Id& id, uint64_t tick) const override
-    {
-        const auto tubeIt(m_tubes.find(id));
-        if (tubeIt != m_tubes.end())
-        {
-            const HierarchyTube& tube(tubeIt->second);
-            const auto cellIt(tube.find(tick));
-            if (cellIt != tube.end())
-            {
-                return cellIt->second.val();
-            }
-        }
-
-        return 0;
-    }
-
-    virtual void save(const arbiter::Endpoint& ep, std::string pf = "") override
-    {
-        // TODO.
-    }
-
-private:
-    SpinLock m_spinner;
-    std::map<Id, HierarchyTube> m_tubes;
-};
-
-class HierarchyState;
-
 class Hierarchy
 {
 public:
-    Hierarchy(const Metadata& metadata)
-        : m_bbox(metadata.bbox())
-        , m_structure(metadata.hierarchyStructure())
-        , m_base(0, m_structure.baseIndexSpan())
-        , m_blocks()
-    { }
-
+    Hierarchy(const Metadata& metadata);
     Hierarchy(
             const Metadata& metadata,
             const arbiter::Endpoint& ep,
-            std::string postfix = "")
-        : m_bbox(metadata.bbox())
-        , m_structure(metadata.hierarchyStructure())
-        , m_base(0, m_structure.baseIndexSpan(), ep.getBinary("0" + postfix))
-        , m_blocks()
-    { }
+            std::string postfix = "");
 
     void count(const PointState& state, int delta);
     uint64_t get(const PointState& pointState) const;
@@ -221,7 +46,7 @@ public:
     void save(const arbiter::Endpoint& ep, std::string postfix)
     {
         m_base.save(ep);
-        for (auto& pair : m_blocks) pair.second->save(ep, postfix);
+        for (auto& pair : m_blockMap) pair.second->save(ep, postfix);
     }
 
     void awakenAll() { }
@@ -297,7 +122,10 @@ private:
     const Structure& m_structure;
 
     ContiguousBlock m_base;
-    std::map<Id, std::unique_ptr<HierarchyBlock>> m_blocks;
+    std::vector<std::unique_ptr<HierarchyBlock>> m_blockVec;
+    std::map<Id, std::unique_ptr<HierarchyBlock>> m_blockMap;
+
+    SpinLock m_spinner;
 };
 
 

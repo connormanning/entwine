@@ -31,6 +31,8 @@
 #include <iostream>
 #include <sstream>
 
+const std::size_t BigUint::blockMax = std::numeric_limits<Block>::max();
+
 BigUint::BigUint(const std::string& str)
     : m_arena()
     , m_val(1, 0, Alloc(m_arena))
@@ -99,7 +101,7 @@ std::string BigUint::bin() const
 
 void BigUint::add(const BigUint& rhs, const Block shift)
 {
-    auto& rhsVal(rhs.val());
+    auto& rhsVal(rhs.data());
 
     const std::size_t shiftBlocks(shift / bitsPerBlock);
     const std::size_t shiftBits(shift % bitsPerBlock);
@@ -160,7 +162,7 @@ void BigUint::add(const BigUint& rhs, const Block shift)
 
 std::pair<BigUint, BigUint> BigUint::divMod(const BigUint& d) const
 {
-    const auto& dVal(d.val());
+    const auto& dVal(d.data());
 
     if (d.zero()) throw std::invalid_argument("Cannot divide by zero");
 
@@ -184,7 +186,7 @@ std::pair<BigUint, BigUint> BigUint::divMod(const BigUint& d) const
 
         // Don't presize the quotient here, we can't have leading zero blocks
         // since it can cause errors in our other operators.
-        auto& qVal(q.val());
+        auto& qVal(q.data());
         Block mask(0);
 
         for (std::size_t block(nValSize - 1); block < nValSize; --block)
@@ -214,11 +216,11 @@ std::pair<BigUint, BigUint> BigUint::divMod(const BigUint& d) const
 
 BigUint& operator+=(BigUint& lhs, const BigUint& rhs)
 {
-    auto& lhsVal(lhs.val());
-    auto& rhsVal(rhs.val());
+    auto& lhsVal(lhs.data());
+    auto& rhsVal(rhs.data());
 
     auto& lhsFront(lhsVal.front());
-    const Block rhsFront(rhsVal.front());
+    const BigUint::Block rhsFront(rhsVal.front());
 
     if (lhs.trivial() && rhs.trivial() && lhsFront + rhsFront >= lhsFront)
     {
@@ -235,10 +237,10 @@ BigUint& operator+=(BigUint& lhs, const BigUint& rhs)
 
         while (i < rhsSize)
         {
-            Block& lhsCur(lhsVal[i]);
-            const Block& rhsCur(rhsVal[i]);
+            BigUint::Block& lhsCur(lhsVal[i]);
+            const BigUint::Block& rhsCur(rhsVal[i]);
 
-            lhsCur += rhsCur + static_cast<Block>(carry);
+            lhsCur += rhsCur + static_cast<BigUint::Block>(carry);
             carry = lhsCur < rhsCur || (carry && lhsCur == rhsCur);
 
             ++i;
@@ -258,8 +260,8 @@ BigUint& operator+=(BigUint& lhs, const BigUint& rhs)
 
 BigUint& operator-=(BigUint& lhs, const BigUint& rhs)
 {
-    auto& lhsVal(lhs.val());
-    const auto& rhsVal(rhs.val());
+    auto& lhsVal(lhs.data());
+    const auto& rhsVal(rhs.data());
 
     if (lhs.trivial() && rhs.trivial())
     {
@@ -283,17 +285,17 @@ BigUint& operator-=(BigUint& lhs, const BigUint& rhs)
     }
     else
     {
-        Block old(0);
+        BigUint::Block old(0);
         bool borrow(false);
         std::size_t i(0);
 
         while (i < rhsSize)
         {
-            Block& lhsCur(lhsVal[i]);
+            BigUint::Block& lhsCur(lhsVal[i]);
             old = lhsCur;
-            const Block& rhsCur(rhsVal[i]);
+            const BigUint::Block& rhsCur(rhsVal[i]);
 
-            lhsCur -= rhsCur + static_cast<Block>(borrow);
+            lhsCur -= rhsCur + static_cast<BigUint::Block>(borrow);
             borrow = lhsCur > old || (borrow && lhsCur == old);
 
             ++i;
@@ -324,22 +326,22 @@ BigUint& operator*=(BigUint& lhs, const BigUint& rhs)
     {
         lhs = 0;
     }
-    else if (log2(lhs) + log2(rhs) + 1 <= bitsPerBlock)
+    else if (log2(lhs) + log2(rhs) + 1 <= BigUint::bitsPerBlock)
     {
-        lhs = lhs.val().front() * rhs.val().front();
+        lhs = lhs.data().front() * rhs.data().front();
     }
     else
     {
         BigUint out;
-        auto& rhsVal(rhs.val());
+        auto& rhsVal(rhs.data());
 
         for (std::size_t block(0); block < rhsVal.size(); ++block)
         {
-            for (std::size_t bit(0); bit < bitsPerBlock; ++bit)
+            for (std::size_t bit(0); bit < BigUint::bitsPerBlock; ++bit)
             {
                 if ((rhsVal.at(block) >> bit) & 1)
                 {
-                    out.add(lhs, block * bitsPerBlock + bit);
+                    out.add(lhs, block * BigUint::bitsPerBlock + bit);
                 }
             }
         }
@@ -366,8 +368,8 @@ BigUint& operator%=(BigUint& n, const BigUint& d)
 
 BigUint& operator&=(BigUint& lhs, const BigUint& rhs)
 {
-    auto& lhsVal(lhs.val());
-    auto& rhsVal(rhs.val());
+    auto& lhsVal(lhs.data());
+    auto& rhsVal(rhs.data());
 
     lhsVal.resize(std::min(lhsVal.size(), rhsVal.size()));
 
@@ -383,8 +385,8 @@ BigUint& operator&=(BigUint& lhs, const BigUint& rhs)
 
 BigUint& operator|=(BigUint& lhs, const BigUint& rhs)
 {
-    auto& lhsVal(lhs.val());
-    auto& rhsVal(rhs.val());
+    auto& lhsVal(lhs.data());
+    auto& rhsVal(rhs.data());
 
     const std::size_t rhsSize(rhsVal.size());
 
@@ -398,26 +400,28 @@ BigUint& operator|=(BigUint& lhs, const BigUint& rhs)
     return lhs;
 }
 
-BigUint& operator<<=(BigUint& lhs, Block rhs)
+BigUint& operator<<=(BigUint& lhs, BigUint::Block rhs)
 {
     if (
             lhs.zero() || !rhs ||
-            (lhs.trivial() && rhs < bitsPerBlock &&
-            (lhs.m_val.front() & (blockMax << (bitsPerBlock - rhs))) == 0))
+            (lhs.trivial() && rhs < BigUint::bitsPerBlock &&
+            (lhs.m_val.front() &
+                (BigUint::blockMax << (BigUint::bitsPerBlock - rhs))) == 0))
     {
         lhs.m_val.front() <<= rhs;
         return lhs;
     }
 
     const std::size_t startBlocks(lhs.blockSize());
-    const std::size_t shiftBlocks(rhs / bitsPerBlock);
-    const std::size_t shiftBits(rhs % bitsPerBlock);
-    const std::size_t shiftBack(shiftBits ? (bitsPerBlock - shiftBits) : 0);
+    const std::size_t shiftBlocks(rhs / BigUint::bitsPerBlock);
+    const std::size_t shiftBits(rhs % BigUint::bitsPerBlock);
+    const std::size_t shiftBack(
+            shiftBits ? (BigUint::bitsPerBlock - shiftBits) : 0);
 
-    auto& val(lhs.val());
+    auto& val(lhs.data());
 
     {
-        Block carry(shiftBack ? val.back() >> shiftBack : 0);
+        BigUint::Block carry(shiftBack ? val.back() >> shiftBack : 0);
         val.resize(startBlocks + shiftBlocks + (carry ? 1 : 0), 0);
         if (carry) val.back() = carry;
     }
@@ -437,14 +441,15 @@ BigUint& operator<<=(BigUint& lhs, Block rhs)
     return lhs;
 }
 
-BigUint& operator>>=(BigUint& lhs, Block rhs)
+BigUint& operator>>=(BigUint& lhs, BigUint::Block rhs)
 {
     const std::size_t startBlocks(lhs.blockSize());
-    const std::size_t shiftBlocks(rhs / bitsPerBlock);
-    const std::size_t shiftBits(rhs % bitsPerBlock);
-    const std::size_t shiftBack(shiftBits ? (bitsPerBlock - shiftBits) : 0);
+    const std::size_t shiftBlocks(rhs / BigUint::bitsPerBlock);
+    const std::size_t shiftBits(rhs % BigUint::bitsPerBlock);
+    const std::size_t shiftBack(
+            shiftBits ? (BigUint::bitsPerBlock - shiftBits) : 0);
 
-    auto& val(lhs.val());
+    auto& val(lhs.data());
 
     for (std::size_t i(shiftBlocks); i < startBlocks - 1; ++i)
     {
@@ -453,7 +458,7 @@ BigUint& operator>>=(BigUint& lhs, Block rhs)
             (val[i] >> shiftBits);
     }
 
-    Block last(val.back() >> shiftBits);
+    BigUint::Block last(val.back() >> shiftBits);
     val.resize(startBlocks - shiftBlocks - (last ? 0 : 1));
 
     if (val.empty()) val.push_back(0);
@@ -465,7 +470,7 @@ BigUint& operator>>=(BigUint& lhs, Block rhs)
 BigUint operator&(const BigUint& lhs, const BigUint& rhs)
 {
     BigUint result;
-    if (lhs.val().size() < rhs.val().size())
+    if (lhs.data().size() < rhs.data().size())
     {
         result = lhs;
         result &= rhs;
@@ -478,31 +483,33 @@ BigUint operator&(const BigUint& lhs, const BigUint& rhs)
     return result;
 }
 
-BigUint operator<<(const BigUint& lhs, const Block rhs)
+BigUint operator<<(const BigUint& lhs, const BigUint::Block rhs)
 {
     if (
             lhs.zero() || !rhs ||
-            (lhs.trivial() && rhs < bitsPerBlock &&
-            (lhs.m_val.front() & (blockMax << (bitsPerBlock - rhs))) == 0))
+            (lhs.trivial() && rhs < BigUint::bitsPerBlock &&
+            (lhs.m_val.front() &
+                (BigUint::blockMax << (BigUint::bitsPerBlock - rhs))) == 0))
     {
         return BigUint(lhs.m_val.front() << rhs);
     }
 
     const std::size_t startBlocks(lhs.blockSize());
-    const std::size_t shiftBlocks(rhs / bitsPerBlock);
-    const std::size_t shiftBits(rhs % bitsPerBlock);
+    const std::size_t shiftBlocks(rhs / BigUint::bitsPerBlock);
+    const std::size_t shiftBits(rhs % BigUint::bitsPerBlock);
 
-    BigUint result(std::vector<Block>(startBlocks + shiftBlocks, 0));
+    BigUint result(std::vector<BigUint::Block>(startBlocks + shiftBlocks, 0));
 
-    const auto& start(lhs.val());
-    auto& val(result.val());
+    const auto& start(lhs.data());
+    auto& val(result.data());
 
-    Block carry(0);
+    BigUint::Block carry(0);
 
     for (std::size_t i(0); i < startBlocks; ++i)
     {
         val[i + shiftBlocks] = (start[i] << shiftBits) | carry;
-        carry = shiftBits ? (start[i] >> (bitsPerBlock - shiftBits)) : 0;
+        carry = shiftBits ?
+            (start[i] >> (BigUint::bitsPerBlock - shiftBits)) : 0;
     }
 
     if (carry) val.push_back(carry);
@@ -512,7 +519,7 @@ BigUint operator<<(const BigUint& lhs, const Block rhs)
     return result;
 }
 
-BigUint operator>>(const BigUint& lhs, const Block rhs)
+BigUint operator>>(const BigUint& lhs, const BigUint::Block rhs)
 {
     // TODO Can be optimized like the above.
     BigUint result(lhs);
@@ -548,8 +555,8 @@ BigUint operator++(BigUint& lhs, int)
 
 bool operator==(const BigUint& lhs, const BigUint& rhs)
 {
-    const auto& lhsVal(lhs.val());
-    const auto& rhsVal(rhs.val());
+    const auto& lhsVal(lhs.data());
+    const auto& rhsVal(rhs.data());
 
     const std::size_t size(lhsVal.size());
 
@@ -576,8 +583,8 @@ bool operator<(const BigUint& lhs, const BigUint& rhs)
         else return true;
     }
 
-    const auto& lhsVal(lhs.val());
-    const auto& rhsVal(rhs.val());
+    const auto& lhsVal(lhs.data());
+    const auto& rhsVal(rhs.data());
 
     const std::size_t lhsSize(lhsVal.size());
     const std::size_t rhsSize(rhsVal.size());
@@ -617,10 +624,11 @@ std::ostream& operator<<(std::ostream& out, const BigUint& val)
     return out;
 }
 
-Block log2(const BigUint& in)
+BigUint::Block log2(const BigUint& in)
 {
     if (in.zero()) throw std::runtime_error("log2(0) is undefined");
-    return std::log2(in.val().back()) + (in.blockSize() - 1) * bitsPerBlock;
+    return std::log2(
+            in.data().back()) + (in.blockSize() - 1) * BigUint::bitsPerBlock;
 }
 
 BigUint sqrt(const BigUint& in)

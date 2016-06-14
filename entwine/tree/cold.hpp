@@ -21,6 +21,8 @@
 #include <entwine/third/json/json.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/tube.hpp>
+#include <entwine/util/spin-lock.hpp>
+
 
 namespace arbiter
 {
@@ -56,6 +58,8 @@ public:
 
     std::size_t clipThreads() const;
 
+    static std::size_t getNumFastTrackers(const Structure& structure);
+
 private:
     void growFast(const Climber& climber, Clipper& clipper);
     void growSlow(const Climber& climber, Clipper& clipper);
@@ -63,6 +67,8 @@ private:
 
     struct CountedChunk
     {
+        ~CountedChunk();
+
         std::unique_ptr<Chunk> chunk;
         std::unordered_map<std::size_t, std::size_t> refs;
         std::mutex mutex;
@@ -77,13 +83,10 @@ private:
 
     struct FastSlot
     {
-        FastSlot() : mark(false), flag(), chunk()
-        {
-            flag.clear();
-        }
+        FastSlot() : mark(false), spinner(), chunk() { }
 
         std::atomic_bool mark;  // Data exists?
-        std::atomic_flag flag;  // Lock.
+        SpinLock spinner;
         std::unique_ptr<CountedChunk> chunk;
     };
 
