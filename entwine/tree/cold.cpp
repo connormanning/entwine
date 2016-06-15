@@ -45,12 +45,14 @@ Cold::Cold(const Builder& builder, bool exists)
     , m_mapMutex()
     , m_pool(m_builder.threadPools().clipPool())
 {
+    const Metadata& metadata(m_builder.metadata());
+
     if (exists)
     {
-        const Json::Value json(([this]()
+        const Json::Value json(([this, &metadata]()
         {
             const auto endpoint(m_builder.outEndpoint());
-            const auto postfix(m_builder.metadata().postfix());
+            const auto postfix(metadata.postfix());
             const std::string subpath("entwine-ids" + postfix);
 
             return parse(m_builder.outEndpoint().get(subpath));
@@ -58,16 +60,45 @@ Cold::Cold(const Builder& builder, bool exists)
 
         Id chunkId(0);
 
-        const Structure& structure(m_builder.metadata().structure());
-
         for (Json::ArrayIndex i(0); i < json.size(); ++i)
         {
             chunkId = Id(json[i].asString());
 
-            const ChunkInfo chunkInfo(structure.getInfo(chunkId));
+            const ChunkInfo chunkInfo(m_structure.getInfo(chunkId));
             const std::size_t chunkNum(chunkInfo.chunkNum());
 
             mark(chunkId, chunkNum);
+        }
+    }
+
+    if (m_structure.baseIndexSpan())
+    {
+        if (!exists)
+        {
+            m_base->chunk = Chunk::create(
+                    m_builder,
+                    0,
+                    m_structure.baseIndexBegin(),
+                    m_structure.baseIndexSpan());
+        }
+        else
+        {
+            const std::string basePath(
+                    m_structure.baseIndexBegin().str() + metadata.postfix());
+
+            if (auto data = m_builder.outEndpoint().tryGetBinary(basePath))
+            {
+                m_base->chunk = Chunk::create(
+                        m_builder,
+                        0,
+                        m_structure.baseIndexBegin(),
+                        m_structure.baseIndexSpan(),
+                        std::move(data));
+            }
+            else
+            {
+                throw std::runtime_error("No base data found");
+            }
         }
     }
 }
@@ -80,6 +111,11 @@ Tube::Insertion Cold::insert(
         Clipper& clipper,
         Cell::PooledNode& cell)
 {
+    if (m_structure.isWithinBase(climber.depth()))
+    {
+        return m_base->chunk->insert(climber, cell);
+    }
+
     auto& slot(get(climber.pointState()));
     std::unique_ptr<CountedChunk>& countedChunk(slot.t);
 
@@ -107,27 +143,6 @@ Tube::Insertion Cold::insert(
     }
 
     return countedChunk->chunk->insert(climber, cell);
-}
-
-std::set<Id> Cold::ids() const
-{
-    std::set<Id> results(Splitter::ids());
-    results.insert(m_fauxIds.begin(), m_fauxIds.end());
-    return results;
-}
-
-void Cold::save(const arbiter::Endpoint& endpoint) const
-{
-    m_pool.join();
-
-    Json::Value json;
-    for (const auto& id : ids())
-    {
-        json.append(id.str());
-    }
-
-    const std::string subpath("entwine-ids" + m_builder.metadata().postfix());
-    endpoint.put(subpath, toFastString(json));
 }
 
 void Cold::ensureChunk(
@@ -186,6 +201,27 @@ void Cold::ensureChunk(
     }
 }
 
+std::set<Id> Cold::ids() const
+{
+    std::set<Id> results(Splitter::ids());
+    results.insert(m_fauxIds.begin(), m_fauxIds.end());
+    return results;
+}
+
+void Cold::save(const arbiter::Endpoint& endpoint) const
+{
+    m_pool.join();
+
+    Json::Value json;
+    for (const auto& id : ids())
+    {
+        json.append(id.str());
+    }
+
+    const std::string subpath("entwine-ids" + m_builder.metadata().postfix());
+    endpoint.put(subpath, toFastString(json));
+}
+
 void Cold::clip(
         const Id& chunkId,
         const std::size_t chunkNum,
@@ -204,6 +240,12 @@ void Cold::clip(
 
 void Cold::merge(const Cold& other)
 {
+    if (m_base->chunk)
+    {
+        dynamic_cast<BaseChunk&>(*m_base->chunk).merge(
+                dynamic_cast<BaseChunk&>(*other.m_base->chunk));
+    }
+
     for (const Id& id : other.ids()) m_fauxIds.insert(id);
 }
 

@@ -52,34 +52,13 @@ public:
 
     void clip(const Id& index, std::size_t chunkNum, std::size_t id);
 
-    std::set<Id> ids() const;
-
 private:
     void loadAsNew();
     void loadFromRemote();
 
-    Tube::Insertion insert(
-            const Climber& climber,
-            Clipper& clipper,
-            Cell::PooledNode& cell)
-    {
-        if (m_structure.isWithinBase(climber.depth()))
-        {
-            return m_base->insert(climber, cell);
-        }
-        else
-        {
-            return m_cold->insert(climber, clipper, cell);
-        }
-    }
-
-    BaseChunk* base() { return m_base.get(); }
-    Cold* cold() { return m_cold.get(); }
-
     const Builder& m_builder;
     const Structure& m_structure;
 
-    std::unique_ptr<BaseChunk> m_base;
     std::unique_ptr<Cold> m_cold;
 };
 

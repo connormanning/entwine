@@ -23,6 +23,7 @@
 #include <entwine/types/structure.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/storage.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
@@ -30,51 +31,8 @@ namespace entwine
 Registry::Registry(const Builder& builder, const bool exists)
     : m_builder(builder)
     , m_structure(m_builder.metadata().structure())
-    , m_base()
-    , m_cold()
-{
-    const Metadata& metadata(m_builder.metadata());
-
-    if (m_structure.baseIndexSpan())
-    {
-        if (!exists)
-        {
-            m_base.reset(
-                    static_cast<BaseChunk*>(
-                        Chunk::create(
-                            m_builder,
-                            0,
-                            m_structure.baseIndexBegin(),
-                            m_structure.baseIndexSpan()).release()));
-        }
-        else
-        {
-            const std::string basePath(
-                    m_structure.baseIndexBegin().str() + metadata.postfix());
-
-            if (auto data = m_builder.outEndpoint().tryGetBinary(basePath))
-            {
-                m_base.reset(
-                        static_cast<BaseChunk*>(
-                            Chunk::create(
-                                m_builder,
-                                0,
-                                m_structure.baseIndexBegin(),
-                                m_structure.baseIndexSpan(),
-                                std::move(data)).release()));
-            }
-            else
-            {
-                throw std::runtime_error("No base data found");
-            }
-        }
-    }
-
-    if (m_structure.hasCold())
-    {
-        m_cold.reset(new Cold(m_builder, exists));
-    }
-}
+    , m_cold(makeUnique<Cold>(m_builder, exists))
+{ }
 
 Registry::~Registry()
 { }
@@ -94,7 +52,7 @@ bool Registry::addPoint(
 
     while (true)
     {
-        attempt = insert(climber, clipper, cell);
+        attempt = m_cold->insert(climber, clipper, cell);
 
         if (!attempt.done())
         {
@@ -131,14 +89,7 @@ void Registry::clip(
 
 void Registry::merge(const Registry& other)
 {
-    if (m_cold && other.m_cold) m_cold->merge(*other.m_cold);
-    if (m_base && other.m_base) m_base->merge(*other.m_base);
-}
-
-std::set<Id> Registry::ids() const
-{
-    if (m_cold) return m_cold->ids();
-    else return std::set<Id>();
+    m_cold->merge(*other.m_cold);
 }
 
 } // namespace entwine

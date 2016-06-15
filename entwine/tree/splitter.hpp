@@ -15,6 +15,7 @@
 
 // #include <entwine/tree/climber.hpp>
 #include <entwine/types/structure.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
@@ -37,7 +38,7 @@ protected:
 public:
     Splitter(const Structure& structure)
         : m_structure(structure)
-        , m_base()
+        , m_base(makeUnique<T>())
         , m_fast(getNumFastTrackers(structure))
         , m_slow()
         , m_slowMutex()
@@ -49,8 +50,6 @@ public:
     {
         get(chunkId, chunkNum).mark = true;
     }
-
-    UniqueT& base() { return &m_base; }
 
     Slot& get(const PointState& pointState)
     {
