@@ -142,6 +142,8 @@ public:
         while (!norm.contains(m_pointState.bbox(), true)) magnify(norm.mid());
     }
 
+    const PointState& pointState() const { return m_pointState; }
+
     const Id& index()   const { return m_pointState.index(); }
     std::size_t tick()  const { return m_pointState.tick(); }
     std::size_t depth() const { return m_pointState.depth(); }

@@ -19,9 +19,13 @@
 #include <unordered_map>
 
 #include <entwine/third/json/json.hpp>
+#include <entwine/tree/chunk.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/tube.hpp>
 #include <entwine/util/spin-lock.hpp>
+#include <entwine/util/unique.hpp>
+
+#include <entwine/tree/splitter.hpp>
 
 
 namespace arbiter
@@ -34,13 +38,30 @@ namespace entwine
 
 class Builder;
 class Cell;
-class Chunk;
 class Climber;
 class Clipper;
 class Pool;
 
-class Cold
+struct CountedChunk
 {
+    std::unique_ptr<Chunk> chunk;
+    std::unordered_map<std::size_t, std::size_t> refs;
+
+    void unref(std::size_t id)
+    {
+        if (!--refs.at(id))
+        {
+            assert(chunk);
+            refs.erase(id);
+            if (refs.empty()) chunk.reset();
+        }
+    }
+};
+
+class Cold : Splitter<CountedChunk>
+{
+    using SlotType = Splitter<CountedChunk>::Slot;
+
 public:
     Cold(const Builder& builder, bool exists);
     ~Cold();
@@ -58,28 +79,13 @@ public:
 
     std::size_t clipThreads() const;
 
-    static std::size_t getNumFastTrackers(const Structure& structure);
-
 private:
-    void growFast(const Climber& climber, Clipper& clipper);
-    void growSlow(const Climber& climber, Clipper& clipper);
-    void growFaux(const Id& other);
-
-    struct CountedChunk
-    {
-        ~CountedChunk();
-
-        std::unique_ptr<Chunk> chunk;
-        std::unordered_map<std::size_t, std::size_t> refs;
-        std::mutex mutex;
-    };
+    void growFaux(const Id& id) { m_fauxIds.insert(id); }
 
     void ensureChunk(
             const Climber& climber,
             std::unique_ptr<Chunk>& chunk,
             bool exists);
-
-    void unrefChunk(CountedChunk& countedChunk, std::size_t id, bool fast);
 
     struct FastSlot
     {
@@ -93,7 +99,6 @@ private:
     using ChunkMap = std::unordered_map<Id, std::unique_ptr<CountedChunk>>;
 
     const Builder& m_builder;
-    std::vector<FastSlot> m_chunkVec;
     ChunkMap m_chunkMap;
     std::set<Id> m_fauxIds; // Used for merging, these are added to metadata.
 

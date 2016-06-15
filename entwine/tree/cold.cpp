@@ -15,7 +15,6 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
-#include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
 #include <entwine/tree/thread-pools.hpp>
@@ -26,6 +25,7 @@
 #include <entwine/util/json.hpp>
 #include <entwine/util/pool.hpp>
 #include <entwine/util/storage.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
@@ -39,8 +39,8 @@ namespace
 }
 
 Cold::Cold(const Builder& builder, bool exists)
-    : m_builder(builder)
-    , m_chunkVec(getNumFastTrackers(m_builder.metadata().structure()))
+    : Splitter(builder.metadata().structure())
+    , m_builder(builder)
     , m_chunkMap()
     , m_mapMutex()
     , m_pool(m_builder.threadPools().clipPool())
@@ -56,26 +56,18 @@ Cold::Cold(const Builder& builder, bool exists)
             return parse(m_builder.outEndpoint().get(subpath));
         })());
 
-        Id id(0);
+        Id chunkId(0);
 
         const Structure& structure(m_builder.metadata().structure());
 
         for (Json::ArrayIndex i(0); i < json.size(); ++i)
         {
-            id = Id(json[i].asString());
+            chunkId = Id(json[i].asString());
 
-            const ChunkInfo chunkInfo(structure.getInfo(id));
+            const ChunkInfo chunkInfo(structure.getInfo(chunkId));
             const std::size_t chunkNum(chunkInfo.chunkNum());
 
-            if (chunkNum < m_chunkVec.size())
-            {
-                m_chunkVec[chunkNum].mark.store(true);
-            }
-            else
-            {
-                std::unique_ptr<CountedChunk> c(new CountedChunk());
-                m_chunkMap.emplace(id, std::move(c));
-            }
+            mark(chunkId, chunkNum);
         }
     }
 }
@@ -88,27 +80,30 @@ Tube::Insertion Cold::insert(
         Clipper& clipper,
         Cell::PooledNode& cell)
 {
-    CountedChunk* countedChunk(nullptr);
+    auto& slot(get(climber.pointState()));
+    std::unique_ptr<CountedChunk>& countedChunk(slot.t);
 
-    const std::size_t chunkNum(climber.chunkNum());
-    const Id& chunkId(climber.chunkId());
-
-    if (chunkNum < m_chunkVec.size())
+    // With this insertion check into our single-threaded Clipper (which we
+    // need to perform anyways), we can avoid locking this Chunk to check for
+    // existence.
+    if (clipper.insert(climber.chunkId(), climber.chunkNum()))
     {
-        growFast(climber, clipper);
-        countedChunk = m_chunkVec[chunkNum].chunk.get();
-    }
-    else
-    {
-        growSlow(climber, clipper);
+        UniqueSpin slotLock(slot.spinner);
 
-        std::lock_guard<std::mutex> mapLock(m_mapMutex);
-        countedChunk = m_chunkMap.at(chunkId).get();
-    }
+        const bool exists(slot.mark);
+        slot.mark = true;
 
-    if (!countedChunk)
-    {
-        throw std::runtime_error("CountedChunk has missing contents.");
+        if (!countedChunk) countedChunk = makeUnique<CountedChunk>();
+
+        auto& refs(countedChunk->refs);
+
+        if (!refs.count(clipper.id())) refs[clipper.id()] = 1;
+        else ++refs[clipper.id()];
+
+        if (!countedChunk->chunk)
+        {
+            ensureChunk(climber, countedChunk->chunk, exists);
+        }
     }
 
     return countedChunk->chunk->insert(climber, cell);
@@ -116,25 +111,8 @@ Tube::Insertion Cold::insert(
 
 std::set<Id> Cold::ids() const
 {
-    std::set<Id> results(m_fauxIds);
-
-    const Structure& structure(m_builder.metadata().structure());
-
-    for (std::size_t i(0); i < m_chunkVec.size(); ++i)
-    {
-        if (m_chunkVec[i].mark.load())
-        {
-            ChunkInfo info(structure.getInfoFromNum(i));
-            results.insert(info.chunkId());
-        }
-    }
-
-    std::lock_guard<std::mutex> lock(m_mapMutex);
-    for (const auto& p : m_chunkMap)
-    {
-        results.insert(p.first);
-    }
-
+    std::set<Id> results(Splitter::ids());
+    results.insert(m_fauxIds.begin(), m_fauxIds.end());
     return results;
 }
 
@@ -150,73 +128,6 @@ void Cold::save(const arbiter::Endpoint& endpoint) const
 
     const std::string subpath("entwine-ids" + m_builder.metadata().postfix());
     endpoint.put(subpath, toFastString(json));
-}
-
-void Cold::growFast(const Climber& climber, Clipper& clipper)
-{
-    const Id& chunkId(climber.chunkId());
-    const std::size_t chunkNum(climber.chunkNum());
-
-    if (clipper.insert(chunkId, chunkNum))
-    {
-        FastSlot& slot(m_chunkVec[chunkNum]);
-
-        UniqueSpin lock(slot.spinner);
-
-        const bool exists(slot.mark.load());
-        slot.mark.store(true);
-        auto& countedChunk(slot.chunk);
-
-        if (!countedChunk) countedChunk.reset(new CountedChunk());
-
-        std::lock_guard<std::mutex> chunkLock(countedChunk->mutex);
-        lock.unlock();
-
-        if (!countedChunk->refs.count(clipper.id()))
-        {
-            countedChunk->refs[clipper.id()] = 1;
-        }
-        else
-        {
-            ++countedChunk->refs[clipper.id()];
-        }
-
-        ensureChunk(climber, countedChunk->chunk, exists);
-    }
-}
-
-void Cold::growSlow(const Climber& climber, Clipper& clipper)
-{
-    const Id& chunkId(climber.chunkId());
-
-    if (clipper.insert(chunkId, climber.chunkNum()))
-    {
-        std::unique_lock<std::mutex> mapLock(m_mapMutex);
-
-        const bool exists(m_chunkMap.count(chunkId));
-        auto& countedChunk(m_chunkMap[chunkId]);
-
-        if (!exists) countedChunk.reset(new CountedChunk());
-
-        std::lock_guard<std::mutex> chunkLock(countedChunk->mutex);
-        mapLock.unlock();
-
-        if (!countedChunk->refs.count(clipper.id()))
-        {
-            countedChunk->refs[clipper.id()] = 1;
-        }
-        else
-        {
-            ++countedChunk->refs[clipper.id()];
-        }
-
-        ensureChunk(climber, countedChunk->chunk, exists);
-    }
-}
-
-void Cold::growFaux(const Id& id)
-{
-    m_fauxIds.insert(id);
 }
 
 void Cold::ensureChunk(
@@ -280,76 +191,21 @@ void Cold::clip(
         const std::size_t chunkNum,
         const std::size_t id)
 {
-    if (chunkNum < m_chunkVec.size())
+    auto& slot(get(chunkId, chunkNum));
+    assert(slot.mark);
+
+    m_pool.add([&slot, id]()
     {
-        FastSlot& slot(m_chunkVec[chunkNum]);
-        CountedChunk& countedChunk(*slot.chunk);
-
-        m_pool.add([this, &countedChunk, id]()
-        {
-            unrefChunk(countedChunk, id, true);
-        });
-    }
-    else
-    {
-        std::unique_lock<std::mutex> mapLock(m_mapMutex);
-        CountedChunk& countedChunk(*m_chunkMap.at(chunkId));
-        mapLock.unlock();
-
-        m_pool.add([this, &countedChunk, id]()
-        {
-            unrefChunk(countedChunk, id, false);
-        });
-    }
-}
-
-void Cold::unrefChunk(
-        CountedChunk& countedChunk,
-        const std::size_t id,
-        const bool fast)
-{
-    std::lock_guard<std::mutex> chunkLock(countedChunk.mutex);
-
-    if (!--countedChunk.refs.at(id)) countedChunk.refs.erase(id);
-
-    if (countedChunk.refs.empty())
-    {
-        if (countedChunk.chunk)
-        {
-            countedChunk.chunk.reset(nullptr);
-        }
-        else
-        {
-            std::cout << "Tried to clip null chunk " << id << " - ";
-            std::cout << (fast ? "fast" : "slow") << std::endl;
-            exit(1);
-        }
-    }
+        assert(slot.t);
+        SpinGuard lock(slot.spinner);
+        slot.t->unref(id);
+    });
 }
 
 void Cold::merge(const Cold& other)
 {
     for (const Id& id : other.ids()) m_fauxIds.insert(id);
 }
-
-std::size_t Cold::getNumFastTrackers(const Structure& structure)
-{
-    std::size_t count(0);
-    std::size_t depth(structure.coldDepthBegin());
-
-    while (
-            count < maxFastTrackers &&
-            depth < 64 &&
-            (depth < structure.coldDepthEnd() || !structure.coldDepthEnd()))
-    {
-        count += structure.numChunksAtDepth(depth);
-        ++depth;
-    }
-
-    return count;
-}
-
-Cold::CountedChunk::~CountedChunk() { }
 
 } // namespace entwine
 

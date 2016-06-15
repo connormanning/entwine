@@ -113,6 +113,8 @@ bool Registry::addPoint(
         }
         else
         {
+            // TODO Should account for delta even if done - if we've swapped
+            // delta may be greater than 1.
             climber.count();
             return true;
         }

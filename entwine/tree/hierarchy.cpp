@@ -21,13 +21,32 @@ namespace entwine
 namespace
 {
     const std::string countKey("n");
+
+    std::size_t getNumFastTrackers(const Structure& structure)
+    {
+        static const std::size_t maxFastTrackers(std::pow(4, 12));
+        std::size_t count(0);
+        std::size_t depth(structure.coldDepthBegin());
+
+        while (
+                count < maxFastTrackers &&
+                depth < 64 &&
+                (depth < structure.coldDepthEnd() || !structure.coldDepthEnd()))
+        {
+            count += structure.numChunksAtDepth(depth);
+            ++depth;
+        }
+
+        return count;
+    }
+
 }
 
 Hierarchy::Hierarchy(const Metadata& metadata)
     : m_bbox(metadata.bbox())
     , m_structure(metadata.hierarchyStructure())
     , m_base(0, m_structure.baseIndexSpan())
-    , m_blockVec(Cold::getNumFastTrackers(m_structure))
+    , m_blockVec(getNumFastTrackers(m_structure))
     , m_blockMap()
     , m_spinner()
 { }
@@ -39,7 +58,7 @@ Hierarchy::Hierarchy(
     : m_bbox(metadata.bbox())
     , m_structure(metadata.hierarchyStructure())
     , m_base(0, m_structure.baseIndexSpan(), ep.getBinary("0" + postfix))
-    , m_blockVec(Cold::getNumFastTrackers(m_structure))
+    , m_blockVec(getNumFastTrackers(m_structure))
     , m_blockMap()
 { }
 

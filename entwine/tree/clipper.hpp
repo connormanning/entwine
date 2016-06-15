@@ -24,6 +24,20 @@ namespace entwine
 
 class Clipper
 {
+private:
+    struct ClipInfo
+    {
+        ClipInfo() : chunkNum(0), fresh(true) { }
+
+        explicit ClipInfo(std::size_t chunkNum)
+            : chunkNum(chunkNum)
+            , fresh(true)
+        { }
+
+        std::size_t chunkNum;
+        bool fresh;
+    };
+
 public:
     Clipper(Builder& builder, Origin origin)
         : m_builder(builder)
@@ -39,26 +53,28 @@ public:
         }
     }
 
-    bool insert(const Id& chunkId, std::size_t chunkNum);
+    bool insert(const Id& chunkId, std::size_t chunkNum)
+    {
+        const auto find(m_clips.find(chunkId));
+
+        if (find != m_clips.end())
+        {
+            find->second.fresh = true;
+            return false;
+        }
+        else
+        {
+            m_clips.insert(std::make_pair(chunkId, ClipInfo(chunkNum)));
+            return true;
+        }
+    }
+
     void clip();
     std::size_t id() const { return m_id; }
     std::size_t size() const { return m_clips.size(); }
 
 private:
     typedef std::list<const Id*> Order;
-
-    struct ClipInfo
-    {
-        ClipInfo() : chunkNum(0), fresh(true) { }
-
-        explicit ClipInfo(std::size_t chunkNum)
-            : chunkNum(chunkNum)
-            , fresh(true)
-        { }
-
-        std::size_t chunkNum;
-        bool fresh;
-    };
 
     Builder& m_builder;
     uint64_t m_id;
