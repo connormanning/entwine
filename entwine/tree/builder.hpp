@@ -83,6 +83,8 @@ public:
     // Save the current state of the tree.  Files may no longer be inserted
     // after this call, but getters are still valid.
     void save();
+    void save(std::string to);
+    void save(const arbiter::Endpoint& to);
 
     // Aggregate manifest-split build.
     void unsplit(Builder& other);

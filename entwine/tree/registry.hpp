@@ -41,7 +41,7 @@ public:
     Registry(const Builder& builder, bool exists = false);
     ~Registry();
 
-    void save() const;
+    void save(const arbiter::Endpoint& endpoint) const;
     void merge(const Registry& other);
 
     bool addPoint(

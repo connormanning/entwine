@@ -123,7 +123,7 @@ Tube::Insertion Cold::insert(
     // With this insertion check into our single-threaded Clipper (which we
     // need to perform anyways), we can avoid locking this Chunk to check for
     // existence.
-    if (clipper.insert(climber.chunkId(), climber.chunkNum()))
+    if (clipper.insert(climber.chunkId(), climber.chunkNum(), climber.depth()))
     {
         UniqueSpin slotLock(slot.spinner);
 
@@ -205,6 +205,11 @@ void Cold::ensureChunk(
 void Cold::save(const arbiter::Endpoint& endpoint) const
 {
     m_pool.join();
+
+    if (m_structure.baseIndexSpan())
+    {
+        dynamic_cast<BaseChunk&>(*m_base.t->chunk).save(endpoint);
+    }
 
     Json::Value json;
     for (const auto& id : ids()) json.append(id.str());

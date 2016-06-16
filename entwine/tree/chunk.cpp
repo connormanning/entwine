@@ -87,10 +87,9 @@ Chunk::~Chunk()
 {
     if (m_data)
     {
-        const bool isColdChunk(m_id != m_metadata.structure().baseIndexBegin());
         const std::string path(
                 m_metadata.structure().maybePrefix(m_id) +
-                m_metadata.postfix(isColdChunk));
+                m_metadata.postfix(true));
 
         Storage::ensurePut(m_builder.outEndpoint(), path, *m_data);
     }
@@ -290,9 +289,11 @@ ContiguousChunk::ContiguousChunk(
 
 ContiguousChunk::~ContiguousChunk()
 {
-    // Don't run collect if we are a BaseChunk, in which case m_data will
-    // already be populated.
-    if (!m_data) collect(Type::Contiguous);
+    // Don't run collect if we are a BaseChunk.
+    if (m_id != m_metadata.structure().baseIndexBegin())
+    {
+        collect(Type::Contiguous);
+    }
 }
 
 Cell::PooledStack ContiguousChunk::acquire()
@@ -380,7 +381,7 @@ BaseChunk::BaseChunk(
     }
 }
 
-BaseChunk::~BaseChunk()
+void BaseChunk::save(const arbiter::Endpoint& endpoint)
 {
     Data::PooledStack dataStack(m_pointPool.dataPool());
     Cell::PooledStack cellStack(m_pointPool.cellPool());
@@ -417,8 +418,16 @@ BaseChunk::~BaseChunk()
         }
     }
 
-    m_data = compressor.data();
-    pushTail(*m_data, Tail(dataStack.size(), Type::Contiguous));
+    auto data(compressor.data());
+    pushTail(*data, Tail(dataStack.size(), Type::Contiguous));
+
+    const std::string path(
+            m_metadata.structure().maybePrefix(m_id) +
+            m_metadata.postfix());
+
+    Storage::ensurePut(endpoint, path, *data);
+
+    assert(!m_data);    // Don't let the parent destructor serialize.
 }
 
 Schema BaseChunk::makeCelled(const Schema& in)

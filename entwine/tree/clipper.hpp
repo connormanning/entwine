@@ -14,7 +14,7 @@
 #include <list>
 #include <set>
 #include <unordered_map>
-#include <unordered_set>
+#include <vector>
 
 #include <entwine/tree/builder.hpp>
 #include <entwine/types/structure.hpp>
@@ -41,8 +41,10 @@ private:
 public:
     Clipper(Builder& builder, Origin origin)
         : m_builder(builder)
+        , m_startDepth(builder.metadata().structure().coldDepthBegin())
         , m_id(origin)
         , m_clips()
+        , m_fastCache(32, m_clips.end())
     { }
 
     ~Clipper()
@@ -53,18 +55,41 @@ public:
         }
     }
 
-    bool insert(const Id& chunkId, std::size_t chunkNum)
+    bool insert(const Id& chunkId, std::size_t chunkNum, std::size_t depth)
     {
-        const auto find(m_clips.find(chunkId));
+        assert(depth >= m_startDepth);
+        depth -= m_startDepth;
+
+        if (depth < m_fastCache.size())
+        {
+            auto& it(m_fastCache[depth]);
+
+            if (it != m_clips.end())
+            {
+                if (it->first == chunkId)
+                {
+                    it->second.fresh = true;
+                    return false;
+                }
+            }
+        }
+
+        auto find(m_clips.find(chunkId));
 
         if (find != m_clips.end())
         {
+            if (depth < m_fastCache.size()) m_fastCache[depth] = find;
+
             find->second.fresh = true;
             return false;
         }
         else
         {
-            m_clips.insert(std::make_pair(chunkId, ClipInfo(chunkNum)));
+            auto it(m_clips.insert(
+                        std::make_pair(chunkId, ClipInfo(chunkNum))).first);
+
+            if (depth < m_fastCache.size()) m_fastCache[depth] = it;
+
             return true;
         }
     }
@@ -77,9 +102,13 @@ private:
     typedef std::list<const Id*> Order;
 
     Builder& m_builder;
-    uint64_t m_id;
+    const std::size_t m_startDepth;
+    const uint64_t m_id;
 
-    std::unordered_map<Id, ClipInfo> m_clips;
+    using ClipMap = std::map<Id, ClipInfo>;
+
+    ClipMap m_clips;
+    std::vector<ClipMap::iterator> m_fastCache;
 };
 
 } // namespace entwine

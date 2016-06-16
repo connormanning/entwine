@@ -17,6 +17,7 @@ void Clipper::clip()
 {
     if (m_clips.size() < 10) return;
 
+    m_fastCache.assign(32, m_clips.end());
     auto it(m_clips.begin());
 
     while (it != m_clips.end())

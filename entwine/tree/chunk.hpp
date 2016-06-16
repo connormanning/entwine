@@ -209,7 +209,9 @@ public:
             std::unique_ptr<std::vector<char>> compressedData,
             std::size_t numPoints);
 
-    virtual ~BaseChunk();
+    // Unlike the other Chunk types, the BaseChunk requires an explicit call to
+    // save, rather than serializing during its destructor.
+    void save(const arbiter::Endpoint& endpoint);
 
     Cell::PooledStack acquire() override { return ContiguousChunk::acquire(); }
     void merge(BaseChunk& other);

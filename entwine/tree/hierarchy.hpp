@@ -46,8 +46,9 @@ public:
     void count(const PointState& state, int delta);
     uint64_t tryGet(const PointState& pointState) const;
 
-    void save(const arbiter::Endpoint& ep)
+    void save(const arbiter::Endpoint& top)
     {
+        const auto ep(top.getSubEndpoint("h"));
         const std::string postfix(m_metadata.postfix());
 
         m_base.t->save(ep, postfix);

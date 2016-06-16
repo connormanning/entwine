@@ -37,9 +37,9 @@ Registry::Registry(const Builder& builder, const bool exists)
 Registry::~Registry()
 { }
 
-void Registry::save() const
+void Registry::save(const arbiter::Endpoint& endpoint) const
 {
-    if (m_cold) m_cold->save(m_builder.outEndpoint());
+    if (m_cold) m_cold->save(endpoint);
 }
 
 bool Registry::addPoint(

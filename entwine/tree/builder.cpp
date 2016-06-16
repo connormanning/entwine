@@ -452,13 +452,23 @@ void Builder::load(
 
 void Builder::save()
 {
+    save(*m_outEndpoint);
+}
+
+void Builder::save(const std::string to)
+{
+    save(m_arbiter->getEndpoint(to));
+}
+
+void Builder::save(const arbiter::Endpoint& ep)
+{
     std::cout << "\tPushes complete - joining..." << std::endl;
     m_threadPools->join();
     std::cout << "\tJoined - saving..." << std::endl;
 
     m_metadata->save(*m_outEndpoint);
-    m_registry->save();
-    m_hierarchy->save(m_outEndpoint->getSubEndpoint("h"));
+    m_registry->save(*m_outEndpoint);
+    m_hierarchy->save(*m_outEndpoint);
 }
 
 void Builder::unsplit(Builder& other)
