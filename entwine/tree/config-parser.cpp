@@ -89,26 +89,6 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     auto reprojection(getReprojection(jsonGeometry["reproject"]));
     Schema schema(jsonGeometry["schema"]);
 
-    std::unique_ptr<Subset> subset;
-
-    if (config.isMember("subset"))
-    {
-        BBox cube(*bboxConforming);
-        if (!cube.isCubic()) cube.cubeify();
-
-        subset = makeUnique<Subset>(cube, config["subset"]);
-
-        const std::size_t configNullDepth(
-                jsonStructure["nullDepth"].asUInt64());
-
-        if (configNullDepth < subset->minimumNullDepth())
-        {
-            std::cout << "Bumping null depth to accomodate subset" << std::endl;
-            jsonStructure["nullDepth"] =
-                Json::UInt64(subset->minimumNullDepth());
-        }
-    }
-
     std::size_t numPointsHint(jsonStructure["numPointsHint"].asUInt64());
     if (!numPointsHint && manifest)
     {
@@ -162,6 +142,23 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         if (!numPointsHint) numPointsHint = inference.numPoints();
     }
 
+    std::unique_ptr<Subset> subset;
+
+    if (config.isMember("subset"))
+    {
+        BBox cube(bboxConforming->cubeify());
+        subset = makeUnique<Subset>(cube, config["subset"]);
+
+        const std::size_t configNullDepth(
+                jsonStructure["nullDepth"].asUInt64());
+
+        if (configNullDepth < subset->minimumNullDepth())
+        {
+            std::cout << "Bumping null depth to accomodate subset" << std::endl;
+            jsonStructure["nullDepth"] =
+                Json::UInt64(subset->minimumNullDepth());
+        }
+    }
 
     jsonStructure["numPointsHint"] = static_cast<Json::UInt64>(numPointsHint);
     Structure structure(jsonStructure);

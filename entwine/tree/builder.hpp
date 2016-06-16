@@ -83,7 +83,6 @@ public:
     // Save the current state of the tree.  Files may no longer be inserted
     // after this call, but getters are still valid.
     void save();
-    std::map<std::string, std::string> propsToSave() const;
 
     // Aggregate manifest-split build.
     void unsplit(Builder& other);
@@ -156,12 +155,13 @@ public:
 
 private:
     // Attempt to wake up a subset or split build with indeterminate metadata
-    // state.  Used for merging.
+    // state.  Used to wake up the active Builder for merging.
     static std::unique_ptr<Builder> create(
             std::string path,
             std::size_t threads,
             OuterScope outerScope = OuterScope());
 
+    // Used to wake up subsequent Builders for merging.
     static std::unique_ptr<Builder> create(
             std::string path,
             std::size_t threads,

@@ -87,9 +87,10 @@ Chunk::~Chunk()
 {
     if (m_data)
     {
+        const bool isColdChunk(m_id != m_metadata.structure().baseIndexBegin());
         const std::string path(
                 m_metadata.structure().maybePrefix(m_id) +
-                m_metadata.postfix(true));
+                m_metadata.postfix(isColdChunk));
 
         Storage::ensurePut(m_builder.outEndpoint(), path, *m_data);
     }
@@ -325,8 +326,6 @@ BaseChunk::BaseChunk(
     : ContiguousChunk(builder, 0, id, maxPoints)
     , m_celledSchema(makeCelled(m_metadata.schema()))
 {
-    std::cout << "Waking up base" << std::endl;
-
     std::unique_ptr<std::vector<char>> data(
         Compression::decompress(*compressedData, m_celledSchema, numPoints));
 
@@ -439,7 +438,7 @@ void BaseChunk::merge(BaseChunk& other)
 
         if (!ours.empty() && !theirs.empty())
         {
-            throw std::runtime_error("Tube mismatch");
+            throw std::runtime_error("Tube mismatch at " + std::to_string(i));
         }
 
         if (!theirs.empty())
