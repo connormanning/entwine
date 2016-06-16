@@ -202,13 +202,6 @@ void Cold::ensureChunk(
     }
 }
 
-std::set<Id> Cold::ids() const
-{
-    std::set<Id> results(Splitter::ids());
-    results.insert(m_fauxIds.begin(), m_fauxIds.end());
-    return results;
-}
-
 void Cold::save(const arbiter::Endpoint& endpoint) const
 {
     m_pool.join();
@@ -244,7 +237,7 @@ void Cold::merge(const Cold& other)
                 dynamic_cast<BaseChunk&>(*other.m_base.t->chunk));
     }
 
-    for (const Id& id : other.ids()) m_fauxIds.insert(id);
+    Splitter::merge(other.ids());
 }
 
 } // namespace entwine

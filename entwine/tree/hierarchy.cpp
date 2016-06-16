@@ -74,15 +74,6 @@ void Hierarchy::count(const PointState& pointState, const int delta)
     }
     else
     {
-        if (pointState.chunkNum() >= m_fast.size())
-        {
-            std::lock_guard<std::mutex> lock(m_slowMutex);
-            if (!m_slow.count(pointState.chunkId()))
-            {
-                std::cout << "C: " << pointState.chunkId() << std::endl;
-            }
-        }
-
         auto& slot(getOrCreate(pointState.chunkId(), pointState.chunkNum()));
         std::unique_ptr<HierarchyBlock>& block(slot.t);
 

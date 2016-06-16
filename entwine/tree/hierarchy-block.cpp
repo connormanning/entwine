@@ -93,6 +93,17 @@ void ContiguousBlock::save(const arbiter::Endpoint& ep, std::string pf)
     if (data.size()) ep.put(m_id.str() + pf, data);
 }
 
+void ContiguousBlock::merge(const ContiguousBlock& other)
+{
+    for (std::size_t tube(0); tube < m_tubes.size(); ++tube)
+    {
+        for (const auto& cell : other.m_tubes[tube])
+        {
+            count(tube, cell.first, cell.second.val());
+        }
+    }
+}
+
 SparseBlock::SparseBlock(const Id& id, const std::vector<char>& data)
     : HierarchyBlock(id)
     , m_spinner()

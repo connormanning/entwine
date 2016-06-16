@@ -52,23 +52,35 @@ public:
 
         m_base.t->save(ep, postfix);
 
-        for (std::size_t i(0); i < m_fast.size(); ++i)
+        iterateCold([&ep, postfix](const Id& chunkId, const Slot& slot)
         {
-            if (m_fast[i].mark)
-            {
-                m_fast[i].t->save(ep, postfix);
-            }
-        }
-
-        for (auto& pair : m_slow) pair.second.t->save(ep, postfix);
+            if (slot.t) slot.t->save(ep, postfix);
+        });
 
         Json::Value json;
         for (const auto& id : ids()) json.append(id.str());
         ep.put("ids" + postfix, toFastString(json));
     }
 
-    void awakenAll() { }    // TODO.
-    void merge(const Hierarchy& other) { }  // TODO.
+    void awakenAll()
+    {
+        iterateCold([this](const Id& chunkId, const Slot& slot)
+        {
+            slot.t = HierarchyBlock::create(
+                    m_structure,
+                    chunkId,
+                    m_structure.getInfo(chunkId).pointsPerChunk(),
+                    m_endpoint.getBinary(chunkId.str()));
+        });
+    }
+
+    void merge(const Hierarchy& other)
+    {
+        dynamic_cast<ContiguousBlock&>(*m_base.t).merge(
+                dynamic_cast<const ContiguousBlock&>(*other.m_base.t));
+
+        Splitter::merge(other.ids());
+    }
 
     Json::Value query(
             const BBox& qbox,

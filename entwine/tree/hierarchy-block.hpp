@@ -115,6 +115,8 @@ public:
             const arbiter::Endpoint& ep,
             std::string pf = "") override;
 
+    void merge(const ContiguousBlock& other);
+
 private:
     std::vector<HierarchyTube> m_tubes;
 };

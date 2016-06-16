@@ -74,14 +74,11 @@ public:
     void save(const arbiter::Endpoint& endpoint) const;
     void clip(const Id& chunkId, std::size_t chunkNum, std::size_t id);
 
-    std::set<Id> ids() const;
     void merge(const Cold& other);
 
     std::size_t clipThreads() const;
 
 private:
-    void growFaux(const Id& id) { m_fauxIds.insert(id); }
-
     void ensureChunk(
             const Climber& climber,
             std::unique_ptr<Chunk>& chunk,
@@ -90,7 +87,6 @@ private:
     using ChunkMap = std::unordered_map<Id, std::unique_ptr<CountedChunk>>;
 
     const Builder& m_builder;
-    std::set<Id> m_fauxIds; // Used for merging, these are added to metadata.
     Pool& m_pool;
 };
 

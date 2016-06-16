@@ -40,6 +40,7 @@ public:
         , m_base()
         , m_fast(getNumFastTrackers(structure))
         , m_slow()
+        , m_faux()
         , m_slowMutex()
     { }
 
@@ -94,27 +95,38 @@ public:
         return slot;
     }
 
+protected:
     std::set<Id> ids() const
     {
-        std::set<Id> results;
+        std::set<Id> results(m_faux);
 
-        for (std::size_t i(0); i < m_fast.size(); ++i)
+        iterateCold([&results](const Id& chunkId, const Slot& slot)
         {
-            if (m_fast[i].mark)
-            {
-                results.insert(m_structure.getInfoFromNum(i).chunkId());
-            }
-        }
-
-        for (const auto& p : m_slow)
-        {
-            results.insert(p.first);
-        }
+            results.insert(chunkId);
+        });
 
         return results;
     }
 
-protected:
+    void merge(const std::set<Id>& s)
+    {
+        m_faux.insert(s.begin(), s.end());
+    }
+
+    template<typename Op>
+    void iterateCold(Op op) const
+    {
+        for (std::size_t i(0); i < m_fast.size(); ++i)
+        {
+            if (m_fast[i].mark)
+            {
+                op(m_structure.getInfoFromNum(i).chunkId(), m_fast[i]);
+            }
+        }
+
+        for (const auto& p : m_slow) op(p.first, p.second);
+    }
+
     std::size_t getNumFastTrackers(const Structure& structure)
     {
         std::size_t count(0);
@@ -138,10 +150,10 @@ protected:
     Slot m_base;
     std::vector<Slot> m_fast;
     std::map<Id, Slot> m_slow;
+    std::set<Id> m_faux;
 
     std::mutex m_slowMutex;
 };
-
 
 } // namespace entwine
 
