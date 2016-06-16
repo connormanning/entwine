@@ -10,8 +10,42 @@
 
 #include <entwine/tree/hierarchy-block.hpp>
 
+#include <entwine/types/structure.hpp>
+#include <entwine/util/unique.hpp>
+
 namespace entwine
 {
+
+std::unique_ptr<HierarchyBlock> HierarchyBlock::create(
+        const Structure& structure,
+        const Id& id,
+        const Id& maxPoints)
+{
+    if (id < structure.sparseIndexBegin())
+    {
+        return makeUnique<ContiguousBlock>(id, maxPoints.getSimple());
+    }
+    else
+    {
+        return makeUnique<SparseBlock>(id);
+    }
+}
+
+std::unique_ptr<HierarchyBlock> HierarchyBlock::create(
+        const Structure& structure,
+        const Id& id,
+        const Id& maxPoints,
+        const std::vector<char>& data)
+{
+    if (id < structure.sparseIndexBegin())
+    {
+        return makeUnique<ContiguousBlock>(id, maxPoints.getSimple(), data);
+    }
+    else
+    {
+        return makeUnique<SparseBlock>(id, data);
+    }
+}
 
 ContiguousBlock::ContiguousBlock(
         const Id& id,
@@ -59,11 +93,9 @@ void ContiguousBlock::save(const arbiter::Endpoint& ep, std::string pf)
     if (data.size()) ep.put(m_id.str() + pf, data);
 }
 
-SparseBlock::SparseBlock(
-        const Id& id,
-        std::size_t maxPoints,
-        const std::vector<char>& data)
+SparseBlock::SparseBlock(const Id& id, const std::vector<char>& data)
     : HierarchyBlock(id)
+    , m_spinner()
     , m_tubes()
 {
     const char* pos(data.data());

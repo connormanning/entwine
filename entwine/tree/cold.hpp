@@ -87,22 +87,10 @@ private:
             std::unique_ptr<Chunk>& chunk,
             bool exists);
 
-    struct FastSlot
-    {
-        FastSlot() : mark(false), spinner(), chunk() { }
-
-        std::atomic_bool mark;  // Data exists?
-        SpinLock spinner;
-        std::unique_ptr<CountedChunk> chunk;
-    };
-
     using ChunkMap = std::unordered_map<Id, std::unique_ptr<CountedChunk>>;
 
     const Builder& m_builder;
-    ChunkMap m_chunkMap;
     std::set<Id> m_fauxIds; // Used for merging, these are added to metadata.
-
-    mutable std::mutex m_mapMutex;
     Pool& m_pool;
 };
 

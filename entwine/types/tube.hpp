@@ -52,7 +52,7 @@ public:
         int delta() const { return m_delta; }
 
         void setDelta(int delta) { m_delta = delta; }
-        void setDone() { m_done = true; m_delta = 1; }
+        void setDone(int delta) { m_done = true; m_delta = delta; }
 
     private:
         bool m_done;
@@ -63,8 +63,7 @@ public:
     // longer be accessed.
     //
     // The value of result.delta() is equal to (pointsInserted - pointsRemoved),
-    // which may be any value if result.done() == false.  If result.done() ==
-    // true, then result.delta() will always equal 1.
+    // which may be any value if result.done() == false.
     //
     // If result.done() == false, the cell should be reinserted.  In this case,
     // it's possible that the cell was swapped with another - so cell values

@@ -136,7 +136,8 @@ Structure::Structure(const Json::Value& json)
                 json["type"].asString() == "hybrid",
             json["dynamicChunks"].asBool(),
             json["prefixIds"].asBool(),
-            json["sparseDepth"].asUInt64())
+            json["sparseDepth"].asUInt64(),
+            json["startDepth"].asUInt64())
 { }
 
 Structure::Structure(
@@ -149,7 +150,8 @@ Structure::Structure(
         const bool tubular,
         const bool dynamicChunks,
         const bool prefixIds,
-        const std::size_t sparseDepth)
+        const std::size_t sparseDepth,
+        const std::size_t startDepth)
     // Depths.
     : m_nullDepthBegin(0)
     , m_nullDepthEnd(nullDepth)
@@ -158,6 +160,7 @@ Structure::Structure(
     , m_coldDepthBegin(m_baseDepthEnd)
     , m_coldDepthEnd(coldDepth ? std::max(m_coldDepthBegin, coldDepth) : 0)
     , m_sparseDepthBegin(std::max(sparseDepth, m_coldDepthBegin))
+    , m_startDepth(startDepth)
 
     // Indices.
     , m_nullIndexBegin(0)
@@ -206,10 +209,14 @@ Structure::Structure(
 
     if (m_numPointsHint)
     {
-        m_sparseDepthBegin =
-            std::ceil(std::log2(m_numPointsHint) / std::log2(m_factor));
+        // If a sparse depth is supplied, keep that one.
+        if (!sparseDepth)
+        {
+            m_sparseDepthBegin =
+                std::ceil(std::log2(m_numPointsHint) / std::log2(m_factor));
 
-        m_sparseDepthBegin = std::max(m_sparseDepthBegin, m_coldDepthBegin);
+            m_sparseDepthBegin = std::max(m_sparseDepthBegin, m_coldDepthBegin);
+        }
 
         m_sparseIndexBegin =
             ChunkInfo::calcLevelIndex(m_dimensions, m_sparseDepthBegin);
@@ -239,6 +246,11 @@ Json::Value Structure::toJson() const
     json["tubular"] = m_tubular;
     json["dynamicChunks"] = m_dynamicChunks;
     json["prefixIds"] = m_prefixIds;
+
+    if (m_startDepth)
+    {
+        json["startDepth"] = static_cast<Json::UInt64>(m_startDepth);
+    }
 
     return json;
 }

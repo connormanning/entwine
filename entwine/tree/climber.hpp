@@ -31,7 +31,7 @@ public:
     PointState(
             const Structure& structure,
             const BBox& bbox,
-            std::size_t startDepth = 0);
+            std::size_t depth = 0);
 
     virtual ~PointState() { }
 
@@ -59,7 +59,7 @@ public:
 
     const BBox& bbox() const    { return m_bbox; }
     const Id& index() const     { return m_index; }
-    std::size_t depth() const   { return m_depth - m_startDepth; }
+    std::size_t depth() const   { return m_depth - m_structure.startDepth(); }
     std::size_t tick() const    { return m_tick; }
 
     const Id& chunkId() const   { return m_chunkId; }
@@ -73,7 +73,6 @@ public:
 protected:
     const Structure& m_structure;
     const BBox& m_bboxOriginal;
-    const std::size_t m_startDepth;
 
     BBox m_bbox;
     Id m_index;
@@ -89,12 +88,7 @@ class HierarchyState : public PointState
 {
 public:
     HierarchyState(const Metadata& metadata, Hierarchy* hierarchy)
-        : PointState(
-                metadata.hierarchyStructure(),
-                metadata.bbox(),
-                std::max(
-                    Hierarchy::startDepth(),
-                    metadata.structure().baseDepthBegin()))
+        : PointState(metadata.hierarchyStructure(), metadata.bbox())
         , m_hierarchy(hierarchy)
     { }
 

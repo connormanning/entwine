@@ -21,89 +21,130 @@ namespace entwine
 namespace
 {
     const std::string countKey("n");
-
-    std::size_t getNumFastTrackers(const Structure& structure)
-    {
-        static const std::size_t maxFastTrackers(std::pow(4, 12));
-        std::size_t count(0);
-        std::size_t depth(structure.coldDepthBegin());
-
-        while (
-                count < maxFastTrackers &&
-                depth < 64 &&
-                (depth < structure.coldDepthEnd() || !structure.coldDepthEnd()))
-        {
-            count += structure.numChunksAtDepth(depth);
-            ++depth;
-        }
-
-        return count;
-    }
-
 }
-
-Hierarchy::Hierarchy(const Metadata& metadata)
-    : m_bbox(metadata.bbox())
-    , m_structure(metadata.hierarchyStructure())
-    , m_base(0, m_structure.baseIndexSpan())
-    , m_blockVec(getNumFastTrackers(m_structure))
-    , m_blockMap()
-    , m_spinner()
-{ }
 
 Hierarchy::Hierarchy(
         const Metadata& metadata,
         const arbiter::Endpoint& ep,
-        std::string postfix)
-    : m_bbox(metadata.bbox())
+        const bool exists)
+    : Splitter(metadata.hierarchyStructure())
+    , m_metadata(metadata)
+    , m_bbox(metadata.bbox())
     , m_structure(metadata.hierarchyStructure())
-    , m_base(0, m_structure.baseIndexSpan(), ep.getBinary("0" + postfix))
-    , m_blockVec(getNumFastTrackers(m_structure))
-    , m_blockMap()
-{ }
+    , m_endpoint(ep.getSubEndpoint("h"))
+{
+    m_base.mark = true;
+
+    if (!exists)
+    {
+        m_base.t = makeUnique<ContiguousBlock>(0, m_structure.baseIndexSpan());
+    }
+    else
+    {
+        m_base.t = makeUnique<ContiguousBlock>(
+                0,
+                m_structure.baseIndexSpan(),
+                m_endpoint.getBinary("0" + metadata.postfix()));
+    }
+
+    if (exists)
+    {
+        const Json::Value json(
+                parse(m_endpoint.get("ids" + m_metadata.postfix())));
+
+        Id chunkId(0);
+
+        for (Json::ArrayIndex i(0); i < json.size(); ++i)
+        {
+            chunkId = Id(json[i].asString());
+
+            const ChunkInfo chunkInfo(m_structure.getInfo(chunkId));
+            const std::size_t chunkNum(chunkInfo.chunkNum());
+
+            mark(chunkId, chunkNum);
+        }
+    }
+}
 
 void Hierarchy::count(const PointState& pointState, const int delta)
 {
     if (m_structure.isWithinBase(pointState.depth()))
     {
-        m_base.count(pointState.index(), pointState.tick(), delta);
+        m_base.t->count(pointState.index(), pointState.tick(), delta);
     }
-    else if (pointState.chunkNum() < m_blockVec.size())
+    else
     {
-        /*
-        FastBlock& block(m_blockVec.at(pointState.chunkNum()));
+        if (pointState.chunkNum() >= m_fast.size())
+        {
+            std::lock_guard<std::mutex> lock(m_slowMutex);
+            if (!m_slow.count(pointState.chunkId()))
+            {
+                std::cout << "C: " << pointState.chunkId() << std::endl;
+            }
+        }
 
-        SpinGuard lock(block.spinner);
-        if (!block) block = HierarchyBlock::create();
-        block->count(pointState.id(), pointState.tick(), delta);
-        */
+        auto& slot(getOrCreate(pointState.chunkId(), pointState.chunkNum()));
+        std::unique_ptr<HierarchyBlock>& block(slot.t);
+
+        SpinGuard lock(slot.spinner);
+        if (!block)
+        {
+            if (slot.mark)
+            {
+                block = HierarchyBlock::create(
+                        m_structure,
+                        pointState.chunkId(),
+                        pointState.pointsPerChunk(),
+                        m_endpoint.getBinary(pointState.chunkId().str()));
+            }
+            else
+            {
+                slot.mark = true;
+                block = HierarchyBlock::create(
+                        m_structure,
+                        pointState.chunkId(),
+                        pointState.pointsPerChunk());
+            }
+        }
+
+        block->count(pointState.index(), pointState.tick(), delta);
     }
 }
 
-uint64_t Hierarchy::get(const PointState& pointState) const
+uint64_t Hierarchy::tryGet(const PointState& s) const
 {
-    const HierarchyBlock* block(nullptr);
+    if (const Slot* slotPtr = tryGet(s.chunkId(), s.chunkNum(), s.depth()))
+    {
+        const Slot& slot(*slotPtr);
+        std::unique_ptr<HierarchyBlock>& block(slot.t);
 
-    if (m_structure.isWithinBase(pointState.depth()))
-    {
-        block = &m_base;
-    }
-    else if (pointState.chunkNum() < m_blockVec.size())
-    {
-        if (m_blockVec.at(pointState.chunkNum()))
+        if (slot.mark) return 0;
+
+        SpinGuard lock(slot.spinner);
+        if (!block)
         {
-            block = m_blockVec.at(pointState.chunkNum()).get();
-            assert(block);
+            std::cout <<
+                "\tHierarchy awaken: " << s.chunkId() <<
+                " at depth " << s.depth() <<
+                ", fast? " << (s.chunkNum() < m_fast.size()) << std::endl;
+
+            block = HierarchyBlock::create(
+                    m_structure,
+                    s.chunkId(),
+                    s.pointsPerChunk(),
+                    m_endpoint.getBinary(s.chunkId().str()));
+
+            if (!block)
+            {
+                throw std::runtime_error(
+                        "Failed awaken " + s.chunkId().str());
+            }
         }
-    }
-    else if (m_blockMap.count(pointState.chunkId()))
-    {
-        block = m_blockMap.at(pointState.chunkId()).get();
-        assert(block);
+
+        return block->get(s.index(), s.tick());
     }
 
-    if (block) return block->get(pointState.index(), pointState.tick());
-    else return 0;
+    return 0;
 }
 
 Json::Value Hierarchy::query(
@@ -117,21 +158,19 @@ Json::Value Hierarchy::query(
                 "Request was less than hierarchy base depth");
     }
 
-    Json::Value json;
-
     // To get rid of any possible floating point mismatches, grow the box by a
     // bit and only include nodes that are entirely encapsulated by the qbox.
     // Also normalize depths to match our internal mapping.
     Query query(
             qbox.growBy(.01),
-            depthBegin - Hierarchy::startDepth(),
-            depthEnd - Hierarchy::startDepth());
+            depthBegin - m_structure.startDepth(),
+            depthEnd - m_structure.startDepth());
 
-    PointState pointState(m_structure, m_bbox);
+    PointState pointState(m_structure, m_bbox, m_structure.startDepth());
     std::deque<Dir> lag;
 
+    Json::Value json;
     traverse(json, query, pointState, lag);
-
     return json;
 }
 
@@ -141,7 +180,7 @@ void Hierarchy::traverse(
         const PointState& pointState,
         std::deque<Dir>& lag)
 {
-    const uint64_t inc(get(pointState));
+    const uint64_t inc(tryGet(pointState));
     if (!inc) return;
 
     if (pointState.depth() < query.depthBegin())
@@ -199,7 +238,7 @@ void Hierarchy::accumulate(
             const Dir dir(toDir(i));
             const PointState nextState(pointState.getClimb(dir));
 
-            if (const uint64_t inc = get(nextState))
+            if (const uint64_t inc = tryGet(nextState))
             {
                 accumulate(json[dirToString(dir)], query, nextState, lag, inc);
             }
@@ -218,7 +257,7 @@ void Hierarchy::accumulate(
             const Dir curdir(toDir(i));
             const PointState nextState(pointState.getClimb(curdir));
 
-            if (const uint64_t inc = get(nextState))
+            if (const uint64_t inc = tryGet(nextState))
             {
                 if (!nextJson) nextJson = &json[dirToString(lagdir)];
                 auto curlag(lag);
@@ -232,88 +271,41 @@ void Hierarchy::accumulate(
     }
 }
 
-void OHierarchy::accumulate(
-        Node& out,
-        std::deque<Dir>& lag,
-        Node& cur,
-        const std::size_t depth,
-        const std::size_t depthEnd,
-        const Id& id)
+Structure Hierarchy::structure(const Structure& treeStructure)
 {
-    out.incrementBy(cur.count());
+    static const std::size_t minStartDepth(6);
 
-    const std::size_t nextDepth(depth + 1);
-    if (nextDepth >= depthEnd) return;
+    const std::size_t nullDepth(0);
+    const std::size_t baseDepth(
+            std::max<std::size_t>(treeStructure.baseDepthEnd(), 12));
+    const std::size_t coldDepth(0);
+    const std::size_t pointsPerChunk(treeStructure.basePointsPerChunk());
+    const std::size_t dimensions(treeStructure.dimensions());
+    const std::size_t numPointsHint(treeStructure.numPointsHint());
+    const bool tubular(treeStructure.tubular());
+    const bool dynamicChunks(true);
+    const bool prefixIds(false);
 
-    if (lag.empty())
-    {
-        auto addChild(
-        [this, &cur, nextDepth, depthEnd, &id]
-        (Node& out, std::deque<Dir>& lag, Dir dir)
-        {
-            if (Node* node = cur.maybeNext(dir))
-            {
-                const Id childId(OHierarchy::climb(id, dir));
+    const std::size_t startDepth(
+            std::max(minStartDepth, treeStructure.baseDepthBegin()));
 
-                if (m_step && (nextDepth - m_depthBegin) % m_step == 0)
-                {
-                    awaken(childId, node);
-                }
+    const std::size_t sparseDepth(
+            treeStructure.sparseDepthBegin() > startDepth ?
+                treeStructure.sparseDepthBegin() - startDepth : 0);
 
-                accumulate(
-                    out.next(dir, m_nodePool),
-                    lag,
-                    *node,
-                    nextDepth,
-                    depthEnd,
-                    childId);
-            }
-        });
-
-        for (std::size_t i(0); i < 8; ++i) addChild(out, lag, toDir(i));
-    }
-    else
-    {
-        const Dir lagdir(lag.front());
-        lag.pop_front();
-
-        Node* nextNode(nullptr);
-
-        auto addChild(
-            [this, lagdir, &nextNode, &lag, &cur, nextDepth, depthEnd, &id]
-            (Node& out, Dir curdir)
-        {
-            if (Node* node = cur.maybeNext(curdir))
-            {
-                const Id childId(OHierarchy::climb(id, curdir));
-
-                if (m_step && (nextDepth - m_depthBegin) % m_step == 0)
-                {
-                    awaken(childId, node);
-                }
-
-                if (!nextNode) nextNode = &out.next(lagdir, m_nodePool);
-                auto curlag(lag);
-                curlag.push_back(curdir);
-
-                accumulate(
-                    *nextNode,
-                    curlag,
-                    *node,
-                    nextDepth,
-                    depthEnd,
-                    childId);
-            }
-        });
-
-        for (std::size_t i(0); i < 8; ++i) addChild(out, toDir(i));
-
-        lag.pop_back();
-    }
+    return Structure(
+            nullDepth,
+            baseDepth,
+            coldDepth,
+            pointsPerChunk,
+            dimensions,
+            numPointsHint,
+            tubular,
+            dynamicChunks,
+            prefixIds,
+            sparseDepth,
+            startDepth);
 }
-
-
-
 
 
 
@@ -873,6 +865,88 @@ void OHierarchy::traverse(
         accumulate(out, lag, cur, depth, de, id);
     }
 }
+
+void OHierarchy::accumulate(
+        Node& out,
+        std::deque<Dir>& lag,
+        Node& cur,
+        const std::size_t depth,
+        const std::size_t depthEnd,
+        const Id& id)
+{
+    out.incrementBy(cur.count());
+
+    const std::size_t nextDepth(depth + 1);
+    if (nextDepth >= depthEnd) return;
+
+    if (lag.empty())
+    {
+        auto addChild(
+        [this, &cur, nextDepth, depthEnd, &id]
+        (Node& out, std::deque<Dir>& lag, Dir dir)
+        {
+            if (Node* node = cur.maybeNext(dir))
+            {
+                const Id childId(OHierarchy::climb(id, dir));
+
+                if (m_step && (nextDepth - m_depthBegin) % m_step == 0)
+                {
+                    awaken(childId, node);
+                }
+
+                accumulate(
+                    out.next(dir, m_nodePool),
+                    lag,
+                    *node,
+                    nextDepth,
+                    depthEnd,
+                    childId);
+            }
+        });
+
+        for (std::size_t i(0); i < 8; ++i) addChild(out, lag, toDir(i));
+    }
+    else
+    {
+        const Dir lagdir(lag.front());
+        lag.pop_front();
+
+        Node* nextNode(nullptr);
+
+        auto addChild(
+            [this, lagdir, &nextNode, &lag, &cur, nextDepth, depthEnd, &id]
+            (Node& out, Dir curdir)
+        {
+            if (Node* node = cur.maybeNext(curdir))
+            {
+                const Id childId(OHierarchy::climb(id, curdir));
+
+                if (m_step && (nextDepth - m_depthBegin) % m_step == 0)
+                {
+                    awaken(childId, node);
+                }
+
+                if (!nextNode) nextNode = &out.next(lagdir, m_nodePool);
+                auto curlag(lag);
+                curlag.push_back(curdir);
+
+                accumulate(
+                    *nextNode,
+                    curlag,
+                    *node,
+                    nextDepth,
+                    depthEnd,
+                    childId);
+            }
+        });
+
+        for (std::size_t i(0); i < 8; ++i) addChild(out, toDir(i));
+
+        lag.pop_back();
+    }
+}
+
+
 
 } // namespace entwine
 

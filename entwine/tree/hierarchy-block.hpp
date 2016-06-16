@@ -46,12 +46,23 @@ private:
 
 using HierarchyTube = std::map<uint64_t, HierarchyCell>;
 
+class Structure;
+
 class HierarchyBlock
 {
 public:
     HierarchyBlock(const Id& id) : m_id(id) { }
 
-    std::unique_ptr<HierarchyBlock> create();
+    static std::unique_ptr<HierarchyBlock> create(
+            const Structure& structure,
+            const Id& id,
+            const Id& maxPoints);
+
+    static std::unique_ptr<HierarchyBlock> create(
+            const Structure& structure,
+            const Id& id,
+            const Id& maxPoints,
+            const std::vector<char>& data);
 
     // Only count must be thread-safe.  Get/save are single-threaded.
     virtual void count(const Id& id, uint64_t tick, int delta) = 0;
@@ -113,10 +124,8 @@ class SparseBlock : public HierarchyBlock
 public:
     using HierarchyBlock::get;
 
-    SparseBlock(
-            const Id& id,
-            std::size_t maxPoints,
-            const std::vector<char>& data);
+    SparseBlock(const Id& id) : HierarchyBlock(id), m_spinner(), m_tubes() { }
+    SparseBlock(const Id& id, const std::vector<char>& data);
 
     virtual void count(const Id& id, uint64_t tick, int delta) override
     {

@@ -52,8 +52,7 @@ Reader::Reader(
         Cache& cache)
     : m_endpoint(endpoint)
     , m_metadata(makeUnique<Metadata>(m_endpoint))
-    , m_hierarchy(
-            makeUnique<Hierarchy>(*m_metadata, endpoint.getSubEndpoint("h")))
+    , m_hierarchy(makeUnique<Hierarchy>(*m_metadata, endpoint, true))
     , m_base()
     , m_cache(cache)
     , m_ids()

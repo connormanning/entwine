@@ -54,9 +54,10 @@ bool Registry::addPoint(
     {
         attempt = m_cold->insert(climber, clipper, cell);
 
+        if (attempt.delta()) climber.count(attempt.delta());
+
         if (!attempt.done())
         {
-            if (attempt.delta()) climber.count(attempt.delta());
 
             if (
                     m_structure.inRange(climber.depth() + 1) &&
@@ -71,9 +72,6 @@ bool Registry::addPoint(
         }
         else
         {
-            // TODO Should account for delta even if done - if we've swapped
-            // delta may be greater than 1.
-            climber.count();
             return true;
         }
     }

@@ -64,14 +64,14 @@ Tube::Insertion Tube::insert(const Climber& climber, Cell::PooledNode& cell)
         }
         else
         {
+            result.setDone(cell->size());
             it->second->push(std::move(cell));
-            result.setDone();
         }
     }
     else
     {
+        result.setDone(cell->size());
         m_cells.emplace(std::make_pair(climber.tick(), std::move(cell)));
-        result.setDone();
     }
 
     return result;

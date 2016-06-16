@@ -13,7 +13,6 @@
 #include <memory>
 #include <mutex>
 
-// #include <entwine/tree/climber.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/util/unique.hpp>
 
@@ -31,14 +30,14 @@ protected:
         Slot() : mark(false), spinner(), t() { }
 
         bool mark;  // Data exists?
-        SpinLock spinner;
-        UniqueT t;
+        mutable SpinLock spinner;
+        mutable UniqueT t;
     };
 
 public:
     Splitter(const Structure& structure)
         : m_structure(structure)
-        , m_base(makeUnique<T>())
+        , m_base()
         , m_fast(getNumFastTrackers(structure))
         , m_slow()
         , m_slowMutex()
@@ -48,16 +47,15 @@ public:
 
     void mark(const Id& chunkId, std::size_t chunkNum)
     {
-        get(chunkId, chunkNum).mark = true;
+        getOrCreate(chunkId, chunkNum).mark = true;
     }
 
-    Slot& get(const PointState& pointState)
+    bool isWithinBase(std::size_t depth) const
     {
-        assert(!m_structure.isWithinBase(pointState.depth()));
-        return get(pointState.chunkId(), pointState.chunkNum());
+        return m_structure.isWithinBase(depth);
     }
 
-    Slot& get(const Id& chunkId, std::size_t chunkNum)
+    Slot& getOrCreate(const Id& chunkId, std::size_t chunkNum)
     {
         if (chunkNum < m_fast.size())
         {
@@ -68,6 +66,32 @@ public:
             std::lock_guard<std::mutex> lock(m_slowMutex);
             return m_slow[chunkId];
         }
+    }
+
+    Slot& at(const Id& chunkId, std::size_t chunkNum)
+    {
+        if (chunkNum < m_fast.size())
+        {
+            return m_fast[chunkNum];
+        }
+        else
+        {
+            std::lock_guard<std::mutex> lock(m_slowMutex);
+            return m_slow.at(chunkId);
+        }
+    }
+
+    // As opposed to getOrCreate(), this operation will search the base Slot.
+    const Slot* tryGet(
+            const Id& chunkId,
+            std::size_t chunkNum,
+            std::size_t depth) const
+    {
+        const Slot* slot(nullptr);
+        if (isWithinBase(depth)) slot = &m_base;
+        else if (chunkNum < m_fast.size()) slot = &m_fast[chunkNum];
+        else if (m_slow.count(chunkId)) slot = &m_slow.at(chunkId);
+        return slot;
     }
 
     std::set<Id> ids() const
@@ -111,7 +135,7 @@ protected:
 
     const Structure& m_structure;
 
-    UniqueT m_base;
+    Slot m_base;
     std::vector<Slot> m_fast;
     std::map<Id, Slot> m_slow;
 

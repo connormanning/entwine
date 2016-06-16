@@ -41,8 +41,6 @@ namespace
 Cold::Cold(const Builder& builder, bool exists)
     : Splitter(builder.metadata().structure())
     , m_builder(builder)
-    , m_chunkMap()
-    , m_mapMutex()
     , m_pool(m_builder.threadPools().clipPool())
 {
     const Metadata& metadata(m_builder.metadata());
@@ -73,9 +71,12 @@ Cold::Cold(const Builder& builder, bool exists)
 
     if (m_structure.baseIndexSpan())
     {
+        m_base.mark = true;
+        m_base.t = makeUnique<CountedChunk>();
+
         if (!exists)
         {
-            m_base->chunk = Chunk::create(
+            m_base.t->chunk = Chunk::create(
                     m_builder,
                     0,
                     m_structure.baseIndexBegin(),
@@ -88,7 +89,7 @@ Cold::Cold(const Builder& builder, bool exists)
 
             if (auto data = m_builder.outEndpoint().tryGetBinary(basePath))
             {
-                m_base->chunk = Chunk::create(
+                m_base.t->chunk = Chunk::create(
                         m_builder,
                         0,
                         m_structure.baseIndexBegin(),
@@ -111,12 +112,12 @@ Tube::Insertion Cold::insert(
         Clipper& clipper,
         Cell::PooledNode& cell)
 {
-    if (m_structure.isWithinBase(climber.depth()))
+    if (isWithinBase(climber.depth()))
     {
-        return m_base->chunk->insert(climber, cell);
+        return m_base.t->chunk->insert(climber, cell);
     }
 
-    auto& slot(get(climber.pointState()));
+    auto& slot(getOrCreate(climber.chunkId(), climber.chunkNum()));
     std::unique_ptr<CountedChunk>& countedChunk(slot.t);
 
     // With this insertion check into our single-threaded Clipper (which we
@@ -213,10 +214,7 @@ void Cold::save(const arbiter::Endpoint& endpoint) const
     m_pool.join();
 
     Json::Value json;
-    for (const auto& id : ids())
-    {
-        json.append(id.str());
-    }
+    for (const auto& id : ids()) json.append(id.str());
 
     const std::string subpath("entwine-ids" + m_builder.metadata().postfix());
     endpoint.put(subpath, toFastString(json));
@@ -227,7 +225,7 @@ void Cold::clip(
         const std::size_t chunkNum,
         const std::size_t id)
 {
-    auto& slot(get(chunkId, chunkNum));
+    auto& slot(at(chunkId, chunkNum));
     assert(slot.mark);
 
     m_pool.add([&slot, id]()
@@ -240,10 +238,10 @@ void Cold::clip(
 
 void Cold::merge(const Cold& other)
 {
-    if (m_base->chunk)
+    if (m_base.t->chunk)
     {
-        dynamic_cast<BaseChunk&>(*m_base->chunk).merge(
-                dynamic_cast<BaseChunk&>(*other.m_base->chunk));
+        dynamic_cast<BaseChunk&>(*m_base.t->chunk).merge(
+                dynamic_cast<BaseChunk&>(*other.m_base.t->chunk));
     }
 
     for (const Id& id : other.ids()) m_fauxIds.insert(id);

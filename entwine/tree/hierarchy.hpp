@@ -21,9 +21,11 @@
 
 #include <entwine/third/json/json.hpp>
 #include <entwine/tree/hierarchy-block.hpp>
+#include <entwine/tree/splitter.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/structure.hpp>
+#include <entwine/util/json.hpp>
 #include <entwine/util/spin-lock.hpp>
 
 namespace entwine
@@ -31,61 +33,49 @@ namespace entwine
 
 class PointState;
 
-class Hierarchy
+class Hierarchy : Splitter<HierarchyBlock>
 {
 public:
-    Hierarchy(const Metadata& metadata);
     Hierarchy(
             const Metadata& metadata,
             const arbiter::Endpoint& ep,
-            std::string postfix = "");
+            bool exists);
+
+    using Splitter::tryGet;
 
     void count(const PointState& state, int delta);
-    uint64_t get(const PointState& pointState) const;
+    uint64_t tryGet(const PointState& pointState) const;
 
-    void save(const arbiter::Endpoint& ep, std::string postfix)
+    void save(const arbiter::Endpoint& ep)
     {
-        m_base.save(ep);
-        for (auto& pair : m_blockMap) pair.second->save(ep, postfix);
+        const std::string postfix(m_metadata.postfix());
+
+        m_base.t->save(ep, postfix);
+
+        for (std::size_t i(0); i < m_fast.size(); ++i)
+        {
+            if (m_fast[i].mark)
+            {
+                m_fast[i].t->save(ep, postfix);
+            }
+        }
+
+        for (auto& pair : m_slow) pair.second.t->save(ep, postfix);
+
+        Json::Value json;
+        for (const auto& id : ids()) json.append(id.str());
+        ep.put("ids" + postfix, toFastString(json));
     }
 
-    void awakenAll() { }
-    void merge(const Hierarchy& other) { }
+    void awakenAll() { }    // TODO.
+    void merge(const Hierarchy& other) { }  // TODO.
 
     Json::Value query(
             const BBox& qbox,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
-    static Structure structure(const Structure& treeStructure)
-    {
-        const std::size_t nullDepth(0);
-        const std::size_t baseDepth(
-                std::max<std::size_t>(treeStructure.baseDepthEnd(), 12));
-        const std::size_t coldDepth(0);
-        const std::size_t pointsPerChunk(treeStructure.basePointsPerChunk());
-        const std::size_t dimensions(treeStructure.dimensions());
-        const std::size_t numPointsHint(treeStructure.numPointsHint());
-        const bool tubular(treeStructure.tubular());
-        const bool dynamicChunks(true);
-        const bool prefixIds(false);
-        const std::size_t sparseDepth(
-                treeStructure.sparseDepthBegin() - startDepth());
-
-        return Structure(
-                nullDepth,
-                baseDepth,
-                coldDepth,
-                pointsPerChunk,
-                dimensions,
-                numPointsHint,
-                tubular,
-                dynamicChunks,
-                prefixIds,
-                sparseDepth);
-    }
-
-    static constexpr std::size_t startDepth() { return 6; }
+    static Structure structure(const Structure& treeStructure);
 
 private:
     class Query
@@ -118,14 +108,10 @@ private:
             std::deque<Dir>& lag,
             uint64_t inc);
 
+    const Metadata& m_metadata;
     const BBox& m_bbox;
     const Structure& m_structure;
-
-    ContiguousBlock m_base;
-    std::vector<std::unique_ptr<HierarchyBlock>> m_blockVec;
-    std::map<Id, std::unique_ptr<HierarchyBlock>> m_blockMap;
-
-    SpinLock m_spinner;
+    const arbiter::Endpoint m_endpoint;
 };
 
 

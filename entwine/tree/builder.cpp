@@ -66,7 +66,7 @@ Builder::Builder(
     , m_added(0)
     , m_pointPool(outerScope.getPointPool(m_metadata->schema()))
     , m_nodePool(outerScope.getNodePool())
-    , m_hierarchy(makeUnique<Hierarchy>(*m_metadata))
+    , m_hierarchy(makeUnique<Hierarchy>(*m_metadata, *m_outEndpoint, false))
     , m_registry(makeUnique<Registry>(*this))
 {
     prepareEndpoints();
@@ -92,7 +92,7 @@ Builder::Builder(
     , m_added(0)
     , m_pointPool(outerScope.getPointPool(m_metadata->schema()))
     , m_nodePool(outerScope.getNodePool())
-    , m_hierarchy(makeUnique<Hierarchy>(*m_metadata))
+    , m_hierarchy(makeUnique<Hierarchy>(*m_metadata, *m_outEndpoint, true))
     , m_registry(makeUnique<Registry>(*this, true))
 {
     prepareEndpoints();
@@ -458,8 +458,7 @@ void Builder::save()
 
     m_metadata->save(*m_outEndpoint);
     m_registry->save();
-    m_hierarchy->save(
-            m_outEndpoint->getSubEndpoint("h"), m_metadata->postfix());
+    m_hierarchy->save(m_outEndpoint->getSubEndpoint("h"));
 }
 
 void Builder::unsplit(Builder& other)

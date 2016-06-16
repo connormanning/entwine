@@ -76,7 +76,8 @@ public:
             bool tubular,
             bool dynamicChunks,
             bool prefixIds,
-            std::size_t sparseDepth = 0);
+            std::size_t sparseDepth = 0,
+            std::size_t startDepth = 0);
 
     Structure(const Json::Value& json);
 
@@ -89,6 +90,7 @@ public:
     std::size_t coldDepthBegin() const   { return m_coldDepthBegin; }
     std::size_t coldDepthEnd() const     { return m_coldDepthEnd; }
     std::size_t sparseDepthBegin() const { return m_sparseDepthBegin; }
+    std::size_t startDepth() const       { return m_startDepth; }
 
     const Id& nullIndexBegin() const   { return m_nullIndexBegin; }
     const Id& nullIndexEnd() const     { return m_nullIndexEnd; }
@@ -198,6 +200,7 @@ private:
     std::size_t m_coldDepthBegin;
     std::size_t m_coldDepthEnd;
     std::size_t m_sparseDepthBegin;
+    std::size_t m_startDepth;
 
     Id m_nullIndexBegin;
     Id m_nullIndexEnd;
