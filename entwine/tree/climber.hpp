@@ -35,17 +35,20 @@ public:
 
     virtual ~PointState() { }
 
-    void climb(Dir dir);
-    void climb(const Point& point) { climb(getDirection(point, m_bbox.mid())); }
+    virtual void climb(Dir dir);
+    virtual void climb(const Point& point)
+    {
+        climb(getDirection(point, m_bbox.mid()));
+    }
 
     PointState getClimb(Dir dir) const
     {
-        PointState pointState(*this);
-        pointState.climb(dir);
-        return pointState;
+        PointState s(*this);
+        s.climb(dir);
+        return s;
     }
 
-    void reset()
+    virtual void reset()
     {
         m_bbox = m_bboxOriginal;
         m_index = 0;
@@ -68,6 +71,11 @@ public:
     {
         if (m_chunkNum.trivial()) return m_chunkNum.getSimple();
         else return std::numeric_limits<std::size_t>::max();
+    }
+
+    void climbTo(const Point& point, std::size_t requestedDepth)
+    {
+        while (depth() < requestedDepth) climb(point);
     }
 
 protected:
@@ -99,6 +107,75 @@ public:
 
 private:
     Hierarchy* m_hierarchy;
+};
+
+class ChunkState : public PointState
+{
+public:
+    ChunkState(const Metadata& metadata)
+        : PointState(metadata.structure(), metadata.bbox())
+        , m_bboxChunk(metadata.bbox())
+    {
+        m_depth = m_structure.nominalChunkDepth();
+    }
+
+    virtual void climb(Dir dir) override
+    {
+        if (++m_depth <= m_structure.sparseDepthBegin())
+        {
+            m_bboxChunk.go(dir, m_structure.tubular());
+
+            m_chunkId <<= m_structure.dimensions();
+            m_chunkId.incSimple();
+            m_chunkId += toIntegral(dir) * m_pointsPerChunk;
+
+            if (m_depth >= m_structure.coldDepthBegin())
+            {
+                m_chunkNum =
+                    (m_chunkId - m_structure.coldIndexBegin()) /
+                    m_pointsPerChunk;
+            }
+        }
+        else
+        {
+            m_chunkNum += m_structure.maxChunksPerDepth();
+
+            m_chunkId <<= m_structure.dimensions();
+            m_chunkId.incSimple();
+
+            m_pointsPerChunk *= m_structure.factor();
+        }
+    }
+
+    virtual void climb(const Point& point) override
+    {
+        climb(getDirection(point, m_bboxChunk.mid()));
+    }
+
+    virtual void reset() override
+    {
+        PointState::reset();
+        m_bboxChunk = m_bboxOriginal;
+        m_depth = m_structure.nominalChunkDepth();
+    }
+
+    const BBox& bboxChunk() const { return m_bboxChunk; }
+
+    bool sparse() const
+    {
+        // True if the next call to climb() will fall into the sparse logic.
+        return m_depth >= m_structure.sparseDepthBegin();
+    }
+
+    ChunkState getChunkClimb(Dir dir) const
+    {
+        ChunkState s(*this);
+        s.climb(dir);
+        return s;
+    }
+
+private:
+    BBox m_bboxChunk;
 };
 
 class Climber

@@ -3,9 +3,9 @@ set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 set(
     SOURCES
-    "${BASE}/climber.cpp"
     "${BASE}/builder.cpp"
     "${BASE}/chunk.cpp"
+    "${BASE}/climber.cpp"
     "${BASE}/clipper.cpp"
     "${BASE}/cold.cpp"
     "${BASE}/config-parser.cpp"
@@ -15,7 +15,7 @@ set(
     "${BASE}/merger.cpp"
     "${BASE}/registry.cpp"
     "${BASE}/thread-pools.cpp"
-    # "${BASE}/tiler.cpp"
+    "${BASE}/tiler.cpp"
 )
 
 set(
@@ -33,7 +33,7 @@ set(
     "${BASE}/registry.hpp"
     "${BASE}/splitter.hpp"
     "${BASE}/thread-pools.hpp"
-    # "${BASE}/tiler.hpp"
+    "${BASE}/tiler.hpp"
     "${BASE}/traverser.hpp"
 )
 

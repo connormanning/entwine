@@ -37,7 +37,7 @@ void PointState::climb(const Dir dir)
 {
     if (++m_depth <= m_structure.startDepth()) return;
 
-    const std::size_t workingDepth(m_depth - m_structure.startDepth());
+    const std::size_t workingDepth(depth());
 
     if (m_structure.tubular() && workingDepth <= Tube::maxTickDepth())
     {
@@ -53,9 +53,7 @@ void PointState::climb(const Dir dir)
 
     if (workingDepth <= m_structure.nominalChunkDepth()) return;
 
-    if (
-            workingDepth <= m_structure.sparseDepthBegin() ||
-            !m_structure.sparseDepthBegin())
+    if (workingDepth <= m_structure.sparseDepthBegin())
     {
         m_chunkId <<= m_structure.dimensions();
         m_chunkId.incSimple();

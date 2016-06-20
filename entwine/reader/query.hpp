@@ -26,10 +26,10 @@ class PointInfo;
 class PointState;
 class Schema;
 
-class ChunkState
+class QueryChunkState
 {
 public:
-    ChunkState(const Structure& structure, const BBox& bbox)
+    QueryChunkState(const Structure& structure, const BBox& bbox)
         : m_structure(structure)
         , m_bbox(bbox)
         , m_depth(m_structure.nominalChunkDepth())
@@ -45,9 +45,9 @@ public:
     }
 
     // Call this if allDirections() == true.
-    ChunkState getClimb(Dir dir) const
+    QueryChunkState getClimb(Dir dir) const
     {
-        ChunkState result(*this);
+        QueryChunkState result(*this);
         ++result.m_depth;
         result.m_bbox.go(dir, m_structure.tubular());
 
@@ -61,9 +61,9 @@ public:
     }
 
     // Else call this.
-    ChunkState getClimb() const
+    QueryChunkState getClimb() const
     {
-        ChunkState result(*this);
+        QueryChunkState result(*this);
         ++result.m_depth;
         result.m_chunkId <<= m_structure.dimensions();
         result.m_chunkId.incSimple();
@@ -78,7 +78,7 @@ public:
     const Id& pointsPerChunk() const { return m_pointsPerChunk; }
 
 private:
-    ChunkState(const ChunkState& other) = default;
+    QueryChunkState(const QueryChunkState& other) = default;
 
     const Structure& m_structure;
     BBox m_bbox;
@@ -112,7 +112,7 @@ protected:
     bool getBase(std::vector<char>& buffer); // True if base data existed.
     void getChunked(std::vector<char>& buffer);
 
-    void getFetches(const ChunkState& chunkState);
+    void getFetches(const QueryChunkState& chunkState);
     void getBase(std::vector<char>& buffer, const PointState& pointState);
 
     template<typename T> void setSpatial(char* pos, double d)

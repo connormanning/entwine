@@ -49,6 +49,7 @@ public:
             const std::size_t* subsetId = nullptr);
 
     Metadata(const Metadata& other);
+    ~Metadata();
 
     void merge(const Metadata& other);
 

@@ -58,12 +58,12 @@ Query::Query(
 {
     if (!m_depthEnd || m_depthEnd > m_structure.coldDepthBegin())
     {
-        ChunkState chunkState(m_structure, m_reader.metadata().bbox());
+        QueryChunkState chunkState(m_structure, m_reader.metadata().bbox());
         getFetches(chunkState);
     }
 }
 
-void Query::getFetches(const ChunkState& chunkState)
+void Query::getFetches(const QueryChunkState& chunkState)
 {
     if (!m_qbox.overlaps(chunkState.bbox(), true)) return;
 

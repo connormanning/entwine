@@ -22,8 +22,7 @@
 #include <entwine/tree/clipper.hpp>
 #include <entwine/tree/registry.hpp>
 #include <entwine/tree/thread-pools.hpp>
-// #include <entwine/tree/tiler.hpp>
-// #include <entwine/tree/traverser.hpp>
+#include <entwine/tree/tiler.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/pooled-point-table.hpp>
@@ -813,34 +812,6 @@ void Builder::addError(const std::string& path, const std::string& error)
             lastSlash != std::string::npos ? path.substr(lastSlash + 1) : path);
     m_metadata->errors().push_back(file + ": " + error);
 }
-
-/*
-void Builder::traverse(
-        const std::string output,
-        const std::size_t threads,
-        const double tileWidth,
-        const TileFunction& f) const
-{
-
-    Tiler traverser(
-            *this,
-            m_arbiter->getEndpoint(output),
-            threads,
-            tileWidth);
-
-    traverser.go(f);
-}
-
-void Builder::traverse(
-        const std::size_t threads,
-        const double tileWidth,
-        const TileFunction& f,
-        const Schema* schema) const
-{
-    Tiler traverser(*this, threads, tileWidth, schema);
-    traverser.go(f);
-}
-*/
 
 } // namespace entwine
 

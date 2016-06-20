@@ -19,6 +19,7 @@
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/util/compression.hpp>
 #include <entwine/util/storage.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
@@ -101,25 +102,21 @@ std::unique_ptr<Chunk> Chunk::create(
         const Id& id,
         const Id& maxPoints)
 {
-    std::unique_ptr<Chunk> chunk;
-
     if (id < builder.metadata().structure().sparseIndexBegin())
     {
         if (depth)
         {
-            chunk.reset(new ContiguousChunk(builder, depth, id, maxPoints));
+            return makeUnique<ContiguousChunk>(builder, depth, id, maxPoints);
         }
         else
         {
-            chunk.reset(new BaseChunk(builder, id, maxPoints));
+            return makeUnique<BaseChunk>(builder, id, maxPoints);
         }
     }
     else
     {
-        chunk.reset(new SparseChunk(builder, depth, id, maxPoints));
+        return makeUnique<SparseChunk>(builder, depth, id, maxPoints);
     }
-
-    return chunk;
 }
 
 std::unique_ptr<Chunk> Chunk::create(
@@ -129,8 +126,6 @@ std::unique_ptr<Chunk> Chunk::create(
         const Id& maxPoints,
         std::unique_ptr<std::vector<char>> data)
 {
-    std::unique_ptr<Chunk> chunk;
-
     const Tail tail(popTail(*data));
     const std::size_t numPoints(tail.numPoints);
 
@@ -138,39 +133,36 @@ std::unique_ptr<Chunk> Chunk::create(
     {
         if (depth)
         {
-            chunk.reset(
-                    new ContiguousChunk(
-                        builder,
-                        depth,
-                        id,
-                        maxPoints,
-                        std::move(data),
-                        numPoints));
-        }
-        else
-        {
-            chunk.reset(
-                    new BaseChunk(
-                        builder,
-                        id,
-                        maxPoints,
-                        std::move(data),
-                        numPoints));
-        }
-    }
-    else if (tail.type == Type::Sparse)
-    {
-        chunk.reset(
-                new SparseChunk(
+            return makeUnique<ContiguousChunk>(
                     builder,
                     depth,
                     id,
                     maxPoints,
                     std::move(data),
-                    numPoints));
+                    numPoints);
+        }
+        else
+        {
+            return makeUnique<BaseChunk>(
+                    builder,
+                    id,
+                    maxPoints,
+                    std::move(data),
+                    numPoints);
+        }
+    }
+    else if (tail.type == Type::Sparse)
+    {
+        return makeUnique<SparseChunk>(
+                builder,
+                depth,
+                id,
+                maxPoints,
+                std::move(data),
+                numPoints);
     }
 
-    return chunk;
+    return std::unique_ptr<Chunk>();
 }
 
 void Chunk::pushTail(std::vector<char>& data, const Chunk::Tail tail)

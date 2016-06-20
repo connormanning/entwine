@@ -13,14 +13,33 @@
 #include <numeric>
 
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/tree/builder.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/traverser.hpp>
+#include <entwine/types/vector-point-table.hpp>
 #include <entwine/util/compression.hpp>
+#include <entwine/util/json.hpp>
 #include <entwine/util/storage.hpp>
 
 namespace entwine
 {
+
+namespace
+{
+
+std::set<Id> fetchIds(const arbiter::Endpoint& ep)
+{
+    std::set<Id> s;
+
+    const Json::Value json(parse(ep.get("entwine-ids")));
+    for (Json::ArrayIndex i(0); i < json.size(); ++i)
+    {
+        s.emplace(json[i].asString());
+    }
+
+    return s;
+}
+
+} // unnamed namespace
 
 void Above::populate(std::unique_ptr<std::vector<char>> data)
 {
@@ -71,7 +90,7 @@ void Base::populate(std::unique_ptr<std::vector<char>> data)
 
     Point p(0, 0, m_bbox.mid().z);
     BBox b;
-    Climber c(m_bbox, m_structure);
+    ChunkState s(m_metadata);
 
     char* pos(data->data());
 
@@ -86,9 +105,9 @@ void Base::populate(std::unique_ptr<std::vector<char>> data)
         // many points in a row will belong to the same sub-box.
         if (!b.contains(p))
         {
-            c.reset();
-            c.magnifyTo(p, m_delta);    // For the Base, delta = sliceDepth.
-            b = c.bboxChunk();
+            s.reset();
+            s.climbTo(p, m_delta);  // For the Base, delta = sliceDepth.
+            b = s.bboxChunk();
         }
 
         auto& segment(m_segments[b]);
@@ -100,23 +119,25 @@ void Base::populate(std::unique_ptr<std::vector<char>> data)
 
 Base::Base(const Tiler& tiler)
     : Above(
-            tiler.builder().structure().baseIndexBegin(),
-            tiler.builder().bbox(),
+            tiler.metadata().structure().baseIndexBegin(),
+            tiler.metadata().bbox(),
             tiler.activeSchema(),
             tiler.sliceDepth())
-    , m_structure(tiler.builder().structure())
+    , m_metadata(tiler.metadata())
+    , m_structure(tiler.metadata().structure())
 {
-    const Builder& builder(tiler.builder());
-    const Schema celledSchema(BaseChunk::makeCelled(builder.schema()));
+    const Metadata& metadata(tiler.metadata());
+    const Schema celledSchema(BaseChunk::makeCelled(metadata.schema()));
 
-    const std::string path(builder.structure().maybePrefix(m_chunkId));
-    auto cmp(Storage::ensureGet(builder.outEndpoint(), path));
+    const std::string path(metadata.structure().maybePrefix(m_chunkId));
+    auto cmp(Storage::ensureGet(tiler.inEndpoint(), path));
 
     if (!cmp)
     {
         throw std::runtime_error("Could not acquire base: " + m_chunkId.str());
     }
 
+    /*
     std::unique_ptr<Schema> celledWantedSchema;
 
     if (const Schema* wantedSchema = tiler.wantedSchema())
@@ -125,6 +146,7 @@ Base::Base(const Tiler& tiler)
                 new Schema(
                     BaseChunk::makeCelled(*wantedSchema)));
     }
+    */
 
     const std::size_t numPoints(Chunk::popTail(*cmp).numPoints);
     std::cout << "Base points: " << numPoints << std::endl;
@@ -135,23 +157,24 @@ Base::Base(const Tiler& tiler)
                 // TODO We're tossing information by not using the celled
                 // version, so currently this is read-only - no transformations.
                 // celledWantedSchema.get(),
-                tiler.wantedSchema(),
+                // tiler.wantedSchema(),
+                &tiler.activeSchema(),
                 numPoints));
 
     populate(std::move(data));
 }
 
 Tiler::Tiler(
-        const Builder& builder,
+        const arbiter::Endpoint& inEndpoint,
         const std::size_t threads,
         const double tileWidth,
         const Schema* wantedSchema)
-    : m_builder(builder)
-    , m_traverser(new Traverser(builder))
-    , m_outEndpoint()
+    : m_inEndpoint(inEndpoint)
+    , m_metadata(m_inEndpoint)
+    , m_ids(fetchIds(m_inEndpoint))
+    , m_traverser(new Traverser(m_metadata, m_ids))
     , m_pool(threads)
     , m_mutex()
-    , m_baseChunk()
     , m_sliceDepth(0)
     , m_wantedSchema(wantedSchema)
     , m_aboves()
@@ -160,33 +183,10 @@ Tiler::Tiler(
     , m_processing()
 {
     init(tileWidth);
+    std::cout << "S: " << m_metadata.structure().sparseDepthBegin() << std::endl;
 }
 
-Tiler::Tiler(
-        const Builder& builder,
-        const arbiter::Endpoint& outEndpoint,
-        const std::size_t threads,
-        const double tileWidth)
-    : m_builder(builder)
-    , m_traverser(new Traverser(builder))
-    , m_outEndpoint(new arbiter::Endpoint(outEndpoint))
-    , m_pool(threads)
-    , m_mutex()
-    , m_baseChunk()
-    , m_sliceDepth(0)
-    , m_wantedSchema(nullptr)
-    , m_aboves()
-    , m_tiles()
-    , m_current()
-    , m_processing()
-{
-    init(tileWidth);
-}
-
-const Schema& Tiler::activeSchema() const
-{
-    return m_wantedSchema ? *m_wantedSchema : m_builder.schema();
-}
+Tiler::~Tiler() { }
 
 void Tiler::init(const double tileWidth)
 {
@@ -195,10 +195,10 @@ void Tiler::init(const double tileWidth)
         throw std::runtime_error("Schema must contain X and Y");
     }
 
-    const double fullWidth(m_builder.bbox().width());
-    const Structure& structure(m_builder.structure());
+    const double fullWidth(m_metadata.bbox().width());
+    const Structure& structure(m_metadata.structure());
 
-    m_sliceDepth = m_builder.structure().coldDepthBegin();
+    m_sliceDepth = structure.coldDepthBegin();
     double div(structure.numChunksAtDepth(m_sliceDepth) / 2.0);
 
     std::cout << "Full width: " << fullWidth << std::endl;
@@ -217,19 +217,24 @@ void Tiler::init(const double tileWidth)
     std::cout << "Tile width: " << fullWidth / static_cast<double>(div) <<
         std::endl;
 
-    if (structure.hasBase()) m_aboves[m_builder.bbox()].reset(new Base(*this));
+    if (structure.hasBase()) m_aboves[m_metadata.bbox()].reset(new Base(*this));
 }
 
-void Tiler::go(const TileFunction& f)
+const Schema& Tiler::activeSchema() const
+{
+    return m_wantedSchema ? *m_wantedSchema : m_metadata.schema();
+}
+
+void Tiler::go(const TileFunction& f, const arbiter::Endpoint* ep)
 {
     std::size_t i(0);
 
-    m_traverser->go([this, &f, &i](
-            const Id& chunkId,
-            std::size_t depth,
-            const BBox& bbox,
-            bool exists)->bool
+    m_traverser->go([this, &f, &i](const ChunkState& chunkState, bool exists)
     {
+        const Id& chunkId(chunkState.chunkId());
+        const std::size_t depth(chunkState.depth());
+        const BBox& bbox(chunkState.bboxChunk());
+
         if (depth < m_sliceDepth)
         {
             if (exists) insertAbove(f, chunkId, depth, bbox);
@@ -253,27 +258,31 @@ void Tiler::go(const TileFunction& f)
     }
 
     m_pool.join();
+    m_pool.go();
 
-    if (!m_outEndpoint) return;
+    if (!ep) return;
 
+    // TODO
+    /*
     const auto props(m_builder.propsToSave());
     for (const auto& p : props)
     {
-        m_outEndpoint->putSubpath(p.first, p.second);
+        ep->putSubpath(p.first, p.second);
     }
 
     const std::string inHierPath(
             m_builder.outEndpoint().getSubEndpoint("h").type() + "://" +
             m_builder.outEndpoint().getSubEndpoint("h").root() + "*");
 
-    if (!m_outEndpoint->isRemote())
+    if (!ep->isRemote())
     {
-        arbiter::fs::mkdirp(m_outEndpoint->root() + "h");
+        arbiter::fs::mkdirp(ep->root() + "h");
     }
 
-    const std::string outHierPath(m_outEndpoint->getSubEndpoint("h").root());
+    const std::string outHierPath(ep->getSubEndpoint("h").root());
 
     m_builder.arbiter().copy(inHierPath, outHierPath);
+    */
 }
 
 void Tiler::insertAbove(
@@ -443,8 +452,8 @@ void Tiler::maybeProcess(const TileFunction& f)
 
 std::unique_ptr<std::vector<char>> Tiler::acquire(const Id& chunkId)
 {
-    const std::string path(m_builder.structure().maybePrefix(chunkId));
-    auto compressed(Storage::ensureGet(m_builder.outEndpoint(), path));
+    const std::string path(m_metadata.structure().maybePrefix(chunkId));
+    auto compressed(Storage::ensureGet(m_inEndpoint, path));
 
     if (!compressed)
     {
@@ -455,7 +464,7 @@ std::unique_ptr<std::vector<char>> Tiler::acquire(const Id& chunkId)
     auto data(
             Compression::decompress(
                 *compressed,
-                m_builder.schema(),
+                m_metadata.schema(),
                 m_wantedSchema,
                 numPoints));
 

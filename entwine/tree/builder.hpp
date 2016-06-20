@@ -125,20 +125,6 @@ public:
     // work and will complete the entirety of the build.
     std::unique_ptr<Manifest::Split> takeWork();
 
-    /*
-    void traverse(
-            std::string output,
-            std::size_t threads,
-            double tileWidth,
-            const TileFunction& f) const;
-
-    void traverse(
-            std::size_t threads,
-            double tileWidth,
-            const TileFunction& f,
-            const Schema* schema = nullptr) const;
-    */
-
     // Read-only.  Used by the Reader to avoid duplicating metadata logic (if
     // no subset/split is passed) or by the Merger to awaken partial builds.
     //

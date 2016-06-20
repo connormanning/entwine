@@ -16,10 +16,10 @@
 
 #include <pdal/PointView.hpp>
 
-#include <entwine/tree/builder.hpp>
 #include <entwine/types/bbox.hpp>
 #include <entwine/types/dir.hpp>
-#include <entwine/types/vector-point-table.hpp>
+#include <entwine/types/defs.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/util/pool.hpp>
 
 namespace arbiter
@@ -89,7 +89,7 @@ public:
     {
         // TODO Reserialize base, if this is a transformation.  Something like:
         /*
-        const Schema celledSchema(BaseChunk::makeCelled(m_builder.schema()));
+        const Schema celledSchema(BaseChunk::makeCelled(m_metadata.schema()));
         auto toWrite(Compression::compress(*m_baseChunk, celledSchema));
 
         Chunk::pushTail(
@@ -99,7 +99,7 @@ public:
                     Chunk::Contiguous));
 
         m_outEndpoint->putSubpath(
-                m_builder.structure().baseIndexBegin().str(),
+                m_metadata.structure().baseIndexBegin().str(),
                 *toWrite);
         */
     }
@@ -107,6 +107,7 @@ public:
 private:
     virtual void populate(std::unique_ptr<std::vector<char>> data) override;
 
+    const Metadata& m_metadata;
     const Structure& m_structure;
 };
 
@@ -198,24 +199,30 @@ class Tiler
 {
 public:
     Tiler(
-            const Builder& builder,
+            const arbiter::Endpoint& inEndpoint,
             std::size_t threads,
             double maxArea,
             const Schema* wantedSchema = nullptr);
 
+    /*
     Tiler(
-            const Builder& builder,
+            const Metadata& metadata,
             const arbiter::Endpoint& output,
             std::size_t threads,
             double maxArea);
+    */
 
-    void go(const TileFunction& f);
+    ~Tiler();
 
-    const Builder& builder() const { return m_builder; }
+    void go(const TileFunction& f, const arbiter::Endpoint* ep = nullptr);
+
+    const Metadata& metadata() const { return m_metadata; }
     const Schema* wantedSchema() const { return m_wantedSchema; }
     std::size_t sliceDepth() const { return m_sliceDepth; }
 
     const Schema& activeSchema() const;
+
+    const arbiter::Endpoint& inEndpoint() const { return m_inEndpoint; }
 
 private:
     void init(double maxArea);
@@ -244,15 +251,15 @@ private:
             Tile& tile);
 
     void maybeProcess(const TileFunction& f);
-
     std::unique_ptr<std::vector<char>> acquire(const Id& chunkId);
-
     using TileMap = std::map<BBox, std::unique_ptr<Tile>>;
 
-    const Builder& m_builder;
+    const arbiter::Endpoint m_inEndpoint;
+
+    const Metadata m_metadata;
+    const std::set<Id> m_ids;
 
     std::unique_ptr<Traverser> m_traverser;
-    std::unique_ptr<arbiter::Endpoint> m_outEndpoint;
     mutable Pool m_pool;
     mutable std::mutex m_mutex;
 
@@ -273,8 +280,7 @@ class SizedPointView : public pdal::PointView
 {
 public:
     template<typename Table>
-    SizedPointView(Table& table)
-        : PointView(table)
+    SizedPointView(Table& table) : PointView(table)
     {
         m_size = table.size();
         for (std::size_t i(0); i < m_size; ++i) m_index.push_back(i);

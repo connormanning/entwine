@@ -102,6 +102,8 @@ Metadata::Metadata(const Metadata& other)
     , m_errors(other.errors())
 { }
 
+Metadata::~Metadata() { }
+
 void Metadata::save(const arbiter::Endpoint& endpoint) const
 {
     Json::Value json;

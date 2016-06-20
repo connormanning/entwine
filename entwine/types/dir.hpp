@@ -27,6 +27,7 @@ enum class Dir
     neu = 7
 };
 
+inline constexpr std::size_t dirHalfEnd() { return 4; }
 inline constexpr std::size_t dirEnd() { return 8; }
 
 // Get the direction of point P in relation to an origin O.
