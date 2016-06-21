@@ -21,7 +21,7 @@ namespace entwine
 class VectorPointTable : public pdal::BasePointTable
 {
 public:
-    VectorPointTable(const Schema& schema, std::vector<char>& data)
+    VectorPointTable(const Schema& schema, const std::vector<char>& data)
         : BasePointTable(schema.pdalLayout())
         , m_schema(schema)
         , m_data(data)
@@ -31,7 +31,7 @@ public:
 
     virtual char* getPoint(pdal::PointId i)
     {
-        return m_data.data() + (i * m_schema.pointSize());
+        return const_cast<char*>(m_data.data() + (i * m_schema.pointSize()));
     }
 
 private:
@@ -66,7 +66,7 @@ private:
     }
 
     const Schema& m_schema;
-    std::vector<char>& m_data;
+    const std::vector<char>& m_data;
 };
 
 } // namespace entwine

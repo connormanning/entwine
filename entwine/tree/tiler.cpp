@@ -15,6 +15,7 @@
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/traverser.hpp>
+#include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/vector-point-table.hpp>
 #include <entwine/util/compression.hpp>
 #include <entwine/util/json.hpp>
@@ -168,10 +169,12 @@ Tiler::Tiler(
         const arbiter::Endpoint& inEndpoint,
         const std::size_t threads,
         const double tileWidth,
-        const Schema* wantedSchema)
+        const Schema* wantedSchema,
+        const std::size_t maxPointsPerTile)
     : m_inEndpoint(inEndpoint)
     , m_metadata(m_inEndpoint)
     , m_ids(fetchIds(m_inEndpoint))
+    , m_maxPointsPerTile(maxPointsPerTile)
     , m_traverser(new Traverser(m_metadata, m_ids))
     , m_pool(threads)
     , m_mutex()
@@ -213,7 +216,7 @@ void Tiler::init(const double tileWidth)
     }
 
     std::cout << "Slice depth: " << m_sliceDepth << std::endl;
-    std::cout << "Number of tiles: " << (div * 2) << std::endl;
+    std::cout << "Nominal number of tiles: " << (div * 2) << std::endl;
     std::cout << "Tile width: " << fullWidth / static_cast<double>(div) <<
         std::endl;
 
@@ -335,7 +338,8 @@ void Tiler::spawnTile(
                 m_tiles.emplace(
                     std::piecewise_construct,
                     std::forward_as_tuple(bbox),
-                    std::forward_as_tuple(new Tile(bbox, s, m_aboves))));
+                    std::forward_as_tuple(
+                        new Tile(bbox, s, m_aboves, m_maxPointsPerTile))));
         return *result.first->second;
     })());
 
@@ -499,11 +503,51 @@ void Tile::process(const TileFunction& f)
         }
     }
 
-    if (m_data.size())
+    if (m_data.size()) splitAndCall(f, m_data, m_bbox);
+}
+
+void Tile::splitAndCall(
+        const TileFunction& f,
+        const std::vector<char>& data,
+        const BBox& bbox) const
+{
+    const std::size_t numPoints(data.size() / m_schema.pointSize());
+
+    if (numPoints <= m_maxPointsPerTile)
     {
-        VectorPointTable table(m_schema, m_data);
+        VectorPointTable table(m_schema, data);
         SizedPointView view(table);
-        f(view, m_bbox);
+        f(view, bbox);
+    }
+    else
+    {
+        std::vector<std::vector<char>> split(dirHalfEnd());
+
+        BinaryPointTable table(m_schema);
+        pdal::PointRef pointRef(table, 0);
+
+        const char* pos(data.data());
+        Point p;
+        Dir dir;
+
+        for (std::size_t i(0); i < numPoints; ++i)
+        {
+            table.setPoint(pos);
+            p.x = pointRef.getFieldAs<double>(pdal::Dimension::Id::X);
+            p.y = pointRef.getFieldAs<double>(pdal::Dimension::Id::Y);
+            p.z = pointRef.getFieldAs<double>(pdal::Dimension::Id::Z);
+            dir = getDirection(p, bbox.mid());
+
+            std::vector<char>& active(split[toIntegral(dir, true)]);
+            active.insert(active.end(), pos, pos + m_schema.pointSize());
+
+            pos += m_schema.pointSize();
+        }
+
+        for (std::size_t i(0); i < split.size(); ++i)
+        {
+            splitAndCall(f, split[i], bbox.get(toDir(i), true));
+        }
     }
 }
 

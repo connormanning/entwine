@@ -157,14 +157,16 @@ public:
         }
     }
 
-    BBox get(Dir dir) const
+    BBox get(Dir dir, bool force2d = false) const
     {
+        if (force2d) dir = toDir(toIntegral(dir, true));
+
         switch (dir)
         {
-            case Dir::swd: return getSwd(); break;
-            case Dir::sed: return getSed(); break;
-            case Dir::nwd: return getNwd(); break;
-            case Dir::ned: return getNed(); break;
+            case Dir::swd: return getSwd(force2d); break;
+            case Dir::sed: return getSed(force2d); break;
+            case Dir::nwd: return getNwd(force2d); break;
+            case Dir::ned: return getNed(force2d); break;
             case Dir::swu: return getSwu(); break;
             case Dir::seu: return getSeu(); break;
             case Dir::nwu: return getNwu(); break;

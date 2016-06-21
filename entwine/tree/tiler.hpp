@@ -11,6 +11,7 @@
 #pragma once
 
 #include <cstddef>
+#include <limits>
 #include <memory>
 #include <vector>
 
@@ -118,9 +119,14 @@ class Tile
     using Aboves = std::map<Above*, std::unique_ptr<std::size_t>>;
 
 public:
-    Tile(const BBox& bbox, const Schema& schema, Above::Map& aboves)
+    Tile(
+            const BBox& bbox,
+            const Schema& schema,
+            Above::Map& aboves,
+            std::size_t maxPointsPerTile)
         : m_bbox(bbox)
         , m_schema(schema)
+        , m_maxPointsPerTile(maxPointsPerTile)
         , m_aboves(getContainingFrom(m_bbox, aboves))
         , m_belows()
         , m_data()
@@ -185,8 +191,14 @@ public:
 private:
     Above::Set getContainingFrom(const BBox& bbox, Above::Map& aboves) const;
 
+    void splitAndCall(
+            const TileFunction& f,
+            const std::vector<char>& data,
+            const BBox& bbox) const;
+
     const BBox m_bbox;
     const Schema& m_schema;
+    const std::size_t m_maxPointsPerTile;
 
     Above::Set m_aboves;
     Belows m_belows;
@@ -202,7 +214,9 @@ public:
             const arbiter::Endpoint& inEndpoint,
             std::size_t threads,
             double maxArea,
-            const Schema* wantedSchema = nullptr);
+            const Schema* wantedSchema = nullptr,
+            std::size_t maxPointsPerTile =
+                std::numeric_limits<std::size_t>::max());
 
     /*
     Tiler(
@@ -258,6 +272,7 @@ private:
 
     const Metadata m_metadata;
     const std::set<Id> m_ids;
+    const std::size_t m_maxPointsPerTile;
 
     std::unique_ptr<Traverser> m_traverser;
     mutable Pool m_pool;
@@ -273,7 +288,6 @@ private:
 
     std::unique_ptr<BBox> m_current;
     std::set<BBox> m_processing;
-
 };
 
 class SizedPointView : public pdal::PointView
