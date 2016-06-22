@@ -26,11 +26,13 @@
 namespace entwine
 {
 
-class Branch
-{
-public:
-    Branch() : m_children() { }
+class Branch;
 
+class BranchNode
+{
+    friend class Branch;
+
+public:
     template<typename F> void recurse(const std::size_t depth, const F& f) const
     {
         if (m_children.size())
@@ -43,11 +45,41 @@ public:
         }
     }
 
-    Branch& operator[](const Id& id) { return m_children[id]; }
-    const Branch& operator[](const Id& id) const { return m_children.at(id); }
+    BranchNode& operator[](const Id& id) { return m_children[id]; }
+
+    const BranchNode& operator[](const Id& id) const
+    {
+        return m_children.at(id);
+    }
 
 private:
-    std::map<Id, Branch> m_children;
+    std::map<Id, BranchNode> m_children;
+};
+
+class Traverser;
+
+class Branch
+{
+    friend class Traverser;
+
+public:
+    Branch(const Id& id, std::size_t startDepth)
+        : m_id(id)
+        , m_startDepth(startDepth)
+    { }
+
+    template<typename F> void recurse(const F& f) const
+    {
+        f(m_id, m_startDepth);
+        m_node.recurse(m_startDepth + 1, f);
+    }
+
+private:
+    BranchNode& node() { return m_node; }
+
+    const Id m_id;
+    const std::size_t m_startDepth;
+    BranchNode m_node;
 };
 
 class Traverser
@@ -73,7 +105,7 @@ private:
     template<typename F>
     void recurse(const F& f, const ChunkState& chunkState)
     {
-        const auto call([this, &f, &chunkState](Dir dir = Dir::swd)
+        const auto call([this, &f, &chunkState](Dir dir)
         {
             const ChunkState nextState(chunkState.getChunkClimb(dir));
             f(nextState, m_ids.count(nextState.chunkId()));
@@ -83,7 +115,7 @@ private:
         {
             for (std::size_t i(0); i < dirHalfEnd(); ++i) call(toDir(i));
         }
-        else call();
+        else call(Dir::swd);
     }
 
     template<typename F>
@@ -107,7 +139,9 @@ private:
 
     template<typename F> void tree(const F& f, const ChunkState& chunkState)
     {
-        if (chunkState.depth() < m_structure.coldDepthBegin())
+        const std::size_t coldDepth(m_structure.coldDepthBegin());
+
+        if (chunkState.depth() < coldDepth)
         {
             auto next([this, &f](const ChunkState& chunkState, bool exists)
             {
@@ -116,10 +150,10 @@ private:
 
             recurse(next, chunkState);
         }
-        else if (chunkState.depth() == m_structure.coldDepthBegin())
+        else if (chunkState.depth() == coldDepth)
         {
-            auto branch(makeUnique<Branch>());
-            buildBranch(*branch, chunkState);
+            auto branch(makeUnique<Branch>(chunkState.chunkId(), coldDepth));
+            buildBranch(branch->node(), chunkState);
             f(std::move(branch));
         }
         else
@@ -128,13 +162,13 @@ private:
         }
     }
 
-    void buildBranch(Branch& branch, const ChunkState& chunkState)
+    void buildBranch(BranchNode& node, const ChunkState& chunkState)
     {
-        auto next([this, &branch](const ChunkState& chunkState, bool exists)
+        auto next([this, &node](const ChunkState& chunkState, bool exists)
         {
             if (exists)
             {
-                buildBranch(branch[chunkState.chunkId()], chunkState);
+                buildBranch(node[chunkState.chunkId()], chunkState);
             }
         });
 

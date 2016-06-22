@@ -58,7 +58,7 @@ struct CountedChunk
     }
 };
 
-class Cold : Splitter<CountedChunk>
+class Cold : public Splitter<CountedChunk>
 {
     using SlotType = Splitter<CountedChunk>::Slot;
 
@@ -77,6 +77,12 @@ public:
     void merge(const Cold& other);
 
     std::size_t clipThreads() const;
+
+    Chunk* base()
+    {
+        if (CountedChunk* b = m_base.t.get()) return b->chunk.get();
+        else return nullptr;
+    }
 
 private:
     void ensureChunk(

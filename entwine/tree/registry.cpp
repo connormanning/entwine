@@ -58,7 +58,6 @@ bool Registry::addPoint(
 
         if (!attempt.done())
         {
-
             if (
                     m_structure.inRange(climber.depth() + 1) &&
                     (!maxDepth || climber.depth() + 1 < maxDepth))

@@ -213,7 +213,7 @@ public:
     Tiler(
             const arbiter::Endpoint& inEndpoint,
             std::size_t threads,
-            double maxArea,
+            double maxTileWidth,
             const Schema* wantedSchema = nullptr,
             std::size_t maxPointsPerTile =
                 std::numeric_limits<std::size_t>::max());
@@ -223,7 +223,7 @@ public:
             const Metadata& metadata,
             const arbiter::Endpoint& output,
             std::size_t threads,
-            double maxArea);
+            double maxTileWidth);
     */
 
     ~Tiler();
@@ -239,7 +239,7 @@ public:
     const arbiter::Endpoint& inEndpoint() const { return m_inEndpoint; }
 
 private:
-    void init(double maxArea);
+    void init(double maxTileWidth);
 
     void insertAbove(
             const TileFunction& f,

@@ -46,7 +46,8 @@ public:
 
     Metadata(
             const arbiter::Endpoint& endpoint,
-            const std::size_t* subsetId = nullptr);
+            const std::size_t* subsetId = nullptr,
+            const std::size_t* splitId = nullptr);
 
     Metadata(const Metadata& other);
     ~Metadata();

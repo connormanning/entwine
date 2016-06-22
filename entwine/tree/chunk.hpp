@@ -39,6 +39,8 @@ class Metadata;
 
 class Chunk
 {
+    friend class Builder;
+
 public:
     Chunk(
             const Builder& builder,

@@ -95,7 +95,6 @@ public:
         return slot;
     }
 
-protected:
     std::set<Id> ids() const
     {
         std::set<Id> results(m_faux);
@@ -108,6 +107,7 @@ protected:
         return results;
     }
 
+protected:
     void merge(const std::set<Id>& s)
     {
         m_faux.insert(s.begin(), s.end());

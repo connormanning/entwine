@@ -37,6 +37,8 @@ class Structure;
 
 class Registry
 {
+    friend class Builder;
+
 public:
     Registry(const Builder& builder, bool exists = false);
     ~Registry();
@@ -53,6 +55,9 @@ public:
     void clip(const Id& index, std::size_t chunkNum, std::size_t id);
 
 private:
+    Cold& cold() { return *m_cold; }
+    const Cold& cold() const { return *m_cold; }
+
     void loadAsNew();
     void loadFromRemote();
 

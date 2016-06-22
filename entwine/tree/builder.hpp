@@ -72,6 +72,7 @@ public:
             std::string tmpPath,
             std::size_t numThreads,
             const std::size_t* subsetId = nullptr,
+            const std::size_t* splitId = nullptr,
             OuterScope outerScope = OuterScope());
 
     ~Builder();
@@ -125,22 +126,6 @@ public:
     // work and will complete the entirety of the build.
     std::unique_ptr<Manifest::Split> takeWork();
 
-    // Read-only.  Used by the Reader to avoid duplicating metadata logic (if
-    // no subset/split is passed) or by the Merger to awaken partial builds.
-    //
-    // Also used for merging, after an initial Builder::create has provided
-    // us with enough metadata info to fetch the other pieces directly.
-    //
-    // Also used for traversing.
-    /*
-    Builder(
-            std::string path,
-            std::size_t threads = 1,
-            const std::size_t* subsetId = nullptr,
-            const std::size_t* splitBegin = nullptr,
-            OuterScope outerScope = OuterScope());
-            */
-
 private:
     // Attempt to wake up a subset or split build with indeterminate metadata
     // state.  Used to wake up the active Builder for merging.
@@ -153,7 +138,8 @@ private:
     static std::unique_ptr<Builder> create(
             std::string path,
             std::size_t threads,
-            std::size_t subsetId,
+            const std::size_t* subsetId,
+            const std::size_t* splitId,
             OuterScope outerScope = OuterScope());
 
     // Returns true if we should insert this file based on its info.
@@ -181,24 +167,12 @@ private:
             Cell::PooledStack cells,
             PointStatsMap& pointStatsMap,
             Clipper& clipper,
-            Hierarchy& localHierarchy,
             const Id& chunkId,
             std::size_t depthBegin,
             std::size_t depthEnd = 0);
 
     // Remove resources that are no longer needed.
     void clip(const Id& index, std::size_t chunkNum, std::size_t id);
-
-    // Awaken the tree from a saved state.
-    void load(
-            OuterScope outerScope,
-            std::size_t clipThreads,
-            std::string postfix = "");
-
-    void load(
-            OuterScope outerScope,
-            const std::size_t* subsetId,
-            const std::size_t* splitBegin);
 
     // Validate sources.
     void prepareEndpoints();

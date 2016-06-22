@@ -186,7 +186,6 @@ Tiler::Tiler(
     , m_processing()
 {
     init(tileWidth);
-    std::cout << "S: " << m_metadata.structure().sparseDepthBegin() << std::endl;
 }
 
 Tiler::~Tiler() { }
@@ -204,8 +203,8 @@ void Tiler::init(const double tileWidth)
     m_sliceDepth = structure.coldDepthBegin();
     double div(structure.numChunksAtDepth(m_sliceDepth) / 2.0);
 
-    std::cout << "Full width: " << fullWidth << std::endl;
-    std::cout << "Max width:  " << tileWidth  << std::endl;
+    std::cout << "Full bounds width: " << fullWidth << std::endl;
+    std::cout << "Max tile width requested:  " << tileWidth  << std::endl;
 
     while (
             fullWidth / div > tileWidth &&
@@ -217,8 +216,8 @@ void Tiler::init(const double tileWidth)
 
     std::cout << "Slice depth: " << m_sliceDepth << std::endl;
     std::cout << "Nominal number of tiles: " << (div * 2) << std::endl;
-    std::cout << "Tile width: " << fullWidth / static_cast<double>(div) <<
-        std::endl;
+    std::cout << "Actual tile width to use: " <<
+        fullWidth / static_cast<double>(div) << std::endl;
 
     if (structure.hasBase()) m_aboves[m_metadata.bbox()].reset(new Base(*this));
 }

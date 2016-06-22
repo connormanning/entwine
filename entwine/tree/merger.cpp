@@ -13,6 +13,7 @@
 #include <entwine/tree/merger.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/subset.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
@@ -25,7 +26,7 @@ Merger::Merger(
     , m_path(path)
     , m_numSubsets(1)
     , m_threads(threads)
-    , m_outerScope(new OuterScope())
+    , m_outerScope(makeUnique<OuterScope>())
 {
     m_outerScope->setArbiter(arbiter);
     m_outerScope->setNodePool(std::make_shared<Node::NodePool>());
@@ -53,7 +54,14 @@ void Merger::go()
     {
         std::cout << "\t" << (id + 1) << " / " << m_numSubsets << std::flush;
 
-        auto current(Builder::create(m_path, m_threads, id, *m_outerScope));
+        auto current(
+                Builder::create(
+                    m_path,
+                    m_threads,
+                    &id,
+                    nullptr,
+                    *m_outerScope));
+
         if (!current) throw std::runtime_error("Couldn't create split builder");
 
         unsplit(*current);
@@ -70,31 +78,33 @@ void Merger::go()
 
 void Merger::unsplit(Builder& builder)
 {
-    const Manifest& manifest(builder.metadata().manifest());
+    const Metadata& metadata(builder.metadata());
+    const Manifest& manifest(metadata.manifest());
+
     if (!manifest.split()) return;
 
     std::cout << " unsplitting..." << std::flush;
 
-    /*
     std::unique_ptr<std::size_t> subsetId(
-            builder.subset() ?
-                new std::size_t(builder.subset()->id()) : nullptr);
+            metadata.subset() ?
+                new std::size_t(metadata.subset()->id()) : nullptr);
 
     std::size_t pos(manifest.split()->end());
 
     while (pos < manifest.size())
     {
-        std::unique_ptr<Builder> nextSplit(
-                new Builder(
-                    builder.outEndpoint().root(),
-                    m_threads,
-                    subsetId.get(),
-                    &pos));
+        auto nextSplit = Builder::create(
+                builder.outEndpoint().root(),
+                m_threads,
+                subsetId.get(),
+                &pos,
+                *m_outerScope);
+
+        std::cout << " " << pos << std::flush;
 
         pos = nextSplit->metadata().manifest().split()->end();
         builder.unsplit(*nextSplit);
     }
-    */
 }
 
 } // namespace entwine

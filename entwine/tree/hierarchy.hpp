@@ -33,7 +33,7 @@ namespace entwine
 
 class PointState;
 
-class Hierarchy : Splitter<HierarchyBlock>
+class Hierarchy : public Splitter<HierarchyBlock>
 {
 public:
     Hierarchy(

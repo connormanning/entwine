@@ -45,9 +45,14 @@ Metadata::Metadata(
     , m_errors()
 { }
 
-Metadata::Metadata(const arbiter::Endpoint& ep, const std::size_t* subsetId)
+Metadata::Metadata(
+        const arbiter::Endpoint& ep,
+        const std::size_t* subsetId,
+        const std::size_t* splitId)
 {
-    const std::string pf(subsetId ? "-" + std::to_string(*subsetId) : "");
+    const std::string pf(
+            (subsetId ? "-" + std::to_string(*subsetId) : "") +
+            (splitId  ? "-" + std::to_string(*splitId)  : ""));
 
     const Json::Value meta(parse(ep.get("entwine" + pf)));
     const Json::Value manifest(parse(ep.get("entwine-manifest" + pf)));
