@@ -19,7 +19,6 @@
 #include <pdal/PointTable.hpp>
 
 #include <entwine/tree/climber.hpp>
-#include <entwine/types/blocked-data.hpp>
 #include <entwine/types/dim-info.hpp>
 #include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
