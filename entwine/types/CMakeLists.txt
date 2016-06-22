@@ -4,11 +4,8 @@ set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 set(
     SOURCES
     "${BASE}/bbox.cpp"
-    "${BASE}/dim-info.cpp"
     "${BASE}/metadata.cpp"
     "${BASE}/pooled-point-table.cpp"
-    "${BASE}/schema.cpp"
-    "${BASE}/simple-point-layout.cpp"
     "${BASE}/structure.cpp"
     "${BASE}/subset.cpp"
     "${BASE}/tube.cpp"
@@ -20,6 +17,7 @@ set(
     "${BASE}/defs.hpp"
     "${BASE}/dim-info.hpp"
     "${BASE}/dir.hpp"
+    "${BASE}/fixed-point-layout.hpp"
     "${BASE}/metadata.hpp"
     "${BASE}/outer-scope.hpp"
     "${BASE}/point.hpp"
@@ -28,7 +26,6 @@ set(
     "${BASE}/range.hpp"
     "${BASE}/reprojection.hpp"
     "${BASE}/schema.hpp"
-    "${BASE}/simple-point-layout.hpp"
     "${BASE}/structure.hpp"
     "${BASE}/subset.hpp"
     "${BASE}/tube.hpp"

@@ -11,12 +11,15 @@
 #pragma once
 
 #include <cstddef>
+#include <numeric>
 #include <vector>
 
 #include <pdal/PointLayout.hpp>
 
 #include <entwine/third/json/json.hpp>
 #include <entwine/types/dim-info.hpp>
+#include <entwine/types/fixed-point-layout.hpp>
+#include <entwine/util/json.hpp>
 
 namespace entwine
 {
@@ -24,18 +27,31 @@ namespace entwine
 class Schema
 {
 public:
-    // Populate this schema later.  Call finalize() when done populating the
-    // layout.
+    explicit Schema(DimList dims)
+        : m_dims(dims)
+        , m_layout(makePointLayout(m_dims))
+    { }
 
-    // Schema layout will be finalized with these dims.
-    explicit Schema(DimList dims);
-    explicit Schema(const Json::Value& json);
-    explicit Schema(const std::string& s);  // Will be parsed as JSON.
+    explicit Schema(const Json::Value& json)
+        : Schema(
+                std::accumulate(
+                    json.begin(),
+                    json.end(),
+                    DimList(),
+                    [](const DimList& in, const Json::Value& d)
+                    {
+                        DimList out(in);
+                        out.emplace_back(d);
+                        return out;
+                    }))
+    { }
 
-    Schema(const Schema& other);
-    Schema& operator=(const Schema& other);
+    explicit Schema(const std::string& s) : Schema(parse(s)) { }
 
-    ~Schema();
+    template<typename T>
+    Schema(std::initializer_list<T> il) : Schema(DimList(il)) { }
+
+    Schema(const Schema& other) : Schema(other.m_dims) { }
 
     std::size_t pointSize() const
     {
@@ -68,11 +84,49 @@ public:
         return *m_layout.get();
     }
 
-    Json::Value toJson() const;
+    Json::Value toJson() const
+    {
+        return std::accumulate(
+                m_dims.begin(),
+                m_dims.end(),
+                Json::Value(),
+                [](const Json::Value& in, const DimInfo& d)
+                {
+                    Json::Value out(in);
+                    out.append(d.toJson());
+                    return out;
+                });
+    }
+
+    std::string toString() const
+    {
+        return std::accumulate(
+                m_dims.begin(),
+                m_dims.end(),
+                std::string(),
+                [](const std::string& s, const DimInfo& d)
+                {
+                    return s + (s.size() ? ", " : "") + d.name();
+                });
+    }
 
 private:
-    std::unique_ptr<pdal::PointLayout> m_layout;
+    std::unique_ptr<pdal::PointLayout> makePointLayout(DimList& dims)
+    {
+        std::unique_ptr<pdal::PointLayout> layout(new FixedPointLayout());
+
+        for (auto& dim : dims)
+        {
+            dim.setId(layout->registerOrAssignDim(dim.name(), dim.type()));
+        }
+
+        layout->finalize();
+
+        return layout;
+    }
+
     DimList m_dims;
+    std::unique_ptr<pdal::PointLayout> m_layout;
 };
 
 inline bool operator==(const Schema& lhs, const Schema& rhs)

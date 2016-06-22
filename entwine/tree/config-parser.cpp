@@ -87,7 +87,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     // Geometry and spatial info.
     auto bboxConforming(getBBox(jsonGeometry["bbox"]));
     auto reprojection(getReprojection(jsonGeometry["reproject"]));
-    Schema schema(jsonGeometry["schema"]);
+    auto schema(makeUnique<Schema>(jsonGeometry["schema"]));
 
     std::size_t numPointsHint(jsonStructure["numPointsHint"].asUInt64());
     if (!numPointsHint && manifest)
@@ -102,7 +102,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                 });
     }
 
-    if (manifest && (!bboxConforming || !schema.pointSize() || !numPointsHint))
+    if (manifest && (!bboxConforming || !schema->pointSize() || !numPointsHint))
     {
         std::cout << "Performing dataset inference..." << std::endl;
         Inference inference(
@@ -123,7 +123,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
             std::cout << "Inferred: " << inference.bbox() << std::endl;
         }
 
-        if (!schema.pointSize())
+        if (!schema->pointSize())
         {
             auto dims(inference.schema().dims());
             const std::size_t originSize([&manifest]()
@@ -136,7 +136,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
             dims.emplace_back("Origin", "unsigned", originSize);
 
-            schema = Schema(dims);
+            schema = makeUnique<Schema>(dims);
         }
 
         if (!numPointsHint) numPointsHint = inference.numPoints();
@@ -166,7 +166,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
     const Metadata metadata(
             *bboxConforming,
-            schema,
+            *schema,
             structure,
             hierarchyStructure,
             *manifest,
