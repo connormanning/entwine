@@ -558,30 +558,22 @@ void Builder::unsplit(Builder& other)
         m_metadata->manifest().add(pointStatsMap);
     }
 
-    std::cout << "Base overflow: " << countReserves() << "\n" << std::endl;
-    std::cout << "CIB: " << m_metadata->structure().coldIndexBegin() <<
-        std::endl;
-
     BinaryPointTable table(m_metadata->schema());
     pdal::PointRef pointRef(table, 0);
 
     Traverser traverser(*m_metadata, other.registry().cold().ids());
-    traverser.tree([&](std::unique_ptr<Branch> b)
+    traverser.tree([&](const Branch branch)
     {
-        Branch* rawBranch(b.release());
-
-        // m_threadPools->workPool().add([&]()
-        // {
-            std::unique_ptr<Branch> branch(rawBranch);
-
+        m_threadPools->workPool().add([&, branch]()
+        {
             PointStatsMap pointStatsMap;
             Clipper clipper(*this, 0);
 
-            std::cout << "\n\nRecursing branch" << std::endl;
-
-            branch->recurse([&](const Id& chunkId, std::size_t depth)
+            branch.recurse([&](const Id& chunkId, std::size_t depth)
             {
-                std::cout << "\n\nAdding " << chunkId << " " << depth << std::endl;
+                std::cout <<
+                    "From " << branch.id() << ": " <<
+                    chunkId << " " << depth << std::endl;
 
                 auto compressed(
                         m_outEndpoint->getBinary(
@@ -610,11 +602,59 @@ void Builder::unsplit(Builder& other)
 
             std::lock_guard<std::mutex> lock(m_mutex);
             m_metadata->manifest().add(pointStatsMap);
-        // });
+        });
     });
 
+    m_threadPools->cycle();
+
+    // Insert any fall-through points that have fallen past all pre-existing
+    // chunks.
+    PointStatsMap pointStatsMap;
+
+    if (reserves.size())
+    {
+        std::cout <<
+            "Inserting pre-existing fall-throughs: " << countReserves() <<
+            " from " << reserves.size() << " chunks." << std::endl;
+        Clipper clipper(*this, 0);
+
+        // Cache the IDs in reserves, which will be modified as we insert.
+        const std::set<Id> leftovers(
+                std::accumulate(
+                    reserves.begin(),
+                    reserves.end(),
+                    std::set<Id>(),
+                    [](const std::set<Id>& in, const Reserves::value_type& v)
+                    {
+                        auto out(in);
+                        out.insert(v.first);
+                        return out;
+                    }));
+
+        for (const Id& id : leftovers)
+        {
+            m_threadPools->workPool().add([&]()
+            {
+                Cell::PooledStack empty(m_pointPool->cellPool());
+                insertHinted(
+                        reserves,
+                        std::move(empty),
+                        pointStatsMap,
+                        clipper,
+                        id,
+                        std::numeric_limits<std::size_t>::max(),
+                        std::numeric_limits<std::size_t>::max());
+            });
+        }
+    }
+
     m_threadPools->join();
-    std::cout << "Rejected more: " << countReserves() << std::endl;
+    m_metadata->manifest().add(pointStatsMap);
+
+    if (countReserves())
+    {
+        std::cout << "Final fall-throughs: " << countReserves() << std::endl;
+    }
 }
 
 void Builder::insertHinted(
@@ -626,10 +666,6 @@ void Builder::insertHinted(
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
-    std::cout << "Inserting from chunk: " << cells.size() << std::endl;
-    Climber climber(*m_metadata, m_hierarchy.get());
-    const Structure& structure(m_metadata->structure());
-
     std::vector<Origin> origins;
 
     BinaryPointTable table(m_metadata->schema());
@@ -637,26 +673,14 @@ void Builder::insertHinted(
 
     std::size_t rejects(0);
 
-    while (!cells.empty())
+    auto insert([&](Cell::PooledNode& cell, Climber& climber)
     {
-        Cell::PooledNode cell(cells.popOne());
-        const Point& point(cell->point());
-
-        // TODO: If cells.head()->point() == point, merge the head into cell.
-
         origins.clear();
         for (const auto d : *cell)
         {
             table.setPoint(d);
             origins.push_back(pointRef.getFieldAs<uint64_t>(m_originId));
-
-            pointRef.setField(pdal::Dimension::Id::Red, 255);
-            pointRef.setField(pdal::Dimension::Id::Green, 0);
-            pointRef.setField(pdal::Dimension::Id::Blue, 0);
         }
-
-        climber.reset();
-        climber.magnifyTo(point, depthBegin);
 
         if (m_registry->addPoint(cell, climber, clipper, depthEnd))
         {
@@ -666,9 +690,9 @@ void Builder::insertHinted(
         {
             ++rejects;
 
-            if (structure.inRange(climber.depth() + 1))
+            if (m_metadata->structure().inRange(climber.depth() + 1))
             {
-                climber.magnify(point);
+                climber.magnify(cell->point());
 
                 std::lock_guard<std::mutex> lock(m_mutex);
                 reserves[climber.chunkId()].emplace_back(
@@ -680,10 +704,30 @@ void Builder::insertHinted(
                 for (const auto o : origins) pointStatsMap[o].addOverflow();
             }
         }
-    }
+    });
 
-    const std::size_t chunkRejects(rejects);
-    std::cout << "Rejected from chunk:  " << chunkRejects << std::endl;
+    // First, insert points from this exact chunk, indexed by the other Builder.
+    // Points may fall through here, and if so, save their Climber state to
+    // insert into their chunk at the next depth.
+    {
+        Climber climber(*m_metadata, m_hierarchy.get());
+
+        while (!cells.empty())
+        {
+            Cell::PooledNode cell(cells.popOne());
+            const Point& point(cell->point());
+
+            while (cells.head() && (*cells.head())->point() == point)
+            {
+                cell->push(cells.popOne());
+            }
+
+            climber.reset();
+            climber.magnifyTo(point, depthBegin);
+
+            insert(cell, climber);
+        }
+    }
 
     std::vector<CellState>* cellStateList(nullptr);
 
@@ -692,57 +736,20 @@ void Builder::insertHinted(
         if (reserves.count(chunkId)) cellStateList = &reserves.at(chunkId);
     }
 
+    // Now, we may have points from that have fallen through to this chunk from
+    // prior merge-insertions.  Insert them now.  Since they may fall through
+    // again, save their state if so.
     if (cellStateList)
     {
-        std::cout << "Inserting from above: " << cellStateList->size() <<
-            std::endl;
-
         for (auto& cellState : *cellStateList)
         {
             Cell::PooledNode cell(cellState.acquireCellNode());
-
-            origins.clear();
-            for (const auto d : *cell)
-            {
-                table.setPoint(d);
-                origins.push_back(pointRef.getFieldAs<uint64_t>(m_originId));
-
-                pointRef.setField(pdal::Dimension::Id::Red, 0);
-                pointRef.setField(pdal::Dimension::Id::Green, 0);
-                pointRef.setField(pdal::Dimension::Id::Blue, 255);
-            }
-
-            Climber& reserveClimber(cellState.climber());
-
-            if (m_registry->addPoint(cell, reserveClimber, clipper, depthEnd))
-            {
-                for (const auto o : origins) pointStatsMap[o].addInsert();
-            }
-            else
-            {
-                ++rejects;
-
-                if (structure.inRange(reserveClimber.depth() + 1))
-                {
-                    reserveClimber.magnify(cell->point());
-
-                    std::lock_guard<std::mutex> lock(m_mutex);
-                    reserves[reserveClimber.chunkId()].emplace_back(
-                            reserveClimber,
-                            std::move(cell));
-                }
-                else
-                {
-                    for (const auto o : origins) pointStatsMap[o].addOverflow();
-                }
-            }
+            insert(cell, cellState.climber());
         }
 
         std::lock_guard<std::mutex> lock(m_mutex);
         reserves.erase(chunkId);
     }
-
-    std::cout << "Rejected from above: " << rejects - chunkRejects << std::endl;
 }
 
 } // namespace entwine

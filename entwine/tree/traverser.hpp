@@ -74,6 +74,8 @@ public:
         m_node.recurse(m_startDepth + 1, f);
     }
 
+    const Id& id() const { return m_id; }
+
 private:
     BranchNode& node() { return m_node; }
 
@@ -152,9 +154,9 @@ private:
         }
         else if (chunkState.depth() == coldDepth)
         {
-            auto branch(makeUnique<Branch>(chunkState.chunkId(), coldDepth));
-            buildBranch(branch->node(), chunkState);
-            f(std::move(branch));
+            Branch branch(chunkState.chunkId(), coldDepth);
+            buildBranch(branch.node(), chunkState);
+            f(branch);
         }
         else
         {

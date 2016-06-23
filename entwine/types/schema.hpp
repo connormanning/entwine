@@ -52,6 +52,12 @@ public:
     Schema(std::initializer_list<T> il) : Schema(DimList(il)) { }
 
     Schema(const Schema& other) : Schema(other.m_dims) { }
+    Schema& operator=(const Schema& other)
+    {
+        m_dims = other.m_dims;
+        m_layout = makePointLayout(m_dims);
+        return *this;
+    }
 
     std::size_t pointSize() const
     {

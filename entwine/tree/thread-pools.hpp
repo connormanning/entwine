@@ -37,6 +37,18 @@ public:
         m_clipPool.join();
     }
 
+    void go()
+    {
+        m_workPool.go();
+        m_clipPool.go();
+    }
+
+    void cycle()
+    {
+        join();
+        go();
+    }
+
 private:
     Pool m_workPool;
     Pool m_clipPool;

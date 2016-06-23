@@ -15,6 +15,8 @@
 
 #include <pdal/Dimension.hpp>
 
+#include <entwine/third/json/json.hpp>
+
 namespace entwine
 {
 
