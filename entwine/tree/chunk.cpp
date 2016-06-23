@@ -413,9 +413,8 @@ void BaseChunk::save(const arbiter::Endpoint& endpoint)
     auto data(compressor.data());
     pushTail(*data, Tail(dataStack.size(), Type::Contiguous));
 
-    const std::string path(
-            m_metadata.structure().maybePrefix(m_id) +
-            m_metadata.postfix());
+    // No prefixing on base.
+    const std::string path(m_id.str() + m_metadata.postfix());
 
     Storage::ensurePut(endpoint, path, *data);
 
