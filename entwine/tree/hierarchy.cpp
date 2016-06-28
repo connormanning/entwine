@@ -109,7 +109,7 @@ uint64_t Hierarchy::tryGet(const PointState& s) const
         const Slot& slot(*slotPtr);
         std::unique_ptr<HierarchyBlock>& block(slot.t);
 
-        if (slot.mark) return 0;
+        if (!slot.mark) return 0;
 
         SpinGuard lock(slot.spinner);
         if (!block)

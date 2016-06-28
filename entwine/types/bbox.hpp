@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <cstdlib>
+
 #include <entwine/third/json/json.hpp>
 #include <entwine/types/dir.hpp>
 #include <entwine/types/point.hpp>
@@ -17,32 +19,64 @@
 namespace entwine
 {
 
-class Range;
-
 class BBox
 {
 public:
-    BBox();
+    BBox() = default;
     BBox(const Point& min, const Point& max);
-    BBox(const Point& min, const Point& max, bool is3d);
-    BBox(const BBox& other);
     BBox(const Json::Value& json);
 
-    void set(const BBox& other);
-    void set(const Point& min, const Point& max, bool is3d);
+    void set(const BBox& other)
+    {
+        m_min = other.m_min;
+        m_max = other.m_max;
+        m_mid = other.m_mid;
+    }
+
+    void set(const Point& min, const Point& max)
+    {
+        m_min = min;
+        m_max = max;
+        setMid();
+    }
 
     const Point& min() const { return m_min; }
     const Point& max() const { return m_max; }
     const Point& mid() const { return m_mid; }
 
     // Returns true if this BBox shares any area in common with another.
-    bool overlaps(const BBox& other, bool force2d = false) const;
+    bool overlaps(const BBox& other, bool force2d = false) const
+    {
+        Point otherMid(other.mid());
+
+        return
+            std::abs(m_mid.x - otherMid.x) <=
+                width() / 2.0  + other.width() / 2.0 &&
+            std::abs(m_mid.y - otherMid.y) <=
+                depth() / 2.0 + other.depth() / 2.0 &&
+            std::abs(m_mid.z - otherMid.z) <=
+                height() / 2.0 + other.height() / 2.0;
+    }
 
     // Returns true if the requested BBox is contained within this BBox.
-    bool contains(const BBox& other, bool force2d = false) const;
+    bool contains(const BBox& other, bool force2d = false) const
+    {
+        if (!force2d)
+        {
+            return m_min <= other.m_min && m_max >= other.m_max;
+        }
+        else
+        {
+            return
+                m_min.x <= other.m_min.x &&
+                m_min.y <= other.m_min.y &&
+                m_max.x >= other.m_min.x &&
+                m_max.y >= other.m_min.y;
+        }
+    }
 
     // Returns true if the requested point is contained within this BBox.
-    bool contains(const Point& p) const;
+    bool contains(const Point& p) const { return p >= m_min && p < m_max; }
 
     double width()  const { return m_max.x - m_min.x; } // Length in X.
     double depth()  const { return m_max.y - m_min.y; } // Length in Y.
@@ -55,7 +89,7 @@ public:
     {
         m_max.x = m_mid.x;
         m_min.y = m_mid.y;
-        if (m_is3d) m_min.z = m_mid.z;
+        m_min.z = m_mid.z;
         setMid();
     }
 
@@ -63,7 +97,7 @@ public:
     {
         m_max.x = m_mid.x;
         m_min.y = m_mid.y;
-        if (!force2d && m_is3d) m_max.z = m_mid.z;
+        if (!force2d) m_max.z = m_mid.z;
         setMid();
     }
 
@@ -71,7 +105,7 @@ public:
     {
         m_min.x = m_mid.x;
         m_min.y = m_mid.y;
-        if (m_is3d) m_min.z = m_mid.z;
+        m_min.z = m_mid.z;
         setMid();
     }
 
@@ -79,7 +113,7 @@ public:
     {
         m_min.x = m_mid.x;
         m_min.y = m_mid.y;
-        if (!force2d && m_is3d) m_max.z = m_mid.z;
+        if (!force2d) m_max.z = m_mid.z;
         setMid();
     }
 
@@ -87,7 +121,7 @@ public:
     {
         m_max.x = m_mid.x;
         m_max.y = m_mid.y;
-        if (m_is3d) m_min.z = m_mid.z;
+        m_min.z = m_mid.z;
         setMid();
     }
 
@@ -95,7 +129,7 @@ public:
     {
         m_max.x = m_mid.x;
         m_max.y = m_mid.y;
-        if (!force2d && m_is3d) m_max.z = m_mid.z;
+        if (!force2d) m_max.z = m_mid.z;
         setMid();
     }
 
@@ -103,7 +137,7 @@ public:
     {
         m_min.x = m_mid.x;
         m_max.y = m_mid.y;
-        if (m_is3d) m_min.z = m_mid.z;
+        m_min.z = m_mid.z;
         setMid();
     }
 
@@ -111,7 +145,7 @@ public:
     {
         m_min.x = m_mid.x;
         m_max.y = m_mid.y;
-        if (!force2d && m_is3d) m_max.z = m_mid.z;
+        if (!force2d) m_max.z = m_mid.z;
         setMid();
     }
 
@@ -178,17 +212,16 @@ public:
     }
 
     bool exists() const { return Point::exists(m_min) && Point::exists(m_max); }
-    bool is3d() const { return m_is3d; }
+    bool is3d() const { return m_min.z || m_max.z; }
 
     Json::Value toJson() const;
 
     void grow(const BBox& bbox);
     void grow(const Point& p);
-    void growZ(const Range& range);
 
     bool isCubic() const
     {
-        return width() == depth() && (!m_is3d || width() == height());
+        return width() == depth() && (!is3d() || width() == height());
     }
 
     // Bloat all coordinates necessary to form a cube and also to the nearest
@@ -223,11 +256,12 @@ private:
     Point m_max;
     Point m_mid;
 
-    bool m_is3d;
-
-    void setMid();
-
-    void check(const Point& min, const Point& max) const;
+    void setMid()
+    {
+        m_mid.x = m_min.x + (m_max.x - m_min.x) / 2.0;
+        m_mid.y = m_min.y + (m_max.y - m_min.y) / 2.0;
+        m_mid.z = m_min.z + (m_max.z - m_min.z) / 2.0;
+    }
 };
 
 std::ostream& operator<<(std::ostream& os, const BBox& bbox);

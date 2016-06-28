@@ -127,8 +127,7 @@ std::unique_ptr<Query> Reader::query(
         // Make sure the query is 3D.
         queryCube = BBox(
                 Point(qbox.min().x, qbox.min().y, bbox().min().z),
-                Point(qbox.max().x, qbox.max().y, bbox().max().z),
-                true);
+                Point(qbox.max().x, qbox.max().y, bbox().max().z));
     }
 
     return std::unique_ptr<Query>(

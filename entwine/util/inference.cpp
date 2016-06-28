@@ -33,8 +33,7 @@ namespace
                 Point(
                     std::numeric_limits<double>::lowest(),
                     std::numeric_limits<double>::lowest(),
-                    std::numeric_limits<double>::lowest()),
-                true);
+                    std::numeric_limits<double>::lowest()));
         return b;
     })());
 

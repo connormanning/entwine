@@ -23,7 +23,6 @@ set(
     "${BASE}/point.hpp"
     "${BASE}/point-pool.hpp"
     "${BASE}/pooled-point-table.hpp"
-    "${BASE}/range.hpp"
     "${BASE}/reprojection.hpp"
     "${BASE}/schema.hpp"
     "${BASE}/structure.hpp"

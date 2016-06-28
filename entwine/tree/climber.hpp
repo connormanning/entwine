@@ -208,7 +208,7 @@ public:
 
     void magnifyTo(const BBox& bbox)
     {
-        BBox norm(bbox.min(), bbox.max(), m_metadata.structure().is3d());
+        BBox norm(bbox.min(), bbox.max());
         norm.growBy(.01);
         while (!norm.contains(m_pointState.bbox(), true)) magnify(norm.mid());
     }
