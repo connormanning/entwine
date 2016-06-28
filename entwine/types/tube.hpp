@@ -17,7 +17,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include <entwine/types/bbox.hpp>
+#include <entwine/types/bounds.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
@@ -77,13 +77,13 @@ public:
 
     static std::size_t calcTick(
             const Point& point,
-            const BBox& bbox,
+            const Bounds& bounds,
             const std::size_t depth)
     {
         return
             std::floor(
-                    (point.z - bbox.min().z) * (1ULL << depth) /
-                    (bbox.max().z - bbox.min().z));
+                    (point.z - bounds.min().z) * (1ULL << depth) /
+                    (bounds.max().z - bounds.min().z));
     }
 
     Cells::iterator begin() { return m_cells.begin(); }

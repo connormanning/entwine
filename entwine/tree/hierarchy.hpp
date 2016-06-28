@@ -22,7 +22,7 @@
 #include <entwine/third/json/json.hpp>
 #include <entwine/tree/hierarchy-block.hpp>
 #include <entwine/tree/splitter.hpp>
-#include <entwine/types/bbox.hpp>
+#include <entwine/types/bounds.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/util/json.hpp>
@@ -84,7 +84,7 @@ public:
     }
 
     Json::Value query(
-            const BBox& qbox,
+            const Bounds& queryBounds,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
@@ -94,16 +94,16 @@ private:
     class Query
     {
     public:
-        Query(const BBox& bbox, std::size_t depthBegin, std::size_t depthEnd)
-            : m_bbox(bbox), m_depthBegin(depthBegin), m_depthEnd(depthEnd)
+        Query(const Bounds& bounds, std::size_t depthBegin, std::size_t depthEnd)
+            : m_bounds(bounds), m_depthBegin(depthBegin), m_depthEnd(depthEnd)
         { }
 
-        const BBox& bbox() const { return m_bbox; }
+        const Bounds& bounds() const { return m_bounds; }
         std::size_t depthBegin() const { return m_depthBegin; }
         std::size_t depthEnd() const { return m_depthEnd; }
 
     private:
-        const BBox m_bbox;
+        const Bounds m_bounds;
         const std::size_t m_depthBegin;
         const std::size_t m_depthEnd;
     };
@@ -122,7 +122,7 @@ private:
             uint64_t inc);
 
     const Metadata& m_metadata;
-    const BBox& m_bbox;
+    const Bounds& m_bounds;
     const Structure& m_structure;
     const arbiter::Endpoint m_endpoint;
 };
@@ -301,8 +301,8 @@ inline bool operator==(const Node& lhs, const Node& rhs)
 class OHierarchy
 {
 public:
-    OHierarchy(const BBox& bbox, Node::NodePool& nodePool)
-        : m_bbox(bbox)
+    OHierarchy(const Bounds& bounds, Node::NodePool& nodePool)
+        : m_bounds(bounds)
         , m_nodePool(nodePool)
         , m_depthBegin(defaultDepthBegin)
         , m_step(defaultStep)
@@ -315,7 +315,7 @@ public:
     { }
 
     OHierarchy(
-            const BBox& bbox,
+            const Bounds& bounds,
             Node::NodePool& nodePool,
             const Json::Value& json,
             const arbiter::Endpoint& ep,
@@ -326,7 +326,7 @@ public:
     Json::Value toJson(const arbiter::Endpoint& ep, std::string postfix);
 
     Json::Value query(
-            BBox qbox,
+            Bounds queryBounds,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
@@ -338,7 +338,7 @@ public:
 
     std::size_t depthBegin() const { return m_depthBegin; }
     std::size_t step() const { return m_step; }
-    const BBox& bbox() const { return m_bbox; }
+    const Bounds& bounds() const { return m_bounds; }
 
     void awakenAll()
     {
@@ -367,8 +367,8 @@ private:
             Node& out,
             std::deque<Dir>& lag,
             Node& cur,
-            const BBox& cbox,
-            const BBox& qbox,
+            const Bounds& currentBounds,
+            const Bounds& queryBounds,
             std::size_t depth,
             std::size_t depthBegin,
             std::size_t depthEnd,
@@ -384,7 +384,7 @@ private:
 
     void awaken(const Id& id, const Node* node = nullptr);
 
-    const BBox& m_bbox;
+    const Bounds& m_bounds;
     Node::NodePool& m_nodePool;
 
     const std::size_t m_depthBegin;
@@ -405,7 +405,7 @@ class HierarchyClimber
 public:
     HierarchyClimber(OHierarchy& hierarchy, std::size_t dimensions)
         : m_hierarchy(hierarchy)
-        , m_bbox(hierarchy.bbox())
+        , m_bounds(hierarchy.bounds())
         , m_depthBegin(hierarchy.depthBegin())
         , m_depth(m_depthBegin)
         , m_step(hierarchy.step())
@@ -414,15 +414,15 @@ public:
 
     void reset()
     {
-        m_bbox = m_hierarchy.bbox();
+        m_bounds = m_hierarchy.bounds();
         m_depth = m_depthBegin;
         m_node = &m_hierarchy.root();
     }
 
     void magnify(const Point& point)
     {
-        const Dir dir(getDirection(point, m_bbox.mid()));
-        m_bbox.go(dir);
+        const Dir dir(getDirection(point, m_bounds.mid()));
+        m_bounds.go(dir);
         m_node = &m_node->next(dir, m_hierarchy.nodePool());
     }
 
@@ -431,7 +431,7 @@ public:
 
 private:
     OHierarchy& m_hierarchy;
-    BBox m_bbox;
+    Bounds m_bounds;
 
     const std::size_t m_depthBegin;
 

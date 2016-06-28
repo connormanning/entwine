@@ -20,11 +20,11 @@ namespace entwine
 
 PointState::PointState(
         const Structure& structure,
-        const BBox& bbox,
+        const Bounds& bounds,
         const std::size_t depth)
     : m_structure(structure)
-    , m_bboxOriginal(bbox)
-    , m_bbox(bbox)
+    , m_boundsOriginal(bounds)
+    , m_bounds(bounds)
     , m_index(0)
     , m_depth(depth)
     , m_tick(0)
@@ -49,7 +49,7 @@ void PointState::climb(const Dir dir)
     m_index.incSimple();
     m_index += toIntegral(dir, m_structure.tubular());
 
-    m_bbox.go(dir);
+    m_bounds.go(dir);
 
     if (workingDepth <= m_structure.nominalChunkDepth()) return;
 

@@ -23,7 +23,7 @@
 #include <entwine/tree/registry.hpp>
 #include <entwine/tree/thread-pools.hpp>
 #include <entwine/tree/traverser.hpp>
-#include <entwine/types/bbox.hpp>
+#include <entwine/types/bounds.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/reprojection.hpp>
@@ -221,9 +221,9 @@ bool Builder::checkInfo(const FileInfo& info)
         m_metadata->manifest().set(m_origin, FileInfo::Status::Omitted);
         return false;
     }
-    else if (const BBox* bbox = info.bbox())
+    else if (const Bounds* bounds = info.bounds())
     {
-        if (!checkBounds(m_origin, *bbox, info.numPoints()))
+        if (!checkBounds(m_origin, *bounds, info.numPoints()))
         {
             m_metadata->manifest().set(m_origin, FileInfo::Status::Inserted);
             return false;
@@ -235,19 +235,19 @@ bool Builder::checkInfo(const FileInfo& info)
 
 bool Builder::checkBounds(
         const Origin origin,
-        const BBox& bbox,
+        const Bounds& bounds,
         const std::size_t numPoints)
 {
-    if (!m_metadata->bbox().overlaps(bbox))
+    if (!m_metadata->bounds().overlaps(bounds))
     {
         const Subset* subset(m_metadata->subset());
         const bool primary(!subset || subset->primary());
         m_metadata->manifest().addOutOfBounds(origin, numPoints, primary);
         return false;
     }
-    else if (const BBox* bboxSubset = m_metadata->bboxSubset())
+    else if (const Bounds* boundsSubset = m_metadata->boundsSubset())
     {
-        if (!bboxSubset->overlaps(bbox)) return false;
+        if (!boundsSubset->overlaps(bounds)) return false;
     }
 
     return true;
@@ -260,12 +260,12 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
 
     const Reprojection* reprojection(m_metadata->reprojection());
 
-    // If we don't have an inferred bbox, check against the actual file.
-    if (!info.bbox())
+    // If we don't have an inferred bounds, check against the actual file.
+    if (!info.bounds())
     {
         auto pre(m_executor->preview(localPath, reprojection));
 
-        if (pre && !checkBounds(origin, pre->bbox, pre->numPoints))
+        if (pre && !checkBounds(origin, pre->bounds, pre->numPoints))
         {
             return false;
         }
@@ -330,8 +330,8 @@ Cell::PooledStack Builder::insertData(
         rejected.push(std::move(cell));
     });
 
-    const BBox& bboxConforming(m_metadata->bboxEpsilon());
-    const BBox* bboxSubset(m_metadata->bboxSubset());
+    const Bounds& boundsConforming(m_metadata->boundsEpsilon());
+    const Bounds* boundsSubset(m_metadata->boundsSubset());
     const std::size_t baseDepthBegin(m_metadata->structure().baseDepthBegin());
 
     while (!cells.empty())
@@ -339,9 +339,9 @@ Cell::PooledStack Builder::insertData(
         Cell::PooledNode cell(cells.popOne());
         const Point& point(cell->point());
 
-        if (bboxConforming.contains(point))
+        if (boundsConforming.contains(point))
         {
-            if (!bboxSubset || bboxSubset->contains(point))
+            if (!boundsSubset || boundsSubset->contains(point))
             {
                 climber.reset();
                 climber.magnifyTo(point, baseDepthBegin);

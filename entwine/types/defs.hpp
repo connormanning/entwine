@@ -11,7 +11,7 @@
 #pragma once
 
 #include <entwine/third/bigint/little-big-int.hpp>
-#include <entwine/types/bbox.hpp>
+#include <entwine/types/bounds.hpp>
 
 namespace pdal { class PointView; }
 
@@ -23,7 +23,7 @@ using Id = BigUint;
 using Origin = uint64_t;
 static constexpr Origin invalidOrigin = std::numeric_limits<Origin>::max();
 
-using TileFunction = std::function<void(pdal::PointView& view, BBox bbox)>;
+using TileFunction = std::function<void(pdal::PointView& view, Bounds bounds)>;
 
 } // namespace entwine
 

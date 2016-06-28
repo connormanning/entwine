@@ -3,7 +3,7 @@ set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 set(
     SOURCES
-    "${BASE}/bbox.cpp"
+    "${BASE}/bounds.cpp"
     "${BASE}/metadata.cpp"
     "${BASE}/pooled-point-table.cpp"
     "${BASE}/structure.cpp"
@@ -13,7 +13,7 @@ set(
 
 set(
     HEADERS
-    "${BASE}/bbox.hpp"
+    "${BASE}/bounds.hpp"
     "${BASE}/defs.hpp"
     "${BASE}/dim-info.hpp"
     "${BASE}/dir.hpp"

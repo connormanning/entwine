@@ -38,7 +38,7 @@ namespace arbiter
 namespace entwine
 {
 
-class BBox;
+class Bounds;
 class Clipper;
 class Executor;
 class FileInfo;
@@ -146,7 +146,10 @@ private:
     bool checkInfo(const FileInfo& info);
 
     // Returns true if we should insert this file based on its bounds.
-    bool checkBounds(Origin origin, const BBox& bbox, std::size_t numPoints);
+    bool checkBounds(
+            Origin origin,
+            const Bounds& bounds,
+            std::size_t numPoints);
 
     // Insert points from a file.  Return true if successful.  Sets any
     // previously unset FileInfo fields based on file contents.

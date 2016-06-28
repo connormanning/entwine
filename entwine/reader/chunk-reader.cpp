@@ -23,12 +23,12 @@ namespace entwine
 
 ChunkReader::ChunkReader(
         const Schema& schema,
-        const BBox& bbox,
+        const Bounds& bounds,
         const Id& id,
         const std::size_t depth,
         std::unique_ptr<std::vector<char>> compressed)
     : m_schema(schema)
-    , m_bbox(bbox)
+    , m_bounds(bounds)
     , m_id(id)
     , m_depth(depth)
     , m_data()
@@ -54,17 +54,20 @@ ChunkReader::ChunkReader(
 
         m_points.emplace(
                 std::piecewise_construct,
-                std::forward_as_tuple(Tube::calcTick(point, m_bbox, m_depth)),
+                std::forward_as_tuple(Tube::calcTick(point, m_bounds, m_depth)),
                 std::forward_as_tuple(point, pos));
 
         pos += pointSize;
     }
 }
 
-ChunkReader::QueryRange ChunkReader::candidates(const BBox& qbox) const
+ChunkReader::QueryRange ChunkReader::candidates(const Bounds& queryBounds) const
 {
-    const std::size_t minTick(Tube::calcTick(qbox.min(), m_bbox, m_depth));
-    const std::size_t maxTick(Tube::calcTick(qbox.max(), m_bbox, m_depth));
+    const std::size_t minTick(
+            Tube::calcTick(queryBounds.min(), m_bounds, m_depth));
+
+    const std::size_t maxTick(
+            Tube::calcTick(queryBounds.max(), m_bounds, m_depth));
 
     It begin(m_points.lower_bound(minTick));
     It end(m_points.upper_bound(maxTick));

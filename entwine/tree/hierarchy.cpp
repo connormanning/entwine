@@ -29,7 +29,7 @@ Hierarchy::Hierarchy(
         const bool exists)
     : Splitter(metadata.hierarchyStructure())
     , m_metadata(metadata)
-    , m_bbox(metadata.bbox())
+    , m_bounds(metadata.bounds())
     , m_structure(metadata.hierarchyStructure())
     , m_endpoint(ep.getSubEndpoint("h"))
 {
@@ -139,7 +139,7 @@ uint64_t Hierarchy::tryGet(const PointState& s) const
 }
 
 Json::Value Hierarchy::query(
-        const BBox& qbox,
+        const Bounds& queryBounds,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
@@ -149,15 +149,15 @@ Json::Value Hierarchy::query(
                 "Request was less than hierarchy base depth");
     }
 
-    // To get rid of any possible floating point mismatches, grow the box by a
-    // bit and only include nodes that are entirely encapsulated by the qbox.
-    // Also normalize depths to match our internal mapping.
+    // To get rid of any possible floating point mismatches, grow the bounds by
+    // a bit and only include nodes that are entirely encapsulated by the
+    // queryBounds.  Also normalize depths to match our internal mapping.
     Query query(
-            qbox.growBy(.01),
+            queryBounds.growBy(.01),
             depthBegin - m_structure.startDepth(),
             depthEnd - m_structure.startDepth());
 
-    PointState pointState(m_structure, m_bbox, m_structure.startDepth());
+    PointState pointState(m_structure, m_bounds, m_structure.startDepth());
     std::deque<Dir> lag;
 
     Json::Value json;
@@ -176,7 +176,7 @@ void Hierarchy::traverse(
 
     if (pointState.depth() < query.depthBegin())
     {
-        if (query.bbox().contains(pointState.bbox()))
+        if (query.bounds().contains(pointState.bounds()))
         {
             // We've arrived at our query bounds.  All subsequent calls will
             // capture all children.
@@ -197,13 +197,13 @@ void Hierarchy::traverse(
             // Query bounds is smaller than our current position's bounds, so
             // we need to split our bounds in a single direction.
             const Dir dir(
-                    getDirection(query.bbox().mid(), pointState.bbox().mid()));
+                    getDirection(query.bounds().mid(), pointState.bounds().mid()));
 
             traverse(json, query, pointState.getClimb(dir), lag);
         }
     }
     else if (
-            query.bbox().contains(pointState.bbox()) &&
+            query.bounds().contains(pointState.bounds()) &&
             pointState.depth() < query.depthEnd())
     {
         accumulate(json, query, pointState, lag, inc);
@@ -603,12 +603,12 @@ bool Node::insertBinary(std::vector<char>& s) const
 }
 
 OHierarchy::OHierarchy(
-        const BBox& bbox,
+        const Bounds& bounds,
         Node::NodePool& nodePool,
         const Json::Value& json,
         const arbiter::Endpoint& ep,
         const std::string postfix)
-    : m_bbox(bbox)
+    : m_bounds(bounds)
     , m_nodePool(nodePool)
     , m_depthBegin(json["depthBegin"].asUInt64())
     , m_step(json["step"].asUInt64())
@@ -744,7 +744,7 @@ Json::Value OHierarchy::toJson(const arbiter::Endpoint& ep, std::string postfix)
 }
 
 Json::Value OHierarchy::query(
-        BBox qbox,
+        Bounds queryBounds,
         const std::size_t qDepthBegin,
         const std::size_t qDepthEnd)
 {
@@ -754,9 +754,10 @@ Json::Value OHierarchy::query(
                 "Request was less than hierarchy base depth");
     }
 
-    // To get rid of any possible floating point mismatches, grow the box by a
-    // bit and only include nodes that are entirely encapsulated by the qbox.
-    qbox = qbox.growBy(.01);
+    // To get rid of any possible floating point mismatches, grow the bounds by
+    // a bit and only include nodes that are entirely encapsulated by the
+    // queryBounds.
+    queryBounds = queryBounds.growBy(.01);
 
     Node node;
     std::deque<Dir> lag;
@@ -766,8 +767,8 @@ Json::Value OHierarchy::query(
                 node,
                 lag,
                 m_root,
-                m_bbox,
-                qbox,
+                m_bounds,
+                queryBounds,
                 m_depthBegin,
                 qDepthBegin,
                 qDepthEnd);
@@ -782,8 +783,8 @@ void OHierarchy::traverse(
         Node& out,
         std::deque<Dir>& lag,
         Node& cur,
-        const BBox& cbox,   // Current bbox.
-        const BBox& qbox,   // Query bbox.
+        const Bounds& cb,   // Current bounds.
+        const Bounds& qb,   // Query bounds.
         const std::size_t depth,
         const std::size_t db,
         const std::size_t de,
@@ -794,10 +795,10 @@ void OHierarchy::traverse(
         // Not adding results yet, just traversing.
         const std::size_t next(depth + 1);
 
-        if (qbox.contains(cbox))
+        if (qb.contains(cb))
         {
             auto addChild(
-                [this, &lag, &cur, cbox, qbox, next, db, de, &id]
+                [this, &lag, &cur, cb, qb, next, db, de, &id]
                 (Node& out, Dir dir)
             {
                 if (Node* node = cur.maybeNext(dir))
@@ -815,8 +816,8 @@ void OHierarchy::traverse(
                         out,
                         curlag,
                         *node,
-                        cbox.get(dir),
-                        qbox,
+                        cb.get(dir),
+                        qb,
                         next,
                         db,
                         de,
@@ -835,7 +836,7 @@ void OHierarchy::traverse(
         {
             // Query bounds is smaller than our current position's bounds, so
             // we need to split our bounds in a single direction.
-            const Dir dir(getDirection(qbox.mid(), cbox.mid()));
+            const Dir dir(getDirection(qb.mid(), cb.mid()));
 
             if (Node* node = cur.maybeNext(dir))
             {
@@ -846,12 +847,12 @@ void OHierarchy::traverse(
                     awaken(childId, node);
                 }
 
-                const BBox nbox(cbox.get(dir));
-                traverse(out, lag, *node, nbox, qbox, next, db, de, childId);
+                const Bounds nb(cb.get(dir));
+                traverse(out, lag, *node, nb, qb, next, db, de, childId);
             }
         }
     }
-    else if (qbox.contains(cbox) && depth < de) // User error if not.
+    else if (qb.contains(cb) && depth < de) // User error if not.
     {
         accumulate(out, lag, cur, depth, de, id);
     }

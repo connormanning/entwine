@@ -49,7 +49,7 @@ Tube::Insertion Tube::insert(const Climber& climber, Cell::PooledNode& cell)
 
         if (cell->point() != curr->point())
         {
-            const Point& center(climber.bbox().mid());
+            const Point& center(climber.bounds().mid());
 
             if (cell->point().sqDist3d(center) < curr->point().sqDist3d(center))
             {

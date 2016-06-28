@@ -20,7 +20,7 @@
 #include <string>
 
 #include <entwine/third/json/json.hpp>
-#include <entwine/types/bbox.hpp>
+#include <entwine/types/bounds.hpp>
 #include <entwine/types/defs.hpp>
 
 namespace entwine
@@ -112,11 +112,11 @@ public:
 
     const std::string& path() const         { return m_path; }
     Status status() const                   { return m_status; }
-    const BBox* bbox() const                { return m_bbox.get(); }
+    const Bounds* bounds() const            { return m_bounds.get(); }
     const std::size_t numPoints() const     { return m_numPoints; }
     const PointStats& pointStats() const    { return m_pointStats; }
 
-    void bbox(const BBox& bbox) { m_bbox.reset(new BBox(bbox)); }
+    void bounds(const Bounds& bounds) { m_bounds.reset(new Bounds(bounds)); }
     void numPoints(std::size_t n) { m_numPoints = n; }
     void add(const PointStats& stats) { m_pointStats.add(stats); }
 
@@ -127,9 +127,9 @@ private:
     std::string m_path;
     Status m_status;
 
-    // If BBox is set while the Status is Outstanding, then we have inferred
+    // If Bounds is set while the Status is Outstanding, then we have inferred
     // the bounds and number of points in this file from the header.
-    std::unique_ptr<BBox> m_bbox;   // Represented in the output projection.
+    std::unique_ptr<Bounds> m_bounds; // Represented in the output projection.
     std::size_t m_numPoints;
 
     PointStats m_pointStats;

@@ -21,7 +21,7 @@ namespace entwine
 
 namespace arbiter { class Endpoint; }
 
-class BBox;
+class Bounds;
 class Manifest;
 class Reprojection;
 class Schema;
@@ -34,7 +34,7 @@ class Metadata
 
 public:
     Metadata(
-            const BBox& bboxConforming,
+            const Bounds& boundsConforming,
             const Schema& schema,
             const Structure& structure,
             const Structure& hierarchyStructure,
@@ -56,10 +56,10 @@ public:
 
     void save(const arbiter::Endpoint& endpoint) const;
 
-    const BBox& bboxConforming() const { return *m_bboxConforming; }
-    const BBox& bboxEpsilon() const { return *m_bboxEpsilon; }
-    const BBox& bbox() const { return *m_bbox; }
-    const BBox* bboxSubset() const;
+    const Bounds& boundsConforming() const { return *m_boundsConforming; }
+    const Bounds& boundsEpsilon() const { return *m_boundsEpsilon; }
+    const Bounds& bounds() const { return *m_bounds; }
+    const Bounds* boundsSubset() const;
     const Schema& schema() const { return *m_schema; }
     const Structure& structure() const { return *m_structure; }
     const Structure& hierarchyStructure() const
@@ -85,9 +85,9 @@ private:
     std::string& srs() { return m_srs; }
     std::vector<std::string>& errors() { return m_errors; }
 
-    std::unique_ptr<BBox> m_bboxConforming;
-    std::unique_ptr<BBox> m_bboxEpsilon;
-    std::unique_ptr<BBox> m_bbox;
+    std::unique_ptr<Bounds> m_boundsConforming;
+    std::unique_ptr<Bounds> m_boundsEpsilon;
+    std::unique_ptr<Bounds> m_bounds;
     std::unique_ptr<Schema> m_schema;
     std::unique_ptr<Structure> m_structure;
     std::unique_ptr<Structure> m_hierarchyStructure;

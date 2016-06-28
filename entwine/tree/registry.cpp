@@ -17,7 +17,7 @@
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
-#include <entwine/types/bbox.hpp>
+#include <entwine/types/bounds.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>

@@ -19,7 +19,7 @@
 #include <entwine/tree/builder.hpp>
 #include <entwine/tree/config-parser.hpp>
 #include <entwine/tree/thread-pools.hpp>
-#include <entwine/types/bbox.hpp>
+#include <entwine/types/bounds.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
@@ -196,7 +196,7 @@ namespace
         json["structure"]["type"] = "hybrid";
         json["structure"]["prefixIds"] = false;
 
-        json["geometry"]["bbox"] = Json::Value::null;
+        json["geometry"]["bounds"] = Json::Value::null;
         json["geometry"]["reproject"] = Json::Value::null;
         json["geometry"]["schema"] = Json::Value::null;
 
@@ -290,14 +290,14 @@ void Kernel::build(std::vector<std::string> args)
             if (done)
             {
                 Json::Reader reader;
-                Json::Value bboxJson;
+                Json::Value boundsJson;
 
-                reader.parse(str, bboxJson, false);
-                json["geometry"]["bbox"] = bboxJson;
+                reader.parse(str, boundsJson, false);
+                json["geometry"]["bounds"] = boundsJson;
             }
             else
             {
-                throw std::runtime_error("Invalid bbox: " + str);
+                throw std::runtime_error("Invalid bounds: " + str);
             }
         }
         else if (arg == "-f") { json["output"]["force"] = true; }
@@ -457,7 +457,7 @@ void Kernel::build(std::vector<std::string> args)
             "\tSubset: " <<
                 subset->id() + 1 << " of " <<
                 subset->of() << "\n" <<
-            "\tSubset bounds: " << subset->bbox() <<
+            "\tSubset bounds: " << subset->bounds() <<
             std::endl;
     }
 
@@ -508,8 +508,8 @@ void Kernel::build(std::vector<std::string> args)
 
     std::cout <<
         "Geometry:\n" <<
-        "\tConforming bounds: " << metadata.bboxConforming() << "\n" <<
-        "\tCubic bounds: " << metadata.bbox() << "\n" <<
+        "\tConforming bounds: " << metadata.boundsConforming() << "\n" <<
+        "\tCubic bounds: " << metadata.bounds() << "\n" <<
         "\tReprojection: " << getReprojString(reprojection) << "\n" <<
         "\tStoring dimensions: " << getDimensionString(schema) << "\n" <<
         std::endl;

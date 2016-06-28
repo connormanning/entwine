@@ -16,7 +16,6 @@
 #include <pdal/PointTable.hpp>
 #include <pdal/PointView.hpp>
 
-#include <entwine/types/bbox.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/structure.hpp>

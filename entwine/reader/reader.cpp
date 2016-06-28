@@ -22,7 +22,7 @@
 #include <entwine/tree/hierarchy.hpp>
 #include <entwine/tree/manifest.hpp>
 #include <entwine/tree/registry.hpp>
-#include <entwine/types/bbox.hpp>
+#include <entwine/types/bounds.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
@@ -92,12 +92,12 @@ Reader::~Reader()
 { }
 
 Json::Value Reader::hierarchy(
-        const BBox& qbox,
+        const Bounds& queryBounds,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
     checkQuery(depthBegin, depthEnd);
-    return m_hierarchy->query(qbox, depthBegin, depthEnd);
+    return m_hierarchy->query(queryBounds, depthBegin, depthEnd);
 }
 
 std::unique_ptr<Query> Reader::query(
@@ -107,12 +107,12 @@ std::unique_ptr<Query> Reader::query(
         const double scale,
         const Point offset)
 {
-    return query(schema, bbox(), depthBegin, depthEnd, scale, offset);
+    return query(schema, bounds(), depthBegin, depthEnd, scale, offset);
 }
 
 std::unique_ptr<Query> Reader::query(
         const Schema& schema,
-        const BBox& qbox,
+        const Bounds& queryBounds,
         const std::size_t depthBegin,
         const std::size_t depthEnd,
         const double scale,
@@ -120,14 +120,20 @@ std::unique_ptr<Query> Reader::query(
 {
     checkQuery(depthBegin, depthEnd);
 
-    BBox queryCube(qbox);
+    Bounds queryCube(queryBounds);
 
-    if (!qbox.is3d())
+    if (!queryBounds.is3d())
     {
         // Make sure the query is 3D.
-        queryCube = BBox(
-                Point(qbox.min().x, qbox.min().y, bbox().min().z),
-                Point(qbox.max().x, qbox.max().y, bbox().max().z));
+        queryCube = Bounds(
+                Point(
+                    queryBounds.min().x,
+                    queryBounds.min().y,
+                    bounds().min().z),
+                Point(
+                    queryBounds.max().x,
+                    queryBounds.max().y,
+                    bounds().max().z));
     }
 
     return std::unique_ptr<Query>(
@@ -142,7 +148,7 @@ std::unique_ptr<Query> Reader::query(
                 offset));
 }
 
-const BBox& Reader::bbox() const { return m_metadata->bbox(); }
+const Bounds& Reader::bounds() const { return m_metadata->bounds(); }
 
 } // namespace entwine
 

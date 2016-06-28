@@ -21,10 +21,10 @@ namespace entwine
 
 namespace
 {
-    const BBox expander(([]()
+    const Bounds expander(([]()
     {
-        // Use BBox::set to avoid malformed bounds warning.
-        BBox b;
+        // Use Bounds::set to avoid malformed bounds warning.
+        Bounds b;
         b.set(
                 Point(
                     std::numeric_limits<double>::max(),
@@ -178,7 +178,7 @@ void Inference::go()
     {
         throw std::runtime_error("No schema dimensions found");
     }
-    else if (bbox() == expander)
+    else if (bounds() == expander)
     {
         throw std::runtime_error("No bounds found");
     }
@@ -190,10 +190,10 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
 {
     std::unique_ptr<Preview> preview(m_executor.preview(localPath, m_reproj));
 
-    auto update([&fileInfo](std::size_t numPoints, const BBox& bbox)
+    auto update([&fileInfo](std::size_t numPoints, const Bounds& bounds)
     {
         fileInfo.numPoints(numPoints);
-        fileInfo.bbox(bbox);
+        fileInfo.bounds(bounds);
     });
 
     if (preview)
@@ -213,18 +213,18 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
 
         if (m_trustHeaders)
         {
-            update(preview->numPoints, preview->bbox);
+            update(preview->numPoints, preview->bounds);
             return;
         }
     }
 
-    BBox curBBox(expander);
+    Bounds curBounds(expander);
     std::size_t curNumPoints(0);
 
-    auto tracker([this, &curBBox, &curNumPoints](Cell::PooledStack stack)
+    auto tracker([this, &curBounds, &curNumPoints](Cell::PooledStack stack)
     {
         curNumPoints += stack.size();
-        for (const auto& cell : stack) curBBox.grow(cell.point());
+        for (const auto& cell : stack) curBounds.grow(cell.point());
 
         // Return the entire stack since we aren't a consumer of this data.
         return stack;
@@ -234,7 +234,7 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
 
     if (m_executor.run(table, localPath, m_reproj))
     {
-        update(curNumPoints, curBBox);
+        update(curNumPoints, curBounds);
     }
 }
 
@@ -260,19 +260,19 @@ Schema Inference::schema() const
     return Schema(dims);
 }
 
-BBox Inference::bbox() const
+Bounds Inference::bounds() const
 {
-    BBox bbox(expander);
+    Bounds bounds(expander);
 
     for (std::size_t i(0); i < m_manifest.size(); ++i)
     {
-        if (const BBox* current = m_manifest.get(i).bbox())
+        if (const Bounds* current = m_manifest.get(i).bounds())
         {
-            bbox.grow(*current);
+            bounds.grow(*current);
         }
     }
 
-    return bbox;
+    return bounds;
 }
 
 std::size_t Inference::numPoints() const

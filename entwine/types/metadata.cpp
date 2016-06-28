@@ -21,7 +21,7 @@ namespace entwine
 {
 
 Metadata::Metadata(
-        const BBox& bboxConforming,
+        const Bounds& boundsConforming,
         const Schema& schema,
         const Structure& structure,
         const Structure& hierarchyStructure,
@@ -30,9 +30,9 @@ Metadata::Metadata(
         const Subset* subset,
         const bool trustHeaders,
         const bool compress)
-    : m_bboxConforming(makeUnique<BBox>(bboxConforming))
-    , m_bboxEpsilon(makeUnique<BBox>(m_bboxConforming->growBy(0.005)))
-    , m_bbox(makeUnique<BBox>(m_bboxConforming->cubeify()))
+    : m_boundsConforming(makeUnique<Bounds>(boundsConforming))
+    , m_boundsEpsilon(makeUnique<Bounds>(m_boundsConforming->growBy(0.005)))
+    , m_bounds(makeUnique<Bounds>(m_boundsConforming->cubeify()))
     , m_schema(makeUnique<Schema>(schema))
     , m_structure(makeUnique<Structure>(structure))
     , m_hierarchyStructure(makeUnique<Structure>(hierarchyStructure))
@@ -57,9 +57,9 @@ Metadata::Metadata(
     const Json::Value meta(parse(ep.get("entwine" + pf)));
     const Json::Value manifest(parse(ep.get("entwine-manifest" + pf)));
 
-    m_bboxConforming = makeUnique<BBox>(meta["bboxConforming"]);
-    m_bboxEpsilon = makeUnique<BBox>(m_bboxConforming->growBy(0.005));
-    m_bbox = makeUnique<BBox>(meta["bbox"]);
+    m_boundsConforming = makeUnique<Bounds>(meta["boundsConforming"]);
+    m_boundsEpsilon = makeUnique<Bounds>(m_boundsConforming->growBy(0.005));
+    m_bounds = makeUnique<Bounds>(meta["bounds"]);
     m_schema = makeUnique<Schema>(meta["schema"]);
     m_structure = makeUnique<Structure>(meta["structure"]);
     m_hierarchyStructure = makeUnique<Structure>(meta["hierarchyStructure"]);
@@ -77,7 +77,7 @@ Metadata::Metadata(
 
     if (meta.isMember("subset"))
     {
-        m_subset = makeUnique<Subset>(*m_bbox, meta["subset"]);
+        m_subset = makeUnique<Subset>(*m_bounds, meta["subset"]);
     }
 
     if (meta.isMember("errors"))
@@ -92,9 +92,9 @@ Metadata::Metadata(
 }
 
 Metadata::Metadata(const Metadata& other)
-    : m_bboxConforming(makeUnique<BBox>(other.bboxConforming()))
-    , m_bboxEpsilon(makeUnique<BBox>(other.bboxEpsilon()))
-    , m_bbox(makeUnique<BBox>(other.bbox()))
+    : m_boundsConforming(makeUnique<Bounds>(other.boundsConforming()))
+    , m_boundsEpsilon(makeUnique<Bounds>(other.boundsEpsilon()))
+    , m_bounds(makeUnique<Bounds>(other.bounds()))
     , m_schema(makeUnique<Schema>(other.schema()))
     , m_structure(makeUnique<Structure>(other.structure()))
     , m_hierarchyStructure(makeUnique<Structure>(other.hierarchyStructure()))
@@ -113,8 +113,8 @@ void Metadata::save(const arbiter::Endpoint& endpoint) const
 {
     Json::Value json;
 
-    json["bboxConforming"] = m_bboxConforming->toJson();
-    json["bbox"] = m_bbox->toJson();
+    json["boundsConforming"] = m_boundsConforming->toJson();
+    json["bounds"] = m_bounds->toJson();
     json["schema"] = m_schema->toJson();
     json["structure"] = m_structure->toJson();
     json["hierarchyStructure"] = m_hierarchyStructure->toJson();
@@ -175,9 +175,9 @@ void Metadata::makeWhole()
     m_manifest->unsplit();
 }
 
-const BBox* Metadata::bboxSubset() const
+const Bounds* Metadata::boundsSubset() const
 {
-    return m_subset ? &m_subset->bbox() : nullptr;
+    return m_subset ? &m_subset->bounds() : nullptr;
 }
 
 } // namespace entwine

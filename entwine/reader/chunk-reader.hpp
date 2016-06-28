@@ -20,7 +20,7 @@
 namespace entwine
 {
 
-class BBox;
+class Bounds;
 class Metadata;
 class Schema;
 
@@ -46,7 +46,7 @@ class ChunkReader
 public:
     ChunkReader(
             const Schema& schema,
-            const BBox& bbox,
+            const Bounds& bounds,
             const Id& id,
             std::size_t depth,
             std::unique_ptr<std::vector<char>> data);
@@ -62,7 +62,7 @@ public:
         It end;
     };
 
-    QueryRange candidates(const BBox& qbox) const;
+    QueryRange candidates(const Bounds& queryBounds) const;
 
 private:
     const Schema& schema() const { return m_schema; }
@@ -73,7 +73,7 @@ private:
     }
 
     const Schema& m_schema;
-    const BBox& m_bbox;
+    const Bounds& m_bounds;
     const Id m_id;
     const std::size_t m_depth;
 

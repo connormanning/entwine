@@ -50,8 +50,8 @@ void Above::populate(std::unique_ptr<std::vector<char>> data)
     VectorPointTable table(m_schema, *data);
     pdal::PointRef pointRef(table, 0);
 
-    Point p(0, 0, m_bbox.mid().z);
-    BBox b;
+    Point p(0, 0, m_bounds.mid().z);
+    Bounds b;
 
     char* pos(data->data());
 
@@ -63,10 +63,10 @@ void Above::populate(std::unique_ptr<std::vector<char>> data)
         p.y = pointRef.getFieldAs<double>(pdal::Dimension::Id::Y);
 
         // It's likely that the points will arrive in an order such that
-        // many points in a row will belong to the same sub-box.
+        // many points in a row will belong to the same sub-bounds.
         if (!b.contains(p))
         {
-            b = m_bbox;
+            b = m_bounds;
 
             for (std::size_t d(0); d < m_delta; ++d)
             {
@@ -89,8 +89,8 @@ void Base::populate(std::unique_ptr<std::vector<char>> data)
     VectorPointTable table(m_schema, *data);
     pdal::PointRef pointRef(table, 0);
 
-    Point p(0, 0, m_bbox.mid().z);
-    BBox b;
+    Point p(0, 0, m_bounds.mid().z);
+    Bounds b;
     ChunkState s(m_metadata);
 
     char* pos(data->data());
@@ -103,12 +103,12 @@ void Base::populate(std::unique_ptr<std::vector<char>> data)
         p.y = pointRef.getFieldAs<double>(pdal::Dimension::Id::Y);
 
         // It's likely that the points will arrive in an order such that
-        // many points in a row will belong to the same sub-box.
+        // many points in a row will belong to the same sub-bounds.
         if (!b.contains(p))
         {
             s.reset();
             s.climbTo(p, m_delta);  // For the Base, delta = sliceDepth.
-            b = s.bboxChunk();
+            b = s.boundsChunk();
         }
 
         auto& segment(m_segments[b]);
@@ -121,7 +121,7 @@ void Base::populate(std::unique_ptr<std::vector<char>> data)
 Base::Base(const Tiler& tiler)
     : Above(
             tiler.metadata().structure().baseIndexBegin(),
-            tiler.metadata().bbox(),
+            tiler.metadata().bounds(),
             tiler.activeSchema(),
             tiler.sliceDepth())
     , m_metadata(tiler.metadata())
@@ -197,7 +197,7 @@ void Tiler::init(const double tileWidth)
         throw std::runtime_error("Schema must contain X and Y");
     }
 
-    const double fullWidth(m_metadata.bbox().width());
+    const double fullWidth(m_metadata.bounds().width());
     const Structure& structure(m_metadata.structure());
 
     m_sliceDepth = structure.coldDepthBegin();
@@ -219,7 +219,10 @@ void Tiler::init(const double tileWidth)
     std::cout << "Actual tile width to use: " <<
         fullWidth / static_cast<double>(div) << std::endl;
 
-    if (structure.hasBase()) m_aboves[m_metadata.bbox()].reset(new Base(*this));
+    if (structure.hasBase())
+    {
+        m_aboves[m_metadata.bounds()].reset(new Base(*this));
+    }
 }
 
 const Schema& Tiler::activeSchema() const
@@ -235,21 +238,21 @@ void Tiler::go(const TileFunction& f, const arbiter::Endpoint* ep)
     {
         const Id& chunkId(chunkState.chunkId());
         const std::size_t depth(chunkState.depth());
-        const BBox& bbox(chunkState.bboxChunk());
+        const Bounds& bounds(chunkState.boundsChunk());
 
         if (depth < m_sliceDepth)
         {
-            if (exists) insertAbove(f, chunkId, depth, bbox);
+            if (exists) insertAbove(f, chunkId, depth, bounds);
             return true;    // We always need to get to at least m_sliceDepth.
         }
         else if (depth == m_sliceDepth)
         {
-            spawnTile(f, chunkId, bbox, exists);
+            spawnTile(f, chunkId, bounds, exists);
             return exists;
         }
         else
         {
-            if (exists) buildTile(f, chunkId, depth, bbox);
+            if (exists) buildTile(f, chunkId, depth, bounds);
             return exists;
         }
     });
@@ -291,9 +294,9 @@ void Tiler::insertAbove(
         const TileFunction& f,
         const Id& chunkId,
         const std::size_t depth,
-        const BBox& bbox)
+        const Bounds& bounds)
 {
-    Above& above(([this, &chunkId, depth, &bbox]()->Above&
+    Above& above(([this, &chunkId, depth, &bounds]()->Above&
     {
         std::size_t delta(m_sliceDepth - depth);
         const Schema& s(activeSchema());
@@ -302,8 +305,9 @@ void Tiler::insertAbove(
         auto result(
                 m_aboves.emplace(
                     std::piecewise_construct,
-                    std::forward_as_tuple(bbox),
-                    std::forward_as_tuple(new Above(chunkId, bbox, s, delta))));
+                    std::forward_as_tuple(bounds),
+                    std::forward_as_tuple(
+                        new Above(chunkId, bounds, s, delta))));
         return *result.first->second;
     })());
 
@@ -323,22 +327,22 @@ void Tiler::insertAbove(
 void Tiler::spawnTile(
         const TileFunction& f,
         const Id& chunkId,
-        const BBox& bbox,
+        const Bounds& bounds,
         const bool exists)
 {
-    Tile& tile(([this, &chunkId, &bbox]()->Tile&
+    Tile& tile(([this, &chunkId, &bounds]()->Tile&
     {
         const Schema& s(activeSchema());
 
         std::lock_guard<std::mutex> lock(m_mutex);
-        m_current.reset(new BBox(bbox));
+        m_current.reset(new Bounds(bounds));
 
         auto result(
                 m_tiles.emplace(
                     std::piecewise_construct,
-                    std::forward_as_tuple(bbox),
+                    std::forward_as_tuple(bounds),
                     std::forward_as_tuple(
-                        new Tile(bbox, s, m_aboves, m_maxPointsPerTile))));
+                        new Tile(bounds, s, m_aboves, m_maxPointsPerTile))));
         return *result.first->second;
     })());
 
@@ -349,15 +353,15 @@ void Tiler::buildTile(
         const TileFunction& f,
         const Id& chunkId,
         const std::size_t depth,
-        const BBox& bbox)
+        const Bounds& bounds)
 {
-    Tile& tile(([this, &bbox]()->Tile&
+    Tile& tile(([this, &bounds]()->Tile&
     {
         std::lock_guard<std::mutex> lock(m_mutex);
 
         // TODO Use asserts.
         if (!m_current) throw std::runtime_error("No current");
-        if (!m_current->contains(bbox))
+        if (!m_current->contains(bounds))
         {
             throw std::runtime_error("No encapsulating base");
         }
@@ -390,7 +394,7 @@ void Tiler::awaitAndAcquire(
 
 void Tiler::maybeProcess(const TileFunction& f)
 {
-    using QueueMap = std::map<BBox, TileMap::iterator>;
+    using QueueMap = std::map<Bounds, TileMap::iterator>;
     QueueMap queue;
 
     {
@@ -399,7 +403,7 @@ void Tiler::maybeProcess(const TileFunction& f)
         auto it(m_tiles.begin());
         while (it != m_tiles.end())
         {
-            const BBox& tileBounds(it->first);
+            const Bounds& tileBounds(it->first);
             std::unique_ptr<Tile>& tile(it->second);
 
             if ((!m_current || *m_current != tileBounds) && tile->acquire())
@@ -474,15 +478,17 @@ std::unique_ptr<std::vector<char>> Tiler::acquire(const Id& chunkId)
     return data;
 }
 
-Above::Set Tile::getContainingFrom(const BBox& bbox, Above::Map& aboves) const
+Above::Set Tile::getContainingFrom(
+        const Bounds& bounds,
+        Above::Map& aboves) const
 {
     return std::accumulate(
             aboves.begin(),
             aboves.end(),
             Above::Set(),
-            [&bbox](const Above::Set& in, Above::MapVal& a)
+            [&bounds](const Above::Set& in, Above::MapVal& a)
             {
-                if (a.first.contains(bbox))
+                if (a.first.contains(bounds))
                 {
                     auto out(in);
                     out.insert(a.second.get());
@@ -496,19 +502,19 @@ void Tile::process(const TileFunction& f)
 {
     for (const Above* a : m_aboves)
     {
-        if (const std::vector<char>* segment = a->data(m_bbox))
+        if (const std::vector<char>* segment = a->data(m_bounds))
         {
             m_data.insert(m_data.end(), segment->begin(), segment->end());
         }
     }
 
-    if (m_data.size()) splitAndCall(f, m_data, m_bbox);
+    if (m_data.size()) splitAndCall(f, m_data, m_bounds);
 }
 
 void Tile::splitAndCall(
         const TileFunction& f,
         const std::vector<char>& data,
-        const BBox& bbox) const
+        const Bounds& bounds) const
 {
     const std::size_t numPoints(data.size() / m_schema.pointSize());
 
@@ -516,7 +522,7 @@ void Tile::splitAndCall(
     {
         VectorPointTable table(m_schema, data);
         SizedPointView view(table);
-        f(view, bbox);
+        f(view, bounds);
     }
     else
     {
@@ -535,7 +541,7 @@ void Tile::splitAndCall(
             p.x = pointRef.getFieldAs<double>(pdal::Dimension::Id::X);
             p.y = pointRef.getFieldAs<double>(pdal::Dimension::Id::Y);
             p.z = pointRef.getFieldAs<double>(pdal::Dimension::Id::Z);
-            dir = getDirection(p, bbox.mid());
+            dir = getDirection(p, bounds.mid());
 
             std::vector<char>& active(split[toIntegral(dir, true)]);
             active.insert(active.end(), pos, pos + m_schema.pointSize());
@@ -545,7 +551,7 @@ void Tile::splitAndCall(
 
         for (std::size_t i(0); i < split.size(); ++i)
         {
-            splitAndCall(f, split[i], bbox.get(toDir(i), true));
+            splitAndCall(f, split[i], bounds.get(toDir(i), true));
         }
     }
 }

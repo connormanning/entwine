@@ -37,7 +37,7 @@ public:
 };
 
 class BaseChunkReader;
-class BBox;
+class Bounds;
 class Cache;
 class Hierarchy;
 class Metadata;
@@ -63,14 +63,14 @@ public:
 
     std::unique_ptr<Query> query(
             const Schema& schema,
-            const BBox& qbox,
+            const Bounds& qbox,
             std::size_t depthBegin,
             std::size_t depthEnd,
             double scale = 0.0,
             Point offset = Point());
 
     Json::Value hierarchy(
-            const BBox& qbox,
+            const Bounds& qbox,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
@@ -90,10 +90,10 @@ public:
         std::size_t numPoints;
     };
 
-    typedef std::map<BBox, BoxInfo> BoxMap;
+    typedef std::map<Bounds, BoxInfo> BoxMap;
 
 private:
-    const BBox& bbox() const;
+    const Bounds& bounds() const;
 
     arbiter::Endpoint m_endpoint;
 

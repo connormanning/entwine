@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include <entwine/types/bbox.hpp>
+#include <entwine/types/bounds.hpp>
 
 #include <cmath>
 #include <limits>
@@ -18,7 +18,7 @@
 namespace entwine
 {
 
-BBox::BBox(const Point& min, const Point& max)
+Bounds::Bounds(const Point& min, const Point& max)
     : m_min(
             std::min(min.x, max.x),
             std::min(min.y, max.y),
@@ -32,20 +32,16 @@ BBox::BBox(const Point& min, const Point& max)
     setMid();
     if (min.x > max.x || min.y > max.y || min.z > max.z)
     {
-        std::cout << "Correcting malformed BBox" << std::endl;
+        std::cout << "Correcting malformed Bounds" << std::endl;
     }
 }
 
-BBox::BBox(const Json::Value& json)
-    : m_min()
-    , m_max()
-    , m_mid()
+Bounds::Bounds(const Json::Value& json) : m_min(), m_max(), m_mid()
 {
     if (!json.isArray() || (json.size() != 4 && json.size() != 6))
     {
-        std::string what(
-                "Invalid JSON BBox specification: " + json.toStyledString());
-        throw std::runtime_error(what);
+        throw std::runtime_error(
+            "Invalid JSON Bounds specification: " + json.toStyledString());
     }
 
     const bool is3d(json.size() == 6);
@@ -71,11 +67,11 @@ BBox::BBox(const Json::Value& json)
                 json.get(Json::ArrayIndex(3), 0).asDouble());
     }
 
-    BBox self(m_min, m_max);
+    Bounds self(m_min, m_max);
     *this = self;
 }
 
-Json::Value BBox::toJson() const
+Json::Value Bounds::toJson() const
 {
     Json::Value json;
 
@@ -90,13 +86,13 @@ Json::Value BBox::toJson() const
     return json;
 }
 
-void BBox::grow(const BBox& other)
+void Bounds::grow(const Bounds& other)
 {
     grow(other.min());
     grow(other.max());
 }
 
-void BBox::grow(const Point& p)
+void Bounds::grow(const Point& p)
 {
     m_min.x = std::min(m_min.x, p.x);
     m_min.y = std::min(m_min.y, p.y);
@@ -107,24 +103,24 @@ void BBox::grow(const Point& p)
     setMid();
 }
 
-BBox BBox::growBy(double ratio) const
+Bounds Bounds::growBy(double ratio) const
 {
     const Point delta(
             (m_max.x - m_mid.x) * ratio,
             (m_max.y - m_mid.y) * ratio,
             (m_max.z - m_mid.z) * ratio);
 
-    return BBox(m_min - delta, m_max + delta);
+    return Bounds(m_min - delta, m_max + delta);
 }
 
-std::ostream& operator<<(std::ostream& os, const BBox& bbox)
+std::ostream& operator<<(std::ostream& os, const Bounds& bounds)
 {
     auto flags(os.flags());
     auto precision(os.precision());
 
     os << std::setprecision(2) << std::fixed;
 
-    os << "[" << bbox.min() << ", " << bbox.max() << "]";
+    os << "[" << bounds.min() << ", " << bounds.max() << "]";
 
     os << std::setprecision(precision);
     os.flags(flags);

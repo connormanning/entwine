@@ -17,7 +17,7 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/manifest.hpp>
-#include <entwine/types/bbox.hpp>
+#include <entwine/types/bounds.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/util/executor.hpp>
 #include <entwine/util/pool.hpp>
@@ -60,7 +60,7 @@ public:
 
     const Manifest& manifest() const { return m_manifest; }
     Schema schema() const;
-    BBox bbox() const;
+    Bounds bounds() const;
     std::size_t numPoints() const;
     const Reprojection* reprojection() const { return m_reproj; }
 

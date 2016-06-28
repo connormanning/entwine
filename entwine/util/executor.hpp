@@ -15,7 +15,7 @@
 #include <mutex>
 #include <string>
 
-#include <entwine/types/bbox.hpp>
+#include <entwine/types/bounds.hpp>
 #include <entwine/types/structure.hpp>
 
 namespace pdal
@@ -59,17 +59,17 @@ class Preview
 {
 public:
     Preview(
-            const BBox& bbox,
+            const Bounds& bounds,
             std::size_t numPoints,
             const std::string& srs,
             const std::vector<std::string>& dimNames)
-        : bbox(bbox)
+        : bounds(bounds)
         , numPoints(numPoints)
         , srs(srs)
         , dimNames(dimNames)
     { }
 
-    BBox bbox;
+    Bounds bounds;
     std::size_t numPoints;
     std::string srs;
     std::vector<std::string> dimNames;

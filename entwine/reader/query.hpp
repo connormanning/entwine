@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <cstddef>
 #include <deque>
 
@@ -29,9 +30,9 @@ class Schema;
 class QueryChunkState
 {
 public:
-    QueryChunkState(const Structure& structure, const BBox& bbox)
+    QueryChunkState(const Structure& structure, const Bounds& bounds)
         : m_structure(structure)
-        , m_bbox(bbox)
+        , m_bounds(bounds)
         , m_depth(m_structure.nominalChunkDepth())
         , m_chunkId(m_structure.nominalChunkIndex())
         , m_pointsPerChunk(m_structure.basePointsPerChunk())
@@ -49,9 +50,9 @@ public:
     {
         QueryChunkState result(*this);
         ++result.m_depth;
-        result.m_bbox.go(dir, m_structure.tubular());
+        result.m_bounds.go(dir, m_structure.tubular());
 
-        if (result.m_depth > m_structure.sparseDepthBegin()) throw; // TODO
+        assert(result.m_depth > m_structure.sparseDepthBegin());
 
         result.m_chunkId <<= m_structure.dimensions();
         result.m_chunkId.incSimple();
@@ -72,7 +73,7 @@ public:
         return result;
     }
 
-    const BBox& bbox() const { return m_bbox; }
+    const Bounds& bounds() const { return m_bounds; }
     std::size_t depth() const { return m_depth; }
     const Id& chunkId() const { return m_chunkId; }
     const Id& pointsPerChunk() const { return m_pointsPerChunk; }
@@ -81,7 +82,7 @@ private:
     QueryChunkState(const QueryChunkState& other) = default;
 
     const Structure& m_structure;
-    BBox m_bbox;
+    Bounds m_bounds;
     std::size_t m_depth;
 
     Id m_chunkId;
@@ -95,7 +96,7 @@ public:
             const Reader& reader,
             const Schema& schema,
             Cache& cache,
-            const BBox& qbox,
+            const Bounds& queryBounds,
             std::size_t depthBegin,
             std::size_t depthEnd,
             double scale,
@@ -127,7 +128,7 @@ protected:
     const Structure& m_structure;
     Cache& m_cache;
 
-    const BBox m_qbox;
+    const Bounds m_queryBounds;
     const std::size_t m_depthBegin;
     const std::size_t m_depthEnd;
 

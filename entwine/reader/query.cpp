@@ -33,7 +33,7 @@ Query::Query(
         const Reader& reader,
         const Schema& schema,
         Cache& cache,
-        const BBox& qbox,
+        const Bounds& queryBounds,
         const std::size_t depthBegin,
         const std::size_t depthEnd,
         const double scale,
@@ -41,7 +41,7 @@ Query::Query(
     : m_reader(reader)
     , m_structure(m_reader.metadata().structure())
     , m_cache(cache)
-    , m_qbox(qbox)
+    , m_queryBounds(queryBounds)
     , m_depthBegin(depthBegin)
     , m_depthEnd(depthEnd)
     , m_chunks()
@@ -58,14 +58,14 @@ Query::Query(
 {
     if (!m_depthEnd || m_depthEnd > m_structure.coldDepthBegin())
     {
-        QueryChunkState chunkState(m_structure, m_reader.metadata().bbox());
+        QueryChunkState chunkState(m_structure, m_reader.metadata().bounds());
         getFetches(chunkState);
     }
 }
 
 void Query::getFetches(const QueryChunkState& chunkState)
 {
-    if (!m_qbox.overlaps(chunkState.bbox(), true)) return;
+    if (!m_queryBounds.overlaps(chunkState.bounds(), true)) return;
 
     if (
             chunkState.depth() >= m_depthBegin &&
@@ -105,7 +105,7 @@ bool Query::next(std::vector<char>& buffer)
 
         if (m_reader.base())
         {
-            PointState pointState(m_structure, m_reader.metadata().bbox());
+            PointState pointState(m_structure, m_reader.metadata().bounds());
             getBase(buffer, pointState);
         }
 
@@ -125,7 +125,7 @@ bool Query::next(std::vector<char>& buffer)
 
 void Query::getBase(std::vector<char>& buffer, const PointState& pointState)
 {
-    if (!m_qbox.overlaps(pointState.bbox(), true)) return;
+    if (!m_queryBounds.overlaps(pointState.bounds(), true)) return;
 
     if (pointState.depth() >= m_structure.baseDepthBegin())
     {
@@ -175,7 +175,7 @@ void Query::getChunked(std::vector<char>& buffer)
     {
         if (const ChunkReader* cr = m_chunkReaderIt->second)
         {
-            ChunkReader::QueryRange range(cr->candidates(m_qbox));
+            ChunkReader::QueryRange range(cr->candidates(m_queryBounds));
             auto it(range.begin);
 
             while (it != range.end)
@@ -200,7 +200,7 @@ void Query::getChunked(std::vector<char>& buffer)
 
 bool Query::processPoint(std::vector<char>& buffer, const PointInfo& info)
 {
-    if (m_qbox.contains(info.point()))
+    if (m_queryBounds.contains(info.point()))
     {
         buffer.resize(buffer.size() + m_outSchema.pointSize(), 0);
         char* pos(buffer.data() + buffer.size() - m_outSchema.pointSize());

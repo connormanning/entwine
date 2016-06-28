@@ -16,7 +16,7 @@
 #include <iostream>
 
 #include <entwine/tree/hierarchy.hpp>
-#include <entwine/types/bbox.hpp>
+#include <entwine/types/bounds.hpp>
 #include <entwine/types/dir.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/point-pool.hpp>
@@ -30,7 +30,7 @@ class PointState
 public:
     PointState(
             const Structure& structure,
-            const BBox& bbox,
+            const Bounds& bounds,
             std::size_t depth = 0);
 
     virtual ~PointState() { }
@@ -38,7 +38,7 @@ public:
     virtual void climb(Dir dir);
     virtual void climb(const Point& point)
     {
-        climb(getDirection(point, m_bbox.mid()));
+        climb(getDirection(point, m_bounds.mid()));
     }
 
     PointState getClimb(Dir dir) const
@@ -50,7 +50,7 @@ public:
 
     virtual void reset()
     {
-        m_bbox = m_bboxOriginal;
+        m_bounds = m_boundsOriginal;
         m_index = 0;
         m_depth = 0;
         m_tick = 0;
@@ -60,7 +60,7 @@ public:
         m_pointsPerChunk = m_structure.basePointsPerChunk();
     }
 
-    const BBox& bbox() const    { return m_bbox; }
+    const Bounds& bounds() const { return m_bounds; }
     const Id& index() const     { return m_index; }
     std::size_t depth() const   { return m_depth - m_structure.startDepth(); }
     std::size_t tick() const    { return m_tick; }
@@ -80,9 +80,9 @@ public:
 
 protected:
     const Structure& m_structure;
-    const BBox& m_bboxOriginal;
+    const Bounds& m_boundsOriginal;
 
-    BBox m_bbox;
+    Bounds m_bounds;
     Id m_index;
     std::size_t m_depth;
     std::size_t m_tick;
@@ -96,7 +96,7 @@ class HierarchyState : public PointState
 {
 public:
     HierarchyState(const Metadata& metadata, Hierarchy* hierarchy)
-        : PointState(metadata.hierarchyStructure(), metadata.bbox())
+        : PointState(metadata.hierarchyStructure(), metadata.bounds())
         , m_hierarchy(hierarchy)
     { }
 
@@ -113,8 +113,8 @@ class ChunkState : public PointState
 {
 public:
     ChunkState(const Metadata& metadata)
-        : PointState(metadata.structure(), metadata.bbox())
-        , m_bboxChunk(metadata.bbox())
+        : PointState(metadata.structure(), metadata.bounds())
+        , m_boundsChunk(metadata.bounds())
     {
         m_depth = m_structure.nominalChunkDepth();
     }
@@ -123,7 +123,7 @@ public:
     {
         if (++m_depth <= m_structure.sparseDepthBegin())
         {
-            m_bboxChunk.go(dir, m_structure.tubular());
+            m_boundsChunk.go(dir, m_structure.tubular());
 
             m_chunkId <<= m_structure.dimensions();
             m_chunkId.incSimple();
@@ -149,17 +149,17 @@ public:
 
     virtual void climb(const Point& point) override
     {
-        climb(getDirection(point, m_bboxChunk.mid()));
+        climb(getDirection(point, m_boundsChunk.mid()));
     }
 
     virtual void reset() override
     {
         PointState::reset();
-        m_bboxChunk = m_bboxOriginal;
+        m_boundsChunk = m_boundsOriginal;
         m_depth = m_structure.nominalChunkDepth();
     }
 
-    const BBox& bboxChunk() const { return m_bboxChunk; }
+    const Bounds& boundsChunk() const { return m_boundsChunk; }
 
     bool sparse() const
     {
@@ -175,7 +175,7 @@ public:
     }
 
 private:
-    BBox m_bboxChunk;
+    Bounds m_boundsChunk;
 };
 
 class Climber
@@ -183,7 +183,7 @@ class Climber
 public:
     Climber(const Metadata& metadata, Hierarchy* hierarchy = nullptr)
         : m_metadata(metadata)
-        , m_pointState(metadata.structure(), metadata.bbox())
+        , m_pointState(metadata.structure(), metadata.bounds())
         , m_hierarchyState(metadata, hierarchy)
     { }
 
@@ -206,11 +206,11 @@ public:
         while (m_pointState.depth() < depth) magnify(point);
     }
 
-    void magnifyTo(const BBox& bbox)
+    void magnifyTo(const Bounds& bounds)
     {
-        BBox norm(bbox.min(), bbox.max());
+        Bounds norm(bounds.min(), bounds.max());
         norm.growBy(.01);
-        while (!norm.contains(m_pointState.bbox(), true)) magnify(norm.mid());
+        while (!norm.contains(m_pointState.bounds(), true)) magnify(norm.mid());
     }
 
     const PointState& pointState() const { return m_pointState; }
@@ -218,7 +218,7 @@ public:
     const Id& index()   const { return m_pointState.index(); }
     std::size_t tick()  const { return m_pointState.tick(); }
     std::size_t depth() const { return m_pointState.depth(); }
-    const BBox& bbox()  const { return m_pointState.bbox(); }
+    const Bounds& bounds()  const { return m_pointState.bounds(); }
 
     const Id& chunkId() const { return m_pointState.chunkId(); }
     const Id& pointsPerChunk() const { return m_pointState.pointsPerChunk(); }

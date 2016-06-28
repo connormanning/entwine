@@ -19,14 +19,14 @@
 namespace entwine
 {
 
-class BBox
+class Bounds
 {
 public:
-    BBox() = default;
-    BBox(const Point& min, const Point& max);
-    BBox(const Json::Value& json);
+    Bounds() = default;
+    Bounds(const Point& min, const Point& max);
+    Bounds(const Json::Value& json);
 
-    void set(const BBox& other)
+    void set(const Bounds& other)
     {
         m_min = other.m_min;
         m_max = other.m_max;
@@ -44,8 +44,8 @@ public:
     const Point& max() const { return m_max; }
     const Point& mid() const { return m_mid; }
 
-    // Returns true if this BBox shares any area in common with another.
-    bool overlaps(const BBox& other, bool force2d = false) const
+    // Returns true if these Bounds share any area in common with another.
+    bool overlaps(const Bounds& other, bool force2d = false) const
     {
         Point otherMid(other.mid());
 
@@ -58,8 +58,8 @@ public:
                 height() / 2.0 + other.height() / 2.0;
     }
 
-    // Returns true if the requested BBox is contained within this BBox.
-    bool contains(const BBox& other, bool force2d = false) const
+    // Returns true if the requested Bounds are contained within these Bounds.
+    bool contains(const Bounds& other, bool force2d = false) const
     {
         if (!force2d)
         {
@@ -75,7 +75,7 @@ public:
         }
     }
 
-    // Returns true if the requested point is contained within this BBox.
+    // Returns true if the requested point is contained within these Bounds.
     bool contains(const Point& p) const { return p >= m_min && p < m_max; }
 
     double width()  const { return m_max.x - m_min.x; } // Length in X.
@@ -149,30 +149,30 @@ public:
         setMid();
     }
 
-    BBox getNwd(bool force2d = false) const
+    Bounds getNwd(bool force2d = false) const
     {
-        BBox b(*this); b.goNwd(force2d); return b;
+        Bounds b(*this); b.goNwd(force2d); return b;
     }
 
-    BBox getNed(bool force2d = false) const
+    Bounds getNed(bool force2d = false) const
     {
-        BBox b(*this); b.goNed(force2d); return b;
+        Bounds b(*this); b.goNed(force2d); return b;
     }
 
-    BBox getSwd(bool force2d = false) const
+    Bounds getSwd(bool force2d = false) const
     {
-        BBox b(*this); b.goSwd(force2d); return b;
+        Bounds b(*this); b.goSwd(force2d); return b;
     }
 
-    BBox getSed(bool force2d = false) const
+    Bounds getSed(bool force2d = false) const
     {
-        BBox b(*this); b.goSed(force2d); return b;
+        Bounds b(*this); b.goSed(force2d); return b;
     }
 
-    BBox getNwu() const { BBox b(*this); b.goNwu(); return b; }
-    BBox getNeu() const { BBox b(*this); b.goNeu(); return b; }
-    BBox getSwu() const { BBox b(*this); b.goSwu(); return b; }
-    BBox getSeu() const { BBox b(*this); b.goSeu(); return b; }
+    Bounds getNwu() const { Bounds b(*this); b.goNwu(); return b; }
+    Bounds getNeu() const { Bounds b(*this); b.goNeu(); return b; }
+    Bounds getSwu() const { Bounds b(*this); b.goSwu(); return b; }
+    Bounds getSeu() const { Bounds b(*this); b.goSeu(); return b; }
 
     void go(Dir dir, bool force2d = false)
     {
@@ -191,7 +191,7 @@ public:
         }
     }
 
-    BBox get(Dir dir, bool force2d = false) const
+    Bounds get(Dir dir, bool force2d = false) const
     {
         if (force2d) dir = toDir(toIntegral(dir, true));
 
@@ -208,7 +208,8 @@ public:
         }
 
         throw std::runtime_error(
-                "Invalid Dir to BBox::get: " + std::to_string(toIntegral(dir)));
+                "Invalid Dir to Bounds::get: " +
+                std::to_string(toIntegral(dir)));
     }
 
     bool exists() const { return Point::exists(m_min) && Point::exists(m_max); }
@@ -216,7 +217,7 @@ public:
 
     Json::Value toJson() const;
 
-    void grow(const BBox& bbox);
+    void grow(const Bounds& bounds);
     void grow(const Point& p);
 
     bool isCubic() const
@@ -226,7 +227,7 @@ public:
 
     // Bloat all coordinates necessary to form a cube and also to the nearest
     // integer.
-    BBox cubeify() const
+    Bounds cubeify() const
     {
         const double xDist(m_max.x - m_min.x);
         const double yDist(m_max.y - m_min.y);
@@ -235,7 +236,7 @@ public:
         const double radius(
                 std::ceil(std::max(std::max(xDist, yDist), zDist) / 2.0 + 10));
 
-        return BBox(
+        return Bounds(
                 Point(
                     std::floor(m_mid.x - radius),
                     std::floor(m_mid.y - radius),
@@ -246,10 +247,10 @@ public:
                     std::floor(m_mid.z + radius)));
     }
 
-    BBox growBy(double ratio) const;
+    Bounds growBy(double ratio) const;
 
-    std::vector<BBox> explode() const;
-    std::vector<BBox> explode(std::size_t delta) const;
+    std::vector<Bounds> explode() const;
+    std::vector<Bounds> explode(std::size_t delta) const;
 
 private:
     Point m_min;
@@ -264,11 +265,11 @@ private:
     }
 };
 
-std::ostream& operator<<(std::ostream& os, const BBox& bbox);
+std::ostream& operator<<(std::ostream& os, const Bounds& bounds);
 
-// Orders BBoxes by their midpoint.  This is really only useful if the boxes
+// Orders Bounds by their midpoint.  This is really only useful if the bounds
 // are arranged in a grid and are of equal size (like during a MetaQuery).
-inline bool operator<(const BBox& lhs, const BBox& rhs)
+inline bool operator<(const Bounds& lhs, const Bounds& rhs)
 {
     const auto& lhsMid(lhs.mid());
     const auto& rhsMid(rhs.mid());
@@ -279,12 +280,12 @@ inline bool operator<(const BBox& lhs, const BBox& rhs)
         (lhsMid.x == rhsMid.x && lhsMid.y == rhsMid.y && lhsMid.z < rhsMid.z);
 }
 
-inline bool operator==(const BBox& lhs, const BBox& rhs)
+inline bool operator==(const Bounds& lhs, const Bounds& rhs)
 {
     return lhs.min() == rhs.min() && lhs.max() == rhs.max();
 }
 
-inline bool operator!=(const BBox& lhs, const BBox& rhs)
+inline bool operator!=(const Bounds& lhs, const Bounds& rhs)
 {
     return !(lhs == rhs);
 }

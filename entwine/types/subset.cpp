@@ -12,13 +12,12 @@
 
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/hierarchy.hpp>
-#include <entwine/types/range.hpp>
 
 namespace entwine
 {
 
 Subset::Subset(
-        const BBox& bbox,
+        const Bounds& bounds,
         const std::size_t id,
         const std::size_t of)
     : m_id(id - 1)
@@ -29,11 +28,11 @@ Subset::Subset(
     if (!id) throw std::runtime_error("Subset IDs should be 1-based.");
     if (id > of) throw std::runtime_error("Invalid subset ID - too large.");
 
-    split(bbox);
+    split(bounds);
 }
 
-Subset::Subset(const BBox& bbox, const Json::Value& json)
-    : Subset(bbox, json["id"].asUInt64(), json["of"].asUInt64())
+Subset::Subset(const Bounds& bounds, const Json::Value& json)
+    : Subset(bounds, json["id"].asUInt64(), json["of"].asUInt64())
 { }
 
 Json::Value Subset::toJson() const
@@ -46,7 +45,7 @@ Json::Value Subset::toJson() const
     return json;
 }
 
-void Subset::split(const BBox& bbox)
+void Subset::split(const Bounds& bounds)
 {
     if (m_of <= 1 || m_of > 64)
     {
@@ -83,7 +82,7 @@ void Subset::split(const BBox& bbox)
 
     for (std::size_t curId(startOffset); curId < startOffset + boxes; ++curId)
     {
-        BBox current(bbox);
+        Bounds current(bounds);
 
         for (std::size_t i(iterations - 1); i < iterations; --i)
         {

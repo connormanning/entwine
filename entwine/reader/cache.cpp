@@ -247,7 +247,7 @@ const ChunkReader* Cache::fetch(
 
         chunkState.chunkReader = makeUnique<ChunkReader>(
                 metadata.schema(),
-                metadata.bbox(),
+                metadata.bounds(),
                 fetchInfo.id,
                 fetchInfo.depth,
                 makeUnique<std::vector<char>>(

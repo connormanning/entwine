@@ -17,7 +17,7 @@
 #include <entwine/third/json/json.hpp>
 #include <entwine/tree/builder.hpp>
 #include <entwine/tree/manifest.hpp>
-#include <entwine/types/bbox.hpp>
+#include <entwine/types/bounds.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
@@ -32,11 +32,11 @@ namespace
 {
     Json::Reader reader;
 
-    std::unique_ptr<BBox> getBBox(const Json::Value& json)
+    std::unique_ptr<Bounds> getBounds(const Json::Value& json)
     {
-        std::unique_ptr<BBox> bbox;
-        if (!json.empty()) bbox.reset(new BBox(json));
-        return bbox;
+        std::unique_ptr<Bounds> bounds;
+        if (!json.empty()) bounds.reset(new Bounds(json));
+        return bounds;
     }
 
     std::unique_ptr<Reprojection> getReprojection(const Json::Value& json)
@@ -85,7 +85,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     }
 
     // Geometry and spatial info.
-    auto bboxConforming(getBBox(jsonGeometry["bbox"]));
+    auto boundsConforming(getBounds(jsonGeometry["bounds"]));
     auto reprojection(getReprojection(jsonGeometry["reproject"]));
     auto schema(makeUnique<Schema>(jsonGeometry["schema"]));
 
@@ -102,7 +102,12 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                 });
     }
 
-    if (manifest && (!bboxConforming || !schema->pointSize() || !numPointsHint))
+    const bool needsInference(
+            !boundsConforming ||
+            !schema->pointSize() ||
+            !numPointsHint);
+
+    if (manifest && needsInference)
     {
         std::cout << "Performing dataset inference..." << std::endl;
         Inference inference(
@@ -117,10 +122,10 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         inference.go();
         manifest.reset(new Manifest(inference.manifest()));
 
-        if (!bboxConforming)
+        if (!boundsConforming)
         {
-            bboxConforming.reset(new BBox(inference.bbox()));
-            std::cout << "Inferred: " << inference.bbox() << std::endl;
+            boundsConforming.reset(new Bounds(inference.bounds()));
+            std::cout << "Inferred: " << inference.bounds() << std::endl;
         }
 
         if (!schema->pointSize())
@@ -146,7 +151,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
     if (config.isMember("subset"))
     {
-        BBox cube(bboxConforming->cubeify());
+        Bounds cube(boundsConforming->cubeify());
         subset = makeUnique<Subset>(cube, config["subset"]);
 
         const std::size_t configNullDepth(
@@ -165,7 +170,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     Structure hierarchyStructure(Hierarchy::structure(structure));
 
     const Metadata metadata(
-            *bboxConforming,
+            *boundsConforming,
             *schema,
             structure,
             hierarchyStructure,

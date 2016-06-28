@@ -17,7 +17,7 @@
 
 #include <pdal/PointView.hpp>
 
-#include <entwine/types/bbox.hpp>
+#include <entwine/types/bounds.hpp>
 #include <entwine/types/dir.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/metadata.hpp>
@@ -40,11 +40,11 @@ class Above
 public:
     Above(
             const Id& chunkId,
-            const BBox& bbox,
+            const Bounds& bounds,
             const Schema& schema,
             std::size_t delta)
         : m_chunkId(chunkId)
-        , m_bbox(bbox)
+        , m_bounds(bounds)
         , m_schema(schema)
         , m_delta(delta)
         , m_segments()
@@ -57,7 +57,7 @@ public:
         // then write out this chunk.
     }
 
-    using Map = std::map<BBox, std::unique_ptr<Above>>;
+    using Map = std::map<Bounds, std::unique_ptr<Above>>;
     using MapVal = Map::value_type;
     using Set = std::set<Above*>;
 
@@ -66,18 +66,18 @@ public:
 
     virtual void populate(std::unique_ptr<std::vector<char>> data);
 
-    const std::vector<char>* data(const BBox& bbox) const
+    const std::vector<char>* data(const Bounds& bounds) const
     {
-        if (m_segments.count(bbox)) return &m_segments.at(bbox);
+        if (m_segments.count(bounds)) return &m_segments.at(bounds);
         else return nullptr;
     }
 
 protected:
     const Id m_chunkId;
-    const BBox m_bbox;
+    const Bounds m_bounds;
     const Schema& m_schema;
     const std::size_t m_delta;
-    std::map<BBox, std::vector<char>> m_segments;
+    std::map<Bounds, std::vector<char>> m_segments;
     bool m_here;
 };
 
@@ -120,14 +120,14 @@ class Tile
 
 public:
     Tile(
-            const BBox& bbox,
+            const Bounds& bounds,
             const Schema& schema,
             Above::Map& aboves,
             std::size_t maxPointsPerTile)
-        : m_bbox(bbox)
+        : m_bounds(bounds)
         , m_schema(schema)
         , m_maxPointsPerTile(maxPointsPerTile)
-        , m_aboves(getContainingFrom(m_bbox, aboves))
+        , m_aboves(getContainingFrom(m_bounds, aboves))
         , m_belows()
         , m_data()
         , m_owned(false)
@@ -189,14 +189,14 @@ public:
     bool references(Above& above) const { return m_aboves.count(&above); }
 
 private:
-    Above::Set getContainingFrom(const BBox& bbox, Above::Map& aboves) const;
+    Above::Set getContainingFrom(const Bounds& bounds, Above::Map& aboves) const;
 
     void splitAndCall(
             const TileFunction& f,
             const std::vector<char>& data,
-            const BBox& bbox) const;
+            const Bounds& bounds) const;
 
-    const BBox m_bbox;
+    const Bounds m_bounds;
     const Schema& m_schema;
     const std::size_t m_maxPointsPerTile;
 
@@ -245,19 +245,19 @@ private:
             const TileFunction& f,
             const Id& chunkId,
             std::size_t depth,
-            const BBox& bbox);
+            const Bounds& bounds);
 
     void spawnTile(
             const TileFunction& f,
             const Id& chunkId,
-            const BBox& bbox,
+            const Bounds& bounds,
             bool exists);
 
     void buildTile(
             const TileFunction& f,
             const Id& chunkId,
             std::size_t depth,
-            const BBox& bbox);
+            const Bounds& bounds);
 
     void awaitAndAcquire(
             const TileFunction& f,
@@ -266,7 +266,7 @@ private:
 
     void maybeProcess(const TileFunction& f);
     std::unique_ptr<std::vector<char>> acquire(const Id& chunkId);
-    using TileMap = std::map<BBox, std::unique_ptr<Tile>>;
+    using TileMap = std::map<Bounds, std::unique_ptr<Tile>>;
 
     const arbiter::Endpoint m_inEndpoint;
 
@@ -283,11 +283,11 @@ private:
 
     const Schema* const m_wantedSchema;
 
-    std::map<BBox, std::unique_ptr<Above>> m_aboves;
+    std::map<Bounds, std::unique_ptr<Above>> m_aboves;
     TileMap m_tiles;
 
-    std::unique_ptr<BBox> m_current;
-    std::set<BBox> m_processing;
+    std::unique_ptr<Bounds> m_current;
+    std::set<Bounds> m_processing;
 };
 
 class SizedPointView : public pdal::PointView
