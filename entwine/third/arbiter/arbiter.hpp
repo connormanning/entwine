@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 4480b295da9166d122f090eebcfe6e90d15a4ac8
+// Git SHA: a869f0b2f17cce7249b202a93767704c124a50b8
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -2445,7 +2445,9 @@ protected:
     /** @brief Resolve a wildcard path.
      *
      * This operation should return a non-recursive resolution of the files
-     * matching the given wildcard @p path (no directories).
+     * matching the given wildcard @p path (no directories).  With the exception
+     * of the filesystem Driver, results should be prefixed with
+     * `type() + "://"`.
      *
      * @note The default behavior is to throw ArbiterError, so derived classes
      * may optionally override if they can perform this behavior.
@@ -2512,8 +2514,6 @@ namespace ARBITER_CUSTOM_NAMESPACE
 
 namespace arbiter
 {
-
-namespace http { class Pool; }
 
 class Arbiter;
 
@@ -2593,7 +2593,7 @@ namespace drivers
 class Fs : public Driver
 {
 public:
-    static std::unique_ptr<Fs> create(http::Pool&, const Json::Value& json);
+    static std::unique_ptr<Fs> create(const Json::Value& json);
 
     virtual std::string type() const override { return "file"; }
 
@@ -5656,6 +5656,11 @@ namespace arbiter
 /** General utilities. */
 namespace util
 {
+    /** Returns @p path, less any trailing glob indicators (one or two
+     * asterisks) as well as any possible trailing slash.
+     */
+    std::string stripPostfixing(std::string path);
+
     /** Returns the portion of @p fullPath following the last instance of the
      * character `/`, if any instances exist aside from possibly the delimiter
      * `://`.  If there are no other instances of `/`, then @p fullPath itself
@@ -5666,10 +5671,30 @@ namespace util
      * logic above, thus the innermost directory in the full path will be
      * returned.
      */
-    std::string getBasename(const std::string fullPath);
+    std::string getBasename(std::string fullPath);
+
+    /** Returns everything besides the basename, as determined by `getBasename`.
+     * For file paths, this corresponds to the directory path above the file.
+     * For directory paths, this corresponds to all directories above the
+     * innermost directory.
+     */
+    std::string getNonBasename(std::string fullPath);
 
     /** @cond arbiter_internal */
     inline bool isSlash(char c) { return c == '/' || c == '\\'; }
+
+    /** Returns true if the last character is an asterisk. */
+    inline bool isGlob(std::string path)
+    {
+        return path.size() && path.back() == '*';
+    }
+
+    /** Returns true if the last character is a slash or an asterisk. */
+    inline bool isDirectory(std::string path)
+    {
+        return (path.size() && isSlash(path.back())) || isGlob(path);
+    }
+
     inline std::string joinImpl(bool first = false) { return std::string(); }
 
     template <typename ...Paths>
@@ -5678,11 +5703,17 @@ namespace util
             std::string current,
             Paths&&... paths)
     {
+        const bool currentIsDir(current.size() && isSlash(current.back()));
         std::string next(joinImpl(false, std::forward<Paths>(paths)...));
+
+        // Strip slashes from the front of our remainder.
         while (next.size() && isSlash(next.front())) next = next.substr(1);
 
         if (first)
         {
+            // If this is the first component, strip a single trailing slash if
+            // one exists - but do not strip a double trailing slash since we
+            // want to retain Windows paths like "C://".
             if (
                     current.size() > 1 &&
                     isSlash(current.back()) &&
@@ -5700,9 +5731,23 @@ namespace util
             if (current.empty()) return next;
         }
 
-        const std::string sep(
-                next.size() && (current.empty() || !isSlash(current.back())) ?
-                    "/" : "");
+        std::string sep;
+
+        if (next.size() && (current.empty() || !isSlash(current.back())))
+        {
+            // We are going to join current with a populated subpath, so make
+            // sure they are separated by a slash.
+            sep = "/";
+        }
+        else if (next.empty() && currentIsDir)
+        {
+            // We are at the end of the chain, and the last component was a
+            // directory.  Retain its trailing slash.
+            if (current.size() && !isSlash(current.back()))
+            {
+                sep = "/";
+            }
+        }
 
         return current + sep + next;
     }
@@ -6060,6 +6105,74 @@ private:
 
 
 // //////////////////////////////////////////////////////////////////////
+// Beginning of content of file: arbiter/drivers/test.hpp
+// //////////////////////////////////////////////////////////////////////
+
+#pragma once
+
+#include <numeric>
+
+#ifndef ARBITER_IS_AMALGAMATION
+#include <arbiter/drivers/fs.hpp>
+#endif
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
+
+namespace arbiter
+{
+
+class Arbiter;
+
+namespace drivers
+{
+
+/** @brief A filesystem driver that acts as if it were remote for testing
+ * purposes.
+ */
+class Test : public Fs
+{
+public:
+    static std::unique_ptr<Test> create(const Json::Value& json)
+    {
+        return std::unique_ptr<Test>(new Test());
+    }
+
+    virtual std::string type() const override { return "test"; }
+    virtual bool isRemote() const override { return true; }
+
+private:
+    virtual std::vector<std::string> glob(
+            std::string path,
+            bool verbose) const override
+    {
+        auto results(Fs::glob(path, verbose));
+        for (auto& p : results) p = type() + "://" + p;
+        return results;
+    }
+};
+
+} // namespace drivers
+
+} // namespace arbiter
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
+
+// //////////////////////////////////////////////////////////////////////
+// End of content of file: arbiter/drivers/test.hpp
+// //////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+// //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: arbiter/endpoint.hpp
 // //////////////////////////////////////////////////////////////////////
 
@@ -6107,6 +6220,12 @@ public:
      * `my-bucket/nested-directory/`.
      */
     std::string root() const;
+
+    /** Returns root directory name ending with the character `/`.  If
+     * `isRemote` is `true`, then the path will be prefixed with
+     * `type() + "://"`.
+     */
+    std::string prefixedRoot() const;
 
     // Driver passthroughs.
 
@@ -6205,11 +6324,20 @@ public:
      */
     std::string fullPath(const std::string& subpath) const;
 
+    /** Get the full path corresponding to this subpath.  If `isRemote` is
+     * `true`, then the path will be prefixed with `type() + "://"`.
+     */
+    std::string prefixedFullPath(const std::string& subpath) const;
+
     /** Get a further nested subpath relative to this Endpoint's root. */
     Endpoint getSubEndpoint(std::string subpath) const;
 
 private:
     Endpoint(const Driver& driver, std::string root);
+
+    // If `isRemote()`, returns the type and delimiter, otherwise returns an
+    // empty string.
+    std::string softPrefix() const;
 
     const drivers::Http* tryGetHttpDriver() const;
     const drivers::Http& getHttpDriver() const;
@@ -6252,6 +6380,7 @@ private:
 #include <arbiter/driver.hpp>
 #include <arbiter/endpoint.hpp>
 #include <arbiter/drivers/fs.hpp>
+#include <arbiter/drivers/test.hpp>
 #include <arbiter/drivers/http.hpp>
 #include <arbiter/drivers/s3.hpp>
 #include <arbiter/drivers/dropbox.hpp>
@@ -6305,6 +6434,9 @@ public:
 
     /** @brief Construct an Arbiter with driver configurations. */
     Arbiter(const Json::Value& json);
+
+    /** True if a Driver has been registered for this file type. */
+    bool hasDriver(std::string path) const;
 
     /** @brief Add a custom driver for the supplied type.
      *
@@ -6387,10 +6519,27 @@ public:
             http::Headers headers,
             http::Query query = http::Query()) const;
 
-    /** Copy data from @p from to @p to.  @p from will be resolved with
+    /** Copy data from @p src to @p dst.  @p src will be resolved with
      * Arbiter::resolve prior to the copy, so globbed directories are supported.
+     * If @p src ends with a slash, it will be resolved with a recursive glob,
+     * in which case any nested directory structure will be recreated in @p dst.
+     *
+     * If @p dst is a filesystem path, fs::mkdirp will be called prior to the
+     * start of copying.  If @p src is a recursive glob, `fs::mkdirp` will
+     * be repeatedly called during copying to ensure that any nested directories
+     * are reproduced.
      */
-    void copy(std::string from, std::string to) const;
+    void copy(std::string src, std::string dst, bool verbose = false) const;
+
+    /** Copy the single file @p file to the destination @p to.  If @p to ends
+     * with a `/` or '\' character, then @p file will be copied into the
+     * directory @p to with the basename of @p file.  If @p does not end with a
+     * slash character, then @p to will be interpreted as a file path.
+     *
+     * If @p to is a local filesystem path, then `fs::mkdirp` will be called
+     * prior to copying.
+     */
+    void copyFile(std::string file, std::string to, bool verbose = false) const;
 
     /** Returns true if this path is a remote path, or false if it is on the
      * local filesystem.
@@ -6401,6 +6550,15 @@ public:
      * remote.
      */
     bool isLocal(std::string path) const;
+
+    /** Returns true if this path exists.  Equivalent to:
+     * @code
+     * tryGetSize(path).get() != nullptr
+     * @endcode
+     *
+     * @note This means that an existing file of size zero will return true.
+     */
+    bool exists(std::string path) const;
 
     /** Returns true if the protocol for this driver is build on HTTP, like the
      * S3 and Dropbox drivers are.  If this returns true, http::Headers and

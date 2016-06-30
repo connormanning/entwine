@@ -229,7 +229,6 @@ private:
 
     PointState m_pointState;
     HierarchyState m_hierarchyState;
-    // OHierarchyState m_ohierarchyState;
 };
 
 class CellState
@@ -246,31 +245,6 @@ public:
 private:
     Climber m_climber;
     Cell::PooledNode m_cell;
-};
-
-
-
-
-
-class OHierarchyState
-{
-public:
-    OHierarchyState(const Metadata& metadata, OHierarchy* hierarchy);
-
-    void climb(const Point& point)
-    {
-        if (m_climber && ++m_depth > m_climber->depthBegin())
-        {
-            m_climber->magnify(point);
-        }
-    }
-
-    void reset() { if (m_climber) m_climber->reset(); }
-    void count() { if (m_depth >= m_climber->depthBegin()) m_climber->count(); }
-
-private:
-    std::size_t m_depth;
-    std::unique_ptr<HierarchyClimber> m_climber;
 };
 
 } // namespace entwine

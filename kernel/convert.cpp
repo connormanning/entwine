@@ -10,11 +10,8 @@
 
 #include "entwine.hpp"
 
-#include <fstream>
-#include <iostream>
-#include <string>
-
-#include <entwine/tree/merger.hpp>
+#include <entwine/third/arbiter/arbiter.hpp>
+#include <entwine/tree/old-hierarchy.hpp>
 
 using namespace entwine;
 
@@ -23,24 +20,20 @@ namespace
     std::string getUsageString()
     {
         return
-            "\tUsage: entwine merge <path> <options>\n"
+            "\tUsage: entwine convert <path> <options>\n"
             "\tOptions:\n"
-
-            "\t-t <threads>\n"
-            "\t\tSet the number of worker threads.  Recommended to be no\n"
-            "\t\tmore than the physical number of cores.\n\n"
 
             "\t\t-u <aws-user>\n"
             "\t\t\tSpecify AWS credential user, if not default\n";
     }
 }
 
-void Kernel::merge(std::vector<std::string> args)
+void Kernel::convert(std::vector<std::string> args)
 {
     if (args.size() < 1)
     {
         std::cout << getUsageString() << std::endl;
-        throw std::runtime_error("Merge path required");
+        throw std::runtime_error("Conversion path required");
     }
 
     const std::string path(args[0]);
@@ -48,7 +41,6 @@ void Kernel::merge(std::vector<std::string> args)
     std::string user;
 
     std::size_t a(1);
-    std::size_t threads(1);
 
     while (a < args.size())
     {
@@ -65,17 +57,6 @@ void Kernel::merge(std::vector<std::string> args)
                 throw std::runtime_error("Invalid credential path argument");
             }
         }
-        else if (arg == "-t")
-        {
-            if (++a < args.size())
-            {
-                threads = std::stoul(args[a]);
-            }
-            else
-            {
-                throw std::runtime_error("Invalid credential path argument");
-            }
-        }
 
         ++a;
     }
@@ -85,10 +66,27 @@ void Kernel::merge(std::vector<std::string> args)
 
     auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(arbiterConfig));
 
-    Merger merger(path, threads, arbiter);
+    const std::string metaPath(arbiter::util::join(path, "entwine"));
+    const std::string hierPath(arbiter::util::join(path, "h/"));
+    const std::string backPath(arbiter::util::join(path, "h-old/"));
 
-    std::cout << "Merging " << path << "..." << std::endl;
-    merger.go();
-    std::cout << "Done." << std::endl;
+    // Back up metadata file, which will be altered.
+    arbiter->copy(metaPath, arbiter::util::join(path, "entwine-old"));
+
+    // Back up entire old-style hierarchy directory contents, which would
+    // otherwise have some files overwritten.
+    arbiter->copy(hierPath, backPath);
+
+    Json::Value jsonMeta(parse(arbiter->get(metaPath)));
+
+    // Naming convention conversions.
+    jsonMeta["bounds"] = jsonMeta["bbox"];
+    jsonMeta["boundsConforming"] = jsonMeta["bboxConforming"];
+
+    const Structure treeStructure(jsonMeta["structure"]);
+    jsonMeta["hierarchyStructure"] =
+        Hierarchy::structure(treeStructure).toJson();
+
+    // OldHierarchy old(jsonMeta["hierarchy"], arbiter->getEndpoint(backPath));
 }
 

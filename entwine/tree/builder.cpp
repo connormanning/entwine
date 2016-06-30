@@ -64,7 +64,6 @@ Builder::Builder(
     , m_end(0)
     , m_added(0)
     , m_pointPool(outerScope.getPointPool(m_metadata->schema()))
-    , m_nodePool(outerScope.getNodePool())
     , m_hierarchy(makeUnique<Hierarchy>(*m_metadata, *m_outEndpoint, false))
     , m_registry(makeUnique<Registry>(*this))
 {
@@ -91,7 +90,6 @@ Builder::Builder(
     , m_end(0)
     , m_added(0)
     , m_pointPool(outerScope.getPointPool(m_metadata->schema()))
-    , m_nodePool(outerScope.getNodePool())
     , m_hierarchy(makeUnique<Hierarchy>(*m_metadata, *m_outEndpoint, true))
     , m_registry(makeUnique<Registry>(*this, true))
 {
@@ -496,12 +494,6 @@ PointPool& Builder::pointPool() const { return *m_pointPool; }
 std::shared_ptr<PointPool> Builder::sharedPointPool() const
 {
     return m_pointPool;
-}
-
-Node::NodePool& Builder::nodePool() const { return *m_nodePool; }
-std::shared_ptr<Node::NodePool> Builder::sharedNodePool() const
-{
-    return m_nodePool;
 }
 
 const arbiter::Endpoint& Builder::outEndpoint() const { return *m_outEndpoint; }

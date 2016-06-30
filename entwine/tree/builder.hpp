@@ -102,8 +102,6 @@ public:
 
     PointPool& pointPool() const;
     std::shared_ptr<PointPool> sharedPointPool() const;
-    Node::NodePool& nodePool() const;
-    std::shared_ptr<Node::NodePool> sharedNodePool() const;
 
     bool isContinuation() const { return m_isContinuation; }
 
@@ -217,7 +215,6 @@ private:
     std::size_t m_added;
 
     mutable std::shared_ptr<PointPool> m_pointPool;
-    mutable std::shared_ptr<Node::NodePool> m_nodePool;
 
     std::unique_ptr<Hierarchy> m_hierarchy;
     std::unique_ptr<Registry> m_registry;

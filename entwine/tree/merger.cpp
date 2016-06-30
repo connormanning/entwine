@@ -29,7 +29,6 @@ Merger::Merger(
     , m_outerScope(makeUnique<OuterScope>())
 {
     m_outerScope->setArbiter(arbiter);
-    m_outerScope->setNodePool(std::make_shared<Node::NodePool>());
 
     m_builder = Builder::create(path, threads, *m_outerScope);
     if (!m_builder) throw std::runtime_error("Path not mergeable");

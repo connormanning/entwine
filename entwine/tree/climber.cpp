@@ -83,21 +83,5 @@ void PointState::climb(const Dir dir)
     }
 }
 
-
-
-
-
-
-OHierarchyState::OHierarchyState(const Metadata& metadata, OHierarchy* hierarchy)
-    : m_depth(0)
-    , m_climber(
-        hierarchy ?
-            new HierarchyClimber(
-                *hierarchy,
-                metadata.structure().tubular() ||
-                metadata.structure().dimensions() == 3 ? 3 : 2) :
-            nullptr)
-{ }
-
 } // namespace entwine
 
