@@ -71,7 +71,7 @@ public:
                     m_structure,
                     chunkId,
                     m_structure.getInfo(chunkId).pointsPerChunk(),
-                    m_endpoint.getBinary(chunkId.str()));
+                    m_endpoint.getBinary(chunkId.str() + m_metadata.postfix()));
         });
     }
 

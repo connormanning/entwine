@@ -94,7 +94,6 @@ Builder::Builder(
     , m_registry(makeUnique<Registry>(*this, true))
 {
     prepareEndpoints();
-    m_hierarchy->awakenAll();
 }
 
 std::unique_ptr<Builder> Builder::create(
@@ -144,6 +143,8 @@ Builder::~Builder()
 
 void Builder::go(std::size_t max)
 {
+    m_hierarchy->awakenAll();
+
     if (!m_tmpEndpoint)
     {
         throw std::runtime_error("Cannot add to read-only builder");

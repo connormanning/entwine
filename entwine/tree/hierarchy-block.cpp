@@ -90,7 +90,7 @@ void ContiguousBlock::save(const arbiter::Endpoint& ep, std::string pf)
         }
     }
 
-    if (data.size()) ep.put(m_id.str() + pf, data);
+    ep.put(m_id.str() + pf, data);
 }
 
 void ContiguousBlock::merge(const ContiguousBlock& other)
