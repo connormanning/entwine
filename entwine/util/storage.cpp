@@ -15,6 +15,7 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/chunk.hpp>
+#include <entwine/types/format.hpp>
 #include <entwine/util/storage.hpp>
 
 namespace
@@ -61,8 +62,8 @@ void Storage::ensurePut(
     }
     else
     {
-        const Chunk::Type type(static_cast<Chunk::Type>(data.back()));
-        if (type != Chunk::Type::Contiguous && type != Chunk::Type::Sparse)
+        const ChunkType type(static_cast<ChunkType>(data.back()));
+        if (type != ChunkType::Contiguous && type != ChunkType::Sparse)
         {
             throw std::runtime_error("Tried to save improperly marked chunk");
         }

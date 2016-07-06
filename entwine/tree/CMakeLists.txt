@@ -5,7 +5,6 @@ set(
     SOURCES
     "${BASE}/builder.cpp"
     "${BASE}/chunk.cpp"
-    "${BASE}/climber.cpp"
     "${BASE}/clipper.cpp"
     "${BASE}/cold.cpp"
     "${BASE}/config-parser.cpp"

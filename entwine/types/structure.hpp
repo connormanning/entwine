@@ -61,6 +61,9 @@ private:
     std::size_t m_chunkNum;
 };
 
+// The Structure maintains attributes that give insight into the overall
+// serialized layout of the entwine tree.  For example, parameters that relate
+// to the chunking structure and the pivot depths that affect this layout.
 class Structure
 {
     friend class Subset;

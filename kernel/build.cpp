@@ -20,6 +20,7 @@
 #include <entwine/tree/config-parser.hpp>
 #include <entwine/tree/thread-pools.hpp>
 #include <entwine/types/bounds.hpp>
+#include <entwine/types/format.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
@@ -476,13 +477,15 @@ void Kernel::build(std::vector<std::string> args)
             (runCount > 1 ? "s" : "") << "\n";
     }
 
+    const Format& format(metadata.format());
+
     const std::string coldDepthString(
             structure.lossless() ?
                 "lossless" :
                 std::to_string(structure.coldDepthEnd()));
 
     std::cout <<
-        "\tTrust file headers? " << yesNo(metadata.trustHeaders()) << "\n" <<
+        "\tTrust file headers? " << yesNo(format.trustHeaders()) << "\n" <<
         "\tBuild threads: " << builder->threadPools().size() <<
         std::endl;
 
@@ -490,7 +493,7 @@ void Kernel::build(std::vector<std::string> args)
         "Output:\n" <<
         "\tOutput path: " << outPath << "\n" <<
         "\tTemporary path: " << tmpPath << "\n" <<
-        "\tCompressed output? " << yesNo(metadata.compress()) <<
+        "\tCompressed output? " << yesNo(format.compress()) <<
         std::endl;
 
     std::cout <<

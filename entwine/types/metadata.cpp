@@ -9,6 +9,7 @@
 ******************************************************************************/
 
 #include <entwine/tree/manifest.hpp>
+#include <entwine/types/format.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
@@ -26,10 +27,9 @@ Metadata::Metadata(
         const Structure& structure,
         const Structure& hierarchyStructure,
         const Manifest& manifest,
+        const Format& format,
         const Reprojection* reprojection,
-        const Subset* subset,
-        const bool trustHeaders,
-        const bool compress)
+        const Subset* subset)
     : m_boundsConforming(makeUnique<Bounds>(boundsConforming))
     , m_boundsEpsilon(makeUnique<Bounds>(m_boundsConforming->growBy(0.005)))
     , m_bounds(makeUnique<Bounds>(m_boundsConforming->cubeify()))
@@ -37,11 +37,9 @@ Metadata::Metadata(
     , m_structure(makeUnique<Structure>(structure))
     , m_hierarchyStructure(makeUnique<Structure>(hierarchyStructure))
     , m_manifest(makeUnique<Manifest>(manifest))
+    , m_format(makeUnique<Format>(format))
     , m_reprojection(maybeClone(reprojection))
     , m_subset(maybeClone(subset))
-    , m_srs()
-    , m_trustHeaders(trustHeaders)
-    , m_compress(compress)
     , m_errors()
 { }
 
@@ -65,10 +63,7 @@ Metadata::Metadata(
     m_hierarchyStructure = makeUnique<Structure>(meta["hierarchyStructure"]);
 
     m_manifest = makeUnique<Manifest>(manifest);
-
-    m_srs = meta["srs"].asString();
-    m_trustHeaders = meta["trustHeaders"].asBool();
-    m_compress = meta["compressed"].asBool();
+    m_format = makeUnique<Format>(*m_schema, meta["format"]);
 
     if (meta.isMember("reprojection"))
     {
@@ -99,11 +94,9 @@ Metadata::Metadata(const Metadata& other)
     , m_structure(makeUnique<Structure>(other.structure()))
     , m_hierarchyStructure(makeUnique<Structure>(other.hierarchyStructure()))
     , m_manifest(makeUnique<Manifest>(other.manifest()))
+    , m_format(makeUnique<Format>(other.format()))
     , m_reprojection(maybeClone(other.reprojection()))
     , m_subset(maybeClone(other.subset()))
-    , m_srs(other.srs())
-    , m_trustHeaders(other.trustHeaders())
-    , m_compress(other.compress())
     , m_errors(other.errors())
 { }
 
@@ -118,9 +111,7 @@ void Metadata::save(const arbiter::Endpoint& endpoint) const
     json["schema"] = m_schema->toJson();
     json["structure"] = m_structure->toJson();
     json["hierarchyStructure"] = m_hierarchyStructure->toJson();
-    json["srs"] = m_srs;
-    json["trustHeaders"] = m_trustHeaders;
-    json["compressed"] = m_compress;
+    json["format"] = m_format->toJson();
 
     if (m_reprojection) json["reprojection"] = m_reprojection->toJson();
     if (m_subset) json["subset"] = m_subset->toJson();
@@ -137,7 +128,7 @@ void Metadata::save(const arbiter::Endpoint& endpoint) const
 
 void Metadata::merge(const Metadata& other)
 {
-    if (m_srs.empty()) m_srs = other.srs();
+    if (m_format->srs().empty()) m_format->srs() = other.format().srs();
     m_manifest->merge(other.manifest());
 }
 

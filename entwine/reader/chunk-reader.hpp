@@ -45,8 +45,7 @@ class ChunkReader
 {
 public:
     ChunkReader(
-            const Schema& schema,
-            const Bounds& bounds,
+            const Metadata& metadata,
             const Id& id,
             std::size_t depth,
             std::unique_ptr<std::vector<char>> data);
@@ -89,7 +88,7 @@ public:
             const Metadata& metadata,
             const Schema& celledSchema,
             const Id& id,
-            std::unique_ptr<std::vector<char>> compressed);
+            std::unique_ptr<std::vector<char>> data);
 
     using TubeData = std::vector<PointInfo>;
 

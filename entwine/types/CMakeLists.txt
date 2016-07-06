@@ -4,6 +4,7 @@ set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 set(
     SOURCES
     "${BASE}/bounds.cpp"
+    "${BASE}/format.cpp"
     "${BASE}/metadata.cpp"
     "${BASE}/pooled-point-table.cpp"
     "${BASE}/structure.cpp"
@@ -18,6 +19,7 @@ set(
     "${BASE}/dim-info.hpp"
     "${BASE}/dir.hpp"
     "${BASE}/fixed-point-layout.hpp"
+    "${BASE}/format.hpp"
     "${BASE}/metadata.hpp"
     "${BASE}/outer-scope.hpp"
     "${BASE}/point.hpp"

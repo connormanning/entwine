@@ -49,10 +49,7 @@ Cold::Cold(const Builder& builder, bool exists)
     {
         const Json::Value json(([this, &metadata]()
         {
-            const auto endpoint(m_builder.outEndpoint());
-            const auto postfix(metadata.postfix());
-            const std::string subpath("entwine-ids" + postfix);
-
+            const std::string subpath("entwine-ids" + metadata.postfix());
             return parse(m_builder.outEndpoint().get(subpath));
         })());
 

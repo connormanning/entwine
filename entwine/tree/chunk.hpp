@@ -20,6 +20,7 @@
 
 #include <entwine/tree/climber.hpp>
 #include <entwine/types/dim-info.hpp>
+#include <entwine/types/format.hpp>
 #include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/tube.hpp>
@@ -62,26 +63,6 @@ public:
             const Id& maxPoints,
             std::unique_ptr<std::vector<char>> data);
 
-    enum class Type : char
-    {
-        Sparse = 0,
-        Contiguous,
-        Invalid
-    };
-
-    struct Tail
-    {
-        Tail(std::size_t numPoints, Type type)
-            : numPoints(numPoints), type(type)
-        { }
-
-        uint64_t numPoints;
-        Type type;
-    };
-
-    static void pushTail(std::vector<char>& data, Tail tail);
-    static Tail popTail(std::vector<char>& data);
-
     const Id& maxPoints() const { return m_maxPoints; }
     const Id& id() const { return m_id; }
 
@@ -91,11 +72,9 @@ public:
     }
 
 protected:
-    void populate(
-            std::unique_ptr<std::vector<char>> compressedData,
-            std::size_t numPoints);
+    void populate(Cell::PooledStack cells);
 
-    void collect(Type type);
+    void collect(ChunkType type);
 
     virtual Cell::PooledStack acquire() = 0;
     virtual Tube& getTube(const Id& index) = 0;
@@ -129,8 +108,7 @@ public:
             std::size_t depth,
             const Id& id,
             const Id& maxPoints,
-            std::unique_ptr<std::vector<char>> compressedData,
-            std::size_t numPoints);
+            Cell::PooledStack cells);
 
     virtual ~SparseChunk();
 
@@ -171,8 +149,7 @@ public:
             std::size_t depth,
             const Id& id,
             const Id& maxPoints,
-            std::unique_ptr<std::vector<char>> compressedData,
-            std::size_t numPoints);
+            Cell::PooledStack cells);
 
     virtual ~ContiguousChunk();
 
@@ -207,8 +184,7 @@ public:
             const Builder& builder,
             const Id& id,
             const Id& maxPoints,
-            std::unique_ptr<std::vector<char>> compressedData,
-            std::size_t numPoints);
+            Unpacker unpacker);
 
     // Unlike the other Chunk types, the BaseChunk requires an explicit call to
     // save, rather than serializing during its destructor.

@@ -22,20 +22,21 @@ namespace entwine
 {
 
 ChunkReader::ChunkReader(
-        const Schema& schema,
-        const Bounds& bounds,
+        const Metadata& metadata,
         const Id& id,
         const std::size_t depth,
-        std::unique_ptr<std::vector<char>> compressed)
-    : m_schema(schema)
-    , m_bounds(bounds)
+        std::unique_ptr<std::vector<char>> data)
+    : m_schema(metadata.schema())
+    , m_bounds(metadata.bounds())
     , m_id(id)
     , m_depth(depth)
     , m_data()
     , m_points()
 {
-    const std::size_t numPoints(Chunk::popTail(*compressed).numPoints);
-    m_data = Compression::decompress(*compressed, m_schema, numPoints);
+    Unpacker unpacker(metadata.format().unpack(std::move(data)));
+    m_data = unpacker.acquireBytes();
+
+    const std::size_t numPoints(unpacker.numPoints());
 
     BinaryPointTable table(m_schema);
     pdal::PointRef pointRef(table, 0);
@@ -79,13 +80,20 @@ BaseChunkReader::BaseChunkReader(
         const Metadata& metadata,
         const Schema& celledSchema,
         const Id& id,
-        std::unique_ptr<std::vector<char>> compressed)
+        std::unique_ptr<std::vector<char>> data)
     : m_id(id)
     , m_data()
     , m_tubes(metadata.structure().baseIndexSpan())
 {
-    const std::size_t numPoints(Chunk::popTail(*compressed).numPoints);
-    m_data = Compression::decompress(*compressed, celledSchema, numPoints);
+    Unpacker unpacker(metadata.format().unpack(std::move(data)));
+    m_data = unpacker.acquireRawBytes();
+
+    const std::size_t numPoints(unpacker.numPoints());
+
+    if (metadata.format().compress())
+    {
+        m_data = Compression::decompress(*m_data, celledSchema, numPoints);
+    }
 
     BinaryPointTable table(celledSchema);
     pdal::PointRef pointRef(table, 0);

@@ -272,7 +272,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
 
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        std::string& srs(m_metadata->srs());
+        std::string& srs(m_metadata->format().srs());
 
         if (srs.empty())
         {
@@ -568,20 +568,15 @@ void Builder::unsplit(Builder& other)
                     "From " << branch.id() << ": " <<
                     chunkId << " " << depth << std::endl;
 
-                auto compressed(
-                        m_outEndpoint->getBinary(
-                            m_metadata->structure().maybePrefix(chunkId) +
-                            other.metadata().postfix(true)));
+                std::unique_ptr<std::vector<char>> data(
+                        makeUnique<std::vector<char>>(
+                            m_outEndpoint->getBinary(
+                                m_metadata->structure().maybePrefix(chunkId) +
+                                other.metadata().postfix(true))));
 
-                const auto tail(Chunk::popTail(compressed));
+                Unpacker unpacker(m_metadata->format().unpack(std::move(data)));
 
-                Cell::PooledStack cells(
-                        Compression::decompress(
-                            compressed,
-                            tail.numPoints,
-                            *m_pointPool));
-
-                compressed.clear();
+                Cell::PooledStack cells(unpacker.acquireCells(*m_pointPool));
 
                 insertHinted(
                     reserves,

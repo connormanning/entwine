@@ -131,9 +131,9 @@ Base::Base(const Tiler& tiler)
     const Schema celledSchema(BaseChunk::makeCelled(metadata.schema()));
 
     const std::string path(metadata.structure().maybePrefix(m_chunkId));
-    auto cmp(Storage::ensureGet(tiler.inEndpoint(), path));
+    auto data(Storage::ensureGet(tiler.inEndpoint(), path));
 
-    if (!cmp)
+    if (!data)
     {
         throw std::runtime_error("Could not acquire base: " + m_chunkId.str());
     }
@@ -149,18 +149,25 @@ Base::Base(const Tiler& tiler)
     }
     */
 
-    const std::size_t numPoints(Chunk::popTail(*cmp).numPoints);
+    auto unpacker(tiler.metadata().format().unpack(std::move(data)));
+    data = unpacker.acquireRawBytes();
+    const std::size_t numPoints(unpacker.numPoints());
+
     std::cout << "Base points: " << numPoints << std::endl;
-    auto data(
-            Compression::decompress(
-                *cmp,
-                celledSchema,
-                // TODO We're tossing information by not using the celled
-                // version, so currently this is read-only - no transformations.
-                // celledWantedSchema.get(),
-                // tiler.wantedSchema(),
-                &tiler.activeSchema(),
-                numPoints));
+    if (tiler.metadata().format().compress())
+    {
+        data =
+                Compression::decompress(
+                    *data,
+                    celledSchema,
+                    // TODO We're tossing information by not using the celled
+                    // version, so currently this is read-only - no
+                    // transformations.
+                    // celledWantedSchema.get(),
+                    // tiler.wantedSchema(),
+                    &tiler.activeSchema(),
+                    numPoints);
+    }
 
     populate(std::move(data));
 }
@@ -467,6 +474,7 @@ std::unique_ptr<std::vector<char>> Tiler::acquire(const Id& chunkId)
         throw std::runtime_error("Could not acquire " + chunkId.str());
     }
 
+    /*
     const std::size_t numPoints(Chunk::popTail(*compressed).numPoints);
     auto data(
             Compression::decompress(
@@ -476,6 +484,8 @@ std::unique_ptr<std::vector<char>> Tiler::acquire(const Id& chunkId)
                 numPoints));
 
     return data;
+    */
+    return std::unique_ptr<std::vector<char>>();
 }
 
 Above::Set Tile::getContainingFrom(

@@ -105,7 +105,9 @@ private:
     const std::size_t m_startDepth;
     const uint64_t m_id;
 
-    using ClipMap = std::map<Id, ClipInfo>;
+    // Store these in reverse order so we clip the deepest levels first.  This
+    // way we can propagate small/deep chunks upward for merged storage.
+    using ClipMap = std::map<Id, ClipInfo, std::greater<Id>>;
 
     ClipMap m_clips;
     std::vector<ClipMap::iterator> m_fastCache;

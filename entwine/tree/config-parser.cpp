@@ -18,6 +18,7 @@
 #include <entwine/tree/builder.hpp>
 #include <entwine/tree/manifest.hpp>
 #include <entwine/types/bounds.hpp>
+#include <entwine/types/format.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
@@ -168,6 +169,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     jsonStructure["numPointsHint"] = static_cast<Json::UInt64>(numPointsHint);
     Structure structure(jsonStructure);
     Structure hierarchyStructure(Hierarchy::structure(structure));
+    Format format(*schema, trustHeaders, compress);
 
     const Metadata metadata(
             *boundsConforming,
@@ -175,10 +177,9 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
             structure,
             hierarchyStructure,
             *manifest,
+            format,
             reprojection.get(),
-            subset.get(),
-            trustHeaders,
-            compress);
+            subset.get());
 
     OuterScope outerScope;
     outerScope.setArbiter(arbiter);

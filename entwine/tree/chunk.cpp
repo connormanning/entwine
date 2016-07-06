@@ -44,16 +44,11 @@ Chunk::Chunk(
     , m_data()
 { }
 
-void Chunk::populate(
-        const std::unique_ptr<std::vector<char>> compressedData,
-        const std::size_t numPoints)
+void Chunk::populate(Cell::PooledStack cells)
 {
-    Cell::PooledStack cells(
-            Compression::decompress(*compressedData, numPoints, m_pointPool));
-
     Climber climber(m_metadata);
 
-    for (std::size_t i(0); i < numPoints; ++i)
+    while (!cells.empty())
     {
         Cell::PooledNode cell(cells.popOne());
 
@@ -64,7 +59,7 @@ void Chunk::populate(
     }
 }
 
-void Chunk::collect(Type type)
+void Chunk::collect(ChunkType type)
 {
     assert(!m_data);
 
@@ -75,13 +70,7 @@ void Chunk::collect(Type type)
 
     cellStack.reset();
 
-    const std::size_t pointSize(m_metadata.schema().pointSize());
-    Compressor compressor(m_metadata.schema(), dataStack.size());
-
-    for (const char* pos : dataStack) compressor.push(pos, pointSize);
-
-    m_data = compressor.data();
-    pushTail(*m_data, Tail(dataStack.size(), type));
+    m_data = m_metadata.format().pack(std::move(dataStack), type);
 }
 
 Chunk::~Chunk()
@@ -126,85 +115,39 @@ std::unique_ptr<Chunk> Chunk::create(
         const Id& maxPoints,
         std::unique_ptr<std::vector<char>> data)
 {
-    const Tail tail(popTail(*data));
-    const std::size_t numPoints(tail.numPoints);
+    Unpacker unpacker(builder.metadata().format().unpack(std::move(data)));
 
-    if (tail.type == Type::Contiguous)
+    if (depth)
     {
-        if (depth)
+        if (unpacker.chunkType() == ChunkType::Contiguous)
         {
             return makeUnique<ContiguousChunk>(
                     builder,
                     depth,
                     id,
                     maxPoints,
-                    std::move(data),
-                    numPoints);
+                    unpacker.acquireCells(builder.pointPool()));
         }
-        else
+        else if (unpacker.chunkType() == ChunkType::Sparse)
         {
-            return makeUnique<BaseChunk>(
+            return makeUnique<SparseChunk>(
                     builder,
+                    depth,
                     id,
                     maxPoints,
-                    std::move(data),
-                    numPoints);
+                    unpacker.acquireCells(builder.pointPool()));
         }
     }
-    else if (tail.type == Type::Sparse)
+    else
     {
-        return makeUnique<SparseChunk>(
+        return makeUnique<BaseChunk>(
                 builder,
-                depth,
                 id,
                 maxPoints,
-                std::move(data),
-                numPoints);
+                std::move(unpacker));
     }
 
     return std::unique_ptr<Chunk>();
-}
-
-void Chunk::pushTail(std::vector<char>& data, const Chunk::Tail tail)
-{
-    data.insert(
-            data.end(),
-            reinterpret_cast<const char*>(&tail.numPoints),
-            reinterpret_cast<const char*>(&tail.numPoints) + sizeof(uint64_t));
-
-    data.push_back(static_cast<char>(tail.type));
-}
-
-Chunk::Tail Chunk::popTail(std::vector<char>& data)
-{
-    // Pop type.
-    Type type(Type::Invalid);
-
-    if (!data.empty())
-    {
-        type = static_cast<Type>(data.back());
-        data.pop_back();
-    }
-
-    if (type != Type::Sparse && type != Type::Contiguous)
-    {
-        return Tail(0, Type::Invalid);
-    }
-
-    // Pop numPoints.
-    uint64_t numPoints(0);
-    const std::size_t size(sizeof(uint64_t));
-
-    if (data.size() < size) return Tail(0, Type::Invalid);
-
-    std::copy(
-            data.data() + data.size() - size,
-            data.data() + data.size(),
-            reinterpret_cast<char*>(&numPoints));
-
-    data.resize(data.size() - size);
-
-    return Tail(numPoints, type);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -224,18 +167,17 @@ SparseChunk::SparseChunk(
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints,
-        std::unique_ptr<std::vector<char>> compressedData,
-        const std::size_t numPoints)
+        Cell::PooledStack cells)
     : Chunk(builder, depth, id, maxPoints)
     , m_tubes()
     , m_mutex()
 {
-    populate(std::move(compressedData), numPoints);
+    populate(std::move(cells));
 }
 
 SparseChunk::~SparseChunk()
 {
-    collect(Type::Sparse);
+    collect(ChunkType::Sparse);
 }
 
 Cell::PooledStack SparseChunk::acquire()
@@ -271,12 +213,11 @@ ContiguousChunk::ContiguousChunk(
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints,
-        std::unique_ptr<std::vector<char>> compressedData,
-        const std::size_t numPoints)
+        Cell::PooledStack cells)
     : Chunk(builder, depth, id, maxPoints)
     , m_tubes(maxPoints.getSimple())
 {
-    populate(std::move(compressedData), numPoints);
+    populate(std::move(cells));
 }
 
 ContiguousChunk::~ContiguousChunk()
@@ -284,7 +225,7 @@ ContiguousChunk::~ContiguousChunk()
     // Don't run collect if we are a BaseChunk.
     if (m_id != m_metadata.structure().baseIndexBegin())
     {
-        collect(Type::Contiguous);
+        collect(ChunkType::Contiguous);
     }
 }
 
@@ -314,18 +255,16 @@ BaseChunk::BaseChunk(
         const Builder& builder,
         const Id& id,
         const Id& maxPoints,
-        std::unique_ptr<std::vector<char>> compressedData,
-        const std::size_t numPoints)
+        Unpacker unpacker)
     : ContiguousChunk(builder, 0, id, maxPoints)
     , m_celledSchema(makeCelled(m_metadata.schema()))
 {
-    std::unique_ptr<std::vector<char>> data(
-        Compression::decompress(*compressedData, m_celledSchema, numPoints));
+    auto data(unpacker.acquireRawBytes());
+    const std::size_t numPoints(unpacker.numPoints());
 
-    if (numPoints * m_celledSchema.pointSize() != data->size())
+    if (m_metadata.format().compress())
     {
-        // TODO Non-recoverable.  Exit?
-        throw std::runtime_error("Bad numPoints detected - base chunk");
+        data = Compression::decompress(*data, m_celledSchema, numPoints);
     }
 
     const std::size_t celledPointSize(m_celledSchema.pointSize());
@@ -378,16 +317,21 @@ void BaseChunk::save(const arbiter::Endpoint& endpoint)
     Data::PooledStack dataStack(m_pointPool.dataPool());
     Cell::PooledStack cellStack(m_pointPool.cellPool());
 
-    const std::size_t pointSize(m_metadata.schema().pointSize());
-    Compressor compressor(m_celledSchema);
+    const std::size_t celledPointSize(m_celledSchema.pointSize());
+    const std::size_t nativePointSize(m_metadata.schema().pointSize());
 
-    std::vector<char> point(m_celledSchema.pointSize());
+    std::vector<char> point(celledPointSize);
 
     const std::size_t tubeIdSize(sizeof(uint64_t));
 
     uint64_t i(0);
     const char* iPos(reinterpret_cast<char*>(&i));
     const char* iEnd(iPos + tubeIdSize);
+
+    Compressor compressor(m_celledSchema);
+    const bool compress(m_metadata.format().compress());
+
+    std::unique_ptr<std::vector<char>> data(makeUnique<std::vector<char>>());
 
     for ( ; i < m_tubes.size(); ++i)
     {
@@ -400,9 +344,19 @@ void BaseChunk::save(const arbiter::Endpoint& endpoint)
             for (const char* d : *cell)
             {
                 std::copy(iPos, iEnd, point.data());
-                std::copy(d, d + pointSize, point.data() + tubeIdSize);
+                std::copy(d, d + nativePointSize, point.data() + tubeIdSize);
 
-                compressor.push(point.data(), point.size());
+                if (compress)
+                {
+                    compressor.push(point.data(), point.size());
+                }
+                else
+                {
+                    data->insert(
+                            data->end(),
+                            point.data(),
+                            point.data() + point.size());
+                }
             }
 
             dataStack.push(cell->acquire());
@@ -410,8 +364,17 @@ void BaseChunk::save(const arbiter::Endpoint& endpoint)
         }
     }
 
-    auto data(compressor.data());
-    pushTail(*data, Tail(dataStack.size(), Type::Contiguous));
+    if (compress) data = compressor.data();
+
+    // Since the base is serialized with a different schema, we'll compress it
+    // on our own.
+    Packer packer(
+            m_metadata.format().tailFields(),
+            *data,
+            dataStack.size(),
+            ChunkType::Contiguous);
+    auto tail(packer.buildTail());
+    data->insert(data->end(), tail.begin(), tail.end());
 
     // No prefixing on base.
     const std::string path(m_id.str() + m_metadata.postfix());

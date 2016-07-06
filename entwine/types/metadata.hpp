@@ -22,6 +22,7 @@ namespace entwine
 namespace arbiter { class Endpoint; }
 
 class Bounds;
+class Format;
 class Manifest;
 class Reprojection;
 class Schema;
@@ -39,10 +40,9 @@ public:
             const Structure& structure,
             const Structure& hierarchyStructure,
             const Manifest& manifest,
+            const Format& format,
             const Reprojection* reprojection = nullptr,
-            const Subset* subset = nullptr,
-            bool trustHeaders = true,
-            bool compress = true);
+            const Subset* subset = nullptr);
 
     Metadata(
             const arbiter::Endpoint& endpoint,
@@ -67,14 +67,11 @@ public:
         return *m_hierarchyStructure;
     }
     const Manifest& manifest() const { return *m_manifest; }
+    const Format& format() const { return *m_format; }
     const Reprojection* reprojection() const { return m_reprojection.get(); }
     const Subset* subset() const { return m_subset.get(); }
 
-    const std::string& srs() const { return m_srs; }
     const std::vector<std::string>& errors() const { return m_errors; }
-
-    bool trustHeaders() const { return m_trustHeaders; }
-    bool compress() const { return m_compress; }
 
     std::string postfix(bool isColdChunk = false) const;
     void makeWhole();
@@ -82,7 +79,7 @@ public:
 private:
     // These are aggregated as the Builder runs.
     Manifest& manifest() { return *m_manifest; }
-    std::string& srs() { return m_srs; }
+    Format& format() { return *m_format; }
     std::vector<std::string>& errors() { return m_errors; }
 
     std::unique_ptr<Bounds> m_boundsConforming;
@@ -92,12 +89,9 @@ private:
     std::unique_ptr<Structure> m_structure;
     std::unique_ptr<Structure> m_hierarchyStructure;
     std::unique_ptr<Manifest> m_manifest;
+    std::unique_ptr<Format> m_format;
     std::unique_ptr<Reprojection> m_reprojection;
     std::unique_ptr<Subset> m_subset;
-
-    std::string m_srs;
-    bool m_trustHeaders;
-    bool m_compress;
 
     std::vector<std::string> m_errors;
 };

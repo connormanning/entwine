@@ -21,6 +21,7 @@
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/structure.hpp>
+#include <entwine/types/tube.hpp>
 
 namespace entwine
 {
@@ -31,11 +32,44 @@ public:
     PointState(
             const Structure& structure,
             const Bounds& bounds,
-            std::size_t depth = 0);
+            std::size_t depth = 0)
+        : m_structure(structure)
+        , m_boundsOriginal(bounds)
+        , m_bounds(bounds)
+        , m_index(0)
+        , m_depth(depth)
+        , m_tick(0)
+        , m_chunkId(m_structure.nominalChunkIndex())
+        , m_chunkNum(0)
+        , m_pointsPerChunk(m_structure.basePointsPerChunk())
+    { }
 
     virtual ~PointState() { }
 
-    virtual void climb(Dir dir);
+    virtual void climb(Dir dir)
+    {
+        if (++m_depth <= m_structure.startDepth()) return;
+
+        const std::size_t workingDepth(depth());
+
+        if (m_structure.tubular() && workingDepth <= Tube::maxTickDepth())
+        {
+            m_tick <<= 1;
+            if (isUp(dir)) ++m_tick;
+        }
+
+        m_index <<= m_structure.dimensions();
+        m_index.incSimple();
+        m_index += toIntegral(dir, m_structure.tubular());
+
+        m_bounds.go(dir);
+
+        if (workingDepth > m_structure.nominalChunkDepth())
+        {
+            chunkClimb(workingDepth);
+        }
+    }
+
     virtual void climb(const Point& point)
     {
         climb(getDirection(point, m_bounds.mid()));
@@ -79,6 +113,39 @@ public:
     }
 
 protected:
+    void chunkClimb(std::size_t workingDepth)
+    {
+        if (workingDepth <= m_structure.sparseDepthBegin())
+        {
+            m_chunkId <<= m_structure.dimensions();
+            m_chunkId.incSimple();
+            m_chunkId += toIntegral(chunkDir()) * m_pointsPerChunk;
+
+            if (workingDepth >= m_structure.coldDepthBegin())
+            {
+                m_chunkNum =
+                    (m_chunkId - m_structure.coldIndexBegin()) /
+                    m_pointsPerChunk;
+            }
+        }
+        else
+        {
+            m_chunkNum += m_structure.maxChunksPerDepth();
+
+            m_chunkId <<= m_structure.dimensions();
+            m_chunkId.incSimple();
+
+            m_pointsPerChunk *= m_structure.factor();
+        }
+    }
+
+    virtual Dir chunkDir(Dir dir = Dir::swd) const
+    {
+        return toDir(
+                (m_index - m_chunkId).getSimple() /
+                m_pointsPerChunk.getSimple());
+    }
+
     const Structure& m_structure;
     const Bounds& m_boundsOriginal;
 
@@ -121,31 +188,11 @@ public:
 
     virtual void climb(Dir dir) override
     {
-        if (++m_depth <= m_structure.sparseDepthBegin())
-        {
-            m_boundsChunk.go(dir, m_structure.tubular());
-
-            m_chunkId <<= m_structure.dimensions();
-            m_chunkId.incSimple();
-            m_chunkId += toIntegral(dir) * m_pointsPerChunk;
-
-            if (m_depth >= m_structure.coldDepthBegin())
-            {
-                m_chunkNum =
-                    (m_chunkId - m_structure.coldIndexBegin()) /
-                    m_pointsPerChunk;
-            }
-        }
-        else
-        {
-            m_chunkNum += m_structure.maxChunksPerDepth();
-
-            m_chunkId <<= m_structure.dimensions();
-            m_chunkId.incSimple();
-
-            m_pointsPerChunk *= m_structure.factor();
-        }
+        chunkClimb(++m_depth);
+        m_boundsChunk.go(dir, m_structure.tubular());
     }
+
+    virtual Dir chunkDir(Dir dir = Dir::swd) const override { return dir; }
 
     virtual void climb(const Point& point) override
     {
