@@ -38,7 +38,7 @@ class Hierarchy : public Splitter<HierarchyBlock>
 public:
     Hierarchy(
             const Metadata& metadata,
-            const arbiter::Endpoint& ep,
+            const arbiter::Endpoint& top,
             bool exists = false);
 
     using Splitter::tryGet;
@@ -94,8 +94,13 @@ private:
     class Query
     {
     public:
-        Query(const Bounds& bounds, std::size_t depthBegin, std::size_t depthEnd)
-            : m_bounds(bounds), m_depthBegin(depthBegin), m_depthEnd(depthEnd)
+        Query(
+                const Bounds& bounds,
+                std::size_t depthBegin,
+                std::size_t depthEnd)
+            : m_bounds(bounds)
+            , m_depthBegin(depthBegin)
+            , m_depthEnd(depthEnd)
         { }
 
         const Bounds& bounds() const { return m_bounds; }

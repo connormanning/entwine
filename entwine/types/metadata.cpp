@@ -21,6 +21,25 @@
 namespace entwine
 {
 
+namespace
+{
+    const double epsilon(0.005);
+
+    std::vector<std::string> fromJsonArray(const Json::Value& json)
+    {
+        std::vector<std::string> v;
+
+        if (json.isNull() || !json.isArray()) return v;
+
+        for (Json::ArrayIndex i(0); i < json.size(); ++i)
+        {
+            v.push_back(json[i].asString());
+        }
+
+        return v;
+    }
+}
+
 Metadata::Metadata(
         const Bounds& boundsConforming,
         const Schema& schema,
@@ -31,7 +50,7 @@ Metadata::Metadata(
         const Reprojection* reprojection,
         const Subset* subset)
     : m_boundsConforming(makeUnique<Bounds>(boundsConforming))
-    , m_boundsEpsilon(makeUnique<Bounds>(m_boundsConforming->growBy(0.005)))
+    , m_boundsEpsilon(makeUnique<Bounds>(m_boundsConforming->growBy(epsilon)))
     , m_bounds(makeUnique<Bounds>(m_boundsConforming->cubeify()))
     , m_schema(makeUnique<Schema>(schema))
     , m_structure(makeUnique<Structure>(structure))
@@ -56,7 +75,7 @@ Metadata::Metadata(
     const Json::Value manifest(parse(ep.get("entwine-manifest" + pf)));
 
     m_boundsConforming = makeUnique<Bounds>(meta["boundsConforming"]);
-    m_boundsEpsilon = makeUnique<Bounds>(m_boundsConforming->growBy(0.005));
+    m_boundsEpsilon = makeUnique<Bounds>(m_boundsConforming->growBy(epsilon));
     m_bounds = makeUnique<Bounds>(meta["bounds"]);
     m_schema = makeUnique<Schema>(meta["schema"]);
     m_structure = makeUnique<Structure>(meta["structure"]);
@@ -77,14 +96,25 @@ Metadata::Metadata(
 
     if (meta.isMember("errors"))
     {
-        const Json::Value& errors(meta["errors"]);
-
-        for (Json::ArrayIndex i(0); i < errors.size(); ++i)
-        {
-            m_errors.push_back(errors[i].asString());
-        }
+        m_errors = fromJsonArray(meta["errors"]);
     }
 }
+
+Metadata::Metadata(const Json::Value& json)
+    : m_boundsConforming(makeUnique<Bounds>(json["boundsConforming"]))
+    , m_boundsEpsilon(makeUnique<Bounds>(m_boundsConforming->growBy(epsilon)))
+    , m_bounds(makeUnique<Bounds>(json["bounds"]))
+    , m_schema(makeUnique<Schema>(json["schema"]))
+    , m_structure(makeUnique<Structure>(json["structure"]))
+    , m_hierarchyStructure(makeUnique<Structure>(json["hierarchyStructure"]))
+    , m_manifest()
+    , m_format(makeUnique<Format>(*m_schema, json["format"]))
+    , m_reprojection(json.isMember("reprojection") ?
+            makeUnique<Reprojection>(json["reprojection"]) : nullptr)
+    , m_subset(json.isMember("subset") ?
+            makeUnique<Subset>(*m_bounds, json["subset"]) : nullptr)
+    , m_errors(fromJsonArray(json["errors"]))
+{ }
 
 Metadata::Metadata(const Metadata& other)
     : m_boundsConforming(makeUnique<Bounds>(other.boundsConforming()))
@@ -123,7 +153,13 @@ void Metadata::save(const arbiter::Endpoint& endpoint) const
 
     const auto pf(postfix());
     endpoint.put("entwine" + pf, json.toStyledString());
-    endpoint.put("entwine-manifest" + pf, toFastString(m_manifest->toJson()));
+
+    if (m_manifest)
+    {
+        endpoint.put(
+                "entwine-manifest" + pf,
+                toFastString(m_manifest->toJson()));
+    }
 }
 
 void Metadata::merge(const Metadata& other)
@@ -152,9 +188,12 @@ std::string Metadata::postfix(const bool isColdChunk) const
 
     if (m_subset && !isColdChunk) pf += m_subset->postfix();
 
-    if (const Manifest::Split* split = m_manifest->split())
+    if (m_manifest)
     {
-        if (split->begin() || !isColdChunk) pf += split->postfix();
+        if (const Manifest::Split* split = m_manifest->split())
+        {
+            if (split->begin() || !isColdChunk) pf += split->postfix();
+        }
     }
 
     return pf;

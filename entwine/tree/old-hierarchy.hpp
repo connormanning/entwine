@@ -99,7 +99,7 @@ public:
     const Children& children() const { return m_children; }
 
 private:
-    void insertInto(Hierarchy& modern, const HierarchyState& state) const;
+    void insertInto(HierarchyState& state) const;
 
     Children& children() { return m_children; }
 

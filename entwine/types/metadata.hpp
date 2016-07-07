@@ -49,6 +49,7 @@ public:
             const std::size_t* subsetId = nullptr,
             const std::size_t* splitId = nullptr);
 
+    explicit Metadata(const Json::Value& json);
     Metadata(const Metadata& other);
     ~Metadata();
 

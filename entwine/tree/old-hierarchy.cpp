@@ -95,7 +95,7 @@ void Node::merge(Node& other)
 
     for (auto& theirs : other.children())
     {
-        const Dir dir(theirs.first);;
+        const Dir dir(theirs.first);
 
         if (m_children.count(dir))
         {
@@ -123,12 +123,27 @@ void Node::insertInto(Json::Value& json) const
 
 void Node::insertInto(Hierarchy& modern, const Metadata& metadata) const
 {
-    insertInto(modern, HierarchyState(metadata, &modern));
+    HierarchyState state(metadata, &modern);
+    for (std::size_t i(0); i < metadata.hierarchyStructure().startDepth(); ++i)
+    {
+        state.climb(Dir::swd);
+    }
+    insertInto(state);
 }
 
-void Node::insertInto(Hierarchy& modern, const HierarchyState& state) const
+void Node::insertInto(HierarchyState& state) const
 {
-    // TODO
+    if (m_count)
+    {
+        state.count(m_count);
+
+        for (const auto& c : m_children)
+        {
+            HierarchyState nextState(state);
+            nextState.climb(c.first);
+            c.second->insertInto(nextState);
+        }
+    }
 }
 
 Node::NodeSet Node::insertInto(
@@ -268,11 +283,11 @@ OldHierarchy::OldHierarchy(
     , m_endpoint(new arbiter::Endpoint(ep))
     , m_postfix(postfix)
 {
-    const auto bin(ep.tryGetBinary("0" + postfix));
+    const auto bin(ep.getBinary("0" + postfix));
 
-    if (bin && bin->size())
+    if (bin.size())
     {
-        const char* pos(bin->data());
+        const char* pos(bin.data());
         m_root = Node(m_nodePool, pos, m_step, m_edges);
 
         if (m_step)
@@ -293,10 +308,6 @@ OldHierarchy::OldHierarchy(
                 m_anchors.insert(Id(anchorsJson[i].asString()));
             }
         }
-    }
-    else
-    {
-        std::cout << "No Ohierarchy data found" << std::endl;
     }
 }
 

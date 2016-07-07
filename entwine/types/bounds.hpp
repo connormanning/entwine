@@ -54,8 +54,8 @@ public:
                 width() / 2.0  + other.width() / 2.0 &&
             std::abs(m_mid.y - otherMid.y) <=
                 depth() / 2.0 + other.depth() / 2.0 &&
-            std::abs(m_mid.z - otherMid.z) <=
-                height() / 2.0 + other.height() / 2.0;
+            (force2d || std::abs(m_mid.z - otherMid.z) <=
+                height() / 2.0 + other.height() / 2.0);
     }
 
     // Returns true if the requested Bounds are contained within these Bounds.
