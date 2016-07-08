@@ -137,7 +137,7 @@ public:
 
     virtual uint64_t get(const Id& id, uint64_t tick) const override
     {
-        const auto tubeIt(m_tubes.find(id));
+        const auto tubeIt(m_tubes.find(normalize(id)));
         if (tubeIt != m_tubes.end())
         {
             const HierarchyTube& tube(tubeIt->second);
