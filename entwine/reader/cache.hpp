@@ -86,6 +86,17 @@ struct DataChunkState
 };
 
 
+using SlotOrder = std::list<const Hierarchy::Slot*>;
+using SlotMap = std::map<const Hierarchy::Slot*, SlotOrder::iterator>;
+
+struct HierarchyCache
+{
+    std::mutex mutex;
+    SlotMap slots;
+    SlotOrder order;
+};
+
+
 
 typedef std::map<Id, std::unique_ptr<DataChunkState>> LocalManager;
 typedef std::map<std::string, LocalManager> GlobalManager;
@@ -124,6 +135,8 @@ public:
             const std::string& readerPath,
             const FetchInfoSet& fetches);
 
+    void markHierarchy(const std::string& name, const Hierarchy::Slots& slots);
+
 private:
     void release(const Block& block);
 
@@ -144,6 +157,9 @@ private:
 
     GlobalManager m_chunkManager;
     InactiveList m_inactiveList;
+
+    std::map<std::string, HierarchyCache> m_hierarchyCache;
+    std::mutex m_hierarchyMutex;
 
     std::atomic_size_t m_activeCount;
 

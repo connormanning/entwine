@@ -88,7 +88,12 @@ Json::Value Reader::hierarchy(
         const std::size_t depthEnd)
 {
     checkQuery(depthBegin, depthEnd);
-    return m_hierarchy->query(queryBounds, depthBegin, depthEnd);
+    Hierarchy::QueryResults results(
+            m_hierarchy->query(queryBounds, depthBegin, depthEnd));
+
+    m_cache.markHierarchy(m_endpoint.prefixedRoot(), results.touched);
+
+    return results.json;
 }
 
 std::unique_ptr<Query> Reader::query(

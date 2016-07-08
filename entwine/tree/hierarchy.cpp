@@ -136,7 +136,7 @@ uint64_t Hierarchy::tryGet(const PointState& s) const
     return 0;
 }
 
-Json::Value Hierarchy::query(
+Hierarchy::QueryResults Hierarchy::query(
         const Bounds& queryBounds,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
@@ -158,17 +158,20 @@ Json::Value Hierarchy::query(
     PointState pointState(m_structure, m_bounds, m_structure.startDepth());
     std::deque<Dir> lag;
 
-    Json::Value json;
-    traverse(json, query, pointState, lag);
-    return json;
+    QueryResults results;
+    traverse(results.json, results.touched, query, pointState, lag);
+    return results;
 }
 
 void Hierarchy::traverse(
         Json::Value& json,
+        Slots& ids,
         const Hierarchy::Query& query,
         const PointState& pointState,
         std::deque<Dir>& lag)
 {
+    maybeTouch(ids, pointState);
+
     const uint64_t inc(tryGet(pointState));
     if (!inc) return;
 
@@ -187,7 +190,7 @@ void Hierarchy::traverse(
                 const Dir dir(toDir(i));
                 auto curlag(lag);
                 curlag.push_back(dir);
-                traverse(json, query, pointState.getClimb(dir), curlag);
+                traverse(json, ids, query, pointState.getClimb(dir), curlag);
             }
         }
         else
@@ -195,27 +198,31 @@ void Hierarchy::traverse(
             // Query bounds is smaller than our current position's bounds, so
             // we need to split our bounds in a single direction.
             const Dir dir(
-                    getDirection(query.bounds().mid(), pointState.bounds().mid()));
+                    getDirection(
+                        query.bounds().mid(),
+                        pointState.bounds().mid()));
 
-            traverse(json, query, pointState.getClimb(dir), lag);
+            traverse(json, ids, query, pointState.getClimb(dir), lag);
         }
     }
     else if (
             query.bounds().contains(pointState.bounds()) &&
             pointState.depth() < query.depthEnd())
     {
-        accumulate(json, query, pointState, lag, inc);
+        accumulate(json, ids, query, pointState, lag, inc);
     }
 }
 
 void Hierarchy::accumulate(
         Json::Value& json,
+        Slots& ids,
         const Hierarchy::Query& query,
         const PointState& pointState,
         std::deque<Dir>& lag,
         uint64_t inc)
 {
     // Caller should not call if inc == 0 to avoid creating null keys.
+    maybeTouch(ids, pointState);
     json[countKey] = json[countKey].asUInt64() + inc;
 
     if (pointState.depth() + 1 >= query.depthEnd()) return;
@@ -229,7 +236,8 @@ void Hierarchy::accumulate(
 
             if (const uint64_t inc = tryGet(nextState))
             {
-                accumulate(json[dirToString(dir)], query, nextState, lag, inc);
+                Json::Value& nextJson(json[dirToString(dir)]);
+                accumulate(nextJson, ids, query, nextState, lag, inc);
             }
         }
     }
@@ -252,11 +260,25 @@ void Hierarchy::accumulate(
                 auto curlag(lag);
                 curlag.push_back(curdir);
 
-                accumulate(*nextJson, query, nextState, curlag, inc);
+                accumulate(*nextJson, ids, query, nextState, curlag, inc);
             }
         }
 
         lag.pop_back();
+    }
+}
+
+void Hierarchy::maybeTouch(Slots& ids, const PointState& pointState) const
+{
+    if (!isWithinBase(pointState.depth()))
+    {
+        if (const Slot* slot = tryGet(
+                    pointState.chunkId(),
+                    pointState.chunkNum(),
+                    pointState.depth()))
+        {
+            if (slot->mark) ids.insert(slot);
+        }
     }
 }
 
@@ -266,7 +288,7 @@ Structure Hierarchy::structure(const Structure& treeStructure)
 
     const std::size_t nullDepth(0);
     const std::size_t baseDepth(
-            std::max<std::size_t>(treeStructure.baseDepthEnd(), 12));
+            std::max<std::size_t>(treeStructure.baseDepthEnd(), 10));
     const std::size_t coldDepth(0);
     const std::size_t pointsPerChunk(treeStructure.basePointsPerChunk());
     const std::size_t dimensions(treeStructure.dimensions());

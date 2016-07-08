@@ -18,6 +18,7 @@
 #include <set>
 #include <vector>
 
+#include <entwine/tree/hierarchy.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 

@@ -25,6 +25,7 @@ class Splitter
 protected:
     using UniqueT = std::unique_ptr<T>;
 
+public:
     struct Slot
     {
         Slot() : mark(false), spinner(), t() { }
@@ -34,7 +35,6 @@ protected:
         mutable UniqueT t;
     };
 
-public:
     Splitter(const Structure& structure)
         : m_structure(structure)
         , m_base()

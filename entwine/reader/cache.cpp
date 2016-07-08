@@ -256,5 +256,52 @@ const ChunkReader* Cache::fetch(
     return chunkState.chunkReader.get();
 }
 
+void Cache::markHierarchy(
+        const std::string& name,
+        const Hierarchy::Slots& touched)
+{
+    if (touched.empty()) return;
+
+    std::cout << "Blocks touched: " << touched.size() << std::endl;
+
+    std::unique_lock<std::mutex> topLock(m_hierarchyMutex);
+    HierarchyCache& selected(m_hierarchyCache[name]);
+    std::lock_guard<std::mutex> lock(selected.mutex);
+    topLock.unlock();
+
+    auto& slots(selected.slots);
+    auto& order(selected.order);
+
+    for (const Hierarchy::Slot* s : touched)
+    {
+        if (slots.count(s))
+        {
+            order.splice(order.begin(), order, slots.at(s));
+        }
+        else
+        {
+            auto it(slots.insert(std::make_pair(s, order.end())).first);
+            order.push_front(s);
+            it->second = order.begin();
+        }
+    }
+
+    std::cout << "Awake for " << name << ": " << slots.size() << std::endl;
+
+    if (slots.size() > m_maxChunks)
+    {
+        std::cout << "Erasing " << (slots.size() - m_maxChunks) << std::endl;
+    }
+
+    while (slots.size() > m_maxChunks)
+    {
+        const Hierarchy::Slot* s(order.back());
+        order.pop_back();
+
+        SpinGuard spinLock(s->spinner);
+        s->t.reset();
+    }
+}
+
 } // namespace entwine
 

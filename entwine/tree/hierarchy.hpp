@@ -83,7 +83,14 @@ public:
         Splitter::merge(other.ids());
     }
 
-    Json::Value query(
+    using Slots = std::set<const Slot*>;
+    struct QueryResults
+    {
+        Json::Value json;
+        Slots touched;
+    };
+
+    QueryResults query(
             const Bounds& queryBounds,
             std::size_t depthBegin,
             std::size_t depthEnd);
@@ -115,16 +122,20 @@ private:
 
     void traverse(
             Json::Value& json,
+            Slots& ids,
             const Query& query,
             const PointState& pointState,
             std::deque<Dir>& lag);
 
     void accumulate(
             Json::Value& json,
+            Slots& ids,
             const Query& query,
             const PointState& pointState,
             std::deque<Dir>& lag,
             uint64_t inc);
+
+    void maybeTouch(Slots& ids, const PointState& pointState) const;
 
     const Metadata& m_metadata;
     const Bounds& m_bounds;
