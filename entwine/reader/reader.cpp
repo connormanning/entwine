@@ -75,16 +75,7 @@ Reader::Reader(
     if (structure.hasCold())
     {
         std::vector<Id> ids(extract<Id>(parse(m_endpoint.get("entwine-ids"))));
-        m_ids = std::accumulate(
-            ids.begin(),
-            ids.end(),
-            std::set<Id>(),
-            [](const std::set<Id>& set, const Id& id)
-            {
-                auto next(set);
-                next.insert(id);
-                return next;
-            });
+        for (const Id& id : ids) m_ids.insert(id);
     }
 }
 

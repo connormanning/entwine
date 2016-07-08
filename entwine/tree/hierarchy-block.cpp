@@ -113,7 +113,7 @@ SparseBlock::SparseBlock(const Id& id, const std::vector<char>& data)
     const char* end(data.data() + data.size());
 
     const Id::Block* tubePos(nullptr);
-    uint64_t tubeSize, tick, cell;
+    uint64_t tubeBlocks, tubeBytes, tick, cell;
 
     auto extract([&pos]()
     {
@@ -124,14 +124,15 @@ SparseBlock::SparseBlock(const Id& id, const std::vector<char>& data)
 
     while (pos < end)
     {
-        tubeSize = extract();
+        tubeBlocks = extract();
+        tubeBytes = tubeBlocks * sizeof(Id::Block);
         tubePos = reinterpret_cast<const Id::Block*>(pos);
-        pos += tubeSize;
+        pos += tubeBytes;
 
         tick = extract();
         cell = extract();
 
-        m_tubes[Id(tubePos, tubePos + tubeSize)][tick] = cell;
+        m_tubes[Id(tubePos, tubePos + tubeBlocks)][tick] = cell;
     }
 }
 
