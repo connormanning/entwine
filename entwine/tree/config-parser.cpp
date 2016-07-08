@@ -196,13 +196,23 @@ std::unique_ptr<Builder> ConfigParser::tryGetExisting(
 {
     std::unique_ptr<Builder> builder;
     std::unique_ptr<std::size_t> subsetId;
+    std::unique_ptr<std::size_t> splitId;
 
     if (config.isMember("subset"))
     {
         subsetId = makeUnique<std::size_t>(config["subset"]["id"].asUInt64());
     }
 
-    const std::string postfix(subsetId ? "-" + std::to_string(*subsetId) : "");
+    const Json::Value& input(config["input"]);
+    if (input.isMember("manifest") && input["manifest"].isMember("split"))
+    {
+        splitId = makeUnique<std::size_t>(
+                input["manifest"]["split"]["id"].asUInt64());
+    }
+
+    const std::string postfix(
+            (subsetId ? "-" + std::to_string(*subsetId) : "") +
+            (splitId ? "-" + std::to_string(*splitId) : ""));
 
     if (arbiter.getEndpoint(outPath).tryGetSize("entwine" + postfix))
     {

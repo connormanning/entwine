@@ -20,10 +20,6 @@
 
 namespace pdal
 {
-    class BasePointTable;
-    class Filter;
-    class PointView;
-    class Reader;
     class Stage;
     class StageFactory;
 }
