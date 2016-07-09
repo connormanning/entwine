@@ -175,14 +175,14 @@ std::string Metadata::postfix(const bool isColdChunk) const
     // Metadata files (main meta, ids, manifest):
     //      All postfixes applied.
     //
-    // Base chunk:
+    // Base (both data/hierarchy) chunk:
     //      All postfixes applied.
     //
-    // Other chunks:
+    // Other (both data/hierarchy) chunks:
     //      No subset postfixing.
     //      Split postfixing applied to splits except for the nominal split.
     //
-    // Hierarchy:
+    // Hierarchy metadata:
     //      All postfixes applied.
     std::string pf;
 

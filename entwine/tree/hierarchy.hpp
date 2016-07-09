@@ -49,18 +49,19 @@ public:
     void save(const arbiter::Endpoint& top)
     {
         const auto ep(top.getSubEndpoint("h"));
-        const std::string postfix(m_metadata.postfix());
+        const std::string basePostfix(m_metadata.postfix());
+        const std::string coldPostfix(m_metadata.postfix(true));
 
-        m_base.t->save(ep, postfix);
+        m_base.t->save(ep, basePostfix);
 
-        iterateCold([&ep, postfix](const Id& chunkId, const Slot& slot)
+        iterateCold([&ep, coldPostfix](const Id& chunkId, const Slot& slot)
         {
-            if (slot.t) slot.t->save(ep, postfix);
+            if (slot.t) slot.t->save(ep, coldPostfix);
         });
 
         Json::Value json;
         for (const auto& id : ids()) json.append(id.str());
-        ep.put("ids" + postfix, toFastString(json));
+        ep.put("ids" + basePostfix, toFastString(json));
     }
 
     void awakenAll()
