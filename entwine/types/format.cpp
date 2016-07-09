@@ -182,7 +182,7 @@ Unpacker::Unpacker(
         }
     }
 
-    if (m_format.compress() && !numPoints())
+    if (m_format.compress() && !m_numPoints)
     {
         throw std::runtime_error("Cannot decompress without numPoints");
     }
