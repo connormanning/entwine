@@ -24,7 +24,15 @@ namespace
             "\tOptions:\n"
 
             "\t\t-u <aws-user>\n"
-            "\t\t\tSpecify AWS credential user, if not default\n";
+            "\t\t\tSpecify AWS credential user, if not default\n"
+
+            "\t\t-n\n"
+            "\t\t\tDon't back up hierarchy during conversion.  If set, the\n"
+            "\t\t\tuser is responsible for backing up the 'h/' directory to\n"
+            "\t\t\t'h-old/'.\n"
+
+            "\t\t-recover\n"
+            "\t\t\tUndo a convert, restoring initial backup data\n";
     }
 }
 
@@ -40,6 +48,7 @@ void Kernel::convert(std::vector<std::string> args)
 
     std::string user;
     bool recover(false);
+    bool backupHierarchy(true);
 
     std::size_t a(1);
 
@@ -57,6 +66,10 @@ void Kernel::convert(std::vector<std::string> args)
             {
                 throw std::runtime_error("Invalid credential path argument");
             }
+        }
+        else if (arg == "-n")
+        {
+            backupHierarchy = false;
         }
         else if (arg == "-recover")
         {
@@ -100,8 +113,16 @@ void Kernel::convert(std::vector<std::string> args)
 
     // Back up entire old-style hierarchy directory contents, which would
     // otherwise have some files overwritten.
-    arbiter->copy(hierPath, backPath, true);
-    std::cout << "Backed up hierarchy" << std::endl;
+    if (backupHierarchy)
+    {
+        std::cout << "Backing up hierarchy" << std::endl;
+        arbiter->copy(hierPath, backPath, true);
+        std::cout << "Backed up hierarchy" << std::endl;
+    }
+    else
+    {
+        std::cout << "Skipping hierarchy backup" << std::endl;
+    }
 
     Json::Value jsonMeta(parse(arbiter->get(metaPath)));
 
