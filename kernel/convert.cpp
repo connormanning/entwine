@@ -95,12 +95,12 @@ void Kernel::convert(std::vector<std::string> args)
     }
 
     // Back up metadata file, which will be altered.
-    arbiter->copy(metaPath, arbiter::util::join(path, "entwine-old"));
+    arbiter->copy(metaPath, arbiter::util::join(path, "entwine-old"), true);
     std::cout << "Backed up main metadata" << std::endl;
 
     // Back up entire old-style hierarchy directory contents, which would
     // otherwise have some files overwritten.
-    arbiter->copy(hierPath, backPath);
+    arbiter->copy(hierPath, backPath, true);
     std::cout << "Backed up hierarchy" << std::endl;
 
     Json::Value jsonMeta(parse(arbiter->get(metaPath)));
