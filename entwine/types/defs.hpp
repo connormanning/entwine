@@ -10,13 +10,20 @@
 
 #pragma once
 
-#include <pdal/PointLayout.hpp>
+#include <entwine/third/bigint/little-big-int.hpp>
+#include <entwine/types/bounds.hpp>
 
-class SimplePointLayout : public pdal::PointLayout
+namespace pdal { class PointView; }
+
+namespace entwine
 {
-private:
-    virtual bool update(
-            pdal::Dimension::Detail dimDetail,
-            const std::string& name);
-};
+
+using Id = BigUint;
+
+using Origin = uint64_t;
+static constexpr Origin invalidOrigin = std::numeric_limits<Origin>::max();
+
+using TileFunction = std::function<void(pdal::PointView& view, Bounds bounds)>;
+
+} // namespace entwine
 

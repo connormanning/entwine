@@ -78,7 +78,7 @@ Json::Value FileStats::toJson() const
 FileInfo::FileInfo(const std::string path, const Status status)
     : m_path(path)
     , m_status(status)
-    , m_bbox()
+    , m_bounds()
     , m_numPoints(0)
     , m_pointStats()
 { }
@@ -86,7 +86,7 @@ FileInfo::FileInfo(const std::string path, const Status status)
 FileInfo::FileInfo(const FileInfo& other)
     : m_path(other.path())
     , m_status(other.status())
-    , m_bbox(other.bbox() ? new BBox(*other.bbox()) : nullptr)
+    , m_bounds(other.bounds() ? new Bounds(*other.bounds()) : nullptr)
     , m_numPoints(other.numPoints())
     , m_pointStats(other.pointStats())
 { }
@@ -95,7 +95,7 @@ FileInfo& FileInfo::operator=(const FileInfo& other)
 {
     m_path = other.path();
     m_status = other.status();
-    if (other.bbox()) m_bbox.reset(new BBox(*other.bbox()));
+    if (other.bounds()) m_bounds.reset(new Bounds(*other.bounds()));
     m_numPoints = other.numPoints();
     m_pointStats = other.pointStats();
 
@@ -106,7 +106,7 @@ FileInfo::FileInfo(const Json::Value& json)
     : m_path(json["path"].asString())
     , m_status(json.isMember("status") ?
             toStatus(json["status"].asString()) : Status::Outstanding)
-    , m_bbox(json.isMember("bbox") ? new BBox(json["bbox"]) : nullptr)
+    , m_bounds(json.isMember("bounds") ? new Bounds(json["bounds"]) : nullptr)
     , m_numPoints(json["numPoints"].asUInt64())
     , m_pointStats(json["pointStats"])
 { }
@@ -119,7 +119,7 @@ Json::Value FileInfo::toJson() const
     json["status"] = toString(m_status);
     json["pointStats"] = m_pointStats.toJson();
 
-    if (m_bbox) json["bbox"] = m_bbox->toJson();
+    if (m_bounds) json["bounds"] = m_bounds->toJson();
     if (m_numPoints) json["numPoints"] = static_cast<Json::UInt64>(m_numPoints);
 
     return json;
@@ -129,19 +129,19 @@ Json::Value FileInfo::toInferenceJson() const
 {
     Json::Value json;
 
-    if (m_bbox)
+    if (m_bounds)
     {
-        Json::Value& bbox(json["bbox"]);
+        Json::Value& bounds(json["bounds"]);
 
-        const Point& min(m_bbox->min());
-        const Point& max(m_bbox->max());
+        const Point& min(m_bounds->min());
+        const Point& max(m_bounds->max());
 
-        bbox.append(min.x);
-        bbox.append(min.y);
-        bbox.append(min.z);
-        bbox.append(max.x);
-        bbox.append(max.y);
-        bbox.append(max.z);
+        bounds.append(min.x);
+        bounds.append(min.y);
+        bounds.append(min.z);
+        bounds.append(max.x);
+        bounds.append(max.y);
+        bounds.append(max.z);
     }
 
     json["path"] = m_path;

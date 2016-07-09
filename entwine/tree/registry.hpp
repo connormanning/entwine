@@ -17,7 +17,10 @@
 #include <vector>
 
 #include <entwine/third/json/json.hpp>
-#include <entwine/tree/point-info.hpp>
+#include <entwine/tree/chunk.hpp>
+#include <entwine/tree/cold.hpp>
+#include <entwine/types/point-pool.hpp>
+#include <entwine/types/tube.hpp>
 
 namespace arbiter
 {
@@ -27,12 +30,9 @@ namespace arbiter
 namespace entwine
 {
 
-class BaseChunk;
 class Builder;
-class Cell;
 class Climber;
 class Clipper;
-class Cold;
 class Structure;
 
 class Registry
@@ -40,47 +40,30 @@ class Registry
     friend class Builder;
 
 public:
-    Registry(
-            arbiter::Endpoint& endpoint,
-            const Builder& builder,
-            std::size_t clipPoolSize);
-
-    Registry(
-            arbiter::Endpoint& endpoint,
-            const Builder& builder,
-            std::size_t clipPoolSize,
-            const Json::Value& meta);
-
-    Json::Value toJson() const;
-    void merge(const Registry& other);
-
+    Registry(const Builder& builder, bool exists = false);
     ~Registry();
 
+    void save(const arbiter::Endpoint& endpoint) const;
+    void merge(const Registry& other);
+
     bool addPoint(
-            PooledInfoNode& toAdd,
+            Cell::PooledNode& cell,
             Climber& climber,
             Clipper& clipper,
             std::size_t maxDepth = 0);
 
-    void save();
     void clip(const Id& index, std::size_t chunkNum, std::size_t id);
 
-    std::set<Id> ids() const;
-
 private:
-    Cell* getCell(const Climber& climber, Clipper& clipper);
+    Cold& cold() { return *m_cold; }
+    const Cold& cold() const { return *m_cold; }
 
-    BaseChunk* base() { return m_base.get(); }
-    Cold* cold() { return m_cold.get(); }
+    void loadAsNew();
+    void loadFromRemote();
 
-    arbiter::Endpoint& m_endpoint;
     const Builder& m_builder;
     const Structure& m_structure;
 
-    const bool m_discardDuplicates;
-    const bool m_as3d;
-
-    std::unique_ptr<BaseChunk> m_base;
     std::unique_ptr<Cold> m_cold;
 };
 

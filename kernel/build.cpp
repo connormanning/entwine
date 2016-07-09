@@ -18,11 +18,15 @@
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
 #include <entwine/tree/config-parser.hpp>
-#include <entwine/types/bbox.hpp>
+#include <entwine/tree/thread-pools.hpp>
+#include <entwine/types/bounds.hpp>
+#include <entwine/types/format.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/types/subset.hpp>
+#include <entwine/util/json.hpp>
 
 using namespace entwine;
 
@@ -185,15 +189,15 @@ namespace
         json["output"]["tmp"] = "tmp";
         json["output"]["compress"] = true;
 
-        json["structure"]["numPointsHint"] = Json::Value::null;
         json["structure"]["nullDepth"] = 6;
         json["structure"]["baseDepth"] = 10;
+        json["structure"]["numPointsHint"] = Json::Value::null;
         json["structure"]["pointsPerChunk"] = 262144;
         json["structure"]["dynamicChunks"] = true;
         json["structure"]["type"] = "hybrid";
         json["structure"]["prefixIds"] = false;
 
-        json["geometry"]["bbox"] = Json::Value::null;
+        json["geometry"]["bounds"] = Json::Value::null;
         json["geometry"]["reproject"] = Json::Value::null;
         json["geometry"]["schema"] = Json::Value::null;
 
@@ -230,7 +234,7 @@ void Kernel::build(std::vector<std::string> args)
         // First argument is a config path.
         const std::string configPath(args[0]);
         const std::string config(localArbiter.get(configPath));
-        json = ConfigParser::parse(config);
+        json = parse(config);
         ++a;
     }
 
@@ -287,14 +291,14 @@ void Kernel::build(std::vector<std::string> args)
             if (done)
             {
                 Json::Reader reader;
-                Json::Value bboxJson;
+                Json::Value boundsJson;
 
-                reader.parse(str, bboxJson, false);
-                json["geometry"]["bbox"] = bboxJson;
+                reader.parse(str, boundsJson, false);
+                json["geometry"]["bounds"] = boundsJson;
             }
             else
             {
-                throw std::runtime_error("Invalid bbox: " + str);
+                throw std::runtime_error("Invalid bounds: " + str);
             }
         }
         else if (arg == "-f") { json["output"]["force"] = true; }
@@ -412,13 +416,13 @@ void Kernel::build(std::vector<std::string> args)
 
     auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(arbiterConfig));
 
-    std::unique_ptr<Manifest> manifest(
+    std::unique_ptr<Manifest> startManifest(
             ConfigParser::getManifest(json, *arbiter));
 
-    if (split) manifest->split(split->begin(), split->end());
+    if (split) startManifest->split(split->begin(), split->end());
 
     std::unique_ptr<Builder> builder(
-            ConfigParser::getBuilder(json, arbiter, std::move(manifest)));
+            ConfigParser::getBuilder(json, arbiter, std::move(startManifest)));
 
     if (builder->isContinuation())
     {
@@ -433,30 +437,32 @@ void Kernel::build(std::vector<std::string> args)
             outEndpoint.root());
     std::string tmpPath(tmpEndpoint.root());
 
-    const Structure& structure(builder->structure());
+    const Metadata& metadata(builder->metadata());
+    const Structure& structure(metadata.structure());
+    const Manifest& manifest(metadata.manifest());
 
-    const Reprojection* reprojection(builder->reprojection());
-    const Schema& schema(builder->schema());
+    const Reprojection* reprojection(metadata.reprojection());
+    const Schema& schema(metadata.schema());
     const std::size_t runCount(json["input"]["run"].asUInt64());
 
     std::cout << std::endl;
 
     std::cout <<
         "Input:\n" <<
-        "\tBuilding from " << builder->manifest().size() << " source file" <<
-            (builder->manifest().size() > 1 ? "s" : "") << "\n";
+        "\tBuilding from " << manifest.size() << " source file" <<
+            (manifest.size() > 1 ? "s" : "") << "\n";
 
-    if (const Subset* subset = builder->subset())
+    if (const Subset* subset = metadata.subset())
     {
         std::cout <<
             "\tSubset: " <<
                 subset->id() + 1 << " of " <<
                 subset->of() << "\n" <<
-            "\tSubset bounds: " << subset->bbox() <<
+            "\tSubset bounds: " << subset->bounds() <<
             std::endl;
     }
 
-    if (const Manifest::Split* split = builder->manifest().split())
+    if (const Manifest::Split* split = manifest.split())
     {
         std::cout <<
             "\tManifest split: [" << split->begin() << ", " <<
@@ -471,21 +477,23 @@ void Kernel::build(std::vector<std::string> args)
             (runCount > 1 ? "s" : "") << "\n";
     }
 
+    const Format& format(metadata.format());
+
     const std::string coldDepthString(
             structure.lossless() ?
                 "lossless" :
                 std::to_string(structure.coldDepthEnd()));
 
     std::cout <<
-        "\tTrust file headers? " << yesNo(builder->trustHeaders()) << "\n" <<
-        "\tBuild threads: " << builder->numThreads() <<
+        "\tTrust file headers? " << yesNo(format.trustHeaders()) << "\n" <<
+        "\tBuild threads: " << builder->threadPools().size() <<
         std::endl;
 
     std::cout <<
         "Output:\n" <<
         "\tOutput path: " << outPath << "\n" <<
         "\tTemporary path: " << tmpPath << "\n" <<
-        "\tCompressed output? " << yesNo(builder->compress()) <<
+        "\tCompressed output? " << yesNo(format.compress()) <<
         std::endl;
 
     std::cout <<
@@ -493,9 +501,9 @@ void Kernel::build(std::vector<std::string> args)
         "\tNull depth: " << structure.nullDepthEnd() << "\n" <<
         "\tBase depth: " << structure.baseDepthEnd() << "\n" <<
         "\tCold depth: " << coldDepthString << "\n" <<
-        "\tChunk size: " << structure.baseChunkPoints() << " points\n" <<
+        "\tSparse depth: " << structure.sparseDepthBegin() << "\n" <<
+        "\tChunk size: " << structure.basePointsPerChunk() << " points\n" <<
         "\tDynamic chunks? " << yesNo(structure.dynamicChunks()) << "\n" <<
-        "\tDiscard dupes? " << yesNo(structure.discardDuplicates()) << "\n" <<
         "\tPrefix IDs? " << yesNo(structure.prefixIds()) << "\n" <<
         "\tBuild type: " << structure.typeString() << "\n" <<
         "\tPoint count hint: " << structure.numPointsHint() << " points" <<
@@ -503,8 +511,8 @@ void Kernel::build(std::vector<std::string> args)
 
     std::cout <<
         "Geometry:\n" <<
-        "\tConforming bounds: " << builder->bboxConforming() << "\n" <<
-        "\tCubic bounds: " << builder->bbox() << "\n" <<
+        "\tConforming bounds: " << metadata.boundsConforming() << "\n" <<
+        "\tCubic bounds: " << metadata.bounds() << "\n" <<
         "\tReprojection: " << getReprojString(reprojection) << "\n" <<
         "\tStoring dimensions: " << getDimensionString(schema) << "\n" <<
         std::endl;
@@ -514,7 +522,7 @@ void Kernel::build(std::vector<std::string> args)
     std::cout << "\nIndex completed in " << secondsSince(start) <<
         " seconds." << std::endl;
 
-    const PointStats stats(builder->manifest().pointStats());
+    const PointStats stats(manifest.pointStats());
     std::cout <<
         "Save complete.  Indexing stats:\n" <<
         "\tPoints inserted: " << stats.inserts() << "\n" <<

@@ -12,11 +12,12 @@
 #include <string>
 #include <vector>
 
-namespace arbiter { class Arbiter; }
 namespace Json { class Value; }
 
 namespace entwine
 {
+
+namespace arbiter { class Arbiter; }
 
 class Builder;
 class OuterScope;

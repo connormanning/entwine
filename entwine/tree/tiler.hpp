@@ -11,15 +11,16 @@
 #pragma once
 
 #include <cstddef>
+#include <limits>
 #include <memory>
 #include <vector>
 
 #include <pdal/PointView.hpp>
 
-#include <entwine/tree/builder.hpp>
-#include <entwine/types/bbox.hpp>
+#include <entwine/types/bounds.hpp>
 #include <entwine/types/dir.hpp>
-#include <entwine/types/vector-point-table.hpp>
+#include <entwine/types/defs.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/util/pool.hpp>
 
 namespace arbiter
@@ -39,11 +40,11 @@ class Above
 public:
     Above(
             const Id& chunkId,
-            const BBox& bbox,
+            const Bounds& bounds,
             const Schema& schema,
             std::size_t delta)
         : m_chunkId(chunkId)
-        , m_bbox(bbox)
+        , m_bounds(bounds)
         , m_schema(schema)
         , m_delta(delta)
         , m_segments()
@@ -56,7 +57,7 @@ public:
         // then write out this chunk.
     }
 
-    using Map = std::map<BBox, std::unique_ptr<Above>>;
+    using Map = std::map<Bounds, std::unique_ptr<Above>>;
     using MapVal = Map::value_type;
     using Set = std::set<Above*>;
 
@@ -65,18 +66,18 @@ public:
 
     virtual void populate(std::unique_ptr<std::vector<char>> data);
 
-    const std::vector<char>* data(const BBox& bbox) const
+    const std::vector<char>* data(const Bounds& bounds) const
     {
-        if (m_segments.count(bbox)) return &m_segments.at(bbox);
+        if (m_segments.count(bounds)) return &m_segments.at(bounds);
         else return nullptr;
     }
 
 protected:
     const Id m_chunkId;
-    const BBox m_bbox;
+    const Bounds m_bounds;
     const Schema& m_schema;
     const std::size_t m_delta;
-    std::map<BBox, std::vector<char>> m_segments;
+    std::map<Bounds, std::vector<char>> m_segments;
     bool m_here;
 };
 
@@ -89,7 +90,7 @@ public:
     {
         // TODO Reserialize base, if this is a transformation.  Something like:
         /*
-        const Schema celledSchema(BaseChunk::makeCelled(m_builder.schema()));
+        const Schema celledSchema(BaseChunk::makeCelled(m_metadata.schema()));
         auto toWrite(Compression::compress(*m_baseChunk, celledSchema));
 
         Chunk::pushTail(
@@ -99,7 +100,7 @@ public:
                     Chunk::Contiguous));
 
         m_outEndpoint->putSubpath(
-                m_builder.structure().baseIndexBegin().str(),
+                m_metadata.structure().baseIndexBegin().str(),
                 *toWrite);
         */
     }
@@ -107,6 +108,7 @@ public:
 private:
     virtual void populate(std::unique_ptr<std::vector<char>> data) override;
 
+    const Metadata& m_metadata;
     const Structure& m_structure;
 };
 
@@ -117,10 +119,15 @@ class Tile
     using Aboves = std::map<Above*, std::unique_ptr<std::size_t>>;
 
 public:
-    Tile(const BBox& bbox, const Schema& schema, Above::Map& aboves)
-        : m_bbox(bbox)
+    Tile(
+            const Bounds& bounds,
+            const Schema& schema,
+            Above::Map& aboves,
+            std::size_t maxPointsPerTile)
+        : m_bounds(bounds)
         , m_schema(schema)
-        , m_aboves(getContainingFrom(m_bbox, aboves))
+        , m_maxPointsPerTile(maxPointsPerTile)
+        , m_aboves(getContainingFrom(m_bounds, aboves))
         , m_belows()
         , m_data()
         , m_owned(false)
@@ -182,10 +189,16 @@ public:
     bool references(Above& above) const { return m_aboves.count(&above); }
 
 private:
-    Above::Set getContainingFrom(const BBox& bbox, Above::Map& aboves) const;
+    Above::Set getContainingFrom(const Bounds& bounds, Above::Map& aboves) const;
 
-    const BBox m_bbox;
+    void splitAndCall(
+            const TileFunction& f,
+            const std::vector<char>& data,
+            const Bounds& bounds) const;
+
+    const Bounds m_bounds;
     const Schema& m_schema;
+    const std::size_t m_maxPointsPerTile;
 
     Above::Set m_aboves;
     Belows m_belows;
@@ -198,48 +211,53 @@ class Tiler
 {
 public:
     Tiler(
-            const Builder& builder,
+            const arbiter::Endpoint& inEndpoint,
             std::size_t threads,
-            double maxArea,
-            const Schema* wantedSchema = nullptr);
+            double maxTileWidth,
+            const Schema* wantedSchema = nullptr,
+            std::size_t maxPointsPerTile =
+                std::numeric_limits<std::size_t>::max());
 
+    /*
     Tiler(
-            const Builder& builder,
+            const Metadata& metadata,
             const arbiter::Endpoint& output,
             std::size_t threads,
-            double maxArea);
+            double maxTileWidth);
+    */
 
-    void go(const TileFunction& f);
+    ~Tiler();
 
-    const Builder& builder() const { return m_builder; }
+    void go(const TileFunction& f, const arbiter::Endpoint* ep = nullptr);
+
+    const Metadata& metadata() const { return m_metadata; }
     const Schema* wantedSchema() const { return m_wantedSchema; }
     std::size_t sliceDepth() const { return m_sliceDepth; }
 
-    const Schema& activeSchema() const
-    {
-        return m_wantedSchema ? *m_wantedSchema : m_builder.schema();
-    }
+    const Schema& activeSchema() const;
+
+    const arbiter::Endpoint& inEndpoint() const { return m_inEndpoint; }
 
 private:
-    void init(double maxArea);
+    void init(double maxTileWidth);
 
     void insertAbove(
             const TileFunction& f,
             const Id& chunkId,
             std::size_t depth,
-            const BBox& bbox);
+            const Bounds& bounds);
 
     void spawnTile(
             const TileFunction& f,
             const Id& chunkId,
-            const BBox& bbox,
+            const Bounds& bounds,
             bool exists);
 
     void buildTile(
             const TileFunction& f,
             const Id& chunkId,
             std::size_t depth,
-            const BBox& bbox);
+            const Bounds& bounds);
 
     void awaitAndAcquire(
             const TileFunction& f,
@@ -247,15 +265,16 @@ private:
             Tile& tile);
 
     void maybeProcess(const TileFunction& f);
-
     std::unique_ptr<std::vector<char>> acquire(const Id& chunkId);
+    using TileMap = std::map<Bounds, std::unique_ptr<Tile>>;
 
-    using TileMap = std::map<BBox, std::unique_ptr<Tile>>;
+    const arbiter::Endpoint m_inEndpoint;
 
-    const Builder& m_builder;
+    const Metadata m_metadata;
+    const std::set<Id> m_ids;
+    const std::size_t m_maxPointsPerTile;
 
     std::unique_ptr<Traverser> m_traverser;
-    std::unique_ptr<arbiter::Endpoint> m_outEndpoint;
     mutable Pool m_pool;
     mutable std::mutex m_mutex;
 
@@ -264,20 +283,18 @@ private:
 
     const Schema* const m_wantedSchema;
 
-    std::map<BBox, std::unique_ptr<Above>> m_aboves;
+    std::map<Bounds, std::unique_ptr<Above>> m_aboves;
     TileMap m_tiles;
 
-    std::unique_ptr<BBox> m_current;
-    std::set<BBox> m_processing;
-
+    std::unique_ptr<Bounds> m_current;
+    std::set<Bounds> m_processing;
 };
 
 class SizedPointView : public pdal::PointView
 {
 public:
     template<typename Table>
-    SizedPointView(Table& table)
-        : PointView(table)
+    SizedPointView(Table& table) : PointView(table)
     {
         m_size = table.size();
         for (std::size_t i(0); i < m_size; ++i) m_index.push_back(i);

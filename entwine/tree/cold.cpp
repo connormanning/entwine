@@ -15,89 +15,87 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
-#include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
+#include <entwine/tree/thread-pools.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/structure.hpp>
+#include <entwine/util/json.hpp>
 #include <entwine/util/pool.hpp>
 #include <entwine/util/storage.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
 
 namespace
 {
-    const std::size_t clipQueueSize(1);
-
     const std::size_t maxCreateTries(8);
     const auto createSleepTime(std::chrono::milliseconds(500));
 
     const std::size_t maxFastTrackers(std::pow(4, 12));
-
-    std::size_t getNumFastTrackers(const Structure& structure)
-    {
-        std::size_t count(0);
-        std::size_t depth(structure.coldDepthBegin());
-
-        while (
-                count < maxFastTrackers &&
-                depth < 64 &&
-                (depth < structure.coldDepthEnd() || !structure.coldDepthEnd()))
-        {
-            count += structure.numChunksAtDepth(depth);
-            ++depth;
-        }
-
-        return count;
-    }
 }
 
-Cold::Cold(
-        arbiter::Endpoint& endpoint,
-        const Builder& builder,
-        const std::size_t clipPoolSize)
-    : m_endpoint(endpoint)
+Cold::Cold(const Builder& builder, bool exists)
+    : Splitter(builder.metadata().structure())
     , m_builder(builder)
-    , m_chunkVec(getNumFastTrackers(builder.structure()))
-    , m_chunkMap()
-    , m_mapMutex()
-    , m_pool(new Pool(clipPoolSize, clipQueueSize))
-{ }
-
-Cold::Cold(
-        arbiter::Endpoint& endpoint,
-        const Builder& builder,
-        const std::size_t clipPoolSize,
-        const Json::Value& jsonIds)
-    : m_endpoint(endpoint)
-    , m_builder(builder)
-    , m_chunkVec(getNumFastTrackers(builder.structure()))
-    , m_chunkMap()
-    , m_mapMutex()
-    , m_pool(new Pool(clipPoolSize, clipQueueSize))
+    , m_pool(m_builder.threadPools().clipPool())
 {
-    if (jsonIds.isArray())
+    const Metadata& metadata(m_builder.metadata());
+
+    if (exists)
     {
-        Id id(0);
-
-        const Structure& structure(m_builder.structure());
-
-        for (std::size_t i(0); i < jsonIds.size(); ++i)
+        const Json::Value json(([this, &metadata]()
         {
-            id = Id(jsonIds[static_cast<Json::ArrayIndex>(i)].asString());
+            const std::string subpath("entwine-ids" + metadata.postfix());
+            return parse(m_builder.outEndpoint().get(subpath));
+        })());
 
-            const ChunkInfo chunkInfo(structure.getInfo(id));
+        Id chunkId(0);
+
+        for (Json::ArrayIndex i(0); i < json.size(); ++i)
+        {
+            chunkId = Id(json[i].asString());
+
+            const ChunkInfo chunkInfo(m_structure.getInfo(chunkId));
             const std::size_t chunkNum(chunkInfo.chunkNum());
 
-            if (chunkNum < m_chunkVec.size())
+            mark(chunkId, chunkNum);
+        }
+    }
+
+    if (m_structure.baseIndexSpan())
+    {
+        m_base.mark = true;
+        m_base.t = makeUnique<CountedChunk>();
+
+        if (!exists)
+        {
+            m_base.t->chunk = Chunk::create(
+                    m_builder,
+                    0,
+                    m_structure.baseIndexBegin(),
+                    m_structure.baseIndexSpan());
+        }
+        else
+        {
+            const std::string basePath(
+                    m_structure.baseIndexBegin().str() + metadata.postfix());
+
+            if (auto data = m_builder.outEndpoint().tryGetBinary(basePath))
             {
-                m_chunkVec[chunkNum].mark.store(true);
+                m_base.t->chunk = Chunk::create(
+                        m_builder,
+                        0,
+                        m_structure.baseIndexBegin(),
+                        m_structure.baseIndexSpan(),
+                        std::move(data));
             }
             else
             {
-                std::unique_ptr<CountedChunk> c(new CountedChunk());
-                m_chunkMap.emplace(id, std::move(c));
+                throw std::runtime_error("No base data found");
             }
         }
     }
@@ -106,131 +104,43 @@ Cold::Cold(
 Cold::~Cold()
 { }
 
-Cell& Cold::getCell(const Climber& climber, Clipper& clipper)
+Tube::Insertion Cold::insert(
+        const Climber& climber,
+        Clipper& clipper,
+        Cell::PooledNode& cell)
 {
-    CountedChunk* countedChunk(nullptr);
-
-    const std::size_t chunkNum(climber.chunkNum());
-    const Id& chunkId(climber.chunkId());
-
-    if (chunkNum < m_chunkVec.size())
+    if (isWithinBase(climber.depth()))
     {
-        growFast(climber, clipper);
-        countedChunk = m_chunkVec[chunkNum].chunk.get();
-    }
-    else
-    {
-        growSlow(climber, clipper);
-
-        std::lock_guard<std::mutex> mapLock(m_mapMutex);
-        countedChunk = m_chunkMap.at(chunkId).get();
+        return m_base.t->chunk->insert(climber, cell);
     }
 
-    if (!countedChunk)
+    auto& slot(getOrCreate(climber.chunkId(), climber.chunkNum()));
+    std::unique_ptr<CountedChunk>& countedChunk(slot.t);
+
+    // With this insertion check into our single-threaded Clipper (which we
+    // need to perform anyways), we can avoid locking this Chunk to check for
+    // existence.
+    if (clipper.insert(climber.chunkId(), climber.chunkNum(), climber.depth()))
     {
-        throw std::runtime_error("CountedChunk has missing contents.");
-    }
+        UniqueSpin slotLock(slot.spinner);
 
-    return countedChunk->chunk->getCell(climber);
-}
+        const bool exists(slot.mark);
+        slot.mark = true;
 
-std::set<Id> Cold::ids() const
-{
-    std::set<Id> results(m_fauxIds);
+        if (!countedChunk) countedChunk = makeUnique<CountedChunk>();
 
-    const Structure& structure(m_builder.structure());
+        auto& refs(countedChunk->refs);
 
-    for (std::size_t i(0); i < m_chunkVec.size(); ++i)
-    {
-        if (m_chunkVec[i].mark.load())
+        if (!refs.count(clipper.id())) refs[clipper.id()] = 1;
+        else ++refs[clipper.id()];
+
+        if (!countedChunk->chunk)
         {
-            ChunkInfo info(structure.getInfoFromNum(i));
-            results.insert(info.chunkId());
+            ensureChunk(climber, countedChunk->chunk, exists);
         }
     }
 
-    std::lock_guard<std::mutex> lock(m_mapMutex);
-    for (const auto& p : m_chunkMap)
-    {
-        results.insert(p.first);
-    }
-
-    return results;
-}
-
-Json::Value Cold::toJson() const
-{
-    Json::Value json;
-    for (const auto& id : ids()) json.append(id.str());
-    return json;
-}
-
-void Cold::growFast(const Climber& climber, Clipper& clipper)
-{
-    const Id& chunkId(climber.chunkId());
-    const std::size_t chunkNum(climber.chunkNum());
-
-    if (clipper.insert(chunkId, chunkNum))
-    {
-        FastSlot& slot(m_chunkVec[chunkNum]);
-
-        while (slot.flag.test_and_set())
-            ;
-
-        const bool exists(slot.mark.load());
-        slot.mark.store(true);
-        auto& countedChunk(slot.chunk);
-
-        if (!countedChunk) countedChunk.reset(new CountedChunk());
-
-        std::lock_guard<std::mutex> chunkLock(countedChunk->mutex);
-        slot.flag.clear();
-
-        if (!countedChunk->refs.count(clipper.id()))
-        {
-            countedChunk->refs[clipper.id()] = 1;
-        }
-        else
-        {
-            ++countedChunk->refs[clipper.id()];
-        }
-
-        ensureChunk(climber, countedChunk->chunk, exists);
-    }
-}
-
-void Cold::growSlow(const Climber& climber, Clipper& clipper)
-{
-    const Id& chunkId(climber.chunkId());
-
-    if (clipper.insert(chunkId, climber.chunkNum()))
-    {
-        std::unique_lock<std::mutex> mapLock(m_mapMutex);
-
-        const bool exists(m_chunkMap.count(chunkId));
-        auto& countedChunk(m_chunkMap[chunkId]);
-
-        if (!exists) countedChunk.reset(new CountedChunk());
-
-        std::lock_guard<std::mutex> chunkLock(countedChunk->mutex);
-        mapLock.unlock();
-
-        if (!countedChunk->refs.count(clipper.id()))
-        {
-            countedChunk->refs[clipper.id()] = 1;
-        }
-        else
-        {
-            ++countedChunk->refs[clipper.id()];
-        }
-
-        ensureChunk(climber, countedChunk->chunk, exists);
-    }
-}
-
-void Cold::growFaux(const Id& id)
-{
-    m_fauxIds.insert(id);
+    return countedChunk->chunk->insert(climber, cell);
 }
 
 void Cold::ensureChunk(
@@ -246,18 +156,17 @@ void Cold::ensureChunk(
         if (exists)
         {
             const std::string path(
-                    m_builder.structure().maybePrefix(chunkId) +
-                    m_builder.postfix(true));
+                    m_builder.metadata().structure().maybePrefix(chunkId) +
+                    m_builder.metadata().postfix(true));
 
-            auto data(Storage::ensureGet(m_endpoint, path));
+            auto data(Storage::ensureGet(m_builder.outEndpoint(), path));
 
             chunk =
                     Chunk::create(
                         m_builder,
-                        climber.bboxChunk(),
                         climber.depth(),
                         chunkId,
-                        climber.chunkPoints(),
+                        climber.pointsPerChunk(),
                         std::move(data));
         }
         else
@@ -265,11 +174,9 @@ void Cold::ensureChunk(
             chunk =
                     Chunk::create(
                         m_builder,
-                        climber.bboxChunk(),
                         climber.depth(),
                         chunkId,
-                        climber.chunkPoints(),
-                        chunkId < m_builder.structure().mappedIndexBegin());
+                        climber.pointsPerChunk());
         }
 
         if (!chunk)
@@ -292,70 +199,47 @@ void Cold::ensureChunk(
     }
 }
 
+void Cold::save(const arbiter::Endpoint& endpoint) const
+{
+    m_pool.join();
+
+    if (m_structure.baseIndexSpan())
+    {
+        dynamic_cast<BaseChunk&>(*m_base.t->chunk).save(endpoint);
+    }
+
+    Json::Value json;
+    for (const auto& id : ids()) json.append(id.str());
+
+    const std::string subpath("entwine-ids" + m_builder.metadata().postfix());
+    endpoint.put(subpath, toFastString(json));
+}
+
 void Cold::clip(
         const Id& chunkId,
         const std::size_t chunkNum,
         const std::size_t id)
 {
-    if (chunkNum < m_chunkVec.size())
+    auto& slot(at(chunkId, chunkNum));
+    assert(slot.mark);
+
+    m_pool.add([&slot, id]()
     {
-        FastSlot& slot(m_chunkVec[chunkNum]);
-        CountedChunk& countedChunk(*slot.chunk);
-
-        m_pool->add([this, &countedChunk, id]()
-        {
-            unrefChunk(countedChunk, id, true);
-        });
-    }
-    else
-    {
-        std::unique_lock<std::mutex> mapLock(m_mapMutex);
-        CountedChunk& countedChunk(*m_chunkMap.at(chunkId));
-        mapLock.unlock();
-
-        m_pool->add([this, &countedChunk, id]()
-        {
-            unrefChunk(countedChunk, id, false);
-        });
-    }
-}
-
-void Cold::unrefChunk(
-        CountedChunk& countedChunk,
-        const std::size_t id,
-        const bool fast)
-{
-    std::lock_guard<std::mutex> chunkLock(countedChunk.mutex);
-
-    if (!--countedChunk.refs.at(id))
-    {
-        countedChunk.refs.erase(id);
-    }
-
-    if (countedChunk.refs.empty())
-    {
-        if (countedChunk.chunk)
-        {
-            countedChunk.chunk->save(m_endpoint);
-            countedChunk.chunk.reset(nullptr);
-        }
-        else
-        {
-            std::cout << "Tried to clip null chunk - ";
-            std::cout << (fast ? "fast" : "slow") << std::endl;
-            exit(1);
-        }
-    }
+        assert(slot.t);
+        SpinGuard lock(slot.spinner);
+        slot.t->unref(id);
+    });
 }
 
 void Cold::merge(const Cold& other)
 {
-    for (const Id& id : other.ids()) m_fauxIds.insert(id);
-}
+    if (m_base.t->chunk)
+    {
+        dynamic_cast<BaseChunk&>(*m_base.t->chunk).merge(
+                dynamic_cast<BaseChunk&>(*other.m_base.t->chunk));
+    }
 
-std::size_t Cold::clipThreads() const
-{
-    return m_pool->numThreads();
+    Splitter::merge(other.ids());
 }
 
 } // namespace entwine

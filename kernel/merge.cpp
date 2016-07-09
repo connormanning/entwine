@@ -26,6 +26,10 @@ namespace
             "\tUsage: entwine merge <path> <options>\n"
             "\tOptions:\n"
 
+            "\t-t <threads>\n"
+            "\t\tSet the number of worker threads.  Recommended to be no\n"
+            "\t\tmore than the physical number of cores.\n\n"
+
             "\t\t-u <aws-user>\n"
             "\t\t\tSpecify AWS credential user, if not default\n";
     }
@@ -77,7 +81,7 @@ void Kernel::merge(std::vector<std::string> args)
     }
 
     Json::Value arbiterConfig;
-    arbiterConfig["s3"]["user"] = user;
+    arbiterConfig["s3"]["profile"] = user;
 
     auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(arbiterConfig));
 

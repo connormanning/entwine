@@ -9,7 +9,6 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR
     add_definitions(${CMAKE_CXX_FLAGS} "-O3")
     add_definitions(${CMAKE_CXX_FLAGS} "-Wno-deprecated-declarations")
     add_definitions(${CMAKE_CXX_FLAGS} "-Wall")
-    add_definitions(${CMAKE_CXX_FLAGS} "-Werror")
     add_definitions(${CMAKE_CXX_FLAGS} "-pedantic")
     add_definitions(${CMAKE_CXX_FLAGS} "-fexceptions")
     add_definitions(${CMAKE_CXX_FLAGS} "-fPIC")
@@ -41,7 +40,6 @@ add_subdirectory(entwine)
 add_subdirectory(kernel)
 
 set(OBJS
-    $<TARGET_OBJECTS:compression>
     $<TARGET_OBJECTS:reader>
     $<TARGET_OBJECTS:third>
     $<TARGET_OBJECTS:tree>

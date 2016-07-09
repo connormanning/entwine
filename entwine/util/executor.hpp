@@ -15,15 +15,11 @@
 #include <mutex>
 #include <string>
 
-#include <entwine/types/bbox.hpp>
+#include <entwine/types/bounds.hpp>
 #include <entwine/types/structure.hpp>
 
 namespace pdal
 {
-    class BasePointTable;
-    class Filter;
-    class PointView;
-    class Reader;
     class Stage;
     class StageFactory;
 }
@@ -59,17 +55,17 @@ class Preview
 {
 public:
     Preview(
-            const BBox& bbox,
+            const Bounds& bounds,
             std::size_t numPoints,
             const std::string& srs,
             const std::vector<std::string>& dimNames)
-        : bbox(bbox)
+        : bounds(bounds)
         , numPoints(numPoints)
         , srs(srs)
         , dimNames(dimNames)
     { }
 
-    BBox bbox;
+    Bounds bounds;
     std::size_t numPoints;
     std::string srs;
     std::vector<std::string> dimNames;
@@ -78,7 +74,7 @@ public:
 class Executor
 {
 public:
-    Executor(bool is3d);
+    Executor();
     ~Executor();
 
     // Returns true if no errors occurred during insertion.
@@ -104,7 +100,6 @@ private:
 
     std::unique_lock<std::mutex> getLock() const;
 
-    bool m_is3d;
     std::unique_ptr<pdal::StageFactory> m_stageFactory;
     mutable std::mutex m_factoryMutex;
 };

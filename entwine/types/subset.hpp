@@ -13,7 +13,7 @@
 #include <cstddef>
 #include <memory>
 
-#include <entwine/types/bbox.hpp>
+#include <entwine/types/bounds.hpp>
 
 namespace Json
 {
@@ -23,35 +23,31 @@ namespace Json
 namespace entwine
 {
 
-class Structure;
-
 class Subset
 {
 public:
-    Subset(
-            Structure& structure,
-            const BBox& bbox,
-            std::size_t id,
-            std::size_t of);
-
-    Subset(Structure& structure, const BBox& bbox, const Json::Value& json);
+    Subset(const Bounds& bounds, std::size_t id, std::size_t of);
+    Subset(const Bounds& bounds, const Json::Value& json);
 
     Json::Value toJson() const;
 
     std::size_t id() const { return m_id; }
     std::size_t of() const { return m_of; }
-    const BBox& bbox() const { return m_sub; }
+    const Bounds& bounds() const { return m_sub; }
 
     std::string postfix() const { return "-" + std::to_string(m_id); }
     bool primary() const { return !m_id; }
 
+    std::size_t minimumNullDepth() const { return m_minimumNullDepth; }
+
 private:
-    void split(Structure& structure, const BBox& fullBBox);
+    void split(const Bounds& fullBounds);
 
     std::size_t m_id;
     std::size_t m_of;
 
-    BBox m_sub;
+    Bounds m_sub;
+    std::size_t m_minimumNullDepth;
 };
 
 } // namespace entwine

@@ -18,6 +18,7 @@
 #include <set>
 #include <vector>
 
+#include <entwine/tree/hierarchy.hpp>
 #include <entwine/types/outer-scope.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
@@ -37,26 +38,19 @@ public:
     { }
 };
 
-class BaseChunk;
-class BBox;
-class Builder;
+class BaseChunkReader;
+class Bounds;
 class Cache;
-class Climber;
 class Hierarchy;
-class Manifest;
+class Metadata;
 class Query;
-class Reprojection;
 class Schema;
-class SinglePointTable;
 
 class Reader
 {
 public:
     // Will throw if entwine's meta files cannot be fetched from this endpoint.
-    Reader(
-            const arbiter::Endpoint& endpoint,
-            Cache& cache,
-            OuterScope outerScope = OuterScope());
+    Reader(const arbiter::Endpoint& endpoint, Cache& cache);
     ~Reader();
 
     std::unique_ptr<Query> query(
@@ -68,27 +62,22 @@ public:
 
     std::unique_ptr<Query> query(
             const Schema& schema,
-            const BBox& qbox,
+            const Bounds& qbox,
             std::size_t depthBegin,
             std::size_t depthEnd,
             double scale = 0.0,
             Point offset = Point());
 
     Json::Value hierarchy(
-            const BBox& qbox,
+            const Bounds& qbox,
             std::size_t depthBegin,
             std::size_t depthEnd);
 
-    std::size_t numPoints() const;
-    const BBox& bboxConforming() const;
-    const BBox& bbox() const;
-    const Schema& schema() const;
-    const Structure& structure() const;
-    const std::string& srs() const;
-    std::string path() const;
+    const Metadata& metadata() const { return *m_metadata; }
+    std::string path() const { return m_endpoint.root(); }
 
-    const BaseChunk* base() const;
-    const arbiter::Endpoint& endpoint() const;
+    const BaseChunkReader* base() const { return m_base.get(); }
+    const arbiter::Endpoint& endpoint() const { return m_endpoint; }
     bool exists(const Id& id) const { return m_ids.count(id); }
 
     struct BoxInfo
@@ -100,13 +89,16 @@ public:
         std::size_t numPoints;
     };
 
-    typedef std::map<BBox, BoxInfo> BoxMap;
+    typedef std::map<Bounds, BoxInfo> BoxMap;
 
 private:
+    const Bounds& bounds() const;
+
     arbiter::Endpoint m_endpoint;
 
-    std::unique_ptr<Builder> m_builder;
-    std::unique_ptr<BaseChunk> m_base;
+    std::unique_ptr<Metadata> m_metadata;
+    std::unique_ptr<Hierarchy> m_hierarchy;
+    std::unique_ptr<BaseChunkReader> m_base;
 
     Cache& m_cache;
     std::set<Id> m_ids;

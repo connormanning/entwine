@@ -11,8 +11,10 @@
 #include <entwine/reader/cache.hpp>
 
 #include <entwine/reader/chunk-reader.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/util/pool.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
@@ -52,14 +54,14 @@ void Block::set(const Id& id, const ChunkReader* chunkReader)
     m_chunkMap.at(id) = chunkReader;
 }
 
-ChunkState::ChunkState()
+DataChunkState::DataChunkState()
     : chunkReader()
     , inactiveIt()
     , refs(0)
     , mutex()
 { }
 
-ChunkState::~ChunkState() { }
+DataChunkState::~DataChunkState() { }
 
 
 
@@ -101,7 +103,7 @@ void Cache::release(const Block& block)
     {
         const Id& id(c.first);
 
-        std::unique_ptr<ChunkState>& chunkState(localManager.at(id));
+        std::unique_ptr<DataChunkState>& chunkState(localManager.at(id));
 
         if (chunkState)
         {
@@ -163,11 +165,11 @@ std::unique_ptr<Block> Cache::reserve(
     //      - If already existed and inactive, remove from the inactive list
     for (const auto& f : fetches)
     {
-        std::unique_ptr<ChunkState>& chunkState(localManager[f.id]);
+        std::unique_ptr<DataChunkState>& chunkState(localManager[f.id]);
 
         if (!chunkState)
         {
-            chunkState.reset(new ChunkState());
+            chunkState.reset(new DataChunkState());
             ++m_activeCount;
         }
         else if (chunkState->inactiveIt)
@@ -232,29 +234,73 @@ const ChunkReader* Cache::fetch(
         const FetchInfo& fetchInfo)
 {
     std::unique_lock<std::mutex> globalLock(m_mutex);
-    ChunkState& chunkState(*m_chunkManager.at(readerPath).at(fetchInfo.id));
+    DataChunkState& chunkState(*m_chunkManager.at(readerPath).at(fetchInfo.id));
     globalLock.unlock();
 
     std::lock_guard<std::mutex> lock(chunkState.mutex);
 
     if (!chunkState.chunkReader)
     {
-        std::unique_ptr<std::vector<char>> rawData(
-                new std::vector<char>(
-                    fetchInfo.reader.endpoint().getSubpathBinary(
-                        fetchInfo.reader.structure().maybePrefix(
-                            fetchInfo.id))));
+        const Reader& reader(fetchInfo.reader);
+        const Metadata& metadata(reader.metadata());
+        const std::string path(metadata.structure().maybePrefix(fetchInfo.id));
 
-        chunkState.chunkReader.reset(
-                new ChunkReader(
-                    fetchInfo.reader.schema(),
-                    fetchInfo.reader.bbox(),
-                    fetchInfo.id,
-                    fetchInfo.depth,
-                    std::move(rawData)));
+        chunkState.chunkReader = makeUnique<ChunkReader>(
+                metadata,
+                fetchInfo.id,
+                fetchInfo.depth,
+                makeUnique<std::vector<char>>(
+                    reader.endpoint().getBinary(path)));
     }
 
     return chunkState.chunkReader.get();
+}
+
+void Cache::markHierarchy(
+        const std::string& name,
+        const Hierarchy::Slots& touched)
+{
+    if (touched.empty()) return;
+
+    std::cout << "Blocks touched: " << touched.size() << std::endl;
+
+    std::unique_lock<std::mutex> topLock(m_hierarchyMutex);
+    HierarchyCache& selected(m_hierarchyCache[name]);
+    std::lock_guard<std::mutex> lock(selected.mutex);
+    topLock.unlock();
+
+    auto& slots(selected.slots);
+    auto& order(selected.order);
+
+    for (const Hierarchy::Slot* s : touched)
+    {
+        if (slots.count(s))
+        {
+            order.splice(order.begin(), order, slots.at(s));
+        }
+        else
+        {
+            auto it(slots.insert(std::make_pair(s, order.end())).first);
+            order.push_front(s);
+            it->second = order.begin();
+        }
+    }
+
+    std::cout << "Awake for " << name << ": " << slots.size() << std::endl;
+
+    if (slots.size() > m_maxChunks)
+    {
+        std::cout << "Erasing " << (slots.size() - m_maxChunks) << std::endl;
+    }
+
+    while (slots.size() > m_maxChunks)
+    {
+        const Hierarchy::Slot* s(order.back());
+        order.pop_back();
+
+        SpinGuard spinLock(s->spinner);
+        s->t.reset();
+    }
 }
 
 } // namespace entwine

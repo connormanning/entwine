@@ -15,6 +15,7 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/chunk.hpp>
+#include <entwine/types/format.hpp>
 #include <entwine/util/storage.hpp>
 
 namespace
@@ -59,16 +60,20 @@ void Storage::ensurePut(
     {
         throw std::runtime_error("Tried to save empty chunk");
     }
-    else if (data.back() != Chunk::Contiguous && data.back() != Chunk::Sparse)
+    else
     {
-        throw std::runtime_error("Tried to save improperly marked chunk");
+        const ChunkType type(static_cast<ChunkType>(data.back()));
+        if (type != ChunkType::Contiguous && type != ChunkType::Sparse)
+        {
+            throw std::runtime_error("Tried to save improperly marked chunk");
+        }
     }
 
     while (!done)
     {
         try
         {
-            endpoint.putSubpath(path, data);
+            endpoint.put(path, data);
             done = true;
         }
         catch (...)
@@ -90,7 +95,7 @@ std::unique_ptr<std::vector<char>> Storage::ensureGet(
 
     while (!done)
     {
-        data = endpoint.tryGetSubpathBinary(path);
+        data = endpoint.tryGetBinary(path);
 
         if (data)
         {

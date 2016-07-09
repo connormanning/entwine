@@ -8,10 +8,36 @@
 *
 ******************************************************************************/
 
-#include <entwine/types/simple-point-layout.hpp>
+#pragma once
 
-namespace
+#include <pdal/PointLayout.hpp>
+
+namespace entwine
 {
+
+class FixedPointLayout : public pdal::PointLayout
+{
+private:
+    virtual bool update(
+            pdal::Dimension::Detail dimDetail,
+            const std::string& name) override
+    {
+        bool added(false);
+
+        if (!m_finalized && !contains(m_used, dimDetail.id()))
+        {
+            dimDetail.setOffset(m_pointSize);
+
+            m_pointSize += dimDetail.size();
+            m_used.push_back(dimDetail.id());
+            m_detail[dimDetail.id()] = dimDetail;
+
+            added = true;
+        }
+
+        return added;
+    }
+
     bool contains(
             const pdal::Dimension::IdList& idList,
             const pdal::Dimension::Id::Enum id)
@@ -23,25 +49,7 @@ namespace
 
         return false;
     }
-}
+};
 
-bool SimplePointLayout::update(
-        pdal::Dimension::Detail dimDetail,
-        const std::string& name)
-{
-    bool added(false);
-
-    if (!m_finalized && !contains(m_used, dimDetail.id()))
-    {
-        dimDetail.setOffset(m_pointSize);
-
-        m_pointSize += dimDetail.size();
-        m_used.push_back(dimDetail.id());
-        m_detail[dimDetail.id()] = dimDetail;
-
-        added = true;
-    }
-
-    return added;
-}
+} // namespace entwine
 

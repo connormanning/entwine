@@ -13,26 +13,11 @@
 namespace entwine
 {
 
-bool Clipper::insert(const Id& chunkId, std::size_t chunkNum)
-{
-    const auto find(m_clips.find(chunkId));
-
-    if (find != m_clips.end())
-    {
-        find->second.fresh = true;
-        return false;
-    }
-    else
-    {
-        m_clips.insert(std::make_pair(chunkId, ClipInfo(chunkNum)));
-        return true;
-    }
-}
-
 void Clipper::clip()
 {
     if (m_clips.size() < 10) return;
 
+    m_fastCache.assign(32, m_clips.end());
     auto it(m_clips.begin());
 
     while (it != m_clips.end())

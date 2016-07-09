@@ -1,0 +1,101 @@
+/******************************************************************************
+* Copyright (c) 2016, Connor Manning (connor@hobu.co)
+*
+* Entwine -- Point cloud indexing
+*
+* Entwine is available under the terms of the LGPL2 license. See COPYING
+* for specific license text and more information.
+*
+******************************************************************************/
+
+#pragma once
+
+#include <memory>
+#include <string>
+#include <vector>
+
+namespace Json { class Value; }
+
+namespace entwine
+{
+
+namespace arbiter { class Endpoint; }
+
+class Bounds;
+class Format;
+class Manifest;
+class Reprojection;
+class Schema;
+class Structure;
+class Subset;
+
+class Metadata
+{
+    friend class Builder;
+
+public:
+    Metadata(
+            const Bounds& boundsConforming,
+            const Schema& schema,
+            const Structure& structure,
+            const Structure& hierarchyStructure,
+            const Manifest& manifest,
+            const Format& format,
+            const Reprojection* reprojection = nullptr,
+            const Subset* subset = nullptr);
+
+    Metadata(
+            const arbiter::Endpoint& endpoint,
+            const std::size_t* subsetId = nullptr,
+            const std::size_t* splitId = nullptr);
+
+    explicit Metadata(const Json::Value& json);
+    Metadata(const Metadata& other);
+    ~Metadata();
+
+    void merge(const Metadata& other);
+
+    void save(const arbiter::Endpoint& endpoint) const;
+
+    const Bounds& boundsConforming() const { return *m_boundsConforming; }
+    const Bounds& boundsEpsilon() const { return *m_boundsEpsilon; }
+    const Bounds& bounds() const { return *m_bounds; }
+    const Bounds* boundsSubset() const;
+    const Schema& schema() const { return *m_schema; }
+    const Structure& structure() const { return *m_structure; }
+    const Structure& hierarchyStructure() const
+    {
+        return *m_hierarchyStructure;
+    }
+    const Manifest& manifest() const { return *m_manifest; }
+    const Format& format() const { return *m_format; }
+    const Reprojection* reprojection() const { return m_reprojection.get(); }
+    const Subset* subset() const { return m_subset.get(); }
+
+    const std::vector<std::string>& errors() const { return m_errors; }
+
+    std::string postfix(bool isColdChunk = false) const;
+    void makeWhole();
+
+private:
+    // These are aggregated as the Builder runs.
+    Manifest& manifest() { return *m_manifest; }
+    Format& format() { return *m_format; }
+    std::vector<std::string>& errors() { return m_errors; }
+
+    std::unique_ptr<Bounds> m_boundsConforming;
+    std::unique_ptr<Bounds> m_boundsEpsilon;
+    std::unique_ptr<Bounds> m_bounds;
+    std::unique_ptr<Schema> m_schema;
+    std::unique_ptr<Structure> m_structure;
+    std::unique_ptr<Structure> m_hierarchyStructure;
+    std::unique_ptr<Manifest> m_manifest;
+    std::unique_ptr<Format> m_format;
+    std::unique_ptr<Reprojection> m_reprojection;
+    std::unique_ptr<Subset> m_subset;
+
+    std::vector<std::string> m_errors;
+};
+
+} // namespace entwine
+

@@ -11,8 +11,7 @@
 #pragma once
 
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/tree/hierarchy.hpp>
-#include <entwine/tree/point-info.hpp>
+#include <entwine/types/point-pool.hpp>
 
 namespace entwine
 {
@@ -30,17 +29,8 @@ public:
         m_pointPool = pointPool;
     }
 
-    void setNodePool(std::shared_ptr<Node::NodePool> nodePool)
-    {
-        m_nodePool = nodePool;
-    }
-
-    arbiter::Arbiter* getArbiterPtr() const { return m_arbiter.get(); }
-    PointPool* getPointPoolPtr() const { return m_pointPool.get(); }
-    Node::NodePool* getNodePoolPtr() const { return m_nodePool.get(); }
-
     template<class... Args>
-    std::shared_ptr<arbiter::Arbiter> getArbiter(Args&&... args)
+    std::shared_ptr<arbiter::Arbiter> getArbiter(Args&&... args) const
     {
         if (!m_arbiter)
         {
@@ -52,32 +42,23 @@ public:
     }
 
     template<class... Args>
-    std::shared_ptr<PointPool> getPointPool(Args&&... args)
+    std::shared_ptr<PointPool> getPointPool(Args&&... args) const
     {
         if (!m_pointPool)
         {
-            return std::make_shared<PointPool>(std::forward<Args>(args)...);
+            m_pointPool = std::make_shared<PointPool>(
+                    std::forward<Args>(args)...);
         }
 
         return m_pointPool;
     }
 
-    template<class... Args>
-    std::shared_ptr<Node::NodePool> getNodePool(Args&&... args)
-    {
-        if (!m_nodePool)
-        {
-            return std::make_shared<Node::NodePool>(
-                    std::forward<Args>(args)...);
-        }
-
-        return m_nodePool;
-    }
+    arbiter::Arbiter* getArbiterPtr() const { return m_arbiter.get(); }
+    PointPool* getPointPoolPtr() const { return m_pointPool.get(); }
 
 private:
-    std::shared_ptr<arbiter::Arbiter> m_arbiter;
-    std::shared_ptr<PointPool> m_pointPool;
-    std::shared_ptr<Node::NodePool> m_nodePool;
+    mutable std::shared_ptr<arbiter::Arbiter> m_arbiter;
+    mutable std::shared_ptr<PointPool> m_pointPool;
 };
 
 } // namespace entwine

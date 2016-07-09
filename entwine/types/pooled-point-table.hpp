@@ -14,7 +14,7 @@
 #include <pdal/PointTable.hpp>
 
 #include <entwine/tree/manifest.hpp>
-#include <entwine/tree/point-info.hpp>
+#include <entwine/types/point-pool.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
 
@@ -54,7 +54,7 @@ public:
     // can return any that do not need to be kept for reuse.
     PooledPointTable(
             PointPool& pointPool,
-            std::function<PooledInfoStack(PooledInfoStack)> process,
+            std::function<Cell::PooledStack(Cell::PooledStack)> process,
             pdal::Dimension::Id::Enum originId = pdal::Dimension::Id::Unknown,
             Origin origin = invalidOrigin);
 
@@ -65,18 +65,18 @@ protected:
     virtual char* getPoint(pdal::PointId i) override
     {
         m_size = i + 1;
-        return m_nodes[i]->val().data();
+        return **m_refs[i];
     }
 
 private:
     void allocate();
 
     PointPool& m_pointPool;
-    PooledInfoStack m_stack;
-    std::deque<RawInfoNode*> m_nodes;   // m_nodes[0] -> m_stack.head()
+    Data::PooledStack m_dataNodes;
+    std::vector<Data::RawNode*> m_refs; // m_refs[0]=> m_dataNodes.head()
     std::size_t m_size;
 
-    std::function<PooledInfoStack(PooledInfoStack)> m_process;
+    std::function<Cell::PooledStack(Cell::PooledStack)> m_process;
 
     const pdal::Dimension::Id::Enum m_originId;
     const Origin m_origin;

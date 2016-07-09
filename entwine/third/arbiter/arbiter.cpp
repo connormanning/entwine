@@ -95,8 +95,11 @@ void Arbiter::init(const Json::Value& json)
 {
     using namespace drivers;
 
-    auto fs(Fs::create(m_pool, json["file"]));
+    auto fs(Fs::create(json["file"]));
     if (fs) m_drivers[fs->type()] = std::move(fs);
+
+    auto test(Test::create(json["test"]));
+    if (test) m_drivers[test->type()] = std::move(test);
 
     auto http(Http::create(m_pool, json["http"]));
     if (http) m_drivers[http->type()] = std::move(http);
@@ -106,6 +109,11 @@ void Arbiter::init(const Json::Value& json)
 
     auto dropbox(Dropbox::create(m_pool, json["dropbox"]));
     if (dropbox) m_drivers[dropbox->type()] = std::move(dropbox);
+}
+
+bool Arbiter::hasDriver(const std::string path) const
+{
+    return m_drivers.count(getType(path));
 }
 
 void Arbiter::addDriver(const std::string type, std::unique_ptr<Driver> driver)
@@ -204,14 +212,96 @@ void Arbiter::put(
     return getHttpDriver(path).put(stripType(path), data, headers, query);
 }
 
-void Arbiter::copy(const std::string from, const std::string to) const
+void Arbiter::copy(
+        const std::string src,
+        const std::string dst,
+        const bool verbose) const
 {
-    const Endpoint outEndpoint(getEndpoint(to));
-    const auto paths(resolve(from));
+    if (src.empty()) throw ArbiterError("Cannot copy from empty source");
+    if (dst.empty()) throw ArbiterError("Cannot copy to empty destination");
 
-    for (const auto& path : paths)
+    // Globify the source path if it's a directory.  In this case, the source
+    // already ends with a slash.
+    const std::string srcToResolve(src + (util::isDirectory(src) ? "**" : ""));
+
+    if (srcToResolve.back() != '*')
     {
-        outEndpoint.putSubpath(util::getBasename(path), getBinary(path));
+        // The source is a single file.
+        copyFile(src, dst, verbose);
+    }
+    else
+    {
+        // We'll need this to mirror the directory structure in the output.
+        // All resolved paths will contain this common prefix, so we can
+        // determine any nested paths from recursive resolutions by stripping
+        // that common portion.
+        const Endpoint& srcEndpoint(getEndpoint(util::stripPostfixing(src)));
+        const std::string commonPrefix(srcEndpoint.prefixedRoot());
+
+        const Endpoint dstEndpoint(getEndpoint(dst));
+
+        if (srcEndpoint.prefixedRoot() == dstEndpoint.prefixedRoot())
+        {
+            throw ArbiterError("Cannot copy directory to itself");
+        }
+
+        int i(0);
+        const auto paths(resolve(srcToResolve, verbose));
+
+        for (const auto& path : paths)
+        {
+            const std::string subpath(path.substr(commonPrefix.size()));
+
+            if (verbose)
+            {
+                std::cout <<
+                    ++i << " / " << paths.size() << ": " <<
+                    path << " -> " << dstEndpoint.fullPath(subpath) <<
+                    std::endl;
+            }
+
+            if (dstEndpoint.isLocal())
+            {
+                fs::mkdirp(util::getNonBasename(dstEndpoint.fullPath(subpath)));
+            }
+
+            dstEndpoint.put(subpath, getBinary(path));
+        }
+    }
+}
+
+void Arbiter::copyFile(
+        const std::string file,
+        const std::string dst,
+        const bool verbose) const
+{
+    if (dst.empty()) throw ArbiterError("Cannot copy to empty destination");
+
+    const Endpoint dstEndpoint(getEndpoint(dst));
+
+    if (util::isDirectory(dst))
+    {
+        // If the destination is a directory, maintain the basename of the
+        // source file.
+        const std::string basename(util::getBasename(file));
+        if (verbose)
+        {
+            std::cout <<
+                file << " -> " <<
+                dstEndpoint.type() + "://" + dstEndpoint.fullPath(basename) <<
+                std::endl;
+        }
+
+        if (dstEndpoint.isLocal()) fs::mkdirp(dst);
+
+        dstEndpoint.put(util::getBasename(file), getBinary(file));
+    }
+    else
+    {
+        if (verbose) std::cout << file << " -> " << dst << std::endl;
+
+        if (dstEndpoint.isLocal()) fs::mkdirp(util::getNonBasename(dst));
+        put(dst, getBinary(file));
     }
 }
 
@@ -223,6 +313,11 @@ bool Arbiter::isRemote(const std::string path) const
 bool Arbiter::isLocal(const std::string path) const
 {
     return !isRemote(path);
+}
+
+bool Arbiter::exists(const std::string path) const
+{
+    return tryGetSize(path).get() != nullptr;
 }
 
 bool Arbiter::isHttpDerived(const std::string path) const
@@ -283,7 +378,7 @@ std::unique_ptr<fs::LocalHandle> Arbiter::getLocalHandle(
         std::replace(name.begin(), name.end(), '\\', '-');
         std::replace(name.begin(), name.end(), ':', '_');
 
-        tempEndpoint.putSubpath(name, getBinary(path));
+        tempEndpoint.put(name, getBinary(path));
 
         localHandle.reset(
                 new fs::LocalHandle(tempEndpoint.root() + name, true));
@@ -436,7 +531,8 @@ std::vector<std::string> Driver::resolve(
     }
     else
     {
-        if (type() != "fs") path = type() + "://" + path;
+        if (isRemote()) path = type() + "://" + path;
+        else path = fs::expandTilde(path);
 
         results.push_back(path);
     }
@@ -504,6 +600,11 @@ std::string Endpoint::root() const
     return m_root;
 }
 
+std::string Endpoint::prefixedRoot() const
+{
+    return softPrefix() + root();
+}
+
 std::string Endpoint::type() const
 {
     return m_driver.type();
@@ -519,40 +620,104 @@ bool Endpoint::isLocal() const
     return !isRemote();
 }
 
-std::string Endpoint::getSubpath(const std::string subpath) const
+bool Endpoint::isHttpDerived() const
+{
+    return tryGetHttpDriver() != nullptr;
+}
+
+std::string Endpoint::get(const std::string subpath) const
 {
     return m_driver.get(fullPath(subpath));
 }
 
-std::unique_ptr<std::string> Endpoint::tryGetSubpath(const std::string subpath)
+std::unique_ptr<std::string> Endpoint::tryGet(const std::string subpath)
     const
 {
     return m_driver.tryGet(fullPath(subpath));
 }
 
-std::vector<char> Endpoint::getSubpathBinary(const std::string subpath) const
+std::vector<char> Endpoint::getBinary(const std::string subpath) const
 {
     return m_driver.getBinary(fullPath(subpath));
 }
 
-std::unique_ptr<std::vector<char>> Endpoint::tryGetSubpathBinary(
+std::unique_ptr<std::vector<char>> Endpoint::tryGetBinary(
         const std::string subpath) const
 {
     return m_driver.tryGetBinary(fullPath(subpath));
 }
 
-void Endpoint::putSubpath(
-        const std::string subpath,
-        const std::string& data) const
+std::size_t Endpoint::getSize(const std::string subpath) const
+{
+    return m_driver.getSize(fullPath(subpath));
+}
+
+std::unique_ptr<std::size_t> Endpoint::tryGetSize(
+        const std::string subpath) const
+{
+    return m_driver.tryGetSize(fullPath(subpath));
+}
+
+void Endpoint::put(const std::string subpath, const std::string& data) const
 {
     m_driver.put(fullPath(subpath), data);
 }
 
-void Endpoint::putSubpath(
+void Endpoint::put(
         const std::string subpath,
         const std::vector<char>& data) const
 {
     m_driver.put(fullPath(subpath), data);
+}
+
+std::string Endpoint::get(
+        const std::string subpath,
+        const http::Headers headers,
+        const http::Query query) const
+{
+    return getHttpDriver().get(fullPath(subpath), headers, query);
+}
+
+std::unique_ptr<std::string> Endpoint::tryGet(
+        const std::string subpath,
+        const http::Headers headers,
+        const http::Query query) const
+{
+    return getHttpDriver().tryGet(fullPath(subpath), headers, query);
+}
+
+std::vector<char> Endpoint::getBinary(
+        const std::string subpath,
+        const http::Headers headers,
+        const http::Query query) const
+{
+    return getHttpDriver().getBinary(fullPath(subpath), headers, query);
+}
+
+std::unique_ptr<std::vector<char>> Endpoint::tryGetBinary(
+        const std::string subpath,
+        const http::Headers headers,
+        const http::Query query) const
+{
+    return getHttpDriver().tryGetBinary(fullPath(subpath), headers, query);
+}
+
+void Endpoint::put(
+        const std::string path,
+        const std::string& data,
+        const http::Headers headers,
+        const http::Query query) const
+{
+    getHttpDriver().put(path, data, headers, query);
+}
+
+void Endpoint::put(
+        const std::string path,
+        const std::vector<char>& data,
+        const http::Headers headers,
+        const http::Query query) const
+{
+    getHttpDriver().put(path, data, headers, query);
 }
 
 std::string Endpoint::fullPath(const std::string& subpath) const
@@ -560,9 +725,30 @@ std::string Endpoint::fullPath(const std::string& subpath) const
     return m_root + subpath;
 }
 
+std::string Endpoint::prefixedFullPath(const std::string& subpath) const
+{
+     return softPrefix() + fullPath(subpath);
+}
+
 Endpoint Endpoint::getSubEndpoint(std::string subpath) const
 {
     return Endpoint(m_driver, m_root + subpath);
+}
+
+std::string Endpoint::softPrefix() const
+{
+    return isRemote() ? type() + "://" : "";
+}
+
+const drivers::Http* Endpoint::tryGetHttpDriver() const
+{
+    return dynamic_cast<const drivers::Http*>(&m_driver);
+}
+
+const drivers::Http& Endpoint::getHttpDriver() const
+{
+    if (auto d = tryGetHttpDriver()) return *d;
+    else throw ArbiterError("Cannot get driver of type " + type() + " as HTTP");
 }
 
 } // namespace arbiter
@@ -5809,9 +5995,9 @@ std::ostream& operator<<(std::ostream& sout, Value const& root) {
 #include <windows.h>
 #endif
 
+#include <algorithm>
 #include <cstdlib>
 #include <fstream>
-#include <stdexcept>
 
 #ifdef ARBITER_CUSTOM_NAMESPACE
 namespace ARBITER_CUSTOM_NAMESPACE
@@ -5845,7 +6031,7 @@ namespace
             auto homeDrive(util::env("HOMEDRIVE"));
             auto homePath(util::env("HOMEPATH"));
 
-            if (homeDrive && homePath) s = homeDrive + homePath;
+            if (homeDrive && homePath) s = *homeDrive + *homePath;
         }
 #endif
         if (s.empty()) std::cout << "No home directory found" << std::endl;
@@ -5857,7 +6043,7 @@ namespace
 namespace drivers
 {
 
-std::unique_ptr<Fs> Fs::create(http::Pool&, const Json::Value&)
+std::unique_ptr<Fs> Fs::create(const Json::Value&)
 {
     return std::unique_ptr<Fs>(new Fs());
 }
@@ -5917,17 +6103,27 @@ void Fs::put(std::string path, const std::vector<char>& data) const
     }
 }
 
-std::vector<std::string> Fs::glob(std::string path, bool) const
+std::vector<std::string> Fs::glob(std::string path, bool verbose) const
 {
     std::vector<std::string> results;
 
-#ifndef ARBITER_WINDOWS
     path = fs::expandTilde(path);
 
+    const bool recursive(([&path]()
+    {
+        if (path.size() > 2 && path[path.size() - 2] == '*')
+        {
+            path.pop_back();
+            return true;
+        }
+        else return false;
+    })());
+
+#ifndef ARBITER_WINDOWS
     glob_t buffer;
     struct stat info;
 
-    ::glob(path.c_str(), GLOB_NOSORT | GLOB_TILDE, 0, &buffer);
+    ::glob(path.c_str(), GLOB_NOSORT | GLOB_MARK, 0, &buffer);
 
     for (std::size_t i(0); i < buffer.gl_pathc; ++i)
     {
@@ -5937,7 +6133,17 @@ std::vector<std::string> Fs::glob(std::string path, bool) const
         {
             if (S_ISREG(info.st_mode))
             {
+                if (verbose && results.size() % 10000 == 0)
+                {
+                    std::cout << "." << std::flush;
+                }
+
                 results.push_back(val);
+            }
+            else if (recursive && S_ISDIR(info.st_mode))
+            {
+                const auto nested(glob(val + "**", verbose));
+                results.insert(results.end(), nested.begin(), nested.end());
             }
         }
         else
@@ -5962,6 +6168,7 @@ std::vector<std::string> Fs::glob(std::string path, bool) const
             {
                 results.push_back(converter.to_bytes(data->cFileName));
             }
+            // TODO Recurse if necessary.
         }
         while (FindNextFileW(hFind, data));
     }
@@ -5975,13 +6182,39 @@ std::vector<std::string> Fs::glob(std::string path, bool) const
 namespace fs
 {
 
-bool mkdirp(std::string dir)
+bool mkdirp(std::string raw)
 {
-    dir = expandTilde(dir);
-
 #ifndef ARBITER_WINDOWS
-    const bool err(::mkdir(dir.c_str(), S_IRWXU | S_IRGRP | S_IROTH));
-    return (!err || errno == EEXIST);
+    const std::string dir(([&raw]()
+    {
+        std::string s(expandTilde(raw));
+
+        // Remove consecutive slashes.  For Windows, we'll need to be careful
+        // not to remove drive letters like C:\\.
+        const auto end = std::unique(s.begin(), s.end(), [](char l, char r){
+            return util::isSlash(l) && util::isSlash(r);
+        });
+
+        s = std::string(s.begin(), end);
+        if (s.size() && util::isSlash(s.back())) s.pop_back();
+        return s;
+    })());
+
+    auto it(dir.begin());
+    const auto end(dir.cend());
+
+    do
+    {
+        it = std::find_if(++it, end, util::isSlash);
+
+        const std::string cur(dir.begin(), it);
+        const bool err(::mkdir(cur.c_str(), S_IRWXU | S_IRGRP | S_IROTH));
+        if (err && errno != EEXIST) return false;
+    }
+    while (it != end);
+
+    return true;
+
 #else
     throw ArbiterError("Windows mkdirp not done yet.");
 #endif
@@ -6440,7 +6673,16 @@ std::unique_ptr<S3> S3::create(Pool& pool, const Json::Value& json)
     std::string region("us-east-1");
     bool regionFound(false);
 
+    const std::string configPath(
+            util::env("AWS_CONFIG_FILE") ?
+                *util::env("AWS_CONFIG_FILE") : "~/.aws/config");
+
     if (auto p = util::env("AWS_REGION"))
+    {
+        region = *p;
+        regionFound = true;
+    }
+    else if (auto p = util::env("AWS_DEFAULT_REGION"))
     {
         region = *p;
         regionFound = true;
@@ -6450,9 +6692,7 @@ std::unique_ptr<S3> S3::create(Pool& pool, const Json::Value& json)
         region = json["region"].asString();
         regionFound = true;
     }
-    else if (
-            std::unique_ptr<std::string> config =
-                fsDriver.tryGet("~/.aws/config"))
+    else if (std::unique_ptr<std::string> config = fsDriver.tryGet(configPath))
     {
         const std::vector<std::string> lines(condense(split(*config)));
 
@@ -6500,13 +6740,13 @@ std::unique_ptr<S3> S3::create(Pool& pool, const Json::Value& json)
             }
         }
     }
-    else
+    else if (json["verbose"].asBool())
     {
         std::cout <<
             "~/.aws/config not found - using region us-east-1" << std::endl;
     }
 
-    if (!regionFound)
+    if (!regionFound && json["verbose"].asBool())
     {
         std::cout <<
             "Region not found in ~/.aws/config - using us-east-1" << std::endl;
@@ -6520,6 +6760,10 @@ std::unique_ptr<S3> S3::create(Pool& pool, const Json::Value& json)
 std::string S3::extractProfile(const Json::Value& json)
 {
     if (auto p = util::env("AWS_PROFILE"))
+    {
+        return *p;
+    }
+    else if (auto p = util::env("AWS_DEFAULT_PROFILE"))
     {
         return *p;
     }
@@ -8479,11 +8723,9 @@ namespace arbiter
 namespace util
 {
 
-std::string getBasename(const std::string fullPath)
+std::string stripPostfixing(const std::string path)
 {
-    std::string result(fullPath);
-
-    std::string stripped(Arbiter::stripType(fullPath));
+    std::string stripped(path);
 
     for (std::size_t i(0); i < 2; ++i)
     {
@@ -8495,6 +8737,15 @@ std::string getBasename(const std::string fullPath)
     // Pop trailing slash, in which case the result is the innermost directory.
     while (!stripped.empty() && isSlash(stripped.back())) stripped.pop_back();
 
+    return stripped;
+}
+
+std::string getBasename(const std::string fullPath)
+{
+    std::string result(fullPath);
+
+    const std::string stripped(stripPostfixing(Arbiter::stripType(fullPath)));
+
     // Now do the real slash searching.
     const std::size_t pos(stripped.rfind('/'));
 
@@ -8502,6 +8753,24 @@ std::string getBasename(const std::string fullPath)
     {
         const std::string sub(stripped.substr(pos + 1));
         if (!sub.empty()) result = sub;
+    }
+
+    return result;
+}
+
+std::string getNonBasename(const std::string fullPath)
+{
+    std::string result("");
+
+    const std::string stripped(stripPostfixing(Arbiter::stripType(fullPath)));
+
+    // Now do the real slash searching.
+    const std::size_t pos(stripped.rfind('/'));
+
+    if (pos != std::string::npos)
+    {
+        const std::string sub(stripped.substr(0, pos));
+        result = sub;
     }
 
     return result;
@@ -8517,7 +8786,14 @@ std::unique_ptr<std::string> env(const std::string& var)
     char* c(nullptr);
     std::size_t size(0);
 
-    if (!_dupenv_s(&c, size, var.c_str())) result.reset(new std::string(c));
+    if (!_dupenv_s(&c, &size, var.c_str()))
+    {
+        if (c)
+        {
+            result.reset(new std::string(c));
+            free(c);
+        }
+    }
 #endif
 
     return result;

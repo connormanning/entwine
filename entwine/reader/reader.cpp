@@ -10,8 +10,10 @@
 
 #include <entwine/reader/reader.hpp>
 
-#include <entwine/compression/util.hpp>
+#include <numeric>
+
 #include <entwine/reader/cache.hpp>
+#include <entwine/reader/chunk-reader.hpp>
 #include <entwine/reader/query.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/chunk.hpp>
@@ -20,11 +22,15 @@
 #include <entwine/tree/hierarchy.hpp>
 #include <entwine/tree/manifest.hpp>
 #include <entwine/tree/registry.hpp>
-#include <entwine/types/bbox.hpp>
+#include <entwine/types/bounds.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/types/subset.hpp>
+#include <entwine/util/compression.hpp>
+#include <entwine/util/json.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
@@ -40,48 +46,51 @@ namespace
     }
 }
 
-Reader::Reader(
-        const arbiter::Endpoint& endpoint,
-        Cache& cache,
-        OuterScope outerScope)
+Reader::Reader(const arbiter::Endpoint& endpoint, Cache& cache)
     : m_endpoint(endpoint)
-    , m_builder(
-            new Builder(
-                endpoint.type() + "://" + endpoint.root(),
-                1,
-                nullptr,
-                nullptr,
-                outerScope))
+    , m_metadata(makeUnique<Metadata>(m_endpoint))
+    , m_hierarchy(makeUnique<Hierarchy>(*m_metadata, endpoint, true))
     , m_base()
     , m_cache(cache)
-    , m_ids(m_builder->registry().ids())
+    , m_ids()
 {
+    const Structure& structure(m_metadata->structure());
 
-    std::unique_ptr<std::vector<char>> data(
-            new std::vector<char>(
-                endpoint.getSubpathBinary(structure().baseIndexBegin().str())));
+    if (structure.hasBase())
+    {
+        auto compressed(
+                makeUnique<std::vector<char>>(
+                    endpoint.getBinary(structure.baseIndexBegin().str())));
 
-    m_base.reset(
-            static_cast<BaseChunk*>(
-                Chunk::create(
-                    *m_builder,
-                    bbox(),
-                    0,
-                    structure().baseIndexBegin(),
-                    structure().baseIndexSpan(),
-                    std::move(data)).release()));
+        m_base = makeUnique<BaseChunkReader>(
+                *m_metadata,
+                BaseChunk::makeCelled(m_metadata->schema()),
+                structure.baseIndexBegin(),
+                std::move(compressed));
+    }
+
+    if (structure.hasCold())
+    {
+        std::vector<Id> ids(extract<Id>(parse(m_endpoint.get("entwine-ids"))));
+        for (const Id& id : ids) m_ids.insert(id);
+    }
 }
 
 Reader::~Reader()
 { }
 
 Json::Value Reader::hierarchy(
-        const BBox& qbox,
+        const Bounds& queryBounds,
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
     checkQuery(depthBegin, depthEnd);
-    return m_builder->hierarchy().query(qbox, depthBegin, depthEnd);
+    Hierarchy::QueryResults results(
+            m_hierarchy->query(queryBounds, depthBegin, depthEnd));
+
+    m_cache.markHierarchy(m_endpoint.prefixedRoot(), results.touched);
+
+    return results.json;
 }
 
 std::unique_ptr<Query> Reader::query(
@@ -91,12 +100,12 @@ std::unique_ptr<Query> Reader::query(
         const double scale,
         const Point offset)
 {
-    return query(schema, bbox(), depthBegin, depthEnd, scale, offset);
+    return query(schema, bounds(), depthBegin, depthEnd, scale, offset);
 }
 
 std::unique_ptr<Query> Reader::query(
         const Schema& schema,
-        const BBox& qbox,
+        const Bounds& queryBounds,
         const std::size_t depthBegin,
         const std::size_t depthEnd,
         const double scale,
@@ -104,15 +113,20 @@ std::unique_ptr<Query> Reader::query(
 {
     checkQuery(depthBegin, depthEnd);
 
-    BBox queryCube(qbox);
+    Bounds queryCube(queryBounds);
 
-    if (!qbox.is3d())
+    if (!queryBounds.is3d())
     {
         // Make sure the query is 3D.
-        queryCube = BBox(
-                Point(qbox.min().x, qbox.min().y, bbox().min().z),
-                Point(qbox.max().x, qbox.max().y, bbox().max().z),
-                true);
+        queryCube = Bounds(
+                Point(
+                    queryBounds.min().x,
+                    queryBounds.min().y,
+                    bounds().min().z),
+                Point(
+                    queryBounds.max().x,
+                    queryBounds.max().y,
+                    bounds().max().z));
     }
 
     return std::unique_ptr<Query>(
@@ -127,24 +141,7 @@ std::unique_ptr<Query> Reader::query(
                 offset));
 }
 
-const BBox& Reader::bboxConforming() const
-{
-    return m_builder->bboxConforming();
-}
-
-const BBox& Reader::bbox() const            { return m_builder->bbox(); }
-const Schema& Reader::schema() const        { return m_builder->schema(); }
-const Structure& Reader::structure() const  { return m_builder->structure(); }
-const std::string& Reader::srs() const      { return m_builder->srs(); }
-std::string Reader::path() const            { return m_endpoint.root(); }
-
-const BaseChunk* Reader::base() const { return m_base.get(); }
-const arbiter::Endpoint& Reader::endpoint() const { return m_endpoint; }
-
-std::size_t Reader::numPoints() const
-{
-    return m_builder->numPointsClone();
-}
+const Bounds& Reader::bounds() const { return m_metadata->bounds(); }
 
 } // namespace entwine
 

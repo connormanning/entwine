@@ -23,5 +23,6 @@ public:
     static void build(std::vector<std::string> args);
     static void merge(std::vector<std::string> args);
     static void infer(std::vector<std::string> args);
+    static void convert(std::vector<std::string> args);
 };
 

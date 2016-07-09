@@ -9,8 +9,11 @@
 ******************************************************************************/
 
 #include <entwine/tree/builder.hpp>
+#include <entwine/tree/manifest.hpp>
 #include <entwine/tree/merger.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/types/subset.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
@@ -21,19 +24,21 @@ Merger::Merger(
         std::shared_ptr<arbiter::Arbiter> arbiter)
     : m_builder()
     , m_path(path)
-    , m_numSubsets(0)
+    , m_numSubsets(1)
     , m_threads(threads)
-    , m_outerScope(new OuterScope())
+    , m_outerScope(makeUnique<OuterScope>())
 {
     m_outerScope->setArbiter(arbiter);
-    m_outerScope->setNodePool(std::make_shared<Node::NodePool>());
 
     m_builder = Builder::create(path, threads, *m_outerScope);
     if (!m_builder) throw std::runtime_error("Path not mergeable");
 
     m_outerScope->setPointPool(m_builder->sharedPointPool());
 
-    m_numSubsets = m_builder->subset() ? m_builder->subset()->of() : 1;
+    if (const Subset* subset = m_builder->metadata().subset())
+    {
+        m_numSubsets = subset->of();
+    }
 }
 
 Merger::~Merger() { }
@@ -48,7 +53,14 @@ void Merger::go()
     {
         std::cout << "\t" << (id + 1) << " / " << m_numSubsets << std::flush;
 
-        auto current(Builder::create(m_path, m_threads, id, *m_outerScope));
+        auto current(
+                Builder::create(
+                    m_path,
+                    m_threads,
+                    &id,
+                    nullptr,
+                    *m_outerScope));
+
         if (!current) throw std::runtime_error("Couldn't create split builder");
 
         unsplit(*current);
@@ -65,26 +77,31 @@ void Merger::go()
 
 void Merger::unsplit(Builder& builder)
 {
-    if (!builder.manifest().split()) return;
+    const Metadata& metadata(builder.metadata());
+    const Manifest& manifest(metadata.manifest());
+
+    if (!manifest.split()) return;
 
     std::cout << " unsplitting..." << std::flush;
 
     std::unique_ptr<std::size_t> subsetId(
-            builder.subset() ?
-                new std::size_t(builder.subset()->id()) : nullptr);
+            metadata.subset() ?
+                new std::size_t(metadata.subset()->id()) : nullptr);
 
-    std::size_t pos(builder.manifest().split()->end());
+    std::size_t pos(manifest.split()->end());
 
-    while (pos < builder.manifest().size())
+    while (pos < manifest.size())
     {
-        std::unique_ptr<Builder> nextSplit(
-                new Builder(
-                    builder.outEndpoint().root(),
-                    m_threads,
-                    subsetId.get(),
-                    &pos));
+        auto nextSplit = Builder::create(
+                builder.outEndpoint().root(),
+                m_threads,
+                subsetId.get(),
+                &pos,
+                *m_outerScope);
 
-        pos = nextSplit->manifest().split()->end();
+        std::cout << " " << pos << std::flush;
+
+        pos = nextSplit->metadata().manifest().split()->end();
         builder.unsplit(*nextSplit);
     }
 }

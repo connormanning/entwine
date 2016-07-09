@@ -10,30 +10,23 @@
 
 #pragma once
 
-#include <limits>
+#include <memory>
 
 namespace entwine
 {
 
-class Range
+template<typename T, typename... Args>
+std::unique_ptr<T> makeUnique(Args&&... args)
 {
-public:
-    Range()
-        : min(std::numeric_limits<double>::max())
-        , max(std::numeric_limits<double>::lowest())
-    { }
+    return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+}
 
-    Range(double min, double max) : min(min), max(max) { }
-
-    void grow(double val)
-    {
-        min = std::min(min, val);
-        max = std::max(max, val);
-    }
-
-    double min;
-    double max;
-};
+template<typename T>
+std::unique_ptr<T> maybeClone(const T* t)
+{
+    if (t) return makeUnique<T>(*t);
+    else return std::unique_ptr<T>();
+}
 
 } // namespace entwine
 

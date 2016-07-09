@@ -17,10 +17,10 @@
 #include <pdal/SpatialReference.hpp>
 #include <pdal/StageFactory.hpp>
 
-#include <entwine/types/bbox.hpp>
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
@@ -41,9 +41,9 @@ namespace
     class BufferState
     {
     public:
-        BufferState(const BBox& bbox)
+        BufferState(const Bounds& bounds)
             : m_table()
-            , m_view(new pdal::PointView(m_table))
+            , m_view(makeUnique<pdal::PointView>(m_table))
             , m_buffer()
         {
             namespace DimId = pdal::Dimension::Id;
@@ -54,21 +54,21 @@ namespace
             layout->registerDim(DimId::Z);
             layout->finalize();
 
-            m_view->setField(DimId::X, 0, bbox.min().x);
-            m_view->setField(DimId::Y, 0, bbox.min().y);
-            m_view->setField(DimId::Z, 0, bbox.min().z);
+            m_view->setField(DimId::X, 0, bounds.min().x);
+            m_view->setField(DimId::Y, 0, bounds.min().y);
+            m_view->setField(DimId::Z, 0, bounds.min().z);
 
-            m_view->setField(DimId::X, 1, bbox.max().x);
-            m_view->setField(DimId::Y, 1, bbox.max().y);
-            m_view->setField(DimId::Z, 1, bbox.max().z);
+            m_view->setField(DimId::X, 1, bounds.max().x);
+            m_view->setField(DimId::Y, 1, bounds.max().y);
+            m_view->setField(DimId::Z, 1, bounds.max().z);
 
-            m_view->setField(DimId::X, 2, bbox.min().x);
-            m_view->setField(DimId::Y, 2, bbox.max().y);
-            m_view->setField(DimId::Z, 2, bbox.min().z);
+            m_view->setField(DimId::X, 2, bounds.min().x);
+            m_view->setField(DimId::Y, 2, bounds.max().y);
+            m_view->setField(DimId::Z, 2, bounds.min().z);
 
-            m_view->setField(DimId::X, 3, bbox.max().x);
-            m_view->setField(DimId::Y, 3, bbox.min().y);
-            m_view->setField(DimId::Z, 3, bbox.max().z);
+            m_view->setField(DimId::X, 3, bounds.max().x);
+            m_view->setField(DimId::Y, 3, bounds.min().y);
+            m_view->setField(DimId::Z, 3, bounds.max().z);
 
             m_buffer.addView(m_view);
         }
@@ -84,9 +84,8 @@ namespace
     };
 }
 
-Executor::Executor(bool is3d)
-    : m_is3d(is3d)
-    , m_stageFactory(new pdal::StageFactory())
+Executor::Executor()
+    : m_stageFactory(makeUnique<pdal::StageFactory>())
     , m_factoryMutex()
 { }
 
@@ -156,10 +155,9 @@ std::unique_ptr<Preview> Executor::preview(
 
     if (!qi.valid() || qi.m_bounds.empty()) return result;
 
-    BBox bbox(
+    Bounds bounds(
             Point(qi.m_bounds.minx, qi.m_bounds.miny, qi.m_bounds.minz),
-            Point(qi.m_bounds.maxx, qi.m_bounds.maxy, qi.m_bounds.maxz),
-            m_is3d);
+            Point(qi.m_bounds.maxx, qi.m_bounds.maxy, qi.m_bounds.maxz));
 
     std::string srs;
 
@@ -171,7 +169,7 @@ std::unique_ptr<Preview> Executor::preview(
     {
         namespace DimId = pdal::Dimension::Id;
 
-        BufferState bufferState(bbox);
+        BufferState bufferState(bounds);
 
         const auto selectedSrs(
                 srsFoundOrDefault(qi.m_srs, *reprojection));
@@ -204,13 +202,13 @@ std::unique_ptr<Preview> Executor::preview(
             max.z = std::max(max.z, p.z);
         }
 
-        bbox = BBox(min, max, m_is3d);
+        bounds = Bounds(min, max);
 
         auto lock(getLock());
         srs = pdal::SpatialReference(reprojection->out()).getWKT();
     }
 
-    result.reset(new Preview(bbox, qi.m_pointCount, srs, qi.m_dimNames));
+    result.reset(new Preview(bounds, qi.m_pointCount, srs, qi.m_dimNames));
     return result;
 }
 

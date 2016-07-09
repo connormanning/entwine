@@ -14,9 +14,12 @@
 
 #include <entwine/reader/cache.hpp>
 #include <entwine/reader/chunk-reader.hpp>
-#include <entwine/tree/cell.hpp>
 #include <entwine/tree/chunk.hpp>
+#include <entwine/tree/climber.hpp>
+#include <entwine/types/dir.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/tube.hpp>
 
 namespace entwine
 {
@@ -30,15 +33,15 @@ Query::Query(
         const Reader& reader,
         const Schema& schema,
         Cache& cache,
-        const BBox& qbox,
+        const Bounds& queryBounds,
         const std::size_t depthBegin,
         const std::size_t depthEnd,
         const double scale,
         const Point& offset)
     : m_reader(reader)
-    , m_structure(reader.structure())
+    , m_structure(m_reader.metadata().structure())
     , m_cache(cache)
-    , m_qbox(qbox)
+    , m_queryBounds(queryBounds)
     , m_depthBegin(depthBegin)
     , m_depthEnd(depthEnd)
     , m_chunks()
@@ -50,41 +53,45 @@ Query::Query(
     , m_outSchema(schema)
     , m_scale(scale)
     , m_offset(offset)
-    , m_table(reader.schema())
+    , m_table(m_reader.metadata().schema())
     , m_pointRef(m_table, 0)
 {
     if (!m_depthEnd || m_depthEnd > m_structure.coldDepthBegin())
     {
-        SplitClimber splitter(
-                m_structure,
-                m_reader.bbox(),
-                m_qbox,
-                m_depthBegin,
-                m_depthEnd,
-                true);
+        QueryChunkState chunkState(m_structure, m_reader.metadata().bounds());
+        getFetches(chunkState);
+    }
+}
 
-        bool terminate(false);
+void Query::getFetches(const QueryChunkState& chunkState)
+{
+    if (!m_queryBounds.overlaps(chunkState.bounds(), true)) return;
 
-        do
+    if (
+            chunkState.depth() >= m_depthBegin &&
+            chunkState.depth() >= m_structure.coldDepthBegin() &&
+            m_reader.exists(chunkState.chunkId()))
+    {
+        m_chunks.emplace(
+                m_reader,
+                chunkState.chunkId(),
+                chunkState.pointsPerChunk(),
+                chunkState.depth());
+    }
+
+    if (chunkState.depth() + 1 < m_depthEnd)
+    {
+        if (chunkState.allDirections())
         {
-            terminate = false;
-            const Id& chunkId(splitter.index());
-
-            if (reader.exists(chunkId))
+            for (std::size_t i(0); i < 4; ++i)
             {
-                m_chunks.insert(
-                        FetchInfo(
-                            m_reader,
-                            chunkId,
-                            m_structure.getInfo(chunkId).chunkPoints(),
-                            splitter.depth()));
-            }
-            else
-            {
-                terminate = true;
+                getFetches(chunkState.getClimb(toDir(i)));
             }
         }
-        while (splitter.next(terminate));
+        else
+        {
+            getFetches(chunkState.getClimb());
+        }
     }
 }
 
@@ -96,7 +103,13 @@ bool Query::next(std::vector<char>& buffer)
     {
         m_base = false;
 
-        if (!getBase(buffer))
+        if (m_reader.base())
+        {
+            PointState pointState(m_structure, m_reader.metadata().bounds());
+            getBase(buffer, pointState);
+        }
+
+        if (buffer.empty())
         {
             if (m_chunks.empty()) m_done = true;
             else getChunked(buffer);
@@ -110,65 +123,34 @@ bool Query::next(std::vector<char>& buffer)
     return !m_done;
 }
 
-bool Query::getBase(std::vector<char>& buffer)
+void Query::getBase(std::vector<char>& buffer, const PointState& pointState)
 {
-    bool dataExisted(false);
+    if (!m_queryBounds.overlaps(pointState.bounds(), true)) return;
 
-    if (
-            m_reader.base() &&
-            m_depthBegin < m_structure.baseDepthEnd() &&
-            m_depthEnd   > m_structure.baseDepthBegin())
+    if (pointState.depth() >= m_structure.baseDepthBegin())
     {
-        const BaseChunk& base(*m_reader.base());
-        bool terminate(false);
-        SplitClimber splitter(
-                m_structure,
-                m_reader.bbox(),
-                m_qbox,
-                m_depthBegin,
-                std::min(m_depthEnd, m_structure.baseDepthEnd()));
+        const auto& cell(m_reader.base()->getTubeData(pointState.index()));
+        if (cell.empty()) return;
 
-        if (splitter.index() < m_structure.baseIndexBegin())
+        if (pointState.depth() >= m_depthBegin)
         {
-            return dataExisted;
-        }
-
-        do
-        {
-            terminate = false;
-
-            const Id& index(splitter.index());
-            const Tube& tube(base.getTube(index));
-
-            if (!tube.empty())
+            for (const PointInfo& pointInfo : cell)
             {
-                if (
-                        processPoint(
-                            buffer,
-                            tube.primaryCell().atom().load()->val()))
-                {
-                    ++m_numPoints;
-                    dataExisted = true;
-                }
-
-                for (const auto& c : tube.secondaryCells())
-                {
-                    if (processPoint(buffer, c.second.atom().load()->val()))
-                    {
-                        ++m_numPoints;
-                        dataExisted = true;
-                    }
-                }
-            }
-            else
-            {
-                terminate = true;
+                if (processPoint(buffer, pointInfo)) ++m_numPoints;
             }
         }
-        while (splitter.next(terminate));
     }
 
-    return dataExisted;
+    if (
+            pointState.depth() + 1 < m_structure.baseDepthEnd() &&
+            pointState.depth() + 1 < m_depthEnd)
+    {
+        // Always climb in 2d.
+        for (std::size_t i(0); i < 4; ++i)
+        {
+            getBase(buffer, pointState.getClimb(toDir(i)));
+        }
+    }
 }
 
 void Query::getChunked(std::vector<char>& buffer)
@@ -193,7 +175,7 @@ void Query::getChunked(std::vector<char>& buffer)
     {
         if (const ChunkReader* cr = m_chunkReaderIt->second)
         {
-            ChunkReader::QueryRange range(cr->candidates(m_qbox));
+            ChunkReader::QueryRange range(cr->candidates(m_queryBounds));
             auto it(range.begin);
 
             while (it != range.end)
@@ -218,7 +200,7 @@ void Query::getChunked(std::vector<char>& buffer)
 
 bool Query::processPoint(std::vector<char>& buffer, const PointInfo& info)
 {
-    if (m_qbox.contains(info.point()))
+    if (m_queryBounds.contains(info.point()))
     {
         buffer.resize(buffer.size() + m_outSchema.pointSize(), 0);
         char* pos(buffer.data() + buffer.size() - m_outSchema.pointSize());
