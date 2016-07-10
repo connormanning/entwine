@@ -11,6 +11,7 @@
 #include <entwine/tree/hierarchy-block.hpp>
 
 #include <entwine/types/structure.hpp>
+#include <entwine/util/storage.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -90,7 +91,7 @@ void ContiguousBlock::save(const arbiter::Endpoint& ep, std::string pf)
         }
     }
 
-    ep.put(m_id.str() + pf, data);
+    Storage::ensurePut(ep, m_id.str() + pf, data);
 }
 
 void ContiguousBlock::merge(const ContiguousBlock& other)
@@ -154,7 +155,7 @@ void SparseBlock::save(const arbiter::Endpoint& ep, std::string pf)
         }
     }
 
-    if (data.size()) ep.put(m_id.str() + pf, data);
+    if (data.size()) Storage::ensurePut(ep, m_id.str() + pf, data);
 }
 
 } // namespace entwine
