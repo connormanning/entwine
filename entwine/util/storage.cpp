@@ -56,11 +56,6 @@ void Storage::ensurePut(
     bool done(false);
     std::size_t tried(0);
 
-    if (data.empty())
-    {
-        throw std::runtime_error("Tried to save empty data to" + path);
-    }
-
     while (!done)
     {
         try
