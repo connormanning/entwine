@@ -91,6 +91,7 @@ public:
     ContiguousBlock(const Id& id, std::size_t maxPoints)
         : HierarchyBlock(id)
         , m_tubes(maxPoints)
+        , m_spinners(maxPoints)
     { }
 
     ContiguousBlock(
@@ -98,9 +99,12 @@ public:
             std::size_t maxPoints,
             const std::vector<char>& data);
 
-    virtual void count(const Id& id, uint64_t tick, int delta) override
+    virtual void count(const Id& global, uint64_t tick, int delta) override
     {
-        m_tubes.at(normalize(id).getSimple())[tick].count(delta);
+        const std::size_t id(normalize(global).getSimple());
+
+        SpinGuard lock(m_spinners.at(id));
+        m_tubes.at(id)[tick].count(delta);
     }
 
     virtual uint64_t get(const Id& id, uint64_t tick) const override
@@ -119,6 +123,7 @@ public:
 
 private:
     std::vector<HierarchyTube> m_tubes;
+    std::vector<SpinLock> m_spinners;
 };
 
 class SparseBlock : public HierarchyBlock

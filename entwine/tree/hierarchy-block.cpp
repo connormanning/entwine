@@ -54,6 +54,7 @@ ContiguousBlock::ContiguousBlock(
         const std::vector<char>& data)
     : HierarchyBlock(id)
     , m_tubes(maxPoints)
+    , m_spinners(maxPoints)
 {
     const char* pos(data.data());
     const char* end(data.data() + data.size());
