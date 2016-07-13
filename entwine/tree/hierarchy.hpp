@@ -69,7 +69,7 @@ public:
         iterateCold([this](const Id& chunkId, const Slot& slot)
         {
             slot.t = HierarchyBlock::create(
-                    m_structure,
+                    m_metadata,
                     chunkId,
                     m_structure.getInfo(chunkId).pointsPerChunk(),
                     m_endpoint.getBinary(chunkId.str() + m_metadata.postfix()));

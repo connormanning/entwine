@@ -6,6 +6,7 @@ set(
     "${BASE}/compression.cpp"
     "${BASE}/executor.cpp"
     "${BASE}/inference.cpp"
+    "${BASE}/lzma.cpp"
     "${BASE}/pool.cpp"
     "${BASE}/storage.cpp"
 )

@@ -35,11 +35,15 @@ Hierarchy::Hierarchy(
 
     if (!exists)
     {
-        m_base.t = makeUnique<ContiguousBlock>(0, m_structure.baseIndexSpan());
+        m_base.t = HierarchyBlock::create(
+                m_metadata,
+                0,
+                m_structure.baseIndexSpan());
     }
     else
     {
-        m_base.t = makeUnique<ContiguousBlock>(
+        m_base.t = HierarchyBlock::create(
+                m_metadata,
                 0,
                 m_structure.baseIndexSpan(),
                 m_endpoint.getBinary("0" + metadata.postfix()));
@@ -81,7 +85,7 @@ void Hierarchy::count(const PointState& pointState, const int delta)
             if (slot.mark)
             {
                 block = HierarchyBlock::create(
-                        m_structure,
+                        m_metadata,
                         pointState.chunkId(),
                         pointState.pointsPerChunk(),
                         m_endpoint.getBinary(pointState.chunkId().str()));
@@ -90,7 +94,7 @@ void Hierarchy::count(const PointState& pointState, const int delta)
             {
                 slot.mark = true;
                 block = HierarchyBlock::create(
-                        m_structure,
+                        m_metadata,
                         pointState.chunkId(),
                         pointState.pointsPerChunk());
             }
@@ -118,7 +122,7 @@ uint64_t Hierarchy::tryGet(const PointState& s) const
                 ", fast? " << (s.chunkNum() < m_fast.size()) << std::endl;
 
             block = HierarchyBlock::create(
-                    m_structure,
+                    m_metadata,
                     s.chunkId(),
                     s.pointsPerChunk(),
                     m_endpoint.getBinary(s.chunkId().str()));

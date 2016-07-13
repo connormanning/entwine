@@ -10,7 +10,10 @@
 
 #include <entwine/tree/hierarchy-block.hpp>
 
+#include <entwine/types/format.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/types/structure.hpp>
+#include <entwine/util/compression.hpp>
 #include <entwine/util/storage.hpp>
 #include <entwine/util/unique.hpp>
 
@@ -18,41 +21,76 @@ namespace entwine
 {
 
 std::unique_ptr<HierarchyBlock> HierarchyBlock::create(
-        const Structure& structure,
+        const Metadata& metadata,
         const Id& id,
         const Id& maxPoints)
 {
-    if (id < structure.sparseIndexBegin())
+    const auto compress(metadata.format().hierarchyCompression());
+    if (id < metadata.structure().sparseIndexBegin())
     {
-        return makeUnique<ContiguousBlock>(id, maxPoints.getSimple());
+        return makeUnique<ContiguousBlock>(id, compress, maxPoints.getSimple());
     }
     else
     {
-        return makeUnique<SparseBlock>(id);
+        return makeUnique<SparseBlock>(id, compress);
     }
 }
 
 std::unique_ptr<HierarchyBlock> HierarchyBlock::create(
-        const Structure& structure,
+        const Metadata& metadata,
         const Id& id,
         const Id& maxPoints,
         const std::vector<char>& data)
 {
-    if (id < structure.sparseIndexBegin())
+    std::unique_ptr<std::vector<char>> decompressed;
+
+    const auto compress(metadata.format().hierarchyCompression());
+
+    if (compress == HierarchyCompression::Lzma)
     {
-        return makeUnique<ContiguousBlock>(id, maxPoints.getSimple(), data);
+        decompressed = Compression::decompressLzma(data);
+    }
+
+    if (id < metadata.structure().sparseIndexBegin())
+    {
+        return makeUnique<ContiguousBlock>(
+                id,
+                compress,
+                maxPoints.getSimple(),
+                decompressed ? *decompressed : data);
     }
     else
     {
-        return makeUnique<SparseBlock>(id, data);
+        return makeUnique<SparseBlock>(
+                id,
+                compress,
+                decompressed ? *decompressed : data);
+    }
+}
+
+void HierarchyBlock::save(const arbiter::Endpoint& ep, const std::string pf)
+{
+    const auto data(combine());
+
+    if (m_compress == HierarchyCompression::Lzma)
+    {
+        Storage::ensurePut(
+                ep,
+                m_id.str() + pf,
+                *Compression::compressLzma(data));
+    }
+    else
+    {
+        Storage::ensurePut(ep, m_id.str() + pf, data);
     }
 }
 
 ContiguousBlock::ContiguousBlock(
         const Id& id,
-        std::size_t maxPoints,
+        const HierarchyCompression c,
+        const std::size_t maxPoints,
         const std::vector<char>& data)
-    : HierarchyBlock(id)
+    : HierarchyBlock(id, c)
     , m_tubes(maxPoints)
     , m_spinners(maxPoints)
 {
@@ -78,7 +116,7 @@ ContiguousBlock::ContiguousBlock(
     }
 }
 
-void ContiguousBlock::save(const arbiter::Endpoint& ep, std::string pf)
+std::vector<char> ContiguousBlock::combine() const
 {
     std::vector<char> data;
 
@@ -92,7 +130,7 @@ void ContiguousBlock::save(const arbiter::Endpoint& ep, std::string pf)
         }
     }
 
-    Storage::ensurePut(ep, m_id.str() + pf, data);
+    return data;
 }
 
 void ContiguousBlock::merge(const ContiguousBlock& other)
@@ -106,8 +144,11 @@ void ContiguousBlock::merge(const ContiguousBlock& other)
     }
 }
 
-SparseBlock::SparseBlock(const Id& id, const std::vector<char>& data)
-    : HierarchyBlock(id)
+SparseBlock::SparseBlock(
+        const Id& id,
+        const HierarchyCompression c,
+        const std::vector<char>& data)
+    : HierarchyBlock(id, c)
     , m_spinner()
     , m_tubes()
 {
@@ -138,7 +179,7 @@ SparseBlock::SparseBlock(const Id& id, const std::vector<char>& data)
     }
 }
 
-void SparseBlock::save(const arbiter::Endpoint& ep, std::string pf)
+std::vector<char> SparseBlock::combine() const
 {
     std::vector<char> data;
 
@@ -156,7 +197,7 @@ void SparseBlock::save(const arbiter::Endpoint& ep, std::string pf)
         }
     }
 
-    if (data.size()) Storage::ensurePut(ep, m_id.str() + pf, data);
+    return data;
 }
 
 } // namespace entwine

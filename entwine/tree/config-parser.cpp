@@ -169,7 +169,9 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     jsonStructure["numPointsHint"] = static_cast<Json::UInt64>(numPointsHint);
     Structure structure(jsonStructure);
     Structure hierarchyStructure(Hierarchy::structure(structure));
-    Format format(*schema, trustHeaders, compress);
+    const HierarchyCompression hierarchyCompression(
+            compress ? HierarchyCompression::Lzma : HierarchyCompression::None);
+    Format format(*schema, trustHeaders, compress, hierarchyCompression);
 
     const Metadata metadata(
             *boundsConforming,

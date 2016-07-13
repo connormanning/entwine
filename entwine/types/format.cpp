@@ -45,11 +45,13 @@ Format::Format(
         const Schema& schema,
         bool trustHeaders,
         bool compress,
+        HierarchyCompression hierarchyCompression,
         std::vector<std::string> tailFields,
         std::string srs)
     : m_schema(schema)
     , m_trustHeaders(trustHeaders)
     , m_compress(compress)
+    , m_hierarchyCompression(hierarchyCompression)
     , m_tailFields(std::accumulate(
                 tailFields.begin(),
                 tailFields.end(),
@@ -57,20 +59,7 @@ Format::Format(
                 [](const TailFields& in, const std::string& v)
                 {
                     auto out(in);
-                    auto it(
-                            std::find_if(
-                                tailFieldNames.begin(),
-                                tailFieldNames.end(),
-                                [&v](const TailFieldLookup::value_type& p)
-                                {
-                                    return p.second == v;
-                                }));
-
-                    if (it == tailFieldNames.end())
-                    {
-                        throw std::runtime_error("Invalid tail field " + v);
-                    }
-                    out.push_back(it->first);
+                    out.push_back(tailFieldFromName(v));
                     return out;
                 }))
     , m_srs(srs)
@@ -101,6 +90,7 @@ Format::Format(const Schema& schema, const Json::Value& json)
             schema,
             json["trustHeaders"].asBool(),
             json["compress"].asBool(),
+            hierarchyCompressionFromName(json["compress-hierarchy"].asString()),
             fieldsFromJson(json["tail"]),
             json["srs"].asString())
 { }
@@ -136,111 +126,6 @@ std::unique_ptr<std::vector<char>> Format::pack(
     append(*data, packer.buildTail());
 
     return data;
-}
-
-std::vector<char> Packer::buildTail() const
-{
-    std::vector<char> tail;
-
-    for (TailField field : m_fields)
-    {
-        switch (field)
-        {
-            case TailField::ChunkType: append(tail, chunkType()); break;
-            case TailField::NumPoints: append(tail, numPoints()); break;
-            case TailField::NumBytes: append(tail, numBytes()); break;
-        }
-    }
-
-    return tail;
-}
-
-Unpacker::Unpacker(
-        const Format& format,
-        std::unique_ptr<std::vector<char>> data)
-    : m_format(format)
-    , m_data(std::move(data))
-{
-    const auto& fields(m_format.tailFields());
-
-    // Since we're unpacking from the back, the fields are in reverse order.
-    for (auto it(fields.rbegin()); it != fields.rend(); ++it)
-    {
-        switch (*it)
-        {
-            case TailField::ChunkType: extractChunkType(); break;
-            case TailField::NumPoints: extractNumPoints(); break;
-            case TailField::NumBytes: extractNumBytes(); break;
-        }
-    }
-
-    if (m_numBytes)
-    {
-        if (*m_numBytes != m_data->size())
-        {
-            throw std::runtime_error("Incorrect byte count");
-        }
-    }
-
-    if (m_format.compress() && !m_numPoints)
-    {
-        throw std::runtime_error("Cannot decompress without numPoints");
-    }
-
-    if (!m_numPoints)
-    {
-        m_numPoints = makeUnique<std::size_t>(
-                m_data->size() / m_format.schema().pointSize());
-    }
-}
-
-std::unique_ptr<std::vector<char>>&& Unpacker::acquireBytes()
-{
-    if (m_format.compress())
-    {
-        m_data = Compression::decompress(
-                *m_data,
-                m_format.schema(),
-                numPoints());
-    }
-
-    return std::move(m_data);
-}
-
-Cell::PooledStack Unpacker::acquireCells(PointPool& pointPool)
-{
-    if (m_format.compress())
-    {
-        auto d(Compression::decompress(*m_data, numPoints(), pointPool));
-        m_data.reset();
-        return d;
-    }
-    else
-    {
-        const std::size_t pointSize(m_format.schema().pointSize());
-        BinaryPointTable table(m_format.schema());
-        pdal::PointRef pointRef(table, 0);
-
-        Data::PooledStack dataStack(pointPool.dataPool().acquire(numPoints()));
-        Cell::PooledStack cellStack(pointPool.cellPool().acquire(numPoints()));
-
-        Cell::RawNode* cell(cellStack.head());
-
-        const char* pos(m_data->data());
-
-        for (std::size_t i(0); i < numPoints(); ++i)
-        {
-            table.setPoint(pos);
-
-            Data::PooledNode data(dataStack.popOne());
-            std::copy(pos, pos + pointSize, *data);
-
-            (*cell)->set(pointRef, std::move(data));
-            cell = cell->next();
-        }
-
-        return cellStack;
-    }
 }
 
 } // namespace entwine

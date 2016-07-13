@@ -14,6 +14,7 @@
 #include <cstdint>
 
 #include <entwine/types/defs.hpp>
+#include <entwine/types/format-types.hpp>
 #include <entwine/util/spin-lock.hpp>
 
 namespace entwine
@@ -46,33 +47,37 @@ private:
 
 using HierarchyTube = std::map<uint64_t, HierarchyCell>;
 
-class Structure;
+class Metadata;
 
 class HierarchyBlock
 {
 public:
-    HierarchyBlock(const Id& id) : m_id(id) { }
+    HierarchyBlock(const Id& id, HierarchyCompression c)
+        : m_id(id)
+        , m_compress(c)
+    { }
 
     static std::unique_ptr<HierarchyBlock> create(
-            const Structure& structure,
+            const Metadata& metadata,
             const Id& id,
             const Id& maxPoints);
 
     static std::unique_ptr<HierarchyBlock> create(
-            const Structure& structure,
+            const Metadata& metadata,
             const Id& id,
             const Id& maxPoints,
             const std::vector<char>& data);
 
+    void save(const arbiter::Endpoint& ep, std::string pf = "");
+
     // Only count must be thread-safe.  Get/save are single-threaded.
     virtual void count(const Id& id, uint64_t tick, int delta) = 0;
-
     virtual uint64_t get(const Id& id, uint64_t tick) const = 0;
-    virtual void save(const arbiter::Endpoint& ep, std::string pf = "") = 0;
 
 protected:
     Id normalize(const Id& id) const { return id - m_id; }
-    void push(std::vector<char>& data, uint64_t val)
+
+    void push(std::vector<char>& data, uint64_t val) const
     {
         data.insert(
                 data.end(),
@@ -80,7 +85,12 @@ protected:
                 reinterpret_cast<const char*>(&val) + sizeof(val));
     }
 
+    virtual std::vector<char> combine() const = 0;
+
     const Id m_id;
+
+private:
+    const HierarchyCompression m_compress;
 };
 
 class ContiguousBlock : public HierarchyBlock
@@ -88,14 +98,15 @@ class ContiguousBlock : public HierarchyBlock
 public:
     using HierarchyBlock::get;
 
-    ContiguousBlock(const Id& id, std::size_t maxPoints)
-        : HierarchyBlock(id)
+    ContiguousBlock(const Id& id, HierarchyCompression c, std::size_t maxPoints)
+        : HierarchyBlock(id, c)
         , m_tubes(maxPoints)
         , m_spinners(maxPoints)
     { }
 
     ContiguousBlock(
             const Id& id,
+            HierarchyCompression c,
             std::size_t maxPoints,
             const std::vector<char>& data);
 
@@ -115,13 +126,11 @@ public:
         else return 0;
     }
 
-    virtual void save(
-            const arbiter::Endpoint& ep,
-            std::string pf = "") override;
-
     void merge(const ContiguousBlock& other);
 
 private:
+    virtual std::vector<char> combine() const override;
+
     std::vector<HierarchyTube> m_tubes;
     std::vector<SpinLock> m_spinners;
 };
@@ -131,8 +140,16 @@ class SparseBlock : public HierarchyBlock
 public:
     using HierarchyBlock::get;
 
-    SparseBlock(const Id& id) : HierarchyBlock(id), m_spinner(), m_tubes() { }
-    SparseBlock(const Id& id, const std::vector<char>& data);
+    SparseBlock(const Id& id, HierarchyCompression c)
+        : HierarchyBlock(id, c)
+        , m_spinner()
+        , m_tubes()
+    { }
+
+    SparseBlock(
+            const Id& id,
+            HierarchyCompression c,
+            const std::vector<char>& data);
 
     virtual void count(const Id& id, uint64_t tick, int delta) override
     {
@@ -156,11 +173,9 @@ public:
         return 0;
     }
 
-    virtual void save(
-            const arbiter::Endpoint& ep,
-            std::string pf = "") override;
-
 private:
+    virtual std::vector<char> combine() const override;
+
     SpinLock m_spinner;
     std::map<Id, HierarchyTube> m_tubes;
 };

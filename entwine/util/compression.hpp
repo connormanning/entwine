@@ -117,6 +117,12 @@ public:
             std::size_t numPoints,
             PointPool& pointPool);
 
+    static std::unique_ptr<std::vector<char>> compressLzma(
+            const std::vector<char>& data);
+
+    static std::unique_ptr<std::vector<char>> decompressLzma(
+            const std::vector<char>& data);
+
     Compression() = delete;
 };
 

@@ -5,6 +5,7 @@ set(
     SOURCES
     "${BASE}/bounds.cpp"
     "${BASE}/format.cpp"
+    "${BASE}/format-packing.cpp"
     "${BASE}/metadata.cpp"
     "${BASE}/pooled-point-table.cpp"
     "${BASE}/structure.cpp"
@@ -20,6 +21,8 @@ set(
     "${BASE}/dir.hpp"
     "${BASE}/fixed-point-layout.hpp"
     "${BASE}/format.hpp"
+    "${BASE}/format-packing.hpp"
+    "${BASE}/format-types.hpp"
     "${BASE}/metadata.hpp"
     "${BASE}/outer-scope.hpp"
     "${BASE}/point.hpp"
