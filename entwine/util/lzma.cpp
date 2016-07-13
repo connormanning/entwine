@@ -20,83 +20,80 @@ namespace entwine
 
 namespace
 {
-    const uint32_t mode(2);
-    const std::size_t blockSize(BUFSIZ);
+
+const uint32_t mode(2);
+const std::size_t blockSize(BUFSIZ);
+
+void check(lzma_ret ret)
+{
+    switch (ret)
+    {
+        case LZMA_MEM_ERROR:
+            throw std::runtime_error("Memory allocation failed");
+            break;
+        case LZMA_DATA_ERROR:
+            throw std::runtime_error("File size limits exceeded");
+            break;
+        case LZMA_OPTIONS_ERROR:
+            throw std::runtime_error("Unsupported preset");
+            break;
+        case LZMA_UNSUPPORTED_CHECK:
+            throw std::runtime_error("Unsupported integrity check");
+            break;
+        default:
+            throw std::runtime_error("LZMA error code: " + std::to_string(ret));
+            break;
+    }
 }
+
+std::unique_ptr<std::vector<char>> run(
+        lzma_stream& stream,
+        const std::vector<char>& in)
+{
+    auto out(makeUnique<std::vector<char>>());
+
+    lzma_ret ret(LZMA_OK);
+
+    const unsigned char* inStart(
+            reinterpret_cast<const unsigned char*>(in.data()));
+
+    do
+    {
+        out->resize(out->size() + blockSize);
+
+        stream.next_in = inStart + stream.total_in;
+        stream.avail_in = in.size() - stream.total_in;
+
+        stream.next_out = reinterpret_cast<unsigned char*>(
+                out->data() + stream.total_out);
+        stream.avail_out = out->size() - stream.total_out;
+
+        ret = lzma_code(&stream, stream.avail_in ? LZMA_RUN : LZMA_FINISH);
+    }
+    while (ret == LZMA_OK);
+
+    lzma_end(&stream);
+
+    if (ret != LZMA_STREAM_END) check(ret);
+
+    out->resize(stream.total_out);
+    return out;
+}
+
+} // unnamed namespace
 
 std::unique_ptr<std::vector<char>> Compression::compressLzma(
         const std::vector<char>& in)
 {
     lzma_stream stream(LZMA_STREAM_INIT);
-    const lzma_ret initRet(lzma_easy_encoder(&stream, mode, LZMA_CHECK_CRC64));
+    const lzma_ret ret(lzma_easy_encoder(&stream, mode, LZMA_CHECK_CRC64));
 
-    if (initRet != LZMA_OK)
-    {
-        switch (initRet)
-        {
-            case LZMA_MEM_ERROR:
-                throw std::runtime_error("Memory allocation failed - init");
-                break;
-            case LZMA_OPTIONS_ERROR:
-                throw std::runtime_error("Unsupported preset");
-                break;
-            case LZMA_UNSUPPORTED_CHECK:
-                throw std::runtime_error("Unsupported integrity check");
-                break;
-            default:
-                throw std::runtime_error("LZMA comp init error code: " +
-                        std::to_string(initRet));
-                break;
-        }
-    }
+    if (ret != LZMA_OK) check(ret);
 
-    auto out(makeUnique<std::vector<char>>(blockSize));
-
-    lzma_ret compRet(LZMA_OK);
-
-    stream.next_in = reinterpret_cast<const unsigned char*>(in.data());
-    stream.avail_in = in.size();
-
-    do
-    {
-        stream.next_out = reinterpret_cast<unsigned char*>(
-                out->data() + out->size() - blockSize);
-        stream.avail_out = blockSize;
-
-        compRet = lzma_code(&stream, LZMA_FINISH);
-
-        stream.next_in = nullptr;
-        stream.avail_in = 0;
-
-        std::size_t added(blockSize - stream.avail_out);
-        out->resize(out->size() + added);
-    }
-    while (compRet == LZMA_OK);
-
-    lzma_end(&stream);
-
-    if (compRet != LZMA_STREAM_END)
-    {
-        switch (compRet)
-        {
-            case LZMA_MEM_ERROR:
-                throw std::runtime_error("Memory allocation failed - comp");
-                break;
-            case LZMA_DATA_ERROR:
-                throw std::runtime_error("File size limits exceeded");
-                break;
-            default:
-                throw std::runtime_error("LZMA comp error code: " +
-                        std::to_string(compRet));
-                break;
-        }
-    }
-
-    const uint64_t outSize(stream.total_out);
-    assert(stream.total_out == out->size() - blockSize);
-    out->resize(outSize);
+    auto out(run(stream, in));
 
     // Append compressed size to guard against partial downloads.
+    const uint64_t outSize(out->size());
     out->insert(
             out->end(),
             reinterpret_cast<const char*>(&outSize),
@@ -123,84 +120,15 @@ std::unique_ptr<std::vector<char>> Compression::decompressLzma(
 
     lzma_stream stream(LZMA_STREAM_INIT);
 
-    const lzma_ret initRet(
+    const lzma_ret ret(
             lzma_auto_decoder(
                 &stream,
                 UINT64_MAX,
                 LZMA_TELL_UNSUPPORTED_CHECK));
 
-    if (initRet != LZMA_OK)
-    {
-        switch (initRet)
-        {
-            case LZMA_MEM_ERROR:
-                throw std::runtime_error("Memory allocation failed - init");
-                break;
-            case LZMA_OPTIONS_ERROR:
-                throw std::runtime_error("Unsupported preset");
-                break;
-            default:
-                throw std::runtime_error("LZMA decomp init error code: " +
-                        std::to_string(initRet));
-                break;
-        }
-    }
+    if (ret != LZMA_OK) check(ret);
 
-    lzma_ret dcmpRet(LZMA_OK);
-
-    // Assume the output will be at least as large as the input bumped up to
-    // the nearest blockSize.
-    const std::size_t initSize(
-            (compressedSize / blockSize + 1) * blockSize);
-    auto out(makeUnique<std::vector<char>>(initSize));
-    std::size_t outOffset(0);
-
-    const unsigned char* inStart(
-            reinterpret_cast<const unsigned char*>(in.data()));
-
-    do
-    {
-        stream.next_in = inStart + stream.total_in;
-        stream.avail_in = in.size() - stream.total_in;
-
-        stream.next_out = reinterpret_cast<unsigned char*>(
-                out->data() + outOffset);
-        stream.avail_out = out->size() - outOffset;
-
-        dcmpRet = lzma_code(&stream, LZMA_RUN);
-
-        if (dcmpRet == LZMA_OK)
-        {
-            const std::size_t added(out->size() - outOffset - stream.avail_out);
-            outOffset += added;
-
-            out->resize(out->size() + blockSize);
-        }
-    }
-    while (dcmpRet == LZMA_OK);
-
-    lzma_end(&stream);
-
-    const uint64_t outSize(stream.total_out);
-    assert(stream.total_out == out->size() - blockSize);
-    out->resize(outSize);
-
-    if (dcmpRet != LZMA_STREAM_END)
-    {
-        switch (dcmpRet)
-        {
-            case LZMA_MEM_ERROR:
-                throw std::runtime_error("Memory allocation failed - decomp");
-                break;
-            case LZMA_DATA_ERROR:
-                throw std::runtime_error("File size limits exceeded");
-                break;
-            default:
-                throw std::runtime_error("LZMA decomp error code: " +
-                        std::to_string(dcmpRet));
-                break;
-        }
-    }
+    auto out(run(stream, in));
 
     return out;
 }
