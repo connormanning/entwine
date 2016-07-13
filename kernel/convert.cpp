@@ -143,6 +143,7 @@ void Kernel::convert(std::vector<std::string> args)
     const Structure treeStructure(jsonMeta["structure"]);
     jsonMeta["hierarchyStructure"] =
         Hierarchy::structure(treeStructure).toJson();
+    jsonMeta["format"]["compress-hierarchy"] = "lzma";
 
     const Json::Value oldHierarchyMeta(jsonMeta["hierarchy"]);
 
