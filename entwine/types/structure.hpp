@@ -64,6 +64,9 @@ private:
 // The Structure maintains attributes that give insight into the overall
 // serialized layout of the entwine tree.  For example, parameters that relate
 // to the chunking structure and the pivot depths that affect this layout.
+//
+// The mapped depth/index refers to the point at which the chunks become sparse.
+// The sparse depth/index refers to the stop-split depth of the tree.
 class Structure
 {
     friend class Subset;
@@ -93,6 +96,7 @@ public:
     std::size_t coldDepthBegin() const   { return m_coldDepthBegin; }
     std::size_t coldDepthEnd() const     { return m_coldDepthEnd; }
     std::size_t sparseDepthBegin() const { return m_sparseDepthBegin; }
+    std::size_t mappedDepthBegin() const { return m_mappedDepthBegin; }
     std::size_t startDepth() const       { return m_startDepth; }
 
     const Id& nullIndexBegin() const   { return m_nullIndexBegin; }
@@ -102,6 +106,7 @@ public:
     const Id& coldIndexBegin() const   { return m_coldIndexBegin; }
     const Id& coldIndexEnd() const     { return m_coldIndexEnd; }
     const Id& sparseIndexBegin() const { return m_sparseIndexBegin; }
+    const Id& mappedIndexBegin() const { return m_mappedIndexBegin; }
 
     std::size_t baseIndexSpan() const
     {
@@ -203,6 +208,7 @@ private:
     std::size_t m_coldDepthBegin;
     std::size_t m_coldDepthEnd;
     std::size_t m_sparseDepthBegin;
+    std::size_t m_mappedDepthBegin;
     std::size_t m_startDepth;
 
     Id m_nullIndexBegin;
@@ -212,6 +218,7 @@ private:
     Id m_coldIndexBegin;
     Id m_coldIndexEnd;
     Id m_sparseIndexBegin;
+    Id m_mappedIndexBegin;
 
     bool m_tubular;
     bool m_dynamicChunks;

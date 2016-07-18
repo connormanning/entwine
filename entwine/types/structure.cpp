@@ -159,6 +159,7 @@ Structure::Structure(
     , m_coldDepthBegin(m_baseDepthEnd)
     , m_coldDepthEnd(coldDepth ? std::max(m_coldDepthBegin, coldDepth) : 0)
     , m_sparseDepthBegin(std::max(sparseDepth, m_coldDepthBegin))
+    , m_mappedDepthBegin(m_sparseDepthBegin)
     , m_startDepth(startDepth)
 
     // Indices.
@@ -171,6 +172,7 @@ Structure::Structure(
             ChunkInfo::calcLevelIndex(dimensions, m_coldDepthEnd) : 0)
     , m_sparseIndexBegin(
             ChunkInfo::calcLevelIndex(dimensions, m_sparseDepthBegin))
+    , m_mappedIndexBegin(m_sparseIndexBegin)
 
     // Various.
     , m_tubular(tubular)
@@ -211,19 +213,22 @@ Structure::Structure(
         // If a sparse depth is supplied, keep that one.
         if (!sparseDepth)
         {
-            m_sparseDepthBegin =
+            m_mappedDepthBegin =
                 std::ceil(std::log2(m_numPointsHint) / std::log2(m_factor));
 
-            m_sparseDepthBegin = std::max(m_sparseDepthBegin, m_coldDepthBegin);
+            m_mappedDepthBegin = std::max(m_mappedDepthBegin, m_coldDepthBegin);
 
             m_sparseDepthBegin =
                 std::ceil(
-                        static_cast<float>(m_sparseDepthBegin) *
+                        static_cast<float>(m_mappedDepthBegin) *
                         sparseDepthBumpRatio);
         }
 
         m_sparseIndexBegin =
             ChunkInfo::calcLevelIndex(m_dimensions, m_sparseDepthBegin);
+
+        m_mappedIndexBegin =
+            ChunkInfo::calcLevelIndex(m_dimensions, m_mappedDepthBegin);
 
         if (m_sparseDepthBegin)
         {

@@ -91,7 +91,7 @@ std::unique_ptr<Chunk> Chunk::create(
         const Id& id,
         const Id& maxPoints)
 {
-    if (id < builder.metadata().structure().sparseIndexBegin())
+    if (id < builder.metadata().structure().mappedIndexBegin())
     {
         if (depth)
         {

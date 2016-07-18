@@ -42,7 +42,7 @@ using namespace arbiter;
 
 namespace
 {
-    const std::size_t sleepCount(65536 * 8);
+    const std::size_t sleepCount(65536 * 16);
 }
 
 Builder::Builder(
