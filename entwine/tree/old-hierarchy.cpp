@@ -467,7 +467,7 @@ void OldHierarchy::traverse(
         {
             // Query bounds is smaller than our current position's bounds, so
             // we need to split our bounds in a single direction.
-            const Dir dir(getDirection(qb.mid(), cb.mid()));
+            const Dir dir(getDirection(cb.mid(), qb.mid()));
 
             if (Node* node = cur.maybeNext(dir))
             {

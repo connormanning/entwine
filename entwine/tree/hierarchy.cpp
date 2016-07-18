@@ -203,8 +203,8 @@ void Hierarchy::traverse(
             // we need to split our bounds in a single direction.
             const Dir dir(
                     getDirection(
-                        query.bounds().mid(),
-                        pointState.bounds().mid()));
+                        pointState.bounds().mid(),
+                        query.bounds().mid()));
 
             traverse(json, ids, query, pointState.getClimb(dir), lag);
         }

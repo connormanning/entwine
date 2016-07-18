@@ -70,7 +70,7 @@ void Above::populate(std::unique_ptr<std::vector<char>> data)
 
             for (std::size_t d(0); d < m_delta; ++d)
             {
-                b.go(getDirection(b.mid(), p), true);
+                b.go(getDirection(p, b.mid()), true);
             }
         }
 
@@ -551,7 +551,7 @@ void Tile::splitAndCall(
             p.x = pointRef.getFieldAs<double>(pdal::Dimension::Id::X);
             p.y = pointRef.getFieldAs<double>(pdal::Dimension::Id::Y);
             p.z = pointRef.getFieldAs<double>(pdal::Dimension::Id::Z);
-            dir = getDirection(p, bounds.mid());
+            dir = getDirection(bounds.mid(), p);
 
             std::vector<char>& active(split[toIntegral(dir, true)]);
             active.insert(active.end(), pos, pos + m_schema.pointSize());

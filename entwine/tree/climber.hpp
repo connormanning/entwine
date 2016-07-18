@@ -72,7 +72,7 @@ public:
 
     virtual void climb(const Point& point)
     {
-        climb(getDirection(point, m_bounds.mid()));
+        climb(getDirection(m_bounds.mid(), point));
     }
 
     PointState getClimb(Dir dir) const
@@ -196,7 +196,7 @@ public:
 
     virtual void climb(const Point& point) override
     {
-        climb(getDirection(point, m_boundsChunk.mid()));
+        climb(getDirection(m_boundsChunk.mid(), point));
     }
 
     virtual void reset() override

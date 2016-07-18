@@ -257,7 +257,7 @@ public:
 
     void magnify(const Point& point)
     {
-        const Dir dir(getDirection(point, m_bounds.mid()));
+        const Dir dir(getDirection(m_bounds.mid(), point));
         m_bounds.go(dir);
         m_node = &m_node->next(dir, m_hierarchy.nodePool());
     }

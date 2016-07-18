@@ -30,8 +30,8 @@ enum class Dir
 inline constexpr std::size_t dirHalfEnd() { return 4; }
 inline constexpr std::size_t dirEnd() { return 8; }
 
-// Get the direction of point P in relation to an origin O.
-inline Dir getDirection(const Point& p, const Point& o)
+// Get the direction from an origin O to a point P.
+inline Dir getDirection(const Point& o, const Point& p)
 {
     return static_cast<Dir>(
             (p.y >= o.y ? 2 : 0) +  // North? +2.
