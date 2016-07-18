@@ -127,6 +127,8 @@ std::unique_ptr<Builder> Builder::create(
 {
     const std::size_t zero(0);
 
+    if (!subId && !splId) return Builder::create(path, threads, os);
+
     try { return makeUnique<Builder>(path, ".", threads, subId, splId, os); }
     catch (...) { }
 
@@ -206,6 +208,7 @@ void Builder::go(std::size_t max)
         next();
     }
 
+    std::cout << "\tPushes complete - joining..." << std::endl;
     save();
 }
 
@@ -383,9 +386,7 @@ void Builder::save(const std::string to)
 
 void Builder::save(const arbiter::Endpoint& ep)
 {
-    std::cout << "\tPushes complete - joining..." << std::endl;
     m_threadPools->join();
-    std::cout << "\tJoined - saving..." << std::endl;
 
     m_metadata->save(*m_outEndpoint);
     m_registry->save(*m_outEndpoint);
@@ -461,6 +462,8 @@ std::unique_ptr<Manifest::Split> Builder::takeWork()
     {
         m_end = m_origin + remaining / 2;
         split = manifest.split(m_end);
+
+        std::cout << "Setting end at " << m_end << std::endl;
     }
 
     return split;
@@ -520,6 +523,19 @@ void Builder::addError(const std::string& path, const std::string& error)
 
 void Builder::unsplit(Builder& other)
 {
+    auto& manifest(m_metadata->manifest());
+    const auto& otherManifest(other.m_metadata->manifest());
+
+    if (!manifest.split() || !otherManifest.split())
+    {
+        throw std::runtime_error("Cannot unsplit a builder that wasn't split");
+    }
+
+    if (manifest.split()->end() != otherManifest.split()->begin())
+    {
+        throw std::runtime_error("Splits don't line up");
+    }
+
     Reserves reserves;
 
     auto countReserves([&reserves]()->std::size_t
@@ -621,8 +637,9 @@ void Builder::unsplit(Builder& other)
 
         for (const Id& id : leftovers)
         {
-            m_threadPools->workPool().add([&]()
+            m_threadPools->workPool().add([&, id]()
             {
+                std::cout << "Adding " << id << std::endl;
                 Cell::PooledStack empty(m_pointPool->cellPool());
                 insertHinted(
                         reserves,
@@ -632,12 +649,20 @@ void Builder::unsplit(Builder& other)
                         id,
                         std::numeric_limits<std::size_t>::max(),
                         std::numeric_limits<std::size_t>::max());
+                std::cout << "\tAdded " << id << std::endl;
             });
         }
+
+        m_threadPools->cycle();
     }
 
-    m_threadPools->join();
-    m_metadata->manifest().add(pointStatsMap);
+    manifest.add(pointStatsMap);
+    manifest.split(manifest.split()->begin(), otherManifest.split()->end());
+
+    if (manifest.split()->end() == manifest.size())
+    {
+        manifest.unsplit();
+    }
 
     if (countReserves())
     {

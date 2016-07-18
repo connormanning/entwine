@@ -22,10 +22,9 @@ namespace entwine
 
 namespace
 {
-    std::size_t log2(std::size_t val)
-    {
-        return std::log2(val);
-    }
+    std::size_t log2(std::size_t val) { return std::log2(val); }
+
+    const float sparseDepthBumpRatio(1.15);
 }
 
 ChunkInfo::ChunkInfo(const Structure& structure, const Id& index)
@@ -216,6 +215,11 @@ Structure::Structure(
                 std::ceil(std::log2(m_numPointsHint) / std::log2(m_factor));
 
             m_sparseDepthBegin = std::max(m_sparseDepthBegin, m_coldDepthBegin);
+
+            m_sparseDepthBegin =
+                std::ceil(
+                        static_cast<float>(m_sparseDepthBegin) *
+                        sparseDepthBumpRatio);
         }
 
         m_sparseIndexBegin =

@@ -85,10 +85,12 @@ void Kernel::merge(std::vector<std::string> args)
 
     auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(arbiterConfig));
 
-    Merger merger(path, threads, arbiter);
+    Merger merger(path, threads, nullptr, arbiter);
 
     std::cout << "Merging " << path << "..." << std::endl;
-    merger.go();
-    std::cout << "Done." << std::endl;
+    merger.unsplit();
+    merger.merge();
+    merger.save();
+    std::cout << "Merge complete." << std::endl;
 }
 

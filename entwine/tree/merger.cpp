@@ -21,37 +21,64 @@ namespace entwine
 Merger::Merger(
         const std::string path,
         const std::size_t threads,
+        const std::size_t* subsetId,
         std::shared_ptr<arbiter::Arbiter> arbiter)
     : m_builder()
     , m_path(path)
-    , m_numSubsets(1)
+    , m_others()
     , m_threads(threads)
     , m_outerScope(makeUnique<OuterScope>())
 {
     m_outerScope->setArbiter(arbiter);
 
-    m_builder = Builder::create(path, threads, *m_outerScope);
+    m_builder = Builder::create(
+            path,
+            threads,
+            subsetId,
+            nullptr,
+            *m_outerScope);
+
     if (!m_builder) throw std::runtime_error("Path not mergeable");
 
     m_outerScope->setPointPool(m_builder->sharedPointPool());
 
-    if (const Subset* subset = m_builder->metadata().subset())
+    if (!subsetId)
     {
-        m_numSubsets = subset->of();
+        if (const Subset* subset = m_builder->metadata().subset())
+        {
+            // No subset ID was passed, so we will want to merge everything -
+            // and we have already awakened subset 0.
+            for (std::size_t i(1); i < subset->of(); ++i)
+            {
+                m_others.push_back(i);
+            }
+        }
     }
 }
 
-Merger::~Merger() { }
+Merger::~Merger() { save(); }
 
-void Merger::go()
+void Merger::unsplit()
 {
-    std::cout << "\t1 / " << m_numSubsets << std::flush;
-    unsplit(*m_builder);
-    std::cout << " done." << std::endl;
+    const std::size_t total(m_others.size() + 1);
 
-    for (std::size_t id(1); id < m_numSubsets; ++id)
+    if (const Subset* subset = m_builder->metadata().subset())
     {
-        std::cout << "\t" << (id + 1) << " / " << m_numSubsets << std::flush;
+        std::cout << "Unsplitting " <<
+            (subset->id() + 1) << " / " << total << "..." << std::endl;
+    }
+    else
+    {
+        std::cout << "Unsplitting..." << std::endl;
+    }
+
+    unsplit(*m_builder);
+    std::cout << "\tDone." << std::endl;
+
+    for (const auto id : m_others)
+    {
+        std::cout << "Unsplitting " <<
+            (id + 1) << " / " << total << "..." << std::endl;
 
         auto current(
                 Builder::create(
@@ -64,15 +91,47 @@ void Merger::go()
         if (!current) throw std::runtime_error("Couldn't create split builder");
 
         unsplit(*current);
+        current->save();
 
-        std::cout << " merging..." << std::flush;
+        std::cout << "\tDone." << std::endl;
+    }
+}
+
+void Merger::merge()
+{
+    const std::size_t total(m_others.size() + 1);
+
+    for (const auto id : m_others)
+    {
+        std::cout << "Merging " << id << " / " << total << std::endl;
+
+        auto current(
+                Builder::create(
+                    m_path,
+                    m_threads,
+                    &id,
+                    nullptr,
+                    *m_outerScope));
+
+        if (!current) throw std::runtime_error("Couldn't create subset");
+
         m_builder->merge(*current);
 
-        std::cout << " done." << std::endl;
+        std::cout << "\tDone." << std::endl;
     }
 
     m_builder->makeWhole();
-    m_builder->save();
+}
+
+void Merger::save()
+{
+    if (m_builder)
+    {
+        std::cout << "Saving..." << std::endl;
+        m_builder->save();
+        m_builder.reset();
+        std::cout << "\tDone." << std::endl;
+    }
 }
 
 void Merger::unsplit(Builder& builder)
@@ -81,8 +140,6 @@ void Merger::unsplit(Builder& builder)
     const Manifest& manifest(metadata.manifest());
 
     if (!manifest.split()) return;
-
-    std::cout << " unsplitting..." << std::flush;
 
     std::unique_ptr<std::size_t> subsetId(
             metadata.subset() ?
@@ -99,7 +156,7 @@ void Merger::unsplit(Builder& builder)
                 &pos,
                 *m_outerScope);
 
-        std::cout << " " << pos << std::flush;
+        std::cout << "\t\t" << pos << std::endl;
 
         pos = nextSplit->metadata().manifest().split()->end();
         builder.unsplit(*nextSplit);
