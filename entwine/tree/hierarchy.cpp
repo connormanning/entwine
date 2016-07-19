@@ -12,6 +12,7 @@
 
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/cold.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
@@ -24,12 +25,16 @@ namespace
 Hierarchy::Hierarchy(
         const Metadata& metadata,
         const arbiter::Endpoint& ep,
+        const arbiter::Endpoint* out,
         const bool exists)
     : Splitter(metadata.hierarchyStructure())
     , m_metadata(metadata)
     , m_bounds(metadata.bounds())
     , m_structure(metadata.hierarchyStructure())
     , m_endpoint(ep.getSubEndpoint("h"))
+    , m_outpoint(out ?
+            makeUnique<arbiter::Endpoint>(out->getSubEndpoint("h")) :
+            nullptr)
 {
     m_base.mark = true;
 
@@ -38,6 +43,7 @@ Hierarchy::Hierarchy(
         m_base.t = HierarchyBlock::create(
                 m_metadata,
                 0,
+                m_outpoint.get(),
                 m_structure.baseIndexSpan());
     }
     else
@@ -45,6 +51,7 @@ Hierarchy::Hierarchy(
         m_base.t = HierarchyBlock::create(
                 m_metadata,
                 0,
+                m_outpoint.get(),
                 m_structure.baseIndexSpan(),
                 m_endpoint.getBinary("0" + metadata.postfix()));
     }
@@ -87,6 +94,7 @@ void Hierarchy::count(const PointState& pointState, const int delta)
                 block = HierarchyBlock::create(
                         m_metadata,
                         pointState.chunkId(),
+                        m_outpoint.get(),
                         pointState.pointsPerChunk(),
                         m_endpoint.getBinary(pointState.chunkId().str()));
             }
@@ -96,6 +104,7 @@ void Hierarchy::count(const PointState& pointState, const int delta)
                 block = HierarchyBlock::create(
                         m_metadata,
                         pointState.chunkId(),
+                        m_outpoint.get(),
                         pointState.pointsPerChunk());
             }
         }
@@ -124,6 +133,7 @@ uint64_t Hierarchy::tryGet(const PointState& s) const
             block = HierarchyBlock::create(
                     m_metadata,
                     s.chunkId(),
+                    m_outpoint.get(),
                     s.pointsPerChunk(),
                     m_endpoint.getBinary(s.chunkId().str()));
 
@@ -138,6 +148,24 @@ uint64_t Hierarchy::tryGet(const PointState& s) const
     }
 
     return 0;
+}
+
+void Hierarchy::save()
+{
+    if (!m_outpoint) return;
+
+    const std::string basePostfix(m_metadata.postfix());
+    m_base.t->save(*m_outpoint, basePostfix);
+
+    const std::string coldPostfix(m_metadata.postfix(true));
+    iterateCold([this, &coldPostfix](const Id& chunkId, const Slot& slot)
+    {
+        if (slot.t) slot.t->save(*m_outpoint, coldPostfix);
+    });
+
+    Json::Value json;
+    for (const auto& id : ids()) json.append(id.str());
+    m_outpoint->put("ids" + basePostfix, toFastString(json));
 }
 
 Hierarchy::QueryResults Hierarchy::query(
@@ -304,9 +332,9 @@ Structure Hierarchy::structure(const Structure& treeStructure)
     const std::size_t startDepth(
             std::max(minStartDepth, treeStructure.baseDepthBegin()));
 
-    const std::size_t sparseDepth(
-            treeStructure.sparseDepthBegin() > startDepth ?
-                treeStructure.sparseDepthBegin() - startDepth : 0);
+    const std::size_t mappedDepth(
+            treeStructure.mappedDepthBegin() > startDepth ?
+                treeStructure.mappedDepthBegin() - startDepth : 0);
 
     return Structure(
             nullDepth,
@@ -318,8 +346,9 @@ Structure Hierarchy::structure(const Structure& treeStructure)
             tubular,
             dynamicChunks,
             prefixIds,
-            sparseDepth,
-            startDepth);
+            mappedDepth,
+            startDepth,
+            mappedDepth);
 }
 
 } // namespace entwine

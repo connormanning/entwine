@@ -32,10 +32,11 @@ public:
         return *this;
     }
 
-    void count(int delta)
+    HierarchyCell* count(int delta)
     {
         SpinGuard lock(m_spinner);
         m_val = static_cast<int>(m_val) + delta;
+        return this;
     }
 
     uint64_t val() const { return m_val; }
@@ -47,31 +48,37 @@ private:
 
 using HierarchyTube = std::map<uint64_t, HierarchyCell>;
 
+namespace arbiter { class Endpoint; }
+
 class Metadata;
 
 class HierarchyBlock
 {
 public:
-    HierarchyBlock(const Id& id, HierarchyCompression c)
-        : m_id(id)
-        , m_compress(c)
-    { }
+    HierarchyBlock(
+            const Metadata& metadata,
+            const Id& id,
+            const arbiter::Endpoint* outEndpoint);
+
+    virtual ~HierarchyBlock() { }
 
     static std::unique_ptr<HierarchyBlock> create(
             const Metadata& metadata,
             const Id& id,
+            const arbiter::Endpoint* outEndpoint,
             const Id& maxPoints);
 
     static std::unique_ptr<HierarchyBlock> create(
             const Metadata& metadata,
             const Id& id,
+            const arbiter::Endpoint* outEndpoint,
             const Id& maxPoints,
             const std::vector<char>& data);
 
     void save(const arbiter::Endpoint& ep, std::string pf = "");
 
     // Only count must be thread-safe.  Get/save are single-threaded.
-    virtual void count(const Id& id, uint64_t tick, int delta) = 0;
+    virtual HierarchyCell* count(const Id& id, uint64_t tick, int delta) = 0;
     virtual uint64_t get(const Id& id, uint64_t tick) const = 0;
 
 protected:
@@ -87,10 +94,9 @@ protected:
 
     virtual std::vector<char> combine() const = 0;
 
+    const Metadata& m_metadata;
     const Id m_id;
-
-private:
-    const HierarchyCompression m_compress;
+    const arbiter::Endpoint* m_ep;
 };
 
 class ContiguousBlock : public HierarchyBlock
@@ -98,24 +104,32 @@ class ContiguousBlock : public HierarchyBlock
 public:
     using HierarchyBlock::get;
 
-    ContiguousBlock(const Id& id, HierarchyCompression c, std::size_t maxPoints)
-        : HierarchyBlock(id, c)
+    ContiguousBlock(
+            const Metadata& metadata,
+            const Id& id,
+            const arbiter::Endpoint* outEndpoint,
+            std::size_t maxPoints)
+        : HierarchyBlock(metadata, id, outEndpoint)
         , m_tubes(maxPoints)
         , m_spinners(maxPoints)
     { }
 
     ContiguousBlock(
+            const Metadata& metadata,
             const Id& id,
-            HierarchyCompression c,
+            const arbiter::Endpoint* outEndpoint,
             std::size_t maxPoints,
             const std::vector<char>& data);
 
-    virtual void count(const Id& global, uint64_t tick, int delta) override
+    virtual HierarchyCell* count(
+            const Id& global,
+            uint64_t tick,
+            int delta) override
     {
         const std::size_t id(normalize(global).getSimple());
 
         SpinGuard lock(m_spinners.at(id));
-        m_tubes.at(id)[tick].count(delta);
+        return m_tubes.at(id)[tick].count(delta);
     }
 
     virtual uint64_t get(const Id& id, uint64_t tick) const override
@@ -140,21 +154,28 @@ class SparseBlock : public HierarchyBlock
 public:
     using HierarchyBlock::get;
 
-    SparseBlock(const Id& id, HierarchyCompression c)
-        : HierarchyBlock(id, c)
+    SparseBlock(
+            const Metadata& metadata,
+            const Id& id,
+            const arbiter::Endpoint* outEndpoint)
+        : HierarchyBlock(metadata, id, outEndpoint)
         , m_spinner()
         , m_tubes()
     { }
 
     SparseBlock(
+            const Metadata& metadata,
             const Id& id,
-            HierarchyCompression c,
+            const arbiter::Endpoint* outEndpoint,
             const std::vector<char>& data);
 
-    virtual void count(const Id& id, uint64_t tick, int delta) override
+    virtual HierarchyCell* count(
+            const Id& id,
+            uint64_t tick,
+            int delta) override
     {
         SpinGuard lock(m_spinner);
-        m_tubes[normalize(id)][tick].count(delta);
+        return m_tubes[normalize(id)][tick].count(delta);
     }
 
     virtual uint64_t get(const Id& id, uint64_t tick) const override

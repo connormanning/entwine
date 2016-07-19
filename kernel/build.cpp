@@ -484,9 +484,12 @@ void Kernel::build(std::vector<std::string> args)
                 "lossless" :
                 std::to_string(structure.coldDepthEnd()));
 
+    const auto& threadPools(builder->threadPools());
+
     std::cout <<
         "\tTrust file headers? " << yesNo(format.trustHeaders()) << "\n" <<
-        "\tBuild threads: " << builder->threadPools().size() <<
+        "\tWork threads: " << threadPools.workPool().numThreads() << "\n" <<
+        "\tClip threads: " << threadPools.clipPool().numThreads() <<
         std::endl;
 
     std::cout <<

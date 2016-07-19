@@ -42,7 +42,7 @@ using namespace arbiter;
 
 namespace
 {
-    const std::size_t sleepCount(65536 * 16);
+    const std::size_t sleepCount(65536 * 32);
 }
 
 Builder::Builder(
@@ -64,7 +64,11 @@ Builder::Builder(
     , m_end(0)
     , m_added(0)
     , m_pointPool(outerScope.getPointPool(m_metadata->schema()))
-    , m_hierarchy(makeUnique<Hierarchy>(*m_metadata, *m_outEndpoint, false))
+    , m_hierarchy(makeUnique<Hierarchy>(
+                *m_metadata,
+                *m_outEndpoint,
+                m_outEndpoint.get(),
+                false))
     , m_registry(makeUnique<Registry>(*this))
 {
     prepareEndpoints();
@@ -90,7 +94,11 @@ Builder::Builder(
     , m_end(0)
     , m_added(0)
     , m_pointPool(outerScope.getPointPool(m_metadata->schema()))
-    , m_hierarchy(makeUnique<Hierarchy>(*m_metadata, *m_outEndpoint, true))
+    , m_hierarchy(makeUnique<Hierarchy>(
+                *m_metadata,
+                *m_outEndpoint,
+                m_outEndpoint.get(),
+                true))
     , m_registry(makeUnique<Registry>(*this, true))
 {
     prepareEndpoints();
@@ -390,7 +398,7 @@ void Builder::save(const arbiter::Endpoint& ep)
 
     m_metadata->save(*m_outEndpoint);
     m_registry->save(*m_outEndpoint);
-    m_hierarchy->save(*m_outEndpoint);
+    m_hierarchy->save();
 }
 
 void Builder::merge(Builder& other)

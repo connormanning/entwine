@@ -82,8 +82,9 @@ public:
             bool tubular,
             bool dynamicChunks,
             bool prefixIds,
-            std::size_t sparseDepth = 0,
-            std::size_t startDepth = 0);
+            std::size_t mappedDepth = 0,
+            std::size_t startDepth = 0,
+            std::size_t sparseDepth = 0);
 
     Structure(const Json::Value& json);
 

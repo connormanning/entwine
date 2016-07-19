@@ -49,7 +49,7 @@ namespace
 Reader::Reader(const arbiter::Endpoint& endpoint, Cache& cache)
     : m_endpoint(endpoint)
     , m_metadata(makeUnique<Metadata>(m_endpoint))
-    , m_hierarchy(makeUnique<Hierarchy>(*m_metadata, endpoint, true))
+    , m_hierarchy(makeUnique<Hierarchy>(*m_metadata, endpoint, nullptr, true))
     , m_base()
     , m_cache(cache)
     , m_ids()

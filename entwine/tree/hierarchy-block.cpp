@@ -20,25 +20,39 @@
 namespace entwine
 {
 
+HierarchyBlock::HierarchyBlock(
+        const Metadata& metadata,
+        const Id& id,
+        const arbiter::Endpoint* ep)
+    : m_metadata(metadata)
+    , m_id(id)
+    , m_ep(ep)
+{ }
+
 std::unique_ptr<HierarchyBlock> HierarchyBlock::create(
         const Metadata& metadata,
         const Id& id,
+        const arbiter::Endpoint* outEndpoint,
         const Id& maxPoints)
 {
-    const auto compress(metadata.format().hierarchyCompression());
-    if (id < metadata.structure().sparseIndexBegin())
+    if (id < metadata.hierarchyStructure().sparseIndexBegin())
     {
-        return makeUnique<ContiguousBlock>(id, compress, maxPoints.getSimple());
+        return makeUnique<ContiguousBlock>(
+                metadata,
+                id,
+                outEndpoint,
+                maxPoints.getSimple());
     }
     else
     {
-        return makeUnique<SparseBlock>(id, compress);
+        return makeUnique<SparseBlock>(metadata, id, outEndpoint);
     }
 }
 
 std::unique_ptr<HierarchyBlock> HierarchyBlock::create(
         const Metadata& metadata,
         const Id& id,
+        const arbiter::Endpoint* outEndpoint,
         const Id& maxPoints,
         const std::vector<char>& data)
 {
@@ -51,19 +65,21 @@ std::unique_ptr<HierarchyBlock> HierarchyBlock::create(
         decompressed = Compression::decompressLzma(data);
     }
 
-    if (id < metadata.structure().sparseIndexBegin())
+    if (id < metadata.hierarchyStructure().sparseIndexBegin())
     {
         return makeUnique<ContiguousBlock>(
+                metadata,
                 id,
-                compress,
+                outEndpoint,
                 maxPoints.getSimple(),
                 decompressed ? *decompressed : data);
     }
     else
     {
         return makeUnique<SparseBlock>(
+                metadata,
                 id,
-                compress,
+                outEndpoint,
                 decompressed ? *decompressed : data);
     }
 }
@@ -72,7 +88,8 @@ void HierarchyBlock::save(const arbiter::Endpoint& ep, const std::string pf)
 {
     const auto data(combine());
 
-    if (m_compress == HierarchyCompression::Lzma)
+    if (m_metadata.format().hierarchyCompression() ==
+            HierarchyCompression::Lzma)
     {
         Storage::ensurePut(
                 ep,
@@ -86,11 +103,12 @@ void HierarchyBlock::save(const arbiter::Endpoint& ep, const std::string pf)
 }
 
 ContiguousBlock::ContiguousBlock(
+        const Metadata& metadata,
         const Id& id,
-        const HierarchyCompression c,
+        const arbiter::Endpoint* outEndpoint,
         const std::size_t maxPoints,
         const std::vector<char>& data)
-    : HierarchyBlock(id, c)
+    : HierarchyBlock(metadata, id, outEndpoint)
     , m_tubes(maxPoints)
     , m_spinners(maxPoints)
 {
@@ -145,10 +163,11 @@ void ContiguousBlock::merge(const ContiguousBlock& other)
 }
 
 SparseBlock::SparseBlock(
+        const Metadata& metadata,
         const Id& id,
-        const HierarchyCompression c,
+        const arbiter::Endpoint* outEndpoint,
         const std::vector<char>& data)
-    : HierarchyBlock(id, c)
+    : HierarchyBlock(metadata, id, outEndpoint)
     , m_spinner()
     , m_tubes()
 {

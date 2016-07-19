@@ -39,6 +39,7 @@ public:
     Hierarchy(
             const Metadata& metadata,
             const arbiter::Endpoint& top,
+            const arbiter::Endpoint* topOut,
             bool exists = false);
 
     using Splitter::tryGet;
@@ -46,23 +47,7 @@ public:
     void count(const PointState& state, int delta);
     uint64_t tryGet(const PointState& pointState) const;
 
-    void save(const arbiter::Endpoint& top)
-    {
-        const auto ep(top.getSubEndpoint("h"));
-        const std::string basePostfix(m_metadata.postfix());
-        const std::string coldPostfix(m_metadata.postfix(true));
-
-        m_base.t->save(ep, basePostfix);
-
-        iterateCold([&ep, coldPostfix](const Id& chunkId, const Slot& slot)
-        {
-            if (slot.t) slot.t->save(ep, coldPostfix);
-        });
-
-        Json::Value json;
-        for (const auto& id : ids()) json.append(id.str());
-        ep.put("ids" + basePostfix, toFastString(json));
-    }
+    void save();
 
     void awakenAll()
     {
@@ -71,6 +56,7 @@ public:
             slot.t = HierarchyBlock::create(
                     m_metadata,
                     chunkId,
+                    m_outpoint.get(),
                     m_structure.getInfo(chunkId).pointsPerChunk(),
                     m_endpoint.getBinary(chunkId.str() + m_metadata.postfix()));
         });
@@ -142,6 +128,7 @@ private:
     const Bounds& m_bounds;
     const Structure& m_structure;
     const arbiter::Endpoint m_endpoint;
+    const std::unique_ptr<arbiter::Endpoint> m_outpoint;
 };
 
 } // namespace entwine

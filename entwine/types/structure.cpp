@@ -135,8 +135,10 @@ Structure::Structure(const Json::Value& json)
                 json["type"].asString() == "hybrid",
             json["dynamicChunks"].asBool(),
             json["prefixIds"].asBool(),
-            json["sparseDepth"].asUInt64(),
-            json["startDepth"].asUInt64())
+            json.isMember("mappedDepth") ?
+                json["mappedDepth"].asUInt64() : json["sparseDepth"].asUInt64(),
+            json["startDepth"].asUInt64(),
+            json["sparseDepth"].asUInt64())
 { }
 
 Structure::Structure(
@@ -149,8 +151,9 @@ Structure::Structure(
         const bool tubular,
         const bool dynamicChunks,
         const bool prefixIds,
-        const std::size_t sparseDepth,
-        const std::size_t startDepth)
+        const std::size_t mappedDepth,
+        const std::size_t startDepth,
+        const std::size_t sparseDepth)
     // Depths.
     : m_nullDepthBegin(0)
     , m_nullDepthEnd(nullDepth)
@@ -159,7 +162,7 @@ Structure::Structure(
     , m_coldDepthBegin(m_baseDepthEnd)
     , m_coldDepthEnd(coldDepth ? std::max(m_coldDepthBegin, coldDepth) : 0)
     , m_sparseDepthBegin(std::max(sparseDepth, m_coldDepthBegin))
-    , m_mappedDepthBegin(m_sparseDepthBegin)
+    , m_mappedDepthBegin(std::max(mappedDepth, m_coldDepthBegin))
     , m_startDepth(startDepth)
 
     // Indices.
@@ -172,7 +175,8 @@ Structure::Structure(
             ChunkInfo::calcLevelIndex(dimensions, m_coldDepthEnd) : 0)
     , m_sparseIndexBegin(
             ChunkInfo::calcLevelIndex(dimensions, m_sparseDepthBegin))
-    , m_mappedIndexBegin(m_sparseIndexBegin)
+    , m_mappedIndexBegin(
+            ChunkInfo::calcLevelIndex(dimensions, m_mappedDepthBegin))
 
     // Various.
     , m_tubular(tubular)
@@ -180,7 +184,7 @@ Structure::Structure(
     , m_prefixIds(prefixIds)
     , m_dimensions(dimensions)
     , m_factor(1ULL << m_dimensions)
-    , m_numPointsHint(numPointsHint)
+    , m_numPointsHint(std::max<std::size_t>(numPointsHint, 10000000))
 
     // Chunk-related.
     , m_pointsPerChunk(pointsPerChunk)
@@ -208,36 +212,34 @@ Structure::Structure(
                 "must be of the form 4^n for quadtree, or 8^n for octree");
     }
 
-    if (m_numPointsHint)
+    if (!mappedDepth)
     {
-        // If a sparse depth is supplied, keep that one.
-        if (!sparseDepth)
-        {
-            m_mappedDepthBegin =
-                std::ceil(std::log2(m_numPointsHint) / std::log2(m_factor));
+        m_mappedDepthBegin =
+            std::ceil(std::log2(m_numPointsHint) / std::log2(m_factor)) + 1;
+    }
 
-            m_mappedDepthBegin = std::max(m_mappedDepthBegin, m_coldDepthBegin);
+    m_mappedDepthBegin = std::max(m_mappedDepthBegin, m_coldDepthBegin);
 
-            m_sparseDepthBegin =
-                std::ceil(
-                        static_cast<float>(m_mappedDepthBegin) *
-                        sparseDepthBumpRatio);
-        }
+    if (!sparseDepth)
+    {
+        m_sparseDepthBegin =
+            std::ceil(
+                    static_cast<float>(m_mappedDepthBegin) *
+                    sparseDepthBumpRatio);
+    }
 
-        m_sparseIndexBegin =
-            ChunkInfo::calcLevelIndex(m_dimensions, m_sparseDepthBegin);
+    m_sparseDepthBegin = std::max(m_sparseDepthBegin, m_mappedDepthBegin);
 
-        m_mappedIndexBegin =
-            ChunkInfo::calcLevelIndex(m_dimensions, m_mappedDepthBegin);
+    m_sparseIndexBegin =
+        ChunkInfo::calcLevelIndex(m_dimensions, m_sparseDepthBegin);
 
-        if (m_sparseDepthBegin)
-        {
-            m_maxChunksPerDepth = 1;
-            for (auto i(m_nominalChunkDepth); i < m_sparseDepthBegin; ++i)
-            {
-                m_maxChunksPerDepth *= m_factor;
-            }
-        }
+    m_mappedIndexBegin =
+        ChunkInfo::calcLevelIndex(m_dimensions, m_mappedDepthBegin);
+
+    m_maxChunksPerDepth = 1;
+    for (auto i(m_nominalChunkDepth); i < m_sparseDepthBegin; ++i)
+    {
+        m_maxChunksPerDepth *= m_factor;
     }
 }
 
@@ -249,6 +251,7 @@ Json::Value Structure::toJson() const
     json["baseDepth"] = static_cast<Json::UInt64>(baseDepthEnd());
     json["coldDepth"] = static_cast<Json::UInt64>(coldDepthEnd());
     json["sparseDepth"] = static_cast<Json::UInt64>(sparseDepthBegin());
+    json["mappedDepth"] = static_cast<Json::UInt64>(mappedDepthBegin());
     json["pointsPerChunk"] = static_cast<Json::UInt64>(basePointsPerChunk());
     json["dimensions"] = static_cast<Json::UInt64>(dimensions());
     json["numPointsHint"] = static_cast<Json::UInt64>(numPointsHint());
