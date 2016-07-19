@@ -161,19 +161,50 @@ protected:
 
 class HierarchyState : public PointState
 {
+    using CellCache = std::map<std::size_t, int>;
+
 public:
     HierarchyState(const Metadata& metadata, Hierarchy* hierarchy)
         : PointState(metadata.hierarchyStructure(), metadata.bounds())
         , m_hierarchy(hierarchy)
+        , m_baseCache(m_hierarchy ?
+                std::vector<CellCache>(m_structure.baseIndexSpan()) :
+                std::vector<CellCache>())
     { }
+
+    ~HierarchyState()
+    {
+        for (std::size_t i(0); i < m_baseCache.size(); ++i)
+        {
+            for (const auto& tube : m_baseCache[i])
+            {
+                m_hierarchy->countBase(i, tube.first, tube.second);
+            }
+        }
+    }
 
     void count(int delta)
     {
-        if (m_hierarchy) m_hierarchy->count(*this, delta);
+        if (m_hierarchy)
+        {
+            if (m_structure.isWithinBase(depth()))
+            {
+                auto& tube(m_baseCache[index().getSimple()]);
+
+                if (tube.count(tick())) tube[tick()] += delta;
+                else tube[tick()] = delta;
+            }
+            else
+            {
+                m_hierarchy->count(*this, delta);
+            }
+        }
     }
 
 private:
     Hierarchy* m_hierarchy;
+
+    std::vector<CellCache> m_baseCache;
 };
 
 class ChunkState : public PointState

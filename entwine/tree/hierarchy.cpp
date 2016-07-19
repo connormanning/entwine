@@ -79,7 +79,7 @@ void Hierarchy::count(const PointState& pointState, const int delta)
 {
     if (m_structure.isWithinBase(pointState.depth()))
     {
-        m_base.t->count(pointState.index(), pointState.tick(), delta);
+        return m_base.t->count(pointState.index(), pointState.tick(), delta);
     }
     else
     {
@@ -109,7 +109,7 @@ void Hierarchy::count(const PointState& pointState, const int delta)
             }
         }
 
-        block->count(pointState.index(), pointState.tick(), delta);
+        return block->count(pointState.index(), pointState.tick(), delta);
     }
 }
 

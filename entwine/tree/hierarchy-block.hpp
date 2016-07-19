@@ -32,11 +32,10 @@ public:
         return *this;
     }
 
-    HierarchyCell* count(int delta)
+    void count(int delta)
     {
         SpinGuard lock(m_spinner);
         m_val = static_cast<int>(m_val) + delta;
-        return this;
     }
 
     uint64_t val() const { return m_val; }
@@ -78,7 +77,7 @@ public:
     void save(const arbiter::Endpoint& ep, std::string pf = "");
 
     // Only count must be thread-safe.  Get/save are single-threaded.
-    virtual HierarchyCell* count(const Id& id, uint64_t tick, int delta) = 0;
+    virtual void count(const Id& id, uint64_t tick, int delta) = 0;
     virtual uint64_t get(const Id& id, uint64_t tick) const = 0;
 
 protected:
@@ -121,7 +120,7 @@ public:
             std::size_t maxPoints,
             const std::vector<char>& data);
 
-    virtual HierarchyCell* count(
+    virtual void count(
             const Id& global,
             uint64_t tick,
             int delta) override
@@ -169,7 +168,7 @@ public:
             const arbiter::Endpoint* outEndpoint,
             const std::vector<char>& data);
 
-    virtual HierarchyCell* count(
+    virtual void count(
             const Id& id,
             uint64_t tick,
             int delta) override
