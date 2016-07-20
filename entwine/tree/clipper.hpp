@@ -95,6 +95,7 @@ public:
     }
 
     void clip();
+    void clip(const Id& chunkId);
     std::size_t id() const { return m_id; }
     std::size_t size() const { return m_clips.size(); }
 

@@ -583,6 +583,7 @@ void Builder::unsplit(Builder& other)
 
     if (Chunk* otherBase = other.m_registry->cold().base())
     {
+        std::cout << "Inserting base..." << std::endl;
         PointStatsMap pointStatsMap;
         Clipper clipper(*this, 0);
 
@@ -596,6 +597,7 @@ void Builder::unsplit(Builder& other)
                 m_metadata->structure().baseDepthEnd());
 
         m_metadata->manifest().add(pointStatsMap);
+        std::cout << "\tBase inserted" << std::endl;
     }
 
     BinaryPointTable table(m_metadata->schema());
@@ -633,6 +635,8 @@ void Builder::unsplit(Builder& other)
                     chunkId,
                     depth,
                     depth + 1);
+
+                clipper.clip(chunkId);
             });
 
             std::lock_guard<std::mutex> lock(m_mutex);
@@ -654,17 +658,8 @@ void Builder::unsplit(Builder& other)
         Clipper clipper(*this, 0);
 
         // Cache the IDs in reserves, which will be modified as we insert.
-        const std::set<Id> leftovers(
-                std::accumulate(
-                    reserves.begin(),
-                    reserves.end(),
-                    std::set<Id>(),
-                    [](const std::set<Id>& in, const Reserves::value_type& v)
-                    {
-                        auto out(in);
-                        out.insert(v.first);
-                        return out;
-                    }));
+        std::set<Id> leftovers;
+        for (const auto& p : reserves) leftovers.insert(p.first);
 
         for (const Id& id : leftovers)
         {
@@ -754,7 +749,7 @@ void Builder::insertHinted(
     // Points may fall through here, and if so, save their Climber state to
     // insert into their chunk at the next depth.
     {
-        Climber climber(*m_metadata, m_hierarchy.get());
+        Climber climber(*m_metadata, m_hierarchy.get(), false);
 
         while (!cells.empty())
         {
@@ -773,7 +768,7 @@ void Builder::insertHinted(
         }
     }
 
-    std::vector<CellState>* cellStateList(nullptr);
+    Reserves::value_type::second_type* cellStateList(nullptr);
 
     {
         std::lock_guard<std::mutex> lock(m_mutex);

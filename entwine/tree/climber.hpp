@@ -66,7 +66,7 @@ public:
 
         if (workingDepth > m_structure.nominalChunkDepth())
         {
-            chunkClimb(workingDepth);
+            chunkClimb(workingDepth, dir);
         }
     }
 
@@ -113,13 +113,13 @@ public:
     }
 
 protected:
-    void chunkClimb(std::size_t workingDepth)
+    void chunkClimb(std::size_t workingDepth, const Dir dir)
     {
         if (workingDepth <= m_structure.sparseDepthBegin())
         {
             m_chunkId <<= m_structure.dimensions();
             m_chunkId.incSimple();
-            m_chunkId += toIntegral(chunkDir()) * m_pointsPerChunk;
+            m_chunkId += toIntegral(chunkDir(dir)) * m_pointsPerChunk;
 
             if (workingDepth >= m_structure.coldDepthBegin())
             {
@@ -164,10 +164,13 @@ class HierarchyState : public PointState
     using CellCache = std::map<std::size_t, int>;
 
 public:
-    HierarchyState(const Metadata& metadata, Hierarchy* hierarchy)
+    HierarchyState(
+            const Metadata& metadata,
+            Hierarchy* hierarchy,
+            bool cache = true)
         : PointState(metadata.hierarchyStructure(), metadata.bounds())
         , m_hierarchy(hierarchy)
-        , m_baseCache(m_hierarchy ?
+        , m_baseCache(m_hierarchy && cache ?
                 std::vector<CellCache>(m_structure.baseIndexSpan()) :
                 std::vector<CellCache>())
     { }
@@ -187,7 +190,7 @@ public:
     {
         if (m_hierarchy)
         {
-            if (m_structure.isWithinBase(depth()))
+            if (m_baseCache.size() && m_structure.isWithinBase(depth()))
             {
                 auto& tube(m_baseCache[index().getSimple()]);
 
@@ -219,7 +222,7 @@ public:
 
     virtual void climb(Dir dir) override
     {
-        chunkClimb(++m_depth);
+        chunkClimb(++m_depth, dir);
         m_boundsChunk.go(dir, m_structure.tubular());
     }
 
@@ -259,10 +262,13 @@ private:
 class Climber
 {
 public:
-    Climber(const Metadata& metadata, Hierarchy* hierarchy = nullptr)
+    Climber(
+            const Metadata& metadata,
+            Hierarchy* hierarchy = nullptr,
+            bool cache = true)
         : m_metadata(metadata)
         , m_pointState(metadata.structure(), metadata.bounds())
-        , m_hierarchyState(metadata, hierarchy)
+        , m_hierarchyState(metadata, hierarchy, cache)
     { }
 
     void reset()

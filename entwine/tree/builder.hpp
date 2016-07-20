@@ -160,7 +160,7 @@ private:
             Clipper& clipper,
             Climber& climber);
 
-    typedef std::map<Id, std::vector<CellState>> Reserves;
+    typedef std::map<Id, std::deque<CellState>> Reserves;
 
     // Insert within a previously-identified depth range.
     void insertHinted(
