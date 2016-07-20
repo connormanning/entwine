@@ -10,6 +10,7 @@
 
 #include <entwine/tree/builder.hpp>
 
+#include <chrono>
 #include <limits>
 #include <numeric>
 #include <random>
@@ -43,6 +44,7 @@ using namespace arbiter;
 namespace
 {
     const std::size_t sleepCount(65536 * 32);
+    const std::size_t inputRetryLimit(8);
 }
 
 Builder::Builder(
@@ -265,7 +267,28 @@ bool Builder::checkBounds(
 
 bool Builder::insertPath(const Origin origin, FileInfo& info)
 {
-    auto localHandle(m_arbiter->getLocalHandle(info.path(), *m_tmpEndpoint));
+    const auto rawPath(info.path());
+    std::size_t tries(0);
+    std::unique_ptr<arbiter::fs::LocalHandle> localHandle;
+
+    do
+    {
+        try
+        {
+            localHandle = m_arbiter->getLocalHandle(rawPath, *m_tmpEndpoint);
+        }
+        catch (const ArbiterError& e)
+        {
+            std::cout <<
+                "Failed GET attempt of " << rawPath << ": " << e.what() <<
+                std::endl;
+
+            localHandle.reset();
+            std::this_thread::sleep_for(std::chrono::seconds(tries));
+        }
+    }
+    while (!localHandle && ++tries < inputRetryLimit);
+
     const std::string& localPath(localHandle->localPath());
 
     const Reprojection* reprojection(m_metadata->reprojection());
