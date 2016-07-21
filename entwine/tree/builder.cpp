@@ -135,8 +135,6 @@ std::unique_ptr<Builder> Builder::create(
         const std::size_t* splId,
         const OuterScope os)
 {
-    const std::size_t zero(0);
-
     if (!subId && !splId) return Builder::create(path, threads, os);
 
     try { return makeUnique<Builder>(path, ".", threads, subId, splId, os); }
@@ -144,6 +142,7 @@ std::unique_ptr<Builder> Builder::create(
 
     if (!subId) return std::unique_ptr<Builder>();
 
+    const std::size_t zero(0);
     try { return makeUnique<Builder>(path, ".", threads, subId, &zero, os); }
     catch (...) { }
 
@@ -489,7 +488,7 @@ std::unique_ptr<Manifest::Split> Builder::takeWork()
             static_cast<double>(remaining) /
             static_cast<double>(manifest.size()));
 
-    if (remaining > 2 && ratioRemaining > 0.05)
+    if (remaining > 2 && ratioRemaining > 0.0025)
     {
         m_end = m_origin + remaining / 2;
         split = manifest.split(m_end);

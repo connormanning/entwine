@@ -56,8 +56,6 @@ Merger::Merger(
     }
 }
 
-Merger::~Merger() { save(); }
-
 void Merger::unsplit()
 {
     const std::size_t total(m_others.size() + 1);
@@ -93,7 +91,7 @@ void Merger::unsplit()
         unsplit(*current);
         current->save();
 
-        std::cout << "\tDone." << std::endl;
+        std::cout << "\tUnsplit complete." << std::endl;
     }
 }
 
@@ -117,7 +115,7 @@ void Merger::merge()
 
         m_builder->merge(*current);
 
-        std::cout << "\tDone." << std::endl;
+        std::cout << "\tMerge complete." << std::endl;
     }
 
     m_builder->makeWhole();
@@ -127,10 +125,10 @@ void Merger::save()
 {
     if (m_builder)
     {
-        std::cout << "Saving..." << std::endl;
+        std::cout << "Merge complete.  Saving..." << std::endl;
         m_builder->save();
         m_builder.reset();
-        std::cout << "\tDone." << std::endl;
+        std::cout << "\tFinal save complete." << std::endl;
     }
 }
 
@@ -155,6 +153,11 @@ void Merger::unsplit(Builder& builder)
                 subsetId.get(),
                 &pos,
                 *m_outerScope);
+
+        if (!nextSplit)
+        {
+            throw std::runtime_error("Couldn't awaken " + std::to_string(pos));
+        }
 
         std::cout << "\t\t" << pos << std::endl;
 

@@ -332,9 +332,11 @@ Structure Hierarchy::structure(const Structure& treeStructure)
     const std::size_t startDepth(
             std::max(minStartDepth, treeStructure.baseDepthBegin()));
 
-    const std::size_t mappedDepth(
-            treeStructure.mappedDepthBegin() > startDepth ?
-                treeStructure.mappedDepthBegin() - startDepth : 0);
+    const std::size_t mappedDepth(baseDepth);
+
+    const std::size_t sparseDepth(
+        treeStructure.mappedDepthBegin() > startDepth ?
+            treeStructure.mappedDepthBegin() - startDepth : 0);
 
     return Structure(
             nullDepth,
@@ -348,7 +350,7 @@ Structure Hierarchy::structure(const Structure& treeStructure)
             prefixIds,
             mappedDepth,
             startDepth,
-            mappedDepth);
+            sparseDepth);
 }
 
 } // namespace entwine
