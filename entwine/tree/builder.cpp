@@ -554,6 +554,8 @@ void Builder::addError(const std::string& path, const std::string& error)
 
 void Builder::unsplit(Builder& other)
 {
+    if (m_threadPools->ratio() != 0.5) m_threadPools->setRatio(0.5);
+
     auto& manifest(m_metadata->manifest());
     const auto& otherManifest(other.m_metadata->manifest());
 
@@ -600,47 +602,48 @@ void Builder::unsplit(Builder& other)
         std::cout << "\tBase inserted" << std::endl;
     }
 
-    BinaryPointTable table(m_metadata->schema());
-    pdal::PointRef pointRef(table, 0);
-
     Traverser traverser(*m_metadata, other.registry().cold().ids());
     traverser.tree([&](const Branch branch)
     {
-        m_threadPools->workPool().add([&, branch]()
+        branch.recurse(
+                m_threadPools->workPool(),
+                [&](const Id chunkId, std::size_t depth)
         {
+            {
+                std::lock_guard<std::mutex> lock(m_mutex);
+                std::cout << "+" << chunkId << " @ " << depth << std::endl;
+            }
+
             PointStatsMap pointStatsMap;
             Clipper clipper(*this, 0);
 
-            branch.recurse([&](const Id& chunkId, std::size_t depth)
-            {
-                std::cout <<
-                    "From " << branch.id() << ": " <<
-                    chunkId << " " << depth << std::endl;
+            std::unique_ptr<std::vector<char>> data(
+                    makeUnique<std::vector<char>>(
+                        m_outEndpoint->getBinary(
+                            m_metadata->structure().maybePrefix(chunkId) +
+                            other.metadata().postfix(true))));
 
-                std::unique_ptr<std::vector<char>> data(
-                        makeUnique<std::vector<char>>(
-                            m_outEndpoint->getBinary(
-                                m_metadata->structure().maybePrefix(chunkId) +
-                                other.metadata().postfix(true))));
+            Unpacker unpacker(m_metadata->format().unpack(std::move(data)));
 
-                Unpacker unpacker(m_metadata->format().unpack(std::move(data)));
+            Cell::PooledStack cells(unpacker.acquireCells(*m_pointPool));
 
-                Cell::PooledStack cells(unpacker.acquireCells(*m_pointPool));
+            insertHinted(
+                reserves,
+                std::move(cells),
+                pointStatsMap,
+                clipper,
+                chunkId,
+                depth,
+                depth + 1);
 
-                insertHinted(
-                    reserves,
-                    std::move(cells),
-                    pointStatsMap,
-                    clipper,
-                    chunkId,
-                    depth,
-                    depth + 1);
+            clipper.clip(chunkId);
 
-                clipper.clip(chunkId);
-            });
-
-            std::lock_guard<std::mutex> lock(m_mutex);
             m_metadata->manifest().add(pointStatsMap);
+
+            {
+                std::lock_guard<std::mutex> lock(m_mutex);
+                std::cout << "\t~" << chunkId << std::endl;
+            }
         });
     });
 

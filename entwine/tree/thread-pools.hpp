@@ -49,9 +49,13 @@ public:
         go();
     }
 
+    const double ratio() const { return m_ratio; }
+    void setRatio(double r);
+
 private:
     Pool m_workPool;
     Pool m_clipPool;
+    double m_ratio;
 };
 
 } // namespace entwine

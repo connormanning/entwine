@@ -38,6 +38,13 @@ public:
     // Wait for all currently running tasks to complete.
     void join();
 
+    // Change the number of threads.  Current threads will be joined.
+    void resize(std::size_t numThreads);
+
+    // Wait for all current tasks to complete.  As opposed to join, tasks may
+    // continue to be added while a thread is await()-ing the queue to empty.
+    void await();
+
     // Not thread-safe, pool should be joined before calling.
     const std::vector<std::string>& errors() const { return m_errors; }
 
@@ -60,6 +67,7 @@ private:
     std::size_t m_queueSize;
     std::vector<std::thread> m_threads;
     std::queue<std::function<void()>> m_tasks;
+    std::atomic_size_t m_running;
 
     std::vector<std::string> m_errors;
     std::mutex m_errorMutex;
