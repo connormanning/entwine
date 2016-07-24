@@ -12,6 +12,7 @@
 
 #include <pdal/PointView.hpp>
 
+#include <entwine/tree/config-parser.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/util/inference.hpp>
@@ -65,7 +66,7 @@ Inference::Inference(
     , m_ownedArbiter(arbiter ? nullptr : new arbiter::Arbiter())
     , m_arbiter(arbiter ? arbiter : m_ownedArbiter.get())
     , m_tmp(m_arbiter->getEndpoint(tmpPath))
-    , m_manifest(m_arbiter->resolve(path, verbose))
+    , m_manifest(m_arbiter->resolve(ConfigParser::directorify(path), verbose))
     , m_index(0)
     , m_dimVec()
     , m_dimSet()

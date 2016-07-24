@@ -257,7 +257,7 @@ std::unique_ptr<Manifest> ConfigParser::getManifest(
         }
         else
         {
-            insert(jsonManifest.asString());
+            insert(directorify(jsonManifest.asString()));
         }
 
         manifest.reset(new Manifest(paths));
@@ -269,6 +269,27 @@ std::unique_ptr<Manifest> ConfigParser::getManifest(
     }
 
     return manifest;
+}
+
+std::string ConfigParser::directorify(const std::string rawPath)
+{
+    std::string s(rawPath);
+
+    if (s.size() && s.back() != '*')
+    {
+        if (arbiter::util::isDirectory(s))
+        {
+            s += '*';
+        }
+        else if (
+                arbiter::util::getBasename(s).find_first_of('.') ==
+                std::string::npos)
+        {
+            s += "/*";
+        }
+    }
+
+    return s;
 }
 
 } // namespace entwine

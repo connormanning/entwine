@@ -31,6 +31,8 @@ public:
             const std::size_t* subsetId = nullptr,
             std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
 
+    ~Merger();
+
     void unsplit(); // Join manifest-split builds.
     void merge();   // Join geographically-subsetted builds.
     void save();    // Save results.

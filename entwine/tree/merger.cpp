@@ -38,7 +38,14 @@ Merger::Merger(
             nullptr,
             *m_outerScope);
 
-    if (!m_builder) throw std::runtime_error("Path not mergeable");
+    if (!m_builder)
+    {
+        std::cout << "No builder for " << path;
+        if (subsetId) std::cout << " at " << *subsetId;
+        std::cout << std::endl;
+
+        throw std::runtime_error("Path not mergeable");
+    }
 
     m_outerScope->setPointPool(m_builder->sharedPointPool());
 
@@ -55,6 +62,8 @@ Merger::Merger(
         }
     }
 }
+
+Merger::~Merger() { }
 
 void Merger::unsplit()
 {

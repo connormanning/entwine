@@ -35,6 +35,8 @@ public:
             const Json::Value& json,
             const arbiter::Arbiter& arbiter);
 
+    static std::string directorify(std::string path);
+
 private:
     static std::unique_ptr<Builder> tryGetExisting(
             const Json::Value& config,

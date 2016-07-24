@@ -12,6 +12,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <string>
 
 #include <entwine/tree/merger.hpp>
@@ -49,6 +50,7 @@ void Kernel::merge(std::vector<std::string> args)
 
     std::size_t a(1);
     std::size_t threads(1);
+    std::unique_ptr<std::size_t> subset;
 
     while (a < args.size())
     {
@@ -76,6 +78,17 @@ void Kernel::merge(std::vector<std::string> args)
                 throw std::runtime_error("Invalid credential path argument");
             }
         }
+        else if (arg == "-s")
+        {
+            if (++a < args.size())
+            {
+                subset.reset(new std::size_t(std::stoul(args[a])));
+            }
+            else
+            {
+                throw std::runtime_error("Invalid credential path argument");
+            }
+        }
 
         ++a;
     }
@@ -85,9 +98,12 @@ void Kernel::merge(std::vector<std::string> args)
 
     auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(arbiterConfig));
 
-    Merger merger(path, threads, nullptr, arbiter);
+    Merger merger(path, threads, subset.get(), arbiter);
 
-    std::cout << "Merging " << path << "..." << std::endl;
+    std::cout << "Merging " << path;
+    if (subset) std::cout << " at subset: " << *subset;
+    std::cout << "..." << std::endl;
+
     merger.unsplit();
     merger.merge();
     merger.save();
