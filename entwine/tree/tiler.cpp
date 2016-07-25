@@ -108,7 +108,7 @@ void Base::populate(std::unique_ptr<std::vector<char>> data)
         {
             s.reset();
             s.climbTo(p, m_delta);  // For the Base, delta = sliceDepth.
-            b = s.boundsChunk();
+            b = s.chunkBounds();
         }
 
         auto& segment(m_segments[b]);
@@ -245,7 +245,7 @@ void Tiler::go(const TileFunction& f, const arbiter::Endpoint* ep)
     {
         const Id& chunkId(chunkState.chunkId());
         const std::size_t depth(chunkState.depth());
-        const Bounds& bounds(chunkState.boundsChunk());
+        const Bounds& bounds(chunkState.chunkBounds());
 
         if (depth < m_sliceDepth)
         {

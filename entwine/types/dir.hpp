@@ -39,6 +39,20 @@ inline Dir getDirection(const Point& o, const Point& p)
             (p.z >= o.z ? 4 : 0));  // Up? +4.
 }
 
+inline Dir getDirection(const Point& o, const Point& p, bool force2d)
+{
+    if (force2d)
+    {
+        return static_cast<Dir>(
+                (p.y >= o.y ? 2 : 0) +  // North? +2.
+                (p.x >= o.x ? 1 : 0));  // East? +1.
+    }
+    else
+    {
+        return getDirection(o, p);
+    }
+}
+
 inline std::string dirToString(Dir dir)
 {
     switch (dir)

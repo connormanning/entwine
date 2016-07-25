@@ -42,15 +42,23 @@ public:
         , m_chunkId(m_structure.nominalChunkIndex())
         , m_chunkNum(0)
         , m_pointsPerChunk(m_structure.basePointsPerChunk())
+        , m_chunkBounds(bounds)
     { }
 
     virtual ~PointState() { }
 
-    virtual void climb(Dir dir)
+    void climb(Dir dir)
+    {
+        climb(m_bounds.get(dir).mid());
+    }
+
+    virtual void climb(const Point& point)
     {
         if (++m_depth <= m_structure.startDepth()) return;
 
         const std::size_t workingDepth(depth());
+        const Dir dir(getDirection(m_bounds.mid(), point));
+        m_bounds.go(dir);
 
         if (m_structure.tubular() && workingDepth <= Tube::maxTickDepth())
         {
@@ -62,17 +70,10 @@ public:
         m_index.incSimple();
         m_index += toIntegral(dir, m_structure.tubular());
 
-        m_bounds.go(dir);
-
         if (workingDepth > m_structure.nominalChunkDepth())
         {
-            chunkClimb(workingDepth, dir);
+            chunkClimb(workingDepth, point);
         }
-    }
-
-    virtual void climb(const Point& point)
-    {
-        climb(getDirection(m_bounds.mid(), point));
     }
 
     PointState getClimb(Dir dir) const
@@ -92,6 +93,7 @@ public:
         m_chunkId = m_structure.nominalChunkIndex();
         m_chunkNum = 0;
         m_pointsPerChunk = m_structure.basePointsPerChunk();
+        m_chunkBounds = m_boundsOriginal;
     }
 
     const Bounds& bounds() const { return m_bounds; }
@@ -99,6 +101,7 @@ public:
     std::size_t depth() const   { return m_depth - m_structure.startDepth(); }
     std::size_t tick() const    { return m_tick; }
 
+    const Bounds& chunkBounds() const { return m_chunkBounds; }
     const Id& chunkId() const   { return m_chunkId; }
     const Id& pointsPerChunk() const    { return m_pointsPerChunk; }
     std::size_t chunkNum() const
@@ -113,13 +116,17 @@ public:
     }
 
 protected:
-    void chunkClimb(std::size_t workingDepth, const Dir dir)
+    void chunkClimb(std::size_t workingDepth, const Point& point)
     {
         if (workingDepth <= m_structure.sparseDepthBegin())
         {
+            const Dir dir(getDirection(m_chunkBounds.mid(), point, true));
+            m_chunkBounds.go(dir);
+
             m_chunkId <<= m_structure.dimensions();
             m_chunkId.incSimple();
-            m_chunkId += toIntegral(chunkDir(dir)) * m_pointsPerChunk;
+
+            m_chunkId += toIntegral(dir) * m_pointsPerChunk;
 
             if (workingDepth >= m_structure.coldDepthBegin())
             {
@@ -139,13 +146,6 @@ protected:
         }
     }
 
-    virtual Dir chunkDir(Dir dir = Dir::swd) const
-    {
-        return toDir(
-                (m_index - m_chunkId).getSimple() /
-                m_pointsPerChunk.getSimple());
-    }
-
     const Structure& m_structure;
     const Bounds& m_boundsOriginal;
 
@@ -157,6 +157,7 @@ protected:
     Id m_chunkId;
     Id m_chunkNum;
     Id m_pointsPerChunk;
+    Bounds m_chunkBounds;
 };
 
 class HierarchyState : public PointState
@@ -212,35 +213,25 @@ private:
 
 class ChunkState : public PointState
 {
+    using PointState::climb;
+
 public:
     ChunkState(const Metadata& metadata)
         : PointState(metadata.structure(), metadata.bounds())
-        , m_boundsChunk(metadata.bounds())
     {
         m_depth = m_structure.nominalChunkDepth();
     }
 
-    virtual void climb(Dir dir) override
-    {
-        chunkClimb(++m_depth, dir);
-        m_boundsChunk.go(dir, m_structure.tubular());
-    }
-
-    virtual Dir chunkDir(Dir dir = Dir::swd) const override { return dir; }
-
     virtual void climb(const Point& point) override
     {
-        climb(getDirection(m_boundsChunk.mid(), point));
+        chunkClimb(++m_depth, point);
     }
 
     virtual void reset() override
     {
         PointState::reset();
-        m_boundsChunk = m_boundsOriginal;
         m_depth = m_structure.nominalChunkDepth();
     }
-
-    const Bounds& boundsChunk() const { return m_boundsChunk; }
 
     bool sparse() const
     {
@@ -254,9 +245,6 @@ public:
         s.climb(dir);
         return s;
     }
-
-private:
-    Bounds m_boundsChunk;
 };
 
 class Climber
