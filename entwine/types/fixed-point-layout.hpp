@@ -11,6 +11,7 @@
 #pragma once
 
 #include <pdal/PointLayout.hpp>
+#include <pdal/util/Utils.hpp>
 
 namespace entwine
 {
@@ -30,7 +31,7 @@ private:
 
             m_pointSize += dimDetail.size();
             m_used.push_back(dimDetail.id());
-            m_detail[dimDetail.id()] = dimDetail;
+            m_detail[pdal::Utils::toNative(dimDetail.id())] = dimDetail;
 
             added = true;
         }
@@ -40,7 +41,7 @@ private:
 
     bool contains(
             const pdal::Dimension::IdList& idList,
-            const pdal::Dimension::Id::Enum id)
+            const pdal::Dimension::Id id)
     {
         for (const auto current : idList)
         {

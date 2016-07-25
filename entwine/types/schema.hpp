@@ -80,7 +80,7 @@ public:
         return it != m_dims.end();
     }
 
-    pdal::Dimension::Id::Enum getId(const std::string& name) const
+    pdal::Dimension::Id getId(const std::string& name) const
     {
         return pdalLayout().findDim(name);
     }

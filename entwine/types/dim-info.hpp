@@ -27,11 +27,11 @@ class DimInfo
     friend class Schema;
 
 public:
-    DimInfo(pdal::Dimension::Id::Enum id)
+    DimInfo(pdal::Dimension::Id id)
         : DimInfo(id, pdal::Dimension::defaultType(id))
     { }
 
-    DimInfo(pdal::Dimension::Id::Enum id, pdal::Dimension::Type::Enum type)
+    DimInfo(pdal::Dimension::Id id, pdal::Dimension::Type type)
         : DimInfo(pdal::Dimension::name(id), id, type)
     { }
 
@@ -56,8 +56,8 @@ public:
 
     DimInfo(
             const std::string& name,
-            pdal::Dimension::Id::Enum id,
-            pdal::Dimension::Type::Enum type)
+            pdal::Dimension::Id id,
+            pdal::Dimension::Type type)
         : m_name(name)
         , m_id(id)
         , m_type(type)
@@ -68,8 +68,8 @@ public:
     std::size_t size() const { return pdal::Dimension::size(type()); }
     std::string typeString() const { return m_typeString; }
 
-    pdal::Dimension::Id::Enum id() const { return m_id; }
-    pdal::Dimension::Type::Enum type() const { return m_type; }
+    pdal::Dimension::Id id() const { return m_id; }
+    pdal::Dimension::Type type() const { return m_type; }
 
     Json::Value toJson() const
     {
@@ -82,14 +82,14 @@ public:
 
 private:
     std::string m_name;
-    pdal::Dimension::Id::Enum m_id;
-    pdal::Dimension::Type::Enum m_type;
+    pdal::Dimension::Id m_id;
+    pdal::Dimension::Type m_type;
     std::string m_typeString;
 
     // May be unknown until PDAL registration.
-    void setId(pdal::Dimension::Id::Enum id) { m_id = id; }
+    void setId(pdal::Dimension::Id id) { m_id = id; }
 
-    pdal::Dimension::Type::Enum getType(
+    pdal::Dimension::Type getType(
             const std::string& baseTypeName,
             std::size_t size)
     {

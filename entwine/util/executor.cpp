@@ -11,6 +11,7 @@
 #include <entwine/util/executor.hpp>
 
 #include <pdal/BufferReader.hpp>
+#include <pdal/Dimension.hpp>
 #include <pdal/Filter.hpp>
 #include <pdal/QuickInfo.hpp>
 #include <pdal/Reader.hpp>
@@ -46,7 +47,7 @@ namespace
             , m_view(makeUnique<pdal::PointView>(m_table))
             , m_buffer()
         {
-            namespace DimId = pdal::Dimension::Id;
+            using DimId = pdal::Dimension::Id;
 
             auto layout(m_table.layout());
             layout->registerDim(DimId::X);
@@ -167,7 +168,7 @@ std::unique_ptr<Preview> Executor::preview(
     }
     else
     {
-        namespace DimId = pdal::Dimension::Id;
+        using DimId = pdal::Dimension::Id;
 
         BufferState bufferState(bounds);
 

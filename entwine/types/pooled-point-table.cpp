@@ -21,7 +21,7 @@ namespace
 PooledPointTable::PooledPointTable(
         PointPool& pointPool,
         std::function<Cell::PooledStack(Cell::PooledStack)> process,
-        pdal::Dimension::Id::Enum originId,
+        pdal::Dimension::Id originId,
         Origin origin)
     : pdal::StreamPointTable(pointPool.schema().pdalLayout())
     , m_pointPool(pointPool)

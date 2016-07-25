@@ -240,9 +240,9 @@ Schema Inference::schema() const
     DimList dims;
     for (const auto& name : m_dimVec)
     {
-        const pdal::Dimension::Id::Enum id(pdal::Dimension::id(name));
+        const pdal::Dimension::Id id(pdal::Dimension::id(name));
 
-        pdal::Dimension::Type::Enum t;
+        pdal::Dimension::Type t;
         try
         {
             t = pdal::Dimension::defaultType(id);

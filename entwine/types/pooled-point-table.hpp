@@ -55,7 +55,7 @@ public:
     PooledPointTable(
             PointPool& pointPool,
             std::function<Cell::PooledStack(Cell::PooledStack)> process,
-            pdal::Dimension::Id::Enum originId = pdal::Dimension::Id::Unknown,
+            pdal::Dimension::Id originId = pdal::Dimension::Id::Unknown,
             Origin origin = invalidOrigin);
 
     virtual pdal::point_count_t capacity() const override;
@@ -78,7 +78,7 @@ private:
 
     std::function<Cell::PooledStack(Cell::PooledStack)> m_process;
 
-    const pdal::Dimension::Id::Enum m_originId;
+    const pdal::Dimension::Id m_originId;
     const Origin m_origin;
 };
 

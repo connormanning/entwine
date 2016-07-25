@@ -209,7 +209,7 @@ private:
     std::unique_ptr<ThreadPools> m_threadPools;
     std::unique_ptr<Executor> m_executor;
 
-    pdal::Dimension::Id::Enum m_originId;
+    pdal::Dimension::Id m_originId;
     Origin m_origin;
     Origin m_end;
     std::size_t m_added;
