@@ -21,6 +21,7 @@
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
+#include <entwine/tree/heuristics.hpp>
 #include <entwine/tree/registry.hpp>
 #include <entwine/tree/thread-pools.hpp>
 #include <entwine/tree/traverser.hpp>
@@ -43,7 +44,6 @@ using namespace arbiter;
 
 namespace
 {
-    const std::size_t sleepCount(65536 * 32);
     const std::size_t inputRetryLimit(8);
 }
 
@@ -335,7 +335,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
     {
         inserted += cells.size();
 
-        if (inserted > sleepCount)
+        if (inserted > heuristics::sleepCount)
         {
             inserted = 0;
             clipper.clip();

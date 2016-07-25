@@ -28,6 +28,7 @@ set(
     "${BASE}/config-parser.hpp"
     "${BASE}/hierarchy.hpp"
     "${BASE}/hierarchy-block.hpp"
+    "${BASE}/heuristics.hpp"
     "${BASE}/manifest.hpp"
     "${BASE}/merger.hpp"
     "${BASE}/old-hierarchy.hpp"

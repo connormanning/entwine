@@ -15,6 +15,7 @@
 #include <iostream>
 
 #include <entwine/tree/climber.hpp>
+#include <entwine/tree/heuristics.hpp>
 #include <entwine/types/subset.hpp>
 
 namespace entwine
@@ -23,8 +24,6 @@ namespace entwine
 namespace
 {
     std::size_t log2(std::size_t val) { return std::log2(val); }
-
-    const float sparseDepthBumpRatio(1.15);
 }
 
 ChunkInfo::ChunkInfo(const Structure& structure, const Id& index)
@@ -225,7 +224,7 @@ Structure::Structure(
         m_sparseDepthBegin =
             std::ceil(
                     static_cast<float>(m_mappedDepthBegin) *
-                    sparseDepthBumpRatio);
+                    heuristics::sparseDepthBumpRatio);
     }
 
     m_sparseDepthBegin = std::max(m_sparseDepthBegin, m_mappedDepthBegin);
