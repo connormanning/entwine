@@ -760,7 +760,7 @@ void Builder::insertHinted(
 
             while (cells.head() && (*cells.head())->point() == point)
             {
-                cell->push(cells.popOne());
+                cell->push(cells.popOne(), m_metadata->schema().pointSize());
             }
 
             climber.reset();

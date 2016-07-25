@@ -11,6 +11,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstring>
 
 #include <pdal/PointRef.hpp>
 
@@ -48,10 +49,15 @@ public:
     const Point& point() const { return m_point; }
     Data::RawStack&& acquire() { return std::move(m_dataStack); }
 
-    void push(Cell::PooledNode&& other)
+    void push(Cell::PooledNode&& other, std::size_t pointSize)
     {
         assert(point() == other->point());
-        m_dataStack.push(other->m_dataStack);
+        m_dataStack.push(
+                other->m_dataStack,
+                [pointSize](const char* a, const char* b)
+                {
+                    return std::memcmp(a, b, pointSize) < 0;
+                });
     }
 
     std::size_t size() const { return m_dataStack.size(); }

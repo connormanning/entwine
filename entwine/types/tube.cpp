@@ -14,27 +14,6 @@
 namespace entwine
 {
 
-void Tube::insert(std::size_t tick, Cell::PooledNode& cell)
-{
-    SpinGuard lock(m_spinner);
-
-    const auto it(m_cells.find(tick));
-
-    if (it != m_cells.end())
-    {
-        if (cell->point() != it->second->point())
-        {
-            throw std::runtime_error("Invalid serialized chunk point");
-        }
-
-        it->second->push(std::move(cell));
-    }
-    else
-    {
-        m_cells.emplace(std::make_pair(tick, std::move(cell)));
-    }
-}
-
 Tube::Insertion Tube::insert(const Climber& climber, Cell::PooledNode& cell)
 {
     Insertion result;
@@ -65,7 +44,7 @@ Tube::Insertion Tube::insert(const Climber& climber, Cell::PooledNode& cell)
         else
         {
             result.setDone(cell->size());
-            it->second->push(std::move(cell));
+            it->second->push(std::move(cell), climber.pointSize());
         }
     }
     else

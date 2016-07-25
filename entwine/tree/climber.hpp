@@ -308,6 +308,8 @@ public:
     const Id& pointsPerChunk() const { return m_pointState.pointsPerChunk(); }
     std::size_t chunkNum() const { return m_pointState.chunkNum(); }
 
+    std::size_t pointSize() const { return m_metadata.schema().pointSize(); }
+
 private:
     const Metadata& m_metadata;
 

@@ -33,11 +33,6 @@ class Tube
 public:
     void swap(Tube&& other) { std::swap(m_cells, other.m_cells); }
 
-    // Insert with prior knowledge that it will succeed.  If there is already
-    // a cell at the requested tick, it must be mergeable with the requested
-    // cell or this will throw.
-    void insert(std::size_t tick, Cell::PooledNode& cell);
-
     class Insertion
     {
     public:
