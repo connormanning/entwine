@@ -54,12 +54,14 @@ class Metadata;
 class HierarchyBlock
 {
 public:
+    static std::size_t count();
+
     HierarchyBlock(
             const Metadata& metadata,
             const Id& id,
             const arbiter::Endpoint* outEndpoint);
 
-    virtual ~HierarchyBlock() { }
+    virtual ~HierarchyBlock();
 
     static std::unique_ptr<HierarchyBlock> create(
             const Metadata& metadata,

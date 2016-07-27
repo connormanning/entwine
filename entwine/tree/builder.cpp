@@ -22,6 +22,7 @@
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
 #include <entwine/tree/heuristics.hpp>
+#include <entwine/tree/hierarchy-block.hpp>
 #include <entwine/tree/registry.hpp>
 #include <entwine/tree/thread-pools.hpp>
 #include <entwine/tree/traverser.hpp>
@@ -186,6 +187,12 @@ void Builder::go(std::size_t max)
 
         ++m_added;
         std::cout << "Adding " << m_origin << " - " << path << std::endl;
+        std::cout <<
+            " A: " << m_pointPool->cellPool().allocated() <<
+            " C: " << Chunk::count() <<
+            " H: " << HierarchyBlock::count() <<
+            std::endl;
+
         const auto origin(m_origin);
 
         m_threadPools->workPool().add([this, origin, &info, path]()

@@ -71,6 +71,8 @@ public:
         return getTube(climber.index()).insert(climber, cell);
     }
 
+    static std::size_t count();
+
 protected:
     void populate(Cell::PooledStack cells);
 

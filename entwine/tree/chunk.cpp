@@ -10,6 +10,8 @@
 
 #include <entwine/tree/chunk.hpp>
 
+#include <atomic>
+
 #include <pdal/Dimension.hpp>
 #include <pdal/PointView.hpp>
 
@@ -26,8 +28,11 @@ namespace entwine
 
 namespace
 {
+    std::atomic_size_t chunkCount(0);
     const std::string tubeIdDim("TubeId");
 }
+
+std::size_t Chunk::count() { return chunkCount; }
 
 Chunk::Chunk(
         const Builder& builder,
@@ -42,7 +47,9 @@ Chunk::Chunk(
     , m_id(id)
     , m_maxPoints(maxPoints)
     , m_data()
-{ }
+{
+    ++chunkCount;
+}
 
 void Chunk::populate(Cell::PooledStack cells)
 {
@@ -83,6 +90,8 @@ Chunk::~Chunk()
 
         Storage::ensurePut(m_builder.outEndpoint(), path, *m_data);
     }
+
+    --chunkCount;
 }
 
 std::unique_ptr<Chunk> Chunk::create(

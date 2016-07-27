@@ -10,6 +10,8 @@
 
 #include <entwine/tree/hierarchy-block.hpp>
 
+#include <atomic>
+
 #include <entwine/types/format.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/structure.hpp>
@@ -20,6 +22,13 @@
 namespace entwine
 {
 
+namespace
+{
+    std::atomic_size_t chunkCount(0);
+}
+
+std::size_t HierarchyBlock::count() { return chunkCount; }
+
 HierarchyBlock::HierarchyBlock(
         const Metadata& metadata,
         const Id& id,
@@ -27,7 +36,14 @@ HierarchyBlock::HierarchyBlock(
     : m_metadata(metadata)
     , m_id(id)
     , m_ep(ep)
-{ }
+{
+    ++chunkCount;
+}
+
+HierarchyBlock::~HierarchyBlock()
+{
+    --chunkCount;
+}
 
 std::unique_ptr<HierarchyBlock> HierarchyBlock::create(
         const Metadata& metadata,
