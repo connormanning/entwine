@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 4bbe7fc3c79a8b3843f50de195630f110a4a0e24
+// Git SHA: e10a30cff46c5237a6010a958917469ac6927f63
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -2237,13 +2237,20 @@ class Curl
 public:
     ~Curl();
 
-    http::Response get(std::string path, Headers headers, Query query);
+    http::Response get(
+            std::string path,
+            Headers headers,
+            Query query,
+            std::size_t reserve);
+
     http::Response head(std::string path, Headers headers, Query query);
+
     http::Response put(
             std::string path,
             const std::vector<char>& data,
             Headers headers,
             Query query);
+
     http::Response post(
             std::string path,
             const std::vector<char>& data,
@@ -2275,7 +2282,8 @@ public:
     http::Response get(
             std::string path,
             Headers headers = Headers(),
-            Query query = Query());
+            Query query = Query(),
+            std::size_t reserve = 0);
 
     http::Response head(
             std::string path,
@@ -2754,7 +2762,8 @@ protected:
     http::Response internalGet(
             std::string path,
             http::Headers headers = http::Headers(),
-            http::Query query = http::Query()) const;
+            http::Query query = http::Query(),
+            std::size_t reserve = 0) const;
 
     http::Response internalPut(
             std::string path,
@@ -2782,6 +2791,24 @@ private:
     }
 
     http::Pool& m_pool;
+};
+
+/** @brief HTTPS driver.  Identical to the HTTP driver except for its type
+ * string.
+ */
+class Https : public Http
+{
+public:
+    Https(http::Pool& pool) : Http(pool) { }
+
+    static std::unique_ptr<Https> create(
+            http::Pool& pool,
+            const Json::Value& json)
+    {
+        return std::unique_ptr<Https>(new Https(pool));
+    }
+
+    virtual std::string type() const override { return "https"; }
 };
 
 } // namespace drivers
@@ -5840,7 +5867,8 @@ public:
             http::Pool& pool,
             const Auth& auth,
             std::string region = "us-east-1",
-            bool sse = false);
+            bool sse = false,
+            bool precheck = false);
 
     /** Try to construct an S3 Driver.  Searches @p json primarily for the keys
      * `access` and `hidden` to construct an S3::Auth.  If not found, common
@@ -5989,6 +6017,7 @@ private:
     std::string m_region;
     std::string m_baseUrl;
     http::Headers m_baseHeaders;
+    bool m_precheck;
 };
 
 } // namespace drivers
@@ -6665,9 +6694,6 @@ public:
     http::Pool& httpPool() { return m_pool; }
 
 private:
-    // Registers all available default Driver instances.
-    void init(const Json::Value& json);
-
     const drivers::Http* tryGetHttpDriver(std::string path) const;
     const drivers::Http& getHttpDriver(std::string path) const;
 

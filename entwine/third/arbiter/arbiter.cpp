@@ -77,21 +77,11 @@ namespace
     const std::size_t httpRetryCount(8);
 }
 
-Arbiter::Arbiter()
-    : m_drivers()
-    , m_pool(concurrentHttpReqs, httpRetryCount, Json::Value())
-{
-    init(Json::Value());
-}
+Arbiter::Arbiter() : Arbiter(Json::Value()) { }
 
 Arbiter::Arbiter(const Json::Value& json)
     : m_drivers()
     , m_pool(concurrentHttpReqs, httpRetryCount, json)
-{
-    init(json);
-}
-
-void Arbiter::init(const Json::Value& json)
 {
     using namespace drivers;
 
@@ -103,6 +93,9 @@ void Arbiter::init(const Json::Value& json)
 
     auto http(Http::create(m_pool, json["http"]));
     if (http) m_drivers[http->type()] = std::move(http);
+
+    auto https(Https::create(m_pool, json["http"]));
+    if (https) m_drivers[https->type()] = std::move(https);
 
     auto s3(S3::create(m_pool, json["s3"]));
     if (s3) m_drivers[s3->type()] = std::move(s3);
@@ -6429,9 +6422,10 @@ void Http::put(
 Response Http::internalGet(
         const std::string path,
         const Headers headers,
-        const Query query) const
+        const Query query,
+        const std::size_t reserve) const
 {
-    return m_pool.acquire().get(path, headers, query);
+    return m_pool.acquire().get(path, headers, query, reserve);
 }
 
 Response Http::internalPut(
@@ -6632,12 +6626,14 @@ S3::S3(
         Pool& pool,
         const S3::Auth& auth,
         const std::string region,
-        const bool sse)
+        const bool sse,
+        const bool precheck)
     : Http(pool)
     , m_auth(auth)
     , m_region(region)
     , m_baseUrl(getBaseUrl(region))
     , m_baseHeaders()
+    , m_precheck(precheck)
 {
     if (sse)
     {
@@ -6654,6 +6650,7 @@ std::unique_ptr<S3> S3::create(Pool& pool, const Json::Value& json)
 
     const std::string profile(extractProfile(json));
     const bool sse(json["sse"].asBool());
+    const bool precheck(json["precheck"].asBool());
 
     if (!json.isNull() && json.isMember("access") & json.isMember("hidden"))
     {
@@ -6752,7 +6749,7 @@ std::unique_ptr<S3> S3::create(Pool& pool, const Json::Value& json)
             "Region not found in ~/.aws/config - using us-east-1" << std::endl;
     }
 
-    s3.reset(new S3(pool, *auth, region, sse));
+    s3.reset(new S3(pool, *auth, region, sse, precheck));
 
     return s3;
 }
@@ -6811,6 +6808,10 @@ bool S3::get(
         const Headers headers,
         const Query query) const
 {
+    std::unique_ptr<std::size_t> size(
+            m_precheck && !headers.count("Range") ?
+                tryGetSize(rawPath) : nullptr);
+
     const Resource resource(m_baseUrl, rawPath);
     const ApiV4 apiV4(
             "GET",
@@ -6825,7 +6826,8 @@ bool S3::get(
             Http::internalGet(
                 resource.url(),
                 apiV4.headers(),
-                apiV4.query()));
+                apiV4.query(),
+                size ? *size : 0));
 
     if (res.ok())
     {
@@ -7616,6 +7618,7 @@ std::vector<std::string> Dropbox::glob(std::string rawPath, bool verbose) const
 #include <arbiter/util/http.hpp>
 #endif
 
+#include <iostream>
 #include <numeric>
 
 #include <curl/curl.h>
@@ -7822,10 +7825,16 @@ void Curl::init(
     }
 }
 
-Response Curl::get(std::string path, Headers headers, Query query)
+Response Curl::get(
+        std::string path,
+        Headers headers,
+        Query query,
+        const std::size_t reserve)
 {
     int httpCode(0);
     std::vector<char> data;
+
+    if (reserve) data.reserve(reserve);
 
     init(path, headers, query);
     if (m_verbose) curl_easy_setopt(m_curl, CURLOPT_VERBOSE, 1L);
@@ -7993,11 +8002,12 @@ Resource::~Resource()
 Response Resource::get(
         const std::string path,
         const Headers headers,
-        const Query query)
+        const Query query,
+        const std::size_t reserve)
 {
-    return exec([this, path, headers, query]()->Response
+    return exec([this, path, headers, query, reserve]()->Response
     {
-        return m_curl.get(path, headers, query);
+        return m_curl.get(path, headers, query, reserve);
     });
 }
 
@@ -8772,6 +8782,9 @@ std::string getNonBasename(const std::string fullPath)
         const std::string sub(stripped.substr(0, pos));
         result = sub;
     }
+
+    const std::string type(Arbiter::getType(fullPath));
+    if (type != "file") result = type + "://" + result;
 
     return result;
 }

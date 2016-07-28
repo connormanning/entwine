@@ -15,7 +15,7 @@ namespace entwine
 namespace heuristics
 {
 
-const std::size_t sleepCount(65536 * 32);
+const std::size_t sleepCount(65536 * 20);
 const float sparseDepthBumpRatio(1.05);
 
 } // namespace heuristics
