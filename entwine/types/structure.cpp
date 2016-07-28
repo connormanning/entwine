@@ -221,10 +221,7 @@ Structure::Structure(
 
     if (!sparseDepth)
     {
-        m_sparseDepthBegin =
-            std::ceil(
-                    static_cast<float>(m_mappedDepthBegin) *
-                    heuristics::sparseDepthBumpRatio);
+        m_sparseDepthBegin = m_mappedDepthBegin;
     }
 
     m_sparseDepthBegin = std::max(m_sparseDepthBegin, m_mappedDepthBegin);

@@ -164,6 +164,51 @@ class HierarchyState : public PointState
 {
     using CellCache = std::map<std::size_t, int>;
 
+    class ColdPosition
+    {
+    public:
+        ColdPosition() : m_id(0), m_tick(0), m_delta(0), m_cell(nullptr) { }
+        ~ColdPosition() { count(); }
+
+        bool tryCount(const Id& id, std::size_t tick, int delta)
+        {
+            if (id == m_id && tick == m_tick)
+            {
+                assert(m_cell);
+                m_delta += delta;
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        void set(const Id& id, std::size_t tick, HierarchyCell& cell)
+        {
+            count();
+
+            m_id = id;
+            m_tick = tick;
+            m_cell = &cell;
+        }
+
+    private:
+        void count()
+        {
+            if (m_cell && m_delta)
+            {
+                m_cell->count(m_delta);
+                m_delta = 0;
+            }
+        }
+
+        Id m_id;
+        std::size_t m_tick;
+        int m_delta;
+        HierarchyCell* m_cell;
+    };
+
 public:
     HierarchyState(
             const Metadata& metadata,
@@ -174,6 +219,7 @@ public:
         , m_baseCache(m_hierarchy && cache ?
                 std::vector<CellCache>(m_structure.baseIndexSpan()) :
                 std::vector<CellCache>())
+        , m_coldCache(m_hierarchy && cache ? 32 : 0)
     { }
 
     ~HierarchyState()
@@ -191,7 +237,9 @@ public:
     {
         if (m_hierarchy)
         {
-            if (m_baseCache.size() && m_structure.isWithinBase(depth()))
+            const std::size_t workingDepth(depth());
+
+            if (m_baseCache.size() && m_structure.isWithinBase(workingDepth))
             {
                 auto& tube(m_baseCache[index().getSimple()]);
 
@@ -200,7 +248,25 @@ public:
             }
             else
             {
-                m_hierarchy->count(*this, delta);
+                const std::size_t coldDepth(
+                        workingDepth - m_structure.coldDepthBegin());
+
+                if (coldDepth < m_coldCache.size())
+                {
+                    ColdPosition& entry(m_coldCache[coldDepth]);
+
+                    if (!entry.tryCount(m_index, m_tick, delta))
+                    {
+                        entry.set(
+                                m_index,
+                                m_tick,
+                                m_hierarchy->count(*this, delta));
+                    }
+                }
+                else
+                {
+                    m_hierarchy->count(*this, delta);
+                }
             }
         }
     }
@@ -209,6 +275,7 @@ private:
     Hierarchy* m_hierarchy;
 
     std::vector<CellCache> m_baseCache;
+    std::vector<ColdPosition> m_coldCache;
 };
 
 class ChunkState : public PointState

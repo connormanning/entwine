@@ -425,9 +425,14 @@ void Builder::save(const arbiter::Endpoint& ep)
 {
     m_threadPools->join();
 
-    m_metadata->save(*m_outEndpoint);
-    m_registry->save(*m_outEndpoint);
+    std::cout << "Saving hierarchy..." << std::endl;
     m_hierarchy->save();
+
+    std::cout << "Saving registry..." << std::endl;
+    m_registry->save(*m_outEndpoint);
+
+    std::cout << "Saving metadata..." << std::endl;
+    m_metadata->save(*m_outEndpoint);
 }
 
 void Builder::merge(Builder& other)

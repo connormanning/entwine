@@ -49,7 +49,7 @@ public:
         m_base.t->count(index, tick, delta);
     }
 
-    void count(const PointState& state, int delta);
+    HierarchyCell& count(const PointState& state, int delta);
 
     uint64_t tryGet(const PointState& pointState) const;
 

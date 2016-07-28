@@ -75,7 +75,7 @@ Hierarchy::Hierarchy(
     }
 }
 
-void Hierarchy::count(const PointState& pointState, const int delta)
+HierarchyCell& Hierarchy::count(const PointState& pointState, const int delta)
 {
     if (m_structure.isWithinBase(pointState.depth()))
     {
