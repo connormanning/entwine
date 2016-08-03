@@ -12,13 +12,16 @@
 
 #include <entwine/tree/thread-pools.hpp>
 
+#include <entwine/tree/heuristics.hpp>
+
+namespace entwine
+{
+
 namespace
 {
-    const double defaultWorkToClipRatio(0.33);
-
     std::size_t getWorkThreads(
             const std::size_t total,
-            double workToClipRatio = defaultWorkToClipRatio)
+            double workToClipRatio = heuristics::defaultWorkToClipRatio)
     {
         std::size_t num(
                 std::llround(static_cast<double>(total) * workToClipRatio));
@@ -27,7 +30,7 @@ namespace
 
     std::size_t getClipThreads(
             const std::size_t total,
-            double workToClipRatio = defaultWorkToClipRatio)
+            double workToClipRatio = heuristics::defaultWorkToClipRatio)
     {
         return std::max<std::size_t>(
                 total - getWorkThreads(total, workToClipRatio),
@@ -35,13 +38,10 @@ namespace
     }
 }
 
-namespace entwine
-{
-
 ThreadPools::ThreadPools(const std::size_t totalThreads)
     : m_workPool(getWorkThreads(totalThreads))
     , m_clipPool(getClipThreads(totalThreads))
-    , m_ratio(defaultWorkToClipRatio)
+    , m_ratio(heuristics::defaultWorkToClipRatio)
 { }
 
 void ThreadPools::setRatio(const double r)

@@ -42,6 +42,18 @@ public:
             const arbiter::Endpoint* topOut,
             bool exists = false);
 
+    ~Hierarchy()
+    {
+        m_base.t.reset();
+
+        iterateCold([this](const Id& chunkId, const Slot& slot)
+        {
+            // We need to release our pooled block nodes back into our pool
+            // so the parent destructor doesn't release them into a stale pool.
+            slot.t.reset();
+        });
+    }
+
     using Splitter::tryGet;
 
     void countBase(std::size_t index, std::size_t tick, int delta)
@@ -60,6 +72,7 @@ public:
         iterateCold([this](const Id& chunkId, const Slot& slot)
         {
             slot.t = HierarchyBlock::create(
+                    m_pool,
                     m_metadata,
                     chunkId,
                     m_outpoint.get(),
@@ -130,6 +143,7 @@ private:
 
     void maybeTouch(Slots& ids, const PointState& pointState) const;
 
+    mutable HierarchyCell::Pool m_pool;
     const Metadata& m_metadata;
     const Bounds& m_bounds;
     const Structure& m_structure;

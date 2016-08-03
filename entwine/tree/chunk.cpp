@@ -48,7 +48,7 @@ Chunk::Chunk(
     , m_maxPoints(maxPoints)
     , m_data()
 {
-    ++chunkCount;
+    std::cout << "\tC " << ++chunkCount << std::endl;
 }
 
 void Chunk::populate(Cell::PooledStack cells)

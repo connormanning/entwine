@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include <entwine/third/splice-pool/splice-pool.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/format-types.hpp>
 #include <entwine/util/spin-lock.hpp>
@@ -23,6 +24,12 @@ namespace entwine
 class HierarchyCell
 {
 public:
+    using Pool = splicer::ObjectPool<HierarchyCell>;
+    using RawNode = Pool::NodeType;
+    using RawStack = Pool::StackType;
+    using PooledNode = Pool::UniqueNodeType;
+    using PooledStack = Pool::UniqueStackType;
+
     HierarchyCell() : m_val(0), m_spinner() { }
     HierarchyCell(uint64_t val) : m_val(val), m_spinner() { }
 
@@ -46,7 +53,7 @@ private:
     SpinLock m_spinner;
 };
 
-using HierarchyTube = std::map<uint64_t, HierarchyCell>;
+using HierarchyTube = std::map<uint64_t, HierarchyCell::PooledNode>;
 
 namespace arbiter { class Endpoint; }
 
@@ -58,6 +65,7 @@ public:
     static std::size_t count();
 
     HierarchyBlock(
+            HierarchyCell::Pool& pool,
             const Metadata& metadata,
             const Id& id,
             const arbiter::Endpoint* outEndpoint);
@@ -65,12 +73,14 @@ public:
     virtual ~HierarchyBlock();
 
     static std::unique_ptr<HierarchyBlock> create(
+            HierarchyCell::Pool& pool,
             const Metadata& metadata,
             const Id& id,
             const arbiter::Endpoint* outEndpoint,
             const Id& maxPoints);
 
     static std::unique_ptr<HierarchyBlock> create(
+            HierarchyCell::Pool& pool,
             const Metadata& metadata,
             const Id& id,
             const arbiter::Endpoint* outEndpoint,
@@ -96,6 +106,7 @@ protected:
 
     virtual std::vector<char> combine() const = 0;
 
+    HierarchyCell::Pool& m_pool;
     const Metadata& m_metadata;
     const Id m_id;
     const arbiter::Endpoint* m_ep;
@@ -107,16 +118,18 @@ public:
     using HierarchyBlock::get;
 
     ContiguousBlock(
+            HierarchyCell::Pool& pool,
             const Metadata& metadata,
             const Id& id,
             const arbiter::Endpoint* outEndpoint,
             std::size_t maxPoints)
-        : HierarchyBlock(metadata, id, outEndpoint)
+        : HierarchyBlock(pool, metadata, id, outEndpoint)
         , m_tubes(maxPoints)
         , m_spinners(maxPoints)
     { }
 
     ContiguousBlock(
+            HierarchyCell::Pool& pool,
             const Metadata& metadata,
             const Id& id,
             const arbiter::Endpoint* outEndpoint,
@@ -131,14 +144,20 @@ public:
         const std::size_t id(normalize(global).getSimple());
 
         SpinGuard lock(m_spinners.at(id));
-        return m_tubes.at(id)[tick].count(delta);
+        auto& tube(m_tubes.at(id));
+        auto it(tube.find(tick));
+        if (it == tube.end())
+        {
+            it = tube.insert(std::make_pair(tick, m_pool.acquireOne())).first;
+        }
+        return it->second->count(delta);
     }
 
     virtual uint64_t get(const Id& id, uint64_t tick) const override
     {
         const HierarchyTube& tube(m_tubes.at(normalize(id).getSimple()));
         const auto it(tube.find(tick));
-        if (it != tube.end()) return it->second.val();
+        if (it != tube.end()) return it->second->val();
         else return 0;
     }
 
@@ -157,15 +176,17 @@ public:
     using HierarchyBlock::get;
 
     SparseBlock(
+            HierarchyCell::Pool& pool,
             const Metadata& metadata,
             const Id& id,
             const arbiter::Endpoint* outEndpoint)
-        : HierarchyBlock(metadata, id, outEndpoint)
+        : HierarchyBlock(pool, metadata, id, outEndpoint)
         , m_spinner()
         , m_tubes()
     { }
 
     SparseBlock(
+            HierarchyCell::Pool& pool,
             const Metadata& metadata,
             const Id& id,
             const arbiter::Endpoint* outEndpoint,
@@ -177,7 +198,13 @@ public:
             int delta) override
     {
         SpinGuard lock(m_spinner);
-        return m_tubes[normalize(id)][tick].count(delta);
+        auto& tube(m_tubes[normalize(id)]);
+        auto it(tube.find(tick));
+        if (it == tube.end())
+        {
+            it = tube.insert(std::make_pair(tick, m_pool.acquireOne())).first;
+        }
+        return it->second->count(delta);
     }
 
     virtual uint64_t get(const Id& id, uint64_t tick) const override
@@ -189,7 +216,7 @@ public:
             const auto cellIt(tube.find(tick));
             if (cellIt != tube.end())
             {
-                return cellIt->second.val();
+                return cellIt->second->val();
             }
         }
 

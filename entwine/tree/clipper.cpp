@@ -9,30 +9,40 @@
 ******************************************************************************/
 
 #include <entwine/tree/clipper.hpp>
+#include <entwine/tree/heuristics.hpp>
 
 namespace entwine
 {
 
 void Clipper::clip()
 {
-    if (m_clips.size() < 10) return;
+    if (m_clips.size() < heuristics::clipCacheSize) return;
+
+    std::cout << "Clipping" << std::endl;
+    const std::size_t start(m_clips.size());
 
     m_fastCache.assign(32, m_clips.end());
-    auto it(m_clips.begin());
+    bool done(false);
 
-    while (it != m_clips.end())
+    while (m_clips.size() > heuristics::clipCacheSize && !done)
     {
-        if (it->second.fresh)
+        ClipInfo::Map::iterator& it(*m_order.rbegin());
+
+        if (!it->second.fresh)
         {
-            it->second.fresh = false;
-            ++it;
+            m_builder.clip(it->first, it->second.chunkNum, m_id);
+            m_clips.erase(it);
+            m_order.pop_back();
         }
         else
         {
-            m_builder.clip(it->first, it->second.chunkNum, m_id);
-            it = m_clips.erase(it);
+            done = true;
         }
     }
+
+    std::cout << "Clipped: " << (start - m_clips.size()) << std::endl;
+
+    for (auto& p : m_clips) p.second.fresh = false;
 }
 
 void Clipper::clip(const Id& chunkId)

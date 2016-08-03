@@ -15,6 +15,7 @@
 
 #include <pdal/PointRef.hpp>
 
+#include <entwine/tree/heuristics.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
@@ -93,8 +94,8 @@ class PointPool
 public:
     PointPool(const Schema& schema)
         : m_schema(schema)
-        , m_dataPool(schema.pointSize(), 4096 * 32)
-        , m_cellPool(4096 * 32)
+        , m_dataPool(schema.pointSize(), heuristics::poolBlockSize)
+        , m_cellPool(heuristics::poolBlockSize)
     { }
 
     const Schema& schema() { return m_schema; }

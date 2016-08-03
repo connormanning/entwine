@@ -12,6 +12,7 @@
 
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/cold.hpp>
+#include <entwine/tree/heuristics.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -28,6 +29,7 @@ Hierarchy::Hierarchy(
         const arbiter::Endpoint* out,
         const bool exists)
     : Splitter(metadata.hierarchyStructure())
+    , m_pool(heuristics::poolBlockSize)
     , m_metadata(metadata)
     , m_bounds(metadata.bounds())
     , m_structure(metadata.hierarchyStructure())
@@ -41,6 +43,7 @@ Hierarchy::Hierarchy(
     if (!exists)
     {
         m_base.t = HierarchyBlock::create(
+                m_pool,
                 m_metadata,
                 0,
                 m_outpoint.get(),
@@ -49,6 +52,7 @@ Hierarchy::Hierarchy(
     else
     {
         m_base.t = HierarchyBlock::create(
+                m_pool,
                 m_metadata,
                 0,
                 m_outpoint.get(),
@@ -92,6 +96,7 @@ HierarchyCell& Hierarchy::count(const PointState& pointState, const int delta)
             if (slot.mark)
             {
                 block = HierarchyBlock::create(
+                        m_pool,
                         m_metadata,
                         pointState.chunkId(),
                         m_outpoint.get(),
@@ -102,6 +107,7 @@ HierarchyCell& Hierarchy::count(const PointState& pointState, const int delta)
             {
                 slot.mark = true;
                 block = HierarchyBlock::create(
+                        m_pool,
                         m_metadata,
                         pointState.chunkId(),
                         m_outpoint.get(),
@@ -131,6 +137,7 @@ uint64_t Hierarchy::tryGet(const PointState& s) const
                 ", fast? " << (s.chunkNum() < m_fast.size()) << std::endl;
 
             block = HierarchyBlock::create(
+                    m_pool,
                     m_metadata,
                     s.chunkId(),
                     m_outpoint.get(),

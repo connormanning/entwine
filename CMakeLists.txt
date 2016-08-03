@@ -6,7 +6,6 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules" ${CMAKE_MODULE_PATH})
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR
     "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     add_definitions(${CMAKE_CXX_FLAGS} "-std=c++11")
-    add_definitions(${CMAKE_CXX_FLAGS} "-O3")
     add_definitions(${CMAKE_CXX_FLAGS} "-Wno-deprecated-declarations")
     add_definitions(${CMAKE_CXX_FLAGS} "-Wall")
     add_definitions(${CMAKE_CXX_FLAGS} "-pedantic")

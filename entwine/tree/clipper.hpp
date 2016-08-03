@@ -18,6 +18,7 @@
 
 #include <entwine/tree/builder.hpp>
 #include <entwine/types/structure.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
@@ -27,15 +28,20 @@ class Clipper
 private:
     struct ClipInfo
     {
-        ClipInfo() : chunkNum(0), fresh(true) { }
+        using Map = std::map<Id, ClipInfo>;
+        using Order = std::list<Map::iterator>;
+
+        ClipInfo() : chunkNum(0), fresh(true), orderIt() { }
 
         explicit ClipInfo(std::size_t chunkNum)
             : chunkNum(chunkNum)
             , fresh(true)
+            , orderIt()
         { }
 
         std::size_t chunkNum;
         bool fresh;
+        std::unique_ptr<Order::iterator> orderIt;
     };
 
 public:
@@ -45,6 +51,7 @@ public:
         , m_id(origin)
         , m_clips()
         , m_fastCache(32, m_clips.end())
+        , m_order()
     { }
 
     ~Clipper()
@@ -64,29 +71,40 @@ public:
         {
             auto& it(m_fastCache[depth]);
 
-            if (it != m_clips.end())
+            if (it != m_clips.end() && it->first == chunkId)
             {
-                if (it->first == chunkId)
-                {
-                    it->second.fresh = true;
-                    return false;
-                }
+                it->second.fresh = true;
+                m_order.splice(
+                        m_order.begin(),
+                        m_order,
+                        *it->second.orderIt);
+
+                return false;
             }
         }
 
-        auto find(m_clips.find(chunkId));
+        auto it(m_clips.find(chunkId));
 
-        if (find != m_clips.end())
+        if (it != m_clips.end())
         {
-            if (depth < m_fastCache.size()) m_fastCache[depth] = find;
+            if (depth < m_fastCache.size()) m_fastCache[depth] = it;
 
-            find->second.fresh = true;
+            it->second.fresh = true;
+            m_order.splice(
+                    m_order.begin(),
+                    m_order,
+                    *it->second.orderIt);
+
             return false;
         }
         else
         {
-            auto it(m_clips.insert(
-                        std::make_pair(chunkId, ClipInfo(chunkNum))).first);
+            it = m_clips.insert(
+                        std::make_pair(chunkId, ClipInfo(chunkNum))).first;
+
+            m_order.push_front(it);
+            it->second.orderIt =
+                makeUnique<ClipInfo::Order::iterator>(m_order.begin());
 
             if (depth < m_fastCache.size()) m_fastCache[depth] = it;
 
@@ -100,18 +118,14 @@ public:
     std::size_t size() const { return m_clips.size(); }
 
 private:
-    typedef std::list<const Id*> Order;
-
     Builder& m_builder;
     const std::size_t m_startDepth;
     const uint64_t m_id;
 
-    // Store these in reverse order so we clip the deepest levels first.  This
-    // way we can propagate small/deep chunks upward for merged storage.
-    using ClipMap = std::map<Id, ClipInfo, std::greater<Id>>;
+    ClipInfo::Map m_clips;
+    std::vector<ClipInfo::Map::iterator> m_fastCache;
 
-    ClipMap m_clips;
-    std::vector<ClipMap::iterator> m_fastCache;
+    ClipInfo::Order m_order;
 };
 
 } // namespace entwine

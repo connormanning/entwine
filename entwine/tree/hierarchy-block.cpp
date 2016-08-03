@@ -30,10 +30,12 @@ namespace
 std::size_t HierarchyBlock::count() { return chunkCount; }
 
 HierarchyBlock::HierarchyBlock(
+        HierarchyCell::Pool& pool,
         const Metadata& metadata,
         const Id& id,
         const arbiter::Endpoint* ep)
-    : m_metadata(metadata)
+    : m_pool(pool)
+    , m_metadata(metadata)
     , m_id(id)
     , m_ep(ep)
 {
@@ -46,6 +48,7 @@ HierarchyBlock::~HierarchyBlock()
 }
 
 std::unique_ptr<HierarchyBlock> HierarchyBlock::create(
+        HierarchyCell::Pool& pool,
         const Metadata& metadata,
         const Id& id,
         const arbiter::Endpoint* outEndpoint,
@@ -54,6 +57,7 @@ std::unique_ptr<HierarchyBlock> HierarchyBlock::create(
     if (id < metadata.hierarchyStructure().sparseIndexBegin())
     {
         return makeUnique<ContiguousBlock>(
+                pool,
                 metadata,
                 id,
                 outEndpoint,
@@ -61,11 +65,12 @@ std::unique_ptr<HierarchyBlock> HierarchyBlock::create(
     }
     else
     {
-        return makeUnique<SparseBlock>(metadata, id, outEndpoint);
+        return makeUnique<SparseBlock>(pool, metadata, id, outEndpoint);
     }
 }
 
 std::unique_ptr<HierarchyBlock> HierarchyBlock::create(
+        HierarchyCell::Pool& pool,
         const Metadata& metadata,
         const Id& id,
         const arbiter::Endpoint* outEndpoint,
@@ -84,6 +89,7 @@ std::unique_ptr<HierarchyBlock> HierarchyBlock::create(
     if (id < metadata.hierarchyStructure().sparseIndexBegin())
     {
         return makeUnique<ContiguousBlock>(
+                pool,
                 metadata,
                 id,
                 outEndpoint,
@@ -93,6 +99,7 @@ std::unique_ptr<HierarchyBlock> HierarchyBlock::create(
     else
     {
         return makeUnique<SparseBlock>(
+                pool,
                 metadata,
                 id,
                 outEndpoint,
@@ -119,12 +126,13 @@ void HierarchyBlock::save(const arbiter::Endpoint& ep, const std::string pf)
 }
 
 ContiguousBlock::ContiguousBlock(
+        HierarchyCell::Pool& pool,
         const Metadata& metadata,
         const Id& id,
         const arbiter::Endpoint* outEndpoint,
         const std::size_t maxPoints,
         const std::vector<char>& data)
-    : HierarchyBlock(metadata, id, outEndpoint)
+    : HierarchyBlock(pool, metadata, id, outEndpoint)
     , m_tubes(maxPoints)
     , m_spinners(maxPoints)
 {
@@ -146,7 +154,7 @@ ContiguousBlock::ContiguousBlock(
         tick = extract();
         cell = extract();
 
-        m_tubes.at(tube)[tick] = cell;
+        m_tubes.at(tube).insert(std::make_pair(tick, m_pool.acquireOne(cell)));
     }
 }
 
@@ -160,7 +168,7 @@ std::vector<char> ContiguousBlock::combine() const
         {
             push(data, tube);
             push(data, cell.first);
-            push(data, cell.second.val());
+            push(data, cell.second->val());
         }
     }
 
@@ -173,17 +181,18 @@ void ContiguousBlock::merge(const ContiguousBlock& other)
     {
         for (const auto& cell : other.m_tubes[tube])
         {
-            count(tube, cell.first, cell.second.val());
+            count(tube, cell.first, cell.second->val());
         }
     }
 }
 
 SparseBlock::SparseBlock(
+        HierarchyCell::Pool& pool,
         const Metadata& metadata,
         const Id& id,
         const arbiter::Endpoint* outEndpoint,
         const std::vector<char>& data)
-    : HierarchyBlock(metadata, id, outEndpoint)
+    : HierarchyBlock(pool, metadata, id, outEndpoint)
     , m_spinner()
     , m_tubes()
 {
@@ -210,7 +219,8 @@ SparseBlock::SparseBlock(
         tick = extract();
         cell = extract();
 
-        m_tubes[Id(tubePos, tubePos + tubeBlocks)][tick] = cell;
+        m_tubes[Id(tubePos, tubePos + tubeBlocks)].insert(
+                std::make_pair(tick, m_pool.acquireOne(cell)));
     }
 }
 
@@ -228,7 +238,7 @@ std::vector<char> SparseBlock::combine() const
             push(data, id.data().size());
             for (const Id::Block block : id.data()) push(data, block);
             push(data, cell.first);
-            push(data, cell.second.val());
+            push(data, cell.second->val());
         }
     }
 
