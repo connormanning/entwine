@@ -71,6 +71,16 @@ Bounds::Bounds(const Json::Value& json) : m_min(), m_max(), m_mid()
     *this = self;
 }
 
+Bounds::Bounds(
+        const double xMin,
+        const double yMin,
+        const double zMin,
+        const double xMax,
+        const double yMax,
+        const double zMax)
+    : Bounds(Point(xMin, yMin, zMin), Point(xMax, yMax, zMax))
+{ }
+
 Json::Value Bounds::toJson() const
 {
     Json::Value json;

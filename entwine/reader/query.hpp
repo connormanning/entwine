@@ -52,7 +52,7 @@ public:
         ++result.m_depth;
         result.m_bounds.go(dir, m_structure.tubular());
 
-        assert(result.m_depth > m_structure.sparseDepthBegin());
+        assert(result.m_depth <= m_structure.sparseDepthBegin());
 
         result.m_chunkId <<= m_structure.dimensions();
         result.m_chunkId.incSimple();
