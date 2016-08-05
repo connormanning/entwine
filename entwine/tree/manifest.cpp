@@ -227,9 +227,6 @@ void Manifest::merge(const Manifest& other)
 {
     if (size() != other.size()) error("Invalid manifest sizes for merging.");
 
-    const FileInfo::Status out(FileInfo::Status::Outstanding);
-    const FileInfo::Status err(FileInfo::Status::Error);
-
     FileStats fileStats;
 
     for (std::size_t i(0); i < size(); ++i)
@@ -239,41 +236,26 @@ void Manifest::merge(const Manifest& other)
 
         if (ours.path() != theirs.path()) error("Invalid manifest paths");
 
-        if (ours.status() == out && theirs.status() != out)
+        if (
+                ours.status() == FileInfo::Status::Outstanding &&
+                theirs.status() != FileInfo::Status::Outstanding)
         {
             ours.status(theirs.status());
-        }
 
-        if (ours.status() == FileInfo::Status::Omitted)
-        {
-            if (ours.status() != theirs.status())
+            switch (theirs.status())
             {
-                error("Mismatched omission status");
+                case FileInfo::Status::Inserted: fileStats.addInsert(); break;
+                case FileInfo::Status::Omitted: fileStats.addOmit(); break;
+                case FileInfo::Status::Error: fileStats.addError(); break;
+                default: throw std::runtime_error("Invalid file status");
             }
-            else
-            {
-                // If both statuses are omitted, there's nothing to merge.
-                fileStats.addOmit();
-                continue;
-            }
-        }
-
-        // Both statuses are now inserted or error.  They may differ.
-        if (ours.status() == err || theirs.status() == err)
-        {
-            fileStats.addError();
-            ours.status(err);
-        }
-        else
-        {
-            fileStats.addInsert();
         }
 
         ours.pointStats().add(theirs.pointStats());
     }
 
     m_pointStats.add(other.pointStats());
-    m_fileStats = fileStats;
+    m_fileStats.add(fileStats);
 }
 
 Json::Value Manifest::toJson() const
