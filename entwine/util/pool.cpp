@@ -130,7 +130,7 @@ void Pool::work()
             {
                 task();
             }
-            catch (std::runtime_error& e)
+            catch (std::exception& e)
             {
                 std::cout <<
                     "Exception caught in pool task: " << e.what() << std::endl;

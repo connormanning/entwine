@@ -309,7 +309,7 @@ public:
     ChunkState getChunkClimb(Dir dir) const
     {
         ChunkState s(*this);
-        s.climb(dir);
+        s.climb(m_chunkBounds.get(dir).mid());
         return s;
     }
 };
@@ -375,17 +375,23 @@ private:
 class CellState
 {
 public:
-    CellState(const Climber& climber, Cell::PooledNode&& cell)
+    CellState(
+            const Climber& climber,
+            Cell::PooledNode&& cell,
+            const std::vector<Origin>& origins)
         : m_climber(climber)
         , m_cell(std::move(cell))
+        , m_origins(origins)
     { }
 
     Climber& climber() { return m_climber; }
     Cell::PooledNode acquireCellNode() { return std::move(m_cell); }
+    const std::vector<Origin>& origins() const { return m_origins; }
 
 private:
     Climber m_climber;
     Cell::PooledNode m_cell;
+    const std::vector<Origin> m_origins;
 };
 
 } // namespace entwine

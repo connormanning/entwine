@@ -158,7 +158,9 @@ void Metadata::save(const arbiter::Endpoint& endpoint) const
     {
         endpoint.put(
                 "entwine-manifest" + pf,
-                toFastString(m_manifest->toJson()));
+                m_manifest->size() < 500 ?
+                    m_manifest->toJson().toStyledString() :
+                    toFastString(m_manifest->toJson()));
     }
 }
 

@@ -99,5 +99,10 @@ inline bool isEast(Dir dir) { return !isWest(dir); }
 inline bool isDown(Dir dir) { return toIntegral(dir) < 4; }      // 0, 1, 2, 3
 inline bool isUp(Dir dir) { return !isDown(dir); }
 
+inline std::ostream& operator<<(std::ostream& os, Dir dir)
+{
+    return os << dirToString(dir);
+}
+
 } // namespace entwine
 

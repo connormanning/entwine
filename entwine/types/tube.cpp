@@ -30,7 +30,10 @@ Tube::Insertion Tube::insert(const Climber& climber, Cell::PooledNode& cell)
         {
             const Point& center(climber.bounds().mid());
 
-            if (cell->point().sqDist3d(center) < curr->point().sqDist3d(center))
+            const auto a(cell->point().sqDist3d(center));
+            const auto b(curr->point().sqDist3d(center));
+
+            if (a < b || (a == b && ltChained(cell->point(), curr->point())))
             {
                 // We are inserting cell, and extracting curr.  Store our new
                 // cell, and send the previous one further down the tree.

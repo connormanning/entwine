@@ -124,6 +124,8 @@ Cell::PooledStack Unpacker::acquireCells(PointPool& pointPool)
 
             (*cell)->set(pointRef, std::move(data));
             cell = cell->next();
+
+            pos += pointSize;
         }
 
         return cellStack;

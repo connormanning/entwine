@@ -232,8 +232,6 @@ void Manifest::merge(const Manifest& other)
 
     FileStats fileStats;
 
-    // TODO This logic needs to be expanded to handle split builds, specifically
-    // to merge Outstanding statuses.
     for (std::size_t i(0); i < size(); ++i)
     {
         FileInfo& ours(m_paths[i]);
@@ -241,15 +239,9 @@ void Manifest::merge(const Manifest& other)
 
         if (ours.path() != theirs.path()) error("Invalid manifest paths");
 
-        if (ours.status() == out || theirs.status() == out)
+        if (ours.status() == out && theirs.status() != out)
         {
-            // If a build was terminated early, paths are left outstanding.  In
-            // this case, the merged build is not resumable, since it would
-            // require reinserting a possibly partially inserted path.  The
-            // subsets would each need to be continued to completion and then
-            // their results merged.
-            ours.status(out);
-            continue;
+            ours.status(theirs.status());
         }
 
         if (ours.status() == FileInfo::Status::Omitted)

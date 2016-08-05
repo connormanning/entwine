@@ -568,7 +568,10 @@ void Builder::unsplit(Builder& other)
     if (m_threadPools->ratio() != 0.5) m_threadPools->setRatio(0.5);
 
     auto& manifest(m_metadata->manifest());
-    const auto& otherManifest(other.m_metadata->manifest());
+    auto& otherManifest(other.m_metadata->manifest());
+
+    // We'll be bookkeeping these for ourselves as we unsplit.
+    otherManifest.clearPointStats();
 
     if (!manifest.split() || !otherManifest.split())
     {
@@ -613,6 +616,7 @@ void Builder::unsplit(Builder& other)
         std::cout << "\tBase inserted" << std::endl;
     }
 
+    std::size_t n(0);
     Traverser traverser(*m_metadata, other.registry().cold().ids());
     traverser.tree([&](const Branch branch)
     {
@@ -622,6 +626,7 @@ void Builder::unsplit(Builder& other)
         {
             {
                 std::lock_guard<std::mutex> lock(m_mutex);
+                ++n;
                 std::cout << "+" << chunkId << " @ " << depth << std::endl;
             }
 
@@ -657,6 +662,8 @@ void Builder::unsplit(Builder& other)
             }
         });
     });
+
+    std::cout << "Recursed " << n << " chunks." << std::endl;
 
     m_threadPools->cycle();
 
@@ -704,6 +711,8 @@ void Builder::unsplit(Builder& other)
         manifest.unsplit();
     }
 
+    manifest.merge(otherManifest);
+
     if (countReserves())
     {
         std::cout << "Final fall-throughs: " << countReserves() << std::endl;
@@ -726,18 +735,28 @@ void Builder::insertHinted(
 
     std::size_t rejects(0);
 
-    auto insert([&](Cell::PooledNode& cell, Climber& climber)
+    auto insert([&](
+                Cell::PooledNode& cell,
+                Climber& climber,
+                const std::vector<Origin>* natives)
     {
-        origins.clear();
-        for (const auto d : *cell)
+        // If native origins aren't given to us from above, then we must derive
+        // them from the points in this cell to track the state.
+        if (!natives)
         {
-            table.setPoint(d);
-            origins.push_back(pointRef.getFieldAs<uint64_t>(m_originId));
+            origins.clear();
+            for (const auto d : *cell)
+            {
+                table.setPoint(d);
+                origins.push_back(pointRef.getFieldAs<uint64_t>(m_originId));
+            }
+
+            natives = &origins;
         }
 
         if (m_registry->addPoint(cell, climber, clipper, depthEnd))
         {
-            for (const auto o : origins) pointStatsMap[o].addInsert();
+            for (const auto o : *natives) pointStatsMap[o].addInsert();
         }
         else
         {
@@ -750,11 +769,12 @@ void Builder::insertHinted(
                 std::lock_guard<std::mutex> lock(m_mutex);
                 reserves[climber.chunkId()].emplace_back(
                         climber,
-                        std::move(cell));
+                        std::move(cell),
+                        *natives);
             }
             else
             {
-                for (const auto o : origins) pointStatsMap[o].addOverflow();
+                for (const auto o : *natives) pointStatsMap[o].addOverflow();
             }
         }
     });
@@ -778,7 +798,7 @@ void Builder::insertHinted(
             climber.reset();
             climber.magnifyTo(point, depthBegin);
 
-            insert(cell, climber);
+            insert(cell, climber, nullptr);
         }
     }
 
@@ -797,7 +817,7 @@ void Builder::insertHinted(
         for (auto& cellState : *cellStateList)
         {
             Cell::PooledNode cell(cellState.acquireCellNode());
-            insert(cell, cellState.climber());
+            insert(cell, cellState.climber(), &cellState.origins());
         }
 
         std::lock_guard<std::mutex> lock(m_mutex);

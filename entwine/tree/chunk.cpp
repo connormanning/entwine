@@ -48,7 +48,7 @@ Chunk::Chunk(
     , m_maxPoints(maxPoints)
     , m_data()
 {
-    std::cout << "\tC " << ++chunkCount << std::endl;
+    ++chunkCount;
 }
 
 void Chunk::populate(Cell::PooledStack cells)
@@ -337,8 +337,9 @@ void BaseChunk::save(const arbiter::Endpoint& endpoint)
     const char* iPos(reinterpret_cast<char*>(&i));
     const char* iEnd(iPos + tubeIdSize);
 
-    Compressor compressor(m_celledSchema);
     const bool compress(m_metadata.format().compress());
+    std::unique_ptr<Compressor> compressor(
+            compress ? makeUnique<Compressor>(m_celledSchema) : nullptr);
 
     std::unique_ptr<std::vector<char>> data(makeUnique<std::vector<char>>());
 
@@ -357,7 +358,7 @@ void BaseChunk::save(const arbiter::Endpoint& endpoint)
 
                 if (compress)
                 {
-                    compressor.push(point.data(), point.size());
+                    compressor->push(point.data(), point.size());
                 }
                 else
                 {
@@ -373,7 +374,7 @@ void BaseChunk::save(const arbiter::Endpoint& endpoint)
         }
     }
 
-    if (compress) data = compressor.data();
+    if (compress) data = compressor->data();
 
     // Since the base is serialized with a different schema, we'll compress it
     // on our own.

@@ -13,8 +13,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <map>
 #include <mutex>
-#include <unordered_map>
 #include <vector>
 
 #include <entwine/types/bounds.hpp>
@@ -65,7 +65,7 @@ public:
     // should not be cached through calls to insert.
     Insertion insert(const Climber& climber, Cell::PooledNode& cell);
 
-    using Cells = std::unordered_map<uint64_t, Cell::PooledNode>;
+    using Cells = std::map<uint64_t, Cell::PooledNode>;
 
     bool empty() const { return m_cells.empty(); }
     static constexpr std::size_t maxTickDepth() { return 64; }

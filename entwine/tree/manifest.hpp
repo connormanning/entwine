@@ -48,6 +48,12 @@ public:
     std::size_t overflows() const   { return m_overflows; }
 
     void addOutOfBounds(std::size_t n) { m_outOfBounds += n; }
+    void clear()
+    {
+        m_inserts = 0;
+        m_outOfBounds = 0;
+        m_overflows = 0;
+    }
 
     Json::Value toJson() const;
 
@@ -164,6 +170,16 @@ public:
 
         std::lock_guard<std::mutex> lock(m_mutex);
         m_pointStats.add(stats);
+    }
+
+    void clearPointStats()
+    {
+        for (Origin i(0); i < size(); ++i)
+        {
+            m_paths[i].pointStats().clear();
+        }
+
+        m_pointStats.clear();
     }
 
     void add(const PointStatsMap& statsMap)

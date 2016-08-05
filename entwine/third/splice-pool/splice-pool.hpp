@@ -228,7 +228,8 @@ public:
         // somewhere (but not necessarily immediately) after the position of A.
         while (a && b)
         {
-            assert(compare(**a, **b));
+            // Either A < B, or !(B < A), i.e. A <= B.
+            assert(compare(**a, **b) || !compare(**b, **a));
 
             // First, progress A to the point at which B should be inserted
             // immediately after A.
