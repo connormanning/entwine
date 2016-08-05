@@ -157,7 +157,7 @@ void Merger::unsplit(Builder& builder)
     while (pos < manifest.size())
     {
         auto nextSplit = Builder::create(
-                builder.outEndpoint().root(),
+                builder.outEndpoint().prefixedRoot(),
                 m_threads,
                 subsetId.get(),
                 &pos,
