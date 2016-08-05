@@ -101,6 +101,11 @@ public:
             std::size_t depthBegin,
             std::size_t depthEnd);
 
+    QueryResults queryVertical(
+            const Bounds& queryBounds,
+            std::size_t depthBegin,
+            std::size_t depthEnd);
+
     static Structure structure(const Structure& treeStructure);
 
 private:
@@ -140,6 +145,11 @@ private:
             const PointState& pointState,
             std::deque<Dir>& lag,
             uint64_t inc);
+
+    void reduce(
+            std::vector<std::size_t>& out,
+            std::size_t depth,
+            const Json::Value& in) const;
 
     void maybeTouch(Slots& ids, const PointState& pointState) const;
 

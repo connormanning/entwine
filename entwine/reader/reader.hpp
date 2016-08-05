@@ -71,7 +71,8 @@ public:
     Json::Value hierarchy(
             const Bounds& qbox,
             std::size_t depthBegin,
-            std::size_t depthEnd);
+            std::size_t depthEnd,
+            bool vertical = false);
 
     const Metadata& metadata() const { return *m_metadata; }
     std::string path() const { return m_endpoint.root(); }

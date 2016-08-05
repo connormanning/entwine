@@ -180,6 +180,11 @@ Hierarchy::QueryResults Hierarchy::query(
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
+    if (depthEnd < depthBegin)
+    {
+        throw std::runtime_error("Invalid range");
+    }
+
     if (depthBegin < m_structure.baseDepthBegin())
     {
         throw std::runtime_error(
@@ -200,6 +205,37 @@ Hierarchy::QueryResults Hierarchy::query(
     QueryResults results;
     traverse(results.json, results.touched, query, pointState, lag);
     return results;
+}
+
+Hierarchy::QueryResults Hierarchy::queryVertical(
+        const Bounds& queryBounds,
+        const std::size_t depthBegin,
+        const std::size_t depthEnd)
+{
+    QueryResults results(query(queryBounds, depthBegin, depthEnd));
+    std::vector<std::size_t> out(depthEnd - depthBegin, 0);
+    reduce(out, 0, results.json);
+    results.json = Json::Value();
+    for (const auto n : out) results.json.append(static_cast<Json::UInt64>(n));
+    return results;
+}
+
+void Hierarchy::reduce(
+        std::vector<std::size_t>& out,
+        std::size_t depth,
+        const Json::Value& in) const
+{
+    if (const std::size_t n = in["n"].asUInt64())
+    {
+        out.at(depth) += n;
+
+        ++depth;
+
+        for (const auto& k : in.getMemberNames())
+        {
+            if (k != "n") reduce(out, depth, in[k]);
+        }
+    }
 }
 
 void Hierarchy::traverse(
