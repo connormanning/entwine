@@ -173,7 +173,11 @@ private:
             std::size_t depthEnd = 0);
 
     // Remove resources that are no longer needed.
-    void clip(const Id& index, std::size_t chunkNum, std::size_t id);
+    void clip(
+            const Id& index,
+            std::size_t chunkNum,
+            std::size_t id,
+            bool sync = false);
 
     // Validate sources.
     void prepareEndpoints();

@@ -72,7 +72,11 @@ public:
             Cell::PooledNode& cell);
 
     void save(const arbiter::Endpoint& endpoint) const;
-    void clip(const Id& chunkId, std::size_t chunkNum, std::size_t id);
+    void clip(
+            const Id& chunkId,
+            std::size_t chunkNum,
+            std::size_t id,
+            bool sync);
 
     void merge(const Cold& other);
 

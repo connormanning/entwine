@@ -47,7 +47,7 @@ void Clipper::clip()
 
 void Clipper::clip(const Id& chunkId)
 {
-    m_builder.clip(chunkId, m_clips.at(chunkId).chunkNum, m_id);
+    m_builder.clip(chunkId, m_clips.at(chunkId).chunkNum, m_id, true);
     m_clips.erase(chunkId);
 }
 

@@ -52,7 +52,7 @@ public:
             Clipper& clipper,
             std::size_t maxDepth = 0);
 
-    void clip(const Id& index, std::size_t chunkNum, std::size_t id);
+    void clip(const Id& index, std::size_t chunkNum, std::size_t id, bool sync);
 
 private:
     Cold& cold() { return *m_cold; }

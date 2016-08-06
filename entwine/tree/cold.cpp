@@ -218,17 +218,21 @@ void Cold::save(const arbiter::Endpoint& endpoint) const
 void Cold::clip(
         const Id& chunkId,
         const std::size_t chunkNum,
-        const std::size_t id)
+        const std::size_t id,
+        const bool sync)
 {
     auto& slot(at(chunkId, chunkNum));
     assert(slot.mark);
 
-    m_pool.add([&slot, id]()
+    auto unref([&slot, id]()
     {
         assert(slot.t);
         SpinGuard lock(slot.spinner);
         slot.t->unref(id);
     });
+
+    if (!sync) m_pool.add(unref);
+    else unref();
 }
 
 void Cold::merge(const Cold& other)

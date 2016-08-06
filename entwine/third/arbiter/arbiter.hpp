@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: e10a30cff46c5237a6010a958917469ac6927f63
+// Git SHA: dbe12c6cc7c14902f3c37c79f8755cc2eb5af45e
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -2441,6 +2441,11 @@ public:
     /** Write string data. */
     void put(std::string path, const std::string& data) const;
 
+    /** Copy a file, where @p src and @p dst must both be of this driver
+     * type.  Type-prefixes must be stripped from the input parameters.
+     */
+    virtual void copy(std::string src, std::string dst) const;
+
     /** @brief Resolve a possibly globbed path.
      *
      * See Arbiter::resolve for details.
@@ -2617,6 +2622,8 @@ public:
             bool verbose) const override;
 
     virtual bool isRemote() const override { return false; }
+
+    virtual void copy(std::string src, std::string dst) const override;
 
 protected:
     virtual bool get(std::string path, std::vector<char>& data) const override;
@@ -5895,6 +5902,8 @@ public:
             const std::vector<char>& data,
             http::Headers headers,
             http::Query query) const override;
+
+    virtual void copy(std::string src, std::string dst) const override;
 
     /** @brief AWS authentication information. */
     class Auth

@@ -548,9 +548,10 @@ const arbiter::Endpoint& Builder::tmpEndpoint() const { return *m_tmpEndpoint; }
 void Builder::clip(
         const Id& index,
         const std::size_t chunkNum,
-        const std::size_t id)
+        const std::size_t id,
+        const bool sync)
 {
-    m_registry->clip(index, chunkNum, id);
+    m_registry->clip(index, chunkNum, id, sync);
 }
 
 void Builder::addError(const std::string& path, const std::string& error)
@@ -565,7 +566,7 @@ void Builder::addError(const std::string& path, const std::string& error)
 
 void Builder::unsplit(Builder& other)
 {
-    if (m_threadPools->ratio() != 0.5) m_threadPools->setRatio(0.5);
+    if (m_threadPools->ratio() != 1.0) m_threadPools->setRatio(1.0);
 
     auto& manifest(m_metadata->manifest());
     auto& otherManifest(other.m_metadata->manifest());
@@ -624,6 +625,9 @@ void Builder::unsplit(Builder& other)
                 m_threadPools->workPool(),
                 [&](const Id chunkId, std::size_t depth)
         {
+            const auto path(m_metadata->structure().maybePrefix(chunkId));
+            const auto postfix(other.metadata().postfix(true));
+
             {
                 std::lock_guard<std::mutex> lock(m_mutex);
                 ++n;
@@ -635,9 +639,7 @@ void Builder::unsplit(Builder& other)
 
             std::unique_ptr<std::vector<char>> data(
                     makeUnique<std::vector<char>>(
-                        m_outEndpoint->getBinary(
-                            m_metadata->structure().maybePrefix(chunkId) +
-                            other.metadata().postfix(true))));
+                        m_outEndpoint->getBinary(path + postfix)));
 
             Unpacker unpacker(m_metadata->format().unpack(std::move(data)));
 

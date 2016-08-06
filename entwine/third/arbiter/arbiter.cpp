@@ -265,7 +265,7 @@ void Arbiter::copy(
 
 void Arbiter::copyFile(
         const std::string file,
-        const std::string dst,
+        std::string dst,
         const bool verbose) const
 {
     if (dst.empty()) throw ArbiterError("Cannot copy to empty destination");
@@ -276,24 +276,22 @@ void Arbiter::copyFile(
     {
         // If the destination is a directory, maintain the basename of the
         // source file.
-        const std::string basename(util::getBasename(file));
-        if (verbose)
-        {
-            std::cout <<
-                file << " -> " <<
-                dstEndpoint.type() + "://" + dstEndpoint.fullPath(basename) <<
-                std::endl;
-        }
+        dst += util::getBasename(file);
+    }
 
-        if (dstEndpoint.isLocal()) fs::mkdirp(dst);
+    if (verbose) std::cout << file << " -> " << dst << std::endl;
 
-        dstEndpoint.put(util::getBasename(file), getBinary(file));
+    if (dstEndpoint.isLocal()) fs::mkdirp(util::getNonBasename(dst));
+
+    if (getEndpoint(file).type() == dstEndpoint.type())
+    {
+        // If this copy is within the same driver domain, defer to the
+        // hopefully specialized copy method.
+        getDriver(file).copy(stripType(file), stripType(dst));
     }
     else
     {
-        if (verbose) std::cout << file << " -> " << dst << std::endl;
-
-        if (dstEndpoint.isLocal()) fs::mkdirp(util::getNonBasename(dst));
+        // Otherwise do a GET/PUT for the copy.
         put(dst, getBinary(file));
     }
 }
@@ -498,6 +496,11 @@ std::size_t Driver::getSize(const std::string path) const
 void Driver::put(std::string path, const std::string& data) const
 {
     put(path, std::vector<char>(data.begin(), data.end()));
+}
+
+void Driver::copy(std::string src, std::string dst) const
+{
+    put(dst, getBinary(src));
 }
 
 std::vector<std::string> Driver::resolve(
@@ -5991,6 +5994,8 @@ std::ostream& operator<<(std::ostream& sout, Value const& root) {
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
+#include <ios>
+#include <istream>
 
 #ifdef ARBITER_CUSTOM_NAMESPACE
 namespace ARBITER_CUSTOM_NAMESPACE
@@ -6094,6 +6099,27 @@ void Fs::put(std::string path, const std::vector<char>& data) const
     {
         throw ArbiterError("Error occurred while writing " + path);
     }
+}
+
+void Fs::copy(std::string src, std::string dst) const
+{
+    src = fs::expandTilde(src);
+    dst = fs::expandTilde(dst);
+
+    std::ifstream instream(src, std::ifstream::in | std::ifstream::binary);
+    if (!instream.good())
+    {
+        throw ArbiterError("Could not open " + src + " for reading");
+    }
+    instream >> std::noskipws;
+
+    std::ofstream outstream(dst, binaryTruncMode);
+    if (!outstream.good())
+    {
+        throw ArbiterError("Could not open " + dst + " for writing");
+    }
+
+    outstream << instream.rdbuf();
 }
 
 std::vector<std::string> Fs::glob(std::string path, bool verbose) const
@@ -6875,6 +6901,14 @@ void S3::put(
                 "Couldn't S3 PUT to " + rawPath + ": " +
                 std::string(res.data().data(), res.data().size()));
     }
+}
+
+void S3::copy(const std::string src, const std::string dst) const
+{
+    Headers headers;
+    const Resource resource(m_baseUrl, src);
+    headers["x-amz-copy-source"] = resource.bucket + '/' + resource.object;
+    put(dst, std::vector<char>(), headers, Query());
 }
 
 std::vector<std::string> S3::glob(std::string path, bool verbose) const

@@ -79,9 +79,10 @@ bool Registry::addPoint(
 void Registry::clip(
         const Id& index,
         const std::size_t chunkNum,
-        const std::size_t id)
+        const std::size_t id,
+        const bool sync)
 {
-    m_cold->clip(index, chunkNum, id);
+    m_cold->clip(index, chunkNum, id, sync);
 }
 
 void Registry::merge(const Registry& other)
