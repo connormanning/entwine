@@ -15,11 +15,31 @@ namespace entwine
 namespace heuristics
 {
 
+// After this many points (per thread), we'll clip - which involves reference-
+// decrementing the chunks that haven't been used in the past two sleepCount
+// windows, which will trigger their serialization.
 const std::size_t sleepCount(65536 * 20);
-const float sparseDepthBumpRatio(1.05);
-const double defaultWorkToClipRatio(0.33);
+
+// A per-thread count of the minimum chunk-cache size to keep during clipping.
+const std::size_t clipCacheSize(32);
+
+// When building, we are given a total thread count.  Because serialization is
+// more expensive than actually doing tree work, we'll allocate more threads to
+// the "clip" task than to the "work" task.  This parameter tunes the ratio of
+// work threads to clip threads.
+const float defaultWorkToClipRatio(0.33);
+
+// These parameters determine how much work to keep when another worker has
+// requested to take a portion of our work.
+//
+// If we're the nominal builder, try to keep a larger portion of work for
+// ourselves to minimize the amount of large unsplits.
+const float nominalKeepWorkRatio(0.85);
+const float defaultKeepWorkRatio(0.50);
+
+// Pooled point cells, data, and hierarchy nodes come from the splice pool,
+// which allocates them in blocks.  This sets the block size.
 const std::size_t poolBlockSize(1024 * 1024);
-const std::size_t clipCacheSize(32);    // Per thread.
 
 } // namespace heuristics
 } // namespace entwine

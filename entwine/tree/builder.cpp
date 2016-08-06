@@ -495,14 +495,19 @@ std::unique_ptr<Manifest::Split> Builder::takeWork()
 
     Manifest& manifest(m_metadata->manifest());
 
-    const std::size_t remaining(m_end - m_origin);
-    const double ratioRemaining(
-            static_cast<double>(remaining) /
-            static_cast<double>(manifest.size()));
+    const float remaining(static_cast<float>(m_end - m_origin));
+    const float ratioRemaining(remaining / static_cast<float>(manifest.size()));
 
-    if (remaining > 2 && ratioRemaining > 0.0025)
+    if (remaining > 2.0 && ratioRemaining > 0.0025)
     {
-        m_end = m_origin + remaining / 2;
+        const float keepRatio(
+                manifest.nominal() ?
+                    heuristics::nominalKeepWorkRatio :
+                    heuristics::defaultKeepWorkRatio);
+
+        const std::size_t keep(std::ceil(remaining * keepRatio));
+
+        m_end = m_origin + keep;
         split = manifest.split(m_end);
 
         std::cout << "Setting end at " << m_end << std::endl;
