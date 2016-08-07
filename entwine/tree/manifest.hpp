@@ -253,7 +253,7 @@ public:
 
     const Split* split() const { return m_split.get(); }
     void unsplit() { m_split.reset(); }
-    bool nominal() const { return !split(); }
+    bool nominal() const { return !split() || !split()->begin(); }
 
     // This splits the remaining work, and returns the split that should be
     // performed elsewhere.

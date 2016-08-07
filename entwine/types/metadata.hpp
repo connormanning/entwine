@@ -32,6 +32,7 @@ class Subset;
 class Metadata
 {
     friend class Builder;
+    friend class Sequence;
 
 public:
     Metadata(

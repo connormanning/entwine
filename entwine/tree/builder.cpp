@@ -24,6 +24,7 @@
 #include <entwine/tree/heuristics.hpp>
 #include <entwine/tree/hierarchy-block.hpp>
 #include <entwine/tree/registry.hpp>
+#include <entwine/tree/sequence.hpp>
 #include <entwine/tree/thread-pools.hpp>
 #include <entwine/tree/traverser.hpp>
 #include <entwine/types/bounds.hpp>
@@ -62,10 +63,8 @@ Builder::Builder(
     , m_isContinuation(false)
     , m_threadPools(makeUnique<ThreadPools>(totalThreads))
     , m_executor(makeUnique<Executor>())
+    , m_sequence(makeUnique<Sequence>(*this))
     , m_originId(m_metadata->schema().pdalLayout().findDim("Origin"))
-    , m_origin(0)
-    , m_end(0)
-    , m_added(0)
     , m_pointPool(outerScope.getPointPool(m_metadata->schema()))
     , m_hierarchy(makeUnique<Hierarchy>(
                 *m_metadata,
@@ -92,10 +91,8 @@ Builder::Builder(
     , m_isContinuation(true)
     , m_threadPools(makeUnique<ThreadPools>(totalThreads))
     , m_executor(makeUnique<Executor>())
+    , m_sequence(makeUnique<Sequence>(*this))
     , m_originId(m_metadata->schema().pdalLayout().findDim("Origin"))
-    , m_origin(0)
-    , m_end(0)
-    , m_added(0)
     , m_pointPool(outerScope.getPointPool(m_metadata->schema()))
     , m_hierarchy(makeUnique<Hierarchy>(
                 *m_metadata,
@@ -162,38 +159,18 @@ void Builder::go(std::size_t max)
         throw std::runtime_error("Cannot add to read-only builder");
     }
 
-    Manifest& manifest(m_metadata->manifest());
-    m_end = manifest.size();
-
-    if (const Manifest::Split* split = manifest.split())
+    while (auto o = m_sequence->next(max))
     {
-        m_origin = split->begin();
-        m_end = split->end();
-    }
+        const Origin origin(*o);
+        FileInfo& info(m_metadata->manifest().get(origin));
+        const auto path(info.path());
 
-    max = max ? std::min<std::size_t>(m_end, max) : m_end;
-
-    while (keepGoing() && m_added < max)
-    {
-        FileInfo& info(manifest.get(m_origin));
-        const std::string path(info.path());
-
-        if (!checkInfo(info))
-        {
-            std::cout << "Skipping " << m_origin << " - " << path << std::endl;
-            next();
-            continue;
-        }
-
-        ++m_added;
-        std::cout << "Adding " << m_origin << " - " << path << std::endl;
+        std::cout << "Adding " << origin << " - " << path << std::endl;
         std::cout <<
             " A: " << m_pointPool->cellPool().allocated() <<
             " C: " << Chunk::count() <<
             " H: " << HierarchyBlock::count() <<
             std::endl;
-
-        const auto origin(m_origin);
 
         m_threadPools->workPool().add([this, origin, &info, path]()
         {
@@ -220,55 +197,10 @@ void Builder::go(std::size_t max)
 
             m_metadata->manifest().set(origin, status);
         });
-
-        next();
     }
 
     std::cout << "\tPushes complete - joining..." << std::endl;
     save();
-}
-
-bool Builder::checkInfo(const FileInfo& info)
-{
-    if (info.status() != FileInfo::Status::Outstanding)
-    {
-        return false;
-    }
-    else if (!m_executor->good(info.path()))
-    {
-        m_metadata->manifest().set(m_origin, FileInfo::Status::Omitted);
-        return false;
-    }
-    else if (const Bounds* bounds = info.bounds())
-    {
-        if (!checkBounds(m_origin, *bounds, info.numPoints()))
-        {
-            m_metadata->manifest().set(m_origin, FileInfo::Status::Inserted);
-            return false;
-        }
-    }
-
-    return true;
-}
-
-bool Builder::checkBounds(
-        const Origin origin,
-        const Bounds& bounds,
-        const std::size_t numPoints)
-{
-    if (!m_metadata->bounds().overlaps(bounds))
-    {
-        const Subset* subset(m_metadata->subset());
-        const bool primary(!subset || subset->primary());
-        m_metadata->manifest().addOutOfBounds(origin, numPoints, primary);
-        return false;
-    }
-    else if (const Bounds* boundsSubset = m_metadata->boundsSubset())
-    {
-        if (!boundsSubset->overlaps(bounds)) return false;
-    }
-
-    return true;
 }
 
 bool Builder::insertPath(const Origin origin, FileInfo& info)
@@ -302,11 +234,12 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
     // If we don't have an inferred bounds, check against the actual file.
     if (!info.bounds())
     {
-        auto pre(m_executor->preview(localPath, reprojection));
-
-        if (pre && !checkBounds(origin, pre->bounds, pre->numPoints))
+        if (auto pre = m_executor->preview(localPath, reprojection))
         {
-            return false;
+            if (!m_sequence->checkBounds(origin, pre->bounds, pre->numPoints))
+            {
+                return false;
+            }
         }
     }
 
@@ -475,69 +408,15 @@ void Builder::prepareEndpoints()
     }
 }
 
-void Builder::stop()
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_end = std::min(m_end, m_origin + 1);
-    std::cout << "Setting end at " << m_end << std::endl;
-}
-
-void Builder::makeWhole()
-{
-    m_metadata->makeWhole();
-}
-
-std::unique_ptr<Manifest::Split> Builder::takeWork()
-{
-    std::unique_ptr<Manifest::Split> split;
-
-    std::lock_guard<std::mutex> lock(m_mutex);
-
-    Manifest& manifest(m_metadata->manifest());
-
-    const float remaining(static_cast<float>(m_end - m_origin));
-    const float ratioRemaining(remaining / static_cast<float>(manifest.size()));
-
-    if (remaining > 2.0 && ratioRemaining > 0.0025)
-    {
-        const float keepRatio(
-                manifest.nominal() ?
-                    heuristics::nominalKeepWorkRatio :
-                    heuristics::defaultKeepWorkRatio);
-
-        const std::size_t keep(std::ceil(remaining * keepRatio));
-
-        m_end = m_origin + keep;
-        split = manifest.split(m_end);
-
-        std::cout << "Setting end at " << m_end << std::endl;
-    }
-
-    return split;
-}
-
-Origin Builder::end() const
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-    return m_end;
-}
-
-void Builder::next()
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-    ++m_origin;
-}
-
-bool Builder::keepGoing() const
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-    return m_origin < m_end;
-}
+void Builder::makeWhole() { m_metadata->makeWhole(); }
 
 const Metadata& Builder::metadata() const           { return *m_metadata; }
 const Registry& Builder::registry() const           { return *m_registry; }
 const Hierarchy& Builder::hierarchy() const         { return *m_hierarchy; }
 const arbiter::Arbiter& Builder::arbiter() const    { return *m_arbiter; }
+
+Sequence& Builder::sequence() { return *m_sequence; }
+const Sequence& Builder::sequence() const { return *m_sequence; }
 
 ThreadPools& Builder::threadPools() const { return *m_threadPools; }
 
@@ -549,6 +428,9 @@ std::shared_ptr<PointPool> Builder::sharedPointPool() const
 
 const arbiter::Endpoint& Builder::outEndpoint() const { return *m_outEndpoint; }
 const arbiter::Endpoint& Builder::tmpEndpoint() const { return *m_tmpEndpoint; }
+
+Executor& Builder::executor() { return *m_executor; }
+std::mutex& Builder::mutex() { return m_mutex; }
 
 void Builder::clip(
         const Id& index,

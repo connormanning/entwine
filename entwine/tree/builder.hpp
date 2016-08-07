@@ -47,6 +47,7 @@ class Pool;
 class Registry;
 class Reprojection;
 class Schema;
+class Sequence;
 class Structure;
 class Subset;
 class ThreadPools;
@@ -56,6 +57,7 @@ class Builder
     friend class Clipper;
     friend class Merger;
     friend class Reader;
+    friend class Sequence;
 
 public:
     // Launch a new build.
@@ -99,6 +101,8 @@ public:
     const Hierarchy& hierarchy() const;
     ThreadPools& threadPools() const;
     const arbiter::Arbiter& arbiter() const;
+    const Sequence& sequence() const;
+    Sequence& sequence();
 
     PointPool& pointPool() const;
     std::shared_ptr<PointPool> sharedPointPool() const;
@@ -108,23 +112,13 @@ public:
     const arbiter::Endpoint& outEndpoint() const;
     const arbiter::Endpoint& tmpEndpoint() const;
 
-    // Stop this build as soon as possible.  All partially inserted paths will
-    // be completed, and non-inserted paths can be added by continuing this
-    // build later.
-    void stop();
-
     // Set up our metadata as finished with merging.
     void makeWhole();
 
-    // Mark about half of the remaining work on the current build as "not our
-    // problem" - the remaining work can be done separately and we can merge
-    // it later.  If successfully split, the result is a Manifest::Split
-    // containing the manifest indices that should be built elsewhere.  If the
-    // result points to nullptr, then this builder has refused to give up any
-    // work and will complete the entirety of the build.
-    std::unique_ptr<Manifest::Split> takeWork();
-
 private:
+    Executor& executor();
+    std::mutex& mutex();
+
     // Attempt to wake up a subset or split build with indeterminate metadata
     // state.  Used to wake up the active Builder for merging.
     static std::unique_ptr<Builder> create(
@@ -185,11 +179,6 @@ private:
     // Initialize the SRS from the preview for this path.
     void initSrs(const std::string& path);
 
-    // Callers of these functions must not hold a lock on m_mutex.
-    Origin end() const;
-    bool keepGoing() const;
-    void next();
-
     // Ensure that the file at this path is accessible locally for execution.
     // Return the local path.
     std::string localize(std::string path, Origin origin);
@@ -212,11 +201,9 @@ private:
 
     std::unique_ptr<ThreadPools> m_threadPools;
     std::unique_ptr<Executor> m_executor;
+    std::unique_ptr<Sequence> m_sequence;
 
     pdal::Dimension::Id m_originId;
-    Origin m_origin;
-    Origin m_end;
-    std::size_t m_added;
 
     mutable std::shared_ptr<PointPool> m_pointPool;
 

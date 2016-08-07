@@ -14,6 +14,7 @@ set(
     "${BASE}/merger.cpp"
     "${BASE}/old-hierarchy.cpp"
     "${BASE}/registry.cpp"
+    "${BASE}/sequence.cpp"
     "${BASE}/thread-pools.cpp"
     "${BASE}/tiler.cpp"
 )
@@ -33,6 +34,7 @@ set(
     "${BASE}/merger.hpp"
     "${BASE}/old-hierarchy.hpp"
     "${BASE}/registry.hpp"
+    "${BASE}/sequence.hpp"
     "${BASE}/splitter.hpp"
     "${BASE}/thread-pools.hpp"
     "${BASE}/tiler.hpp"
