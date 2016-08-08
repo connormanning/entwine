@@ -277,6 +277,18 @@ void Kernel::build(std::vector<std::string> args)
                 throw std::runtime_error("Invalid tmp specification");
             }
         }
+        else if (arg == "-c")
+        {
+            if (++a < args.size())
+            {
+                const Json::UInt64 bd(std::stoul(args[a]));
+                json["structure"]["baseDepth"] = bd;
+            }
+            else
+            {
+                throw std::runtime_error("Invalid tmp specification");
+            }
+        }
         else if (arg == "-b")
         {
             std::string str;
