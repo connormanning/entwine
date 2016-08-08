@@ -18,9 +18,6 @@ void Clipper::clip()
 {
     if (m_clips.size() < heuristics::clipCacheSize) return;
 
-    std::cout << "Clipping" << std::endl;
-    const std::size_t start(m_clips.size());
-
     m_fastCache.assign(32, m_clips.end());
     bool done(false);
 
@@ -39,8 +36,6 @@ void Clipper::clip()
             done = true;
         }
     }
-
-    std::cout << "Clipped: " << (start - m_clips.size()) << std::endl;
 
     for (auto& p : m_clips) p.second.fresh = false;
 }
