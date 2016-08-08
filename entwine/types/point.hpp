@@ -151,7 +151,7 @@ inline std::ostream& operator<<(std::ostream& os, const Point& point)
     auto flags(os.flags());
     auto precision(os.precision());
 
-    os << std::setprecision(2) << std::fixed;
+    os << std::setprecision(5) << std::fixed;
 
     os << "(" << point.x << ", " << point.y;
     if (

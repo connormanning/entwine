@@ -80,14 +80,14 @@ bool Sequence::checkInfo(Origin origin)
     }
     else if (!m_executor.good(info.path()))
     {
-        m_manifest.set(m_origin, FileInfo::Status::Omitted);
+        m_manifest.set(origin, FileInfo::Status::Omitted);
         return false;
     }
     else if (const Bounds* bounds = info.bounds())
     {
-        if (!checkBounds(m_origin, *bounds, info.numPoints()))
+        if (!checkBounds(origin, *bounds, info.numPoints()))
         {
-            m_manifest.set(m_origin, FileInfo::Status::Inserted);
+            m_manifest.set(origin, FileInfo::Status::Inserted);
             return false;
         }
     }
