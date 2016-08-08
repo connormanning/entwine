@@ -34,7 +34,7 @@ const float defaultWorkToClipRatio(0.33);
 //
 // If we're the nominal builder, try to keep a larger portion of work for
 // ourselves to minimize the amount of large unsplits.
-const float nominalKeepWorkRatio(0.85);
+const float nominalKeepWorkRatio(0.75);
 const float defaultKeepWorkRatio(0.50);
 
 // Pooled point cells, data, and hierarchy nodes come from the splice pool,

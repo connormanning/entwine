@@ -45,9 +45,25 @@ Json::Value Subset::toJson() const
     return json;
 }
 
+std::size_t Subset::minimumBaseDepth(const std::size_t pointsPerChunk) const
+{
+    const std::size_t nominalChunkDepth(ChunkInfo::logN(pointsPerChunk, 4));
+    std::size_t min(nominalChunkDepth);
+
+    std::size_t chunksAtDepth(1);
+
+    while (chunksAtDepth < m_of)
+    {
+        ++min;
+        chunksAtDepth *= 4;
+    }
+
+    return min;
+}
+
 void Subset::split(const Bounds& bounds)
 {
-    if (m_of <= 1 || m_of > 64)
+    if (m_of <= 1)
     {
         throw std::runtime_error("Invalid subset range");
     }

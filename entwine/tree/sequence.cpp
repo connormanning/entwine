@@ -132,7 +132,7 @@ std::unique_ptr<Manifest::Split> Sequence::takeWork()
     const float remaining(static_cast<float>(std::distance(pos, end)));
     const float ratioRemaining(remaining / static_cast<float>(manifest.size()));
 
-    const std::size_t minTask(6);
+    const std::size_t minTask(static_cast<float>(manifest.size()) * 0.01);
 
     if (remaining >= 2 * minTask && ratioRemaining > 0.0025)
     {

@@ -39,6 +39,7 @@ public:
     bool primary() const { return !m_id; }
 
     std::size_t minimumNullDepth() const { return m_minimumNullDepth; }
+    std::size_t minimumBaseDepth(std::size_t pointsPerChunk) const;
 
 private:
     void split(const Bounds& fullBounds);
