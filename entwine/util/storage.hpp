@@ -31,6 +31,14 @@ public:
             const std::string& path,
             const std::vector<char>& data);
 
+    static void ensurePut(
+            const arbiter::Endpoint& endpoint,
+            const std::string& path,
+            const std::string& data)
+    {
+        ensurePut(endpoint, path, std::vector<char>(data.begin(), data.end()));
+    }
+
     static std::unique_ptr<std::vector<char>> ensureGet(
             const arbiter::Endpoint& endpoint,
             const std::string& path);

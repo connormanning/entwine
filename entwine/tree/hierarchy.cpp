@@ -13,6 +13,7 @@
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/cold.hpp>
 #include <entwine/tree/heuristics.hpp>
+#include <entwine/util/storage.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -172,7 +173,7 @@ void Hierarchy::save()
 
     Json::Value json;
     for (const auto& id : ids()) json.append(id.str());
-    m_outpoint->put("ids" + basePostfix, toFastString(json));
+    Storage::ensurePut(*m_outpoint, "ids" + basePostfix, toFastString(json));
 }
 
 Hierarchy::QueryResults Hierarchy::query(

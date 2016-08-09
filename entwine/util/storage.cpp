@@ -38,10 +38,10 @@ namespace
         std::lock_guard<std::mutex> lock(mutex);
         std::cout <<
             "\tFailed to " << method << " data: persistent failure.\n" <<
-            "\tThis is a non-recoverable error - Abandoning index." <<
+            "\tThis is a non-recoverable error." <<
             std::endl;
 
-        exit(1);
+        throw std::runtime_error("Fatal error - could not " + method);
     }
 }
 

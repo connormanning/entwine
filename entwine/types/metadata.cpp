@@ -16,6 +16,7 @@
 #include <entwine/types/structure.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/json.hpp>
+#include <entwine/util/storage.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -152,15 +153,16 @@ void Metadata::save(const arbiter::Endpoint& endpoint) const
     }
 
     const auto pf(postfix());
-    endpoint.put("entwine" + pf, json.toStyledString());
+    Storage::ensurePut(endpoint, "entwine" + pf, json.toStyledString());
 
     if (m_manifest)
     {
-        endpoint.put(
-                "entwine-manifest" + pf,
+        const std::string manifestContents(
                 m_manifest->size() < 500 ?
                     m_manifest->toJson().toStyledString() :
                     toFastString(m_manifest->toJson()));
+
+        Storage::ensurePut(endpoint, "entwine-manifest" + pf, manifestContents);
     }
 }
 

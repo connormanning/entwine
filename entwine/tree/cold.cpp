@@ -212,7 +212,7 @@ void Cold::save(const arbiter::Endpoint& endpoint) const
     for (const auto& id : ids()) json.append(id.str());
 
     const std::string subpath("entwine-ids" + m_builder.metadata().postfix());
-    endpoint.put(subpath, toFastString(json));
+    Storage::ensurePut(endpoint, subpath, toFastString(json));
 }
 
 void Cold::clip(
