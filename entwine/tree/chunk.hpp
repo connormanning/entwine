@@ -48,6 +48,8 @@ public:
             const Id& id,
             const Id& maxPoints);
 
+    Chunk(Chunk&& other) = default;
+
     virtual ~Chunk();
 
     static std::unique_ptr<Chunk> create(
@@ -68,7 +70,7 @@ public:
 
     Tube::Insertion insert(const Climber& climber, Cell::PooledNode& cell)
     {
-        return getTube(climber.index()).insert(climber, cell);
+        return getTube(climber).insert(climber, cell);
     }
 
     static std::size_t count();
@@ -79,7 +81,7 @@ protected:
     void collect(ChunkType type);
 
     virtual Cell::PooledStack acquire() = 0;
-    virtual Tube& getTube(const Id& index) = 0;
+    virtual Tube& getTube(const Climber& climber) = 0;
 
     Id endId() const { return m_id + m_maxPoints; }
 
@@ -117,9 +119,9 @@ public:
 private:
     virtual Cell::PooledStack acquire() override;
 
-    virtual Tube& getTube(const Id& index) override
+    virtual Tube& getTube(const Climber& climber) override
     {
-        const Id norm(normalize(index));
+        const Id norm(normalize(climber.index()));
 
         std::lock_guard<std::mutex> lock(m_mutex);
         return m_tubes[norm];
@@ -139,12 +141,15 @@ private:
 
 class ContiguousChunk : public Chunk
 {
+    friend class BaseChunk;
+
 public:
     ContiguousChunk(
             const Builder& builder,
             std::size_t depth,
             const Id& id,
-            const Id& maxPoints);
+            const Id& maxPoints,
+            bool autosave = true);
 
     ContiguousChunk(
             const Builder& builder,
@@ -153,14 +158,16 @@ public:
             const Id& maxPoints,
             Cell::PooledStack cells);
 
+    ContiguousChunk(ContiguousChunk&& other) = default;
+
     virtual ~ContiguousChunk();
 
 protected:
     virtual Cell::PooledStack acquire() override;
 
-    virtual Tube& getTube(const Id& index) override
+    virtual Tube& getTube(const Climber& climber) override
     {
-        return m_tubes.at(normalize(index));
+        return m_tubes.at(normalize(climber.index()));
     }
 
     std::size_t normalize(const Id& rawIndex) const
@@ -171,33 +178,43 @@ protected:
         return (rawIndex - m_id).getSimple();
     }
 
+    std::vector<Tube>& tubes() { return m_tubes; }
+
     std::vector<Tube> m_tubes;
+    bool m_autosave;
 };
 
-class BaseChunk : public ContiguousChunk
+class BaseChunk : public Chunk
 {
 public:
-    BaseChunk(
-            const Builder& builder,
-            const Id& id,
-            const Id& maxPoints);
-
-    BaseChunk(
-            const Builder& builder,
-            const Id& id,
-            const Id& maxPoints,
-            Unpacker unpacker);
+    BaseChunk(const Builder& builder);
+    BaseChunk(const Builder& builder, Unpacker unpacker);
 
     // Unlike the other Chunk types, the BaseChunk requires an explicit call to
     // save, rather than serializing during its destructor.
     void save(const arbiter::Endpoint& endpoint);
 
-    Cell::PooledStack acquire() override { return ContiguousChunk::acquire(); }
     void merge(BaseChunk& other);
 
     static Schema makeCelled(const Schema& in);
 
 private:
+    virtual Cell::PooledStack acquire() override;
+
+    virtual Tube& getTube(const Climber& climber) override
+    {
+        return m_chunks.at(climber.depth()).getTube(climber);
+    }
+
+    std::size_t normalize(const Id& rawIndex) const
+    {
+        assert(rawIndex >= m_id);
+        assert(rawIndex < endId());
+
+        return (rawIndex - m_id).getSimple();
+    }
+
+    std::vector<ContiguousChunk> m_chunks;
     Schema m_celledSchema;
 };
 
