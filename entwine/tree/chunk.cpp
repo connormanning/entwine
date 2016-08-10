@@ -465,24 +465,55 @@ void BaseChunk::makeWriteable()
     }
 }
 
-void BaseChunk::merge(BaseChunk& other)
+std::set<Id> BaseChunk::merge(BaseChunk& other)
 {
+    std::set<Id> ids;
+
     makeWriteable();
 
     const auto& s(m_metadata.structure());
 
     for (std::size_t d(s.baseDepthBegin()); d < m_writes.size(); ++d)
     {
-        auto& a(m_writes[d].back());
-        auto& b(other.m_chunks[d]);
+        std::vector<ContiguousChunk>& write(m_writes[d]);
+        ContiguousChunk& a(write.back());
+        ContiguousChunk& b(other.m_chunks[d]);
 
-        if (a.id() + a.maxPoints() != b.id())
+        if (a.endId() != b.id())
         {
             throw std::runtime_error("Merges must be performed consecutively");
         }
 
-        m_writes[d].emplace_back(std::move(other.m_chunks[d]));
+        write.emplace_back(std::move(other.m_chunks[d]));
+
+        if (s.bumpDepth() && d >= s.bumpDepth())
+        {
+            const auto span(write.back().endId() - write.front().id());
+
+            if (span == s.basePointsPerChunk())
+            {
+                const Id id(write.front().id());
+                ContiguousChunk chunk(m_builder, d, id, s.basePointsPerChunk());
+
+                chunk.tubes().clear();
+                ids.insert(id);
+
+                for (ContiguousChunk& piece : write)
+                {
+                    chunk.tubes().insert(
+                            chunk.tubes().end(),
+                            std::make_move_iterator(piece.tubes().begin()),
+                            std::make_move_iterator(piece.tubes().end()));
+                }
+
+                write.clear();
+
+                std::cout << "\tCombined at " << d << ": " << id << std::endl;
+            }
+        }
     }
+
+    return ids;
 }
 
 Cell::PooledStack BaseChunk::acquire()

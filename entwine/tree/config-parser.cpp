@@ -150,8 +150,6 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
     std::unique_ptr<Subset> subset;
 
-    bool baseBump(false);
-
     if (config.isMember("subset"))
     {
         Bounds cube(boundsConforming->cubeify());
@@ -180,13 +178,12 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
         if (configBaseDepth < minimumBaseDepth)
         {
-            baseBump = true;
-
             std::cout <<
                 "Bumping base depth to accomodate subset: " <<
                 minimumBaseDepth << std::endl;
 
             jsonStructure["baseDepth"] = Json::UInt64(minimumBaseDepth);
+            jsonStructure["bumpDepth"] = Json::UInt64(configBaseDepth);
         }
     }
 
@@ -196,11 +193,6 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     const HierarchyCompression hierarchyCompression(
             compress ? HierarchyCompression::Lzma : HierarchyCompression::None);
     Format format(*schema, trustHeaders, compress, hierarchyCompression);
-
-    if (baseBump)
-    {
-        std::cout << "Base span: " << structure.baseIndexSpan() << std::endl;
-    }
 
     const Metadata metadata(
             *boundsConforming,

@@ -86,6 +86,19 @@ public:
     Cells::const_iterator begin() const { return m_cells.begin(); }
     Cells::const_iterator end() const { return m_cells.end(); }
 
+    Tube() = default;
+
+    Tube(Tube&& other) noexcept
+    {
+        m_cells = std::move(other.m_cells);
+    }
+
+    Tube& operator=(Tube&& other) noexcept
+    {
+        m_cells = std::move(other.m_cells);
+        return *this;
+    }
+
 private:
     Cells m_cells;
     SpinLock m_spinner;

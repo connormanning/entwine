@@ -206,6 +206,7 @@ std::string Metadata::postfix(const bool isColdChunk) const
 void Metadata::makeWhole()
 {
     m_subset.reset();
+    m_structure->unbump();
     m_manifest->unsplit();
 }
 

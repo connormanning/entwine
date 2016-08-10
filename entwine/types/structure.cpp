@@ -137,7 +137,8 @@ Structure::Structure(const Json::Value& json)
             json.isMember("mappedDepth") ?
                 json["mappedDepth"].asUInt64() : json["sparseDepth"].asUInt64(),
             json["startDepth"].asUInt64(),
-            json["sparseDepth"].asUInt64())
+            json["sparseDepth"].asUInt64(),
+            json["bumpDepth"].asUInt64())
 { }
 
 Structure::Structure(
@@ -152,7 +153,8 @@ Structure::Structure(
         const bool prefixIds,
         const std::size_t mappedDepth,
         const std::size_t startDepth,
-        const std::size_t sparseDepth)
+        const std::size_t sparseDepth,
+        const std::size_t bumpDepth)
     // Depths.
     : m_nullDepthBegin(0)
     , m_nullDepthEnd(nullDepth)
@@ -163,6 +165,7 @@ Structure::Structure(
     , m_sparseDepthBegin(std::max(sparseDepth, m_coldDepthBegin))
     , m_mappedDepthBegin(std::max(mappedDepth, m_coldDepthBegin))
     , m_startDepth(startDepth)
+    , m_bumpDepth(bumpDepth)
 
     // Indices.
     , m_nullIndexBegin(0)
@@ -181,6 +184,7 @@ Structure::Structure(
     , m_tubular(tubular)
     , m_dynamicChunks(dynamicChunks)
     , m_prefixIds(prefixIds)
+    , m_unbump(false)
     , m_dimensions(dimensions)
     , m_factor(1ULL << m_dimensions)
     , m_numPointsHint(std::max<std::size_t>(numPointsHint, 10000000))
@@ -258,6 +262,19 @@ Json::Value Structure::toJson() const
     if (m_startDepth)
     {
         json["startDepth"] = static_cast<Json::UInt64>(m_startDepth);
+    }
+
+    if (m_bumpDepth)
+    {
+        if (m_unbump)
+        {
+            // Save metadata as if the base depth end was never increased.
+            json["baseDepth"] = static_cast<Json::UInt64>(m_bumpDepth);
+        }
+        else
+        {
+            json["bumpDepth"] = static_cast<Json::UInt64>(m_bumpDepth);
+        }
     }
 
     return json;

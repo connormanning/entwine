@@ -84,7 +84,8 @@ public:
             bool prefixIds,
             std::size_t mappedDepth = 0,
             std::size_t startDepth = 0,
-            std::size_t sparseDepth = 0);
+            std::size_t sparseDepth = 0,
+            std::size_t bumpDepth = 0);
 
     Structure(const Json::Value& json);
 
@@ -99,6 +100,7 @@ public:
     std::size_t sparseDepthBegin() const { return m_sparseDepthBegin; }
     std::size_t mappedDepthBegin() const { return m_mappedDepthBegin; }
     std::size_t startDepth() const       { return m_startDepth; }
+    std::size_t bumpDepth() const        { return m_bumpDepth; }
 
     const Id& nullIndexBegin() const   { return m_nullIndexBegin; }
     const Id& nullIndexEnd() const     { return m_nullIndexEnd; }
@@ -198,6 +200,11 @@ public:
 
     std::size_t maxChunksPerDepth() const { return m_maxChunksPerDepth; }
 
+    void unbump()
+    {
+        m_unbump = true;
+    }
+
 private:
     // Redundant values (since the beginning of one level is equal to the end
     // of the previous level) help to maintain a logical distinction between
@@ -211,6 +218,7 @@ private:
     std::size_t m_sparseDepthBegin;
     std::size_t m_mappedDepthBegin;
     std::size_t m_startDepth;
+    std::size_t m_bumpDepth;
 
     Id m_nullIndexBegin;
     Id m_nullIndexEnd;
@@ -225,6 +233,7 @@ private:
     bool m_dynamicChunks;
     bool m_discardDuplicates;
     bool m_prefixIds;
+    bool m_unbump;
 
     std::size_t m_dimensions;
     std::size_t m_factor;

@@ -239,8 +239,9 @@ void Cold::merge(const Cold& other)
 {
     if (m_base.t->chunk)
     {
-        dynamic_cast<BaseChunk&>(*m_base.t->chunk).merge(
-                dynamic_cast<BaseChunk&>(*other.m_base.t->chunk));
+        Splitter::merge(
+                dynamic_cast<BaseChunk&>(*m_base.t->chunk).merge(
+                    dynamic_cast<BaseChunk&>(*other.m_base.t->chunk)));
     }
 
     Splitter::merge(other.ids());

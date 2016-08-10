@@ -194,7 +194,7 @@ public:
     // save, rather than serializing during its destructor.
     void save(const arbiter::Endpoint& endpoint);
 
-    void merge(BaseChunk& other);
+    std::set<Id> merge(BaseChunk& other);
 
     static Schema makeCelled(const Schema& in);
 
