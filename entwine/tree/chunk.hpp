@@ -206,16 +206,12 @@ private:
         return m_chunks.at(climber.depth()).getTube(climber);
     }
 
-    std::size_t normalize(const Id& rawIndex) const
-    {
-        assert(rawIndex >= m_id);
-        assert(rawIndex < endId());
-
-        return (rawIndex - m_id).getSimple();
-    }
+    void makeWriteable();
 
     std::vector<ContiguousChunk> m_chunks;
     Schema m_celledSchema;
+
+    std::vector<std::vector<ContiguousChunk>> m_writes;
 };
 
 } // namespace entwine

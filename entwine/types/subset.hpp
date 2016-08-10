@@ -12,6 +12,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <vector>
 
 #include <entwine/types/bounds.hpp>
 
@@ -22,6 +23,8 @@ namespace Json
 
 namespace entwine
 {
+
+class Metadata;
 
 class Subset
 {
@@ -41,6 +44,49 @@ public:
     std::size_t minimumNullDepth() const { return m_minimumNullDepth; }
     std::size_t minimumBaseDepth(std::size_t pointsPerChunk) const;
 
+    class Span
+    {
+    public:
+        Span(std::size_t begin, std::size_t end)
+            : m_begin(begin)
+            , m_end(end)
+        { }
+
+        Span() : m_begin(0), m_end(0) { }
+
+        bool operator<(const Span& other) const
+        {
+            return m_begin < other.m_begin;
+        }
+
+        void merge(const Span& other)
+        {
+            if (end() != other.begin())
+            {
+                throw std::runtime_error("Cannot merge these spans");
+            }
+
+            m_end = other.end();
+        }
+
+        void up()
+        {
+            m_begin >>= 2;
+            m_end >>= 2;
+        }
+
+        std::size_t begin() const { return m_begin; }
+        std::size_t end() const { return m_end; }
+
+    private:
+        std::size_t m_begin;
+        std::size_t m_end;
+    };
+
+    std::vector<Span> calcSpans(
+            const Metadata& metadata,
+            std::size_t depthEnd) const;
+
 private:
     void split(const Bounds& fullBounds);
 
@@ -49,6 +95,8 @@ private:
 
     Bounds m_sub;
     std::size_t m_minimumNullDepth;
+
+    std::vector<Bounds> m_boxes;
 };
 
 } // namespace entwine

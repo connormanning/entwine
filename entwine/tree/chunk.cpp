@@ -19,6 +19,7 @@
 #include <entwine/tree/builder.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/pooled-point-table.hpp>
+#include <entwine/types/subset.hpp>
 #include <entwine/util/compression.hpp>
 #include <entwine/util/storage.hpp>
 #include <entwine/util/unique.hpp>
@@ -255,9 +256,12 @@ BaseChunk::BaseChunk(const Builder& builder)
             builder.metadata().structure().baseIndexSpan())
     , m_chunks()
     , m_celledSchema(makeCelled(m_metadata.schema()))
+    , m_writes()
 {
     const auto& s(m_metadata.structure());
 
+    // These will go unused, but keep our API uniform, and let us avoid
+    // subtracting offsets all the time.
     for (std::size_t d(0); d < s.baseDepthBegin(); ++d)
     {
         m_chunks.emplace_back(
@@ -268,14 +272,32 @@ BaseChunk::BaseChunk(const Builder& builder)
                 false);
     }
 
-    for (std::size_t d(s.baseDepthBegin()); d < s.baseDepthEnd(); ++d)
+    if (m_metadata.subset())
     {
-        m_chunks.emplace_back(
-                m_builder,
-                d,
-                ChunkInfo::calcLevelIndex(2, d),
-                ChunkInfo::pointsAtDepth(2, d),
-                false);
+        const std::vector<Subset::Span> spans(
+                m_metadata.subset()->calcSpans(m_metadata, s.baseDepthEnd()));
+
+        for (std::size_t d(s.baseDepthBegin()); d < s.baseDepthEnd(); ++d)
+        {
+            m_chunks.emplace_back(
+                    m_builder,
+                    d,
+                    spans[d].begin(),
+                    spans[d].end() - spans[d].begin(),
+                    false);
+        }
+    }
+    else
+    {
+        for (std::size_t d(s.baseDepthBegin()); d < s.baseDepthEnd(); ++d)
+        {
+            m_chunks.emplace_back(
+                    m_builder,
+                    d,
+                    ChunkInfo::calcLevelIndex(2, d),
+                    ChunkInfo::pointsAtDepth(2, d),
+                    false);
+        }
     }
 
     chunkCount = 1;
@@ -326,7 +348,7 @@ BaseChunk::BaseChunk(const Builder& builder, Unpacker unpacker)
         climber.reset();
         climber.magnifyTo(cell->point(), curDepth);
 
-        if (tube != normalize(climber.index()))
+        if (tube != (climber.index() - m_id).getSimple())
         {
             throw std::runtime_error("Bad serialized base tube");
         }
@@ -339,6 +361,8 @@ BaseChunk::BaseChunk(const Builder& builder, Unpacker unpacker)
 
 void BaseChunk::save(const arbiter::Endpoint& endpoint)
 {
+    makeWriteable();
+
     Data::PooledStack dataStack(m_pointPool.dataPool());
     Cell::PooledStack cellStack(m_pointPool.cellPool());
 
@@ -359,7 +383,7 @@ void BaseChunk::save(const arbiter::Endpoint& endpoint)
     const char* tPos(reinterpret_cast<char*>(&tubeId));
     const char* tEnd(tPos + tubeIdSize);
 
-    for (auto& c : m_chunks)
+    for (auto& w : m_writes) for (auto& c : w)
     {
         auto& tubes(c.tubes());
 
@@ -399,7 +423,6 @@ void BaseChunk::save(const arbiter::Endpoint& endpoint)
         }
     }
 
-    if (compress) std::cout << "Compressed base" << std::endl;
     if (compress) data = compressor->data();
 
     // Since the base is serialized with a different schema, we'll compress it
@@ -428,29 +451,37 @@ Schema BaseChunk::makeCelled(const Schema& in)
     return Schema(dims);
 }
 
+void BaseChunk::makeWriteable()
+{
+    if (m_writes.empty())
+    {
+        const auto& s(m_metadata.structure());
+        m_writes.resize(s.baseDepthEnd());
+
+        for (std::size_t i(s.baseDepthBegin()); i < m_writes.size(); ++i)
+        {
+            m_writes[i].emplace_back(std::move(m_chunks[i]));
+        }
+    }
+}
+
 void BaseChunk::merge(BaseChunk& other)
 {
-    for (std::size_t s(0); s < m_chunks.size(); ++s)
+    makeWriteable();
+
+    const auto& s(m_metadata.structure());
+
+    for (std::size_t d(s.baseDepthBegin()); d < m_writes.size(); ++d)
     {
-        auto& ourChunk(m_chunks[s].tubes());
-        auto& theirChunk(other.m_chunks[s].tubes());
+        auto& a(m_writes[d].back());
+        auto& b(other.m_chunks[d]);
 
-        for (std::size_t i(0); i < theirChunk.size(); ++i)
+        if (a.id() + a.maxPoints() != b.id())
         {
-            Tube& ours(ourChunk.at(i));
-            Tube& theirs(theirChunk.at(i));
-
-            if (!ours.empty() && !theirs.empty())
-            {
-                throw std::runtime_error(
-                        "Tube mismatch at " + std::to_string(i));
-            }
-
-            if (!theirs.empty())
-            {
-                ours.swap(std::move(theirs));
-            }
+            throw std::runtime_error("Merges must be performed consecutively");
         }
+
+        m_writes[d].emplace_back(std::move(other.m_chunks[d]));
     }
 }
 

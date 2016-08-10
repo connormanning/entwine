@@ -121,7 +121,7 @@ protected:
         if (workingDepth <= m_structure.sparseDepthBegin())
         {
             const Dir dir(getDirection(m_chunkBounds.mid(), point, true));
-            m_chunkBounds.go(dir);
+            m_chunkBounds.go(dir, true);
 
             m_chunkId <<= m_structure.dimensions();
             m_chunkId.incSimple();

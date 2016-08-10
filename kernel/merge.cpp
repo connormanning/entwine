@@ -104,7 +104,6 @@ void Kernel::merge(std::vector<std::string> args)
     if (subset) std::cout << " at subset: " << *subset;
     std::cout << "..." << std::endl;
 
-    merger.unsplit();
     merger.merge();
     merger.save();
     std::cout << "Merge complete." << std::endl;

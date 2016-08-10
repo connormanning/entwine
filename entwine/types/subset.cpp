@@ -12,6 +12,7 @@
 
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/hierarchy.hpp>
+#include <entwine/types/metadata.hpp>
 
 namespace entwine
 {
@@ -106,6 +107,8 @@ void Subset::split(const Bounds& bounds)
             current.go(dir, true);
         }
 
+        m_boxes.push_back(current);
+
         if (!set)
         {
             m_sub = current;
@@ -116,6 +119,71 @@ void Subset::split(const Bounds& bounds)
             m_sub.grow(current);
         }
     }
+}
+
+std::vector<Subset::Span> Subset::calcSpans(
+        const Metadata& metadata,
+        const std::size_t depthEnd) const
+{
+    std::set<Span> spans;
+
+    for (const auto& b : m_boxes)
+    {
+        ChunkState c(metadata);
+        while (c.chunkBounds() != b && c.chunkBounds().contains(b))
+        {
+            c.climb(b.mid());
+        }
+
+        if (c.chunkBounds() == b)
+        {
+            if (c.depth() > depthEnd)
+            {
+                throw std::runtime_error("Invalid depth for subset box");
+            }
+
+            std::size_t id(c.chunkId().getSimple());
+            std::size_t span(c.pointsPerChunk().getSimple());
+            std::size_t depth(c.depth());
+
+            while (depth < depthEnd)
+            {
+                id = (id << 2) + 1;
+                span *= 4;
+                ++depth;
+            }
+
+            spans.emplace(id, id + span);
+        }
+        else
+        {
+            throw std::runtime_error("Could not recreate subset box");
+        }
+    }
+
+    if (spans.empty())
+    {
+        throw std::runtime_error("No spans found");
+    }
+
+    auto it(spans.begin());
+    Span span(*it);
+    spans.erase(it);
+
+    for (const auto& s : spans)
+    {
+        span.merge(s);
+    }
+
+    std::vector<Span> results(depthEnd);
+
+    for (std::size_t depth(depthEnd - 1); depth < depthEnd; --depth)
+    {
+        span.up();
+        results[depth] = span;
+    }
+
+    return results;
 }
 
 } // namespace entwine
