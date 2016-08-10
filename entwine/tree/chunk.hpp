@@ -162,6 +162,15 @@ public:
 
     virtual ~ContiguousChunk();
 
+    bool empty() const
+    {
+        for (const auto& tube : m_tubes)
+        {
+            if (!tube.empty()) return false;
+        }
+        return true;
+    }
+
 protected:
     virtual Cell::PooledStack acquire() override;
 

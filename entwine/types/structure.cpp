@@ -162,8 +162,8 @@ Structure::Structure(
     , m_baseDepthEnd(std::max(m_baseDepthBegin, baseDepth))
     , m_coldDepthBegin(m_baseDepthEnd)
     , m_coldDepthEnd(coldDepth ? std::max(m_coldDepthBegin, coldDepth) : 0)
-    , m_sparseDepthBegin(std::max(sparseDepth, m_coldDepthBegin))
-    , m_mappedDepthBegin(std::max(mappedDepth, m_coldDepthBegin))
+    , m_sparseDepthBegin(sparseDepth)
+    , m_mappedDepthBegin(mappedDepth)
     , m_startDepth(startDepth)
     , m_bumpDepth(bumpDepth)
 
@@ -215,13 +215,16 @@ Structure::Structure(
                 "must be of the form 4^n for quadtree, or 8^n for octree");
     }
 
+    const std::size_t activeMinDepth(
+            m_bumpDepth ? m_bumpDepth : m_coldDepthBegin);
+
     if (!mappedDepth)
     {
         m_mappedDepthBegin =
             std::ceil(std::log2(m_numPointsHint) / std::log2(m_factor)) + 1;
     }
 
-    m_mappedDepthBegin = std::max(m_mappedDepthBegin, m_coldDepthBegin);
+    m_mappedDepthBegin = std::max(m_mappedDepthBegin, activeMinDepth);
 
     if (!sparseDepth)
     {

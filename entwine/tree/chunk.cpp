@@ -476,15 +476,18 @@ std::set<Id> BaseChunk::merge(BaseChunk& other)
     for (std::size_t d(s.baseDepthBegin()); d < m_writes.size(); ++d)
     {
         std::vector<ContiguousChunk>& write(m_writes[d]);
-        ContiguousChunk& a(write.back());
-        ContiguousChunk& b(other.m_chunks[d]);
+        ContiguousChunk& adding(other.m_chunks[d]);
 
-        if (a.endId() != b.id())
+        if (!write.empty())
         {
-            throw std::runtime_error("Merges must be performed consecutively");
+            if (write.back().endId() != adding.id())
+            {
+                throw std::runtime_error(
+                        "Merges must be performed consecutively");
+            }
         }
 
-        write.emplace_back(std::move(other.m_chunks[d]));
+        write.emplace_back(std::move(adding));
 
         if (s.bumpDepth() && d >= s.bumpDepth())
         {
@@ -493,10 +496,16 @@ std::set<Id> BaseChunk::merge(BaseChunk& other)
             if (span == s.basePointsPerChunk())
             {
                 const Id id(write.front().id());
-                ContiguousChunk chunk(m_builder, d, id, s.basePointsPerChunk());
+
+                // Manual save, since we don't want to write empty chunks.
+                ContiguousChunk chunk(
+                        m_builder,
+                        d,
+                        id,
+                        s.basePointsPerChunk(),
+                        false);
 
                 chunk.tubes().clear();
-                ids.insert(id);
 
                 for (ContiguousChunk& piece : write)
                 {
@@ -504,6 +513,13 @@ std::set<Id> BaseChunk::merge(BaseChunk& other)
                             chunk.tubes().end(),
                             std::make_move_iterator(piece.tubes().begin()),
                             std::make_move_iterator(piece.tubes().end()));
+                }
+
+                if (!chunk.empty())
+                {
+                    // Calling collect will ensure that this chunk gets saved.
+                    chunk.collect(ChunkType::Contiguous);
+                    ids.insert(id);
                 }
 
                 write.clear();
