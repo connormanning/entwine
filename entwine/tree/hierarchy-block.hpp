@@ -68,7 +68,8 @@ public:
             HierarchyCell::Pool& pool,
             const Metadata& metadata,
             const Id& id,
-            const arbiter::Endpoint* outEndpoint);
+            const arbiter::Endpoint* outEndpoint,
+            const Id& maxPoints);
 
     virtual ~HierarchyBlock();
 
@@ -92,6 +93,9 @@ public:
     // Only count must be thread-safe.  Get/save are single-threaded.
     virtual HierarchyCell& count(const Id& id, uint64_t tick, int delta) = 0;
     virtual uint64_t get(const Id& id, uint64_t tick) const = 0;
+    virtual void merge(const HierarchyBlock& other) = 0;
+
+    const Id& maxPoints() const { return m_maxPoints; }
 
 protected:
     Id normalize(const Id& id) const { return id - m_id; }
@@ -110,6 +114,7 @@ protected:
     const Metadata& m_metadata;
     const Id m_id;
     const arbiter::Endpoint* m_ep;
+    const Id m_maxPoints;
 };
 
 class ContiguousBlock : public HierarchyBlock
@@ -123,7 +128,7 @@ public:
             const Id& id,
             const arbiter::Endpoint* outEndpoint,
             std::size_t maxPoints)
-        : HierarchyBlock(pool, metadata, id, outEndpoint)
+        : HierarchyBlock(pool, metadata, id, outEndpoint, maxPoints)
         , m_tubes(maxPoints)
         , m_spinners(maxPoints)
     { }
@@ -161,7 +166,7 @@ public:
         else return 0;
     }
 
-    void merge(const ContiguousBlock& other);
+    virtual void merge(const HierarchyBlock& other) override;
 
 private:
     virtual std::vector<char> combine() const override;
@@ -180,7 +185,7 @@ public:
             const Metadata& metadata,
             const Id& id,
             const arbiter::Endpoint* outEndpoint)
-        : HierarchyBlock(pool, metadata, id, outEndpoint)
+        : HierarchyBlock(pool, metadata, id, outEndpoint, 0)
         , m_spinner()
         , m_tubes()
     { }
@@ -222,6 +227,8 @@ public:
 
         return 0;
     }
+
+    virtual void merge(const HierarchyBlock& other) override;
 
 private:
     virtual std::vector<char> combine() const override;

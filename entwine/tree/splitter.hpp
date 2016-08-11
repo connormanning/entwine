@@ -14,6 +14,7 @@
 #include <mutex>
 
 #include <entwine/types/structure.hpp>
+#include <entwine/util/pool.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -99,9 +100,9 @@ public:
     {
         std::set<Id> results(m_faux);
 
-        iterateCold([&results](const Id& chunkId, const Slot& slot)
+        iterateCold([&results](const Id& id, std::size_t num, const Slot& slot)
         {
-            results.insert(chunkId);
+            results.insert(id);
         });
 
         return results;
@@ -114,17 +115,25 @@ protected:
     }
 
     template<typename Op>
-    void iterateCold(Op op) const
+    void iterateCold(Op op, Pool* pool = nullptr) const
     {
+        auto call([&op, pool](const Id& id, std::size_t n, const Slot& slot)
+        {
+            if (pool) pool->add([&op, id, n, &slot]() { op(id, n, slot); });
+            else op(id, n, slot);
+        });
+
         for (std::size_t i(0); i < m_fast.size(); ++i)
         {
             if (m_fast[i].mark)
             {
-                op(m_structure.getInfoFromNum(i).chunkId(), m_fast[i]);
+                call(m_structure.getInfoFromNum(i).chunkId(), i, m_fast[i]);
             }
         }
 
-        for (const auto& p : m_slow) op(p.first, p.second);
+        for (const auto& p : m_slow) call(p.first, m_fast.size(), p.second);
+
+        if (pool) pool->cycle();
     }
 
     std::size_t getNumFastTrackers(const Structure& structure)

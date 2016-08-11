@@ -182,7 +182,10 @@ std::string Metadata::postfix(const bool isColdChunk) const
     // Base (both data/hierarchy) chunk:
     //      All postfixes applied.
     //
-    // Other (both data/hierarchy) chunks:
+    // Cold hierarchy chunks:
+    //      All postfixes applied.
+    //
+    // Cold data chunks:
     //      No subset postfixing.
     //      Split postfixing applied to splits except for the nominal split.
     //

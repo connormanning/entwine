@@ -38,6 +38,10 @@ public:
     // Wait for all currently running tasks to complete.
     void join();
 
+    bool joined() const { return stop(); }
+
+    void cycle() { join(); go(); }
+
     // Change the number of threads.  Current threads will be joined.
     void resize(std::size_t numThreads);
 
@@ -60,7 +64,7 @@ private:
     void work();
 
     // Atomically set/get the stop flag.
-    bool stop();
+    bool stop() const;
     void stop(bool val);
 
     std::size_t m_numThreads;

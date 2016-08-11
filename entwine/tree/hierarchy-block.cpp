@@ -33,11 +33,13 @@ HierarchyBlock::HierarchyBlock(
         HierarchyCell::Pool& pool,
         const Metadata& metadata,
         const Id& id,
-        const arbiter::Endpoint* ep)
+        const arbiter::Endpoint* ep,
+        const Id& maxPoints)
     : m_pool(pool)
     , m_metadata(metadata)
     , m_id(id)
     , m_ep(ep)
+    , m_maxPoints(maxPoints)
 {
     ++chunkCount;
 }
@@ -132,7 +134,7 @@ ContiguousBlock::ContiguousBlock(
         const arbiter::Endpoint* outEndpoint,
         const std::size_t maxPoints,
         const std::vector<char>& data)
-    : HierarchyBlock(pool, metadata, id, outEndpoint)
+    : HierarchyBlock(pool, metadata, id, outEndpoint, maxPoints)
     , m_tubes(maxPoints)
     , m_spinners(maxPoints)
 {
@@ -175,9 +177,11 @@ std::vector<char> ContiguousBlock::combine() const
     return data;
 }
 
-void ContiguousBlock::merge(const ContiguousBlock& other)
+void ContiguousBlock::merge(const HierarchyBlock& base)
 {
-    for (std::size_t tube(0); tube < m_tubes.size(); ++tube)
+    auto& other(dynamic_cast<const ContiguousBlock&>(base));
+
+    for (std::size_t tube(0); tube < other.m_tubes.size(); ++tube)
     {
         for (const auto& cell : other.m_tubes[tube])
         {
@@ -192,7 +196,7 @@ SparseBlock::SparseBlock(
         const Id& id,
         const arbiter::Endpoint* outEndpoint,
         const std::vector<char>& data)
-    : HierarchyBlock(pool, metadata, id, outEndpoint)
+    : HierarchyBlock(pool, metadata, id, outEndpoint, 0)
     , m_spinner()
     , m_tubes()
 {
@@ -243,6 +247,22 @@ std::vector<char> SparseBlock::combine() const
     }
 
     return data;
+}
+
+void SparseBlock::merge(const HierarchyBlock& base)
+{
+    auto& other(dynamic_cast<const SparseBlock&>(base));
+
+    for (const auto& tPair : other.m_tubes)
+    {
+        const Id id(m_id + tPair.first);    // Count accepts non-normalized IDs.
+        const HierarchyTube& tube(tPair.second);
+
+        for (const auto& cell : tube)
+        {
+            count(id, cell.first, cell.second->val());
+        }
+    }
 }
 
 } // namespace entwine

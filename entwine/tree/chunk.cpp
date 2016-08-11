@@ -523,8 +523,6 @@ std::set<Id> BaseChunk::merge(BaseChunk& other)
                 }
 
                 write.clear();
-
-                std::cout << "\tCombined at " << d << ": " << id << std::endl;
             }
         }
     }

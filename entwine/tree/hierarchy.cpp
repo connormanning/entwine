@@ -102,7 +102,8 @@ HierarchyCell& Hierarchy::count(const PointState& pointState, const int delta)
                         pointState.chunkId(),
                         m_outpoint.get(),
                         pointState.pointsPerChunk(),
-                        m_endpoint.getBinary(pointState.chunkId().str()));
+                        m_endpoint.getBinary(
+                            pointState.chunkId().str() + m_metadata.postfix()));
             }
             else
             {
@@ -143,7 +144,8 @@ uint64_t Hierarchy::tryGet(const PointState& s) const
                     s.chunkId(),
                     m_outpoint.get(),
                     s.pointsPerChunk(),
-                    m_endpoint.getBinary(s.chunkId().str()));
+                    m_endpoint.getBinary(
+                        s.chunkId().str() + m_metadata.postfix()));
 
             if (!block)
             {
@@ -158,22 +160,38 @@ uint64_t Hierarchy::tryGet(const PointState& s) const
     return 0;
 }
 
-void Hierarchy::save()
+void Hierarchy::save(Pool& pool)
 {
     if (!m_outpoint) return;
 
-    const std::string basePostfix(m_metadata.postfix());
-    m_base.t->save(*m_outpoint, basePostfix);
+    const std::string postfix(m_metadata.postfix());
+    m_base.t->save(*m_outpoint, postfix);
 
-    const std::string coldPostfix(m_metadata.postfix(true));
-    iterateCold([this, &coldPostfix](const Id& chunkId, const Slot& slot)
+    iterateCold([this, &postfix](
+                const Id& chunkId,
+                std::size_t num,
+                const Slot& slot)
     {
-        if (slot.t) slot.t->save(*m_outpoint, coldPostfix);
-    });
+        if (slot.t) slot.t->save(*m_outpoint, postfix);
+    }, &pool);
 
     Json::Value json;
     for (const auto& id : ids()) json.append(id.str());
-    Storage::ensurePut(*m_outpoint, "ids" + basePostfix, toFastString(json));
+    Storage::ensurePut(*m_outpoint, "ids" + postfix, toFastString(json));
+}
+
+void Hierarchy::awakenAll(Pool& pool) const
+{
+    iterateCold([this](const Id chunkId, std::size_t num, const Slot& slot)
+    {
+        slot.t = HierarchyBlock::create(
+                m_pool,
+                m_metadata,
+                chunkId,
+                m_outpoint.get(),
+                m_structure.getInfo(chunkId).pointsPerChunk(),
+                m_endpoint.getBinary(chunkId.str() + m_metadata.postfix()));
+    }, &pool);
 }
 
 Hierarchy::QueryResults Hierarchy::query(
@@ -358,23 +376,51 @@ void Hierarchy::maybeTouch(Slots& ids, const PointState& pointState) const
     }
 }
 
+void Hierarchy::merge(const Hierarchy& other, Pool& pool)
+{
+    m_base.t->merge(*other.m_base.t);
+    other.awakenAll(pool);
+
+    other.iterateCold([this, &other](
+                const Id& chunkId,
+                std::size_t chunkNum,
+                const Slot& them)
+    {
+        Slot& slot(getOrCreate(chunkId, chunkNum));
+
+        if (!slot.t)
+        {
+            // No native data here - or it would already have existed from our
+            // awakenAll.
+            slot.t = HierarchyBlock::create(
+                    m_pool,
+                    m_metadata,
+                    chunkId,
+                    m_outpoint.get(),
+                    them.t->maxPoints());
+        }
+
+        slot.t->merge(*them.t);
+        slot.mark = true;
+    }, &pool);
+}
+
 Structure Hierarchy::structure(const Structure& treeStructure)
 {
     static const std::size_t minStartDepth(6);
 
+    const std::size_t startDepth(
+            std::max(minStartDepth, treeStructure.baseDepthBegin()));
+
     const std::size_t nullDepth(0);
-    const std::size_t baseDepth(
-            std::max<std::size_t>(treeStructure.baseDepthEnd(), 10));
+    const std::size_t baseDepth(11);
     const std::size_t coldDepth(0);
-    const std::size_t pointsPerChunk(treeStructure.basePointsPerChunk());
+    const std::size_t pointsPerChunk(treeStructure.basePointsPerChunk() * 4);
     const std::size_t dimensions(treeStructure.dimensions());
     const std::size_t numPointsHint(treeStructure.numPointsHint());
     const bool tubular(treeStructure.tubular());
     const bool dynamicChunks(true);
     const bool prefixIds(false);
-
-    const std::size_t startDepth(
-            std::max(minStartDepth, treeStructure.baseDepthBegin()));
 
     const std::size_t mappedDepth(baseDepth);
 

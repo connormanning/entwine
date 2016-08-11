@@ -161,7 +161,8 @@ void Kernel::convert(std::vector<std::string> args)
     Hierarchy newHierarchy(metadata, topEp, &topEp);
     std::cout << "Converting hierarchy" << std::endl;
     oldHierarchy.insertInto(newHierarchy, metadata);
-    newHierarchy.save();
+    Pool pool(4);
+    newHierarchy.save(pool);
 
     std::cout << "Saved new hierarchy" << std::endl;
     std::cout << "All done" << std::endl;

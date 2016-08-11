@@ -11,6 +11,7 @@
 #include <entwine/tree/builder.hpp>
 #include <entwine/tree/manifest.hpp>
 #include <entwine/tree/merger.hpp>
+#include <entwine/tree/thread-pools.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/unique.hpp>
@@ -106,6 +107,8 @@ void Merger::unsplit()
 
 void Merger::merge()
 {
+    m_builder->hierarchy().awakenAll(m_builder->threadPools().workPool());
+
     const std::size_t total(m_others.size() + 1);
 
     for (const auto id : m_others)
@@ -123,8 +126,6 @@ void Merger::merge()
         if (!current) throw std::runtime_error("Couldn't create subset");
 
         m_builder->merge(*current);
-
-        std::cout << "\tMerge complete." << std::endl;
     }
 
     m_builder->makeWhole();

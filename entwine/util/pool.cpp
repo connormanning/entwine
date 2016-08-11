@@ -150,7 +150,7 @@ void Pool::work()
     }
 }
 
-bool Pool::stop()
+bool Pool::stop() const
 {
     return m_stop.load();
 }

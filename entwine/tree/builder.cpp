@@ -152,7 +152,7 @@ Builder::~Builder()
 
 void Builder::go(std::size_t max)
 {
-    m_hierarchy->awakenAll();
+    m_hierarchy->awakenAll(m_threadPools->workPool());
 
     if (!m_tmpEndpoint)
     {
@@ -356,10 +356,10 @@ void Builder::save(const std::string to)
 
 void Builder::save(const arbiter::Endpoint& ep)
 {
-    m_threadPools->join();
+    m_threadPools->cycle();
 
     std::cout << "Saving hierarchy..." << std::endl;
-    m_hierarchy->save();
+    m_hierarchy->save(m_threadPools->workPool());
 
     std::cout << "Saving registry..." << std::endl;
     m_registry->save(*m_outEndpoint);
@@ -375,9 +375,15 @@ void Builder::merge(Builder& other)
         throw std::runtime_error("Cannot merge non-subset build");
     }
 
+    if (!m_threadPools->clipPool().joined())
+    {
+        m_threadPools->workPool().resize(m_threadPools->size());
+        m_threadPools->clipPool().join();
+    }
+
     m_registry->merge(*other.m_registry);
     m_metadata->merge(*other.m_metadata);
-    m_hierarchy->merge(*other.m_hierarchy);
+    m_hierarchy->merge(*other.m_hierarchy, m_threadPools->workPool());
 }
 
 void Builder::prepareEndpoints()

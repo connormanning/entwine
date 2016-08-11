@@ -31,6 +31,7 @@
 namespace entwine
 {
 
+class Pool;
 class PointState;
 
 class Hierarchy : public Splitter<HierarchyBlock>
@@ -46,7 +47,7 @@ public:
     {
         m_base.t.reset();
 
-        iterateCold([this](const Id& chunkId, const Slot& slot)
+        iterateCold([this](const Id& chunkId, std::size_t num, const Slot& slot)
         {
             // We need to release our pooled block nodes back into our pool
             // so the parent destructor doesn't release them into a stale pool.
@@ -65,29 +66,9 @@ public:
 
     uint64_t tryGet(const PointState& pointState) const;
 
-    void save();
-
-    void awakenAll()
-    {
-        iterateCold([this](const Id& chunkId, const Slot& slot)
-        {
-            slot.t = HierarchyBlock::create(
-                    m_pool,
-                    m_metadata,
-                    chunkId,
-                    m_outpoint.get(),
-                    m_structure.getInfo(chunkId).pointsPerChunk(),
-                    m_endpoint.getBinary(chunkId.str() + m_metadata.postfix()));
-        });
-    }
-
-    void merge(const Hierarchy& other)
-    {
-        dynamic_cast<ContiguousBlock&>(*m_base.t).merge(
-                dynamic_cast<const ContiguousBlock&>(*other.m_base.t));
-
-        Splitter::merge(other.ids());
-    }
+    void save(Pool& pool);
+    void awakenAll(Pool& pool) const;
+    void merge(const Hierarchy& other, Pool& pool);
 
     using Slots = std::set<const Slot*>;
     struct QueryResults
