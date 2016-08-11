@@ -29,6 +29,7 @@ Merger::Merger(
     , m_others()
     , m_threads(threads)
     , m_outerScope(makeUnique<OuterScope>())
+    , m_pos(0)
 {
     m_outerScope->setArbiter(arbiter);
 
@@ -113,6 +114,8 @@ void Merger::merge()
 
     for (const auto id : m_others)
     {
+        m_pos = id + 1;
+
         std::cout << "Merging " << id << " / " << total << std::endl;
 
         auto current(

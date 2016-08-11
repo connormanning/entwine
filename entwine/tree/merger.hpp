@@ -37,6 +37,9 @@ public:
     void merge();   // Join geographically-subsetted builds.
     void save();    // Save results.
 
+    std::size_t index() const { return m_pos; }
+    std::size_t total() const { return m_others.size() + 1; }
+
 private:
     void unsplit(Builder& builder);
 
@@ -45,6 +48,8 @@ private:
     std::vector<std::size_t> m_others;
     std::size_t m_threads;
     std::unique_ptr<OuterScope> m_outerScope;
+
+    std::size_t m_pos;
 };
 
 } // namespace entwine

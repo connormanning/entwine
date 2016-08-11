@@ -117,6 +117,7 @@ protected:
     template<typename Op>
     void iterateCold(Op op, Pool* pool = nullptr) const
     {
+        pool = nullptr;
         auto call([&op, pool](const Id& id, std::size_t n, const Slot& slot)
         {
             if (pool) pool->add([&op, id, n, &slot]() { op(id, n, slot); });

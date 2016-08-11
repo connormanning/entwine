@@ -423,10 +423,7 @@ Structure Hierarchy::structure(const Structure& treeStructure)
     const bool prefixIds(false);
 
     const std::size_t mappedDepth(baseDepth);
-
-    const std::size_t sparseDepth(
-        treeStructure.mappedDepthBegin() > startDepth ?
-            treeStructure.mappedDepthBegin() - startDepth : 0);
+    const std::size_t sparseDepth(baseDepth);
 
     return Structure(
             nullDepth,

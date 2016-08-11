@@ -185,7 +185,7 @@ void ContiguousBlock::merge(const HierarchyBlock& base)
     {
         for (const auto& cell : other.m_tubes[tube])
         {
-            count(tube, cell.first, cell.second->val());
+            count(m_id + tube, cell.first, cell.second->val());
         }
     }
 }
