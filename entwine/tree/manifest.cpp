@@ -189,6 +189,17 @@ Manifest::Manifest(const Json::Value& json)
     , m_split(json.isMember("split") ? new Split(json["split"]) : nullptr)
     , m_mutex()
 {
+    if (json.isArray())
+    {
+        m_paths.reserve(json.size());
+        for (std::size_t i(0); i < json.size(); ++i)
+        {
+            m_paths.emplace_back(json[Json::ArrayIndex(i)].asString());
+        }
+
+        return;
+    }
+
     const Json::Value& fileInfo(json["fileInfo"]);
     if (fileInfo.isArray() && fileInfo.size()) m_paths.reserve(fileInfo.size());
 

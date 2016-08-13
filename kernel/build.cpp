@@ -428,13 +428,7 @@ void Kernel::build(std::vector<std::string> args)
 
     auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(arbiterConfig));
 
-    std::unique_ptr<Manifest> startManifest(
-            ConfigParser::getManifest(json, *arbiter));
-
-    if (split) startManifest->split(split->begin(), split->end());
-
-    std::unique_ptr<Builder> builder(
-            ConfigParser::getBuilder(json, arbiter, std::move(startManifest)));
+    std::unique_ptr<Builder> builder(ConfigParser::getBuilder(json, arbiter));
 
     if (builder->isContinuation())
     {

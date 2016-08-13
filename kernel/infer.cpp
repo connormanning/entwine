@@ -265,13 +265,22 @@ void Kernel::infer(std::vector<std::string> args)
     if (output.size())
     {
         std::cout << "Writing details to " << output << "..." << std::endl;
-        arbiter->put(
-                output,
-                inference.manifest().toInferenceJson().toStyledString());
+
+        Json::Value json;
+        json["manifest"] = inference.manifest().toInferenceJson();
+        json["schema"] = inference.schema().toJson();
+        json["bounds"] = inference.bounds().toJson();
+        json["numPoints"] = Json::UInt64(inference.numPoints());
+
+        if (reprojection) json["reproject"] = reprojection->toJson();
+
+        arbiter->put(output, json.toStyledString());
     }
 
     std::cout << "Schema: " << inference.schema() << std::endl;
     std::cout << "Bounds: " << inference.bounds() << std::endl;
     std::cout << "Points: " << inference.numPoints() << std::endl;
+    std::cout << "Reprojection: " <<
+        (reprojection ? *reprojection : "(none)") << std::endl;
 }
 
