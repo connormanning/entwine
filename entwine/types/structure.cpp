@@ -30,6 +30,11 @@ ChunkInfo::ChunkInfo(const Structure& structure, const Id& index)
     , m_pointsPerChunk(0)
     , m_chunkNum(0)
 {
+    if (m_index < m_structure.coldIndexBegin())
+    {
+        throw std::runtime_error("Depth too low for chunk-info");
+    }
+
     const Id levelIndex(calcLevelIndex(m_structure.dimensions(), m_depth));
     const std::size_t basePointsPerChunk(m_structure.basePointsPerChunk());
 

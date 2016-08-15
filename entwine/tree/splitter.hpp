@@ -135,6 +135,9 @@ public:
         if (pool) pool->cycle();
     }
 
+    Slot& base() { return m_base; }
+    const Slot& base() const { return m_base; }
+
 protected:
     void merge(const std::set<Id>& s)
     {

@@ -65,10 +65,14 @@ public:
     }
 
     HierarchyCell& count(const PointState& state, int delta);
+    HierarchyCell& count(
+            const ChunkInfo& chunkInfo,
+            std::size_t tick,
+            int delta);
 
     uint64_t tryGet(const PointState& pointState) const;
 
-    void save(Pool& pool);
+    void save();
     void awakenAll(Pool& pool) const;
     void merge(Hierarchy& other, Pool& pool);
 

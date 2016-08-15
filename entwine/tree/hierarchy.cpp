@@ -123,6 +123,50 @@ HierarchyCell& Hierarchy::count(const PointState& pointState, const int delta)
     }
 }
 
+HierarchyCell& Hierarchy::count(
+        const ChunkInfo& chunkInfo,
+        const std::size_t tick,
+        const int delta)
+{
+    if (m_structure.isWithinBase(chunkInfo.depth()))
+    {
+        return m_base.t->count(chunkInfo.index(), tick, delta);
+    }
+    else
+    {
+        auto& slot(getOrCreate(chunkInfo.chunkId(), chunkInfo.chunkNum()));
+        std::unique_ptr<HierarchyBlock>& block(slot.t);
+
+        SpinGuard lock(slot.spinner);
+        if (!block)
+        {
+            if (slot.mark)
+            {
+                block = HierarchyBlock::create(
+                        m_pool,
+                        m_metadata,
+                        chunkInfo.chunkId(),
+                        m_outpoint.get(),
+                        chunkInfo.pointsPerChunk(),
+                        m_endpoint.getBinary(
+                            chunkInfo.chunkId().str() + m_metadata.postfix()));
+            }
+            else
+            {
+                slot.mark = true;
+                block = HierarchyBlock::create(
+                        m_pool,
+                        m_metadata,
+                        chunkInfo.chunkId(),
+                        m_outpoint.get(),
+                        chunkInfo.pointsPerChunk());
+            }
+        }
+
+        return block->count(chunkInfo.index(), tick, delta);
+    }
+}
+
 uint64_t Hierarchy::tryGet(const PointState& s) const
 {
     if (const Slot* slotPtr = tryGet(s.chunkId(), s.chunkNum(), s.depth()))
@@ -162,9 +206,11 @@ uint64_t Hierarchy::tryGet(const PointState& s) const
     return 0;
 }
 
-void Hierarchy::save(Pool& pool)
+void Hierarchy::save()
 {
     if (!m_outpoint) return;
+
+    std::cout << "Saving to " << m_outpoint->prefixedRoot() << std::endl;
 
     const std::string topPostfix(m_metadata.postfix());
     m_base.t->save(*m_outpoint, topPostfix);
@@ -176,7 +222,7 @@ void Hierarchy::save(Pool& pool)
                 const Slot& slot)
     {
         if (slot.t) slot.t->save(*m_outpoint, coldPostfix);
-    }, &pool);
+    });
 
     Json::Value json;
     for (const auto& id : ids()) json.append(id.str());

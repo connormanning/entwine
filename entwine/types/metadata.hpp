@@ -78,6 +78,8 @@ public:
     std::string postfix(bool isColdChunk = false) const;
     void makeWhole();
 
+    Json::Value toJson() const;
+
 private:
     // These are aggregated as the Builder runs.
     Manifest& manifest() { return *m_manifest; }

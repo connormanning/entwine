@@ -55,6 +55,7 @@ public:
     static std::size_t logN(std::size_t val, std::size_t n);
     static std::size_t isPerfectLogN(std::size_t val, std::size_t n);
 
+    const Id& index()               const { return m_index; }
     std::size_t depth()             const { return m_depth; }
     const Id&   chunkId()           const { return m_chunkId; }
     const Id&   chunkOffset()       const { return m_chunkOffset; }

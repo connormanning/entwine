@@ -133,7 +133,7 @@ Metadata::Metadata(const Metadata& other)
 
 Metadata::~Metadata() { }
 
-void Metadata::save(const arbiter::Endpoint& endpoint) const
+Json::Value Metadata::toJson() const
 {
     Json::Value json;
 
@@ -152,6 +152,12 @@ void Metadata::save(const arbiter::Endpoint& endpoint) const
         for (const auto& e : m_errors) json["errors"].append(e);
     }
 
+    return json;
+}
+
+void Metadata::save(const arbiter::Endpoint& endpoint) const
+{
+    const auto json(toJson());
     const auto pf(postfix());
     Storage::ensurePut(endpoint, "entwine" + pf, json.toStyledString());
 

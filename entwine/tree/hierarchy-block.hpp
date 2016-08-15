@@ -187,12 +187,13 @@ public:
         }
     }
 
+    const std::vector<HierarchyTube>& tubes() const { return m_tubes; }
+
 private:
     virtual std::vector<char> combine() override;
 
     bool empty() const;
     std::vector<HierarchyTube>& tubes() { return m_tubes; }
-    const std::vector<HierarchyTube>& tubes() const { return m_tubes; }
 
     std::vector<HierarchyTube> m_tubes;
     std::vector<SpinLock> m_spinners;
@@ -231,6 +232,9 @@ public:
     }
 
     std::set<Id> merge(BaseBlock& other);
+
+    std::vector<ContiguousBlock>& blocks() { return m_blocks; }
+    const std::vector<ContiguousBlock>& blocks() const { return m_blocks; }
 
 private:
     virtual std::vector<char> combine() override;

@@ -363,7 +363,7 @@ void Builder::save(const arbiter::Endpoint& ep)
     m_threadPools->cycle();
 
     std::cout << "Saving hierarchy..." << std::endl;
-    m_hierarchy->save(m_threadPools->workPool());
+    m_hierarchy->save();
 
     std::cout << "Saving registry..." << std::endl;
     m_registry->save(*m_outEndpoint);
