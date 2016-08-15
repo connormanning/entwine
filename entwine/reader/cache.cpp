@@ -293,14 +293,17 @@ void Cache::markHierarchy(
         std::cout << "Erasing " << (slots.size() - m_maxChunks) << std::endl;
     }
 
-    while (slots.size() > m_maxChunks)
+    while (order.size() > m_maxChunks)
     {
         const Hierarchy::Slot* s(order.back());
         order.pop_back();
 
         SpinGuard spinLock(s->spinner);
         s->t.reset();
+        slots.erase(s);
     }
+
+    assert(order.size() == slots.size());
 }
 
 } // namespace entwine

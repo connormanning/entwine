@@ -280,7 +280,9 @@ void Kernel::infer(std::vector<std::string> args)
     std::cout << "Schema: " << inference.schema() << std::endl;
     std::cout << "Bounds: " << inference.bounds() << std::endl;
     std::cout << "Points: " << inference.numPoints() << std::endl;
-    std::cout << "Reprojection: " <<
-        (reprojection ? *reprojection : "(none)") << std::endl;
+    if (reprojection)
+    {
+        std::cout << "Reprojection: " << *reprojection << std::endl;
+    }
 }
 

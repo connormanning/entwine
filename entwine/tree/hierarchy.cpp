@@ -13,6 +13,7 @@
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/cold.hpp>
 #include <entwine/tree/heuristics.hpp>
+#include <entwine/types/subset.hpp>
 #include <entwine/util/storage.hpp>
 #include <entwine/util/unique.hpp>
 
@@ -25,12 +26,13 @@ namespace
 }
 
 Hierarchy::Hierarchy(
+        HierarchyCell::Pool& pool,
         const Metadata& metadata,
         const arbiter::Endpoint& ep,
         const arbiter::Endpoint* out,
         const bool exists)
     : Splitter(metadata.hierarchyStructure())
-    , m_pool(heuristics::poolBlockSize)
+    , m_pool(pool)
     , m_metadata(metadata)
     , m_bounds(metadata.bounds())
     , m_structure(metadata.hierarchyStructure())
@@ -164,20 +166,21 @@ void Hierarchy::save(Pool& pool)
 {
     if (!m_outpoint) return;
 
-    const std::string postfix(m_metadata.postfix());
-    m_base.t->save(*m_outpoint, postfix);
+    const std::string topPostfix(m_metadata.postfix());
+    m_base.t->save(*m_outpoint, topPostfix);
 
-    iterateCold([this, &postfix](
+    const std::string coldPostfix(m_metadata.postfix(true));
+    iterateCold([this, &coldPostfix](
                 const Id& chunkId,
                 std::size_t num,
                 const Slot& slot)
     {
-        if (slot.t) slot.t->save(*m_outpoint, postfix);
+        if (slot.t) slot.t->save(*m_outpoint, coldPostfix);
     }, &pool);
 
     Json::Value json;
     for (const auto& id : ids()) json.append(id.str());
-    Storage::ensurePut(*m_outpoint, "ids" + postfix, toFastString(json));
+    Storage::ensurePut(*m_outpoint, "ids" + topPostfix, toFastString(json));
 }
 
 void Hierarchy::awakenAll(Pool& pool) const
@@ -190,7 +193,7 @@ void Hierarchy::awakenAll(Pool& pool) const
                 chunkId,
                 m_outpoint.get(),
                 m_structure.getInfo(chunkId).pointsPerChunk(),
-                m_endpoint.getBinary(chunkId.str() + m_metadata.postfix()));
+                m_endpoint.getBinary(chunkId.str() + m_metadata.postfix(true)));
     }, &pool);
 }
 
@@ -376,54 +379,49 @@ void Hierarchy::maybeTouch(Slots& ids, const PointState& pointState) const
     }
 }
 
-void Hierarchy::merge(const Hierarchy& other, Pool& pool)
+void Hierarchy::merge(Hierarchy& other, Pool& pool)
 {
-    m_base.t->merge(*other.m_base.t);
-    other.awakenAll(pool);
+    Splitter::merge(
+            dynamic_cast<BaseBlock&>(*m_base.t).merge(
+                dynamic_cast<BaseBlock&>(*other.m_base.t)));
 
-    other.iterateCold([this, &other](
-                const Id& chunkId,
-                std::size_t chunkNum,
-                const Slot& them)
-    {
-        Slot& slot(getOrCreate(chunkId, chunkNum));
-
-        if (!slot.t)
-        {
-            // No native data here - or it would already have existed from our
-            // awakenAll.
-            slot.t = HierarchyBlock::create(
-                    m_pool,
-                    m_metadata,
-                    chunkId,
-                    m_outpoint.get(),
-                    them.t->maxPoints());
-        }
-
-        slot.t->merge(*them.t);
-        slot.mark = true;
-    }, &pool);
+    Splitter::merge(other.ids());
 }
 
-Structure Hierarchy::structure(const Structure& treeStructure)
+Structure Hierarchy::structure(
+        const Structure& treeStructure,
+        const Subset* subset)
 {
-    static const std::size_t minStartDepth(6);
+    const std::size_t minStartDepth(6);
+    const std::size_t minBaseDepth(12);
+    const std::size_t pointsPerChunk(treeStructure.basePointsPerChunk());
 
     const std::size_t startDepth(
             std::max(minStartDepth, treeStructure.baseDepthBegin()));
 
     const std::size_t nullDepth(0);
-    const std::size_t baseDepth(11);
+
+    const std::size_t baseDepth(
+            std::max<std::size_t>(
+                minBaseDepth,
+                subset ? subset->minimumBaseDepth(pointsPerChunk) : 0));
+
+    const std::size_t bumpDepth(baseDepth > minBaseDepth ? minBaseDepth : 0);
     const std::size_t coldDepth(0);
-    const std::size_t pointsPerChunk(treeStructure.basePointsPerChunk() * 4);
+
     const std::size_t dimensions(treeStructure.dimensions());
     const std::size_t numPointsHint(treeStructure.numPointsHint());
     const bool tubular(treeStructure.tubular());
     const bool dynamicChunks(true);
     const bool prefixIds(false);
 
-    const std::size_t mappedDepth(baseDepth);
-    const std::size_t sparseDepth(baseDepth);
+    // Aside from the base, every block is mapped.
+    const std::size_t mappedDepth(1);
+
+    const std::size_t sparseDepth(
+            std::ceil(
+                static_cast<float>(treeStructure.sparseDepthBegin()) *
+                heuristics::hierarchySparseFactor));
 
     return Structure(
             nullDepth,
@@ -437,7 +435,8 @@ Structure Hierarchy::structure(const Structure& treeStructure)
             prefixIds,
             mappedDepth,
             startDepth,
-            sparseDepth);
+            sparseDepth,
+            bumpDepth);
 }
 
 } // namespace entwine

@@ -12,10 +12,12 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <set>
 
 #include <entwine/third/splice-pool/splice-pool.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/format-types.hpp>
+#include <entwine/types/structure.hpp>
 #include <entwine/util/spin-lock.hpp>
 
 namespace entwine
@@ -93,8 +95,8 @@ public:
     // Only count must be thread-safe.  Get/save are single-threaded.
     virtual HierarchyCell& count(const Id& id, uint64_t tick, int delta) = 0;
     virtual uint64_t get(const Id& id, uint64_t tick) const = 0;
-    virtual void merge(const HierarchyBlock& other) = 0;
 
+    const Id& id() const { return m_id; }
     const Id& maxPoints() const { return m_maxPoints; }
 
 protected:
@@ -108,7 +110,9 @@ protected:
                 reinterpret_cast<const char*>(&val) + sizeof(val));
     }
 
-    virtual std::vector<char> combine() const = 0;
+    Id endId() const { return m_id + m_maxPoints; }
+
+    virtual std::vector<char> combine() = 0;
 
     HierarchyCell::Pool& m_pool;
     const Metadata& m_metadata;
@@ -119,6 +123,8 @@ protected:
 
 class ContiguousBlock : public HierarchyBlock
 {
+    friend class BaseBlock;
+
 public:
     using HierarchyBlock::get;
 
@@ -141,11 +147,15 @@ public:
             std::size_t maxPoints,
             const std::vector<char>& data);
 
+    ContiguousBlock(ContiguousBlock&& other) = default;
+
     virtual HierarchyCell& count(
             const Id& global,
             uint64_t tick,
             int delta) override
     {
+        assert(global >= m_id && global < m_id + m_maxPoints);
+
         const std::size_t id(normalize(global).getSimple());
 
         SpinGuard lock(m_spinners.at(id));
@@ -166,13 +176,69 @@ public:
         else return 0;
     }
 
-    virtual void merge(const HierarchyBlock& other) override;
+    void merge(const ContiguousBlock& other)
+    {
+        for (std::size_t tube(0); tube < other.m_tubes.size(); ++tube)
+        {
+            for (const auto& cell : other.m_tubes[tube])
+            {
+                count(other.id() + tube, cell.first, cell.second->val());
+            }
+        }
+    }
 
 private:
-    virtual std::vector<char> combine() const override;
+    virtual std::vector<char> combine() override;
+
+    bool empty() const;
+    std::vector<HierarchyTube>& tubes() { return m_tubes; }
+    const std::vector<HierarchyTube>& tubes() const { return m_tubes; }
 
     std::vector<HierarchyTube> m_tubes;
     std::vector<SpinLock> m_spinners;
+};
+
+
+class BaseBlock : public HierarchyBlock
+{
+public:
+    using HierarchyBlock::get;
+
+    BaseBlock(
+            HierarchyCell::Pool& pool,
+            const Metadata& metadata,
+            const arbiter::Endpoint* outEndpoint);
+
+    BaseBlock(
+            HierarchyCell::Pool& pool,
+            const Metadata& metadata,
+            const arbiter::Endpoint* outEndpoint,
+            const std::vector<char>& data);
+
+    virtual HierarchyCell& count(
+            const Id& id,
+            uint64_t tick,
+            int delta) override
+    {
+        const std::size_t depth(ChunkInfo::calcDepth(id.getSimple()));
+        return m_blocks.at(depth).count(id, tick, delta);
+    }
+
+    virtual uint64_t get(const Id& id, uint64_t tick) const override
+    {
+        const std::size_t depth(ChunkInfo::calcDepth(id.getSimple()));
+        return m_blocks.at(depth).get(id, tick);
+    }
+
+    std::set<Id> merge(BaseBlock& other);
+
+private:
+    virtual std::vector<char> combine() override;
+
+    void makeWritable();
+
+    std::vector<ContiguousBlock> m_blocks;
+    std::vector<std::vector<ContiguousBlock>> m_writes;
 };
 
 class SparseBlock : public HierarchyBlock
@@ -184,8 +250,9 @@ public:
             HierarchyCell::Pool& pool,
             const Metadata& metadata,
             const Id& id,
-            const arbiter::Endpoint* outEndpoint)
-        : HierarchyBlock(pool, metadata, id, outEndpoint, 0)
+            const arbiter::Endpoint* outEndpoint,
+            const Id& maxPoints)
+        : HierarchyBlock(pool, metadata, id, outEndpoint, maxPoints)
         , m_spinner()
         , m_tubes()
     { }
@@ -195,6 +262,7 @@ public:
             const Metadata& metadata,
             const Id& id,
             const arbiter::Endpoint* outEndpoint,
+            const Id& maxPoints,
             const std::vector<char>& data);
 
     virtual HierarchyCell& count(
@@ -202,6 +270,8 @@ public:
             uint64_t tick,
             int delta) override
     {
+        assert(id >= m_id && id < m_id + m_maxPoints);
+
         SpinGuard lock(m_spinner);
         auto& tube(m_tubes[normalize(id)]);
         auto it(tube.find(tick));
@@ -228,10 +298,10 @@ public:
         return 0;
     }
 
-    virtual void merge(const HierarchyBlock& other) override;
+    const std::map<Id, HierarchyTube>& tubes() const { return m_tubes; }
 
 private:
-    virtual std::vector<char> combine() const override;
+    virtual std::vector<char> combine() override;
 
     SpinLock m_spinner;
     std::map<Id, HierarchyTube> m_tubes;

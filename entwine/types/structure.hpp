@@ -15,6 +15,7 @@
 
 #include <entwine/third/json/json.hpp>
 #include <entwine/types/point-pool.hpp>
+#include <entwine/types/defs.hpp>
 
 namespace entwine
 {
@@ -24,10 +25,20 @@ class Subset;
 
 class ChunkInfo
 {
+    static std::size_t log2(std::size_t val) { return std::log2(val); }
+
 public:
     ChunkInfo(const Structure& structure, const Id& index);
 
-    static std::size_t calcDepth(std::size_t factor, const Id& index);
+    static std::size_t calcDepth(std::size_t factor, const Id& index)
+    {
+        return Id::log2(index * (factor - 1) + 1) / log2(factor);
+    }
+
+    static std::size_t calcDepth(std::size_t index)
+    {
+        return log2(index * 3 + 1) / 2;
+    }
 
     static Id calcLevelIndex(
             std::size_t dimensions,
@@ -205,7 +216,31 @@ public:
         m_unbump = true;
     }
 
+    void clearStart()
+    {
+        m_startDepth = 0;
+    }
+
 private:
+    bool m_tubular;
+    bool m_dynamicChunks;
+    bool m_discardDuplicates;
+    bool m_prefixIds;
+    bool m_unbump;
+
+    std::size_t m_dimensions;
+    std::size_t m_factor;
+    std::size_t m_numPointsHint;
+
+    std::size_t m_maxChunksPerDepth;
+
+    std::size_t m_pointsPerChunk;
+
+    // Chunk ID that spans the full bounds.  May not be an actual chunk since
+    // it may reside in the base branch.
+    std::size_t m_nominalChunkDepth;
+    std::size_t m_nominalChunkIndex;
+
     // Redundant values (since the beginning of one level is equal to the end
     // of the previous level) help to maintain a logical distinction between
     // layers.
@@ -228,25 +263,6 @@ private:
     Id m_coldIndexEnd;
     Id m_sparseIndexBegin;
     Id m_mappedIndexBegin;
-
-    bool m_tubular;
-    bool m_dynamicChunks;
-    bool m_discardDuplicates;
-    bool m_prefixIds;
-    bool m_unbump;
-
-    std::size_t m_dimensions;
-    std::size_t m_factor;
-    std::size_t m_numPointsHint;
-
-    std::size_t m_maxChunksPerDepth;
-
-    std::size_t m_pointsPerChunk;
-
-    // Chunk ID that spans the full bounds.  May not be an actual chunk since
-    // it may reside in the base branch.
-    std::size_t m_nominalChunkDepth;
-    std::size_t m_nominalChunkIndex;
 };
 
 } // namespace entwine

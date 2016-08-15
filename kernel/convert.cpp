@@ -12,6 +12,7 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/old-hierarchy.hpp>
+#include <entwine/tree/hierarchy.hpp>
 
 using namespace entwine;
 
@@ -34,6 +35,8 @@ namespace
             "\t\t-recover\n"
             "\t\t\tUndo a convert, restoring initial backup data\n";
     }
+
+    HierarchyCell::Pool pool;
 }
 
 void Kernel::convert(std::vector<std::string> args)
@@ -158,7 +161,7 @@ void Kernel::convert(std::vector<std::string> args)
     metadata.save(topEp);
     std::cout << "Saved new metadata" << std::endl;
 
-    Hierarchy newHierarchy(metadata, topEp, &topEp);
+    Hierarchy newHierarchy(pool, metadata, topEp, &topEp);
     std::cout << "Converting hierarchy" << std::endl;
     oldHierarchy.insertInto(newHierarchy, metadata);
     Pool pool(4);

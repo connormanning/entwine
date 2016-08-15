@@ -215,7 +215,7 @@ private:
         return m_chunks.at(climber.depth()).getTube(climber);
     }
 
-    void makeWriteable();
+    void makeWritable();
 
     std::vector<ContiguousChunk> m_chunks;
     Schema m_celledSchema;

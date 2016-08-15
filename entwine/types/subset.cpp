@@ -13,6 +13,7 @@
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/hierarchy.hpp>
 #include <entwine/types/metadata.hpp>
+#include <entwine/types/structure.hpp>
 
 namespace entwine
 {
@@ -122,14 +123,15 @@ void Subset::split(const Bounds& bounds)
 }
 
 std::vector<Subset::Span> Subset::calcSpans(
-        const Metadata& metadata,
-        const std::size_t depthEnd) const
+        const Structure& structure,
+        const Bounds& bounds) const
 {
+    const std::size_t depthEnd(structure.baseDepthEnd());
     std::set<Span> spans;
 
     for (const auto& b : m_boxes)
     {
-        ChunkState c(metadata);
+        ChunkState c(structure, bounds);
         while (c.chunkBounds() != b && c.chunkBounds().contains(b))
         {
             c.climb(b.mid());

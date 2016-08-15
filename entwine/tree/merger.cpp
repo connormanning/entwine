@@ -50,6 +50,7 @@ Merger::Merger(
     }
 
     m_outerScope->setPointPool(m_builder->sharedPointPool());
+    m_outerScope->setHierarchyPool(m_builder->sharedHierarchyPool());
 
     if (!subsetId)
     {
@@ -63,6 +64,8 @@ Merger::Merger(
             }
         }
     }
+
+    std::cout << "Awakened 1 / " << m_others.size() + 1 << std::endl;
 }
 
 Merger::~Merger() { }
@@ -108,15 +111,13 @@ void Merger::unsplit()
 
 void Merger::merge()
 {
-    m_builder->hierarchy().awakenAll(m_builder->threadPools().workPool());
-
     const std::size_t total(m_others.size() + 1);
 
     for (const auto id : m_others)
     {
         m_pos = id + 1;
 
-        std::cout << "Merging " << id << " / " << total << std::endl;
+        std::cout << "Merging " << m_pos << " / " << total << std::endl;
 
         auto current(
                 Builder::create(

@@ -15,6 +15,7 @@
 #include <entwine/types/format.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/structure.hpp>
+#include <entwine/types/subset.hpp>
 #include <entwine/util/compression.hpp>
 #include <entwine/util/storage.hpp>
 #include <entwine/util/unique.hpp>
@@ -46,7 +47,7 @@ HierarchyBlock::HierarchyBlock(
 
 HierarchyBlock::~HierarchyBlock()
 {
-    --chunkCount;
+    if (chunkCount) --chunkCount;
 }
 
 std::unique_ptr<HierarchyBlock> HierarchyBlock::create(
@@ -56,7 +57,11 @@ std::unique_ptr<HierarchyBlock> HierarchyBlock::create(
         const arbiter::Endpoint* outEndpoint,
         const Id& maxPoints)
 {
-    if (id < metadata.hierarchyStructure().sparseIndexBegin())
+    if (!id)
+    {
+        return makeUnique<BaseBlock>(pool, metadata, outEndpoint);
+    }
+    if (id < metadata.hierarchyStructure().mappedIndexBegin())
     {
         return makeUnique<ContiguousBlock>(
                 pool,
@@ -67,7 +72,12 @@ std::unique_ptr<HierarchyBlock> HierarchyBlock::create(
     }
     else
     {
-        return makeUnique<SparseBlock>(pool, metadata, id, outEndpoint);
+        return makeUnique<SparseBlock>(
+                pool,
+                metadata,
+                id,
+                outEndpoint,
+                maxPoints);
     }
 }
 
@@ -88,7 +98,15 @@ std::unique_ptr<HierarchyBlock> HierarchyBlock::create(
         decompressed = Compression::decompressLzma(data);
     }
 
-    if (id < metadata.hierarchyStructure().sparseIndexBegin())
+    if (!id)
+    {
+        return makeUnique<BaseBlock>(
+                pool,
+                metadata,
+                outEndpoint,
+                decompressed ? *decompressed : data);
+    }
+    else if (id < metadata.hierarchyStructure().mappedIndexBegin())
     {
         return makeUnique<ContiguousBlock>(
                 pool,
@@ -105,6 +123,7 @@ std::unique_ptr<HierarchyBlock> HierarchyBlock::create(
                 metadata,
                 id,
                 outEndpoint,
+                maxPoints,
                 decompressed ? *decompressed : data);
     }
 }
@@ -160,7 +179,7 @@ ContiguousBlock::ContiguousBlock(
     }
 }
 
-std::vector<char> ContiguousBlock::combine() const
+std::vector<char> ContiguousBlock::combine()
 {
     std::vector<char> data;
 
@@ -177,17 +196,14 @@ std::vector<char> ContiguousBlock::combine() const
     return data;
 }
 
-void ContiguousBlock::merge(const HierarchyBlock& base)
+bool ContiguousBlock::empty() const
 {
-    auto& other(dynamic_cast<const ContiguousBlock&>(base));
-
-    for (std::size_t tube(0); tube < other.m_tubes.size(); ++tube)
+    for (const auto& tube : m_tubes)
     {
-        for (const auto& cell : other.m_tubes[tube])
-        {
-            count(m_id + tube, cell.first, cell.second->val());
-        }
+        if (!tube.empty()) return false;
     }
+
+    return true;
 }
 
 SparseBlock::SparseBlock(
@@ -195,8 +211,9 @@ SparseBlock::SparseBlock(
         const Metadata& metadata,
         const Id& id,
         const arbiter::Endpoint* outEndpoint,
+        const Id& maxPoints,
         const std::vector<char>& data)
-    : HierarchyBlock(pool, metadata, id, outEndpoint, 0)
+    : HierarchyBlock(pool, metadata, id, outEndpoint, maxPoints)
     , m_spinner()
     , m_tubes()
 {
@@ -228,7 +245,7 @@ SparseBlock::SparseBlock(
     }
 }
 
-std::vector<char> SparseBlock::combine() const
+std::vector<char> SparseBlock::combine()
 {
     std::vector<char> data;
 
@@ -249,18 +266,223 @@ std::vector<char> SparseBlock::combine() const
     return data;
 }
 
-void SparseBlock::merge(const HierarchyBlock& base)
+BaseBlock::BaseBlock(
+        HierarchyCell::Pool& pool,
+        const Metadata& metadata,
+        const arbiter::Endpoint* outEndpoint)
+    : HierarchyBlock(
+            pool,
+            metadata,
+            0,
+            outEndpoint,
+            metadata.hierarchyStructure().baseIndexSpan())
+    , m_blocks()
 {
-    auto& other(dynamic_cast<const SparseBlock&>(base));
+    Structure s(m_metadata.hierarchyStructure());
+    s.clearStart(); // Necessary for calcSpans.
 
-    for (const auto& tPair : other.m_tubes)
+    if (m_metadata.subset())
     {
-        const Id id(m_id + tPair.first);    // Count accepts non-normalized IDs.
-        const HierarchyTube& tube(tPair.second);
+        const std::vector<Subset::Span> spans(
+                m_metadata.subset()->calcSpans(s, m_metadata.bounds()));
 
-        for (const auto& cell : tube)
+        const std::size_t sharedDepth(m_metadata.subset()->minimumNullDepth());
+
+        for (std::size_t d(s.baseDepthBegin()); d < s.baseDepthEnd(); ++d)
         {
-            count(id, cell.first, cell.second->val());
+            const std::size_t index(
+                    d < sharedDepth ?
+                        ChunkInfo::calcLevelIndex(2, d).getSimple() :
+                        spans[d].begin());
+
+            const std::size_t maxPoints(
+                    d < sharedDepth ?
+                        ChunkInfo::pointsAtDepth(2, d).getSimple() :
+                        spans[d].end() - spans[d].begin());
+
+            m_blocks.emplace_back(
+                    pool,
+                    metadata,
+                    index,
+                    outEndpoint,
+                    maxPoints);
+        }
+    }
+    else
+    {
+        for (std::size_t d(s.baseDepthBegin()); d < s.baseDepthEnd(); ++d)
+        {
+            m_blocks.emplace_back(
+                    pool,
+                    metadata,
+                    ChunkInfo::calcLevelIndex(2, d),
+                    outEndpoint,
+                    ChunkInfo::pointsAtDepth(2, d).getSimple());
+        }
+    }
+}
+
+BaseBlock::BaseBlock(
+        HierarchyCell::Pool& pool,
+        const Metadata& metadata,
+        const arbiter::Endpoint* outEndpoint,
+        const std::vector<char>& data)
+    : BaseBlock(pool, metadata, outEndpoint)
+{
+    const char* pos(data.data());
+    const char* end(data.data() + data.size());
+
+    uint64_t tube, tick, cell;
+
+    auto extract([&pos]()
+    {
+        const uint64_t v(*reinterpret_cast<const uint64_t*>(pos));
+        pos += sizeof(uint64_t);
+        return v;
+    });
+
+    const std::size_t factor(m_metadata.hierarchyStructure().factor());
+
+    while (pos < end)
+    {
+        tube = extract();
+        tick = extract();
+        cell = extract();
+
+        const std::size_t depth(ChunkInfo::calcDepth(factor, m_id + tube));
+
+        m_blocks.at(depth).count(m_id + tube, tick, cell);
+    }
+}
+
+std::vector<char> BaseBlock::combine()
+{
+    // Pretty much the same as ContiguousBlock::combine, but normalized
+    // relative to our own ID.
+    std::vector<char> data;
+
+    makeWritable();
+
+    for (const auto& write : m_writes)
+    {
+        for (const auto& block : write)
+        {
+            const auto& tubes(block.tubes());
+
+            for (std::size_t tube(0); tube < tubes.size(); ++tube)
+            {
+                for (const auto& cell : tubes[tube])
+                {
+                    push(data, (block.id() + tube).getSimple());
+                    push(data, cell.first);
+                    push(data, cell.second->val());
+                }
+            }
+        }
+    }
+
+    return data;
+}
+
+// TODO This is pretty much identical to BaseChunk::merge and should
+// probably be moved templatized up into Splitter.
+std::set<Id> BaseBlock::merge(BaseBlock& other)
+{
+    std::set<Id> ids;
+
+    makeWritable();
+
+    const auto& s(m_metadata.hierarchyStructure());
+
+    const std::size_t sharedDepth(
+            m_metadata.subset() ?
+                m_metadata.subset()->minimumNullDepth() : 0);
+
+    for (std::size_t d(s.baseDepthBegin()); d < m_writes.size(); ++d)
+    {
+        std::vector<ContiguousBlock>& write(m_writes[d]);
+        ContiguousBlock& adding(other.m_blocks[d]);
+
+        if (!write.empty())
+        {
+            if (d < sharedDepth)
+            {
+                if (write.size() != 1)
+                {
+                    throw std::runtime_error("Invalid shared depth size");
+                }
+                else if (write.front().id() != adding.id())
+                {
+                    throw std::runtime_error("Invalid shared depth id");
+                }
+                else if (write.front().endId() != adding.endId())
+                {
+                    throw std::runtime_error("Invalid shared depth span");
+                }
+            }
+            else if (write.back().endId() != adding.id())
+            {
+                throw std::runtime_error(
+                        "Hierarchy merges must be performed consecutively");
+            }
+        }
+
+        if (d < sharedDepth) write.front().merge(adding);
+        else write.emplace_back(std::move(adding));
+
+        if (s.bumpDepth() && d >= s.bumpDepth())
+        {
+            const auto span(write.back().endId() - write.front().id());
+
+            if (span == s.basePointsPerChunk())
+            {
+                const Id id(write.front().id());
+
+                SparseBlock block(m_pool, m_metadata, id, m_ep, span);
+
+                for (ContiguousBlock& piece : write)
+                {
+                    for (std::size_t t(0); t < piece.tubes().size(); ++t)
+                    {
+                        for (const auto& c : piece.tubes().at(t))
+                        {
+                            block.count(
+                                    piece.id() + t,
+                                    c.first,
+                                    c.second->val());
+                        }
+                    }
+                }
+
+                if (!block.tubes().empty())
+                {
+                    if (!m_ep)
+                    {
+                        throw std::runtime_error("Missing hierarchy endpoint");
+                    }
+
+                    block.save(*m_ep);
+                    ids.insert(id);
+                }
+
+                write.clear();
+            }
+        }
+    }
+
+    return ids;
+}
+
+void BaseBlock::makeWritable()
+{
+    if (m_writes.empty())
+    {
+        const auto& s(m_metadata.hierarchyStructure());
+        m_writes.resize(s.baseDepthEnd());
+
+        for (std::size_t i(s.baseDepthBegin()); i < m_writes.size(); ++i)
+        {
+            m_writes[i].emplace_back(std::move(m_blocks.at(i)));
         }
     }
 }

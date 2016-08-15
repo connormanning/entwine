@@ -66,7 +66,9 @@ Builder::Builder(
     , m_sequence(makeUnique<Sequence>(*this))
     , m_originId(m_metadata->schema().pdalLayout().findDim("Origin"))
     , m_pointPool(outerScope.getPointPool(m_metadata->schema()))
+    , m_hierarchyPool(outerScope.getHierarchyPool(heuristics::poolBlockSize))
     , m_hierarchy(makeUnique<Hierarchy>(
+                *m_hierarchyPool,
                 *m_metadata,
                 *m_outEndpoint,
                 m_outEndpoint.get(),
@@ -94,7 +96,9 @@ Builder::Builder(
     , m_sequence(makeUnique<Sequence>(*this))
     , m_originId(m_metadata->schema().pdalLayout().findDim("Origin"))
     , m_pointPool(outerScope.getPointPool(m_metadata->schema()))
+    , m_hierarchyPool(outerScope.getHierarchyPool(heuristics::poolBlockSize))
     , m_hierarchy(makeUnique<Hierarchy>(
+                *m_hierarchyPool,
                 *m_metadata,
                 *m_outEndpoint,
                 m_outEndpoint.get(),
@@ -430,6 +434,11 @@ PointPool& Builder::pointPool() const { return *m_pointPool; }
 std::shared_ptr<PointPool> Builder::sharedPointPool() const
 {
     return m_pointPool;
+}
+
+std::shared_ptr<HierarchyCell::Pool> Builder::sharedHierarchyPool() const
+{
+    return m_hierarchyPool;
 }
 
 const arbiter::Endpoint& Builder::outEndpoint() const { return *m_outEndpoint; }

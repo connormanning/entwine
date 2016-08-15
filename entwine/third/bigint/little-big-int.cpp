@@ -624,15 +624,26 @@ std::ostream& operator<<(std::ostream& out, const BigUint& val)
     return out;
 }
 
+BigUint::Block BigUint::log2(const BigUint& in)
+{
+    if (in.trivial()) return std::log2(in.getSimple());
+    return
+        std::log2(in.data().back()) +
+        (in.blockSize() - 1) * BigUint::bitsPerBlock;
+}
+
+BigUint BigUint::sqrt(const BigUint& in)
+{
+    return BigUint(1) << (log2(in) / 2);
+}
+
 BigUint::Block log2(const BigUint& in)
 {
-    if (in.zero()) throw std::runtime_error("log2(0) is undefined");
-    return std::log2(
-            in.data().back()) + (in.blockSize() - 1) * BigUint::bitsPerBlock;
+    return BigUint::log2(in);
 }
 
 BigUint sqrt(const BigUint& in)
 {
-    return BigUint(1) << (log2(in) / 2);
+    return BigUint::sqrt(in);
 }
 

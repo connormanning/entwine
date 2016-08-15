@@ -28,16 +28,15 @@ class ConfigParser
 public:
     static std::unique_ptr<Builder> getBuilder(
             Json::Value json,
-            std::shared_ptr<arbiter::Arbiter> arbiter,
-            std::unique_ptr<Manifest> manifest);
-
-    static std::unique_ptr<Manifest> getManifest(
-            const Json::Value& json,
-            const arbiter::Arbiter& arbiter);
+            std::shared_ptr<arbiter::Arbiter> arbiter);
 
     static std::string directorify(std::string path);
 
 private:
+    static void extractManifest(
+            Json::Value& json,
+            const arbiter::Arbiter& arbiter);
+
     static std::unique_ptr<Builder> tryGetExisting(
             const Json::Value& config,
             const arbiter::Arbiter& arbiter,

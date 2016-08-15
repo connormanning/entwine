@@ -55,9 +55,10 @@ namespace
 
 std::unique_ptr<Builder> ConfigParser::getBuilder(
         Json::Value config,
-        std::shared_ptr<arbiter::Arbiter> arbiter,
-        std::unique_ptr<Manifest> manifest)
+        std::shared_ptr<arbiter::Arbiter> arbiter)
 {
+    extractManifest(config, *arbiter);
+
     const Json::Value& jsonInput(config["input"]);
     const Json::Value& jsonOutput(config["output"]);
     const Json::Value& jsonGeometry(config["geometry"]);
@@ -91,6 +92,9 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     auto schema(makeUnique<Schema>(jsonGeometry["schema"]));
 
     std::size_t numPointsHint(jsonStructure["numPointsHint"].asUInt64());
+
+    auto manifest(makeUnique<Manifest>(config["input"]["manifest"]));
+
     if (!numPointsHint && manifest)
     {
         numPointsHint = std::accumulate(
@@ -189,7 +193,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
     jsonStructure["numPointsHint"] = static_cast<Json::UInt64>(numPointsHint);
     Structure structure(jsonStructure);
-    Structure hierarchyStructure(Hierarchy::structure(structure));
+    Structure hierarchyStructure(Hierarchy::structure(structure, subset.get()));
     const HierarchyCompression hierarchyCompression(
             compress ? HierarchyCompression::Lzma : HierarchyCompression::None);
     Format format(*schema, trustHeaders, compress, hierarchyCompression);
@@ -249,16 +253,22 @@ std::unique_ptr<Builder> ConfigParser::tryGetExisting(
     return builder;
 }
 
-std::unique_ptr<Manifest> ConfigParser::getManifest(
-        const Json::Value& json,
+void ConfigParser::extractManifest(
+        Json::Value& json,
         const arbiter::Arbiter& arbiter)
 {
-    std::unique_ptr<Manifest> manifest;
+    Json::Value& input(json["input"]);
+    Json::Value& jsonManifest(input["manifest"]);
 
-    const Json::Value& input(json["input"]);
-    const Json::Value& jsonManifest(input["manifest"]);
+    const bool isInferencePath(
+            jsonManifest.isString() &&
+            arbiter::Arbiter::getExtension(jsonManifest.asString()) == "eninf");
 
-    if (jsonManifest.isString() || jsonManifest.isArray())
+    bool extractingPaths(
+            (jsonManifest.isString() && !isInferencePath) ||
+            jsonManifest.isArray());
+
+    if (extractingPaths)
     {
         // The input source is a path or array of paths.
         std::vector<std::string> paths;
@@ -281,15 +291,31 @@ std::unique_ptr<Manifest> ConfigParser::getManifest(
             insert(directorify(jsonManifest.asString()));
         }
 
-        manifest.reset(new Manifest(paths));
+        jsonManifest = Json::Value();
+        auto& fileInfo(jsonManifest["fileInfo"]);
+        fileInfo.resize(paths.size());
+        for (std::size_t i(0); i < paths.size(); ++i)
+        {
+            fileInfo[Json::ArrayIndex(i)]["path"] = paths[i];
+        }
     }
-    else if (jsonManifest.isObject())
+    else
     {
-        // The input source is a previously inferred manifest.
-        manifest.reset(new Manifest(jsonManifest));
-    }
+        if (isInferencePath)
+        {
+            const std::string path(jsonManifest.asString());
+            const Json::Value inference(parse(arbiter.get(path)));
 
-    return manifest;
+            jsonManifest = inference["manifest"];
+            json["geometry"]["schema"] = inference["schema"];
+            json["geometry"]["bounds"] = inference["bounds"];
+            json["structure"]["numPointsHint"] = inference["numPoints"];
+            if (inference.isMember("reproject"))
+            {
+                json["reproject"] = inference["reproject"];
+            }
+        }
+    }
 }
 
 std::string ConfigParser::directorify(const std::string rawPath)

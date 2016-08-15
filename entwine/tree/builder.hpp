@@ -19,6 +19,7 @@
 #include <pdal/Dimension.hpp>
 
 #include <entwine/tree/climber.hpp>
+#include <entwine/tree/hierarchy.hpp>
 #include <entwine/tree/manifest.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/outer-scope.hpp>
@@ -106,6 +107,7 @@ public:
 
     PointPool& pointPool() const;
     std::shared_ptr<PointPool> sharedPointPool() const;
+    std::shared_ptr<HierarchyCell::Pool> sharedHierarchyPool() const;
 
     bool isContinuation() const { return m_isContinuation; }
 
@@ -206,6 +208,7 @@ private:
     pdal::Dimension::Id m_originId;
 
     mutable std::shared_ptr<PointPool> m_pointPool;
+    mutable std::shared_ptr<HierarchyCell::Pool> m_hierarchyPool;
 
     std::unique_ptr<Hierarchy> m_hierarchy;
     std::unique_ptr<Registry> m_registry;

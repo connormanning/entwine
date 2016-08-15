@@ -275,7 +275,9 @@ BaseChunk::BaseChunk(const Builder& builder)
     if (m_metadata.subset())
     {
         const std::vector<Subset::Span> spans(
-                m_metadata.subset()->calcSpans(m_metadata, s.baseDepthEnd()));
+                m_metadata.subset()->calcSpans(
+                    m_metadata.structure(),
+                    m_metadata.bounds()));
 
         for (std::size_t d(s.baseDepthBegin()); d < s.baseDepthEnd(); ++d)
         {
@@ -361,7 +363,7 @@ BaseChunk::BaseChunk(const Builder& builder, Unpacker unpacker)
 
 void BaseChunk::save(const arbiter::Endpoint& endpoint)
 {
-    makeWriteable();
+    makeWritable();
 
     Data::PooledStack dataStack(m_pointPool.dataPool());
     Cell::PooledStack cellStack(m_pointPool.cellPool());
@@ -451,7 +453,7 @@ Schema BaseChunk::makeCelled(const Schema& in)
     return Schema(dims);
 }
 
-void BaseChunk::makeWriteable()
+void BaseChunk::makeWritable()
 {
     if (m_writes.empty())
     {
@@ -469,7 +471,7 @@ std::set<Id> BaseChunk::merge(BaseChunk& other)
 {
     std::set<Id> ids;
 
-    makeWriteable();
+    makeWritable();
 
     const auto& s(m_metadata.structure());
 

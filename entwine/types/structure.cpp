@@ -21,11 +21,6 @@
 namespace entwine
 {
 
-namespace
-{
-    std::size_t log2(std::size_t val) { return std::log2(val); }
-}
-
 ChunkInfo::ChunkInfo(const Structure& structure, const Id& index)
     : m_structure(structure)
     , m_index(index)
@@ -80,11 +75,6 @@ ChunkInfo::ChunkInfo(const Structure& structure, const Id& index)
         m_chunkOffset = divMod.second.getSimple();
         m_chunkId = levelIndex + divMod.first * m_pointsPerChunk;
     }
-}
-
-std::size_t ChunkInfo::calcDepth(const std::size_t factor, const Id& index)
-{
-    return log2(index * (factor - 1) + 1) / log2(factor);
 }
 
 Id ChunkInfo::calcLevelIndex(
@@ -155,11 +145,29 @@ Structure::Structure(
         const std::size_t startDepth,
         const std::size_t sparseDepth,
         const std::size_t bumpDepth)
+    // Various.
+    : m_tubular(tubular)
+    , m_dynamicChunks(dynamicChunks)
+    , m_prefixIds(prefixIds)
+    , m_unbump(false)
+    , m_dimensions(dimensions)
+    , m_factor(1ULL << m_dimensions)
+    , m_numPointsHint(std::max<std::size_t>(numPointsHint, 10000000))
+
+    // Chunk-related.
+    , m_pointsPerChunk(pointsPerChunk)
+    , m_nominalChunkDepth(ChunkInfo::logN(m_pointsPerChunk, m_factor))
+    , m_nominalChunkIndex(
+            ChunkInfo::calcLevelIndex(
+                m_dimensions,
+                m_nominalChunkDepth).getSimple())
+
     // Depths.
-    : m_nullDepthBegin(0)
+    , m_nullDepthBegin(0)
     , m_nullDepthEnd(nullDepth)
     , m_baseDepthBegin(m_nullDepthEnd)
-    , m_baseDepthEnd(std::max(m_baseDepthBegin, baseDepth))
+    , m_baseDepthEnd(std::max({
+                m_baseDepthBegin, baseDepth, m_nominalChunkDepth }))
     , m_coldDepthBegin(m_baseDepthEnd)
     , m_coldDepthEnd(coldDepth ? std::max(m_coldDepthBegin, coldDepth) : 0)
     , m_sparseDepthBegin(sparseDepth)
@@ -180,22 +188,6 @@ Structure::Structure(
     , m_mappedIndexBegin(
             ChunkInfo::calcLevelIndex(dimensions, m_mappedDepthBegin))
 
-    // Various.
-    , m_tubular(tubular)
-    , m_dynamicChunks(dynamicChunks)
-    , m_prefixIds(prefixIds)
-    , m_unbump(false)
-    , m_dimensions(dimensions)
-    , m_factor(1ULL << m_dimensions)
-    , m_numPointsHint(std::max<std::size_t>(numPointsHint, 10000000))
-
-    // Chunk-related.
-    , m_pointsPerChunk(pointsPerChunk)
-    , m_nominalChunkDepth(ChunkInfo::logN(m_pointsPerChunk, m_factor))
-    , m_nominalChunkIndex(
-            ChunkInfo::calcLevelIndex(
-                m_dimensions,
-                m_nominalChunkDepth).getSimple())
 {
     if (m_baseDepthEnd < 4)
     {

@@ -33,11 +33,13 @@ namespace entwine
 
 class Pool;
 class PointState;
+class Subset;
 
 class Hierarchy : public Splitter<HierarchyBlock>
 {
 public:
     Hierarchy(
+            HierarchyCell::Pool& pool,
             const Metadata& metadata,
             const arbiter::Endpoint& top,
             const arbiter::Endpoint* topOut,
@@ -68,7 +70,7 @@ public:
 
     void save(Pool& pool);
     void awakenAll(Pool& pool) const;
-    void merge(const Hierarchy& other, Pool& pool);
+    void merge(Hierarchy& other, Pool& pool);
 
     using Slots = std::set<const Slot*>;
     struct QueryResults
@@ -87,7 +89,9 @@ public:
             std::size_t depthBegin,
             std::size_t depthEnd);
 
-    static Structure structure(const Structure& treeStructure);
+    static Structure structure(
+            const Structure& treeStructure,
+            const Subset* subset = nullptr);
 
 private:
     class Query
@@ -134,7 +138,7 @@ private:
 
     void maybeTouch(Slots& ids, const PointState& pointState) const;
 
-    mutable HierarchyCell::Pool m_pool;
+    HierarchyCell::Pool& m_pool;
     const Metadata& m_metadata;
     const Bounds& m_bounds;
     const Structure& m_structure;

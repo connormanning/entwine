@@ -25,6 +25,7 @@ namespace entwine
 {
 
 class Metadata;
+class Structure;
 
 class Subset
 {
@@ -41,7 +42,12 @@ public:
     std::string postfix() const { return "-" + std::to_string(m_id); }
     bool primary() const { return !m_id; }
 
+    // The minimum null depth represents the depth at which *nodes* first
+    // diverge completely.
     std::size_t minimumNullDepth() const { return m_minimumNullDepth; }
+
+    // The minimum base depth represents the depth at which *chunks* first
+    // diverge completely.
     std::size_t minimumBaseDepth(std::size_t pointsPerChunk) const;
 
     class Span
@@ -84,8 +90,8 @@ public:
     };
 
     std::vector<Span> calcSpans(
-            const Metadata& metadata,
-            std::size_t depthEnd) const;
+            const Structure& structure,
+            const Bounds& bounds) const;
 
 private:
     void split(const Bounds& fullBounds);

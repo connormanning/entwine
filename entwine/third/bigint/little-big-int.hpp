@@ -207,6 +207,7 @@ public:
 
     // True if this object represents zero.
     bool zero() const { return trivial() && !m_val.front(); }
+    explicit operator bool() const { return !zero(); }
 
     // True if this object is of size one, so simple integer math may be used
     // for some operations.
@@ -254,6 +255,9 @@ public:
     friend BigUint& operator<<=(BigUint& lhs, Block rhs);
     friend bool operator<(const BigUint& lhs, const BigUint& rhs);
     friend BigUint operator<<(const BigUint&, Block);
+
+    static Block log2(const BigUint& val);
+    static BigUint sqrt(const BigUint& in);
 
 private:
     BigUint(std::vector<Block> blocks)

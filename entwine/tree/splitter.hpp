@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <algorithm>
+#include <cassert>
 #include <memory>
 #include <mutex>
 
@@ -35,6 +37,8 @@ public:
         mutable SpinLock spinner;
         mutable UniqueT t;
     };
+
+    using SlotType = Splitter<T>::Slot;
 
     Splitter(const Structure& structure)
         : m_structure(structure)
@@ -108,12 +112,6 @@ public:
         return results;
     }
 
-protected:
-    void merge(const std::set<Id>& s)
-    {
-        m_faux.insert(s.begin(), s.end());
-    }
-
     template<typename Op>
     void iterateCold(Op op, Pool* pool = nullptr) const
     {
@@ -135,6 +133,17 @@ protected:
         for (const auto& p : m_slow) call(p.first, m_fast.size(), p.second);
 
         if (pool) pool->cycle();
+    }
+
+protected:
+    void merge(const std::set<Id>& s)
+    {
+        assert(std::none_of(s.begin(), s.end(), [this](const Id& id)
+        {
+            return ids().count(id);
+        }));
+
+        m_faux.insert(s.begin(), s.end());
     }
 
     std::size_t getNumFastTrackers(const Structure& structure)
