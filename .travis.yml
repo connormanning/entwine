@@ -2,15 +2,16 @@ language: cpp
 sudo: required
 services: docker
 compiler:
+- g++
 - clang
 before_install: "./scripts/ci/before_install.sh"
 script: docker run -v $TRAVIS_BUILD_DIR:/entwine -t connormanning/pdal:entwine-pin
   /bin/sh -c "/entwine/scripts/ci/build.sh"
 after_success:
 - echo "secure travis:" "$TRAVIS_SECURE_ENV_VARS"
-- sh -c 'if test "$TRAVIS_SECURE_ENV_VARS" = "true" -a "$TRAVIS_BRANCH" = "travis-configuration" -a "$CXX" = "g++";
-  then echo "publish website"; ./scripts/ci/build_docs.sh; ./scripts/ci/deploy_website.sh $TRAVIS_BUILD_DIR/doc/build; fi'
-
+- sh -c 'if test "$TRAVIS_SECURE_ENV_VARS" = "true" -a "$TRAVIS_BRANCH" = "travis-configuration"
+  -a "$CXX" = "g++"; then echo "publish website"; ./scripts/ci/build_docs.sh; ./scripts/ci/deploy_website.sh
+  $TRAVIS_BUILD_DIR/doc/build; fi'
 notifications:
   on_success: always
   on_failure: always
@@ -18,10 +19,5 @@ notifications:
     secure: qAzPWkpLugFrGFDLQzoYnrziR8RS+24ILcwuXJha2blTqBi5/TdbfafnUMlaBwvaIxDiz0je4LOjTT7tJ7HYfJRW6YnXDPJ4uy1vHwxtVCEmIU+JoWvkTwWffAH0j49davyHlNwUh0ogM3iL5GU15oQCHMpZnElaEw1QntF/liYyIswYdlg1kTjhqwaPt9Q1nw46Yfb+i9iCFrARQ+gdOOSLZ6ZjJYYP9dNH+Z0qWQBDT33Trmh8W8V7flzCKLHdWH2dBJ3RxG1QMe3Gljxkc0OOub+o5ziZyGCGf8ILk9cIGjysgXd8j6WpU5mJzj4DKc2hgRUiHHepOFwlwOIO+NBBWa4tqSm+7WFGya5jDvIZj4fJNwUPuU3i7T9lUlYIMVMmGAiDB8VfM3iRuQwY2rcToNXvYFrVRveMImSkOOtCyN6BHMm925jyqk99/pcjasjADSWuSNLaD7sXuZB+qgay7ddJ3jjG231INvu6M/qO7SWOKSG20Gh2F+mbWqzAkC5nAo5eHYapk5uFpmD51kUcXN59mWaaBmuoOckxPwEEgmjANpoO9SjWPsPTfindMySUrqD8M7+M9bUB0o31PIvP8p4D3lTI262PBrJQX3wwgQacaP/lB35DAo/58jnKGJXV3yydarysFWO35urAdT5tFL9JftIF1diEj7aqSPI=
 env:
   global:
-  - secure: PGOlilcDrTxc7vAlM4ZSDAjxklbKJvI6h3VuUh3ENroYI1rADb1hU+xWIFig1iQWMwze6Lj8AHb793PqLkBVdaEmQftdheLrhe/ax6roZozpv56hCn1majSk1fFB8QE0gQF47XNcn0UqqXcMNi9GkL7XsPFg5Udt4PraP1upxWd96yGkzfab4jDDV/kShh9oTSwtaxYvoMi4zH46wteImep1BzbCNKPvv8zLhrPpDCEaD3nYDa+SVSOeEq7HskFkvgAZX45TTlpMzWolPoVmzrc4uRn+G/P4jWFj2/MzLPo5WZRv/CvhX+3FEPJJCyr3dw9LOPbuPNM7kIvFpgreTVqHODC97KZgKd8h2ZycrqZKDNv3n5i6faB7uKCpwpiYFhZk/F7ZyADPkPq0MWTL+czOGC5CXll7Mgicl4Hh5vvHIq0uHd396uWNasFM15UsRGjNXAjaBG/JuQidVmkJVgYX+8mT9D/+7aEAmjBH2gVr3Db4XAmm4dq8XxeDZQffCY5X9GOo+fZAPRLMgiy2LkOwKDnTT8Yuw2ElWa/HgZoYz8OtQjoLrE5zPhyCdKeGOg0bp0tbcnwUAUdE8/XZcDf7stOWQpRXLqMCgO8dThIjxjBf212naq0gdcU9nRyFHtlO1GrPNgfGsw4w9DWD7KAC9oO+JWPUSnUqxq7fiq4=
-  - secure: IcpaYDCNiaRps9wLMrgEIdFrvPvRBCDtNRT5ZUkQ2tg/d6/P7CoFQHamC/u8cyi1MdMu0ddXO9ZYLSERbeZkPx1hhS+nO1GmaDJsc4rYNM2rp0yHtZSWp9yYtymeSdZIXdDcSzhi/Pi+I7ycSGaxVUK3A/8O2GVP1P8FJMdKPU3xC0DvhmLnbUPZdPcPQgBjuLKbKGM5mJw5cEFaqdqLJib5QxkTa8KaepzKFD1tWxh0nmCoEQZsWEZfF/n0qKoG4BZ+BO61uCQD7djwJx5LJ/lnJh1OXfTLKwjiafmWsbyDKrRLn/x4uE/8GZup/ffggTUjL+Am8dw2iHWfWsM7BRZ0ABlPazn9/Mho6ZwV486UhHoxZtHCl50pTBRe6TRU7S3OT1iCidVU7BHDeot2JJRFG/qa5QEgFhjtSSKUE2xlNDxGKZoeEIOIs2Z1w2mycMLsP0UcbHOnhgYaIs7/EbUYQZccKcfJxj0Gj6VAxMbskg9MrXKJjeZKC17ZZ58rsu2aZ3qiuJkuYW6nGmewiW7D3vVMvUbV5mJpbFGgikLWDpA1IXuHP4+w0tRLM5D9ZfOhg2qSFQ+HVlsULSpA/+Eh94owKVdfpk+eBoJgOYju1itq9WBO9vIY+GPkCTfSoPlV3DBrUXSwjPd2MJ/qmiB+6HTcMa9DJoBUtyefe+8=
-
-compiler:
-
-  - g++
-  - clang
+  - secure: g7/AdX80RHTZ39IHszdfQiyodW1zUMkkQXNewhbGnNkVOVs2hh6Y/cTbWqz87rus1T6/G5QW/GEmQlPayGtRNmg+03KB7NzAqrF09+lokJ5VBbBkYu3EOtzW3EBLryrjELtCvjNbtfGAWZ7jlilECWzkDK0LeqcsvciAThJoMRt6EsNernjACSu9NLkdhRxVV+zB+wPvAKUSsfCApB2SBNH4A+2p0S7vIN636+yS3m3WyLkvw+8fsbJki01ewbmT8Glzpybc/han7QlX4PCvrq64iS3CcoZ4d4Olzn/AK4T+9gfTTdZ0zlHpzqmqgGQuFmMoA4qGLofYakyNmz2Mr2bFbogtujlBb/LK63jsUPZtnRax8U11mAVaUKczuAm1k5sNEJoCZqRHgkipGdq4BVGtg5veSoy73zXSKufU9IkYj6eETb7Zn9srs0D5+aC0+UDaBvVzPEiBEsYMGudCujjld1Ue54UcKVFgLOZIuD2acExtp/j10chdK2v0XUrQZxbW/oLInLGFpSSXhaA/ntb1lMUJyex7MzlEFxzcJR8MI1e/Ih+duBesWJQdJ8qIW0SDYQVsbCoTjEHcAfixsGoibr40pWV8rWKxfkAdwpBBZAXIYUmxEUxH87XqrGQq6i/CYHycANRbZrhxHXewT++qzjtWe0ObRS0qwNYYTg0=
+  - secure: fn/XVtGIKFVyFZtmUNEDxT8AOoV2mzbLdhVv0s74tlNjop+DOjkIx716KyR3xUxQxeMnT/RJmt9ewowuogrD9eTc7+CNh1uW3rAyxQsZ9ASYoVavIElvqMsIJoiycrLdS8gHuiBSli8GcPXXI1gWaN63ABREXfHrDdjN3bPLv3/PaTN548gjytCr4e85qaA0C73zjk3HOfoQq33R+/cEv+SqK022fLRReKGDd2nF2ieCMxMlu6AQgB90wffb1HjSadm6iYeRBunb3kAs7OUZRAUX1Y75aJ6BeuG9oZJW4BCnYARz4KiD30Ok/oaMUsNdBCkqgLCUemLiJ8U09X5hqua/9DMMg0PaeoEteVYvIgqX13v9TMQ0VSURt8RLW86JuGreF5N8NcTN/Kmkyjy92dqIGUOPiYIFM+bVKgb8YNtyNz8Z89YJ1fEubfIMeKkDti9L2Prmu5oSlmxn36VTHYrBJqsLud04TCZ/fHd9hTP2u+lsqpWHlk8ZUfsxwFgnUDv3ekF085DTs16e9V38SfWa4b9rFBIyT0hTk5+0y7JqEMv8XZbOLE4sAmDJw1FeEfc1sNOmwX9i3CmYwG87HOGDGL9/d416aERMCM00rC/fbbPDkEs/uaORc6HIs0MBltHxDOkNROBufgKKuG8wYg/d077egiDTXDcbWzKGxCY=
