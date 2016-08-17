@@ -8,12 +8,21 @@ script: docker run -v $TRAVIS_BUILD_DIR:/entwine -t connormanning/pdal:entwine-p
   /bin/sh -c "/entwine/scripts/ci/build.sh"
 after_success:
 - echo "secure travis:" "$TRAVIS_SECURE_ENV_VARS"
-- sh -c 'if test "$TRAVIS_SECURE_ENV_VARS" = "true" -a "$TRAVIS_BRANCH" = "1.2-maintenance"
-  -a "$PDAL_OPTIONAL_COMPONENTS" = "all"; then echo "publish website"; ./scripts/ci/build_docs.sh;
-  ./scripts/ci/add_deploy_key.sh; ./scripts/ci/deploy_website.sh $TRAVIS_BUILD_DIR/doc/build
-  /tmp; fi'
+- sh -c 'if test "$TRAVIS_SECURE_ENV_VARS" = "true" -a "$TRAVIS_BRANCH" = "travis-configuration" -a "$CXX" = "g++";
+  then echo "publish website"; ./scripts/ci/build_docs.sh; ./scripts/ci/add_deploy_key.sh;
+  ./scripts/ci/deploy_website.sh $TRAVIS_BUILD_DIR/doc/build; fi'
+
 notifications:
   on_success: always
   on_failure: always
   slack:
     secure: qAzPWkpLugFrGFDLQzoYnrziR8RS+24ILcwuXJha2blTqBi5/TdbfafnUMlaBwvaIxDiz0je4LOjTT7tJ7HYfJRW6YnXDPJ4uy1vHwxtVCEmIU+JoWvkTwWffAH0j49davyHlNwUh0ogM3iL5GU15oQCHMpZnElaEw1QntF/liYyIswYdlg1kTjhqwaPt9Q1nw46Yfb+i9iCFrARQ+gdOOSLZ6ZjJYYP9dNH+Z0qWQBDT33Trmh8W8V7flzCKLHdWH2dBJ3RxG1QMe3Gljxkc0OOub+o5ziZyGCGf8ILk9cIGjysgXd8j6WpU5mJzj4DKc2hgRUiHHepOFwlwOIO+NBBWa4tqSm+7WFGya5jDvIZj4fJNwUPuU3i7T9lUlYIMVMmGAiDB8VfM3iRuQwY2rcToNXvYFrVRveMImSkOOtCyN6BHMm925jyqk99/pcjasjADSWuSNLaD7sXuZB+qgay7ddJ3jjG231INvu6M/qO7SWOKSG20Gh2F+mbWqzAkC5nAo5eHYapk5uFpmD51kUcXN59mWaaBmuoOckxPwEEgmjANpoO9SjWPsPTfindMySUrqD8M7+M9bUB0o31PIvP8p4D3lTI262PBrJQX3wwgQacaP/lB35DAo/58jnKGJXV3yydarysFWO35urAdT5tFL9JftIF1diEj7aqSPI=
+env:
+  global:
+  - secure: PGOlilcDrTxc7vAlM4ZSDAjxklbKJvI6h3VuUh3ENroYI1rADb1hU+xWIFig1iQWMwze6Lj8AHb793PqLkBVdaEmQftdheLrhe/ax6roZozpv56hCn1majSk1fFB8QE0gQF47XNcn0UqqXcMNi9GkL7XsPFg5Udt4PraP1upxWd96yGkzfab4jDDV/kShh9oTSwtaxYvoMi4zH46wteImep1BzbCNKPvv8zLhrPpDCEaD3nYDa+SVSOeEq7HskFkvgAZX45TTlpMzWolPoVmzrc4uRn+G/P4jWFj2/MzLPo5WZRv/CvhX+3FEPJJCyr3dw9LOPbuPNM7kIvFpgreTVqHODC97KZgKd8h2ZycrqZKDNv3n5i6faB7uKCpwpiYFhZk/F7ZyADPkPq0MWTL+czOGC5CXll7Mgicl4Hh5vvHIq0uHd396uWNasFM15UsRGjNXAjaBG/JuQidVmkJVgYX+8mT9D/+7aEAmjBH2gVr3Db4XAmm4dq8XxeDZQffCY5X9GOo+fZAPRLMgiy2LkOwKDnTT8Yuw2ElWa/HgZoYz8OtQjoLrE5zPhyCdKeGOg0bp0tbcnwUAUdE8/XZcDf7stOWQpRXLqMCgO8dThIjxjBf212naq0gdcU9nRyFHtlO1GrPNgfGsw4w9DWD7KAC9oO+JWPUSnUqxq7fiq4=
+  - secure: IcpaYDCNiaRps9wLMrgEIdFrvPvRBCDtNRT5ZUkQ2tg/d6/P7CoFQHamC/u8cyi1MdMu0ddXO9ZYLSERbeZkPx1hhS+nO1GmaDJsc4rYNM2rp0yHtZSWp9yYtymeSdZIXdDcSzhi/Pi+I7ycSGaxVUK3A/8O2GVP1P8FJMdKPU3xC0DvhmLnbUPZdPcPQgBjuLKbKGM5mJw5cEFaqdqLJib5QxkTa8KaepzKFD1tWxh0nmCoEQZsWEZfF/n0qKoG4BZ+BO61uCQD7djwJx5LJ/lnJh1OXfTLKwjiafmWsbyDKrRLn/x4uE/8GZup/ffggTUjL+Am8dw2iHWfWsM7BRZ0ABlPazn9/Mho6ZwV486UhHoxZtHCl50pTBRe6TRU7S3OT1iCidVU7BHDeot2JJRFG/qa5QEgFhjtSSKUE2xlNDxGKZoeEIOIs2Z1w2mycMLsP0UcbHOnhgYaIs7/EbUYQZccKcfJxj0Gj6VAxMbskg9MrXKJjeZKC17ZZ58rsu2aZ3qiuJkuYW6nGmewiW7D3vVMvUbV5mJpbFGgikLWDpA1IXuHP4+w0tRLM5D9ZfOhg2qSFQ+HVlsULSpA/+Eh94owKVdfpk+eBoJgOYju1itq9WBO9vIY+GPkCTfSoPlV3DBrUXSwjPd2MJ/qmiB+6HTcMa9DJoBUtyefe+8=
+
+compiler:
+
+  - g++
+  - clang
