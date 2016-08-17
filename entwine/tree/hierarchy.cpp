@@ -14,6 +14,7 @@
 #include <entwine/tree/cold.hpp>
 #include <entwine/tree/heuristics.hpp>
 #include <entwine/types/subset.hpp>
+#include <entwine/util/json.hpp>
 #include <entwine/util/storage.hpp>
 #include <entwine/util/unique.hpp>
 
@@ -65,19 +66,15 @@ Hierarchy::Hierarchy(
 
     if (exists)
     {
-        const Json::Value json(
-                parse(m_endpoint.get("ids" + m_metadata.postfix())));
+        const auto ids(
+                extractIds(m_endpoint.get("ids" + m_metadata.postfix())));
 
-        Id chunkId(0);
-
-        for (Json::ArrayIndex i(0); i < json.size(); ++i)
+        for (const auto& id : ids)
         {
-            chunkId = Id(json[i].asString());
-
-            const ChunkInfo chunkInfo(m_structure.getInfo(chunkId));
+            const ChunkInfo chunkInfo(m_structure.getInfo(id));
             const std::size_t chunkNum(chunkInfo.chunkNum());
 
-            mark(chunkId, chunkNum);
+            mark(id, chunkNum);
         }
     }
 }

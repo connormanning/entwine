@@ -79,8 +79,9 @@ Reader::Reader(const arbiter::Endpoint& endpoint, Cache& cache)
 
     if (structure.hasCold())
     {
-        std::vector<Id> ids(extract<Id>(parse(m_endpoint.get("entwine-ids"))));
-        for (const Id& id : ids) m_ids.insert(id);
+        auto ids(extractIds(m_endpoint.get("entwine-ids")));
+        m_ids.insert(ids.begin(), ids.end());
+        std::cout << "Found " << m_ids.size() << " chunks" << std::endl;
     }
 }
 
