@@ -55,7 +55,7 @@ public:
         assert(result.m_depth <= m_structure.sparseDepthBegin());
 
         result.m_chunkId <<= m_structure.dimensions();
-        result.m_chunkId.incSimple();
+        ++result.m_chunkId.data().front();
         result.m_chunkId += toIntegral(dir) * m_pointsPerChunk;
 
         return result;
@@ -67,7 +67,7 @@ public:
         QueryChunkState result(*this);
         ++result.m_depth;
         result.m_chunkId <<= m_structure.dimensions();
-        result.m_chunkId.incSimple();
+        ++result.m_chunkId.data().front();
         result.m_pointsPerChunk *= m_structure.factor();
 
         return result;
