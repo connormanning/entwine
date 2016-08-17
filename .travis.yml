@@ -9,8 +9,7 @@ script: docker run -v $TRAVIS_BUILD_DIR:/entwine -t connormanning/pdal:entwine-p
 after_success:
 - echo "secure travis:" "$TRAVIS_SECURE_ENV_VARS"
 - sh -c 'if test "$TRAVIS_SECURE_ENV_VARS" = "true" -a "$TRAVIS_BRANCH" = "travis-configuration" -a "$CXX" = "g++";
-  then echo "publish website"; ./scripts/ci/build_docs.sh; ./scripts/ci/add_deploy_key.sh;
-  ./scripts/ci/deploy_website.sh $TRAVIS_BUILD_DIR/doc/build; fi'
+  then echo "publish website"; ./scripts/ci/build_docs.sh; ./scripts/ci/deploy_website.sh $TRAVIS_BUILD_DIR/doc/build; fi'
 
 notifications:
   on_success: always
