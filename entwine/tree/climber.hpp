@@ -67,7 +67,7 @@ public:
         }
 
         m_index <<= m_structure.dimensions();
-        m_index.incSimple();
+        ++m_index.data().front();
         m_index += toIntegral(dir, m_structure.tubular());
 
         if (workingDepth > m_structure.nominalChunkDepth())
@@ -124,7 +124,7 @@ protected:
             m_chunkBounds.go(dir, true);
 
             m_chunkId <<= m_structure.dimensions();
-            m_chunkId.incSimple();
+            ++m_chunkId.data().front();
 
             m_chunkId += toIntegral(dir) * m_pointsPerChunk;
 
@@ -140,7 +140,7 @@ protected:
             m_chunkNum += m_structure.maxChunksPerDepth();
 
             m_chunkId <<= m_structure.dimensions();
-            m_chunkId.incSimple();
+            ++m_chunkId.data().front();
 
             m_pointsPerChunk *= m_structure.factor();
         }

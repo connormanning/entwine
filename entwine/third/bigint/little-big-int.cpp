@@ -196,7 +196,7 @@ std::pair<BigUint, BigUint> BigUint::divMod(const BigUint& d) const
                 r <<= 1;
                 mask = Block(1) << bit;
 
-                if (m_val.at(block) & mask) r.incSimple();
+                if (m_val.at(block) & mask) ++r.data().front();
 
                 if (r >= d)
                 {
@@ -326,7 +326,9 @@ BigUint& operator*=(BigUint& lhs, const BigUint& rhs)
     {
         lhs = 0;
     }
-    else if (log2(lhs) + log2(rhs) + 1 <= BigUint::bitsPerBlock)
+    else if (
+            BigUint::log2(lhs) + BigUint::log2(rhs) + 1 <=
+                BigUint::bitsPerBlock)
     {
         lhs = lhs.data().front() * rhs.data().front();
     }
@@ -405,10 +407,10 @@ BigUint& operator<<=(BigUint& lhs, BigUint::Block rhs)
     if (
             lhs.zero() || !rhs ||
             (lhs.trivial() && rhs < BigUint::bitsPerBlock &&
-            (lhs.m_val.front() &
+            (lhs.data().front() &
                 (BigUint::blockMax << (BigUint::bitsPerBlock - rhs))) == 0))
     {
-        lhs.m_val.front() <<= rhs;
+        lhs.data().front() <<= rhs;
         return lhs;
     }
 
@@ -488,10 +490,10 @@ BigUint operator<<(const BigUint& lhs, const BigUint::Block rhs)
     if (
             lhs.zero() || !rhs ||
             (lhs.trivial() && rhs < BigUint::bitsPerBlock &&
-            (lhs.m_val.front() &
+            (lhs.data().front() &
                 (BigUint::blockMax << (BigUint::bitsPerBlock - rhs))) == 0))
     {
-        return BigUint(lhs.m_val.front() << rhs);
+        return BigUint(lhs.data().front() << rhs);
     }
 
     const std::size_t startBlocks(lhs.blockSize());
@@ -579,7 +581,7 @@ bool operator<(const BigUint& lhs, const BigUint& rhs)
 {
     if (lhs.trivial())
     {
-        if (rhs.trivial()) return lhs.m_val.front() < rhs.m_val.front();
+        if (rhs.trivial()) return lhs.data().front() < rhs.data().front();
         else return true;
     }
 
@@ -635,15 +637,5 @@ BigUint::Block BigUint::log2(const BigUint& in)
 BigUint BigUint::sqrt(const BigUint& in)
 {
     return BigUint(1) << (log2(in) / 2);
-}
-
-BigUint::Block log2(const BigUint& in)
-{
-    return BigUint::log2(in);
-}
-
-BigUint sqrt(const BigUint& in)
-{
-    return BigUint::sqrt(in);
 }
 

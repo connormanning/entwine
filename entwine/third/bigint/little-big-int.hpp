@@ -233,12 +233,6 @@ public:
     //      result.second - remainder
     std::pair<BigUint, BigUint> divMod(const BigUint& denominator) const;
 
-    // Increments the least-significant block without carrying any possible
-    // roll-over into subsequent blocks.  Can be used to increment efficiently
-    // only if the caller can guarantee that no carry will be produced by this
-    // increment.  For example, after a positive bit-shift left.
-    void incSimple() { ++m_val.front(); }
-
     static const unsigned int N = sizeof(Block);
     static const unsigned int A = alignof(Block);
 
@@ -250,10 +244,7 @@ public:
     Data& data() { return m_val; }
     const Data& data() const { return m_val; }
 
-    // These ones need access to private members.
     friend BigUint& operator*=(BigUint& lhs, const BigUint& rhs);
-    friend BigUint& operator<<=(BigUint& lhs, Block rhs);
-    friend bool operator<(const BigUint& lhs, const BigUint& rhs);
     friend BigUint operator<<(const BigUint&, Block);
 
     static Block log2(const BigUint& val);
@@ -340,9 +331,6 @@ bool operator>=(const BigUint& lhs, const BigUint& rhs);
 
 inline bool operator!(const BigUint& val) { return val.zero(); }
 std::ostream& operator<<(std::ostream& out, const BigUint& val);
-
-BigUint::Block log2(const BigUint& val);
-BigUint sqrt(const BigUint& in);
 
 namespace std
 {
