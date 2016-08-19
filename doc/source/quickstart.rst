@@ -36,7 +36,7 @@ For the impatient, use this one-liner:
 
 Now we have Greyhound ready to serve our data, we just need a client renderer to view it.  Let's hit the URL below, which will connect to our new local Greyhound resource.
 
-http://dev.speck.ly?s=http://localhost:8080/&r=abc
+http://speck.ly?s=http://localhost:8080/&r=abc
 
 Now we should be viewing our dataset dynamically with progressive level-of-detail.  Another client sample would be `Potree`_, which we can try out with http://potree.entwine.io/data/custom.html?s=localhost:8080&r=abc.
 
@@ -56,6 +56,6 @@ If the command line overrides are insufficient, you can get developer-level cont
 .. _`PDAL`: http://pdal.io
 .. _`Docker`: http://docker.com
 .. _`Greyhound`: https://github.com/hobu/greyhound
-.. _`Plas.io`: http://dev.speck.ly
+.. _`Plas.io`: http://speck.ly
 .. _`Potree`: http://potree.org
 .. _`LGPL License`: https://github.com/connormanning/entwine/blob/master/LICENSE

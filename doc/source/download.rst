@@ -26,18 +26,6 @@ http://github.com/connormanning/entwine
 .. _`DebianGIS`: http://wiki.debian.org/DebianGis
 
 
-Past Releases
-------------------------------------------------------------------------------
-
-.. * **2015-11-25** `PDAL-1.1.0-src.tar.gz`_ `Release Notes`_ (`md5`_)
-
-
-.. _`PDAL-1.1.0-src.tar.gz`: http://download.osgeo.org/pdal/PDAL-1.1.0-src.tar.gz
-
-
-
-.. _source:
-
 Development Source
 ------------------------------------------------------------------------------
 
@@ -55,7 +43,12 @@ Binaries
 Docker
 ................................................................................
 
-None yet
+The fastest way to get going with Entwine is to use the Docker build.  See the
+:ref:`Quickstart` for more information.
+
+::
+
+    docker pull connormanning/entwine
 
 Windows
 ................................................................................
