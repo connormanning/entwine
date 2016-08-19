@@ -81,9 +81,6 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`search`
 
-.. _`GDAL`: http://www.gdal.org
-.. _`BSD`: http://www.opensource.org/licenses/bsd-license.php
 .. _`point cloud data`: http://en.wikipedia.org/wiki/Point_cloud
-.. _`LIDAR`: http://en.wikipedia.org/wiki/LIDAR
 
 

@@ -15,6 +15,7 @@ after_success:
   -a "$CXX" = "g++"; then echo "publish website"; ./scripts/ci/build_docs.sh; ./scripts/ci/deploy_website.sh
   $TRAVIS_BUILD_DIR/doc/build; fi'
 notifications:
+  email: false
   on_success: always
   on_failure: always
   slack:
