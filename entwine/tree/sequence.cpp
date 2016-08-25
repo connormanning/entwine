@@ -27,8 +27,8 @@ Sequence::Sequence(Builder& builder)
     , m_manifest(m_metadata.manifest())
     , m_executor(builder.executor())
     , m_mutex(builder.mutex())
-    , m_origin(m_manifest.split() ? m_manifest.split()->begin() : 0)
-    , m_end(m_manifest.split() ? m_manifest.split()->end() : m_manifest.size())
+    , m_origin(0)
+    , m_end(m_manifest.size())
     , m_added(0)
     , m_overlaps()
 {
@@ -113,53 +113,6 @@ bool Sequence::checkBounds(
     }
 
     return true;
-}
-
-std::unique_ptr<Manifest::Split> Sequence::takeWork()
-{
-    std::unique_ptr<Manifest::Split> split;
-
-    auto l(getLock());
-
-    Manifest& manifest(m_metadata.manifest());
-
-    auto b(m_overlaps.begin());
-    const auto e(m_overlaps.end());
-
-    auto pos(std::find_if(b, e, [this](Origin o) { return o >= m_origin; }));
-    const auto end(std::find_if(b, e, [this](Origin o) { return o >= m_end; }));
-
-    const float remaining(static_cast<float>(std::distance(pos, end)));
-    const float ratioRemaining(remaining / static_cast<float>(manifest.size()));
-
-    const std::size_t minTask(static_cast<float>(manifest.size()) * 0.01);
-
-    if (remaining >= 2 * minTask && ratioRemaining > 0.0025)
-    {
-        const float keepRatio(
-                manifest.nominal() ?
-                    heuristics::nominalKeepWorkRatio :
-                    heuristics::defaultKeepWorkRatio);
-
-        const std::size_t give(
-                std::max<std::size_t>(
-                    std::floor(remaining * (1 - keepRatio)),
-                    minTask));
-
-        const std::size_t keep(remaining - give);
-
-        if (give >= minTask)
-        {
-            std::advance(pos, keep);
-            m_end = *pos;
-            split = manifest.split(m_end);
-            std::cout << "Setting end at " << m_end << std::endl;
-        }
-        else std::cout << "Rejected - give: " << give << std::endl;
-    }
-    else std::cout << "Rejected - remaining: " << remaining << std::endl;
-
-    return split;
 }
 
 } // namespace entwine

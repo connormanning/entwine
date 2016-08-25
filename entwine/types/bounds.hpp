@@ -25,6 +25,7 @@ public:
     Bounds() = default;
     Bounds(const Point& min, const Point& max);
     Bounds(const Json::Value& json);
+    Bounds(double xMin, double yMin, double xMax, double yMax);
     Bounds(
             double xMin,
             double yMin,

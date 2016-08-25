@@ -83,12 +83,11 @@ Builder::Builder(
         const std::string tmpPath,
         const std::size_t totalThreads,
         const std::size_t* subId,
-        const std::size_t* splId,
         const OuterScope outerScope)
     : m_arbiter(outerScope.getArbiter())
     , m_outEndpoint(makeUnique<Endpoint>(m_arbiter->getEndpoint(outPath)))
     , m_tmpEndpoint(makeUnique<Endpoint>(m_arbiter->getEndpoint(tmpPath)))
-    , m_metadata(makeUnique<Metadata>(*m_outEndpoint, subId, splId))
+    , m_metadata(makeUnique<Metadata>(*m_outEndpoint, subId))
     , m_mutex()
     , m_isContinuation(true)
     , m_threadPools(makeUnique<ThreadPools>(totalThreads))
@@ -111,42 +110,20 @@ Builder::Builder(
 std::unique_ptr<Builder> Builder::create(
         const std::string path,
         const std::size_t threads,
+        const std::size_t* subsetId,
         OuterScope os)
 {
-    const std::size_t zero(0);
-
-    // Try a subset build.
-    try { return makeUnique<Builder>(path, ".", threads, &zero, nullptr, os); }
+    // Try the passed-in build.
+    try { return makeUnique<Builder>(path, ".", threads, subsetId, os); }
     catch (...) { }
 
-    // Try a split build.
-    try { return makeUnique<Builder>(path, ".", threads, nullptr, &zero,  os); }
-    catch (...) { }
-
-    // Try a subset and split build.
-    try { return makeUnique<Builder>(path, ".", threads, &zero, &zero,  os); }
-    catch (...) { }
-
-    return std::unique_ptr<Builder>();
-}
-
-std::unique_ptr<Builder> Builder::create(
-        const std::string path,
-        const std::size_t threads,
-        const std::size_t* subId,
-        const std::size_t* splId,
-        const OuterScope os)
-{
-    if (!subId && !splId) return Builder::create(path, threads, os);
-
-    try { return makeUnique<Builder>(path, ".", threads, subId, splId, os); }
-    catch (...) { }
-
-    if (!subId) return std::unique_ptr<Builder>();
-
-    const std::size_t zero(0);
-    try { return makeUnique<Builder>(path, ".", threads, subId, &zero, os); }
-    catch (...) { }
+    if (!subsetId)
+    {
+        // Try the subset-zero build.
+        const std::size_t zero(0);
+        try { return makeUnique<Builder>(path, ".", threads, &zero, os); }
+        catch (...) { }
+    }
 
     return std::unique_ptr<Builder>();
 }
@@ -447,6 +424,12 @@ const arbiter::Endpoint& Builder::tmpEndpoint() const { return *m_tmpEndpoint; }
 Executor& Builder::executor() { return *m_executor; }
 std::mutex& Builder::mutex() { return m_mutex; }
 
+void Builder::append(const Manifest& other)
+{
+    m_metadata->manifest().append(other);
+    m_sequence = makeUnique<Sequence>(*this);
+}
+
 void Builder::clip(
         const Id& index,
         const std::size_t chunkNum,
@@ -464,269 +447,6 @@ void Builder::addError(const std::string& path, const std::string& error)
     const std::string file(
             lastSlash != std::string::npos ? path.substr(lastSlash + 1) : path);
     m_metadata->errors().push_back(file + ": " + error);
-}
-
-void Builder::unsplit(Builder& other)
-{
-    if (m_threadPools->ratio() != 1.0) m_threadPools->setRatio(1.0);
-
-    auto& manifest(m_metadata->manifest());
-    auto& otherManifest(other.m_metadata->manifest());
-
-    // We'll be bookkeeping these for ourselves as we unsplit.
-    otherManifest.clearPointStats();
-
-    if (!manifest.split() || !otherManifest.split())
-    {
-        throw std::runtime_error("Cannot unsplit a builder that wasn't split");
-    }
-
-    if (manifest.split()->end() != otherManifest.split()->begin())
-    {
-        throw std::runtime_error("Splits don't line up");
-    }
-
-    Reserves reserves;
-
-    auto countReserves([&reserves]()->std::size_t
-    {
-        return std::accumulate(
-            reserves.begin(),
-            reserves.end(),
-            0,
-            [](const std::size_t size, const Reserves::value_type& r)
-            {
-                return size + r.second.size();
-            });
-    });
-
-    if (Chunk* otherBase = other.m_registry->cold().base())
-    {
-        std::cout << "Inserting base..." << std::endl;
-        PointStatsMap pointStatsMap;
-        Clipper clipper(*this, 0);
-
-        insertHinted(
-                reserves,
-                otherBase->acquire(),
-                pointStatsMap,
-                clipper,
-                Id(0),
-                m_metadata->structure().baseDepthBegin(),
-                m_metadata->structure().baseDepthEnd());
-
-        m_metadata->manifest().add(pointStatsMap);
-        std::cout << "\tBase inserted" << std::endl;
-    }
-
-    std::size_t n(0);
-    Traverser traverser(*m_metadata, other.registry().cold().ids());
-    traverser.tree([&](const Branch branch)
-    {
-        branch.recurse(
-                m_threadPools->workPool(),
-                [&](const Id chunkId, std::size_t depth)
-        {
-            const auto path(m_metadata->structure().maybePrefix(chunkId));
-            const auto postfix(other.metadata().postfix(true));
-
-            {
-                std::lock_guard<std::mutex> lock(m_mutex);
-                ++n;
-                std::cout << "+" << chunkId << " @ " << depth << std::endl;
-            }
-
-            PointStatsMap pointStatsMap;
-            Clipper clipper(*this, 0);
-
-            std::unique_ptr<std::vector<char>> data(
-                    makeUnique<std::vector<char>>(
-                        m_outEndpoint->getBinary(path + postfix)));
-
-            Unpacker unpacker(m_metadata->format().unpack(std::move(data)));
-
-            Cell::PooledStack cells(unpacker.acquireCells(*m_pointPool));
-
-            insertHinted(
-                reserves,
-                std::move(cells),
-                pointStatsMap,
-                clipper,
-                chunkId,
-                depth,
-                depth + 1);
-
-            clipper.clip(chunkId);
-
-            m_metadata->manifest().add(pointStatsMap);
-
-            {
-                std::lock_guard<std::mutex> lock(m_mutex);
-                std::cout << "\t~" << chunkId << std::endl;
-            }
-        });
-    });
-
-    std::cout << "Recursed " << n << " chunks." << std::endl;
-
-    m_threadPools->cycle();
-
-    // Insert any fall-through points that have fallen past all pre-existing
-    // chunks.
-    PointStatsMap pointStatsMap;
-
-    if (reserves.size())
-    {
-        std::cout <<
-            "Inserting pre-existing fall-throughs: " << countReserves() <<
-            " from " << reserves.size() << " chunks." << std::endl;
-        Clipper clipper(*this, 0);
-
-        // Cache the IDs in reserves, which will be modified as we insert.
-        std::set<Id> leftovers;
-        for (const auto& p : reserves) leftovers.insert(p.first);
-
-        for (const Id& id : leftovers)
-        {
-            m_threadPools->workPool().add([&, id]()
-            {
-                std::cout << "Adding " << id << std::endl;
-                Cell::PooledStack empty(m_pointPool->cellPool());
-                insertHinted(
-                        reserves,
-                        std::move(empty),
-                        pointStatsMap,
-                        clipper,
-                        id,
-                        std::numeric_limits<std::size_t>::max(),
-                        std::numeric_limits<std::size_t>::max());
-                std::cout << "\tAdded " << id << std::endl;
-            });
-        }
-
-        m_threadPools->cycle();
-    }
-
-    manifest.add(pointStatsMap);
-    manifest.split(manifest.split()->begin(), otherManifest.split()->end());
-
-    if (manifest.split()->end() == manifest.size())
-    {
-        manifest.unsplit();
-    }
-
-    manifest.merge(otherManifest);
-
-    if (countReserves())
-    {
-        std::cout << "Final fall-throughs: " << countReserves() << std::endl;
-    }
-}
-
-void Builder::insertHinted(
-        Reserves& reserves,
-        Cell::PooledStack cells,
-        PointStatsMap& pointStatsMap,
-        Clipper& clipper,
-        const Id& chunkId,
-        const std::size_t depthBegin,
-        const std::size_t depthEnd)
-{
-    std::vector<Origin> origins;
-
-    BinaryPointTable table(m_metadata->schema());
-    pdal::PointRef pointRef(table, 0);
-
-    std::size_t rejects(0);
-
-    auto insert([&](
-                Cell::PooledNode& cell,
-                Climber& climber,
-                const std::vector<Origin>* natives)
-    {
-        // If native origins aren't given to us from above, then we must derive
-        // them from the points in this cell to track the state.
-        if (!natives)
-        {
-            origins.clear();
-            for (const auto d : *cell)
-            {
-                table.setPoint(d);
-                origins.push_back(pointRef.getFieldAs<uint64_t>(m_originId));
-            }
-
-            natives = &origins;
-        }
-
-        if (m_registry->addPoint(cell, climber, clipper, depthEnd))
-        {
-            for (const auto o : *natives) pointStatsMap[o].addInsert();
-        }
-        else
-        {
-            ++rejects;
-
-            if (m_metadata->structure().inRange(climber.depth() + 1))
-            {
-                climber.magnify(cell->point());
-
-                std::lock_guard<std::mutex> lock(m_mutex);
-                reserves[climber.chunkId()].emplace_back(
-                        climber,
-                        std::move(cell),
-                        *natives);
-            }
-            else
-            {
-                for (const auto o : *natives) pointStatsMap[o].addOverflow();
-            }
-        }
-    });
-
-    // First, insert points from this exact chunk, indexed by the other Builder.
-    // Points may fall through here, and if so, save their Climber state to
-    // insert into their chunk at the next depth.
-    {
-        Climber climber(*m_metadata, m_hierarchy.get(), false);
-
-        while (!cells.empty())
-        {
-            Cell::PooledNode cell(cells.popOne());
-            const Point& point(cell->point());
-
-            while (cells.head() && (*cells.head())->point() == point)
-            {
-                cell->push(cells.popOne(), m_metadata->schema().pointSize());
-            }
-
-            climber.reset();
-            climber.magnifyTo(point, depthBegin);
-
-            insert(cell, climber, nullptr);
-        }
-    }
-
-    Reserves::value_type::second_type* cellStateList(nullptr);
-
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        if (reserves.count(chunkId)) cellStateList = &reserves.at(chunkId);
-    }
-
-    // Now, we may have points from that have fallen through to this chunk from
-    // prior merge-insertions.  Insert them now.  Since they may fall through
-    // again, save their state if so.
-    if (cellStateList)
-    {
-        for (auto& cellState : *cellStateList)
-        {
-            Cell::PooledNode cell(cellState.acquireCellNode());
-            insert(cell, cellState.climber(), &cellState.origins());
-        }
-
-        std::lock_guard<std::mutex> lock(m_mutex);
-        reserves.erase(chunkId);
-    }
 }
 
 } // namespace entwine

@@ -63,14 +63,10 @@ Metadata::Metadata(
     , m_errors()
 { }
 
-Metadata::Metadata(
-        const arbiter::Endpoint& ep,
-        const std::size_t* subsetId,
-        const std::size_t* splitId)
+Metadata::Metadata(const arbiter::Endpoint& ep, const std::size_t* subsetId)
 {
     const std::string pf(
-            (subsetId ? "-" + std::to_string(*subsetId) : "") +
-            (splitId  ? "-" + std::to_string(*splitId)  : ""));
+            (subsetId ? "-" + std::to_string(*subsetId) : ""));
 
     const Json::Value meta(parse(ep.get("entwine" + pf)));
     const Json::Value manifest(parse(ep.get("entwine-manifest" + pf)));
@@ -193,21 +189,12 @@ std::string Metadata::postfix(const bool isColdChunk) const
     //
     // Cold data chunks:
     //      No subset postfixing.
-    //      Split postfixing applied to splits except for the nominal split.
     //
     // Hierarchy metadata:
     //      All postfixes applied.
     std::string pf;
 
     if (m_subset && !isColdChunk) pf += m_subset->postfix();
-
-    if (m_manifest)
-    {
-        if (const Manifest::Split* split = m_manifest->split())
-        {
-            if (split->begin() || !isColdChunk) pf += split->postfix();
-        }
-    }
 
     return pf;
 }
@@ -217,7 +204,6 @@ void Metadata::makeWhole()
     m_subset.reset();
     m_structure->unbump();
     m_hierarchyStructure->unbump();
-    m_manifest->unsplit();
 }
 
 const Bounds* Metadata::boundsSubset() const

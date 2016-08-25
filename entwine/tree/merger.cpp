@@ -37,7 +37,6 @@ Merger::Merger(
             path,
             threads,
             subsetId,
-            nullptr,
             *m_outerScope);
 
     if (!m_builder)
@@ -70,45 +69,6 @@ Merger::Merger(
 
 Merger::~Merger() { }
 
-void Merger::unsplit()
-{
-    const std::size_t total(m_others.size() + 1);
-
-    if (const Subset* subset = m_builder->metadata().subset())
-    {
-        std::cout << "Unsplitting " <<
-            (subset->id() + 1) << " / " << total << "..." << std::endl;
-    }
-    else
-    {
-        std::cout << "Unsplitting..." << std::endl;
-    }
-
-    unsplit(*m_builder);
-    std::cout << "\tDone." << std::endl;
-
-    for (const auto id : m_others)
-    {
-        std::cout << "Unsplitting " <<
-            (id + 1) << " / " << total << "..." << std::endl;
-
-        auto current(
-                Builder::create(
-                    m_path,
-                    m_threads,
-                    &id,
-                    nullptr,
-                    *m_outerScope));
-
-        if (!current) throw std::runtime_error("Couldn't create split builder");
-
-        unsplit(*current);
-        current->save();
-
-        std::cout << "\tUnsplit complete." << std::endl;
-    }
-}
-
 void Merger::merge()
 {
     const std::size_t total(m_others.size() + 1);
@@ -124,7 +84,6 @@ void Merger::merge()
                     m_path,
                     m_threads,
                     &id,
-                    nullptr,
                     *m_outerScope));
 
         if (!current) throw std::runtime_error("Couldn't create subset");
@@ -143,40 +102,6 @@ void Merger::save()
         m_builder->save();
         m_builder.reset();
         std::cout << "\tFinal save complete." << std::endl;
-    }
-}
-
-void Merger::unsplit(Builder& builder)
-{
-    const Metadata& metadata(builder.metadata());
-    const Manifest& manifest(metadata.manifest());
-
-    if (!manifest.split()) return;
-
-    std::unique_ptr<std::size_t> subsetId(
-            metadata.subset() ?
-                new std::size_t(metadata.subset()->id()) : nullptr);
-
-    std::size_t pos(manifest.split()->end());
-
-    while (pos < manifest.size())
-    {
-        const auto nextSplit = Builder::create(
-                builder.outEndpoint().prefixedRoot(),
-                m_threads,
-                subsetId.get(),
-                &pos,
-                *m_outerScope);
-
-        if (!nextSplit)
-        {
-            throw std::runtime_error("Couldn't awaken " + std::to_string(pos));
-        }
-
-        std::cout << "\t\t" << pos << std::endl;
-
-        pos = nextSplit->metadata().manifest().split()->end();
-        builder.unsplit(*nextSplit);
     }
 }
 

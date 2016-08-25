@@ -42,12 +42,6 @@ public:
         std::cout << "Stopping - setting end at " << m_end << std::endl;
     }
 
-    // If successfully split, the result is a Manifest::Split containing the
-    // manifest indices that should be built elsewhere.  Otherwise, this
-    // builder has refused to give up any work and will complete the rest
-    // of the build.
-    std::unique_ptr<Manifest::Split> takeWork();
-
 private:
     std::unique_lock<std::mutex> getLock() const
     {

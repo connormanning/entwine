@@ -75,7 +75,6 @@ public:
             std::string tmpPath,
             std::size_t numThreads,
             const std::size_t* subsetId = nullptr,
-            const std::size_t* splitId = nullptr,
             OuterScope outerScope = OuterScope());
 
     ~Builder();
@@ -89,9 +88,6 @@ public:
     void save();
     void save(std::string to);
     void save(const arbiter::Endpoint& to);
-
-    // Aggregate manifest-split build.
-    void unsplit(Builder& other);
 
     // Aggregate spatially segmented build.
     void merge(Builder& other);
@@ -117,23 +113,18 @@ public:
     // Set up our metadata as finished with merging.
     void makeWhole();
 
+    void append(const Manifest& manifest);
+
 private:
     Executor& executor();
     std::mutex& mutex();
 
-    // Attempt to wake up a subset or split build with indeterminate metadata
+    // Attempt to wake up a possibly subset build with indeterminate metadata
     // state.  Used to wake up the active Builder for merging.
     static std::unique_ptr<Builder> create(
             std::string path,
             std::size_t threads,
-            OuterScope outerScope = OuterScope());
-
-    // Used to wake up subsequent Builders for merging.
-    static std::unique_ptr<Builder> create(
-            std::string path,
-            std::size_t threads,
             const std::size_t* subsetId,
-            const std::size_t* splitId,
             OuterScope outerScope = OuterScope());
 
     // Returns true if we should insert this file based on its info.
@@ -156,18 +147,6 @@ private:
             Clipper& clipper,
             Climber& climber);
 
-    typedef std::map<Id, std::deque<CellState>> Reserves;
-
-    // Insert within a previously-identified depth range.
-    void insertHinted(
-            Reserves& reserves,
-            Cell::PooledStack cells,
-            PointStatsMap& pointStatsMap,
-            Clipper& clipper,
-            const Id& chunkId,
-            std::size_t depthBegin,
-            std::size_t depthEnd = 0);
-
     // Remove resources that are no longer needed.
     void clip(
             const Id& index,
@@ -184,9 +163,6 @@ private:
     // Ensure that the file at this path is accessible locally for execution.
     // Return the local path.
     std::string localize(std::string path, Origin origin);
-
-    // Get metadata properties, and load from those serialized properties.
-    void loadProps(OuterScope outerScope, Json::Value& props, std::string pf);
 
     void addError(const std::string& path, const std::string& error);
 

@@ -238,8 +238,6 @@ void Kernel::build(std::vector<std::string> args)
         ++a;
     }
 
-    std::unique_ptr<Manifest::Split> split;
-
     while (a < args.size())
     {
         const std::string arg(args[a]);
@@ -376,22 +374,6 @@ void Kernel::build(std::vector<std::string> args)
         {
             json["geometry"]["reproject"]["hammer"] = true;
         }
-        else if (arg == "-m")
-        {
-            if (a + 2 < args.size())
-            {
-                ++a;
-                const Json::UInt64 begin(std::stoul(args[a]));
-                ++a;
-                const Json::UInt64 end(std::stoul(args[a]));
-
-                split.reset(new Manifest::Split(begin, end));
-            }
-            else
-            {
-                throw std::runtime_error("Invalid manifest specification");
-            }
-        }
         else if (arg == "-g")
         {
             if (++a < args.size())
@@ -465,14 +447,6 @@ void Kernel::build(std::vector<std::string> args)
                 subset->id() + 1 << " of " <<
                 subset->of() << "\n" <<
             "\tSubset bounds: " << subset->bounds() <<
-            std::endl;
-    }
-
-    if (const Manifest::Split* split = manifest.split())
-    {
-        std::cout <<
-            "\tManifest split: [" << split->begin() << ", " <<
-            split->end() << ")" <<
             std::endl;
     }
 

@@ -33,7 +33,6 @@ public:
 
     ~Merger();
 
-    void unsplit(); // Join manifest-split builds.
     void merge();   // Join geographically-subsetted builds.
     void save();    // Save results.
 
@@ -41,8 +40,6 @@ public:
     std::size_t total() const { return m_others.size() + 1; }
 
 private:
-    void unsplit(Builder& builder);
-
     std::unique_ptr<Builder> m_builder;
     std::string m_path;
     std::vector<std::size_t> m_others;

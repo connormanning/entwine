@@ -216,76 +216,6 @@ public:
         return m_pointStats.toJson();
     }
 
-    class Split
-    {
-    public:
-        Split(std::size_t begin, std::size_t end)
-            : m_begin(begin)
-            , m_end(end)
-        { }
-
-        Split(const Json::Value& json)
-            : m_begin(json["begin"].asUInt64())
-            , m_end(json["end"].asUInt64())
-        { }
-
-        Json::Value toJson() const
-        {
-            Json::Value json;
-
-            json["begin"] = static_cast<Json::UInt64>(m_begin);
-            json["end"] = static_cast<Json::UInt64>(m_end);
-
-            return json;
-        }
-
-        std::size_t begin() const { return m_begin; }
-        std::size_t end() const { return m_end; }
-
-        void end(std::size_t set) { m_end = set; }
-
-        std::string postfix() const { return "-" + std::to_string(m_begin); }
-
-    private:
-        std::size_t m_begin;
-        std::size_t m_end;
-    };
-
-    const Split* split() const { return m_split.get(); }
-    void unsplit() { m_split.reset(); }
-    bool nominal() const { return !split() || !split()->begin(); }
-
-    // This splits the remaining work, and returns the split that should be
-    // performed elsewhere.
-    std::unique_ptr<Manifest::Split> split(std::size_t mid)
-    {
-        auto err([](std::string msg) { throw std::runtime_error(msg); });
-        if (mid >= size()) err("Invalid split requested");
-
-        std::unique_ptr<Manifest::Split> result;
-
-        if (!m_split)
-        {
-            result.reset(new Split(mid, size()));
-            m_split.reset(new Split(0, mid));
-        }
-        else
-        {
-            if (mid <= m_split->begin()) err("Invalid split - too small");
-            else if (mid >= m_split->end()) err("Invalid split - too large");
-
-            result.reset(new Split(mid, m_split->end()));
-            m_split->end(mid);
-        }
-
-        return result;
-    }
-
-    void split(std::size_t begin, std::size_t end)
-    {
-        m_split.reset(new Split(begin, end));
-    }
-
     bool remote(const arbiter::Arbiter& a) const
     {
         return std::any_of(
@@ -310,8 +240,6 @@ private:
 
     FileStats m_fileStats;
     PointStats m_pointStats;
-
-    std::unique_ptr<Split> m_split;
 
     mutable std::mutex m_mutex;
 };

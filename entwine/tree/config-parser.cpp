@@ -74,6 +74,15 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     const bool trustHeaders(jsonInput["trustHeaders"].asBool());
     const std::size_t threads(jsonInput["threads"].asUInt64());
 
+    // Geometry and spatial info.
+    auto boundsConforming(getBounds(jsonGeometry["bounds"]));
+    auto reprojection(getReprojection(jsonGeometry["reproject"]));
+    auto schema(makeUnique<Schema>(jsonGeometry["schema"]));
+
+    std::size_t numPointsHint(jsonStructure["numPointsHint"].asUInt64());
+
+    auto manifest(makeUnique<Manifest>(config["input"]["manifest"]));
+
     if (!force)
     {
         auto builder = tryGetExisting(
@@ -83,17 +92,12 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                 tmpPath,
                 threads);
 
-        if (builder) return builder;
+        if (builder)
+        {
+            builder->append(*manifest);
+            return builder;
+        }
     }
-
-    // Geometry and spatial info.
-    auto boundsConforming(getBounds(jsonGeometry["bounds"]));
-    auto reprojection(getReprojection(jsonGeometry["reproject"]));
-    auto schema(makeUnique<Schema>(jsonGeometry["schema"]));
-
-    std::size_t numPointsHint(jsonStructure["numPointsHint"].asUInt64());
-
-    auto manifest(makeUnique<Manifest>(config["input"]["manifest"]));
 
     if (!numPointsHint && manifest)
     {
