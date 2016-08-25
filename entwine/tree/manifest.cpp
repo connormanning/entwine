@@ -10,6 +10,7 @@
 
 #include <entwine/tree/manifest.hpp>
 
+#include <algorithm>
 #include <iostream>
 #include <limits>
 
@@ -224,8 +225,17 @@ void Manifest::append(const Manifest& other)
 {
     for (const auto& info : other.m_paths)
     {
-        countStatus(info.status());
-        m_paths.emplace_back(info);
+        auto matches([&info](const FileInfo& check)
+        {
+            return check.path() == info.path();
+        });
+
+        if (std::none_of(m_paths.begin(), m_paths.end(), matches))
+        {
+            countStatus(info.status());
+            m_paths.emplace_back(info);
+        }
+        else std::cout << "SKIP " << info.path() << std::endl;
     }
 }
 
