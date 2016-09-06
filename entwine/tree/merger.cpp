@@ -47,6 +47,11 @@ Merger::Merger(
 
         throw std::runtime_error("Path not mergeable");
     }
+    else if (!m_builder->metadata().subset())
+    {
+        throw std::runtime_error(
+                "This path is already whole - no merge needed");
+    }
 
     m_outerScope->setPointPool(m_builder->sharedPointPool());
     m_outerScope->setHierarchyPool(m_builder->sharedHierarchyPool());

@@ -502,14 +502,30 @@ void Kernel::build(std::vector<std::string> args)
         std::endl;
 
     auto start = now();
+    const std::size_t alreadyInserted(manifest.pointStats().inserts());
     builder->go(runCount);
     std::cout << "\nIndex completed in " << secondsSince(start) <<
         " seconds." << std::endl;
 
+    std::cout << "Save complete.  Indexing stats:\n";
+
     const PointStats stats(manifest.pointStats());
+
+    if (alreadyInserted)
+    {
+        std::cout <<
+            "\tPoints inserted:\n" <<
+            "\t\tPreviously: " << alreadyInserted << "\n" <<
+            "\t\tCurrently:  " <<
+                (stats.inserts() - alreadyInserted) << "\n" <<
+            "\t\tTotal:      " << stats.inserts() << std::endl;
+    }
+    else
+    {
+        std::cout << "\tPoints inserted: " << stats.inserts() << "\n";
+    }
+
     std::cout <<
-        "Save complete.  Indexing stats:\n" <<
-        "\tPoints inserted: " << stats.inserts() << "\n" <<
         "\tPoints discarded:\n" <<
         "\t\tOutside specified bounds: " << stats.outOfBounds() << "\n" <<
         "\t\tOverflow past max depth: " << stats.overflows() << "\n" <<

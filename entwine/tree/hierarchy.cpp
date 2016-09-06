@@ -207,8 +207,6 @@ void Hierarchy::save()
 {
     if (!m_outpoint) return;
 
-    std::cout << "Saving to " << m_outpoint->prefixedRoot() << std::endl;
-
     const std::string topPostfix(m_metadata.postfix());
     m_base.t->save(*m_outpoint, topPostfix);
 
