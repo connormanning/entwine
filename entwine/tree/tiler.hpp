@@ -17,6 +17,7 @@
 
 #include <pdal/PointView.hpp>
 
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/dir.hpp>
 #include <entwine/types/defs.hpp>

@@ -19,7 +19,9 @@
 #include <set>
 #include <string>
 
-#include <entwine/third/json/json.hpp>
+#include <json/json.h>
+
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/defs.hpp>
 

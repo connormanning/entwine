@@ -16,7 +16,8 @@
 #include <set>
 #include <vector>
 
-#include <entwine/third/json/json.hpp>
+#include <json/json.h>
+
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/cold.hpp>
 #include <entwine/types/point-pool.hpp>

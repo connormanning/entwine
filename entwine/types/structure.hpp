@@ -13,7 +13,8 @@
 #include <cstddef>
 #include <memory>
 
-#include <entwine/third/json/json.hpp>
+#include <json/json.h>
+
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/defs.hpp>
 

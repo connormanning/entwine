@@ -12,7 +12,8 @@
 
 #include <string>
 
-#include <entwine/third/json/json.hpp>
+#include <json/json.h>
+
 #include <entwine/types/defs.hpp>
 
 namespace entwine

@@ -19,7 +19,9 @@
 #include <string>
 #include <vector>
 
-#include <entwine/third/json/json.hpp>
+#include <json/json.h>
+
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/hierarchy-block.hpp>
 #include <entwine/tree/splitter.hpp>
 #include <entwine/types/bounds.hpp>

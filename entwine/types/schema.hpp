@@ -16,7 +16,8 @@
 
 #include <pdal/PointLayout.hpp>
 
-#include <entwine/third/json/json.hpp>
+#include <json/json.h>
+
 #include <entwine/types/dim-info.hpp>
 #include <entwine/types/fixed-point-layout.hpp>
 #include <entwine/util/json.hpp>

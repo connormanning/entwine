@@ -16,7 +16,8 @@
 #include <string>
 #include <vector>
 
-#include <entwine/third/json/json.hpp>
+#include <json/json.h>
+
 #include <entwine/types/defs.hpp>
 #include <entwine/types/format-packing.hpp>
 #include <entwine/types/format-types.hpp>

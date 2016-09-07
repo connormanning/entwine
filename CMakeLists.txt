@@ -13,9 +13,18 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR
     add_definitions(${CMAKE_CXX_FLAGS} "-fPIC")
 endif()
 
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/json.cmake")
+
+if (ENTWINE_JSONCPP_INCLUDE_DIR)
+    MESSAGE("Using system JsonCpp")
+    include_directories(${ENTWINE_JSONCPP_INCLUDE_DIR})
+else()
+    MESSAGE("Using bundled JsonCpp")
+    include_directories("${CMAKE_CURRENT_SOURCE_DIR}/entwine/third")
+    include_directories("${CMAKE_CURRENT_SOURCE_DIR}/entwine/third/json")
+endif()
+
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}")
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}/entwine/third")
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}/entwine/third/json")
 
 set(PDAL_FIND_VERSION 1.2)
 find_package(PDAL ${PDAL_FIND_VERSION} REQUIRED CONFIG NO_POLICY_SCOPE)
@@ -49,6 +58,11 @@ set(OBJS
 add_library(entwine SHARED ${OBJS})
 
 target_link_libraries(entwine pdalcpp lzma)
+
+if (ENTWINE_JSONCPP_INCLUDE_DIR)
+    MESSAGE("Linking system JsonCpp")
+    target_link_libraries(entwine jsoncpp)
+endif()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     target_link_libraries(entwine atomic)

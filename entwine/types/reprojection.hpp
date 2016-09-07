@@ -13,7 +13,7 @@
 #include <stdexcept>
 #include <string>
 
-#include <entwine/third/json/json.hpp>
+#include <json/json.h>
 
 namespace entwine
 {

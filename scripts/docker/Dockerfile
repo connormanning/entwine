@@ -1,5 +1,16 @@
-FROM connormanning/pdal:entwine-pin
+FROM pdal/pdal:1.3
 MAINTAINER Connor Manning <connor@hobu.co>
+
+RUN apt-get update && apt-get install -y \
+    git \
+    build-essential \
+    cmake \
+    clang \
+    liblzma-dev \
+    libjsoncpp-dev \
+    libcurl4-openssl-dev
+
+RUN apt-get install -y
 
 ENV CC clang
 ENV CXX clang++

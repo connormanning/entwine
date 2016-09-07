@@ -12,7 +12,6 @@
 
 #include <numeric>
 
-#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/traverser.hpp>
 #include <entwine/types/pooled-point-table.hpp>

@@ -1,0 +1,17 @@
+find_package(JsonCpp 1.6.2)
+
+if (JSONCPP_FOUND)
+    mark_as_advanced(CLEAR JSONCPP_INCLUDE_DIR)
+    mark_as_advanced(CLEAR JSONCPP_LIBRARY)
+    include_directories(${JSONCPP_INCLUDE_DIR})
+    set(ENTWINE_JSONCPP_LIB_NAME ${JSONCPP_LIBRARY})
+    set(ENTWINE_JSONCPP_INCLUDE_DIR ${JSONCPP_INCLUDE_DIR})
+    set(JSON_CPP_LINK_TYPE PUBLIC)
+    set(ENTWINE_HAVE_JSONCPP 1)
+else()
+    set(ENTWINE_JSONCPP_LIB_NAME entwine_jsoncpp)
+    set(ENTWINE_JSONCPP_INCLUDE_DIR ${ENTWINE_VENDOR_DIR}/jsoncpp-1.6.2/dist)
+    set(ENTWINE_JSONCPP_SRC ${ENTWINE_JSONCPP_INCLUDE_DIR}/jsoncpp.cpp)
+    set(JSON_CPP_LINK_TYPE PRIVATE)
+endif()
+

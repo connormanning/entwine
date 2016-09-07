@@ -18,7 +18,8 @@
 #include <unordered_set>
 #include <unordered_map>
 
-#include <entwine/third/json/json.hpp>
+#include <json/json.h>
+
 #include <entwine/tree/chunk.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/tube.hpp>

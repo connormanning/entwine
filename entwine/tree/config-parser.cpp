@@ -13,8 +13,9 @@
 
 #include <entwine/tree/config-parser.hpp>
 
+#include <json/json.h>
+
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/third/json/json.hpp>
 #include <entwine/tree/builder.hpp>
 #include <entwine/tree/manifest.hpp>
 #include <entwine/types/bounds.hpp>
