@@ -7464,18 +7464,38 @@ bool Dropbox::get(
     {
         if (!userHeaders.count("Range"))
         {
-            if (!res.headers().count("size")) return false;
+            if (!res.headers().count("dropbox-api-result"))
+            {
+                std::cout << "No dropbox-api-result header found" << std::endl;
+                return false;
+            }
 
-            const std::size_t size(std::stoul(res.headers().at("size")));
-            data = res.data();
+            Json::Value apiJson;
+            Json::Reader reader;
+            if (reader.parse(res.headers().at("dropbox-api-result"), apiJson))
+            {
+                if (!apiJson.isMember("size"))
+                {
+                    std::cout << "No size found in API result" << std::endl;
+                    return false;
+                }
 
-            if (size == data.size()) return true;
+                const std::size_t size(apiJson["size"].asUInt64());
+                data = res.data();
+
+                if (size == data.size()) return true;
+                else
+                {
+                    std::cout <<
+                        "Data size check failed - got " <<
+                        size << " of " << res.data().size() << " bytes." <<
+                        std::endl;
+                }
+            }
             else
             {
-                std::cout <<
-                    "Data size check failed - got " <<
-                    size << " of " << res.data().size() << " bytes." <<
-                    std::endl;
+                std::cout << "Could not parse API result: " <<
+                    reader.getFormattedErrorMessages() << std::endl;
             }
         }
         else
