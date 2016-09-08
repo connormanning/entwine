@@ -6562,7 +6562,7 @@ namespace
                 in.begin(),
                 in.end(),
                 std::string(),
-                [](const std::string& out, const char c)
+                [](const std::string& out, const char c) -> std::string
                 {
                     return out + static_cast<char>(::tolower(c));
                 });
@@ -6576,7 +6576,7 @@ namespace
                 in.begin(),
                 in.end(),
                 std::string(),
-                [](const std::string& out, const char c)
+                [](const std::string& out, const char c) -> std::string
                 {
                     if (
                         std::isspace(c) &&
@@ -7865,7 +7865,7 @@ Response Curl::get(
         Query query,
         const std::size_t reserve)
 {
-    int httpCode(0);
+    long httpCode(0);
     std::vector<char> data;
 
     if (reserve) data.reserve(reserve);
@@ -7895,7 +7895,7 @@ Response Curl::get(
 
 Response Curl::head(std::string path, Headers headers, Query query)
 {
-    int httpCode(0);
+    long httpCode(0);
     std::vector<char> data;
 
     init(path, headers, query);
@@ -7933,7 +7933,7 @@ Response Curl::put(
     init(path, headers, query);
     if (m_verbose) curl_easy_setopt(m_curl, CURLOPT_VERBOSE, 1L);
 
-    int httpCode(0);
+    long httpCode(0);
 
     std::unique_ptr<PutData> putData(new PutData(data));
 
@@ -7975,7 +7975,7 @@ Response Curl::post(
     init(path, headers, query);
     if (m_verbose) curl_easy_setopt(m_curl, CURLOPT_VERBOSE, 1L);
 
-    int httpCode(0);
+    long httpCode(0);
 
     std::unique_ptr<PutData> putData(new PutData(data));
     std::vector<char> writeData;
