@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <functional>
+
 #include <entwine/third/bigint/little-big-int.hpp>
 #include <entwine/types/bounds.hpp>
 
