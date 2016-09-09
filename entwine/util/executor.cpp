@@ -55,21 +55,47 @@ namespace
             layout->registerDim(DimId::Z);
             layout->finalize();
 
-            m_view->setField(DimId::X, 0, bounds.min().x);
-            m_view->setField(DimId::Y, 0, bounds.min().y);
-            m_view->setField(DimId::Z, 0, bounds.min().z);
+            std::size_t i(0);
 
-            m_view->setField(DimId::X, 1, bounds.max().x);
-            m_view->setField(DimId::Y, 1, bounds.max().y);
-            m_view->setField(DimId::Z, 1, bounds.max().z);
+            m_view->setField(DimId::X, i, bounds.min().x);
+            m_view->setField(DimId::Y, i, bounds.min().y);
+            m_view->setField(DimId::Z, i, bounds.min().z);
+            ++i;
 
-            m_view->setField(DimId::X, 2, bounds.min().x);
-            m_view->setField(DimId::Y, 2, bounds.max().y);
-            m_view->setField(DimId::Z, 2, bounds.min().z);
+            m_view->setField(DimId::X, i, bounds.min().x);
+            m_view->setField(DimId::Y, i, bounds.min().y);
+            m_view->setField(DimId::Z, i, bounds.max().z);
+            ++i;
 
-            m_view->setField(DimId::X, 3, bounds.max().x);
-            m_view->setField(DimId::Y, 3, bounds.min().y);
-            m_view->setField(DimId::Z, 3, bounds.max().z);
+            m_view->setField(DimId::X, i, bounds.max().x);
+            m_view->setField(DimId::Y, i, bounds.max().y);
+            m_view->setField(DimId::Z, i, bounds.min().z);
+            ++i;
+
+            m_view->setField(DimId::X, i, bounds.max().x);
+            m_view->setField(DimId::Y, i, bounds.max().y);
+            m_view->setField(DimId::Z, i, bounds.max().z);
+            ++i;
+
+            m_view->setField(DimId::X, i, bounds.min().x);
+            m_view->setField(DimId::Y, i, bounds.max().y);
+            m_view->setField(DimId::Z, i, bounds.min().z);
+            ++i;
+
+            m_view->setField(DimId::X, i, bounds.min().x);
+            m_view->setField(DimId::Y, i, bounds.max().y);
+            m_view->setField(DimId::Z, i, bounds.max().z);
+            ++i;
+
+            m_view->setField(DimId::X, i, bounds.max().x);
+            m_view->setField(DimId::Y, i, bounds.min().y);
+            m_view->setField(DimId::Z, i, bounds.min().z);
+            ++i;
+
+            m_view->setField(DimId::X, i, bounds.max().x);
+            m_view->setField(DimId::Y, i, bounds.min().y);
+            m_view->setField(DimId::Z, i, bounds.max().z);
+            ++i;
 
             m_buffer.addView(m_view);
         }
