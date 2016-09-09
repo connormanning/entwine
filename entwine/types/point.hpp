@@ -65,6 +65,22 @@ public:
         return 0;
     }
 
+    static Point max(const Point& a, const Point& b)
+    {
+        return Point(
+                std::max(a.x, b.x),
+                std::max(a.y, b.y),
+                std::max(a.z, b.z));
+    }
+
+    static Point min(const Point& a, const Point& b)
+    {
+        return Point(
+                std::min(a.x, b.x),
+                std::min(a.y, b.y),
+                std::min(a.z, b.z));
+    }
+
     double x;
     double y;
     double z;
