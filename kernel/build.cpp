@@ -115,6 +115,9 @@ namespace
             "\t\tDo not trust file headers when determining bounds.  By\n"
             "\t\tdefault, the headers are considered to be good.\n\n"
 
+            "\t-c\n"
+            "\t\tIf set, compression will be disabled.\n\n"
+
             "\t-s <subset-number> <subset-total>\n"
             "\t\tBuild only a portion of the index.  If output paths are\n"
             "\t\tall the same, 'merge' should be run after all subsets are\n"
@@ -224,8 +227,7 @@ void Kernel::build(std::vector<std::string> args)
 
     entwine::arbiter::Arbiter localArbiter;
     Json::Value json(defaults);
-    std::string user;
-    bool sse(false);
+    Json::Value arbiterConfig(json["arbiter"]);
 
     std::size_t a(0);
 
@@ -275,7 +277,7 @@ void Kernel::build(std::vector<std::string> args)
                 throw std::runtime_error("Invalid tmp specification");
             }
         }
-        else if (arg == "-c")
+        else if (arg == "-n")
         {
             if (++a < args.size())
             {
@@ -313,8 +315,9 @@ void Kernel::build(std::vector<std::string> args)
         }
         else if (arg == "-f") { json["output"]["force"] = true; }
         else if (arg == "-x") { json["input"]["trustHeaders"] = false; }
-        else if (arg == "-e") { sse = true; }
         else if (arg == "-p") { json["structure"]["prefixIds"] = true; }
+        else if (arg == "-c") { json["output"]["compress"] = false; }
+        else if (arg == "-e") { arbiterConfig["s3"]["sse"] = true; }
         else if (arg == "-h")
         {
             json["geometry"]["reproject"]["hammer"] = true;
@@ -340,7 +343,7 @@ void Kernel::build(std::vector<std::string> args)
         {
             if (++a < args.size())
             {
-                user = args[a];
+                arbiterConfig["s3"]["profile"] = args[a];
             }
             else
             {
@@ -403,10 +406,6 @@ void Kernel::build(std::vector<std::string> args)
 
         ++a;
     }
-
-    Json::Value arbiterConfig(json["arbiter"]);
-    arbiterConfig["s3"]["profile"] = user;
-    if (sse) arbiterConfig["s3"]["sse"] = true;
 
     auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(arbiterConfig));
 
