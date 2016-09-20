@@ -14,9 +14,12 @@
 #include <iomanip>
 #include <limits>
 #include <ostream>
+#include <vector>
 
 namespace entwine
 {
+
+using Transformation = std::vector<double>;
 
 class Schema;
 
@@ -79,6 +82,35 @@ public:
                 std::min(a.x, b.x),
                 std::min(a.y, b.y),
                 std::min(a.z, b.z));
+    }
+
+    static Point normalize(const Point& p)
+    {
+        const double m(std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z));
+        return Point(p.x / m, p.y / m, p.z / m);
+    }
+
+    static Point cross(const Point& a, const Point& b)
+    {
+        return Point(
+                a.y * b.z - a.z * b.y,
+                a.z * b.x - a.x * b.z,
+                a.x * b.y - a.y * b.x);
+    }
+
+    static double dot(const Point& a, const Point& b)
+    {
+        return a.x * b.x + a.y * b.y + a.z * b.z;
+    }
+
+    static Point transform(const Point& p, const Transformation& t)
+    {
+        return Point(
+            p.x * t[0] + p.y * t[1] + p.z * t[2] + t[3],
+            p.x * t[4] + p.y * t[5] + p.z * t[6] + t[7],
+            p.z != emptyCoord() ?
+                p.x * t[8] + p.y * t[9] + p.z * t[10] + t[11] :
+                0);
     }
 
     double x;
@@ -162,6 +194,11 @@ inline Point& operator-=(Point& lhs, const Point& rhs)
     return lhs;
 }
 
+inline Point operator*(const Point& p, double s)
+{
+    return Point(p.x * s, p.y * s, p.z * s);
+}
+
 inline std::ostream& operator<<(std::ostream& os, const Point& point)
 {
     auto flags(os.flags());
@@ -182,6 +219,37 @@ inline std::ostream& operator<<(std::ostream& os, const Point& point)
     os << std::setprecision(precision);
     os.flags(flags);
 
+    return os;
+}
+
+class Color
+{
+public:
+    Color() : r(0), g(0), b(0) { }
+    Color(uint8_t r, uint8_t g, uint8_t b) : r(r), g(g), b(b) { }
+
+    static Color min(const Color& a, const Color& b)
+    {
+        return Color(
+                std::min(a.r, b.r),
+                std::min(a.g, b.g),
+                std::min(a.b, b.b));
+    }
+
+    static Color max(const Color& a, const Color& b)
+    {
+        return Color(
+                std::max(a.r, b.r),
+                std::max(a.g, b.g),
+                std::max(a.b, b.b));
+    }
+
+    uint8_t r, g, b;
+};
+
+inline std::ostream& operator<<(std::ostream& os, const Color& c)
+{
+    os << "(" << (int)c.r << ", " << (int)c.g << ", " << (int)c.b << ")";
     return os;
 }
 

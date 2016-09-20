@@ -20,10 +20,12 @@ namespace entwine
 {
 
 namespace arbiter { class Endpoint; }
+namespace cesium { class Settings; }
 
 class Bounds;
 class Format;
 class Manifest;
+class Point;
 class Reprojection;
 class Schema;
 class Structure;
@@ -43,7 +45,9 @@ public:
             const Manifest& manifest,
             const Format& format,
             const Reprojection* reprojection = nullptr,
-            const Subset* subset = nullptr);
+            const Subset* subset = nullptr,
+            const std::vector<double>* transformation = nullptr,
+            const cesium::Settings* cesiumSettings = nullptr);
 
     Metadata(
             const arbiter::Endpoint& endpoint,
@@ -71,6 +75,14 @@ public:
     const Format& format() const { return *m_format; }
     const Reprojection* reprojection() const { return m_reprojection.get(); }
     const Subset* subset() const { return m_subset.get(); }
+    const Transformation* transformation() const
+    {
+        return m_transformation.get();
+    }
+    const cesium::Settings* cesiumSettings() const
+    {
+        return m_cesiumSettings.get();
+    }
 
     const std::vector<std::string>& errors() const { return m_errors; }
 
@@ -95,6 +107,8 @@ private:
     std::unique_ptr<Format> m_format;
     std::unique_ptr<Reprojection> m_reprojection;
     std::unique_ptr<Subset> m_subset;
+    std::unique_ptr<Transformation> m_transformation;
+    std::unique_ptr<cesium::Settings> m_cesiumSettings;
 
     std::vector<std::string> m_errors;
 };

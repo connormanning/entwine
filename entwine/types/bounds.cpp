@@ -15,6 +15,8 @@
 #include <numeric>
 #include <iostream>
 
+#include <entwine/util/unique.hpp>
+
 namespace entwine
 {
 

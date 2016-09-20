@@ -11,10 +11,14 @@
 #include <entwine/tree/chunk.hpp>
 
 #include <atomic>
+#include <cstdlib>
+#include <ctime>
 
 #include <pdal/Dimension.hpp>
 #include <pdal/PointView.hpp>
 
+#include <entwine/formats/cesium/tileset.hpp>
+#include <entwine/formats/cesium/tile-builder.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
 #include <entwine/types/metadata.hpp>
@@ -37,11 +41,13 @@ std::size_t Chunk::count() { return chunkCount; }
 
 Chunk::Chunk(
         const Builder& builder,
+        const Bounds& bounds,
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints)
     : m_builder(builder)
     , m_metadata(m_builder.metadata())
+    , m_bounds(bounds)
     , m_pointPool(m_builder.pointPool())
     , m_depth(depth)
     , m_zDepth(std::min(Tube::maxTickDepth(), depth))
@@ -71,6 +77,8 @@ void Chunk::collect(ChunkType type)
 {
     assert(!m_data);
 
+    if (m_metadata.cesiumSettings()) tile();
+
     Cell::PooledStack cellStack(acquire());
     Data::PooledStack dataStack(m_pointPool.dataPool());
 
@@ -97,6 +105,7 @@ Chunk::~Chunk()
 
 std::unique_ptr<Chunk> Chunk::create(
         const Builder& builder,
+        const Bounds& bounds,
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints)
@@ -105,7 +114,12 @@ std::unique_ptr<Chunk> Chunk::create(
     {
         if (depth)
         {
-            return makeUnique<ContiguousChunk>(builder, depth, id, maxPoints);
+            return makeUnique<ContiguousChunk>(
+                    builder,
+                    bounds,
+                    depth,
+                    id,
+                    maxPoints);
         }
         else
         {
@@ -114,12 +128,13 @@ std::unique_ptr<Chunk> Chunk::create(
     }
     else
     {
-        return makeUnique<SparseChunk>(builder, depth, id, maxPoints);
+        return makeUnique<SparseChunk>(builder, bounds, depth, id, maxPoints);
     }
 }
 
 std::unique_ptr<Chunk> Chunk::create(
         const Builder& builder,
+        const Bounds& bounds,
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints,
@@ -133,6 +148,7 @@ std::unique_ptr<Chunk> Chunk::create(
         {
             return makeUnique<ContiguousChunk>(
                     builder,
+                    bounds,
                     depth,
                     id,
                     maxPoints,
@@ -142,6 +158,7 @@ std::unique_ptr<Chunk> Chunk::create(
         {
             return makeUnique<SparseChunk>(
                     builder,
+                    bounds,
                     depth,
                     id,
                     maxPoints,
@@ -160,21 +177,23 @@ std::unique_ptr<Chunk> Chunk::create(
 
 SparseChunk::SparseChunk(
         const Builder& builder,
+        const Bounds& bounds,
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints)
-    : Chunk(builder, depth, id, maxPoints)
+    : Chunk(builder, bounds, depth, id, maxPoints)
     , m_tubes()
     , m_mutex()
 { }
 
 SparseChunk::SparseChunk(
         const Builder& builder,
+        const Bounds& bounds,
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints,
         Cell::PooledStack cells)
-    : Chunk(builder, depth, id, maxPoints)
+    : Chunk(builder, bounds, depth, id, maxPoints)
     , m_tubes()
     , m_mutex()
 {
@@ -203,26 +222,75 @@ Cell::PooledStack SparseChunk::acquire()
     return cells;
 }
 
+cesium::TileInfo SparseChunk::info() const
+{
+    std::map<std::size_t, std::size_t> ticks;
+    std::size_t cur(0);
+    const std::size_t div(divisor());
+
+    for (const auto& tubePair : m_tubes)
+    {
+        for (const auto& cellPair : tubePair.second)
+        {
+            cur = cellPair.first / div;
+            if (ticks.count(cur)) ticks[cur] += cellPair.second->size();
+            else ticks[cur] = cellPair.second->size();
+        }
+    }
+
+    return cesium::TileInfo(m_id, ticks, m_depth, m_bounds);
+}
+
+void SparseChunk::tile() const
+{
+    const cesium::TileInfo tileInfo(info());
+    const auto endpoint(m_builder.outEndpoint().getSubEndpoint("cesium"));
+    cesium::TileBuilder tileBuilder(m_metadata, tileInfo);
+
+    for (const auto& tubePair : m_tubes)
+    {
+        for (const auto& cellPair : tubePair.second)
+        {
+            tileBuilder.push(cellPair.first, *cellPair.second);
+        }
+    }
+
+    for (const auto& tilePair : tileBuilder.data())
+    {
+        const std::size_t tick(tilePair.first);
+        const auto& tileData(tilePair.second);
+
+        cesium::Tile tile(tileData.points, tileData.colors);
+
+        Storage::ensurePut(
+                endpoint,
+                m_id.str() + "-" + std::to_string(tick) + ".pnts",
+                tile.asBinary());
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 ContiguousChunk::ContiguousChunk(
         const Builder& builder,
+        const Bounds& bounds,
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints,
         const bool autosave)
-    : Chunk(builder, depth, id, maxPoints)
+    : Chunk(builder, bounds, depth, id, maxPoints)
     , m_tubes(maxPoints.getSimple())
     , m_autosave(autosave)
 { }
 
 ContiguousChunk::ContiguousChunk(
         const Builder& builder,
+        const Bounds& bounds,
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints,
         Cell::PooledStack cells)
-    : Chunk(builder, depth, id, maxPoints)
+    : Chunk(builder, bounds, depth, id, maxPoints)
     , m_tubes(maxPoints.getSimple())
     , m_autosave(true)
 {
@@ -246,11 +314,99 @@ Cell::PooledStack ContiguousChunk::acquire()
     return cells;
 }
 
+cesium::TileInfo ContiguousChunk::info() const
+{
+    std::map<std::size_t, std::size_t> ticks;
+    std::size_t cur(0);
+    const std::size_t div(divisor());
+    const bool inBase(m_depth < m_metadata.structure().coldDepthBegin());
+
+    for (const auto& tube : m_tubes)
+    {
+        for (const auto& cellPair : tube)
+        {
+            if (!inBase) cur = cellPair.first / div;
+            if (ticks.count(cur)) ticks[cur] += cellPair.second->size();
+            else ticks[cur] = cellPair.second->size();
+        }
+    }
+
+    return cesium::TileInfo(m_id, ticks, m_depth, m_bounds);
+}
+
+void ContiguousChunk::tile() const
+{
+    const cesium::TileInfo tileInfo(info());
+    const auto endpoint(m_builder.outEndpoint().getSubEndpoint("cesium"));
+    const bool inBase(m_depth < m_metadata.structure().coldDepthBegin());
+    cesium::TileBuilder tileBuilder(m_metadata, tileInfo);
+
+    for (const auto& tube : m_tubes)
+    {
+        for (const auto& cellPair : tube)
+        {
+            tileBuilder.push(inBase ? 0 : cellPair.first, *cellPair.second);
+        }
+    }
+
+    for (const auto& tilePair : tileBuilder.data())
+    {
+        const std::size_t tick(tilePair.first);
+        const auto& tileData(tilePair.second);
+
+        cesium::Tile tile(tileData.points, tileData.colors);
+
+        Storage::ensurePut(
+                endpoint,
+                m_id.str() + "-" + std::to_string(tick) + ".pnts",
+                tile.asBinary());
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
+
+cesium::TileInfo BaseChunk::info() const
+{
+    throw std::runtime_error("Cannot call info on base");
+}
+
+std::vector<cesium::TileInfo> BaseChunk::baseInfo() const
+{
+    std::vector<cesium::TileInfo> result;
+
+    const auto& s(m_metadata.structure());
+    std::map<std::size_t, std::size_t> ticks;
+    ticks[0] = 1;
+
+    for (std::size_t d(s.baseDepthBegin()); d < s.baseDepthEnd(); ++d)
+    {
+        if (d > s.nominalChunkDepth())
+        {
+            const std::size_t tickMax(1 << (d - s.nominalChunkDepth()));
+            for (std::size_t t(0); t < tickMax; ++t) ticks[t] = 1;
+        }
+
+        result.emplace_back(m_chunks.at(d).id(), ticks, d, m_bounds);
+    }
+
+    return result;
+}
+
+void BaseChunk::tile() const
+{
+    for (
+            std::size_t i(m_metadata.structure().baseDepthBegin());
+            i < m_metadata.structure().baseDepthEnd();
+            ++i)
+    {
+        m_chunks.at(i).tile();
+    }
+}
 
 BaseChunk::BaseChunk(const Builder& builder)
     : Chunk(
             builder,
+            builder.metadata().bounds(),
             builder.metadata().structure().baseDepthBegin(),
             builder.metadata().structure().baseIndexBegin(),
             builder.metadata().structure().baseIndexSpan())
@@ -258,6 +414,7 @@ BaseChunk::BaseChunk(const Builder& builder)
     , m_celledSchema(makeCelled(m_metadata.schema()))
     , m_writes()
 {
+    std::srand(std::time(0));
     const auto& s(m_metadata.structure());
 
     // These will go unused, but keep our API uniform, and let us avoid
@@ -266,6 +423,7 @@ BaseChunk::BaseChunk(const Builder& builder)
     {
         m_chunks.emplace_back(
                 m_builder,
+                m_metadata.bounds(),
                 d,
                 ChunkInfo::calcLevelIndex(2, d),
                 0,
@@ -283,6 +441,7 @@ BaseChunk::BaseChunk(const Builder& builder)
         {
             m_chunks.emplace_back(
                     m_builder,
+                    m_metadata.bounds(),
                     d,
                     spans[d].begin(),
                     spans[d].end() - spans[d].begin(),
@@ -295,6 +454,7 @@ BaseChunk::BaseChunk(const Builder& builder)
         {
             m_chunks.emplace_back(
                     m_builder,
+                    m_metadata.bounds(),
                     d,
                     ChunkInfo::calcLevelIndex(2, d),
                     ChunkInfo::pointsAtDepth(2, d),
@@ -363,6 +523,7 @@ BaseChunk::BaseChunk(const Builder& builder, Unpacker unpacker)
 
 void BaseChunk::save(const arbiter::Endpoint& endpoint)
 {
+    if (m_metadata.cesiumSettings()) tile();
     makeWritable();
 
     Data::PooledStack dataStack(m_pointPool.dataPool());
@@ -419,11 +580,12 @@ void BaseChunk::save(const arbiter::Endpoint& endpoint)
                     }
                 }
 
-                dataStack.push(cell->acquire());
                 cellStack.push(std::move(cell));
             }
         }
     }
+
+    for (Cell& cell : cellStack) dataStack.push(cell.acquire());
 
     if (compress) data = compressor->data();
 
@@ -499,9 +661,13 @@ std::set<Id> BaseChunk::merge(BaseChunk& other)
             {
                 const Id id(write.front().id());
 
+                throw std::runtime_error(
+                        "Chunk bounds required - not implemented here");
+
                 // Manual save, since we don't want to write empty chunks.
                 ContiguousChunk chunk(
                         m_builder,
+                        Bounds(),
                         d,
                         id,
                         s.basePointsPerChunk(),

@@ -12,12 +12,15 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <vector>
 
 #include <pdal/PointTable.hpp>
 
+#include <entwine/formats/cesium/tile-info.hpp>
+#include <entwine/formats/cesium/util.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/types/dim-info.hpp>
 #include <entwine/types/format.hpp>
@@ -25,14 +28,12 @@
 #include <entwine/types/schema.hpp>
 #include <entwine/types/tube.hpp>
 #include <entwine/util/locker.hpp>
-
-namespace arbiter
-{
-    class Endpoint;
-}
+#include <entwine/util/matrix.hpp>
 
 namespace entwine
 {
+
+namespace arbiter { class Endpoint; }
 
 class Builder;
 class Metadata;
@@ -44,6 +45,7 @@ class Chunk
 public:
     Chunk(
             const Builder& builder,
+            const Bounds& bounds,
             std::size_t depth,
             const Id& id,
             const Id& maxPoints);
@@ -54,12 +56,14 @@ public:
 
     static std::unique_ptr<Chunk> create(
             const Builder& builder,
+            const Bounds& bounds,
             std::size_t depth,
             const Id& id,
             const Id& maxPoints);
 
     static std::unique_ptr<Chunk> create(
             const Builder& builder,
+            const Bounds& bounds,
             std::size_t depth,
             const Id& id,
             const Id& maxPoints,
@@ -75,6 +79,8 @@ public:
 
     static std::size_t count();
 
+    virtual cesium::TileInfo info() const = 0;
+
 protected:
     void populate(Cell::PooledStack cells);
 
@@ -83,10 +89,27 @@ protected:
     virtual Cell::PooledStack acquire() = 0;
     virtual Tube& getTube(const Climber& climber) = 0;
 
+    std::size_t divisor() const
+    {
+        const auto& s(m_metadata.structure());
+
+        std::size_t d(1 << s.nominalChunkDepth());
+
+        if (m_depth > s.sparseDepthBegin())
+        {
+            d <<= m_depth - s.sparseDepthBegin();
+        }
+
+        return d;
+    }
+
     Id endId() const { return m_id + m_maxPoints; }
+
+    virtual void tile() const { }
 
     const Builder& m_builder;
     const Metadata& m_metadata;
+    const Bounds m_bounds;
     PointPool& m_pointPool;
 
     const std::size_t m_depth;
@@ -103,12 +126,14 @@ class SparseChunk : public Chunk
 public:
     SparseChunk(
             const Builder& builder,
+            const Bounds& bounds,
             std::size_t depth,
             const Id& id,
             const Id& maxPoints);
 
     SparseChunk(
             const Builder& builder,
+            const Bounds& bounds,
             std::size_t depth,
             const Id& id,
             const Id& maxPoints,
@@ -116,8 +141,12 @@ public:
 
     virtual ~SparseChunk();
 
+    virtual cesium::TileInfo info() const override;
+
 private:
     virtual Cell::PooledStack acquire() override;
+
+    virtual void tile() const override;
 
     virtual Tube& getTube(const Climber& climber) override
     {
@@ -146,6 +175,7 @@ class ContiguousChunk : public Chunk
 public:
     ContiguousChunk(
             const Builder& builder,
+            const Bounds& bounds,
             std::size_t depth,
             const Id& id,
             const Id& maxPoints,
@@ -153,6 +183,7 @@ public:
 
     ContiguousChunk(
             const Builder& builder,
+            const Bounds& bounds,
             std::size_t depth,
             const Id& id,
             const Id& maxPoints,
@@ -161,6 +192,8 @@ public:
     ContiguousChunk(ContiguousChunk&& other) = default;
 
     virtual ~ContiguousChunk();
+
+    virtual cesium::TileInfo info() const override;
 
     bool empty() const
     {
@@ -173,6 +206,8 @@ public:
 
 protected:
     virtual Cell::PooledStack acquire() override;
+
+    virtual void tile() const override;
 
     virtual Tube& getTube(const Climber& climber) override
     {
@@ -207,8 +242,13 @@ public:
 
     static Schema makeCelled(const Schema& in);
 
+    virtual cesium::TileInfo info() const override;
+    std::vector<cesium::TileInfo> baseInfo() const;
+
 private:
     virtual Cell::PooledStack acquire() override;
+
+    virtual void tile() const override;
 
     virtual Tube& getTube(const Climber& climber) override
     {

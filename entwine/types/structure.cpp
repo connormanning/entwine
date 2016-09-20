@@ -82,6 +82,32 @@ ChunkInfo::ChunkInfo(const Structure& structure, const Id& index)
     }
 }
 
+Id ChunkInfo::calcParentId(
+        const Structure& structure,
+        const Id& index,
+        const std::size_t depth)
+{
+    if (index == structure.baseIndexBegin())
+    {
+        throw std::runtime_error("Base chunk has no parent");
+    }
+
+    const Id upOne(index >> 2);
+
+    if (depth > structure.sparseDepthBegin())
+    {
+        return upOne;
+    }
+    else if (depth > structure.coldDepthBegin())
+    {
+        const auto& coldIndexBegin(structure.coldIndexBegin());
+        const std::size_t ppc(structure.basePointsPerChunk());
+
+        return coldIndexBegin + (upOne - coldIndexBegin) / ppc * ppc;
+    }
+    else return structure.baseIndexBegin();
+}
+
 Id ChunkInfo::calcLevelIndex(
         const std::size_t dimensions,
         const std::size_t depth)

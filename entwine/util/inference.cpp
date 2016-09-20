@@ -10,12 +10,12 @@
 
 #include <entwine/util/inference.hpp>
 
-#include <pdal/PointView.hpp>
-
 #include <entwine/tree/config-parser.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/util/inference.hpp>
+#include <entwine/util/matrix.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
@@ -57,6 +57,8 @@ Inference::Inference(
         const bool trustHeaders,
         arbiter::Arbiter* arbiter)
     : m_executor()
+    , m_path(path)
+    , m_tmpPath(tmpPath)
     , m_pointPool(xyzSchema)
     , m_reproj(reprojection)
     , m_threads(threads)
@@ -70,6 +72,8 @@ Inference::Inference(
     , m_index(0)
     , m_dimVec()
     , m_dimSet()
+    , m_cesiumify(false)
+    , m_transformation()
     , m_mutex()
 { }
 
@@ -80,8 +84,10 @@ Inference::Inference(
         const bool verbose,
         const Reprojection* reprojection,
         const bool trustHeaders,
-        arbiter::Arbiter* arbiter)
+        arbiter::Arbiter* arbiter,
+        const bool cesiumify)
     : m_executor()
+    , m_tmpPath(tmpPath)
     , m_pointPool(xyzSchema)
     , m_reproj(reprojection)
     , m_threads(threads)
@@ -95,6 +101,8 @@ Inference::Inference(
     , m_index(0)
     , m_dimVec()
     , m_dimSet()
+    , m_cesiumify(cesiumify)
+    , m_transformation()
     , m_mutex()
 { }
 
@@ -113,6 +121,8 @@ void Inference::go()
     {
         FileInfo& f(m_manifest.get(i));
         m_index = i;
+
+        if (m_transformation) std::cout << "P: " << f.path() << std::endl;
 
         if (m_verbose)
         {
@@ -180,7 +190,86 @@ void Inference::go()
         throw std::runtime_error("No bounds found");
     }
 
+    if (m_cesiumify)
+    {
+        std::cout << "Transforming inference" << std::endl;
+        m_transformation = makeUnique<Transformation>(calcTransformation());
+        for (std::size_t i(0); i < m_manifest.size(); ++i)
+        {
+            auto& f(m_manifest.get(i));
+            if (!f.bounds()) throw std::runtime_error("No bounds present");
+            f.bounds(m_executor.transform(*f.bounds(), *m_transformation));
+        }
+    }
+
     m_done = true;
+}
+
+Transformation Inference::calcTransformation()
+{
+    // We have our full bounds and info for all files in EPSG:4978.  Now:
+    //      1) determine a transformation matrix so outward is up
+    //      2) transform our file info and bounds accordingly
+
+    // We're going to use our Point class to represent Vectors in this function.
+    using Vector = Point;
+
+    // Let O = (0,0,0) be the origin (center of the earth).  This is our native
+    // projection system with unit vectors i=(1,0,0), j=(0,1,0), and k=(0,0,1).
+
+    // Let P = bounds.mid(), our transformed origin point.
+
+    // Let S be the sphere centered at O with radius ||P||.
+
+    // Let T = the plane tangent to S at P.
+
+    // Now, we can define our desired coordinate system:
+    //
+    // k' = "up" = normalized vector O->P
+    //
+    // j' = "north" = the normalized projected vector onto tangent plane T, of
+    // the north pole vector (0,0,1) from the non-transformed coordinate system.
+    //
+    // i' = "east" = j' cross k'
+
+    // Determine normalized vector k'.
+    const Point p(bounds().mid());
+    const Vector up(Vector::normalize(p));
+
+    // Project the north pole vector onto k'.
+    const Vector northPole(0, 0, 1);
+    const double dot(Point::dot(up, northPole));
+    const Vector proj(up * dot);
+
+    // Subtract that projection from the north pole vector to project it onto
+    // tangent plane T - then normalize to determine vector j'.
+    const Vector north(Vector::normalize(northPole - proj));
+
+    // Finally, calculate j' cross k' to determine i', which should turn out to
+    // be normalized since the inputs are orthogonal and normalized.
+    const Vector east(Vector::cross(north, up));
+
+    // First, rotate so up is outward from the center of the earth.
+    const std::vector<double> rotation
+    {
+        east.x,     east.y,     east.z,     0,
+        north.x,    north.y,    north.z,    0,
+        up.x,       up.y,       up.z,       0,
+        0,          0,          0,          1
+    };
+
+    // Then, translate around our current best guess at a center point.  This
+    // should be close enough to the origin for reasonable precision.
+    const Bounds tentativeCenter(m_executor.transform(bounds(), rotation));
+    const std::vector<double> translation
+    {
+        1, 0, 0, -tentativeCenter.mid().x,
+        0, 1, 0, -tentativeCenter.mid().y,
+        0, 0, 1, -tentativeCenter.mid().z,
+        0, 0, 0, 1
+    };
+
+    return matrix::multiply(translation, rotation);
 }
 
 void Inference::add(const std::string localPath, FileInfo& fileInfo)
@@ -229,7 +318,7 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
 
     PooledPointTable table(m_pointPool, tracker);
 
-    if (m_executor.run(table, localPath, m_reproj))
+    if (m_executor.run(table, localPath, m_reproj, m_transformation.get()))
     {
         update(curNumPoints, curBounds);
     }

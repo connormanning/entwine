@@ -18,6 +18,7 @@ set(
     "${BASE}/inference.hpp"
     "${BASE}/json.hpp"
     "${BASE}/locker.hpp"
+    "${BASE}/matrix.hpp"
     "${BASE}/pool.hpp"
     "${BASE}/spin-lock.hpp"
     "${BASE}/storage.hpp"

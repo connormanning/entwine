@@ -15,6 +15,7 @@
 #include <iostream>
 #include <string>
 
+#include <entwine/formats/cesium/settings.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
 #include <entwine/tree/config-parser.hpp>
@@ -27,6 +28,7 @@
 #include <entwine/types/structure.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/json.hpp>
+#include <entwine/util/matrix.hpp>
 
 using namespace entwine;
 
@@ -132,15 +134,19 @@ namespace
     std::string getDimensionString(const Schema& schema)
     {
         const DimList dims(schema.dims());
-        std::string results("[");
+        std::string results("[\n\t\t");
 
         for (std::size_t i(0); i < dims.size(); ++i)
         {
-            if (i) results += ", ";
+            if (i)
+            {
+                if (i % 5 == 0) results += "\n\t\t";
+                else results += ", ";
+            }
             results += dims[i].name();
         }
 
-        results += "]";
+        results += "\n\t]";
 
         return results;
     }
@@ -180,6 +186,26 @@ namespace
         }
     }
 
+    void printMatrix(const std::vector<double>& v)
+    {
+        const std::size_t precision(8);
+
+        std::size_t i(0);
+        const std::size_t n(std::sqrt(v.size()));
+
+        std::cout << std::setprecision(precision);
+
+        std::cout << "[\n\t\t";
+        for (const auto d : v)
+        {
+            std::cout << d;
+            if (i < v.size() - 1) std::cout << ", ";
+            if (++i % n == 0) std::cout << "\n";
+            if (i != v.size()) std::cout << "\t\t";
+        }
+        std::cout << "\t]" << std::endl;
+    }
+
     const Json::Value defaults(([]()
     {
         Json::Value json;
@@ -192,7 +218,7 @@ namespace
         json["output"]["tmp"] = "tmp";
         json["output"]["compress"] = true;
 
-        json["structure"]["nullDepth"] = 6;
+        json["structure"]["nullDepth"] = 7;
         json["structure"]["baseDepth"] = 10;
         json["structure"]["numPointsHint"] = Json::Value::null;
         json["structure"]["pointsPerChunk"] = 262144;
@@ -201,7 +227,6 @@ namespace
         json["structure"]["prefixIds"] = false;
 
         json["geometry"]["bounds"] = Json::Value::null;
-        json["geometry"]["reproject"] = Json::Value::null;
         json["geometry"]["schema"] = Json::Value::null;
 
         return json;
@@ -235,8 +260,9 @@ void Kernel::build(std::vector<std::string> args)
     {
         // First argument is a config path.
         const std::string configPath(args[0]);
-        const std::string config(localArbiter.get(configPath));
-        json = parse(config);
+        const Json::Value config(parse(localArbiter.get(configPath)));
+        recMerge(json, config);
+
         ++a;
     }
 
@@ -497,8 +523,30 @@ void Kernel::build(std::vector<std::string> args)
         "\tConforming bounds: " << metadata.boundsConforming() << "\n" <<
         "\tCubic bounds: " << metadata.bounds() << "\n" <<
         "\tReprojection: " << getReprojString(reprojection) << "\n" <<
-        "\tStoring dimensions: " << getDimensionString(schema) << "\n" <<
+        "\tStoring dimensions: " << getDimensionString(schema) <<
         std::endl;
+
+    if (metadata.transformation())
+    {
+        std::cout << "\tTransformation: ";
+        printMatrix(*metadata.transformation());
+    }
+
+    if (const auto c = metadata.cesiumSettings())
+    {
+        std::cout <<
+            "Cesium:\n" <<
+            "\tTileset split depth: " << c->tilesetSplit() << "\n" <<
+            "\tGeometric error divisor: " << c->geometricErrorDivisor() <<
+            std::endl;
+
+        if (c->coloring().size())
+        {
+            std::cout << "\tColoring: " << c->coloring() << std::endl;
+        }
+    }
+
+    std::cout << std::endl;
 
     auto start = now();
     const std::size_t alreadyInserted(manifest.pointStats().inserts());

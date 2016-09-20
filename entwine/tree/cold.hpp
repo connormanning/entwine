@@ -20,14 +20,13 @@
 
 #include <json/json.h>
 
+#include <entwine/formats/cesium/tile-info.hpp>
 #include <entwine/tree/chunk.hpp>
+#include <entwine/tree/splitter.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/tube.hpp>
 #include <entwine/util/spin-lock.hpp>
 #include <entwine/util/unique.hpp>
-
-#include <entwine/tree/splitter.hpp>
-
 
 namespace arbiter
 {
@@ -47,6 +46,11 @@ struct CountedChunk
 {
     std::unique_ptr<Chunk> chunk;
     std::unordered_map<std::size_t, std::size_t> refs;
+
+    bool unique() const
+    {
+        return refs.size() == 1 && refs.begin()->second == 1;
+    }
 
     void unref(std::size_t id)
     {
@@ -95,10 +99,15 @@ private:
             std::unique_ptr<Chunk>& chunk,
             bool exists);
 
+    void saveCesiumMetadata(const arbiter::Endpoint& endpoint) const;
+
     using ChunkMap = std::unordered_map<Id, std::unique_ptr<CountedChunk>>;
 
     const Builder& m_builder;
     Pool& m_pool;
+
+    std::map<Id, cesium::TileInfo> m_info;
+    std::mutex m_mutex;
 };
 
 } // namespace entwine

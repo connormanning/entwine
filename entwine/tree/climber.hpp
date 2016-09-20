@@ -366,6 +366,7 @@ public:
     const Id& chunkId() const { return m_pointState.chunkId(); }
     const Id& pointsPerChunk() const { return m_pointState.pointsPerChunk(); }
     std::size_t chunkNum() const { return m_pointState.chunkNum(); }
+    const Bounds& chunkBounds() const { return m_pointState.chunkBounds(); }
 
     std::size_t pointSize() const { return m_metadata.schema().pointSize(); }
 

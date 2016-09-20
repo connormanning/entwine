@@ -10,6 +10,8 @@
 
 #include <entwine/util/executor.hpp>
 
+#include <sstream>
+
 #include <pdal/BufferReader.hpp>
 #include <pdal/Dimension.hpp>
 #include <pdal/Filter.hpp>
@@ -122,7 +124,8 @@ Executor::~Executor()
 bool Executor::run(
         PooledPointTable& table,
         const std::string path,
-        const Reprojection* reprojection)
+        const Reprojection* reprojection,
+        const std::vector<double>* transform)
 {
     UniqueStage scopedReader(createReader(path));
     if (!scopedReader) return false;
@@ -133,7 +136,7 @@ bool Executor::run(
     // Needed so that getSpatialReference has been initialized.
     { auto lock(getLock()); reader->prepare(table); }
 
-    UniqueStage scopedFilter;
+    UniqueStage scopedReproj;
 
     if (reprojection)
     {
@@ -141,12 +144,24 @@ bool Executor::run(
                 srsFoundOrDefault(
                     reader->getSpatialReference(), *reprojection));
 
-        scopedFilter = createReprojectionFilter(srs);
-        if (!scopedFilter) return false;
+        scopedReproj = createReprojectionFilter(srs);
+        if (!scopedReproj) return false;
 
-        pdal::Filter* filter(scopedFilter->getAs<pdal::Filter*>());
+        pdal::Filter* filter(scopedReproj->getAs<pdal::Filter*>());
         filter->setInput(*reader);
 
+        executor = filter;
+    }
+
+    UniqueStage scopedTransform;
+
+    if (transform)
+    {
+        scopedTransform = createTransformationFilter(*transform);
+        if (!scopedTransform) return false;
+
+        pdal::Filter* filter(scopedTransform->getAs<pdal::Filter*>());
+        filter->setInput(*executor);
         executor = filter;
     }
 
@@ -239,6 +254,48 @@ std::unique_ptr<Preview> Executor::preview(
     return result;
 }
 
+
+Bounds Executor::transform(
+        const Bounds& bounds,
+        const std::vector<double>& t) const
+{
+    BufferState bufferState(bounds);
+    UniqueStage scopedFilter(createTransformationFilter(t));
+    if (!scopedFilter)
+    {
+        throw std::runtime_error("Could not create transformation filter");
+    }
+
+    pdal::Filter* filter(scopedFilter->getAs<pdal::Filter*>());
+
+    filter->setInput(bufferState.getBuffer());
+    { auto lock(getLock()); filter->prepare(bufferState.getTable()); }
+    filter->execute(bufferState.getTable());
+
+    Point min(hi, hi, hi);
+    Point max(lo, lo, lo);
+
+    using DimId = pdal::Dimension::Id;
+
+    for (std::size_t i(0); i < bufferState.getView().size(); ++i)
+    {
+        const Point p(
+                bufferState.getView().getFieldAs<double>(DimId::X, i),
+                bufferState.getView().getFieldAs<double>(DimId::Y, i),
+                bufferState.getView().getFieldAs<double>(DimId::Z, i));
+
+        min.x = std::min(min.x, p.x);
+        min.y = std::min(min.y, p.y);
+        min.z = std::min(min.z, p.z);
+
+        max.x = std::max(max.x, p.x);
+        max.y = std::max(max.y, p.y);
+        max.z = std::max(max.z, p.z);
+    }
+
+    return Bounds(min, max);
+}
+
 std::string Executor::getSrsString(const std::string input) const
 {
     auto lock(getLock());
@@ -297,6 +354,43 @@ UniqueStage Executor::createReprojectionFilter(
         lock.unlock();
 
         result.reset(new ScopedStage(filter, *m_stageFactory, m_factoryMutex));
+    }
+
+    return result;
+}
+
+UniqueStage Executor::createTransformationFilter(
+        const std::vector<double>& matrix) const
+{
+    UniqueStage result;
+
+    if (matrix.size() != 16)
+    {
+        throw std::runtime_error(
+                "Invalid matrix length " + std::to_string(matrix.size()));
+    }
+
+    auto lock(getLock());
+
+    if (pdal::Filter* filter =
+            static_cast<pdal::Filter*>(
+                m_stageFactory->createStage("filters.transformation")))
+    {
+        std::ostringstream ss;
+        ss << std::setprecision(std::numeric_limits<double>::digits10);
+        for (const double d : matrix) ss << d << " ";
+        // std::cout << "TXFORM: " << ss.str() << std::endl;
+
+        pdal::Options options;
+        options.add(pdal::Option("matrix", ss.str()));
+        filter->setOptions(options);
+
+        lock.unlock();
+
+        result = makeUnique<ScopedStage>(
+                filter,
+                *m_stageFactory,
+                m_factoryMutex);
     }
 
     return result;

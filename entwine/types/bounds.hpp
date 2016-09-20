@@ -261,6 +261,11 @@ public:
     std::vector<Bounds> explode() const;
     std::vector<Bounds> explode(std::size_t delta) const;
 
+    Bounds transform(const Transformation& t) const
+    {
+        return Bounds(Point::transform(min(), t), Point::transform(max(), t));
+    }
+
 private:
     Point m_min;
     Point m_max;
