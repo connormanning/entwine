@@ -41,6 +41,11 @@ public:
         return log2(index * 3 + 1) / 2;
     }
 
+    static Id calcParentId(
+            const Structure& structure,
+            const Id& index,
+            std::size_t depth);
+
     static Id calcLevelIndex(
             std::size_t dimensions,
             std::size_t depth);

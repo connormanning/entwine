@@ -211,6 +211,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
     const std::string& localPath(localHandle->localPath());
 
     const Reprojection* reprojection(m_metadata->reprojection());
+    const Transformation* transformation(m_metadata->transformation());
 
     // If we don't have an inferred bounds, check against the actual file.
     if (!info.bounds())
@@ -266,7 +267,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
     });
 
     PooledPointTable table(*m_pointPool, inserter, m_originId, origin);
-    return m_executor->run(table, localPath, reprojection);
+    return m_executor->run(table, localPath, reprojection, transformation);
 }
 
 Cell::PooledStack Builder::insertData(
@@ -384,12 +385,22 @@ void Builder::prepareEndpoints()
         const std::string rootDir(m_outEndpoint->root());
         if (!m_outEndpoint->isRemote())
         {
+            if (!arbiter::fs::mkdirp(rootDir))
+            {
+                throw std::runtime_error("Couldn't create " + rootDir);
+            }
+
+            if (!arbiter::fs::mkdirp(rootDir + "h"))
+            {
+                throw std::runtime_error("Couldn't create " + rootDir + "h");
+            }
+
             if (
-                    !arbiter::fs::mkdirp(rootDir) ||
-                    !arbiter::fs::mkdirp(rootDir + "h"))
+                    m_metadata->cesiumSettings() &&
+                    !arbiter::fs::mkdirp(rootDir + "cesium"))
             {
                 throw std::runtime_error(
-                        "Couldn't create local build directory");
+                        "Couldn't create " + rootDir + "cesium");
             }
         }
     }

@@ -47,7 +47,8 @@ public:
             bool verbose = false,
             const Reprojection* reprojection = nullptr,
             bool trustHeaders = true,
-            arbiter::Arbiter* arbiter = nullptr);
+            arbiter::Arbiter* arbiter = nullptr,
+            bool cesiumify = false);
 
     void go();
     bool done() const { return m_done; }
@@ -63,11 +64,20 @@ public:
     Bounds bounds() const;
     std::size_t numPoints() const;
     const Reprojection* reprojection() const { return m_reproj; }
+    const std::vector<double>* transformation() const
+    {
+        return m_transformation.get();
+    }
 
 private:
     void add(std::string localPath, FileInfo& fileInfo);
+    Transformation calcTransformation();
 
     Executor m_executor;
+
+    std::string m_path;
+    std::string m_tmpPath;
+
     PointPool m_pointPool;
     const Reprojection* m_reproj;
     std::size_t m_threads;
@@ -84,6 +94,9 @@ private:
 
     std::vector<std::string> m_dimVec;
     std::set<std::string> m_dimSet;
+
+    bool m_cesiumify;
+    std::unique_ptr<Transformation> m_transformation;
 
     mutable std::mutex m_mutex;
 };

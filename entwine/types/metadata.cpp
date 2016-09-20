@@ -8,6 +8,7 @@
 *
 ******************************************************************************/
 
+#include <entwine/formats/cesium/settings.hpp>
 #include <entwine/tree/manifest.hpp>
 #include <entwine/types/format.hpp>
 #include <entwine/types/metadata.hpp>
@@ -49,7 +50,9 @@ Metadata::Metadata(
         const Manifest& manifest,
         const Format& format,
         const Reprojection* reprojection,
-        const Subset* subset)
+        const Subset* subset,
+        const Transformation* transformation,
+        const cesium::Settings* cesiumSettings)
     : m_boundsConforming(makeUnique<Bounds>(boundsConforming))
     , m_boundsEpsilon(makeUnique<Bounds>(m_boundsConforming->growBy(epsilon)))
     , m_bounds(makeUnique<Bounds>(m_boundsConforming->cubeify()))
@@ -60,6 +63,8 @@ Metadata::Metadata(
     , m_format(makeUnique<Format>(format))
     , m_reprojection(maybeClone(reprojection))
     , m_subset(maybeClone(subset))
+    , m_transformation(maybeClone(transformation))
+    , m_cesiumSettings(maybeClone(cesiumSettings))
     , m_errors()
 { }
 
@@ -91,6 +96,22 @@ Metadata::Metadata(const arbiter::Endpoint& ep, const std::size_t* subsetId)
         m_subset = makeUnique<Subset>(*m_bounds, meta["subset"]);
     }
 
+    if (meta.isMember("transformation"))
+    {
+        m_transformation = makeUnique<Transformation>();
+
+        for (const auto& v : meta["transformation"])
+        {
+            m_transformation->push_back(v.asDouble());
+        }
+    }
+
+    if (meta.isMember("formats") && meta["formats"].isMember("cesium"))
+    {
+        m_cesiumSettings =
+            makeUnique<cesium::Settings>(meta["formats"]["cesium"]);
+    }
+
     if (meta.isMember("errors"))
     {
         m_errors = fromJsonArray(meta["errors"]);
@@ -110,8 +131,22 @@ Metadata::Metadata(const Json::Value& json)
             makeUnique<Reprojection>(json["reprojection"]) : nullptr)
     , m_subset(json.isMember("subset") ?
             makeUnique<Subset>(*m_bounds, json["subset"]) : nullptr)
+    , m_transformation(json.isMember("transformation") ?
+            makeUnique<Transformation>() : nullptr)
+    , m_cesiumSettings(
+            json.isMember("formats") && json["formats"].isMember("cesium") ?
+                makeUnique<cesium::Settings>(json["formats"]["cesium"]) :
+                nullptr)
     , m_errors(fromJsonArray(json["errors"]))
-{ }
+{
+    if (m_transformation)
+    {
+        for (const auto& v : json["transformation"])
+        {
+            m_transformation->push_back(v.asDouble());
+        }
+    }
+}
 
 Metadata::Metadata(const Metadata& other)
     : m_boundsConforming(makeUnique<Bounds>(other.boundsConforming()))
@@ -124,6 +159,8 @@ Metadata::Metadata(const Metadata& other)
     , m_format(makeUnique<Format>(other.format()))
     , m_reprojection(maybeClone(other.reprojection()))
     , m_subset(maybeClone(other.subset()))
+    , m_transformation(maybeClone(other.transformation()))
+    , m_cesiumSettings(maybeClone(other.cesiumSettings()))
     , m_errors(other.errors())
 { }
 
@@ -142,6 +179,18 @@ Json::Value Metadata::toJson() const
 
     if (m_reprojection) json["reprojection"] = m_reprojection->toJson();
     if (m_subset) json["subset"] = m_subset->toJson();
+    if (m_transformation)
+    {
+        for (const double v : *m_transformation)
+        {
+            json["transformation"].append(v);
+        }
+    }
+
+    if (m_cesiumSettings)
+    {
+        json["formats"]["cesium"] = m_cesiumSettings->toJson();
+    }
 
     if (m_errors.size())
     {

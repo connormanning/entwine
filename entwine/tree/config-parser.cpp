@@ -15,6 +15,7 @@
 
 #include <json/json.h>
 
+#include <entwine/formats/cesium/settings.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
 #include <entwine/tree/manifest.hpp>
@@ -37,20 +38,27 @@ namespace
     std::unique_ptr<Bounds> getBounds(const Json::Value& json)
     {
         std::unique_ptr<Bounds> bounds;
-        if (!json.empty()) bounds.reset(new Bounds(json));
+        if (!json.empty()) bounds = makeUnique<Bounds>(json);
         return bounds;
     }
 
     std::unique_ptr<Reprojection> getReprojection(const Json::Value& json)
     {
         std::unique_ptr<Reprojection> reprojection;
+        if (!json.empty()) reprojection = makeUnique<Reprojection>(json);
+        return reprojection;
+    }
 
-        if (!json.empty())
+    std::unique_ptr<cesium::Settings> getCesiumSettings(const Json::Value& json)
+    {
+        std::unique_ptr<cesium::Settings> settings;
+
+        if (json.isMember("cesium"))
         {
-            reprojection.reset(new Reprojection(json));
+            settings = makeUnique<cesium::Settings>(json["cesium"]);
         }
 
-        return reprojection;
+        return settings;
     }
 }
 
@@ -83,6 +91,21 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     std::size_t numPointsHint(jsonStructure["numPointsHint"].asUInt64());
 
     auto manifest(makeUnique<Manifest>(config["input"]["manifest"]));
+    auto cesiumSettings(getCesiumSettings(config["formats"]));
+
+    if (cesiumSettings)
+    {
+        if (!reprojection)
+        {
+            reprojection = makeUnique<Reprojection>("", "EPSG:4978");
+        }
+        else if (reprojection->out() != "EPSG:4978")
+        {
+            throw std::runtime_error(
+                    "Output projection " + reprojection->out() +
+                    " is not compatible with cesium output");
+        }
+    }
 
     if (!force)
     {
@@ -117,6 +140,8 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
             !schema->pointSize() ||
             !numPointsHint);
 
+    std::unique_ptr<std::vector<double>> transformation;
+
     if (manifest && needsInference)
     {
         std::cout << "Performing dataset inference..." << std::endl;
@@ -127,7 +152,8 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                 true,
                 reprojection.get(),
                 trustHeaders,
-                arbiter.get());
+                arbiter.get(),
+                !!cesiumSettings);
 
         inference.go();
         manifest.reset(new Manifest(inference.manifest()));
@@ -155,6 +181,11 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         }
 
         if (!numPointsHint) numPointsHint = inference.numPoints();
+
+        if (const std::vector<double>* t = inference.transformation())
+        {
+            transformation = makeUnique<std::vector<double>>(*t);
+        }
     }
 
     std::unique_ptr<Subset> subset;
@@ -211,7 +242,9 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
             *manifest,
             format,
             reprojection.get(),
-            subset.get());
+            subset.get(),
+            transformation.get(),
+            cesiumSettings.get());
 
     OuterScope outerScope;
     outerScope.setArbiter(arbiter);

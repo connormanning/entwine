@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 7c4a959724bf69ee3ecb7e3bca3719729b87d94d
+// Git SHA: 64e6d2d02436c9bf3d874ed486583a28f1b35b5f
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -3860,10 +3860,15 @@ private:
 
         std::string url() const;
         std::string host() const;
+        std::string baseUrl() const { return m_baseUrl; }
+        std::string bucket() const { return m_bucket; }
+        std::string object() const;
 
-        std::string baseUrl;
-        std::string bucket;
-        std::string object;
+    private:
+        std::string m_baseUrl;
+        std::string m_bucket;
+        std::string m_object;
+        bool m_virtualHosted;
     };
 
     class FormattedTime

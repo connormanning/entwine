@@ -39,6 +39,15 @@ inline Json::Value parse(const std::string& input)
     return json;
 }
 
+inline void recMerge(Json::Value& dst, const Json::Value& add)
+{
+    for (const auto& key : add.getMemberNames())
+    {
+        if (add[key].isObject()) recMerge(dst[key], add[key]);
+        else dst[key] = add[key];
+    }
+}
+
 // Assumptions here are that s contains a quotation-delimited number, possibly
 // with whitespace outside of the quotations.
 inline Id parseElement(const std::string& s)

@@ -81,7 +81,8 @@ public:
     bool run(
             PooledPointTable& table,
             std::string path,
-            const Reprojection* reprojection);
+            const Reprojection* reprojection,
+            const std::vector<double>* transform = nullptr);
 
     // True if this path is recognized as a point cloud file.
     bool good(std::string path) const;
@@ -94,9 +95,14 @@ public:
 
     std::string getSrsString(std::string input) const;
 
+    Bounds transform(
+            const Bounds& bounds,
+            const Transformation& transformation) const;
+
 private:
     UniqueStage createReader(std::string path) const;
     UniqueStage createReprojectionFilter(const Reprojection& r) const;
+    UniqueStage createTransformationFilter(const std::vector<double>& m) const;
 
     std::unique_lock<std::mutex> getLock() const;
 

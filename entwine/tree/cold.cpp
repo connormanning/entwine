@@ -13,6 +13,7 @@
 #include <chrono>
 #include <thread>
 
+#include <entwine/formats/cesium/tileset.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
 #include <entwine/tree/climber.hpp>
@@ -75,6 +76,7 @@ Cold::Cold(const Builder& builder, bool exists)
         {
             m_base.t->chunk = Chunk::create(
                     m_builder,
+                    metadata.bounds(),
                     0,
                     m_structure.baseIndexBegin(),
                     m_structure.baseIndexSpan());
@@ -88,6 +90,7 @@ Cold::Cold(const Builder& builder, bool exists)
             {
                 m_base.t->chunk = Chunk::create(
                         m_builder,
+                        metadata.bounds(),
                         0,
                         m_structure.baseIndexBegin(),
                         m_structure.baseIndexSpan(),
@@ -164,6 +167,7 @@ void Cold::ensureChunk(
             chunk =
                     Chunk::create(
                         m_builder,
+                        climber.chunkBounds(),
                         climber.depth(),
                         chunkId,
                         climber.pointsPerChunk(),
@@ -174,6 +178,7 @@ void Cold::ensureChunk(
             chunk =
                     Chunk::create(
                         m_builder,
+                        climber.chunkBounds(),
                         climber.depth(),
                         chunkId,
                         climber.pointsPerChunk());
@@ -203,16 +208,86 @@ void Cold::save(const arbiter::Endpoint& endpoint) const
 {
     m_pool.join();
 
-    if (m_structure.baseIndexSpan())
-    {
-        dynamic_cast<BaseChunk&>(*m_base.t->chunk).save(endpoint);
-    }
+    BaseChunk* baseChunk(dynamic_cast<BaseChunk*>(m_base.t->chunk.get()));
 
+    if (baseChunk) baseChunk->save(endpoint);
+
+    const auto aggregated(ids());
     Json::Value json;
-    for (const auto& id : ids()) json.append(id.str());
+    for (const auto& id : aggregated) json.append(id.str());
 
     const std::string subpath("entwine-ids" + m_builder.metadata().postfix());
     Storage::ensurePut(endpoint, subpath, toFastString(json));
+
+    if (m_builder.metadata().cesiumSettings()) saveCesiumMetadata(endpoint);
+}
+
+void Cold::saveCesiumMetadata(const arbiter::Endpoint& endpoint) const
+{
+    BaseChunk* baseChunk(dynamic_cast<BaseChunk*>(m_base.t->chunk.get()));
+    if (!baseChunk)
+    {
+        throw std::runtime_error("Cesium output requires a base span");
+    }
+
+    std::cout << "Treeifying" << std::endl;
+    std::map<Id, cesium::TileInfo> tiles(m_info);
+
+    const auto infoList(baseChunk->baseInfo());
+    for (std::size_t i(0); i < infoList.size(); ++i)
+    {
+        auto& tile(tiles[infoList[i].id()]);
+        tile = infoList[i];
+        tile.visit();
+
+        if (i + 1 < infoList.size())
+        {
+            auto& child(tiles[infoList[i + 1].id()]);
+            child = infoList[i + 1];
+            tile.addChild(child);
+        }
+    }
+
+    auto treeify([&](cesium::TileInfo& leaf)
+    {
+        if (leaf.id() == m_structure.baseIndexBegin()) return;
+
+        cesium::TileInfo* info(&leaf);
+        Id parentId(
+                info->depth() > m_structure.coldDepthBegin() ?
+                    ChunkInfo::calcParentId(
+                        m_structure,
+                        info->id(),
+                        info->depth()) :
+                    ChunkInfo::calcLevelIndex(
+                        m_structure.dimensions(),
+                        info->depth() - 1));
+
+        while (!tiles.at(parentId).addChild(*info))
+        {
+            info = &tiles.at(parentId);
+            parentId =
+                    info->depth() > m_structure.coldDepthBegin() ?
+                        ChunkInfo::calcParentId(
+                            m_structure,
+                            info->id(),
+                            info->depth()) :
+                        ChunkInfo::calcLevelIndex(
+                                m_structure.dimensions(),
+                                info->depth() - 1);
+        }
+    });
+
+    for (auto it(tiles.rbegin()); it != tiles.rend(); ++it) treeify(it->second);
+
+    std::cout << "Serializing tileset metadata" << std::endl;
+
+    cesium::Tileset tileset(
+            m_builder.metadata(),
+            tiles.at(m_structure.baseIndexBegin()));
+    tileset.writeTo(endpoint.getSubEndpoint("cesium"));
+
+    std::cout << "Tileset written" << std::endl;
 }
 
 void Cold::clip(
@@ -224,10 +299,17 @@ void Cold::clip(
     auto& slot(at(chunkId, chunkNum));
     assert(slot.mark);
 
-    auto unref([&slot, id]()
+    auto unref([this, chunkId, &slot, id]()
     {
         assert(slot.t);
         SpinGuard lock(slot.spinner);
+
+        if (m_builder.metadata().cesiumSettings() && slot.t->unique())
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_info[chunkId] = slot.t->chunk->info();
+        }
+
         slot.t->unref(id);
     });
 
