@@ -56,6 +56,11 @@ The default settings are fine for many datasets, but Entwine provides many param
 
 If the command line overrides are insufficient, you can get developer-level control over the indexing parameters by passing a JSON configuration file, for example ``entwine build config.json``.  There is a commented template for this configuration file `here <https://raw.githubusercontent.com/connormanning/entwine/master/template.json>`_.
 
+Other formats
+--------------------------------------------------------------------------------
+
+Entwine can output `3D Tiles <https://github.com/AnalyticalGraphicsInc/3d-tiles>`_ tilesets for display in `Cesium <https://cesium.org>`_.  See `instructions`_.
+
 License
 --------------------------------------------------------------------------------
 
@@ -67,4 +72,5 @@ Entwine is available under the `LGPL License`_.
 .. _`Plas.io`: http://speck.ly
 .. _`Potree`: http://potree.org
 .. _`LGPL License`: https://github.com/connormanning/entwine/blob/master/LICENSE
+.. _instructions: entwine/formats/cesium/README.md
 
