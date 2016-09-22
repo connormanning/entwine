@@ -26,16 +26,23 @@ public:
         , m_out(out)
         , m_hammer(hammer)
     {
-        check();
+        if (m_out.empty())
+        {
+            throw std::runtime_error("Empty output projection");
+        }
+
+        if (m_hammer && m_in.empty())
+        {
+            throw std::runtime_error("Hammer option specified without in SRS");
+        }
     }
 
     Reprojection(const Json::Value& json)
-        : m_in(json["in"].asString())
-        , m_out(json["out"].asString())
-        , m_hammer(json["hammer"].asBool())
-    {
-        check();
-    }
+        : Reprojection(
+                json["in"].asString(),
+                json["out"].asString(),
+                json["hammer"].asBool())
+    { }
 
     Json::Value toJson() const
     {
@@ -51,19 +58,6 @@ public:
     bool hammer() const { return m_hammer; }
 
 private:
-    void check()
-    {
-        if (m_out.empty())
-        {
-            throw std::runtime_error("Empty output projection");
-        }
-
-        if (m_hammer && m_in.empty())
-        {
-            throw std::runtime_error("Hammer option specified without in SRS");
-        }
-    }
-
     std::string m_in;
     std::string m_out;
 

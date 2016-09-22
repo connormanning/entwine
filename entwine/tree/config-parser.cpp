@@ -85,7 +85,6 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
     // Geometry and spatial info.
     auto boundsConforming(getBounds(jsonGeometry["bounds"]));
-    auto reprojection(getReprojection(jsonGeometry["reproject"]));
     auto schema(makeUnique<Schema>(jsonGeometry["schema"]));
 
     std::size_t numPointsHint(jsonStructure["numPointsHint"].asUInt64());
@@ -93,19 +92,9 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     auto manifest(makeUnique<Manifest>(config["input"]["manifest"]));
     auto cesiumSettings(getCesiumSettings(config["formats"]));
 
-    if (cesiumSettings)
-    {
-        if (!reprojection)
-        {
-            reprojection = makeUnique<Reprojection>("", "EPSG:4978");
-        }
-        else if (reprojection->out() != "EPSG:4978")
-        {
-            throw std::runtime_error(
-                    "Output projection " + reprojection->out() +
-                    " is not compatible with cesium output");
-        }
-    }
+    Json::Value r(jsonGeometry["reproject"]);
+    if (cesiumSettings) r["out"] = "EPSG:4978";
+    auto reprojection(getReprojection(r));
 
     if (!force)
     {

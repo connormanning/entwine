@@ -105,7 +105,7 @@
         // Format:
         //      [ x-min, y-min, x-max, y-max] for quadtree.
         //      [ x-min, y-min, z-min, x-max, y-max, z-max] for octree.
-        "bbox": [
+        "bounds": [
             -10796577.371225, 4902908.135781, 0,
             -10015953.953824, 5375808.896799, 1000
         ],
@@ -117,7 +117,7 @@
         // The SRS from "in" will only be used for any files that do not
         // contain SRS information in their headers, so it is only a default.
         //
-        // If reprojection is specified, then the "bbox" field above should be
+        // If reprojection is specified, then the "bounds" field above should be
         // in the same coordinate system as "out" specified here.
         "reproject": {
             "in": "EPSG:26915",
