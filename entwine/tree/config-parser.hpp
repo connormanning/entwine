@@ -13,7 +13,7 @@
 #include <memory>
 #include <vector>
 
-namespace Json { class Value; }
+#include <json/json.h>
 
 namespace entwine
 {
@@ -31,6 +31,8 @@ public:
             std::shared_ptr<arbiter::Arbiter> arbiter);
 
     static std::string directorify(std::string path);
+
+    static Json::Value unflatten(Json::Value json);
 
 private:
     static void extractManifest(
