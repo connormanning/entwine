@@ -223,17 +223,17 @@ This field is specified as `[xmin, ymin, zmin, xmax, ymax, xmax]`.
 | Examples  | `entwine build -i ... -o ... -b "[0, 500, 30, 800, 1300, 50]`
 
 ### Schema
-An object representing the dimensions to be stored in the output index.  Each dimension is specified with a name, type, and size.
+An array of objects representing the dimensions to be stored in the output index.  Each dimension is specified with a name, type, and size.
 
 Generally, this field can be omitted and will be inferred from the input files.  However, to omit or reorder dimensions, the schema may be used to specify this.  A sample schema might look like this:
 ```json
 {
-    "schema": {
+    "schema": [
         { "name": "X", "type": "floating", "size": 8 }
         { "name": "Y", "type": "floating", "size": 8 },
         { "name": "Z", "type": "floating", "size": 8 },
-        { "name": "Intensity", "type": unsigned, "size": 1 }
-    }
+        { "name": "Intensity", "type": "unsigned", "size": 1 }
+    ]
 }
 ```
 
@@ -347,4 +347,11 @@ entwine infer ~/data/counties/ -r EPSG:3857 -o ~/data/county-inference.json
 
 ### Inference output path
 The standard operation of `infer` logs information to STDOUT.  If the `-o` flag is present, per-file information including bounds and number of points will be written to this output file in JSON format.
+
+# More
+
+## Cesium 3D Tiles
+Entwine ships with a [Cesium](https://cesiumjs.org) configuration that will output a [3D Tiles](https://github.com/AnalyticalGraphicsInc/3d-tiles) tileset in addition to the standard Entwine output.  For detailed instructions and a set of static pages to view tileset output in Cesium, check out the [Entwine/Cesium pages](https://github.com/connormanning/entwine-cesium-pages) repository.
+
+At this time, some Entwine features are not supported when using the Cesium configuration.  Continuing a build by adding more files to a previously completed Entwine index is not yet supported, and neither are subset builds.
 
