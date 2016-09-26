@@ -13,8 +13,6 @@
 
 #include <entwine/tree/config-parser.hpp>
 
-#include <json/json.h>
-
 #include <entwine/formats/cesium/settings.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
@@ -60,6 +58,61 @@ namespace
 
         return settings;
     }
+}
+
+Json::Value ConfigParser::unflatten(Json::Value in)
+{
+    Json::Value out;
+
+    for (const auto& key : in.getMemberNames())
+    {
+        if (in[key].isObject()) out[key] = in[key];
+    }
+
+    auto maybeUnflatten([&in, &out](std::string nest, std::string key)
+    {
+        if (in.isMember(key))
+        {
+            if (out[nest].isMember(key))
+            {
+                throw std::runtime_error("Duplicate specification of " + key);
+            }
+
+            out[nest][key] = in[key];
+        }
+    });
+
+    // These few will be written to different keys then their unflattened
+    // versions.
+    if (in.isMember("input")) out["input"]["manifest"] = in["input"];
+    if (in.isMember("output")) out["output"]["path"] = in["output"];
+    if (in.isMember("reprojection"))
+    {
+        out["geometry"]["reproject"] = in["reprojection"];
+    }
+
+    maybeUnflatten("input", "threads");
+    maybeUnflatten("input", "trustHeaders");
+    maybeUnflatten("input", "run");
+
+    maybeUnflatten("output", "tmp");
+    maybeUnflatten("output", "compress");
+    maybeUnflatten("output", "force");
+
+    maybeUnflatten("structure", "numPointsHint");
+    maybeUnflatten("structure", "nullDepth");
+    maybeUnflatten("structure", "baseDepth");
+    maybeUnflatten("structure", "coldDepth");
+    maybeUnflatten("structure", "dynamicChunks");
+    maybeUnflatten("structure", "pointsPerChunk");
+    maybeUnflatten("structure", "type");
+    maybeUnflatten("structure", "prefixIds");
+
+    maybeUnflatten("geometry", "bounds");
+    maybeUnflatten("geometry", "schema");
+    maybeUnflatten("geometry", "reproject");
+
+    return out;
 }
 
 std::unique_ptr<Builder> ConfigParser::getBuilder(

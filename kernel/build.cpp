@@ -250,9 +250,9 @@ void Kernel::build(std::vector<std::string> args)
         }
     }
 
-    entwine::arbiter::Arbiter localArbiter;
     Json::Value json(defaults);
     Json::Value arbiterConfig(json["arbiter"]);
+    entwine::arbiter::Arbiter localArbiter(arbiterConfig);
 
     std::size_t a(0);
 
@@ -261,7 +261,7 @@ void Kernel::build(std::vector<std::string> args)
         // First argument is a config path.
         const std::string configPath(args[0]);
         const Json::Value config(parse(localArbiter.get(configPath)));
-        recMerge(json, config);
+        recMerge(json, ConfigParser::unflatten(config));
 
         ++a;
     }
@@ -509,8 +509,6 @@ void Kernel::build(std::vector<std::string> args)
         "\tNull depth: " << structure.nullDepthEnd() << "\n" <<
         "\tBase depth: " << structure.baseDepthEnd() << "\n" <<
         "\tCold depth: " << coldDepthString << "\n" <<
-        "\tMapped depth: " << structure.mappedDepthBegin() << "\n" <<
-        "\tSparse depth: " << structure.sparseDepthBegin() << "\n" <<
         "\tChunk size: " << structure.basePointsPerChunk() << " points\n" <<
         "\tDynamic chunks? " << yesNo(structure.dynamicChunks()) << "\n" <<
         "\tPrefix IDs? " << yesNo(structure.prefixIds()) << "\n" <<
