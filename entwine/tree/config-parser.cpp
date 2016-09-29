@@ -84,8 +84,16 @@ Json::Value ConfigParser::unflatten(Json::Value in)
 
     // These few will be written to different keys then their unflattened
     // versions.
-    if (in.isMember("input")) out["input"]["manifest"] = in["input"];
-    if (in.isMember("output")) out["output"]["path"] = in["output"];
+    if (in.isMember("input") && !in["input"].isObject())
+    {
+        out["input"]["manifest"] = in["input"];
+    }
+
+    if (in.isMember("output") && !in["output"].isObject())
+    {
+        out["output"]["path"] = in["output"];
+    }
+
     if (in.isMember("reprojection"))
     {
         out["geometry"]["reproject"] = in["reprojection"];
