@@ -40,6 +40,8 @@ namespace
             "\tKernels:\n"
             "\t\tbuild\n"
             "\t\t\tBuild (or continue to build) an index\n"
+            "\t\tinfer\n"
+            "\t\t\tAggregate information for an unindexed dataset\n"
             "\t\tmerge\n"
             "\t\t\tMerge colocated previously built subsets\n";
     }

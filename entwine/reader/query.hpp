@@ -15,6 +15,8 @@
 #include <deque>
 
 #include <entwine/reader/cache.hpp>
+#include <entwine/reader/comparison.hpp>
+#include <entwine/reader/filter.hpp>
 #include <entwine/reader/reader.hpp>
 #include <entwine/types/dir.hpp>
 #include <entwine/types/point.hpp>
@@ -95,6 +97,7 @@ public:
     Query(
             const Reader& reader,
             const Schema& schema,
+            const Json::Value& filter,
             Cache& cache,
             const Bounds& queryBounds,
             std::size_t depthBegin,
@@ -128,7 +131,7 @@ protected:
     const Structure& m_structure;
     Cache& m_cache;
 
-    const Bounds m_queryBounds;
+    Bounds m_queryBounds;
     const std::size_t m_depthBegin;
     const std::size_t m_depthEnd;
 
@@ -147,6 +150,8 @@ protected:
 
     BinaryPointTable m_table;
     pdal::PointRef m_pointRef;
+
+    Filter m_filter;
 };
 
 } // namespace entwine

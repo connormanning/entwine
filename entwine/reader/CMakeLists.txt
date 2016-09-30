@@ -5,6 +5,8 @@ set(
     SOURCES
     "${BASE}/cache.cpp"
     "${BASE}/chunk-reader.cpp"
+    "${BASE}/comparison.cpp"
+    "${BASE}/logic-gate.cpp"
     "${BASE}/query.cpp"
     "${BASE}/reader.cpp"
 )
@@ -13,6 +15,10 @@ set(
     HEADERS
     "${BASE}/cache.hpp"
     "${BASE}/chunk-reader.hpp"
+    "${BASE}/comparison.hpp"
+    "${BASE}/filter.hpp"
+    "${BASE}/filterable.hpp"
+    "${BASE}/logic-gate.hpp"
     "${BASE}/query.hpp"
     "${BASE}/reader.hpp"
 )

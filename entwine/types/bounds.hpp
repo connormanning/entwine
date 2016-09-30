@@ -228,6 +228,7 @@ public:
 
     void grow(const Bounds& bounds);
     void grow(const Point& p);
+    void shrink(const Bounds& bounds);
 
     bool isCubic() const
     {

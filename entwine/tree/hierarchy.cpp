@@ -401,8 +401,6 @@ void Hierarchy::accumulate(
                 accumulate(*nextJson, ids, query, nextState, curlag, inc);
             }
         }
-
-        lag.pop_back();
     }
 }
 

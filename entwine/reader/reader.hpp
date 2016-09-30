@@ -55,6 +55,7 @@ public:
 
     std::unique_ptr<Query> query(
             const Schema& schema,
+            const Json::Value& filter,
             std::size_t depthBegin,
             std::size_t depthEnd,
             double scale = 0.0,
@@ -62,6 +63,7 @@ public:
 
     std::unique_ptr<Query> query(
             const Schema& schema,
+            const Json::Value& filter,
             const Bounds& qbox,
             std::size_t depthBegin,
             std::size_t depthEnd,
