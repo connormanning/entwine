@@ -123,6 +123,13 @@ void Bounds::grow(const Point& p)
     setMid();
 }
 
+void Bounds::shrink(const Bounds& other)
+{
+    m_min = Point::max(m_min, other.min());
+    m_max = Point::min(m_max, other.max());
+    setMid();
+}
+
 Bounds Bounds::growBy(double ratio) const
 {
     const Point delta(

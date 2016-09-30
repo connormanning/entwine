@@ -14,6 +14,8 @@
 #include <string>
 #include <vector>
 
+#include <entwine/types/point.hpp>
+
 namespace Json { class Value; }
 
 namespace entwine

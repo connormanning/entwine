@@ -126,10 +126,13 @@ void Cache::release(const Block& block)
         }
     }
 
-    std::cout <<
-        "\tActive size: " << m_activeCount <<
-        "\tIdle size: " << m_inactiveList.size() <<
-        "\tThis query: " << block.chunkMap().size() << std::endl;
+    if (m_activeCount)
+    {
+        std::cout <<
+            "\tActive size: " << m_activeCount <<
+            "\tIdle size: " << m_inactiveList.size() <<
+            "\tThis query: " << block.chunkMap().size() << std::endl;
+    }
 
     if (notify)
     {
