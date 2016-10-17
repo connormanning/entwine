@@ -158,8 +158,10 @@ public:
     std::size_t size() const { return m_paths.size(); }
     const std::vector<FileInfo>& paths() const { return m_paths; }
 
-    FileInfo& get(Origin origin) { return m_paths[origin]; }
-    const FileInfo& get(Origin origin) const { return m_paths[origin]; }
+    Origin find(const std::string& path) const;
+
+    FileInfo& get(Origin origin) { return m_paths.at(origin); }
+    const FileInfo& get(Origin origin) const { return m_paths.at(origin); }
     void set(Origin origin, FileInfo::Status status)
     {
         countStatus(status);

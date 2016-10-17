@@ -10,25 +10,23 @@
 
 #pragma once
 
-#include <functional>
+#include <cstddef>
+#include <string>
 
-#include <entwine/third/bigint/little-big-int.hpp>
+#include <pdal/PointRef.hpp>
+
 #include <entwine/types/bounds.hpp>
-
-namespace pdal { class PointView; }
 
 namespace entwine
 {
 
-using Id = BigUint;
-
-using Origin = uint64_t;
-static constexpr Origin invalidOrigin = std::numeric_limits<Origin>::max();
-
-using TileFunction = std::function<void(pdal::PointView& view, Bounds bounds)>;
-
-using Offset = Point;
-using Scale = Point;
+class Filterable
+{
+public:
+    virtual bool check(const pdal::PointRef& pointRef) const = 0;
+    virtual bool check(const Bounds& bounds) const { return true; }
+    virtual void log(const std::string& pre) const = 0;
+};
 
 } // namespace entwine
 

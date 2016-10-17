@@ -89,21 +89,26 @@ private:
     Data::RawStack m_dataStack;
 };
 
+class Delta;
+
 class PointPool
 {
 public:
-    PointPool(const Schema& schema)
+    PointPool(const Schema& schema, const Delta* delta)
         : m_schema(schema)
+        , m_delta(delta)
         , m_dataPool(schema.pointSize(), heuristics::poolBlockSize)
         , m_cellPool(heuristics::poolBlockSize)
     { }
 
-    const Schema& schema() { return m_schema; }
+    const Schema& schema() const { return m_schema; }
+    const Delta* delta() const { return m_delta; }
     Data::Pool& dataPool() { return m_dataPool; }
     Cell::Pool& cellPool() { return m_cellPool; }
 
 private:
     const Schema& m_schema;
+    const Delta* m_delta;
 
     Data::Pool m_dataPool;
     Cell::Pool m_cellPool;

@@ -120,6 +120,13 @@ namespace
             "\t-c\n"
             "\t\tIf set, compression will be disabled.\n\n"
 
+            "\t-n\n"
+            "\t\tIf set, absolute positioning will be used, even if values\n"
+            "\t\tfor scale/offset can be inferred.\n\n"
+
+            "\t-s <scale>\n"
+            "\t\tSet a scale factor for indexed output.\n\n"
+
             "\t-s <subset-number> <subset-total>\n"
             "\t\tBuild only a portion of the index.  If output paths are\n"
             "\t\tall the same, 'merge' should be run after all subsets are\n"
@@ -211,7 +218,7 @@ namespace
         Json::Value json;
 
         json["input"]["manifest"] = Json::Value::null;
-        json["input"]["threads"] = 9;
+        json["input"]["threads"] = 8;
         json["input"]["trustHeaders"] = true;
 
         json["output"]["path"] = Json::Value::null;
@@ -303,18 +310,6 @@ void Kernel::build(std::vector<std::string> args)
                 throw std::runtime_error("Invalid tmp specification");
             }
         }
-        else if (arg == "-n")
-        {
-            if (++a < args.size())
-            {
-                const Json::UInt64 bd(std::stoul(args[a]));
-                json["structure"]["baseDepth"] = bd;
-            }
-            else
-            {
-                throw std::runtime_error("Invalid tmp specification");
-            }
-        }
         else if (arg == "-b")
         {
             std::string str;
@@ -343,6 +338,7 @@ void Kernel::build(std::vector<std::string> args)
         else if (arg == "-x") { json["input"]["trustHeaders"] = false; }
         else if (arg == "-p") { json["structure"]["prefixIds"] = true; }
         else if (arg == "-c") { json["output"]["compress"] = false; }
+        else if (arg == "-n") { json["absolute"] = true; }
         else if (arg == "-e") { arbiterConfig["s3"]["sse"] = true; }
         else if (arg == "-h")
         {
@@ -350,19 +346,27 @@ void Kernel::build(std::vector<std::string> args)
         }
         else if (arg == "-s")
         {
-            if (a + 2 < args.size())
+            if (++a < args.size())
             {
-                ++a;
-                const Json::UInt64 id(std::stoul(args[a]));
-                ++a;
-                const Json::UInt64 of(std::stoul(args[a]));
+                // If there's only one following argument, then this is a
+                // scale specification.  Otherwise, it's a subset specification.
+                if (a + 1 >= args.size() || args[a + 1].front() == '-')
+                {
+                    const double d(std::stod(args[a]));
+                    for (int i(0); i < 3; ++i) json["scale"].append(d);
+                }
+                else
+                {
+                    const Json::UInt64 id(std::stoul(args[a]));
+                    const Json::UInt64 of(std::stoul(args[++a]));
 
-                json["subset"]["id"] = id;
-                json["subset"]["of"] = of;
+                    json["subset"]["id"] = id;
+                    json["subset"]["of"] = of;
+                }
             }
             else
             {
-                throw std::runtime_error("Invalid subset specification");
+                throw std::runtime_error("Invalid -s specification");
             }
         }
         else if (arg == "-u")
@@ -504,6 +508,12 @@ void Kernel::build(std::vector<std::string> args)
         "\tCompressed output? " << yesNo(format.compress()) <<
         std::endl;
 
+    if (const auto* delta = metadata.delta())
+    {
+        std::cout << "\tScale: " << delta->scale() << std::endl;
+        std::cout << "\tOffset: " << delta->offset() << std::endl;
+    }
+
     std::cout <<
         "Tree structure:\n" <<
         "\tNull depth: " << structure.nullDepthEnd() << "\n" <<
@@ -518,7 +528,7 @@ void Kernel::build(std::vector<std::string> args)
 
     std::cout <<
         "Geometry:\n" <<
-        "\tConforming bounds: " << metadata.boundsConforming() << "\n" <<
+        "\tNative bounds: " << metadata.boundsNative() << "\n" <<
         "\tCubic bounds: " << metadata.bounds() << "\n" <<
         "\tReprojection: " << getReprojString(reprojection) << "\n" <<
         "\tStoring dimensions: " << getDimensionString(schema) <<

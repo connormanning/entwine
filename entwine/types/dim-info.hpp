@@ -80,6 +80,14 @@ public:
         return json;
     }
 
+    static bool isXyz(const DimInfo& dim)
+    {
+        return
+            dim.id() == pdal::Dimension::Id::X ||
+            dim.id() == pdal::Dimension::Id::Y ||
+            dim.id() == pdal::Dimension::Id::Z;
+    }
+
 private:
     std::string m_name;
     pdal::Dimension::Id m_id;

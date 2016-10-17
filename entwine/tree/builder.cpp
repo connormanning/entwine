@@ -65,7 +65,8 @@ Builder::Builder(
     , m_executor(makeUnique<Executor>())
     , m_sequence(makeUnique<Sequence>(*this))
     , m_originId(m_metadata->schema().pdalLayout().findDim("Origin"))
-    , m_pointPool(outerScope.getPointPool(m_metadata->schema()))
+    , m_pointPool(
+            outerScope.getPointPool(m_metadata->schema(), m_metadata->delta()))
     , m_hierarchyPool(outerScope.getHierarchyPool(heuristics::poolBlockSize))
     , m_hierarchy(makeUnique<Hierarchy>(
                 *m_hierarchyPool,
@@ -94,7 +95,8 @@ Builder::Builder(
     , m_executor(makeUnique<Executor>())
     , m_sequence(makeUnique<Sequence>(*this))
     , m_originId(m_metadata->schema().pdalLayout().findDim("Origin"))
-    , m_pointPool(outerScope.getPointPool(m_metadata->schema()))
+    , m_pointPool(
+            outerScope.getPointPool(m_metadata->schema(), m_metadata->delta()))
     , m_hierarchyPool(outerScope.getHierarchyPool(heuristics::poolBlockSize))
     , m_hierarchy(makeUnique<Hierarchy>(
                 *m_hierarchyPool,
@@ -212,11 +214,12 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
 
     const Reprojection* reprojection(m_metadata->reprojection());
     const Transformation* transformation(m_metadata->transformation());
+    const Delta* delta(m_metadata->delta());
 
     // If we don't have an inferred bounds, check against the actual file.
     if (!info.bounds())
     {
-        if (auto pre = m_executor->preview(localPath, reprojection))
+        if (auto pre = m_executor->preview(localPath, reprojection, delta))
         {
             if (!m_sequence->checkBounds(origin, pre->bounds, pre->numPoints))
             {
@@ -266,8 +269,14 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
         return insertData(std::move(cells), origin, clipper, climber);
     });
 
-    PooledPointTable table(*m_pointPool, inserter, m_originId, origin);
-    return m_executor->run(table, localPath, reprojection, transformation);
+    std::unique_ptr<PooledPointTable> table(
+            PooledPointTable::create(
+                *m_pointPool,
+                inserter,
+                m_metadata->delta(),
+                origin));
+
+    return m_executor->run(*table, localPath, reprojection, transformation);
 }
 
 Cell::PooledStack Builder::insertData(
@@ -317,6 +326,7 @@ Cell::PooledStack Builder::insertData(
         }
         else
         {
+            std::cout << "R " << point << std::endl;
             reject(cell);
             pointStats.addOutOfBounds();
         }

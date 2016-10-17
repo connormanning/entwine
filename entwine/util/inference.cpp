@@ -10,6 +10,8 @@
 
 #include <entwine/util/inference.hpp>
 
+#include <limits>
+
 #include <entwine/tree/config-parser.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/pooled-point-table.hpp>
@@ -55,15 +57,17 @@ Inference::Inference(
         const bool verbose,
         const Reprojection* reprojection,
         const bool trustHeaders,
+        const bool allowDelta,
         arbiter::Arbiter* arbiter)
     : m_executor()
     , m_path(path)
     , m_tmpPath(tmpPath)
-    , m_pointPool(xyzSchema)
+    , m_pointPool(xyzSchema, nullptr)
     , m_reproj(reprojection)
     , m_threads(threads)
     , m_verbose(verbose)
     , m_trustHeaders(trustHeaders)
+    , m_allowDelta(allowDelta)
     , m_done(false)
     , m_ownedArbiter(arbiter ? nullptr : new arbiter::Arbiter())
     , m_arbiter(arbiter ? arbiter : m_ownedArbiter.get())
@@ -84,15 +88,17 @@ Inference::Inference(
         const bool verbose,
         const Reprojection* reprojection,
         const bool trustHeaders,
+        const bool allowDelta,
         arbiter::Arbiter* arbiter,
         const bool cesiumify)
     : m_executor()
     , m_tmpPath(tmpPath)
-    , m_pointPool(xyzSchema)
+    , m_pointPool(xyzSchema, nullptr)
     , m_reproj(reprojection)
     , m_threads(threads)
     , m_verbose(verbose)
     , m_trustHeaders(trustHeaders)
+    , m_allowDelta(allowDelta)
     , m_done(false)
     , m_ownedArbiter(arbiter ? nullptr : new arbiter::Arbiter())
     , m_arbiter(arbiter ? arbiter : m_ownedArbiter.get())
@@ -177,7 +183,11 @@ void Inference::go()
     {
         throw std::runtime_error("No point cloud files found");
     }
-    else if (!numPoints())
+
+    aggregate();
+    makeSchema();
+
+    if (!numPoints())
     {
         throw std::runtime_error("Zero points found");
     }
@@ -185,7 +195,7 @@ void Inference::go()
     {
         throw std::runtime_error("No schema dimensions found");
     }
-    else if (bounds() == expander)
+    else if (nativeBounds() == expander)
     {
         throw std::runtime_error("No bounds found");
     }
@@ -233,7 +243,7 @@ Transformation Inference::calcTransformation()
     // i' = "east" = j' cross k'
 
     // Determine normalized vector k'.
-    const Point p(bounds().mid());
+    const Point p(nativeBounds().mid());
     const Vector up(Vector::normalize(p));
 
     // Project the north pole vector onto k'.
@@ -260,7 +270,8 @@ Transformation Inference::calcTransformation()
 
     // Then, translate around our current best guess at a center point.  This
     // should be close enough to the origin for reasonable precision.
-    const Bounds tentativeCenter(m_executor.transform(bounds(), rotation));
+    const Bounds tentativeCenter(
+            m_executor.transform(nativeBounds(), rotation));
     const std::vector<double> translation
     {
         1, 0, 0, -tentativeCenter.mid().x,
@@ -286,6 +297,25 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
     {
         {
             std::lock_guard<std::mutex> lock(m_mutex);
+            if (preview->scale)
+            {
+                const auto& scale(*preview->scale);
+
+                if (!scale.x || !scale.y || !scale.z)
+                {
+                    throw std::runtime_error(
+                            "Invalid scale at " + fileInfo.path());
+                }
+
+                if (m_delta)
+                {
+                    m_delta->scale() = Point::min(m_delta->scale(), scale);
+                }
+                else if (m_allowDelta)
+                {
+                    m_delta = makeUnique<Delta>(scale, Offset(0, 0, 0));
+                }
+            }
 
             for (const auto& d : preview->dimNames)
             {
@@ -316,7 +346,7 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
         return stack;
     });
 
-    PooledPointTable table(m_pointPool, tracker);
+    NormalPooledPointTable table(m_pointPool, tracker, invalidOrigin);
 
     if (m_executor.run(table, localPath, m_reproj, m_transformation.get()))
     {
@@ -324,9 +354,33 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
     }
 }
 
-Schema Inference::schema() const
+void Inference::aggregate()
+{
+    m_numPoints = makeUnique<std::size_t>(0);
+    m_bounds = makeUnique<Bounds>(expander);
+
+    for (std::size_t i(0); i < m_manifest.size(); ++i)
+    {
+        const auto& f(m_manifest.get(i));
+
+        *m_numPoints += f.numPoints();
+
+        if (const Bounds* current = f.bounds())
+        {
+            m_bounds->grow(*current);
+        }
+    }
+
+    if (m_delta)
+    {
+        m_delta->offset() = Point::round(m_bounds->mid());
+    }
+}
+
+void Inference::makeSchema()
 {
     DimList dims;
+
     for (const auto& name : m_dimVec)
     {
         const pdal::Dimension::Id id(pdal::Dimension::id(name));
@@ -343,33 +397,32 @@ Schema Inference::schema() const
 
         dims.emplace_back(name, id, t);
     }
-    return Schema(dims);
-}
 
-Bounds Inference::bounds() const
-{
-    Bounds bounds(expander);
+    m_schema = makeUnique<Schema>(dims);
 
-    for (std::size_t i(0); i < m_manifest.size(); ++i)
+    if (const Delta* d = delta())
     {
-        if (const Bounds* current = m_manifest.get(i).bounds())
-        {
-            bounds.grow(*current);
-        }
+        const Bounds cube(m_bounds->cubeify(*d));
+        m_schema = makeUnique<Schema>(Schema::deltify(cube, *d, *m_schema));
     }
-
-    return bounds;
 }
 
 std::size_t Inference::numPoints() const
 {
-    std::size_t numPoints(0);
-    for (std::size_t i(0); i < m_manifest.size(); ++i)
-    {
-        numPoints += m_manifest.get(i).numPoints();
-    }
+    if (!m_numPoints) throw std::runtime_error("Inference incomplete");
+    else return *m_numPoints;
+}
 
-    return numPoints;
+Bounds Inference::nativeBounds() const
+{
+    if (!m_bounds) throw std::runtime_error("Inference incomplete");
+    return *m_bounds;
+}
+
+Schema Inference::schema() const
+{
+    if (!m_schema) throw std::runtime_error("Inference incomplete");
+    else return *m_schema;
 }
 
 } // namespace entwine

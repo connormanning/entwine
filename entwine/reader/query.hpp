@@ -15,10 +15,12 @@
 #include <deque>
 
 #include <entwine/reader/cache.hpp>
+#include <entwine/reader/comparison.hpp>
+#include <entwine/reader/filter.hpp>
 #include <entwine/reader/reader.hpp>
+#include <entwine/types/binary-point-table.hpp>
 #include <entwine/types/dir.hpp>
 #include <entwine/types/point.hpp>
-#include <entwine/types/pooled-point-table.hpp>
 
 namespace entwine
 {
@@ -95,11 +97,12 @@ public:
     Query(
             const Reader& reader,
             const Schema& schema,
+            const Json::Value& filter,
             Cache& cache,
             const Bounds& queryBounds,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            double scale,
+            const Point& scale,
             const Point& offset);
 
     // Returns true if next() should be called again.  If false is returned,
@@ -128,7 +131,7 @@ protected:
     const Structure& m_structure;
     Cache& m_cache;
 
-    const Bounds m_queryBounds;
+    Bounds m_queryBounds;
     const std::size_t m_depthBegin;
     const std::size_t m_depthEnd;
 
@@ -142,11 +145,13 @@ protected:
     bool m_done;
 
     const Schema& m_outSchema;
-    const double m_scale;
+    const Point m_scale;
     const Point m_offset;
 
     BinaryPointTable m_table;
     pdal::PointRef m_pointRef;
+
+    Filter m_filter;
 };
 
 } // namespace entwine

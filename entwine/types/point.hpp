@@ -35,6 +35,41 @@ public:
     Point(double x, double y) noexcept : x(x), y(y), z(Point::emptyCoord()) { }
     Point(double x, double y, double z) noexcept : x(x), y(y), z(z) { }
 
+    Point(const Json::Value& json)
+        : Point()
+    {
+        if (json.isArray())
+        {
+            x = json[0].asDouble();
+            y = json[1].asDouble();
+            if (json.size() > 2) z = json[2].asDouble();
+        }
+        else
+        {
+            x = json["x"].asDouble();
+            y = json["y"].asDouble();
+            if (json.isMember("z")) z = json["z"].asDouble();
+        }
+    }
+
+    Json::Value toJsonArray() const
+    {
+        Json::Value json;
+        json.append(x);
+        json.append(y);
+        json.append(z);
+        return json;
+    }
+
+    Json::Value toJsonObject() const
+    {
+        Json::Value json;
+        json["x"] = x;
+        json["y"] = y;
+        json["z"] = z;
+        return json;
+    }
+
     double sqDist2d(const Point& other) const
     {
         const double xDelta(x - other.x);
@@ -111,6 +146,35 @@ public:
             p.z != emptyCoord() ?
                 p.x * t[8] + p.y * t[9] + p.z * t[10] + t[11] :
                 0);
+    }
+
+    static Point scale(const Point& p, const Point& scale, const Point& offset)
+    {
+        return Point(
+                (p.x - offset.x) / scale.x,
+                (p.y - offset.y) / scale.y,
+                (p.z - offset.z) / scale.z);
+    }
+
+    static Point unscale(
+            const Point& p,
+            const Point& scale,
+            const Point& offset)
+    {
+        return Point(
+                p.x * scale.x + offset.x,
+                p.y * scale.y + offset.y,
+                p.z * scale.z + offset.z);
+    }
+
+    template<typename Op> static Point apply(Op op, const Point& p)
+    {
+        return Point(op(p.x), op(p.y), op(p.z));
+    }
+
+    static Point round(const Point& p)
+    {
+        return Point(std::llround(p.x), std::llround(p.y), std::llround(p.z));
     }
 
     double x;

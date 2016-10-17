@@ -10,6 +10,7 @@
 
 #include <entwine/reader/query.hpp>
 
+#include <algorithm>
 #include <iterator>
 
 #include <entwine/reader/cache.hpp>
@@ -32,11 +33,12 @@ namespace
 Query::Query(
         const Reader& reader,
         const Schema& schema,
+        const Json::Value& filter,
         Cache& cache,
         const Bounds& queryBounds,
         const std::size_t depthBegin,
         const std::size_t depthEnd,
-        const double scale,
+        const Point& scale,
         const Point& offset)
     : m_reader(reader)
     , m_structure(m_reader.metadata().structure())
@@ -55,17 +57,19 @@ Query::Query(
     , m_offset(offset)
     , m_table(m_reader.metadata().schema())
     , m_pointRef(m_table, 0)
+    , m_filter(m_reader.metadata(), m_queryBounds, filter)
 {
     if (!m_depthEnd || m_depthEnd > m_structure.coldDepthBegin())
     {
         QueryChunkState chunkState(m_structure, m_reader.metadata().bounds());
         getFetches(chunkState);
+        std::cout << "Fetches: " << m_chunks.size() << std::endl;
     }
 }
 
 void Query::getFetches(const QueryChunkState& chunkState)
 {
-    if (!m_queryBounds.overlaps(chunkState.bounds(), true)) return;
+    if (!m_filter.check(chunkState.bounds())) return;
 
     if (
             chunkState.depth() >= m_depthBegin &&
@@ -77,6 +81,12 @@ void Query::getFetches(const QueryChunkState& chunkState)
                 chunkState.chunkId(),
                 chunkState.pointsPerChunk(),
                 chunkState.depth());
+    }
+    else if (
+            chunkState.depth() >= m_structure.coldDepthBegin() &&
+            !m_reader.exists(chunkState.chunkId()))
+    {
+        return;
     }
 
     if (chunkState.depth() + 1 < m_depthEnd)
@@ -125,7 +135,7 @@ bool Query::next(std::vector<char>& buffer)
 
 void Query::getBase(std::vector<char>& buffer, const PointState& pointState)
 {
-    if (!m_queryBounds.overlaps(pointState.bounds(), true)) return;
+    if (!m_filter.check(pointState.bounds())) return;
 
     if (pointState.depth() >= m_structure.baseDepthBegin())
     {
@@ -202,10 +212,13 @@ bool Query::processPoint(std::vector<char>& buffer, const PointInfo& info)
 {
     if (m_queryBounds.contains(info.point()))
     {
+        m_table.setPoint(info.data());
+
+        if (!m_filter.check(m_pointRef)) return false;
+
         buffer.resize(buffer.size() + m_outSchema.pointSize(), 0);
         char* pos(buffer.data() + buffer.size() - m_outSchema.pointSize());
 
-        m_table.setPoint(info.data());
         bool isX(false), isY(false), isZ(false);
 
         for (const auto& dim : m_outSchema.dims())
@@ -218,11 +231,9 @@ bool Query::processPoint(std::vector<char>& buffer, const PointInfo& info)
             {
                 double d(m_pointRef.getFieldAs<double>(dim.id()));
 
-                if (isX)        d -= m_offset.x;
-                else if (isY)   d -= m_offset.y;
-                else            d -= m_offset.z;
-
-                if (m_scale) d /= m_scale;
+                if (isX)        { d -= m_offset.x; d /= m_scale.x; }
+                else if (isY)   { d -= m_offset.y; d /= m_scale.y; }
+                else            { d -= m_offset.z; d /= m_scale.z; }
 
                 switch (dim.type())
                 {

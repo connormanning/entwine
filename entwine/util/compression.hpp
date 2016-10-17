@@ -131,6 +131,13 @@ class Compressor
 public:
     Compressor(const Schema& schema, std::size_t numPoints = 0);
     void push(const char* data, std::size_t size);
+
+    template<typename T>
+    void push(T val)
+    {
+        push(reinterpret_cast<const char*>(&val), sizeof(T));
+    }
+
     std::unique_ptr<std::vector<char>> data();
 
 private:

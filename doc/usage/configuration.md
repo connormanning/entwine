@@ -36,7 +36,7 @@ entwine build \
 | `input`           | `-i`  | `String` or `[String]`    | None      | Path(s) to build [🔗](#input)
 | `output`          | `-o`  | `String`                  | None      | Output directory [🔗](#output)
 | `tmp`             | `-a`  | `String`                  | `"./tmp"` | Temporary directory [🔗](#tmp)
-| `threads`         | `-t`  | `Number`                  | `9`       | Number of work threads [🔗](#threads)
+| `threads`         | `-t`  | `Number`                  | `8`       | Number of work threads [🔗](#threads)
 | `reprojection`    | `-r`  | `Object`                  | None      | Coordinate system settings [🔗](#reprojection)
 | `trustHeaders`    | `-x`<sup>\*</sup>| `Boolean`      | `true`    | `true` if file headers are accurate [🔗](#trust-headers)
 | `force`           | `-f`<sup>\*</sup>| `Boolean`      | `false`   | `true` to overwrite previous build [🔗](#force)

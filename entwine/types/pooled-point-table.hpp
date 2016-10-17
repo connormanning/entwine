@@ -21,65 +21,130 @@
 namespace entwine
 {
 
-class BinaryPointTable : public pdal::StreamPointTable
-{
-public:
-    BinaryPointTable(const Schema& schema)
-        : pdal::StreamPointTable(schema.pdalLayout())
-        , m_pos(nullptr)
-    { }
-
-    BinaryPointTable(const Schema& schema, const char* pos)
-        : pdal::StreamPointTable(schema.pdalLayout())
-        , m_pos(pos)
-    { }
-
-    virtual pdal::point_count_t capacity() const override { return 1; }
-    virtual char* getPoint(pdal::PointId i) override
-    {
-        // :(
-        return const_cast<char*>(m_pos);
-    }
-
-    void setPoint(const char* pos) { m_pos = pos; }
-
-protected:
-    const char* m_pos;
-};
-
 class PooledPointTable : public pdal::StreamPointTable
 {
 public:
     // The processing function may acquire nodes from the incoming stack, and
     // can return any that do not need to be kept for reuse.
+    using Process = std::function<Cell::PooledStack(Cell::PooledStack)>;
+
     PooledPointTable(
             PointPool& pointPool,
-            std::function<Cell::PooledStack(Cell::PooledStack)> process,
-            pdal::Dimension::Id originId = pdal::Dimension::Id::Unknown,
+            const Schema& schema,
+            Process process,
+            Origin origin)
+        : pdal::StreamPointTable(schema.pdalLayout())
+        , m_pointPool(pointPool)
+        , m_inSchema(schema)
+        , m_process(process)
+        , m_dataNodes(pointPool.dataPool())
+        , m_cellNodes(pointPool.cellPool())
+        , m_refs()
+        , m_origin(origin)
+        , m_index(0)
+        , m_outstanding(0)
+    {
+        m_refs.reserve(capacity());
+        allocate();
+    }
+
+    PooledPointTable(
+            PointPool& pointPool,
+            Process process,
+            Origin origin)
+        : PooledPointTable(pointPool, pointPool.schema(), process, origin)
+    { }
+
+    virtual ~PooledPointTable() { }
+
+    static std::unique_ptr<PooledPointTable> create(
+            PointPool& pointPool,
+            Process process,
+            const Delta* delta,
             Origin origin = invalidOrigin);
 
-    virtual pdal::point_count_t capacity() const override;
+    virtual pdal::point_count_t capacity() const override { return 4096; }
     virtual void reset() override;
 
 protected:
+    virtual void allocated() { }
+    virtual void preprocess() = 0;
+    virtual const Schema& outSchema() const { return m_inSchema; }
+
+    std::size_t index() const { return m_index; }
+    std::size_t outstanding() const { return m_outstanding; }
+
+    PointPool& m_pointPool;
+    const Schema& m_inSchema;
+    Process m_process;
+
+    Data::PooledStack m_dataNodes;
+    Cell::PooledStack m_cellNodes;
+
+    std::vector<char*> m_refs;
+
+private:
     virtual char* getPoint(pdal::PointId i) override
     {
-        m_size = i + 1;
-        return **m_refs[i];
+        m_outstanding = i + 1;
+        return m_refs[i];
+    }
+
+    void allocate();
+
+    const Origin m_origin;
+    std::size_t m_index;
+    std::size_t m_outstanding;
+};
+
+class NormalPooledPointTable : public PooledPointTable
+{
+public:
+    NormalPooledPointTable(
+            PointPool& pointPool,
+            PooledPointTable::Process process,
+            Origin origin)
+        : PooledPointTable(pointPool, process, origin)
+    {
+        allocated();
     }
 
 private:
-    void allocate();
+    virtual void allocated() override;
+    virtual void preprocess() override { }
+};
 
-    PointPool& m_pointPool;
-    Data::PooledStack m_dataNodes;
-    std::vector<Data::RawNode*> m_refs; // m_refs[0]=> m_dataNodes.head()
-    std::size_t m_size;
+class ConvertingPooledPointTable : public PooledPointTable
+{
+public:
+    ConvertingPooledPointTable(
+            PointPool& pointPool,
+            std::unique_ptr<Schema> normalizedSchema,
+            PooledPointTable::Process process,
+            const Delta& delta,
+            Origin origin)
+        : PooledPointTable(pointPool, *normalizedSchema, process, origin)
+        , m_delta(delta)
+        , m_preSchema(std::move(normalizedSchema))
+        , m_preData(m_preSchema->pointSize() * capacity(), 0)
+    {
+        for (std::size_t i(0); i < capacity(); ++i)
+        {
+            m_refs.push_back(m_preData.data() + i * m_preSchema->pointSize());
+        }
+    }
 
-    std::function<Cell::PooledStack(Cell::PooledStack)> m_process;
+private:
+    virtual void preprocess() override;
 
-    const pdal::Dimension::Id m_originId;
-    const Origin m_origin;
+    virtual const Schema& outSchema() const override
+    {
+        return m_pointPool.schema();
+    }
+
+    const Delta& m_delta;
+    std::unique_ptr<Schema> m_preSchema;
+    std::vector<char> m_preData;
 };
 
 } // namespace entwine

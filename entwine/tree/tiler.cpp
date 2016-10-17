@@ -14,7 +14,7 @@
 
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/traverser.hpp>
-#include <entwine/types/pooled-point-table.hpp>
+#include <entwine/types/binary-point-table.hpp>
 #include <entwine/types/vector-point-table.hpp>
 #include <entwine/util/compression.hpp>
 #include <entwine/util/json.hpp>

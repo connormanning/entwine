@@ -221,6 +221,16 @@ Manifest::Manifest(const Json::Value& json)
     }
 }
 
+Origin Manifest::find(const std::string& search) const
+{
+    for (std::size_t i(0); i < size(); ++i)
+    {
+        if (m_paths[i].path().find(search) != std::string::npos) return i;
+    }
+
+    return invalidOrigin;
+}
+
 void Manifest::append(const Manifest& other)
 {
     for (const auto& info : other.m_paths)

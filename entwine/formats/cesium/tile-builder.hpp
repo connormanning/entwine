@@ -14,7 +14,7 @@
 
 #include <entwine/formats/cesium/settings.hpp>
 #include <entwine/formats/cesium/tile.hpp>
-#include <entwine/types/pooled-point-table.hpp>
+#include <entwine/types/binary-point-table.hpp>
 
 namespace entwine
 {

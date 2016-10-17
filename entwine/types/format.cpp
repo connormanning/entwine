@@ -12,7 +12,8 @@
 
 #include <numeric>
 
-#include <entwine/types/pooled-point-table.hpp>
+#include <entwine/types/binary-point-table.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/util/compression.hpp>
 #include <entwine/util/unique.hpp>
 
@@ -42,13 +43,13 @@ namespace
 }
 
 Format::Format(
-        const Schema& schema,
-        bool trustHeaders,
-        bool compress,
-        HierarchyCompression hierarchyCompression,
-        std::vector<std::string> tailFields,
-        std::string srs)
-    : m_schema(schema)
+        const Metadata& metadata,
+        const bool trustHeaders,
+        const bool compress,
+        const HierarchyCompression hierarchyCompression,
+        const std::vector<std::string> tailFields,
+        const std::string srs)
+    : m_metadata(metadata)
     , m_trustHeaders(trustHeaders)
     , m_compress(compress)
     , m_hierarchyCompression(hierarchyCompression)
@@ -85,9 +86,9 @@ Format::Format(
     }
 }
 
-Format::Format(const Schema& schema, const Json::Value& json)
+Format::Format(const Metadata& metadata, const Json::Value& json)
     : Format(
-            schema,
+            metadata,
             json["trustHeaders"].asBool(),
             json["compress"].asBool(),
             hierarchyCompressionFromName(json["compress-hierarchy"].asString()),
@@ -101,11 +102,11 @@ std::unique_ptr<std::vector<char>> Format::pack(
 {
     std::unique_ptr<std::vector<char>> data;
     const std::size_t numPoints(dataStack.size());
-    const std::size_t pointSize(m_schema.pointSize());
+    const std::size_t pointSize(schema().pointSize());
 
     if (m_compress)
     {
-        Compressor compressor(m_schema, dataStack.size());
+        Compressor compressor(m_metadata.schema(), dataStack.size());
         for (const char* pos : dataStack) compressor.push(pos, pointSize);
         data = compressor.data();
     }
@@ -127,6 +128,9 @@ std::unique_ptr<std::vector<char>> Format::pack(
 
     return data;
 }
+
+const Metadata& Format::metadata() const { return m_metadata; }
+const Schema& Format::schema() const { return m_metadata.schema(); }
 
 } // namespace entwine
 

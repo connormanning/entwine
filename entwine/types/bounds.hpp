@@ -11,6 +11,7 @@
 #pragma once
 
 #include <cstdlib>
+#include <iostream>
 
 #include <json/json.h>
 
@@ -19,6 +20,8 @@
 
 namespace entwine
 {
+
+class Delta;
 
 class Bounds
 {
@@ -221,13 +224,14 @@ public:
                 std::to_string(toIntegral(dir)));
     }
 
-    bool exists() const { return Point::exists(m_min) && Point::exists(m_max); }
+    bool exists() const { return Point::exists(m_min) || Point::exists(m_max); }
     bool is3d() const { return m_min.z || m_max.z; }
 
     Json::Value toJson() const;
 
     void grow(const Bounds& bounds);
     void grow(const Point& p);
+    void shrink(const Bounds& bounds);
 
     bool isCubic() const
     {
@@ -236,26 +240,11 @@ public:
 
     // Bloat all coordinates necessary to form a cube and also to the nearest
     // integer.
-    Bounds cubeify() const
-    {
-        const double xDist(m_max.x - m_min.x);
-        const double yDist(m_max.y - m_min.y);
-        const double zDist(m_max.z - m_min.z);
+    Bounds cubeify(const Delta* delta) const;
+    Bounds cubeify(const Delta& delta) const;
 
-        const double radius(
-                std::ceil(std::max(std::max(xDist, yDist), zDist) / 2.0 + 10));
-
-        return Bounds(
-                Point(
-                    std::floor(m_mid.x - radius),
-                    std::floor(m_mid.y - radius),
-                    std::floor(m_mid.z - radius)),
-                Point(
-                    std::floor(m_mid.x + radius),
-                    std::floor(m_mid.y + radius),
-                    std::floor(m_mid.z + radius)));
-    }
-
+    Bounds deltify(const Delta* delta) const;
+    Bounds deltify(const Delta& delta) const;
     Bounds growBy(double ratio) const;
 
     std::vector<Bounds> explode() const;
