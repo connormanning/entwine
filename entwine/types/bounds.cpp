@@ -182,7 +182,7 @@ Bounds Bounds::cubeify(const Delta* delta) const
 Bounds Bounds::cubeify(const Delta& delta) const
 {
     const double maxDist(
-            1 + std::ceil(std::max({ width(), depth(), height() })));
+            1 + std::ceil(std::max(std::max(width(), depth()), height())));
 
     const std::size_t rawRadius(std::ceil(maxDist / 2.0));
     const double radius(10 + (rawRadius + 10) / 10 * 10);
