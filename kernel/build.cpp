@@ -512,6 +512,7 @@ void Kernel::build(std::vector<std::string> args)
     {
         std::cout << "\tScale: " << delta->scale() << std::endl;
         std::cout << "\tOffset: " << delta->offset() << std::endl;
+        std::cout << "\tXYZ width: " << schema.find("X").size() << std::endl;
     }
 
     std::cout <<

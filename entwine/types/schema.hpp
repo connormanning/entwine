@@ -166,9 +166,9 @@ public:
         pdal::Dimension::Type spatialType(pdal::Dimension::Type::Double);
 
         const Point ticks(
-                scaledCube.width() / delta.scale().x,
-                scaledCube.depth() / delta.scale().y,
-                scaledCube.height() / delta.scale().z);
+                scaledCube.width(),
+                scaledCube.depth(),
+                scaledCube.height());
 
         auto fitsWithin([&ticks](double max)
         {

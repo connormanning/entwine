@@ -237,6 +237,12 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         if (!schema)
         {
             auto dims(inference.schema().dims());
+            if (delta)
+            {
+                Bounds cube(boundsConforming->cubeify(*delta));
+                dims = Schema::deltify(cube, *delta, inference.schema()).dims();
+            }
+
             const std::size_t pointIdSize([&manifest]()
             {
                 std::size_t max(0);
