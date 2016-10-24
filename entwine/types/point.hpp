@@ -39,19 +39,28 @@ public:
     Point(const Json::Value& json)
         : Point()
     {
-        if (json.isArray())
+        if (!json.isNull())
         {
-            x = json[0].asDouble();
-            y = json[1].asDouble();
-            if (json.size() > 2) z = json[2].asDouble();
-        }
-        else
-        {
-            x = json["x"].asDouble();
-            y = json["y"].asDouble();
-            if (json.isMember("z")) z = json["z"].asDouble();
+            if (json.isArray())
+            {
+                x = json[0].asDouble();
+                y = json[1].asDouble();
+                if (json.size() > 2) z = json[2].asDouble();
+            }
+            else if (json.isNumeric())
+            {
+                x = y = z = json.asDouble();
+            }
+            else if (json.isObject())
+            {
+                x = json["x"].asDouble();
+                y = json["y"].asDouble();
+                z = json["z"].asDouble();
+            }
         }
     }
+
+    Json::Value toJson() const { return toJsonArray(); }
 
     Json::Value toJsonArray() const
     {

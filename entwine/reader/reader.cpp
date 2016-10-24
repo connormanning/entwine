@@ -89,12 +89,22 @@ Reader::~Reader()
 { }
 
 Json::Value Reader::hierarchy(
-        const Bounds& queryBounds,
+        const Bounds& inBounds,
         const std::size_t depthBegin,
         const std::size_t depthEnd,
-        const bool vertical)
+        const bool vertical,
+        const Point* scale,
+        const Point* offset)
 {
     checkQuery(depthBegin, depthEnd);
+
+    Bounds queryBounds(inBounds);
+
+    if (scale || offset)
+    {
+        queryBounds = queryBounds.undeltify(Delta(scale, offset));
+    }
+
     Hierarchy::QueryResults results(
             vertical ?
                 m_hierarchy->queryVertical(queryBounds, depthBegin, depthEnd) :

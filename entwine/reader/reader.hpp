@@ -74,7 +74,9 @@ public:
             const Bounds& qbox,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            bool vertical = false);
+            bool vertical = false,
+            const Point* scale = nullptr,
+            const Point* offset = nullptr);
 
     const Metadata& metadata() const { return *m_metadata; }
     std::string path() const { return m_endpoint.root(); }
