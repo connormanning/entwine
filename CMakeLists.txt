@@ -24,8 +24,6 @@ else()
     include_directories("${CMAKE_CURRENT_SOURCE_DIR}/entwine/third/json")
 endif()
 
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}")
-
 set(PDAL_FIND_VERSION 1.2)
 find_package(PDAL ${PDAL_FIND_VERSION} REQUIRED CONFIG NO_POLICY_SCOPE)
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
@@ -43,6 +41,8 @@ if (CMAKE_MAJOR_VERSION GREATER 2)
     cmake_policy(SET CMP0022 OLD) # interface link libraries
     cmake_policy(SET CMP0042 NEW) # osx rpath
 endif()
+
+include_directories(BEFORE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 add_subdirectory(entwine)
 add_subdirectory(kernel)
@@ -81,3 +81,4 @@ export(EXPORT entwine-targets FILE "${PROJECT_BINARY_DIR}/entwine-targets.cmake"
 configure_file(cmake/entwine-config.cmake.in "${PROJECT_BINARY_DIR}/entwine-config.cmake" @ONLY)
 install(EXPORT entwine-targets FILE entwine-targets.cmake NAMESPACE Entwine:: DESTINATION lib/cmake/entwine)
 install(FILES "${PROJECT_BINARY_DIR}/entwine-config.cmake" DESTINATION lib/cmake/entwine)
+

@@ -28,6 +28,7 @@ class Bounds
 public:
     Bounds() = default;
     Bounds(const Point& min, const Point& max);
+    Bounds(const Point& center, double radius);
     Bounds(const Json::Value& json);
     Bounds(double xMin, double yMin, double xMax, double yMax);
     Bounds(
@@ -245,6 +246,8 @@ public:
 
     Bounds deltify(const Delta* delta) const;
     Bounds deltify(const Delta& delta) const;
+    Bounds undeltify(const Delta* delta) const;
+    Bounds undeltify(const Delta& delta) const;
     Bounds growBy(double ratio) const;
 
     std::vector<Bounds> explode() const;

@@ -74,6 +74,10 @@ Bounds::Bounds(const Json::Value& json) : m_min(), m_max(), m_mid()
     *this = self;
 }
 
+Bounds::Bounds(const Point& center, const double radius)
+    : Bounds(center - radius, center + radius)
+{ }
+
 Bounds::Bounds(
         const double xMin,
         const double yMin,
@@ -154,38 +158,49 @@ Bounds Bounds::deltify(const Delta& delta) const
             Point::scale(max(), delta.scale(), delta.offset()));
 }
 
+Bounds Bounds::undeltify(const Delta* delta) const
+{
+    if (delta) return undeltify(*delta);
+    else return *this;
+}
+
+Bounds Bounds::undeltify(const Delta& delta) const
+{
+    return Bounds(
+            Point::unscale(min(), delta.scale(), delta.offset()),
+            Point::unscale(max(), delta.scale(), delta.offset()));
+}
+
 Bounds Bounds::cubeify(const Delta* delta) const
 {
     if (delta) return cubeify(*delta);
 
-    const double xDist(m_max.x - m_min.x);
-    const double yDist(m_max.y - m_min.y);
-    const double zDist(m_max.z - m_min.z);
+    const Bounds originCentered(cubeify(Delta()));
+    const Point integralMid(
+            Point::apply([](int64_t v) { return (v + 10) / 10 * 10; },
+            mid()));
 
-    const double maxDist(
-            1 + std::ceil(std::max(std::max(xDist, yDist), zDist)));
+    const Bounds result(
+            originCentered.min() + integralMid,
+            originCentered.max() + integralMid);
 
-    const std::size_t rawRadius(std::ceil(maxDist / 2.0));
-    const double radius((rawRadius + 10) / 10 * 10);
+    if (!result.contains(*this))
+    {
+        throw std::runtime_error("Oops, invalid bounds");
+    }
 
-    return Bounds(
-            Point(
-                std::floor(m_mid.x - radius),
-                std::floor(m_mid.y - radius),
-                std::floor(m_mid.z - radius)),
-            Point(
-                std::ceil(m_mid.x + radius),
-                std::ceil(m_mid.y + radius),
-                std::ceil(m_mid.z + radius)));
+    return result;
 }
 
 Bounds Bounds::cubeify(const Delta& delta) const
 {
+    // The radius of the result is guaranteed to be >= 20 units beyond the
+    // maximum extents of the input.
     const double maxDist(
             1 + std::ceil(std::max(std::max(width(), depth()), height())));
 
     const std::size_t rawRadius(std::ceil(maxDist / 2.0));
-    const double radius(10 + (rawRadius + 10) / 10 * 10);
+    const double radius(20 + (rawRadius + 10) / 10 * 10);
 
     const auto& s(delta.scale());
     const Point neg(

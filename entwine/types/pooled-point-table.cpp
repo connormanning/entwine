@@ -42,7 +42,11 @@ void PooledPointTable::reset()
 {
     preprocess();
 
-    BinaryPointTable table(outSchema());
+    const Schema& cachedOutSchema(outSchema());
+    const auto pointIdDim(cachedOutSchema.pointIdDim());
+    const auto originIdDim(cachedOutSchema.originIdDim());
+
+    BinaryPointTable table(cachedOutSchema);
     pdal::PointRef pointRef(table, 0);
 
     assert(m_cellNodes.size() >= outstanding());
@@ -55,8 +59,8 @@ void PooledPointTable::reset()
 
         if (m_origin != invalidOrigin)
         {
-            pointRef.setField(pdal::Dimension::Id::OriginId, m_origin);
-            pointRef.setField(pdal::Dimension::Id::PointId, m_index);
+            pointRef.setField(pointIdDim, m_index);
+            pointRef.setField(originIdDim, m_origin);
             ++m_index;
         }
 
@@ -67,7 +71,8 @@ void PooledPointTable::reset()
     for (auto& cell : cells) m_dataNodes.push(cell.acquire());
     m_cellNodes.push(std::move(cells));
 
-    // Can't put this in allocate since allocate is called from the ctor.
+    // Can't call allocated() from allocate() since allocate is called from the
+    // ctor.
     allocate();
     allocated();
 }

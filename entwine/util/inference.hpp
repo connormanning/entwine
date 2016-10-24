@@ -68,7 +68,6 @@ public:
     std::size_t numPoints() const;
     const Reprojection* reprojection() const { return m_reproj; }
     const Delta* delta() const { return m_delta.get(); }
-    const Bounds* deltaBounds() const { return m_deltaBounds.get(); }
 
     const std::vector<double>* transformation() const
     {

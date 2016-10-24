@@ -58,8 +58,8 @@ public:
             const Json::Value& filter,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            Point scale = Point(1, 1, 1),
-            Point offset = Point());
+            const Point* scale = nullptr,
+            const Point* offset = nullptr);
 
     std::unique_ptr<Query> query(
             const Schema& schema,
@@ -67,8 +67,8 @@ public:
             const Bounds& qbox,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            Point scale = Point(1, 1, 1),
-            Point offset = Point());
+            const Point* scale = nullptr,
+            const Point* offset = nullptr);
 
     Json::Value hierarchy(
             const Bounds& qbox,

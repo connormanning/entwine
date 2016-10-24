@@ -373,7 +373,12 @@ void Inference::aggregate()
 
     if (m_delta)
     {
-        m_delta->offset() = Point::round(m_bounds->mid());
+        // Since the delta bounds guarantee us an extra buffer of at least 20,
+        // we can slop this by 10 for prettier numbers.
+        m_delta->offset() =
+            Point::apply(
+                    [](int64_t v) { return (v + 10) / 10 * 10; },
+                    m_bounds->mid());
     }
 }
 

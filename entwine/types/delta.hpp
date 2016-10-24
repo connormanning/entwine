@@ -28,6 +28,11 @@ public:
         , m_offset(offset)
     { }
 
+    Delta(const Scale* scale, const Offset* offset)
+        : m_scale(scale ? *scale : Point(1, 1, 1))
+        , m_offset(offset ? *offset : Point(0, 0, 0))
+    { }
+
     Delta(const Json::Value& json)
         : Delta()
     {
@@ -45,6 +50,13 @@ public:
 
     Scale& scale() { return m_scale; }
     Offset& offset() { return m_offset; }
+
+    Delta inverse() const
+    {
+        return Delta(
+                Scale(1.0 / m_scale.x, 1.0 / m_scale.y, 1.0 / m_scale.z),
+                -m_offset);
+    }
 
 private:
     Scale m_scale;

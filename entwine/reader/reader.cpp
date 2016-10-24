@@ -110,10 +110,19 @@ std::unique_ptr<Query> Reader::query(
         const Json::Value& filter,
         const std::size_t depthBegin,
         const std::size_t depthEnd,
-        const Point scale,
-        const Point offset)
+        const Point* scale,
+        const Point* offset)
 {
-    return query(schema, filter, bounds(), depthBegin, depthEnd, scale, offset);
+    checkQuery(depthBegin, depthEnd);
+    return makeUnique<Query>(
+            *this,
+            schema,
+            filter,
+            m_cache,
+            depthBegin,
+            depthEnd,
+            scale,
+            offset);
 }
 
 std::unique_ptr<Query> Reader::query(
@@ -122,38 +131,36 @@ std::unique_ptr<Query> Reader::query(
         const Bounds& queryBounds,
         const std::size_t depthBegin,
         const std::size_t depthEnd,
-        const Point scale,
-        const Point offset)
+        const Point* scale,
+        const Point* offset)
 {
     checkQuery(depthBegin, depthEnd);
 
     Bounds queryCube(queryBounds);
 
-    if (!queryBounds.is3d())
+    if (!queryCube.is3d())
     {
-        // Make sure the query is 3D.
         queryCube = Bounds(
                 Point(
-                    queryBounds.min().x,
-                    queryBounds.min().y,
-                    bounds().min().z),
+                    queryCube.min().x,
+                    queryCube.min().y,
+                    std::numeric_limits<double>::lowest()),
                 Point(
-                    queryBounds.max().x,
-                    queryBounds.max().y,
-                    bounds().max().z));
+                    queryCube.max().x,
+                    queryCube.max().y,
+                    std::numeric_limits<double>::max()));
     }
 
-    return std::unique_ptr<Query>(
-            new Query(
-                *this,
-                schema,
-                filter,
-                m_cache,
-                queryCube,
-                depthBegin,
-                depthEnd,
-                scale,
-                offset));
+    return makeUnique<Query>(
+            *this,
+            schema,
+            filter,
+            m_cache,
+            queryCube,
+            depthBegin,
+            depthEnd,
+            scale,
+            offset);
 }
 
 const Bounds& Reader::bounds() const { return m_metadata->bounds(); }

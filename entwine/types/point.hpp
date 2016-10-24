@@ -32,6 +32,7 @@ public:
         , z(Point::emptyCoord())
     { }
 
+    Point(double v) noexcept : x(v), y(v), z(v) { }
     Point(double x, double y) noexcept : x(x), y(y), z(Point::emptyCoord()) { }
     Point(double x, double y, double z) noexcept : x(x), y(y), z(z) { }
 
@@ -143,17 +144,37 @@ public:
         return Point(
             p.x * t[0] + p.y * t[1] + p.z * t[2] + t[3],
             p.x * t[4] + p.y * t[5] + p.z * t[6] + t[7],
-            p.z != emptyCoord() ?
-                p.x * t[8] + p.y * t[9] + p.z * t[10] + t[11] :
-                0);
+            p.x * t[8] + p.y * t[9] + p.z * t[10] + t[11]);
     }
 
     static Point scale(const Point& p, const Point& scale, const Point& offset)
     {
         return Point(
-                (p.x - offset.x) / scale.x,
-                (p.y - offset.y) / scale.y,
-                (p.z - offset.z) / scale.z);
+                Point::scale(p.x, scale.x, offset.x),
+                Point::scale(p.y, scale.y, offset.y),
+                Point::scale(p.z, scale.z, offset.z));
+    }
+
+    static double scale(double d, double scale, double offset)
+    {
+        return (d - offset) / scale;
+    }
+
+    static Point scale(
+            const Point& p,
+            const Point& origin,
+            const Point& scale,
+            const Point& offset)
+    {
+        return Point(
+                Point::scale(p.x, origin.x, scale.x, offset.x),
+                Point::scale(p.y, origin.y, scale.y, offset.y),
+                Point::scale(p.z, origin.z, scale.z, offset.z));
+    }
+
+    static double scale(double d, double origin, double scale, double offset)
+    {
+        return (d - origin) / scale + origin - offset;
     }
 
     static Point unscale(
@@ -162,14 +183,58 @@ public:
             const Point& offset)
     {
         return Point(
-                p.x * scale.x + offset.x,
-                p.y * scale.y + offset.y,
-                p.z * scale.z + offset.z);
+                Point::unscale(p.x, scale.x, offset.x),
+                Point::unscale(p.y, scale.y, offset.y),
+                Point::unscale(p.z, scale.z, offset.z));
+    }
+
+    static double unscale(double d, double scale, double offset)
+    {
+        return d * scale + offset;
+    }
+
+    static Point unscale(
+            const Point& p,
+            const Point& origin,
+            const Point& scale,
+            const Point& offset)
+    {
+        return Point(
+                Point::unscale(p.x, origin.x, scale.x, offset.x),
+                Point::unscale(p.y, origin.y, scale.y, offset.y),
+                Point::unscale(p.z, origin.z, scale.z, offset.z));
+    }
+
+    static double unscale(double d, double origin, double scale, double offset)
+    {
+        return (d - origin + offset) * scale + origin;
     }
 
     template<typename Op> static Point apply(Op op, const Point& p)
     {
         return Point(op(p.x), op(p.y), op(p.z));
+    }
+
+    double& operator[](std::size_t i)
+    {
+        switch (i)
+        {
+            case 0: return x;
+            case 1: return y;
+            case 2: return z;
+            default: throw std::runtime_error("Invalid coordinate index");
+        }
+    }
+
+    double operator[](std::size_t i) const
+    {
+        switch (i)
+        {
+            case 0: return x;
+            case 1: return y;
+            case 2: return z;
+            default: throw std::runtime_error("Invalid coordinate index");
+        }
     }
 
     static Point round(const Point& p)
@@ -227,6 +292,11 @@ inline Point operator+(const Point& in, double offset)
     return Point(in.x + offset, in.y + offset, in.z + offset);
 }
 
+inline Point operator-(const Point& p)
+{
+    return Point(-p.x, -p.y, -p.z);
+}
+
 inline Point operator-(const Point& in, double offset)
 {
     return in + (-offset);
@@ -263,20 +333,40 @@ inline Point operator*(const Point& p, double s)
     return Point(p.x * s, p.y * s, p.z * s);
 }
 
+inline Point operator*(const Point& a, const Point& b)
+{
+    return Point(a.x * b.x, a.y * b.y, a.z * b.z);
+}
+
+inline Point operator/(const Point& a, const Point& b)
+{
+    return Point(a.x / b.x, a.y / b.y, a.z / b.z);
+}
+
 inline std::ostream& operator<<(std::ostream& os, const Point& point)
 {
     auto flags(os.flags());
     auto precision(os.precision());
 
+    auto printCoord([&os](double d)
+    {
+        if (std::trunc(d) == d) os << static_cast<long>(d);
+        else os << d;
+    });
+
     os << std::setprecision(5) << std::fixed;
 
-    os << "(" << point.x << ", " << point.y;
+    os << "(";
+    printCoord(point.x);
+    os << ", ";
+    printCoord(point.y);
+
     if (
-            point.z != Point::emptyCoord() &&
             point.z != std::numeric_limits<double>::max() &&
             point.z != std::numeric_limits<double>::lowest())
     {
-        os << ", " << point.z;
+        os << ", ";
+        printCoord(point.z);
     }
     os << ")";
 
