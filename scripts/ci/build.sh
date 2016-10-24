@@ -1,8 +1,6 @@
 #!/bin/bash -e
 # Builds and tests Entwine
 
-clang --version
-
 cd /entwine
 
 mkdir -p _build || exit 1
