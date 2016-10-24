@@ -1,4 +1,4 @@
-FROM connormanning/pdal:entwine-pin
+FROM pdal/pdal:1.3
 MAINTAINER Connor Manning <connor@hobu.co>
 
 RUN apt-get update && apt-get install -y \
@@ -15,6 +15,7 @@ ENV CXX g++
 ADD http://www.timeapi.org/utc/now /tmp/bust-cache
 RUN git clone https://github.com/connormanning/entwine.git && \
     cd entwine && \
+    git checkout scale-offset && \
     mkdir build && \
     cd build && \
     cmake -G "Unix Makefiles" \
