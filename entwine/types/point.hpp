@@ -16,12 +16,12 @@
 #include <ostream>
 #include <vector>
 
+#include <json/json.h>
+
 namespace entwine
 {
 
 using Transformation = std::vector<double>;
-
-class Schema;
 
 class Point
 {

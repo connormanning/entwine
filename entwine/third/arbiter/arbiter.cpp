@@ -73,15 +73,19 @@ namespace
 {
     const std::string delimiter("://");
 
+#ifdef ARBITER_CURL
     const std::size_t concurrentHttpReqs(32);
     const std::size_t httpRetryCount(8);
+#endif
 }
 
 Arbiter::Arbiter() : Arbiter(Json::Value()) { }
 
 Arbiter::Arbiter(const Json::Value& json)
     : m_drivers()
-    , m_pool(concurrentHttpReqs, httpRetryCount, json)
+#ifdef ARBITER_CURL
+    , m_pool(new http::Pool(concurrentHttpReqs, httpRetryCount, json))
+#endif
 {
     using namespace drivers;
 
@@ -91,17 +95,19 @@ Arbiter::Arbiter(const Json::Value& json)
     auto test(Test::create(json["test"]));
     if (test) m_drivers[test->type()] = std::move(test);
 
-    auto http(Http::create(m_pool, json["http"]));
+#ifdef ARBITER_CURL
+    auto http(Http::create(*m_pool, json["http"]));
     if (http) m_drivers[http->type()] = std::move(http);
 
-    auto https(Https::create(m_pool, json["http"]));
+    auto https(Https::create(*m_pool, json["http"]));
     if (https) m_drivers[https->type()] = std::move(https);
 
-    auto s3(S3::create(m_pool, json["s3"]));
+    auto s3(S3::create(*m_pool, json["s3"]));
     if (s3) m_drivers[s3->type()] = std::move(s3);
 
-    auto dropbox(Dropbox::create(m_pool, json["dropbox"]));
+    auto dropbox(Dropbox::create(*m_pool, json["dropbox"]));
     if (dropbox) m_drivers[dropbox->type()] = std::move(dropbox);
+#endif
 }
 
 bool Arbiter::hasDriver(const std::string path) const
@@ -916,76 +922,7 @@ void Fs::copy(std::string src, std::string dst) const
 
 std::vector<std::string> Fs::glob(std::string path, bool verbose) const
 {
-    std::vector<std::string> results;
-
-    path = fs::expandTilde(path);
-
-    const bool recursive(([&path]()
-    {
-        if (path.size() > 2 && path[path.size() - 2] == '*')
-        {
-            path.pop_back();
-            return true;
-        }
-        else return false;
-    })());
-
-#ifndef ARBITER_WINDOWS
-    glob_t buffer;
-    struct stat info;
-
-    ::glob(path.c_str(), GLOB_NOSORT | GLOB_MARK, 0, &buffer);
-
-    for (std::size_t i(0); i < buffer.gl_pathc; ++i)
-    {
-        const std::string val(buffer.gl_pathv[i]);
-
-        if (stat(val.c_str(), &info) == 0)
-        {
-            if (S_ISREG(info.st_mode))
-            {
-                if (verbose && results.size() % 10000 == 0)
-                {
-                    std::cout << "." << std::flush;
-                }
-
-                results.push_back(val);
-            }
-            else if (recursive && S_ISDIR(info.st_mode))
-            {
-                const auto nested(glob(val + "**", verbose));
-                results.insert(results.end(), nested.begin(), nested.end());
-            }
-        }
-        else
-        {
-            throw ArbiterError("Error globbing - POSIX stat failed");
-        }
-    }
-
-    globfree(&buffer);
-#else
-    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-    const std::wstring wide(converter.from_bytes(path));
-
-    LPWIN32_FIND_DATAW data{};
-    HANDLE hFind(FindFirstFileW(wide.c_str(), data));
-
-    if (hFind != INVALID_HANDLE_VALUE)
-    {
-        do
-        {
-            if ((data->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
-            {
-                results.push_back(converter.to_bytes(data->cFileName));
-            }
-            // TODO Recurse if necessary.
-        }
-        while (FindNextFileW(hFind, data));
-    }
-#endif
-
-    return results;
+    return fs::glob(path);
 }
 
 } // namespace drivers
@@ -1040,6 +977,120 @@ bool remove(std::string filename)
 #else
     throw ArbiterError("Windows remove not done yet.");
 #endif
+}
+
+namespace
+{
+    struct Globs
+    {
+        std::vector<std::string> files;
+        std::vector<std::string> dirs;
+    };
+
+    Globs globOne(std::string path)
+    {
+        Globs results;
+
+#ifndef ARBITER_WINDOWS
+        glob_t buffer;
+        struct stat info;
+
+        ::glob(path.c_str(), GLOB_NOSORT | GLOB_MARK, 0, &buffer);
+
+        for (std::size_t i(0); i < buffer.gl_pathc; ++i)
+        {
+            const std::string val(buffer.gl_pathv[i]);
+
+            if (stat(val.c_str(), &info) == 0)
+            {
+                if (S_ISREG(info.st_mode)) results.files.push_back(val);
+                else if (S_ISDIR(info.st_mode)) results.dirs.push_back(val);
+            }
+            else
+            {
+                throw ArbiterError("Error globbing - POSIX stat failed");
+            }
+        }
+
+        globfree(&buffer);
+#else
+        std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+        const std::wstring wide(converter.from_bytes(path));
+
+        LPWIN32_FIND_DATAW data{};
+        HANDLE hFind(FindFirstFileW(wide.c_str(), data));
+
+        if (hFind != INVALID_HANDLE_VALUE)
+        {
+            do
+            {
+                if ((data->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+                {
+                    results.files.push_back(
+                            converter.to_bytes(data->cFileName));
+                }
+                else
+                {
+                    results.dirs.push_back(converter.to_bytes(data->cFileName));
+                }
+            }
+            while (FindNextFileW(hFind, data));
+        }
+#endif
+
+        return results;
+    }
+
+    std::vector<std::string> walk(std::string dir)
+    {
+        std::vector<std::string> paths;
+        paths.push_back(dir);
+
+        for (const auto& d : globOne(dir + '*').dirs)
+        {
+            const auto next(walk(d));
+            paths.insert(paths.end(), next.begin(), next.end());
+        }
+
+        return paths;
+    }
+}
+
+std::vector<std::string> glob(std::string path)
+{
+    std::vector<std::string> results;
+
+    path = fs::expandTilde(path);
+
+    if (path.find('*') == std::string::npos)
+    {
+        results.push_back(path);
+        return results;
+    }
+
+    std::vector<std::string> dirs;
+
+    const std::size_t recPos(path.find("**"));
+    if (recPos != std::string::npos)
+    {
+        // Convert this recursive glob into multiple non-recursive ones.
+        const auto pre(path.substr(0, recPos));     // Cut off before the '*'.
+        const auto post(path.substr(recPos + 1));   // Includes the second '*'.
+
+        for (const auto d : walk(pre)) dirs.push_back(d + post);
+    }
+    else
+    {
+        dirs.push_back(path);
+    }
+
+    for (const auto& p : dirs)
+    {
+        Globs globs(globOne(p));
+        results.insert(results.end(), globs.files.begin(), globs.files.end());
+    }
+
+    return results;
 }
 
 std::string expandTilde(std::string in)
@@ -1128,7 +1179,13 @@ namespace drivers
 
 using namespace http;
 
-Http::Http(Pool& pool) : m_pool(pool) { }
+Http::Http(Pool& pool)
+    : m_pool(pool)
+{
+#ifndef ARBITER_CURL
+    throw ArbiterError("Cannot create HTTP driver - no curl support was built");
+#endif
+}
 
 std::unique_ptr<Http> Http::create(Pool& pool, const Json::Value&)
 {
@@ -2489,17 +2546,19 @@ std::vector<std::string> Dropbox::glob(std::string rawPath, bool verbose) const
 
 
 // //////////////////////////////////////////////////////////////////////
-// Beginning of content of file: arbiter/util/http.cpp
+// Beginning of content of file: arbiter/util/curl.cpp
 // //////////////////////////////////////////////////////////////////////
 
+#include <cstring>
+
 #ifndef ARBITER_IS_AMALGAMATION
+#include <arbiter/util/curl.hpp>
 #include <arbiter/util/http.hpp>
 #endif
 
-#include <iostream>
-#include <numeric>
-
+#ifdef ARBITER_CURL
 #include <curl/curl.h>
+#endif
 
 #ifdef ARBITER_CUSTOM_NAMESPACE
 namespace ARBITER_CUSTOM_NAMESPACE
@@ -2513,6 +2572,7 @@ namespace http
 
 namespace
 {
+#ifdef ARBITER_CURL
     struct PutData
     {
         PutData(const std::vector<char>& data)
@@ -2585,88 +2645,31 @@ namespace
         return size * num;
     }
 
-    const std::map<char, std::string> sanitizers
-    {
-        { ' ', "%20" },
-        { '!', "%21" },
-        { '"', "%22" },
-        { '#', "%23" },
-        { '$', "%24" },
-        { '\'', "%27" },
-        { '(', "%28" },
-        { ')', "%29" },
-        { '*', "%2A" },
-        { '+', "%2B" },
-        { ',', "%2C" },
-        { '/', "%2F" },
-        { ';', "%3B" },
-        { '<', "%3C" },
-        { '>', "%3E" },
-        { '@', "%40" },
-        { '[', "%5B" },
-        { '\\', "%5C" },
-        { ']', "%5D" },
-        { '^', "%5E" },
-        { '`', "%60" },
-        { '{', "%7B" },
-        { '|', "%7C" },
-        { '}', "%7D" },
-        { '~', "%7E" }
-    };
-
     const bool followRedirect(true);
-    const std::size_t defaultHttpTimeout(60 * 5);
+#else
+    const std::string fail("Arbiter was built without curl");
+#endif // ARBITER_CURL
 } // unnamed namespace
 
-std::string sanitize(const std::string path, const std::string exclusions)
-{
-    std::string result;
-
-    for (const auto c : path)
-    {
-        const auto it(sanitizers.find(c));
-
-        if (it == sanitizers.end() || exclusions.find(c) != std::string::npos)
-        {
-            result += c;
-        }
-        else
-        {
-            result += it->second;
-        }
-    }
-
-    return result;
-}
-
-std::string buildQueryString(const Query& query)
-{
-    return std::accumulate(
-            query.begin(),
-            query.end(),
-            std::string(),
-            [](const std::string& out, const Query::value_type& keyVal)
-            {
-                const char sep(out.empty() ? '?' : '&');
-                return out + sep + keyVal.first + '=' + keyVal.second;
-            });
-}
-
 Curl::Curl(bool verbose, std::size_t timeout)
-    : m_curl(0)
-    , m_headers(0)
+    : m_curl(nullptr)
+    , m_headers(nullptr)
     , m_verbose(verbose)
     , m_timeout(timeout)
     , m_data()
 {
+#ifdef ARBITER_CURL
     m_curl = curl_easy_init();
+#endif
 }
 
 Curl::~Curl()
 {
+#ifdef ARBITER_CURL
     curl_easy_cleanup(m_curl);
     curl_slist_free_all(m_headers);
-    m_headers = 0;
+    m_headers = nullptr;
+#endif
 }
 
 void Curl::init(
@@ -2674,9 +2677,10 @@ void Curl::init(
         const Headers& headers,
         const Query& query)
 {
+#ifdef ARBITER_CURL
     // Reset our curl instance and header list.
     curl_slist_free_all(m_headers);
-    m_headers = 0;
+    m_headers = nullptr;
 
     // Set path.
     const std::string path(sanitize(rawPath + buildQueryString(query)));
@@ -2701,6 +2705,9 @@ void Curl::init(
                 m_headers,
                 (h.first + ": " + h.second).c_str());
     }
+#else
+    throw ArbiterError(fail);
+#endif
 }
 
 Response Curl::get(
@@ -2709,6 +2716,7 @@ Response Curl::get(
         Query query,
         const std::size_t reserve)
 {
+#ifdef ARBITER_CURL
     long httpCode(0);
     std::vector<char> data;
 
@@ -2735,10 +2743,14 @@ Response Curl::get(
 
     curl_easy_reset(m_curl);
     return Response(httpCode, data, receivedHeaders);
+#else
+    throw ArbiterError(fail);
+#endif
 }
 
 Response Curl::head(std::string path, Headers headers, Query query)
 {
+#ifdef ARBITER_CURL
     long httpCode(0);
     std::vector<char> data;
 
@@ -2766,6 +2778,9 @@ Response Curl::head(std::string path, Headers headers, Query query)
 
     curl_easy_reset(m_curl);
     return Response(httpCode, data, receivedHeaders);
+#else
+    throw ArbiterError(fail);
+#endif
 }
 
 Response Curl::put(
@@ -2774,6 +2789,7 @@ Response Curl::put(
         Headers headers,
         Query query)
 {
+#ifdef ARBITER_CURL
     init(path, headers, query);
     if (m_verbose) curl_easy_setopt(m_curl, CURLOPT_VERBOSE, 1L);
 
@@ -2808,6 +2824,9 @@ Response Curl::put(
 
     curl_easy_reset(m_curl);
     return Response(httpCode);
+#else
+    throw ArbiterError(fail);
+#endif
 }
 
 Response Curl::post(
@@ -2816,6 +2835,7 @@ Response Curl::post(
         Headers headers,
         Query query)
 {
+#ifdef ARBITER_CURL
     init(path, headers, query);
     if (m_verbose) curl_easy_setopt(m_curl, CURLOPT_VERBOSE, 1L);
 
@@ -2857,9 +2877,116 @@ Response Curl::post(
     curl_easy_reset(m_curl);
     Response response(httpCode, writeData, receivedHeaders);
     return response;
+#else
+    throw ArbiterError(fail);
+#endif
 }
 
-///////////////////////////////////////////////////////////////////////////////
+} // namepace http
+} // namespace arbiter
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
+
+// //////////////////////////////////////////////////////////////////////
+// End of content of file: arbiter/util/curl.cpp
+// //////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+// //////////////////////////////////////////////////////////////////////
+// Beginning of content of file: arbiter/util/http.cpp
+// //////////////////////////////////////////////////////////////////////
+
+#ifndef ARBITER_IS_AMALGAMATION
+#include <arbiter/util/http.hpp>
+#endif
+
+#include <iostream>
+#include <numeric>
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
+
+namespace arbiter
+{
+namespace http
+{
+
+namespace
+{
+    const std::map<char, std::string> sanitizers
+    {
+        { ' ', "%20" },
+        { '!', "%21" },
+        { '"', "%22" },
+        { '#', "%23" },
+        { '$', "%24" },
+        { '\'', "%27" },
+        { '(', "%28" },
+        { ')', "%29" },
+        { '*', "%2A" },
+        { '+', "%2B" },
+        { ',', "%2C" },
+        { '/', "%2F" },
+        { ';', "%3B" },
+        { '<', "%3C" },
+        { '>', "%3E" },
+        { '@', "%40" },
+        { '[', "%5B" },
+        { '\\', "%5C" },
+        { ']', "%5D" },
+        { '^', "%5E" },
+        { '`', "%60" },
+        { '{', "%7B" },
+        { '|', "%7C" },
+        { '}', "%7D" },
+        { '~', "%7E" }
+    };
+
+    const std::size_t defaultHttpTimeout(60 * 5);
+} // unnamed namespace
+
+std::string sanitize(const std::string path, const std::string exclusions)
+{
+    std::string result;
+
+    for (const auto c : path)
+    {
+        const auto it(sanitizers.find(c));
+
+        if (it == sanitizers.end() || exclusions.find(c) != std::string::npos)
+        {
+            result += c;
+        }
+        else
+        {
+            result += it->second;
+        }
+    }
+
+    return result;
+}
+
+std::string buildQueryString(const Query& query)
+{
+    return std::accumulate(
+            query.begin(),
+            query.end(),
+            std::string(),
+            [](const std::string& out, const Query::value_type& keyVal)
+            {
+                const char sep(out.empty() ? '?' : '&');
+                return out + sep + keyVal.first + '=' + keyVal.second;
+            });
+}
 
 Resource::Resource(
         Pool& pool,
@@ -2967,6 +3094,11 @@ Pool::Pool(
 
 Resource Pool::acquire()
 {
+    if (m_curls.empty())
+    {
+        throw std::runtime_error("Cannot acquire from empty pool");
+    }
+
     std::unique_lock<std::mutex> lock(m_mutex);
     m_cv.wait(lock, [this]()->bool { return !m_available.empty(); });
 
@@ -3010,6 +3142,7 @@ void Pool::release(const std::size_t id)
 
 #include <cstddef>
 #include <cstdlib>
+#include <cstring>
 #include <memory>
 
 #ifndef ARBITER_IS_AMALGAMATION
@@ -3168,7 +3301,7 @@ void md5_final(Md5Context *ctx, uint8_t hash[])
         while (i < 64)
             ctx->data[i++] = 0x00;
         md5_transform(ctx, ctx->data);
-        memset(ctx->data, 0, 56);
+        std::memset(ctx->data, 0, 56);
     }
 
     // Append to the padding the total message's length in bits and transform.
@@ -3232,6 +3365,7 @@ std::string md5(const std::string& data)
 // //////////////////////////////////////////////////////////////////////
 
 #include <cstdlib>
+#include <cstring>
 #include <memory>
 
 #ifndef ARBITER_IS_AMALGAMATION
@@ -3384,7 +3518,7 @@ void sha256_final(Sha256Context *ctx, uint8_t hash[])
         }
 
         sha256_transform(ctx, ctx->data);
-        memset(ctx->data, 0, 56);
+        std::memset(ctx->data, 0, 56);
     }
 
     // Append to the padding the total message's length in bits and transform.
