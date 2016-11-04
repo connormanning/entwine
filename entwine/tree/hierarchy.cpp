@@ -276,7 +276,7 @@ Hierarchy::QueryResults Hierarchy::queryVertical(
         const std::size_t depthEnd)
 {
     QueryResults results(query(queryBounds, depthBegin, depthEnd));
-    std::vector<std::size_t> out(depthEnd - depthBegin, 0);
+    std::vector<std::size_t> out;
     reduce(out, 0, results.json);
     results.json = Json::Value();
     for (const auto n : out) results.json.append(static_cast<Json::UInt64>(n));
@@ -290,6 +290,7 @@ void Hierarchy::reduce(
 {
     if (const std::size_t n = in["n"].asUInt64())
     {
+        if (out.size() <= depth) out.resize(depth + 1, 0);
         out.at(depth) += n;
 
         ++depth;
