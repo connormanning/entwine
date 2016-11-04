@@ -352,8 +352,15 @@ void Kernel::build(std::vector<std::string> args)
                 // scale specification.  Otherwise, it's a subset specification.
                 if (a + 1 >= args.size() || args[a + 1].front() == '-')
                 {
-                    const double d(std::stod(args[a]));
-                    for (int i(0); i < 3; ++i) json["scale"].append(d);
+                    if (args[a].front() == '[')
+                    {
+                        json["scale"] = parse(args[a]);
+                    }
+                    else
+                    {
+                        const double d(std::stod(args[a]));
+                        for (int i(0); i < 3; ++i) json["scale"].append(d);
+                    }
                 }
                 else
                 {
