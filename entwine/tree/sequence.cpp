@@ -42,13 +42,7 @@ Sequence::Sequence(Builder& builder)
 
         if (const Bounds* b = f.bounds())
         {
-            Bounds bounds(*b);
-            if (m_metadata.delta())
-            {
-                bounds = bounds.deltify(*m_metadata.delta());
-            }
-
-            if (activeBounds.overlaps(bounds)) m_overlaps.push_back(i);
+            if (activeBounds.overlaps(*b)) m_overlaps.push_back(i);
         }
         else
         {
@@ -91,10 +85,7 @@ bool Sequence::checkInfo(Origin origin)
     }
     else if (const Bounds* infoBounds = info.bounds())
     {
-        Bounds bounds(*infoBounds);
-        if (m_metadata.delta()) bounds = bounds.deltify(*m_metadata.delta());
-
-        if (!checkBounds(origin, bounds, info.numPoints()))
+        if (!checkBounds(origin, *infoBounds, info.numPoints()))
         {
             m_manifest.set(origin, FileInfo::Status::Inserted);
             return false;

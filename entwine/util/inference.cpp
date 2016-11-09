@@ -379,6 +379,16 @@ void Inference::aggregate()
             Point::apply(
                     [](int64_t v) { return (v + 10) / 10 * 10; },
                     m_bounds->mid());
+
+        for (std::size_t i(0); i < m_manifest.size(); ++i)
+        {
+            auto& f(m_manifest.get(i));
+
+            if (const Bounds* current = f.bounds())
+            {
+                f.bounds(current->deltify(*m_delta));
+            }
+        }
     }
 }
 
