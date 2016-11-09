@@ -14,6 +14,7 @@
 
 #include <entwine/types/defs.hpp>
 #include <entwine/types/point.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
@@ -38,6 +39,14 @@ public:
     {
         if (json.isMember("scale")) m_scale = Scale(json["scale"]);
         if (json.isMember("offset")) m_offset = Scale(json["offset"]);
+    }
+
+    static std::unique_ptr<Delta> maybeCreate(
+            const Scale* scale,
+            const Offset* offset)
+    {
+        if (scale || offset) return makeUnique<Delta>(scale, offset);
+        else return std::unique_ptr<Delta>();
     }
 
     static bool existsIn(const Json::Value& json)

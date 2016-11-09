@@ -98,12 +98,7 @@ Json::Value Reader::hierarchy(
 {
     checkQuery(depthBegin, depthEnd);
 
-    Bounds queryBounds(inBounds);
-
-    if (scale || offset)
-    {
-        queryBounds = queryBounds.undeltify(Delta(scale, offset));
-    }
+    Bounds queryBounds(localize(inBounds, scale, offset));
 
     Hierarchy::QueryResults results(
             vertical ?
@@ -124,11 +119,10 @@ std::unique_ptr<Query> Reader::query(
         const Point* offset)
 {
     checkQuery(depthBegin, depthEnd);
-    return makeUnique<Query>(
-            *this,
+    return query(
             schema,
             filter,
-            m_cache,
+            Bounds::everything(),
             depthBegin,
             depthEnd,
             scale,
@@ -166,7 +160,7 @@ std::unique_ptr<Query> Reader::query(
             schema,
             filter,
             m_cache,
-            queryCube,
+            localize(queryCube, scale, offset),
             depthBegin,
             depthEnd,
             scale,
@@ -174,6 +168,63 @@ std::unique_ptr<Query> Reader::query(
 }
 
 const Bounds& Reader::bounds() const { return m_metadata->bounds(); }
+
+Bounds Reader::localize(
+        const Bounds& queryBounds,
+        const Scale* scale,
+        const Offset* offset) const
+{
+    const auto delta(Delta::maybeCreate(scale, offset));
+    if (!delta || queryBounds == Bounds::everything()) return queryBounds;
+
+    const Bounds& indexedBounds(m_metadata->bounds());
+    const Point queryReferenceCenter(
+            Bounds(
+                Point::scale(
+                    indexedBounds.min(),
+                    indexedBounds.mid(),
+                    delta->scale(),
+                    delta->offset()),
+                Point::scale(
+                    indexedBounds.max(),
+                    indexedBounds.mid(),
+                    delta->scale(),
+                    delta->offset())).mid());
+
+    const Bounds queryTransformed(
+            Point::unscale(
+                queryBounds.min(),
+                Point(),
+                delta->scale(),
+                -queryReferenceCenter),
+            Point::unscale(
+                queryBounds.max(),
+                Point(),
+                delta->scale(),
+                -queryReferenceCenter));
+
+    Bounds queryCube(
+            queryTransformed.min() + indexedBounds.mid(),
+            queryTransformed.max() + indexedBounds.mid());
+
+    // If the query bounds were 2d, make sure we maintain maximal extents.
+    if (
+            queryBounds.min().z == Bounds::everything().min().z &&
+            queryBounds.max().z == Bounds::everything().max().z)
+    {
+        queryCube = Bounds(
+                Point(
+                    queryCube.min().x,
+                    queryCube.min().y,
+                    Bounds::everything().min().z),
+                Point(
+                    queryCube.max().x,
+                    queryCube.max().y,
+                    Bounds::everything().max().z));
+    }
+
+    return queryCube;
+}
 
 } // namespace entwine
 

@@ -12,6 +12,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 
 #include <json/json.h>
 
@@ -94,6 +95,7 @@ public:
     double width()  const { return m_max.x - m_min.x; } // Length in X.
     double depth()  const { return m_max.y - m_min.y; } // Length in Y.
     double height() const { return m_max.z - m_min.z; } // Length in Z.
+    explicit operator bool() const { return width() && depth() && height(); }
 
     double area() const { return width() * depth(); }
     double volume() const { return width() * depth() * height(); }
@@ -256,6 +258,33 @@ public:
     Bounds transform(const Transformation& t) const
     {
         return Bounds(Point::transform(min(), t), Point::transform(max(), t));
+    }
+
+    Bounds intersection(const Bounds& b) const
+    {
+        return Bounds(Point::max(min(), b.min()), Point::min(max(), b.max()));
+    }
+
+    Bounds scale(const Point& scale, const Point& offset)
+    {
+        return Bounds(
+                Point::scale(min(), scale, offset),
+                Point::scale(max(), scale, offset));
+    }
+
+    Bounds unscale(const Point& scale, const Point& offset)
+    {
+        return Bounds(
+                Point::unscale(min(), scale, offset),
+                Point::unscale(max(), scale, offset));
+    }
+
+    static const Bounds& everything()
+    {
+        static const double dmin(std::numeric_limits<double>::lowest());
+        static const double dmax(std::numeric_limits<double>::max());
+        static const Bounds b(Point(dmin, dmin, dmin), Point(dmax, dmax, dmax));
+        return b;
     }
 
 private:

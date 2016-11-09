@@ -32,13 +32,6 @@ namespace entwine
 namespace
 {
     std::size_t fetchesPerIteration(4);
-
-    const Bounds everything(([]()
-    {
-        const double dmin(std::numeric_limits<double>::lowest());
-        const double dmax(std::numeric_limits<double>::max());
-        return Bounds(Point(dmin, dmin, dmin), Point(dmax, dmax, dmax));
-    })());
 }
 
 Query::Query(
@@ -55,7 +48,7 @@ Query::Query(
             schema,
             filter,
             cache,
-            everything,
+            Bounds::everything(),
             depthBegin,
             depthEnd,
             scale,
@@ -75,60 +68,8 @@ Query::Query(
     : m_reader(reader)
     , m_structure(m_reader.metadata().structure())
     , m_cache(cache)
-    , m_delta(scale || offset ? makeUnique<Delta>(scale, offset) : nullptr)
-    , m_queryBounds(([this, &queryBounds]()
-    {
-        if (!m_delta || queryBounds == everything) return queryBounds;
-
-        const Bounds& indexedBounds(m_reader.metadata().bounds());
-        const Point queryReferenceCenter(
-                Bounds(
-                    Point::scale(
-                        indexedBounds.min(),
-                        indexedBounds.mid(),
-                        m_delta->scale(),
-                        m_delta->offset()),
-                    Point::scale(
-                        indexedBounds.max(),
-                        indexedBounds.mid(),
-                        m_delta->scale(),
-                        m_delta->offset())).mid());
-
-        const Bounds queryTransformed(
-                Point::unscale(
-                    queryBounds.min(),
-                    Point(),
-                    m_delta->scale(),
-                    -queryReferenceCenter),
-                Point::unscale(
-                    queryBounds.max(),
-                    Point(),
-                    m_delta->scale(),
-                    -queryReferenceCenter));
-
-        Bounds queryCube(
-                queryTransformed.min() + indexedBounds.mid(),
-                queryTransformed.max() + indexedBounds.mid());
-
-        // If the query bounds were 2d, make sure we maintain maximal extents.
-        if (
-                queryBounds.min().z == everything.min().z &&
-                queryBounds.max().z == everything.max().z)
-        {
-            queryCube = Bounds(
-                    Point(
-                        queryCube.min().x,
-                        queryCube.min().y,
-                        everything.min().z),
-                    Point(
-                        queryCube.max().x,
-                        queryCube.max().y,
-                        everything.max().z));
-        }
-
-        return queryCube;
-
-    }()))
+    , m_delta(Delta::maybeCreate(scale, offset))
+    , m_queryBounds(queryBounds)
     , m_depthBegin(depthBegin)
     , m_depthEnd(depthEnd)
     , m_chunks()

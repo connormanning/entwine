@@ -98,6 +98,10 @@ public:
 
 private:
     const Bounds& bounds() const;
+    Bounds localize(
+            const Bounds& inBounds,
+            const Scale* scale,
+            const Offset* offset) const;
 
     arbiter::Endpoint m_endpoint;
 
