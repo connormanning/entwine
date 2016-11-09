@@ -132,17 +132,14 @@ std::unique_ptr<ComparisonOperator> ComparisonOperator::create(
                     "Invalid comparison object: " + json.toStyledString());
         }
 
-        const auto& key(json.getMemberNames().at(0));
+        const auto key(json.getMemberNames().at(0));
         const ComparisonType co(toComparisonType(key));
         const auto& val(json[key]);
 
         if (isSingle(co))
         {
             const double d(
-                    extractComparisonValue(
-                        metadata,
-                        dimensionName,
-                        val));
+                    extractComparisonValue(metadata, dimensionName, val));
 
             auto b(maybeExtractBounds(metadata, dimensionName, d));
 
