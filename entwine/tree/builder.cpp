@@ -64,7 +64,7 @@ Builder::Builder(
     , m_threadPools(makeUnique<ThreadPools>(totalThreads))
     , m_executor(makeUnique<Executor>())
     , m_sequence(makeUnique<Sequence>(*this))
-    , m_originId(m_metadata->schema().pdalLayout().findDim("Origin"))
+    , m_originId(m_metadata->schema().pdalLayout().findDim("OriginId"))
     , m_pointPool(
             outerScope.getPointPool(m_metadata->schema(), m_metadata->delta()))
     , m_hierarchyPool(outerScope.getHierarchyPool(heuristics::poolBlockSize))
@@ -94,7 +94,7 @@ Builder::Builder(
     , m_threadPools(makeUnique<ThreadPools>(totalThreads))
     , m_executor(makeUnique<Executor>())
     , m_sequence(makeUnique<Sequence>(*this))
-    , m_originId(m_metadata->schema().pdalLayout().findDim("Origin"))
+    , m_originId(m_metadata->schema().pdalLayout().findDim("OriginId"))
     , m_pointPool(
             outerScope.getPointPool(m_metadata->schema(), m_metadata->delta()))
     , m_hierarchyPool(outerScope.getHierarchyPool(heuristics::poolBlockSize))

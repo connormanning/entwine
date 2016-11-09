@@ -14,6 +14,8 @@
 #include <iostream>
 #include <limits>
 
+#include <entwine/util/unique.hpp>
+
 namespace entwine
 {
 
@@ -107,7 +109,7 @@ FileInfo::FileInfo(const Json::Value& json)
     : m_path(json["path"].asString())
     , m_status(json.isMember("status") ?
             toStatus(json["status"].asString()) : Status::Outstanding)
-    , m_bounds(json.isMember("bounds") ? new Bounds(json["bounds"]) : nullptr)
+    , m_bounds(maybeCreate<Bounds>(json["bounds"]))
     , m_numPoints(json["numPoints"].asUInt64())
     , m_pointStats(json["pointStats"])
 { }

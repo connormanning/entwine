@@ -69,7 +69,7 @@ Query::Query(
     , m_structure(m_reader.metadata().structure())
     , m_cache(cache)
     , m_delta(Delta::maybeCreate(scale, offset))
-    , m_queryBounds(queryBounds)
+    , m_queryBounds(queryBounds.intersection(m_reader.metadata().bounds()))
     , m_depthBegin(depthBegin)
     , m_depthEnd(depthEnd)
     , m_chunks()
