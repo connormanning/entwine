@@ -17,8 +17,8 @@ namespace entwine
 {
 
 Pool::Pool(const std::size_t numThreads, const std::size_t queueSize)
-    : m_numThreads(numThreads)
-    , m_queueSize(std::min<std::size_t>(queueSize, 1))
+    : m_numThreads(std::max<std::size_t>(numThreads, 1))
+    , m_queueSize(std::max<std::size_t>(queueSize, 1))
     , m_threads()
     , m_tasks()
     , m_running(0)
