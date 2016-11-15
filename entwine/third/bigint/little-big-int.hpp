@@ -64,8 +64,19 @@
 * SOFTWARE.
 ******************************************************************************/
 
+namespace detail
+{
+    // If GCC < 4.9, we will run into this:
+    //      https://gcc.gnu.org/bugzilla/show_bug.cgi?id=56019
+    //
+    // Rather than bother with a bunch of version checking, just search the
+    // global namespace as well as std.
+    using namespace std;
+    const std::size_t maxAlign(alignof(max_align_t));
+}
+
 // Adapted from https://howardhinnant.github.io/stack_alloc.html
-template <std::size_t N, std::size_t A = alignof(std::max_align_t)>
+template <std::size_t N, std::size_t A = detail::maxAlign>
 class Arena
 {
 public:
@@ -87,7 +98,7 @@ public:
         else
         {
             static_assert(
-                    A <= alignof(std::max_align_t),
+                    A <= detail::maxAlign,
                     "Operator new cannot guarantee the selected alignment");
 
             return static_cast<char*>(::operator new(n));
@@ -134,7 +145,7 @@ private:
     char* m_ptr;
 };
 
-template <class T, std::size_t N, std::size_t A = alignof(std::max_align_t)>
+template <class T, std::size_t N, std::size_t A = detail::maxAlign>
 class ShortAlloc
 {
 public:
