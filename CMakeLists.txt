@@ -58,7 +58,7 @@ set(OBJS
 
 add_library(entwine SHARED ${OBJS})
 
-target_link_libraries(entwine pdalcpp lzma)
+target_link_libraries(entwine pdalcpp lzma dl)
 
 if (ENTWINE_JSONCPP_INCLUDE_DIR)
     MESSAGE("Linking system JsonCpp")
