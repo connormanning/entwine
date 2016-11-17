@@ -347,6 +347,11 @@ inline Point operator*(const Point& a, const Point& b)
     return Point(a.x * b.x, a.y * b.y, a.z * b.z);
 }
 
+inline Point operator/(const Point& a, double s)
+{
+    return Point(a.x / s, a.y / s, a.z / s);
+}
+
 inline Point operator/(const Point& a, const Point& b)
 {
     return Point(a.x / b.x, a.y / b.y, a.z / b.z);

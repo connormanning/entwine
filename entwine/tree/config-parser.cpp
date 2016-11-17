@@ -60,111 +60,35 @@ namespace
     }
 }
 
-Json::Value ConfigParser::unflatten(Json::Value in)
-{
-    Json::Value out;
-
-    for (const auto& key : in.getMemberNames())
-    {
-        if (in[key].isObject()) out[key] = in[key];
-    }
-
-    auto maybeUnflatten([&in, &out](std::string nest, std::string key)
-    {
-        if (in.isMember(key))
-        {
-            if (out[nest].isMember(key))
-            {
-                throw std::runtime_error("Duplicate specification of " + key);
-            }
-
-            out[nest][key] = in[key];
-        }
-    });
-
-    // These few will be written to different keys then their unflattened
-    // versions.
-    if (in.isMember("input") && !in["input"].isObject())
-    {
-        out["input"]["manifest"] = in["input"];
-    }
-
-    if (in.isMember("output") && !in["output"].isObject())
-    {
-        out["output"]["path"] = in["output"];
-    }
-
-    if (in.isMember("reprojection"))
-    {
-        out["geometry"]["reproject"] = in["reprojection"];
-    }
-
-    maybeUnflatten("input", "threads");
-    maybeUnflatten("input", "trustHeaders");
-    maybeUnflatten("input", "run");
-
-    maybeUnflatten("output", "tmp");
-    maybeUnflatten("output", "compress");
-    maybeUnflatten("output", "force");
-
-    maybeUnflatten("structure", "numPointsHint");
-    maybeUnflatten("structure", "nullDepth");
-    maybeUnflatten("structure", "baseDepth");
-    maybeUnflatten("structure", "coldDepth");
-    maybeUnflatten("structure", "dynamicChunks");
-    maybeUnflatten("structure", "pointsPerChunk");
-    maybeUnflatten("structure", "type");
-    maybeUnflatten("structure", "prefixIds");
-
-    maybeUnflatten("geometry", "bounds");
-    maybeUnflatten("geometry", "schema");
-    maybeUnflatten("geometry", "reproject");
-
-    return out;
-}
-
 std::unique_ptr<Builder> ConfigParser::getBuilder(
-        Json::Value config,
+        Json::Value json,
         std::shared_ptr<arbiter::Arbiter> arbiter)
 {
-    extractManifest(config, *arbiter);
+    extractManifest(json, *arbiter);
 
-    const Json::Value& jsonInput(config["input"]);
-    const Json::Value& jsonOutput(config["output"]);
-    const Json::Value& jsonGeometry(config["geometry"]);
-    Json::Value& jsonStructure(config["structure"]);
+    const std::string outPath(json["output"].asString());
+    const std::string tmpPath(json["tmp"].asString());
+    const bool compress(json["compress"].asUInt64());
+    const bool force(json["force"].asBool());
+    const bool trustHeaders(json["trustHeaders"].asBool());
+    const std::size_t threads(json["threads"].asUInt64());
 
-    // Build specifications and path info.
-    const std::string outPath(jsonOutput["path"].asString());
-    const std::string tmpPath(jsonOutput["tmp"].asString());
-    const bool compress(jsonOutput["compress"].asUInt64());
-    const bool force(jsonOutput["force"].asBool());
-    const bool absolute(config["absolute"].asBool());
+    auto manifest(makeUnique<Manifest>(json["input"]));
+    auto cesiumSettings(getCesiumSettings(json["formats"]));
+    bool absolute(json["absolute"].asBool());
 
-    // Indexing parameters.
-    const bool trustHeaders(jsonInput["trustHeaders"].asBool());
-    const std::size_t threads(jsonInput["threads"].asUInt64());
+    if (cesiumSettings)
+    {
+        absolute = true;
+        json["reprojection"]["out"] = "EPSG:4978";
+    }
 
-    // Geometry and spatial info.
-    auto boundsConforming(getBounds(jsonGeometry["bounds"]));
-    auto schema(
-            jsonGeometry["schema"].isNull() ?
-                std::unique_ptr<Schema>() :
-                makeUnique<Schema>(jsonGeometry["schema"]));
-
-    std::size_t numPointsHint(jsonStructure["numPointsHint"].asUInt64());
-
-    auto manifest(makeUnique<Manifest>(config["input"]["manifest"]));
-    auto cesiumSettings(getCesiumSettings(config["formats"]));
-
-    Json::Value r(jsonGeometry["reproject"]);
-    if (cesiumSettings) r["out"] = "EPSG:4978";
-    auto reprojection(getReprojection(r));
+    auto reprojection(getReprojection(json["reprojection"]));
 
     if (!force)
     {
         auto builder = tryGetExisting(
-                config,
+                json,
                 *arbiter,
                 outPath,
                 tmpPath,
@@ -172,10 +96,16 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
         if (builder)
         {
-            builder->append(*manifest);
+            if (manifest) builder->append(*manifest);
             return builder;
         }
     }
+
+    std::unique_ptr<std::vector<double>> transformation;
+    std::unique_ptr<Delta> delta;
+    if (!absolute && Delta::existsIn(json)) delta = makeUnique<Delta>(json);
+
+    std::size_t numPointsHint(json["numPointsHint"].asUInt64());
 
     if (!numPointsHint && manifest)
     {
@@ -189,12 +119,12 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                 });
     }
 
+    auto boundsConforming(getBounds(json["bounds"]));
+    auto schema(
+            json["schema"].isNull() ?
+                std::unique_ptr<Schema>() : makeUnique<Schema>(json["schema"]));
+
     const bool needsInference(!boundsConforming || !schema || !numPointsHint);
-
-    std::unique_ptr<std::vector<double>> transformation;
-    std::unique_ptr<Delta> delta;
-
-    if (Delta::existsIn(config)) delta = makeUnique<Delta>(config);
 
     if (manifest && needsInference)
     {
@@ -211,18 +141,18 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                 !!cesiumSettings);
 
         inference.go();
-        manifest.reset(new Manifest(inference.manifest()));
+        manifest = makeUnique<Manifest>(inference.manifest());
 
         if (!absolute && inference.delta())
         {
             if (!delta) delta = makeUnique<Delta>();
 
-            if (!config.isMember("scale"))
+            if (!json.isMember("scale"))
             {
                 delta->scale() = inference.delta()->scale();
             }
 
-            if (!config.isMember("offset"))
+            if (!json.isMember("offset"))
             {
                 delta->offset() = inference.delta()->offset();
             }
@@ -277,47 +207,11 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         }
     }
 
-    std::unique_ptr<Subset> subset;
+    auto subset(maybeAccommodateSubset(json, *boundsConforming, delta.get()));
 
-    if (config.isMember("subset"))
-    {
-        Bounds cube(boundsConforming->cubeify(delta.get()));
-        subset = makeUnique<Subset>(cube, config["subset"]);
 
-        const std::size_t configNullDepth(
-                jsonStructure["nullDepth"].asUInt64());
-
-        const std::size_t minimumNullDepth(subset->minimumNullDepth());
-
-        if (configNullDepth < minimumNullDepth)
-        {
-            std::cout <<
-                "Bumping null depth to accomodate subset: " <<
-                minimumNullDepth << std::endl;
-
-            jsonStructure["nullDepth"] = Json::UInt64(minimumNullDepth);
-        }
-
-        const std::size_t configBaseDepth(
-                jsonStructure["baseDepth"].asUInt64());
-
-        const std::size_t ppc(jsonStructure["pointsPerChunk"].asUInt64());
-
-        const std::size_t minimumBaseDepth(subset->minimumBaseDepth(ppc));
-
-        if (configBaseDepth < minimumBaseDepth)
-        {
-            std::cout <<
-                "Bumping base depth to accomodate subset: " <<
-                minimumBaseDepth << std::endl;
-
-            jsonStructure["baseDepth"] = Json::UInt64(minimumBaseDepth);
-            jsonStructure["bumpDepth"] = Json::UInt64(configBaseDepth);
-        }
-    }
-
-    jsonStructure["numPointsHint"] = static_cast<Json::UInt64>(numPointsHint);
-    Structure structure(jsonStructure);
+    json["numPointsHint"] = static_cast<Json::UInt64>(numPointsHint);
+    Structure structure(json);
     Structure hierarchyStructure(Hierarchy::structure(structure, subset.get()));
     const HierarchyCompression hierarchyCompression(
             compress ? HierarchyCompression::Lzma : HierarchyCompression::None);
@@ -352,27 +246,13 @@ std::unique_ptr<Builder> ConfigParser::tryGetExisting(
 {
     std::unique_ptr<Builder> builder;
     std::unique_ptr<std::size_t> subsetId;
-    std::unique_ptr<std::size_t> splitId;
 
     if (config.isMember("subset"))
     {
         subsetId = makeUnique<std::size_t>(config["subset"]["id"].asUInt64());
     }
 
-    const Json::Value& input(config["input"]);
-
-    if (
-            input.isMember("manifest") &&
-            input["manifest"].isObject() &&
-            input["manifest"].isMember("split"))
-    {
-        splitId = makeUnique<std::size_t>(
-                input["manifest"]["split"]["id"].asUInt64());
-    }
-
-    const std::string postfix(
-            (subsetId ? "-" + std::to_string(*subsetId) : "") +
-            (splitId ? "-" + std::to_string(*splitId) : ""));
+    const std::string postfix(subsetId ? "-" + std::to_string(*subsetId) : "");
 
     if (arbiter.getEndpoint(outPath).tryGetSize("entwine" + postfix))
     {
@@ -387,17 +267,14 @@ void ConfigParser::extractManifest(
         const arbiter::Arbiter& arbiter)
 {
     Json::Value& input(json["input"]);
-    Json::Value& jsonManifest(input["manifest"]);
 
-    const bool isInferencePath(
-            jsonManifest.isString() &&
-            arbiter::Arbiter::getExtension(jsonManifest.asString()) == "eninf");
+    const std::string extension(
+            input.isString() ?
+                arbiter::Arbiter::getExtension(input.asString()) : "");
 
-    bool extractingPaths(
-            (jsonManifest.isString() && !isInferencePath) ||
-            jsonManifest.isArray());
+    const bool isInferencePath(extension == "entwine-inference");
 
-    if (extractingPaths)
+    if (!isInferencePath)
     {
         // The input source is a path or array of paths.
         std::vector<std::string> paths;
@@ -408,41 +285,37 @@ void ConfigParser::extractManifest(
             paths.insert(paths.end(), current.begin(), current.end());
         });
 
-        if (jsonManifest.isArray())
+        if (input.isArray())
         {
-            for (Json::ArrayIndex i(0); i < jsonManifest.size(); ++i)
-            {
-                insert(jsonManifest[i].asString());
-            }
+            for (const auto& path : input) insert(directorify(path.asString()));
         }
         else
         {
-            insert(directorify(jsonManifest.asString()));
+            insert(directorify(input.asString()));
         }
 
-        jsonManifest = Json::Value();
-        auto& fileInfo(jsonManifest["fileInfo"]);
+        // Reset our input with our resolved paths.
+        input = Json::Value();
+        auto& fileInfo(input["fileInfo"]);
         fileInfo.resize(paths.size());
         for (std::size_t i(0); i < paths.size(); ++i)
         {
             fileInfo[Json::ArrayIndex(i)]["path"] = paths[i];
         }
     }
-    else
+    else if (isInferencePath)
     {
-        if (isInferencePath)
-        {
-            const std::string path(jsonManifest.asString());
-            const Json::Value inference(parse(arbiter.get(path)));
+        const std::string path(input.asString());
+        const Json::Value inference(parse(arbiter.get(path)));
 
-            jsonManifest = inference["manifest"];
-            json["geometry"]["schema"] = inference["schema"];
-            json["geometry"]["bounds"] = inference["bounds"];
-            json["structure"]["numPointsHint"] = inference["numPoints"];
-            if (inference.isMember("reproject"))
-            {
-                json["reproject"] = inference["reproject"];
-            }
+        input = inference["manifest"];
+        json["schema"] = inference["schema"];
+        json["bounds"] = inference["bounds"];
+        json["numPointsHint"] = inference["numPoints"];
+
+        if (inference.isMember("reprojection"))
+        {
+            json["reprojection"] = inference["reprojection"];
         }
     }
 }
@@ -466,6 +339,47 @@ std::string ConfigParser::directorify(const std::string rawPath)
     }
 
     return s;
+}
+
+std::unique_ptr<Subset> ConfigParser::maybeAccommodateSubset(
+        Json::Value& json,
+        const Bounds& boundsConforming,
+        const Delta* delta)
+{
+    std::unique_ptr<Subset> subset;
+
+    if (json.isMember("subset"))
+    {
+        Bounds cube(boundsConforming.cubeify(delta));
+        subset = makeUnique<Subset>(cube, json["subset"]);
+        const std::size_t configNullDepth(json["nullDepth"].asUInt64());
+        const std::size_t minimumNullDepth(subset->minimumNullDepth());
+
+        if (configNullDepth < minimumNullDepth)
+        {
+            std::cout <<
+                "Bumping null depth to accomodate subset: " <<
+                minimumNullDepth << std::endl;
+
+            json["nullDepth"] = Json::UInt64(minimumNullDepth);
+        }
+
+        const std::size_t configBaseDepth(json["baseDepth"].asUInt64());
+        const std::size_t ppc(json["pointsPerChunk"].asUInt64());
+        const std::size_t minimumBaseDepth(subset->minimumBaseDepth(ppc));
+
+        if (configBaseDepth < minimumBaseDepth)
+        {
+            std::cout <<
+                "Bumping base depth to accomodate subset: " <<
+                minimumBaseDepth << std::endl;
+
+            json["baseDepth"] = Json::UInt64(minimumBaseDepth);
+            json["bumpDepth"] = Json::UInt64(configBaseDepth);
+        }
+    }
+
+    return subset;
 }
 
 } // namespace entwine

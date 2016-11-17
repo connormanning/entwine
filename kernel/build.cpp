@@ -106,9 +106,6 @@ namespace
             "\t-e\n"
             "\t\tEnable AWS server-side-encryption.\n\n"
 
-            "\t-g <max inserted files>\n"
-            "\t\tFor directories, stop inserting after the specified count.\n\n"
-
             "\t-p\n"
             "\t\tPrefix stored IDs with a SHA (may be useful for\n"
             "\t\tfilename-based distributed filesystems).\n\n"
@@ -217,24 +214,19 @@ namespace
     {
         Json::Value json;
 
-        json["input"]["manifest"] = Json::Value::null;
-        json["input"]["threads"] = 8;
-        json["input"]["trustHeaders"] = true;
-
-        json["output"]["path"] = Json::Value::null;
-        json["output"]["tmp"] = "tmp";
-        json["output"]["compress"] = true;
-
-        json["structure"]["nullDepth"] = 7;
-        json["structure"]["baseDepth"] = 10;
-        json["structure"]["numPointsHint"] = Json::Value::null;
-        json["structure"]["pointsPerChunk"] = 262144;
-        json["structure"]["dynamicChunks"] = true;
-        json["structure"]["type"] = "hybrid";
-        json["structure"]["prefixIds"] = false;
-
-        json["geometry"]["bounds"] = Json::Value::null;
-        json["geometry"]["schema"] = Json::Value::null;
+        json["input"] = Json::Value::null;
+        json["output"] = Json::Value::null;
+        json["tmp"] = "tmp";
+        json["threads"] = 8;
+        json["trustHeaders"] = true;
+        json["prefixIds"] = false;
+        json["pointsPerChunk"] = 262144;
+        json["numPointsHint"] = Json::Value::null;
+        json["bounds"] = Json::Value::null;
+        json["schema"] = Json::Value::null;
+        json["compress"] = true;
+        json["nullDepth"] = 7;
+        json["baseDepth"] = 10;
 
         return json;
     })());
@@ -268,10 +260,13 @@ void Kernel::build(std::vector<std::string> args)
         // First argument is a config path.
         const std::string configPath(args[0]);
         const Json::Value config(parse(localArbiter.get(configPath)));
-        recMerge(json, ConfigParser::unflatten(config));
-
         ++a;
     }
+
+    auto error([](const std::string& message)
+    {
+        throw std::runtime_error(message);
+    });
 
     while (a < args.size())
     {
@@ -279,36 +274,18 @@ void Kernel::build(std::vector<std::string> args)
 
         if (arg == "-i")
         {
-            if (++a < args.size())
-            {
-                json["input"]["manifest"] = args[a];
-            }
-            else
-            {
-                throw std::runtime_error("Invalid input path specification");
-            }
+            if (++a < args.size()) json["input"] = args[a];
+            else error("Invalid input path specification");
         }
         else if (arg == "-o")
         {
-            if (++a < args.size())
-            {
-                json["output"]["path"] = args[a];
-            }
-            else
-            {
-                throw std::runtime_error("Invalid output path specification");
-            }
+            if (++a < args.size()) json["output"] = args[a];
+            else error("Invalid output path specification");
         }
         else if (arg == "-a")
         {
-            if (++a < args.size())
-            {
-                json["output"]["tmp"] = args[a];
-            }
-            else
-            {
-                throw std::runtime_error("Invalid tmp specification");
-            }
+            if (++a < args.size()) json["tmp"] = args[a];
+            else error("Invalid tmp specification");
         }
         else if (arg == "-b")
         {
@@ -321,28 +298,18 @@ void Kernel::build(std::vector<std::string> args)
                 if (args[a].find(']') != std::string::npos) done = true;
             }
 
-            if (done)
-            {
-                Json::Reader reader;
-                Json::Value boundsJson;
-
-                reader.parse(str, boundsJson, false);
-                json["geometry"]["bounds"] = boundsJson;
-            }
-            else
-            {
-                throw std::runtime_error("Invalid bounds: " + str);
-            }
+            if (done) json["bounds"] = parse(str);
+            else error("Invalid bounds: " + str);
         }
-        else if (arg == "-f") { json["output"]["force"] = true; }
-        else if (arg == "-x") { json["input"]["trustHeaders"] = false; }
-        else if (arg == "-p") { json["structure"]["prefixIds"] = true; }
-        else if (arg == "-c") { json["output"]["compress"] = false; }
+        else if (arg == "-f") { json["force"] = true; }
+        else if (arg == "-x") { json["trustHeaders"] = false; }
+        else if (arg == "-p") { json["prefixIds"] = true; }
+        else if (arg == "-c") { json["compress"] = false; }
         else if (arg == "-n") { json["absolute"] = true; }
         else if (arg == "-e") { arbiterConfig["s3"]["sse"] = true; }
         else if (arg == "-h")
         {
-            json["geometry"]["reproject"]["hammer"] = true;
+            json["reprojection"]["hammer"] = true;
         }
         else if (arg == "-s")
         {
@@ -373,7 +340,7 @@ void Kernel::build(std::vector<std::string> args)
             }
             else
             {
-                throw std::runtime_error("Invalid -s specification");
+                error("Invalid -s specification");
             }
         }
         else if (arg == "-u")
@@ -384,7 +351,7 @@ void Kernel::build(std::vector<std::string> args)
             }
             else
             {
-                throw std::runtime_error("Invalid AWS user argument");
+                error("Invalid AWS user argument");
             }
         }
         else if (arg == "-r")
@@ -397,48 +364,37 @@ void Kernel::build(std::vector<std::string> args)
 
                 if (onlyOutput)
                 {
-                    json["geometry"]["reproject"]["out"] = args[a];
+                    json["reprojection"]["out"] = args[a];
                 }
                 else
                 {
-                    json["geometry"]["reproject"]["in"] = args[a];
-                    json["geometry"]["reproject"]["out"] = args[++a];
+                    json["reprojection"]["in"] = args[a];
+                    json["reprojection"]["out"] = args[++a];
                 }
             }
             else
             {
-                throw std::runtime_error("Invalid reprojection argument");
+                error("Invalid reprojection argument");
             }
         }
         else if (arg == "-h")
         {
-            json["geometry"]["reproject"]["hammer"] = true;
-        }
-        else if (arg == "-g")
-        {
-            if (++a < args.size())
-            {
-                json["input"]["run"] = Json::UInt64(std::stoul(args[a]));
-            }
-            else
-            {
-                throw std::runtime_error("Invalid run count specification");
-            }
+            json["reprojection"]["hammer"] = true;
         }
         else if (arg == "-t")
         {
             if (++a < args.size())
             {
-                json["input"]["threads"] = Json::UInt64(std::stoul(args[a]));
+                json["threads"] = Json::UInt64(std::stoul(args[a]));
             }
             else
             {
-                throw std::runtime_error("Invalid thread count specification");
+                error("Invalid thread count specification");
             }
         }
         else
         {
-            throw std::runtime_error("Invalid argument: " + args[a]);
+            error("Invalid argument: " + args[a]);
         }
 
         ++a;
@@ -457,7 +413,7 @@ void Kernel::build(std::vector<std::string> args)
     const auto& tmpEndpoint(builder->tmpEndpoint());
 
     std::string outPath(
-            (outEndpoint.type() != "fs" ? outEndpoint.type() + "://" : "") +
+            (outEndpoint.type() != "file" ? outEndpoint.type() + "://" : "") +
             outEndpoint.root());
     std::string tmpPath(tmpEndpoint.root());
 
@@ -467,7 +423,7 @@ void Kernel::build(std::vector<std::string> args)
 
     const Reprojection* reprojection(metadata.reprojection());
     const Schema& schema(metadata.schema());
-    const std::size_t runCount(json["input"]["run"].asUInt64());
+    const std::size_t runCount(json["run"].asUInt64());
 
     std::cout << std::endl;
 

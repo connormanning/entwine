@@ -45,6 +45,10 @@ public:
                 getType(baseTypeName, size))
     { }
 
+    DimInfo(const std::string& name)
+        : DimInfo(pdal::Dimension::id(name))
+    { }
+
     DimInfo(const Json::Value& json)
         : DimInfo(
                 json["name"].asString(),

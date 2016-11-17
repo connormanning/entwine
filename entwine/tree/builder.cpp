@@ -163,7 +163,7 @@ void Builder::go(std::size_t max)
             {
                 insertPath(origin, info);
             }
-            catch (const std::runtime_error& e)
+            catch (const std::exception& e)
             {
                 std::cout << "During " << path << ": " << e.what() << std::endl;
                 status = FileInfo::Status::Error;
@@ -326,7 +326,6 @@ Cell::PooledStack Builder::insertData(
         }
         else
         {
-            std::cout << "R " << point << std::endl;
             reject(cell);
             pointStats.addOutOfBounds();
         }

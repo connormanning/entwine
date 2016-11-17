@@ -376,9 +376,13 @@ void Inference::aggregate()
         // Since the delta bounds guarantee us an extra buffer of at least 20,
         // we can slop this by 10 for prettier numbers.
         m_delta->offset() =
-            Point::apply(
-                    [](int64_t v) { return (v + 10) / 10 * 10; },
-                    m_bounds->mid());
+            Point::apply([](double d)
+            {
+                const int64_t v(d);
+                if (static_cast<double>(v / 10 * 10) == d) return v;
+                else return (v + 10) / 10 * 10;
+            },
+            m_bounds->mid());
 
         for (std::size_t i(0); i < m_manifest.size(); ++i)
         {

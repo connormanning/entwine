@@ -177,7 +177,12 @@ Bounds Bounds::cubeify(const Delta* delta) const
 
     const Bounds originCentered(cubeify(Delta()));
     const Point integralMid(
-            Point::apply([](int64_t v) { return (v + 10) / 10 * 10; },
+            Point::apply([](double d)
+            {
+                const int64_t v(d);
+                if (static_cast<double>(v / 10 * 10) == d) return v;
+                else return (v + 10) / 10 * 10;
+            },
             mid()));
 
     const Bounds result(

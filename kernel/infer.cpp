@@ -164,7 +164,7 @@ void Kernel::infer(std::vector<std::string> args)
         {
             if (++a < args.size())
             {
-                output = args[a];
+                output = args[a] + ".entwine-inference";
             }
             else
             {
@@ -272,7 +272,13 @@ void Kernel::infer(std::vector<std::string> args)
         json["bounds"] = inference.nativeBounds().toJson();
         json["numPoints"] = Json::UInt64(inference.numPoints());
 
-        if (reprojection) json["reproject"] = reprojection->toJson();
+        if (reprojection) json["reprojection"] = reprojection->toJson();
+
+        if (const auto delta = inference.delta())
+        {
+            json["scale"] = delta->scale().toJson();
+            json["offset"] = delta->offset().toJson();
+        }
 
         arbiter->put(output, json.toStyledString());
     }
