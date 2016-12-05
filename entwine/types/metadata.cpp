@@ -89,6 +89,7 @@ Metadata::Metadata(
 Metadata::Metadata(const arbiter::Endpoint& ep, const std::size_t* subsetId)
     : Metadata(([&ep, subsetId]()
     {
+        // Prior to 1.0.
         Json::Value json(parse(ep.get("entwine" + getPostfix(subsetId))));
         if (json.isMember("format"))
         {
