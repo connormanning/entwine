@@ -14,7 +14,6 @@
 
 #include <entwine/reader/cache.hpp>
 #include <entwine/reader/chunk-reader.hpp>
-#include <entwine/reader/query.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
@@ -46,7 +45,13 @@ namespace
     }
 
     HierarchyCell::Pool hierarchyPool(4096);
+
+    arbiter::Arbiter defaultArbiter;
 }
+
+Reader::Reader(const std::string path, Cache& cache)
+    : Reader(defaultArbiter.getEndpoint(path), cache)
+{ }
 
 Reader::Reader(const arbiter::Endpoint& endpoint, Cache& cache)
     : m_endpoint(endpoint)
@@ -81,7 +86,7 @@ Reader::Reader(const arbiter::Endpoint& endpoint, Cache& cache)
     {
         auto ids(extractIds(m_endpoint.get("entwine-ids")));
         m_ids.insert(ids.begin(), ids.end());
-        std::cout << "Found " << m_ids.size() << " chunks" << std::endl;
+        // std::cout << "Found " << m_ids.size() << " chunks" << std::endl;
     }
 }
 
@@ -110,7 +115,56 @@ Json::Value Reader::hierarchy(
     return results.json;
 }
 
-std::unique_ptr<Query> Reader::query(
+std::unique_ptr<Query> Reader::getQuery(
+        std::size_t depth,
+        const Point* scale,
+        const Point* offset)
+{
+    return getQuery(depth, depth + 1, scale, offset);
+}
+
+std::unique_ptr<Query> Reader::getQuery(
+        const Bounds& qbox,
+        std::size_t depth,
+        const Point* scale,
+        const Point* offset)
+{
+    return getQuery(qbox, depth, depth + 1, scale, offset);
+}
+
+std::unique_ptr<Query> Reader::getQuery(
+        std::size_t depthBegin,
+        std::size_t depthEnd,
+        const Point* scale,
+        const Point* offset)
+{
+    return getQuery(
+            m_metadata->schema(),
+            Json::Value(),
+            depthBegin,
+            depthEnd,
+            scale,
+            offset);
+}
+
+std::unique_ptr<Query> Reader::getQuery(
+        const Bounds& qbox,
+        std::size_t depthBegin,
+        std::size_t depthEnd,
+        const Point* scale,
+        const Point* offset)
+{
+    return getQuery(
+            m_metadata->schema(),
+            Json::Value(),
+            qbox,
+            depthBegin,
+            depthEnd,
+            scale,
+            offset);
+}
+
+std::unique_ptr<Query> Reader::getQuery(
         const Schema& schema,
         const Json::Value& filter,
         const std::size_t depthBegin,
@@ -119,7 +173,7 @@ std::unique_ptr<Query> Reader::query(
         const Point* offset)
 {
     checkQuery(depthBegin, depthEnd);
-    return query(
+    return getQuery(
             schema,
             filter,
             Bounds::everything(),
@@ -129,7 +183,7 @@ std::unique_ptr<Query> Reader::query(
             offset);
 }
 
-std::unique_ptr<Query> Reader::query(
+std::unique_ptr<Query> Reader::getQuery(
         const Schema& schema,
         const Json::Value& filter,
         const Bounds& queryBounds,

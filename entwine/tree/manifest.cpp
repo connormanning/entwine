@@ -132,23 +132,15 @@ Json::Value FileInfo::toInferenceJson() const
 {
     Json::Value json;
 
-    if (m_bounds)
-    {
-        Json::Value& bounds(json["bounds"]);
-
-        const Point& min(m_bounds->min());
-        const Point& max(m_bounds->max());
-
-        bounds.append(min.x);
-        bounds.append(min.y);
-        bounds.append(min.z);
-        bounds.append(max.x);
-        bounds.append(max.y);
-        bounds.append(max.z);
-    }
-
     json["path"] = m_path;
-    json["numPoints"] = static_cast<Json::UInt64>(m_numPoints);
+
+    if (m_bounds) json["bounds"] = m_bounds->toJson();
+    if (m_numPoints) json["numPoints"] = static_cast<Json::UInt64>(m_numPoints);
+
+    if (!m_srs.empty())
+    {
+        json["srs"] = m_srs.getWKT(pdal::SpatialReference::eCompoundOK);
+    }
 
     return json;
 }
@@ -188,6 +180,7 @@ Manifest::Manifest(const Json::Value& json)
     , m_pointStats()
     , m_mutex()
 {
+    // If it's an array, all we have is a bunch of paths.
     if (json.isArray())
     {
         m_paths.reserve(json.size());
@@ -200,26 +193,23 @@ Manifest::Manifest(const Json::Value& json)
     }
 
     const Json::Value& fileInfo(json["fileInfo"]);
-    if (fileInfo.isArray() && fileInfo.size()) m_paths.reserve(fileInfo.size());
+    if (fileInfo.isArray() && fileInfo.size())
+    {
+        m_paths.reserve(fileInfo.size());
+        for (Json::ArrayIndex i(0); i < fileInfo.size(); ++i)
+        {
+            m_paths.emplace_back(fileInfo[i]);
+        }
+    }
 
+    // If we have fileStats and pointStats, then we're dealing with a full
+    // manifest from Manifest::toJson (a previous build).  Otherwise, we have
+    // a simplified manifest from Manifest::toInferenceJson.
     if (json.isMember("fileStats") && json.isMember("pointStats"))
     {
         // Full manifest from Manifest::toJson.
-        for (Json::ArrayIndex i(0); i < fileInfo.size(); ++i)
-        {
-            m_paths.emplace_back(fileInfo[i]);
-        }
-
         m_fileStats = FileStats(json["fileStats"]);
         m_pointStats = PointStats(json["pointStats"]);
-    }
-    else
-    {
-        // Simplified inference manifest from Manifest::toInferenceJson.
-        for (Json::ArrayIndex i(0); i < fileInfo.size(); ++i)
-        {
-            m_paths.emplace_back(fileInfo[i]);
-        }
     }
 }
 

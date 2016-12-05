@@ -131,6 +131,20 @@ inline std::string toFastString(const Json::Value& json)
     return writer.write(json);
 }
 
+template <typename T>
+inline Json::Value toJsonArray(const std::vector<T>& vec)
+{
+    Json::Value json;
+    json.resize(vec.size());
+
+    for (std::size_t i(0); i < vec.size(); ++i)
+    {
+        json[static_cast<Json::ArrayIndex>(i)] = vec[i];
+    }
+
+    return json;
+}
+
 namespace extraction
 {
     template<typename T, typename F>

@@ -47,8 +47,7 @@ Format::Format(
         const bool trustHeaders,
         const bool compress,
         const HierarchyCompression hierarchyCompression,
-        const std::vector<std::string> tailFields,
-        const std::string srs)
+        const std::vector<std::string> tailFields)
     : m_metadata(metadata)
     , m_trustHeaders(trustHeaders)
     , m_compress(compress)
@@ -63,7 +62,6 @@ Format::Format(
                     out.push_back(tailFieldFromName(v));
                     return out;
                 }))
-    , m_srs(srs)
 {
     for (const auto f : m_tailFields)
     {
@@ -92,8 +90,7 @@ Format::Format(const Metadata& metadata, const Json::Value& json)
             json["trustHeaders"].asBool(),
             json["compress"].asBool(),
             hierarchyCompressionFromName(json["compress-hierarchy"].asString()),
-            fieldsFromJson(json["tail"]),
-            json["srs"].asString())
+            fieldsFromJson(json["tail"]))
 { }
 
 std::unique_ptr<std::vector<char>> Format::pack(

@@ -15,6 +15,8 @@
 #include <mutex>
 #include <set>
 
+#include <pdal/SpatialReference.hpp>
+
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/manifest.hpp>
 #include <entwine/types/bounds.hpp>
@@ -34,22 +36,22 @@ class Inference
 public:
     Inference(
             std::string path,
-            std::string tmpPath,
-            std::size_t threads,
-            bool verbose = false,
             const Reprojection* reprojection = nullptr,
             bool trustHeaders = true,
             bool allowDelta = true,
+            std::string tmpPath = ".",
+            std::size_t threads = 4,
+            bool verbose = false,
             arbiter::Arbiter* arbiter = nullptr);
 
     Inference(
             const Manifest& manifest,
-            std::string tmpPath,
-            std::size_t threads,
-            bool verbose = false,
             const Reprojection* reprojection = nullptr,
             bool trustHeaders = true,
             bool allowDelta = true,
+            std::string tmpPath = ".",
+            std::size_t threads = 4,
+            bool verbose = false,
             arbiter::Arbiter* arbiter = nullptr,
             bool cesiumify = false);
 
@@ -68,6 +70,21 @@ public:
     std::size_t numPoints() const;
     const Reprojection* reprojection() const { return m_reproj; }
     const Delta* delta() const { return m_delta.get(); }
+    const std::vector<std::string>& srsList() const { return m_srsList; }
+
+    std::unique_ptr<std::string> uniqueSrs() const
+    {
+        std::unique_ptr<std::string> s;
+        if (m_srsList.empty())
+        {
+            s = makeUnique<std::string>();
+        }
+        else if (m_srsList.size() == 1)
+        {
+            s = makeUnique<std::string>(m_srsList.front());
+        }
+        return s;
+    }
 
     const std::vector<double>* transformation() const
     {
@@ -109,6 +126,7 @@ private:
     std::unique_ptr<Schema> m_schema;
     std::unique_ptr<Delta> m_delta;
     std::unique_ptr<Bounds> m_deltaBounds;
+    std::vector<std::string> m_srsList;
 
     bool m_cesiumify;
     std::unique_ptr<Transformation> m_transformation;

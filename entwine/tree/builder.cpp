@@ -148,12 +148,15 @@ void Builder::go(std::size_t max)
         FileInfo& info(m_metadata->manifest().get(origin));
         const auto path(info.path());
 
-        std::cout << "Adding " << origin << " - " << path << std::endl;
-        std::cout <<
-            " A: " << m_pointPool->cellPool().allocated() <<
-            " C: " << Chunk::count() <<
-            " H: " << HierarchyBlock::count() <<
-            std::endl;
+        if (verbose())
+        {
+            std::cout << "Adding " << origin << " - " << path << std::endl;
+            std::cout <<
+                " A: " << m_pointPool->cellPool().allocated() <<
+                " C: " << Chunk::count() <<
+                " H: " << HierarchyBlock::count() <<
+                std::endl;
+        }
 
         m_threadPools->workPool().add([this, origin, &info, path]()
         {
@@ -165,16 +168,23 @@ void Builder::go(std::size_t max)
             }
             catch (const std::exception& e)
             {
-                std::cout << "During " << path << ": " << e.what() << std::endl;
-                status = FileInfo::Status::Error;
+                if (verbose())
+                {
+                    std::cout << "During " << path << ": " << e.what() <<
+                        std::endl;
+                }
 
+                status = FileInfo::Status::Error;
                 addError(path, e.what());
             }
             catch (...)
             {
-                std::cout << "Unknown error during " << path << std::endl;
-                status = FileInfo::Status::Error;
+                if (verbose())
+                {
+                    std::cout << "Unknown error during " << path << std::endl;
+                }
 
+                status = FileInfo::Status::Error;
                 addError(path, "Unknown error");
             }
 
@@ -182,7 +192,11 @@ void Builder::go(std::size_t max)
         });
     }
 
-    std::cout << "\tPushes complete - joining..." << std::endl;
+    if (verbose())
+    {
+        std::cout << "\tPushes complete - joining..." << std::endl;
+    }
+
     save();
 }
 
@@ -200,9 +214,12 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
         }
         catch (const ArbiterError& e)
         {
-            std::cout <<
-                "Failed GET attempt of " << rawPath << ": " << e.what() <<
-                std::endl;
+            if (verbose())
+            {
+                std::cout <<
+                    "Failed GET attempt of " << rawPath << ": " << e.what() <<
+                    std::endl;
+            }
 
             localHandle.reset();
             std::this_thread::sleep_for(std::chrono::seconds(tries));
@@ -230,14 +247,14 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
 
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        std::string& srs(m_metadata->format().srs());
+        std::string& srs(m_metadata->srs());
 
         if (srs.empty())
         {
             if (reprojection)
             {
                 // Don't construct the pdal::SpatialReference ourself, since
-                // we need to use the Executors lock to do so.
+                // we need to use the Executor's lock to do so.
                 srs = m_executor->getSrsString(reprojection->out());
             }
             else
@@ -246,7 +263,10 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
                 if (preview) srs = preview->srs;
             }
 
-            if (srs.size()) std::cout << "Found an SRS" << std::endl;
+            if (verbose() && srs.size())
+            {
+                std::cout << "Found an SRS" << std::endl;
+            }
         }
     }
 
@@ -349,13 +369,13 @@ void Builder::save(const arbiter::Endpoint& ep)
 {
     m_threadPools->cycle();
 
-    std::cout << "Saving hierarchy..." << std::endl;
+    if (verbose()) std::cout << "Saving hierarchy..." << std::endl;
     m_hierarchy->save();
 
-    std::cout << "Saving registry..." << std::endl;
+    if (verbose()) std::cout << "Saving registry..." << std::endl;
     m_registry->save(*m_outEndpoint);
 
-    std::cout << "Saving metadata..." << std::endl;
+    if (verbose()) std::cout << "Saving metadata..." << std::endl;
     m_metadata->save(*m_outEndpoint);
 }
 

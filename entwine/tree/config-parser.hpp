@@ -29,9 +29,11 @@ class Subset;
 class ConfigParser
 {
 public:
+    static Json::Value defaults();
+
     static std::unique_ptr<Builder> getBuilder(
             Json::Value json,
-            std::shared_ptr<arbiter::Arbiter> arbiter);
+            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
 
     static std::string directorify(std::string path);
 

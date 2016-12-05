@@ -400,7 +400,6 @@ UniqueStage Executor::createTransformationFilter(
         std::ostringstream ss;
         ss << std::setprecision(std::numeric_limits<double>::digits10);
         for (const double d : matrix) ss << d << " ";
-        // std::cout << "TXFORM: " << ss.str() << std::endl;
 
         pdal::Options options;
         options.add(pdal::Option("matrix", ss.str()));

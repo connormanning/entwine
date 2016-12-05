@@ -1,0 +1,13 @@
+#pragma once
+
+#define ENTWINE_TEST_CONFIG_DATA_PATH "@CMAKE_SOURCE_DIR@/test/data/"
+
+#include <string>
+
+namespace test
+{
+
+inline std::string dataPath() { return ENTWINE_TEST_CONFIG_DATA_PATH; }
+
+}
+

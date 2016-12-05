@@ -36,6 +36,7 @@ set(
     "${BASE}/subset.hpp"
     "${BASE}/tube.hpp"
     "${BASE}/vector-point-table.hpp"
+    "${BASE}/version.hpp"
 )
 
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})

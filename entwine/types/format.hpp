@@ -47,8 +47,7 @@ public:
                 HierarchyCompression::Lzma,
             std::vector<std::string> tailFields = std::vector<std::string> {
                 "numPoints", "chunkType"
-            },
-            std::string srs = std::string());
+            });
 
     Format(const Metadata& metadata, const Format& other)
         : m_metadata(metadata)
@@ -56,7 +55,6 @@ public:
         , m_compress(other.compress())
         , m_hierarchyCompression(other.hierarchyCompression())
         , m_tailFields(other.tailFields())
-        , m_srs(other.srs())
     { }
 
     Format(const Metadata& metadata, const Json::Value& json);
@@ -64,7 +62,6 @@ public:
     Json::Value toJson() const
     {
         Json::Value json;
-        json["srs"] = m_srs;
         json["trustHeaders"] = m_trustHeaders;
         json["compress"] = m_compress;
 
@@ -94,8 +91,6 @@ public:
 
     bool trustHeaders() const { return m_trustHeaders; }
     bool compress() const { return m_compress; }
-    const std::string& srs() const { return m_srs; }
-    std::string& srs() { return m_srs; }
     HierarchyCompression hierarchyCompression() const
     {
         return m_hierarchyCompression;
@@ -111,7 +106,6 @@ private:
     bool m_compress;
     HierarchyCompression m_hierarchyCompression;
     TailFields m_tailFields;
-    std::string m_srs;
 };
 
 } // namespace entwine

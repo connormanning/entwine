@@ -17,17 +17,19 @@
 #include <entwine/reader/cache.hpp>
 #include <entwine/reader/comparison.hpp>
 #include <entwine/reader/filter.hpp>
-#include <entwine/reader/reader.hpp>
 #include <entwine/types/binary-point-table.hpp>
 #include <entwine/types/delta.hpp>
 #include <entwine/types/dir.hpp>
 #include <entwine/types/point.hpp>
+#include <entwine/types/structure.hpp>
 
 namespace entwine
 {
 
+class Cache;
 class PointInfo;
 class PointState;
+class Reader;
 class Schema;
 
 class QueryChunkState
@@ -115,6 +117,13 @@ public:
             std::size_t depthEnd,
             const Point* scale = nullptr,
             const Point* offset = nullptr);
+
+    std::vector<char> run()
+    {
+        std::vector<char> buffer;
+        while (!done()) next(buffer);
+        return buffer;
+    }
 
     // Returns true if next() should be called again.  If false is returned,
     // then the query is complete and next() should not be called anymore.

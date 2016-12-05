@@ -187,7 +187,7 @@ Structure::Structure(
     , m_unbump(false)
     , m_dimensions(dimensions)
     , m_factor(1ULL << m_dimensions)
-    , m_numPointsHint(std::max<std::size_t>(numPointsHint, 10000000))
+    , m_numPointsHint(numPointsHint)
 
     // Chunk-related.
     , m_pointsPerChunk(pointsPerChunk)
@@ -245,10 +245,13 @@ Structure::Structure(
     const std::size_t activeMinDepth(
             m_bumpDepth ? m_bumpDepth : m_coldDepthBegin);
 
+    const std::size_t activeNumPointsHint(
+            std::max<std::size_t>(m_numPointsHint, 10000000));
+
     if (!mappedDepth)
     {
         m_mappedDepthBegin =
-            std::ceil(std::log2(m_numPointsHint) / std::log2(m_factor)) + 1;
+            std::ceil(std::log2(activeNumPointsHint) / std::log2(m_factor)) + 1;
     }
 
     m_mappedDepthBegin = std::max(m_mappedDepthBegin, activeMinDepth);

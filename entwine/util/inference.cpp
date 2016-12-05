@@ -52,12 +52,12 @@ namespace
 
 Inference::Inference(
         const std::string path,
-        const std::string tmpPath,
-        const std::size_t threads,
-        const bool verbose,
         const Reprojection* reprojection,
         const bool trustHeaders,
         const bool allowDelta,
+        const std::string tmpPath,
+        const std::size_t threads,
+        const bool verbose,
         arbiter::Arbiter* arbiter)
     : m_executor()
     , m_path(path)
@@ -83,12 +83,12 @@ Inference::Inference(
 
 Inference::Inference(
         const Manifest& manifest,
-        const std::string tmpPath,
-        const std::size_t threads,
-        const bool verbose,
         const Reprojection* reprojection,
         const bool trustHeaders,
         const bool allowDelta,
+        const std::string tmpPath,
+        const std::size_t threads,
+        const bool verbose,
         arbiter::Arbiter* arbiter,
         const bool cesiumify)
     : m_executor()
@@ -127,8 +127,6 @@ void Inference::go()
     {
         FileInfo& f(m_manifest.get(i));
         m_index = i;
-
-        if (m_transformation) std::cout << "P: " << f.path() << std::endl;
 
         if (m_verbose)
         {
@@ -297,6 +295,9 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
     {
         {
             std::lock_guard<std::mutex> lock(m_mutex);
+
+            fileInfo.srs(preview->srs);
+
             if (preview->scale)
             {
                 const auto& scale(*preview->scale);
@@ -368,6 +369,15 @@ void Inference::aggregate()
         if (const Bounds* current = f.bounds())
         {
             m_bounds->grow(*current);
+        }
+
+        if (!f.srs().empty())
+        {
+            const auto& s(f.srs().getWKT());
+            if (!std::count(m_srsList.begin(), m_srsList.end(), s))
+            {
+                m_srsList.push_back(s);
+            }
         }
     }
 

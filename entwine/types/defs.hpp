@@ -14,11 +14,14 @@
 
 #include <entwine/third/bigint/little-big-int.hpp>
 #include <entwine/types/bounds.hpp>
+#include <entwine/types/version.hpp>
 
 namespace pdal { class PointView; }
 
 namespace entwine
 {
+
+static const Version currentVersion(0);
 
 using Id = BigUint;
 

@@ -82,6 +82,7 @@ Metadata::Metadata(
     , m_subset(maybeClone(subset))
     , m_transformation(maybeClone(transformation))
     , m_cesiumSettings(maybeClone(cesiumSettings))
+    , m_srs()
     , m_errors()
 { }
 
@@ -108,7 +109,7 @@ Metadata::Metadata(const Json::Value& json)
     , m_hierarchyStructure(makeUnique<Structure>(json["hierarchyStructure"]))
     , m_manifest()
     , m_delta(Delta::existsIn(json) ? makeUnique<Delta>(json) : nullptr)
-    , m_format(makeUnique<Format>(*this, json["format"]))
+    , m_format(makeUnique<Format>(*this, json))
     , m_reprojection(json.isMember("reprojection") ?
             makeUnique<Reprojection>(json["reprojection"]) : nullptr)
     , m_subset(json.isMember("subset") ?
@@ -119,6 +120,7 @@ Metadata::Metadata(const Json::Value& json)
             json.isMember("formats") && json["formats"].isMember("cesium") ?
                 makeUnique<cesium::Settings>(json["formats"]["cesium"]) :
                 nullptr)
+    , m_srs(json["srs"].asString())
     , m_errors(fromJsonArray(json["errors"]))
 {
     if (m_transformation)
@@ -145,6 +147,7 @@ Metadata::Metadata(const Metadata& other)
     , m_subset(maybeClone(other.subset()))
     , m_transformation(maybeClone(other.transformation()))
     , m_cesiumSettings(maybeClone(other.cesiumSettings()))
+    , m_srs(other.srs())
     , m_errors(other.errors())
 { }
 
@@ -160,8 +163,11 @@ Json::Value Metadata::toJson() const
     json["schema"] = m_schema->toJson();
     json["structure"] = m_structure->toJson();
     json["hierarchyStructure"] = m_hierarchyStructure->toJson();
-    json["format"] = m_format->toJson();
 
+    const Json::Value format(m_format->toJson());
+    for (const auto& k : format.getMemberNames()) json[k] = format[k];
+
+    if (m_srs.size()) json["srs"] = m_srs;
     if (m_reprojection) json["reprojection"] = m_reprojection->toJson();
     if (m_subset) json["subset"] = m_subset->toJson();
 
@@ -211,7 +217,7 @@ void Metadata::save(const arbiter::Endpoint& endpoint) const
 
 void Metadata::merge(const Metadata& other)
 {
-    if (m_format->srs().empty()) m_format->srs() = other.format().srs();
+    if (m_srs.empty()) m_srs = other.srs();
     m_manifest->merge(other.manifest());
 }
 

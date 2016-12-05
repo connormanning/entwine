@@ -100,14 +100,6 @@ Chunk::~Chunk()
         Storage::ensurePut(m_builder.outEndpoint(), path, *m_data);
     }
 
-    /*
-    std::vector<int> a(5);
-    const std::size_t s(103209390400);
-    a[s] = 40;
-    std::cout << "A" << std::endl;
-    std::cout << a[s] << std::endl;
-    */
-
     if (chunkCount) --chunkCount;
 }
 

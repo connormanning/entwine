@@ -33,6 +33,7 @@ class Reprojection;
 class Schema;
 class Structure;
 class Subset;
+class Version;
 
 class Metadata
 {
@@ -92,6 +93,8 @@ public:
         return m_cesiumSettings.get();
     }
 
+    const std::string& srs() const { return m_srs; }
+
     const std::vector<std::string>& errors() const { return m_errors; }
 
     std::string postfix(bool isColdChunk = false) const;
@@ -106,6 +109,7 @@ private:
     Manifest& manifest() { return *m_manifest; }
     Format& format() { return *m_format; }
     std::vector<std::string>& errors() { return m_errors; }
+    std::string& srs() { return m_srs; }
 
     // The native bounds here is the only one without scale/offset applied.
     std::unique_ptr<Bounds> m_boundsNative;
@@ -122,6 +126,8 @@ private:
     std::unique_ptr<Subset> m_subset;
     std::unique_ptr<Transformation> m_transformation;
     std::unique_ptr<cesium::Settings> m_cesiumSettings;
+    std::unique_ptr<Version> m_version;
+    std::string m_srs;
 
     std::vector<std::string> m_errors;
 };

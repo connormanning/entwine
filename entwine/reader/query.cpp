@@ -18,6 +18,7 @@
 
 #include <entwine/reader/cache.hpp>
 #include <entwine/reader/chunk-reader.hpp>
+#include <entwine/reader/reader.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/types/dir.hpp>
@@ -87,7 +88,7 @@ Query::Query(
     {
         QueryChunkState chunkState(m_structure, m_reader.metadata().bounds());
         getFetches(chunkState);
-        std::cout << "Fetches: " << m_chunks.size() << std::endl;
+        // std::cout << "Fetches: " << m_chunks.size() << std::endl;
     }
 }
 

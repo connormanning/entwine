@@ -60,10 +60,41 @@ namespace
     }
 }
 
+Json::Value ConfigParser::defaults()
+{
+    Json::Value json;
+
+    json["input"] = Json::Value::null;
+    json["output"] = Json::Value::null;
+    json["tmp"] = "tmp";
+    json["threads"] = 8;
+    json["trustHeaders"] = true;
+    json["prefixIds"] = false;
+    json["pointsPerChunk"] = 262144;
+    json["numPointsHint"] = Json::Value::null;
+    json["bounds"] = Json::Value::null;
+    json["schema"] = Json::Value::null;
+    json["compress"] = true;
+    json["nullDepth"] = 7;
+    json["baseDepth"] = 10;
+
+    return json;
+}
+
 std::unique_ptr<Builder> ConfigParser::getBuilder(
         Json::Value json,
         std::shared_ptr<arbiter::Arbiter> arbiter)
 {
+    if (!arbiter) arbiter = std::make_shared<arbiter::Arbiter>();
+
+    const bool verbose(json["verbose"].asBool());
+
+    const Json::Value d(defaults());
+    for (const auto& k : d.getMemberNames())
+    {
+        if (!json.isMember(k)) json[k] = d[k];
+    }
+
     extractManifest(json, *arbiter);
 
     const std::string outPath(json["output"].asString());
@@ -128,15 +159,19 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
     if (manifest && needsInference)
     {
-        std::cout << "Performing dataset inference..." << std::endl;
+        if (verbose)
+        {
+            std::cout << "Performing dataset inference..." << std::endl;
+        }
+
         Inference inference(
                 *manifest,
-                tmpPath,
-                threads,
-                true,
                 reprojection.get(),
                 trustHeaders,
                 !absolute,
+                tmpPath,
+                threads,
+                verbose,
                 arbiter.get(),
                 !!cesiumSettings);
 
@@ -161,7 +196,12 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         if (!boundsConforming)
         {
             boundsConforming.reset(new Bounds(inference.nativeBounds()));
-            std::cout << "Inferred: " << inference.nativeBounds() << std::endl;
+
+            if (verbose)
+            {
+                std::cout << "Inferred: " << inference.nativeBounds() <<
+                    std::endl;
+            }
         }
 
         if (!schema)
@@ -267,6 +307,7 @@ void ConfigParser::extractManifest(
         const arbiter::Arbiter& arbiter)
 {
     Json::Value& input(json["input"]);
+    const bool verbose(json["verbose"].asBool());
 
     const std::string extension(
             input.isString() ?
@@ -279,9 +320,9 @@ void ConfigParser::extractManifest(
         // The input source is a path or array of paths.
         std::vector<std::string> paths;
 
-        auto insert([&paths, &arbiter](std::string in)
+        auto insert([&paths, &arbiter, verbose](std::string in)
         {
-            std::vector<std::string> current(arbiter.resolve(in, true));
+            std::vector<std::string> current(arbiter.resolve(in, verbose));
             paths.insert(paths.end(), current.begin(), current.end());
         });
 
@@ -347,6 +388,7 @@ std::unique_ptr<Subset> ConfigParser::maybeAccommodateSubset(
         const Delta* delta)
 {
     std::unique_ptr<Subset> subset;
+    const bool verbose(json["verbose"].asBool());
 
     if (json.isMember("subset"))
     {
@@ -357,9 +399,12 @@ std::unique_ptr<Subset> ConfigParser::maybeAccommodateSubset(
 
         if (configNullDepth < minimumNullDepth)
         {
-            std::cout <<
-                "Bumping null depth to accomodate subset: " <<
-                minimumNullDepth << std::endl;
+            if (verbose)
+            {
+                std::cout <<
+                    "Bumping null depth to accomodate subset: " <<
+                    minimumNullDepth << std::endl;
+            }
 
             json["nullDepth"] = Json::UInt64(minimumNullDepth);
         }
@@ -370,9 +415,12 @@ std::unique_ptr<Subset> ConfigParser::maybeAccommodateSubset(
 
         if (configBaseDepth < minimumBaseDepth)
         {
-            std::cout <<
-                "Bumping base depth to accomodate subset: " <<
-                minimumBaseDepth << std::endl;
+            if (verbose)
+            {
+                std::cout <<
+                    "Bumping base depth to accomodate subset: " <<
+                    minimumBaseDepth << std::endl;
+            }
 
             json["baseDepth"] = Json::UInt64(minimumBaseDepth);
             json["bumpDepth"] = Json::UInt64(configBaseDepth);

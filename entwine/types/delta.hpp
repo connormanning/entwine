@@ -24,7 +24,7 @@ class Delta
 public:
     Delta() : m_scale(1, 1, 1), m_offset(0, 0, 0) { }
 
-    Delta(const Scale& scale, const Offset& offset)
+    Delta(const Scale& scale, const Offset& offset = Offset())
         : m_scale(scale)
         , m_offset(offset)
     { }
@@ -59,6 +59,8 @@ public:
 
     Scale& scale() { return m_scale; }
     Offset& offset() { return m_offset; }
+
+    bool empty() const { return m_scale == Scale(1) && m_offset == Offset(0); }
 
     Delta inverse() const
     {

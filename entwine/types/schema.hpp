@@ -226,6 +226,17 @@ private:
         for (auto& dim : dims)
         {
             dim.setId(layout->registerOrAssignDim(dim.name(), dim.type()));
+            if (dim.id() == pdal::Dimension::Id::Unknown)
+            {
+                dim.setId(layout->findDim(dim.name()));
+            }
+
+            if (dim.id() == pdal::Dimension::Id::Unknown)
+            {
+                throw std::runtime_error(
+                        "Could not register dimension " + dim.name());
+            }
+
             if (dim.name() == "PointId") m_pointId = dim.id();
             if (dim.name() == "OriginId") m_originId = dim.id();
         }

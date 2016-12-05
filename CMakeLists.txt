@@ -94,3 +94,7 @@ configure_file(cmake/entwine-config.cmake.in "${PROJECT_BINARY_DIR}/entwine-conf
 install(EXPORT entwine-targets FILE entwine-targets.cmake NAMESPACE Entwine:: DESTINATION lib/cmake/entwine)
 install(FILES "${PROJECT_BINARY_DIR}/entwine-config.cmake" DESTINATION lib/cmake/entwine)
 
+add_subdirectory(test/gtest-1.8.0)
+include_directories(entwine test/gtest-1.8.0/include test/gtest-1.8.0)
+add_subdirectory(test)
+

@@ -46,7 +46,8 @@ namespace
 
             "\t-o <output-path>\n"
             "\t\tIf provided, detailed per-file information will be written\n"
-            "\t\tto this file in JSON format.\n\n"
+            "\t\tto this file in JSON format.  The extension\n"
+            "'.entwine-inference' will be added automatically.\n\n"
 
             "\t-h\n"
             "\t\tIf set, the user-supplied input SRS will always override\n"
@@ -253,11 +254,12 @@ void Kernel::infer(std::vector<std::string> args)
 
     Inference inference(
             path,
+            reprojection.get(),
+            trustHeaders,
+            true,
             tmpPath,
             threads,
             true,
-            reprojection.get(),
-            trustHeaders,
             arbiter.get());
 
     inference.go();

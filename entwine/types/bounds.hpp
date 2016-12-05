@@ -265,14 +265,14 @@ public:
         return Bounds(Point::max(min(), b.min()), Point::min(max(), b.max()));
     }
 
-    Bounds scale(const Point& scale, const Point& offset)
+    Bounds scale(const Point& scale, const Point& offset) const
     {
         return Bounds(
                 Point::scale(min(), scale, offset),
                 Point::scale(max(), scale, offset));
     }
 
-    Bounds unscale(const Point& scale, const Point& offset)
+    Bounds unscale(const Point& scale, const Point& offset) const
     {
         return Bounds(
                 Point::unscale(min(), scale, offset),

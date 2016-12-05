@@ -209,27 +209,6 @@ namespace
         }
         std::cout << "\t]" << std::endl;
     }
-
-    const Json::Value defaults(([]()
-    {
-        Json::Value json;
-
-        json["input"] = Json::Value::null;
-        json["output"] = Json::Value::null;
-        json["tmp"] = "tmp";
-        json["threads"] = 8;
-        json["trustHeaders"] = true;
-        json["prefixIds"] = false;
-        json["pointsPerChunk"] = 262144;
-        json["numPointsHint"] = Json::Value::null;
-        json["bounds"] = Json::Value::null;
-        json["schema"] = Json::Value::null;
-        json["compress"] = true;
-        json["nullDepth"] = 7;
-        json["baseDepth"] = 10;
-
-        return json;
-    })());
 }
 
 void Kernel::build(std::vector<std::string> args)
@@ -249,7 +228,7 @@ void Kernel::build(std::vector<std::string> args)
         }
     }
 
-    Json::Value json(defaults);
+    Json::Value json(ConfigParser::defaults());
     Json::Value arbiterConfig(json["arbiter"]);
     entwine::arbiter::Arbiter localArbiter(arbiterConfig);
 
@@ -402,6 +381,7 @@ void Kernel::build(std::vector<std::string> args)
 
     auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(arbiterConfig));
 
+    json["verbose"] = true;
     std::unique_ptr<Builder> builder(ConfigParser::getBuilder(json, arbiter));
 
     if (builder->isContinuation())

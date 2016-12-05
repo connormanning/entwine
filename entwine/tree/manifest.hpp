@@ -19,6 +19,8 @@
 #include <set>
 #include <string>
 
+#include <pdal/SpatialReference.hpp>
+
 #include <json/json.h>
 
 #include <entwine/third/arbiter/arbiter.hpp>
@@ -122,10 +124,13 @@ public:
     Status status() const                   { return m_status; }
     const Bounds* bounds() const            { return m_bounds.get(); }
     const std::size_t numPoints() const     { return m_numPoints; }
+    const pdal::SpatialReference& srs() const { return m_srs; }
     const PointStats& pointStats() const    { return m_pointStats; }
 
     void bounds(const Bounds& bounds) { m_bounds.reset(new Bounds(bounds)); }
     void numPoints(std::size_t n) { m_numPoints = n; }
+    void srs(const pdal::SpatialReference& s) { m_srs = s; }
+
     void add(const PointStats& stats) { m_pointStats.add(stats); }
 
 private:
@@ -139,6 +144,7 @@ private:
     // the bounds and number of points in this file from the header.
     std::unique_ptr<Bounds> m_bounds; // Represented in the output projection.
     std::size_t m_numPoints;
+    pdal::SpatialReference m_srs;
 
     PointStats m_pointStats;
 };
@@ -174,16 +180,6 @@ public:
 
         std::lock_guard<std::mutex> lock(m_mutex);
         m_pointStats.add(stats);
-    }
-
-    void clearPointStats()
-    {
-        for (Origin i(0); i < size(); ++i)
-        {
-            m_paths[i].pointStats().clear();
-        }
-
-        m_pointStats.clear();
     }
 
     void add(const PointStatsMap& statsMap)
