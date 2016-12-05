@@ -2693,8 +2693,9 @@ void Curl::init(
 
     // Don't wait forever.  Use the low-speed options instead of the timeout
     // option to make the timeout a sliding window instead of an absolute.
-    curl_easy_setopt(m_curl, CURLOPT_LOW_SPEED_LIMIT, 1L);
-    curl_easy_setopt(m_curl, CURLOPT_LOW_SPEED_TIME, m_timeout);
+    curl_easy_setopt(m_curl, CURLOPT_TIMEOUT, m_timeout);
+    // curl_easy_setopt(m_curl, CURLOPT_LOW_SPEED_LIMIT, 1L);
+    // curl_easy_setopt(m_curl, CURLOPT_LOW_SPEED_TIME, m_timeout);
 
     // Configuration options.
     if (followRedirect) curl_easy_setopt(m_curl, CURLOPT_FOLLOWLOCATION, 1L);
