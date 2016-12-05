@@ -73,8 +73,7 @@ private:
                 }
                 else if (!val.isObject() || val.size() == 1)
                 {
-                    // key is the name of a dimension, val is either a number or
-                    // an comparison query object.
+                    // a comparison query object.
                     active->push(Comparison::create(m_metadata, key, val));
                 }
                 else

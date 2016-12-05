@@ -12,7 +12,7 @@
 
 #include <pdal/PointLayout.hpp>
 
-#include <entwine/types/pooled-point-table.hpp>
+#include <entwine/types/binary-point-table.hpp>
 #include <entwine/types/schema.hpp>
 
 namespace entwine

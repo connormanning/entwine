@@ -19,6 +19,7 @@
 #include <json/json.h>
 
 #include <entwine/types/defs.hpp>
+#include <entwine/types/delta.hpp>
 #include <entwine/types/format-packing.hpp>
 #include <entwine/types/format-types.hpp>
 #include <entwine/types/point-pool.hpp>
@@ -27,6 +28,8 @@
 
 namespace entwine
 {
+
+class Metadata;
 
 // The Format contains the attributes that give insight about what the tree
 // looks like at a more micro-oriented level than the Structure, which gives
@@ -37,22 +40,28 @@ class Format
 {
 public:
     Format(
-            const Schema& schema,
+            const Metadata& metadata,
             bool trustHeaders = true,
             bool compress = true,
             HierarchyCompression hierarchyCompression =
                 HierarchyCompression::Lzma,
             std::vector<std::string> tailFields = std::vector<std::string> {
                 "numPoints", "chunkType"
-            },
-            std::string srs = std::string());
+            });
 
-    Format(const Schema& schema, const Json::Value& json);
+    Format(const Metadata& metadata, const Format& other)
+        : m_metadata(metadata)
+        , m_trustHeaders(other.trustHeaders())
+        , m_compress(other.compress())
+        , m_hierarchyCompression(other.hierarchyCompression())
+        , m_tailFields(other.tailFields())
+    { }
+
+    Format(const Metadata& metadata, const Json::Value& json);
 
     Json::Value toJson() const
     {
         Json::Value json;
-        json["srs"] = m_srs;
         json["trustHeaders"] = m_trustHeaders;
         json["compress"] = m_compress;
 
@@ -78,26 +87,25 @@ public:
         return Unpacker(*this, std::move(data));
     }
 
-    const Schema& schema() const { return m_schema; }
     const TailFields& tailFields() const { return m_tailFields; }
 
     bool trustHeaders() const { return m_trustHeaders; }
     bool compress() const { return m_compress; }
-    const std::string& srs() const { return m_srs; }
-    std::string& srs() { return m_srs; }
     HierarchyCompression hierarchyCompression() const
     {
         return m_hierarchyCompression;
     }
 
+    const Metadata& metadata() const;
+    const Schema& schema() const;
+
 private:
-    const Schema m_schema;
+    const Metadata& m_metadata;
 
     bool m_trustHeaders;
     bool m_compress;
     HierarchyCompression m_hierarchyCompression;
     TailFields m_tailFields;
-    std::string m_srs;
 };
 
 } // namespace entwine

@@ -18,6 +18,7 @@
 #include <set>
 #include <vector>
 
+#include <entwine/reader/query.hpp>
 #include <entwine/tree/hierarchy.hpp>
 #include <entwine/types/outer-scope.hpp>
 #include <entwine/types/structure.hpp>
@@ -43,7 +44,6 @@ class Bounds;
 class Cache;
 class Hierarchy;
 class Metadata;
-class Query;
 class Schema;
 
 class Reader
@@ -51,30 +51,64 @@ class Reader
 public:
     // Will throw if entwine's meta files cannot be fetched from this endpoint.
     Reader(const arbiter::Endpoint& endpoint, Cache& cache);
+    Reader(std::string path, Cache& cache);
     ~Reader();
 
-    std::unique_ptr<Query> query(
+    template<typename... Args>
+    std::vector<char> query(Args&&... args)
+    {
+        auto q(getQuery(std::forward<Args>(args)...));
+        return q->run();
+    }
+
+    std::unique_ptr<Query> getQuery(
+            std::size_t depth,
+            const Point* scale = nullptr,
+            const Point* offset = nullptr);
+
+    std::unique_ptr<Query> getQuery(
+            const Bounds& qbox,
+            std::size_t depth,
+            const Point* scale = nullptr,
+            const Point* offset = nullptr);
+
+    std::unique_ptr<Query> getQuery(
+            std::size_t depthBegin,
+            std::size_t depthEnd,
+            const Point* scale = nullptr,
+            const Point* offset = nullptr);
+
+    std::unique_ptr<Query> getQuery(
+            const Bounds& qbox,
+            std::size_t depthBegin,
+            std::size_t depthEnd,
+            const Point* scale = nullptr,
+            const Point* offset = nullptr);
+
+    std::unique_ptr<Query> getQuery(
             const Schema& schema,
             const Json::Value& filter,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            double scale = 0.0,
-            Point offset = Point());
+            const Point* scale = nullptr,
+            const Point* offset = nullptr);
 
-    std::unique_ptr<Query> query(
+    std::unique_ptr<Query> getQuery(
             const Schema& schema,
             const Json::Value& filter,
             const Bounds& qbox,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            double scale = 0.0,
-            Point offset = Point());
+            const Point* scale = nullptr,
+            const Point* offset = nullptr);
 
     Json::Value hierarchy(
             const Bounds& qbox,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            bool vertical = false);
+            bool vertical = false,
+            const Point* scale = nullptr,
+            const Point* offset = nullptr);
 
     const Metadata& metadata() const { return *m_metadata; }
     std::string path() const { return m_endpoint.root(); }
@@ -83,19 +117,12 @@ public:
     const arbiter::Endpoint& endpoint() const { return m_endpoint; }
     bool exists(const Id& id) const { return m_ids.count(id); }
 
-    struct BoxInfo
-    {
-        BoxInfo() : keys(), numPoints(0) { }
-        BoxInfo(std::vector<std::string> keys) : keys(keys), numPoints(0) { }
-
-        std::vector<std::string> keys;
-        std::size_t numPoints;
-    };
-
-    typedef std::map<Bounds, BoxInfo> BoxMap;
-
 private:
     const Bounds& bounds() const;
+    Bounds localize(
+            const Bounds& inBounds,
+            const Scale* scale,
+            const Offset* offset) const;
 
     arbiter::Endpoint m_endpoint;
 

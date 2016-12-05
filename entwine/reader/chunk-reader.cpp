@@ -14,7 +14,7 @@
 
 #include <entwine/tree/chunk.hpp>
 #include <entwine/types/metadata.hpp>
-#include <entwine/types/pooled-point-table.hpp>
+#include <entwine/types/binary-point-table.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/util/compression.hpp>
 

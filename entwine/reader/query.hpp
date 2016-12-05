@@ -17,16 +17,19 @@
 #include <entwine/reader/cache.hpp>
 #include <entwine/reader/comparison.hpp>
 #include <entwine/reader/filter.hpp>
-#include <entwine/reader/reader.hpp>
+#include <entwine/types/binary-point-table.hpp>
+#include <entwine/types/delta.hpp>
 #include <entwine/types/dir.hpp>
 #include <entwine/types/point.hpp>
-#include <entwine/types/pooled-point-table.hpp>
+#include <entwine/types/structure.hpp>
 
 namespace entwine
 {
 
+class Cache;
 class PointInfo;
 class PointState;
+class Reader;
 class Schema;
 
 class QueryChunkState
@@ -99,11 +102,28 @@ public:
             const Schema& schema,
             const Json::Value& filter,
             Cache& cache,
+            std::size_t depthBegin,
+            std::size_t depthEnd,
+            const Point* scale = nullptr,
+            const Point* offset = nullptr);
+
+    Query(
+            const Reader& reader,
+            const Schema& schema,
+            const Json::Value& filter,
+            Cache& cache,
             const Bounds& queryBounds,
             std::size_t depthBegin,
             std::size_t depthEnd,
-            double scale,
-            const Point& offset);
+            const Point* scale = nullptr,
+            const Point* offset = nullptr);
+
+    std::vector<char> run()
+    {
+        std::vector<char> buffer;
+        while (!done()) next(buffer);
+        return buffer;
+    }
 
     // Returns true if next() should be called again.  If false is returned,
     // then the query is complete and next() should not be called anymore.
@@ -131,6 +151,7 @@ protected:
     const Structure& m_structure;
     Cache& m_cache;
 
+    std::unique_ptr<Delta> m_delta;
     Bounds m_queryBounds;
     const std::size_t m_depthBegin;
     const std::size_t m_depthEnd;
@@ -145,8 +166,6 @@ protected:
     bool m_done;
 
     const Schema& m_outSchema;
-    const double m_scale;
-    const Point m_offset;
 
     BinaryPointTable m_table;
     pdal::PointRef m_pointRef;

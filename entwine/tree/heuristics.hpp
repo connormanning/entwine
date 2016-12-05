@@ -27,15 +27,7 @@ const std::size_t clipCacheSize(32);
 // more expensive than actually doing tree work, we'll allocate more threads to
 // the "clip" task than to the "work" task.  This parameter tunes the ratio of
 // work threads to clip threads.
-const float defaultWorkToClipRatio(0.33);
-
-// These parameters determine how much work to keep when another worker has
-// requested to take a portion of our work.
-//
-// If we're the nominal builder, try to keep a larger portion of work for
-// ourselves to minimize the amount of large unsplits.
-const float nominalKeepWorkRatio(0.75);
-const float defaultKeepWorkRatio(0.50);
+const float defaultWorkToClipRatio(0.25);
 
 // Pooled point cells, data, and hierarchy nodes come from the splice pool,
 // which allocates them in blocks.  This sets the block size.

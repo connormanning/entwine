@@ -10,9 +10,12 @@
 
 #include <entwine/types/format-packing.hpp>
 
+#include <entwine/types/binary-point-table.hpp>
+#include <entwine/types/delta.hpp>
 #include <entwine/types/format.hpp>
-#include <entwine/types/pooled-point-table.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/util/compression.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
@@ -96,9 +99,10 @@ std::unique_ptr<std::vector<char>>&& Unpacker::acquireBytes()
 
 Cell::PooledStack Unpacker::acquireCells(PointPool& pointPool)
 {
+    const auto np(numPoints());
     if (m_format.compress())
     {
-        auto d(Compression::decompress(*m_data, numPoints(), pointPool));
+        auto d(Compression::decompress(*m_data, np, pointPool));
         m_data.reset();
         return d;
     }
@@ -108,14 +112,14 @@ Cell::PooledStack Unpacker::acquireCells(PointPool& pointPool)
         BinaryPointTable table(m_format.schema());
         pdal::PointRef pointRef(table, 0);
 
-        Data::PooledStack dataStack(pointPool.dataPool().acquire(numPoints()));
-        Cell::PooledStack cellStack(pointPool.cellPool().acquire(numPoints()));
+        Data::PooledStack dataStack(pointPool.dataPool().acquire(np));
+        Cell::PooledStack cellStack(pointPool.cellPool().acquire(np));
 
         Cell::RawNode* cell(cellStack.head());
 
         const char* pos(m_data->data());
 
-        for (std::size_t i(0); i < numPoints(); ++i)
+        for (std::size_t i(0); i < np; ++i)
         {
             table.setPoint(pos);
 

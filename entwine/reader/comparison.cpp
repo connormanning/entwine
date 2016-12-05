@@ -57,7 +57,7 @@ double extractComparisonValue(
                     "Invalid comparison value: " + val.toStyledString());
         }
 
-        if (dimensionName == "Origin")
+        if (dimensionName == "OriginId")
         {
             const Origin origin(val.asUInt64());
             if (origin > metadata.manifest().size())
@@ -80,7 +80,7 @@ std::unique_ptr<Bounds> maybeExtractBounds(
 {
     std::unique_ptr<Bounds> b;
 
-    if (dimensionName == "Path" || dimensionName == "Origin")
+    if (dimensionName == "Path" || dimensionName == "OriginId")
     {
         const Origin origin(val);
         const auto& fileInfo(metadata.manifest().get(origin));
@@ -108,7 +108,7 @@ std::unique_ptr<Comparison> Comparison::create(
         const Json::Value& val)
 {
     auto op(ComparisonOperator::create(metadata, dimensionName, val));
-    if (dimensionName == "Path") dimensionName = "Origin";
+    if (dimensionName == "Path") dimensionName = "OriginId";
 
     const auto id(metadata.schema().getId(dimensionName));
     if (id == pdal::Dimension::Id::Unknown)
@@ -132,21 +132,18 @@ std::unique_ptr<ComparisonOperator> ComparisonOperator::create(
                     "Invalid comparison object: " + json.toStyledString());
         }
 
-        const auto& key(json.getMemberNames().at(0));
+        const auto key(json.getMemberNames().at(0));
         const ComparisonType co(toComparisonType(key));
         const auto& val(json[key]);
 
         if (isSingle(co))
         {
             const double d(
-                    extractComparisonValue(
-                        metadata,
-                        dimensionName,
-                        val));
+                    extractComparisonValue(metadata, dimensionName, val));
 
             auto b(maybeExtractBounds(metadata, dimensionName, d));
 
-            if (dimensionName == "Path" || dimensionName == "Origin")
+            if (dimensionName == "Path" || dimensionName == "OriginId")
             {
                 if (co != ComparisonType::eq)
                 {
@@ -207,7 +204,7 @@ std::unique_ptr<ComparisonOperator> ComparisonOperator::create(
                 }
             }
 
-            if (dimensionName == "Path" || dimensionName == "Origin")
+            if (dimensionName == "Path" || dimensionName == "OriginId")
             {
                 if (co != ComparisonType::in)
                 {

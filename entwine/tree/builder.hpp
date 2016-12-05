@@ -30,14 +30,14 @@ namespace Json
     class Value;
 }
 
+namespace entwine
+{
+
 namespace arbiter
 {
     class Arbiter;
     class Endpoint;
 }
-
-namespace entwine
-{
 
 class Bounds;
 class Clipper;
@@ -115,6 +115,9 @@ public:
 
     void append(const Manifest& manifest);
 
+    bool verbose() const { return m_verbose; }
+    void verbose(bool v) { m_verbose = v; }
+
 private:
     Executor& executor();
     std::mutex& mutex();
@@ -126,15 +129,6 @@ private:
             std::size_t threads,
             const std::size_t* subsetId,
             OuterScope outerScope = OuterScope());
-
-    // Returns true if we should insert this file based on its info.
-    bool checkInfo(const FileInfo& info);
-
-    // Returns true if we should insert this file based on its bounds.
-    bool checkBounds(
-            Origin origin,
-            const Bounds& bounds,
-            std::size_t numPoints);
 
     // Insert points from a file.  Return true if successful.  Sets any
     // previously unset FileInfo fields based on file contents.
@@ -156,9 +150,6 @@ private:
 
     // Validate sources.
     void prepareEndpoints();
-
-    // Initialize the SRS from the preview for this path.
-    void initSrs(const std::string& path);
 
     // Ensure that the file at this path is accessible locally for execution.
     // Return the local path.
@@ -188,6 +179,8 @@ private:
 
     std::unique_ptr<Hierarchy> m_hierarchy;
     std::unique_ptr<Registry> m_registry;
+
+    bool m_verbose = false;
 
     Builder(const Builder&);
     Builder& operator=(const Builder&);

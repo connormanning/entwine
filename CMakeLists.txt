@@ -24,14 +24,24 @@ else()
     include_directories("${CMAKE_CURRENT_SOURCE_DIR}/entwine/third/json")
 endif()
 
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}")
-
 set(PDAL_FIND_VERSION 1.2)
 find_package(PDAL ${PDAL_FIND_VERSION} REQUIRED CONFIG NO_POLICY_SCOPE)
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 find_package(Threads REQUIRED)
 find_package(LazPerf REQUIRED)
-find_package(Curl REQUIRED)
+find_package(Curl)
+
+if (CURL_FOUND)
+    message("Found curl")
+    set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+    find_package(Threads REQUIRED)
+    include_directories(${CURL_INCLUDE_DIRS})
+    set(ENTWINE_CURL TRUE)
+    add_definitions("-DENTWINE_CURL")
+    add_definitions("-DARBITER_CURL")
+else()
+    message("Curl NOT found")
+endif()
 
 mark_as_advanced(CLEAR PDAL_INCLUDE_DIRS)
 mark_as_advanced(CLEAR LazPerf_INCLUDE_DIR)
@@ -43,6 +53,8 @@ if (CMAKE_MAJOR_VERSION GREATER 2)
     cmake_policy(SET CMP0022 OLD) # interface link libraries
     cmake_policy(SET CMP0042 NEW) # osx rpath
 endif()
+
+include_directories(BEFORE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 add_subdirectory(entwine)
 add_subdirectory(kernel)
@@ -69,7 +81,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     target_link_libraries(entwine atomic)
 endif()
 
-if (WIN32)
+if (WIN32 OR NOT ${ENTWINE_CURL})
     target_link_libraries(entwine)
 else ()
     target_link_libraries(entwine ${CURL_LIBRARIES})
@@ -81,3 +93,8 @@ export(EXPORT entwine-targets FILE "${PROJECT_BINARY_DIR}/entwine-targets.cmake"
 configure_file(cmake/entwine-config.cmake.in "${PROJECT_BINARY_DIR}/entwine-config.cmake" @ONLY)
 install(EXPORT entwine-targets FILE entwine-targets.cmake NAMESPACE Entwine:: DESTINATION lib/cmake/entwine)
 install(FILES "${PROJECT_BINARY_DIR}/entwine-config.cmake" DESTINATION lib/cmake/entwine)
+
+add_subdirectory(test/gtest-1.8.0)
+include_directories(entwine test/gtest-1.8.0/include test/gtest-1.8.0)
+add_subdirectory(test)
+

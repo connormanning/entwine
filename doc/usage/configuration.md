@@ -36,11 +36,12 @@ entwine build \
 | `input`           | `-i`  | `String` or `[String]`    | None      | Path(s) to build [🔗](#input)
 | `output`          | `-o`  | `String`                  | None      | Output directory [🔗](#output)
 | `tmp`             | `-a`  | `String`                  | `"./tmp"` | Temporary directory [🔗](#tmp)
-| `threads`         | `-t`  | `Number`                  | `9`       | Number of work threads [🔗](#threads)
+| `threads`         | `-t`  | `Number`                  | `8`       | Number of work threads [🔗](#threads)
 | `reprojection`    | `-r`  | `Object`                  | None      | Coordinate system settings [🔗](#reprojection)
 | `trustHeaders`    | `-x`<sup>\*</sup>| `Boolean`      | `true`    | `true` if file headers are accurate [🔗](#trust-headers)
 | `force`           | `-f`<sup>\*</sup>| `Boolean`      | `false`   | `true` to overwrite previous build [🔗](#force)
 | `prefixIds`       | `-p`<sup>\*</sup>| `Boolean`      | `false`   | If `true`, output files are randomly prefixed [🔗](#prefix-ids)
+| `absolute`        | `-n`<sup>\*</sup>| `Boolean`      | `false`   | If `true`, output will never be scaled or offset [🔗](#absolute)
 | `pointsPerChunk`  |       | `Number`                  | `262144`  | Points per chunk [🔗](#points-per-chunk)
 | `numPointsHint`   |       | `Number`                  | Inferred  | Total number of points to be indexed [🔗](#number-of-points-hint)
 | `bounds`          | `-b`  | `[Number]`                | Inferred  | Indexing bounds [🔗](#bounds)
@@ -193,6 +194,18 @@ This is a toggle flag, so it may be omitted unless it is to be set to the non-de
 | Default   | `false`
 | Flag      | `-p`
 | Examples  | `entwine build -i ... -o ... -p`
+
+### Absolute
+If set to `true`, Entwine's output will never be scaled or offset.  By default, when the input files are scanned, scale/offset information will be accounted for and data will be written in a quantized format (without losing precision from the input).  This can result in significant storage savings due to better compression.
+
+This is a toggle flag, so it may be omitted unless it is to be set to the non-default value of `true`.
+
+| | |
+|-----------|------------------------------------------------------------------
+| Type      | `Boolean`
+| Default   | `false`
+| Flag      | `-n`
+| Examples  | `entwine build -i ... -o ... -n`
 
 ### Points per chunk
 The base number of points per chunk, in two dimensions, starting at a depth of `baseDepth`.  For example, a `baseDepth` of `10` means that the first depth beyond the base contains up to `4^10 = 1,048,576` points.  With a `pointsPerChunk` value of `262,144`, this depth would be split into a maximum of 4 chunks.  This field must be set to a power of 4.

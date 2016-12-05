@@ -10,71 +10,140 @@
 
 #include <entwine/types/pooled-point-table.hpp>
 
+#include <entwine/types/binary-point-table.hpp>
+#include <entwine/types/delta.hpp>
+#include <entwine/util/unique.hpp>
+
 namespace entwine
 {
 
-namespace
-{
-    const std::size_t blockSize(4096);
-}
-
-PooledPointTable::PooledPointTable(
+std::unique_ptr<PooledPointTable> PooledPointTable::create(
         PointPool& pointPool,
-        std::function<Cell::PooledStack(Cell::PooledStack)> process,
-        pdal::Dimension::Id originId,
-        Origin origin)
-    : pdal::StreamPointTable(pointPool.schema().pdalLayout())
-    , m_pointPool(pointPool)
-    , m_dataNodes(m_pointPool.dataPool())
-    , m_refs(blockSize, nullptr)
-    , m_size(0)
-    , m_process(process)
-    , m_originId(originId)
-    , m_origin(origin)
+        Process process,
+        const Delta* delta,
+        const Origin origin)
 {
-    allocate();
-}
-
-pdal::point_count_t PooledPointTable::capacity() const
-{
-    return blockSize;
+    if (pointPool.schema().normal())
+    {
+        return makeUnique<NormalPooledPointTable>(pointPool, process, origin);
+    }
+    else
+    {
+        return makeUnique<ConvertingPooledPointTable>(
+                pointPool,
+                makeUnique<Schema>(Schema::normalize(pointPool.schema())),
+                process,
+                *delta,
+                origin);
+    }
 }
 
 void PooledPointTable::reset()
 {
-    pdal::PointRef pointRef(*this, 0);
+    preprocess();
 
-    // Using the pointRef during the loop ends up calling into this->getPoint,
-    // which will hammer over our m_size as we're traversing - so store a copy.
-    const std::size_t fixedSize(m_size);
-    Cell::PooledStack cells(m_pointPool.cellPool().acquire(fixedSize));
-    Cell::RawNode* cell(cells.head());
+    const Schema& cachedOutSchema(outSchema());
+    const auto pointIdDim(cachedOutSchema.pointIdDim());
+    const auto originIdDim(cachedOutSchema.originIdDim());
 
-    for (std::size_t i(0); i < fixedSize; ++i)
+    BinaryPointTable table(cachedOutSchema);
+    pdal::PointRef pointRef(table, 0);
+
+    assert(m_cellNodes.size() >= outstanding());
+    Cell::PooledStack cells(m_cellNodes.pop(outstanding()));
+
+    for (auto& cell : cells)
     {
-        pointRef.setPointId(i);
-        (*cell)->set(pointRef, m_dataNodes.popOne());
-        if (m_origin != invalidOrigin) pointRef.setField(m_originId, m_origin);
+        auto data(m_dataNodes.popOne());
+        table.setPoint(*data);
 
-        cell = cell->next();
+        if (m_origin != invalidOrigin)
+        {
+            pointRef.setField(pointIdDim, m_index);
+            pointRef.setField(originIdDim, m_origin);
+            ++m_index;
+        }
+
+        cell.set(pointRef, std::move(data));
     }
 
-    m_process(std::move(cells));
-    m_size = 0;
+    cells = m_process(std::move(cells));
+    for (auto& cell : cells) m_dataNodes.push(cell.acquire());
+    m_cellNodes.push(std::move(cells));
 
+    // Can't call allocated() from allocate() since allocate is called from the
+    // ctor.
     allocate();
+    allocated();
 }
 
 void PooledPointTable::allocate()
 {
-    const std::size_t needs(blockSize - m_dataNodes.size());
-    m_dataNodes.push(m_pointPool.dataPool().acquire(needs));
+    assert(m_dataNodes.size() == m_cellNodes.size());
+    const std::size_t needs(capacity() - m_dataNodes.size());
+    if (!needs) return;
 
-    Data::RawNode* node(m_dataNodes.head());
-    for (std::size_t i(0); i < blockSize; ++i)
+    m_dataNodes.push(m_pointPool.dataPool().acquire(needs));
+    m_cellNodes.push(m_pointPool.cellPool().acquire(needs));
+}
+
+void NormalPooledPointTable::allocated()
+{
+    m_refs.clear();
+    for (char*& d : m_dataNodes) m_refs.push_back(d);
+}
+
+void ConvertingPooledPointTable::preprocess()
+{
+    BinaryPointTable preTable(*m_preSchema);
+    pdal::PointRef prePointRef(preTable, 0);
+    const std::size_t prePointSize(m_preSchema->pointSize());
+    const std::size_t preOffset(
+            m_preSchema->find("X").size() +
+            m_preSchema->find("Y").size() +
+            m_preSchema->find("Z").size());
+
+    BinaryPointTable postTable(outSchema());
+    pdal::PointRef postPointRef(postTable, 0);
+    const std::size_t postOffset(
+            outSchema().find("X").size() +
+            outSchema().find("Y").size() +
+            outSchema().find("Z").size());
+
+    const Data::RawNode* node(m_dataNodes.head());
+    const char* pos(m_preData.data());
+
+    static const auto x(pdal::Dimension::Id::X);
+    static const auto y(pdal::Dimension::Id::Y);
+    static const auto z(pdal::Dimension::Id::Z);
+
+    if (m_dataNodes.size() < outstanding())
     {
-        m_refs[i] = node;
+        std::cout << m_dataNodes.size() << " < " << outstanding() << std::endl;
+        throw std::runtime_error("Bad data stack size");
+    }
+
+    Point p;
+
+    for (std::size_t i(0); i < outstanding(); ++i)
+    {
+        preTable.setPoint(pos);
+        postTable.setPoint(**node);
+
+        p.x = prePointRef.getFieldAs<double>(x);
+        p.y = prePointRef.getFieldAs<double>(y);
+        p.z = prePointRef.getFieldAs<double>(z);
+
+        p = Point::round(Point::scale(p, m_delta.scale(), m_delta.offset()));
+
+        postPointRef.setField(x, p.x);
+        postPointRef.setField(y, p.y);
+        postPointRef.setField(z, p.z);
+
+        std::copy(pos + preOffset, pos + prePointSize, **node + postOffset);
+
         node = node->next();
+        pos += prePointSize;
     }
 }
 

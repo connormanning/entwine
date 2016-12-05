@@ -74,6 +74,7 @@ inline std::string toString(ComparisonType c)
         case ComparisonType::ne: return "$ne";
         case ComparisonType::in: return "$in";
         case ComparisonType::nin: return "$nin";
+        default: throw std::runtime_error("Invalid comparison type enum");
     }
 }
 

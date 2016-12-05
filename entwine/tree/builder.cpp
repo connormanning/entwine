@@ -64,8 +64,9 @@ Builder::Builder(
     , m_threadPools(makeUnique<ThreadPools>(totalThreads))
     , m_executor(makeUnique<Executor>())
     , m_sequence(makeUnique<Sequence>(*this))
-    , m_originId(m_metadata->schema().pdalLayout().findDim("Origin"))
-    , m_pointPool(outerScope.getPointPool(m_metadata->schema()))
+    , m_originId(m_metadata->schema().pdalLayout().findDim("OriginId"))
+    , m_pointPool(
+            outerScope.getPointPool(m_metadata->schema(), m_metadata->delta()))
     , m_hierarchyPool(outerScope.getHierarchyPool(heuristics::poolBlockSize))
     , m_hierarchy(makeUnique<Hierarchy>(
                 *m_hierarchyPool,
@@ -93,8 +94,9 @@ Builder::Builder(
     , m_threadPools(makeUnique<ThreadPools>(totalThreads))
     , m_executor(makeUnique<Executor>())
     , m_sequence(makeUnique<Sequence>(*this))
-    , m_originId(m_metadata->schema().pdalLayout().findDim("Origin"))
-    , m_pointPool(outerScope.getPointPool(m_metadata->schema()))
+    , m_originId(m_metadata->schema().pdalLayout().findDim("OriginId"))
+    , m_pointPool(
+            outerScope.getPointPool(m_metadata->schema(), m_metadata->delta()))
     , m_hierarchyPool(outerScope.getHierarchyPool(heuristics::poolBlockSize))
     , m_hierarchy(makeUnique<Hierarchy>(
                 *m_hierarchyPool,
@@ -146,12 +148,15 @@ void Builder::go(std::size_t max)
         FileInfo& info(m_metadata->manifest().get(origin));
         const auto path(info.path());
 
-        std::cout << "Adding " << origin << " - " << path << std::endl;
-        std::cout <<
-            " A: " << m_pointPool->cellPool().allocated() <<
-            " C: " << Chunk::count() <<
-            " H: " << HierarchyBlock::count() <<
-            std::endl;
+        if (verbose())
+        {
+            std::cout << "Adding " << origin << " - " << path << std::endl;
+            std::cout <<
+                " A: " << m_pointPool->cellPool().allocated() <<
+                " C: " << Chunk::count() <<
+                " H: " << HierarchyBlock::count() <<
+                std::endl;
+        }
 
         m_threadPools->workPool().add([this, origin, &info, path]()
         {
@@ -161,18 +166,25 @@ void Builder::go(std::size_t max)
             {
                 insertPath(origin, info);
             }
-            catch (const std::runtime_error& e)
+            catch (const std::exception& e)
             {
-                std::cout << "During " << path << ": " << e.what() << std::endl;
-                status = FileInfo::Status::Error;
+                if (verbose())
+                {
+                    std::cout << "During " << path << ": " << e.what() <<
+                        std::endl;
+                }
 
+                status = FileInfo::Status::Error;
                 addError(path, e.what());
             }
             catch (...)
             {
-                std::cout << "Unknown error during " << path << std::endl;
-                status = FileInfo::Status::Error;
+                if (verbose())
+                {
+                    std::cout << "Unknown error during " << path << std::endl;
+                }
 
+                status = FileInfo::Status::Error;
                 addError(path, "Unknown error");
             }
 
@@ -180,7 +192,11 @@ void Builder::go(std::size_t max)
         });
     }
 
-    std::cout << "\tPushes complete - joining..." << std::endl;
+    if (verbose())
+    {
+        std::cout << "\tPushes complete - joining..." << std::endl;
+    }
+
     save();
 }
 
@@ -198,9 +214,12 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
         }
         catch (const ArbiterError& e)
         {
-            std::cout <<
-                "Failed GET attempt of " << rawPath << ": " << e.what() <<
-                std::endl;
+            if (verbose())
+            {
+                std::cout <<
+                    "Failed GET attempt of " << rawPath << ": " << e.what() <<
+                    std::endl;
+            }
 
             localHandle.reset();
             std::this_thread::sleep_for(std::chrono::seconds(tries));
@@ -212,11 +231,12 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
 
     const Reprojection* reprojection(m_metadata->reprojection());
     const Transformation* transformation(m_metadata->transformation());
+    const Delta* delta(m_metadata->delta());
 
     // If we don't have an inferred bounds, check against the actual file.
     if (!info.bounds())
     {
-        if (auto pre = m_executor->preview(localPath, reprojection))
+        if (auto pre = m_executor->preview(localPath, reprojection, delta))
         {
             if (!m_sequence->checkBounds(origin, pre->bounds, pre->numPoints))
             {
@@ -227,14 +247,14 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
 
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        std::string& srs(m_metadata->format().srs());
+        std::string& srs(m_metadata->srs());
 
         if (srs.empty())
         {
             if (reprojection)
             {
                 // Don't construct the pdal::SpatialReference ourself, since
-                // we need to use the Executors lock to do so.
+                // we need to use the Executor's lock to do so.
                 srs = m_executor->getSrsString(reprojection->out());
             }
             else
@@ -243,7 +263,10 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
                 if (preview) srs = preview->srs;
             }
 
-            if (srs.size()) std::cout << "Found an SRS" << std::endl;
+            if (verbose() && srs.size())
+            {
+                std::cout << "Found an SRS" << std::endl;
+            }
         }
     }
 
@@ -266,8 +289,14 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
         return insertData(std::move(cells), origin, clipper, climber);
     });
 
-    PooledPointTable table(*m_pointPool, inserter, m_originId, origin);
-    return m_executor->run(table, localPath, reprojection, transformation);
+    std::unique_ptr<PooledPointTable> table(
+            PooledPointTable::create(
+                *m_pointPool,
+                inserter,
+                m_metadata->delta(),
+                origin));
+
+    return m_executor->run(*table, localPath, reprojection, transformation);
 }
 
 Cell::PooledStack Builder::insertData(
@@ -340,13 +369,13 @@ void Builder::save(const arbiter::Endpoint& ep)
 {
     m_threadPools->cycle();
 
-    std::cout << "Saving hierarchy..." << std::endl;
+    if (verbose()) std::cout << "Saving hierarchy..." << std::endl;
     m_hierarchy->save();
 
-    std::cout << "Saving registry..." << std::endl;
+    if (verbose()) std::cout << "Saving registry..." << std::endl;
     m_registry->save(*m_outEndpoint);
 
-    std::cout << "Saving metadata..." << std::endl;
+    if (verbose()) std::cout << "Saving metadata..." << std::endl;
     m_metadata->save(*m_outEndpoint);
 }
 

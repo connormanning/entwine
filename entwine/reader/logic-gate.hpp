@@ -81,7 +81,7 @@ public:
 
     virtual void log(const std::string& pre) const override
     {
-        std::cout << pre << "AND" << std::endl;
+        if (m_filters.size()) std::cout << pre << "AND" << std::endl;
         for (const auto& c : m_filters) c->log(pre + "  ");
     }
 };

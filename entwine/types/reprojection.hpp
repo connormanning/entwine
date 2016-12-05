@@ -66,7 +66,7 @@ private:
 
 inline std::ostream& operator<<(std::ostream& os, const Reprojection& r)
 {
-    os << r.in() << " -> " << r.out() << std::endl;
+    os << r.in() << " -> " << r.out();
     return os;
 }
 

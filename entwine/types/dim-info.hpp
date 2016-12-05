@@ -45,6 +45,10 @@ public:
                 getType(baseTypeName, size))
     { }
 
+    DimInfo(const std::string& name)
+        : DimInfo(pdal::Dimension::id(name))
+    { }
+
     DimInfo(const Json::Value& json)
         : DimInfo(
                 json["name"].asString(),
@@ -78,6 +82,14 @@ public:
         json["type"] = typeString();
         json["size"] = static_cast<Json::UInt64>(size());
         return json;
+    }
+
+    static bool isXyz(const DimInfo& dim)
+    {
+        return
+            dim.id() == pdal::Dimension::Id::X ||
+            dim.id() == pdal::Dimension::Id::Y ||
+            dim.id() == pdal::Dimension::Id::Z;
     }
 
 private:

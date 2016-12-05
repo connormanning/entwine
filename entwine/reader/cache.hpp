@@ -20,7 +20,7 @@
 #include <set>
 #include <string>
 
-#include <entwine/reader/reader.hpp>
+#include <entwine/tree/hierarchy.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 
@@ -29,6 +29,7 @@ namespace entwine
 
 class Cache;
 class ChunkReader;
+class Reader;
 class Schema;
 
 struct FetchInfo
@@ -43,16 +44,9 @@ struct FetchInfo
     const Id id;
     const Id numPoints;
     const std::size_t depth;
-};
 
-inline bool operator<(const FetchInfo& lhs, const FetchInfo& rhs)
-{
-    const auto& lhsEp(lhs.reader.endpoint());
-    const auto& rhsEp(rhs.reader.endpoint());
-    return
-        (lhsEp.root() < rhsEp.root()) ||
-        (lhsEp.root() == rhsEp.root() && (lhs.id < rhs.id));
-}
+    bool operator<(const FetchInfo& rhs) const;
+};
 
 typedef std::set<FetchInfo> FetchInfoSet;
 

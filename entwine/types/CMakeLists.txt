@@ -15,8 +15,10 @@ set(
 
 set(
     HEADERS
+    "${BASE}/binary-point-table.hpp"
     "${BASE}/bounds.hpp"
     "${BASE}/defs.hpp"
+    "${BASE}/delta.hpp"
     "${BASE}/dim-info.hpp"
     "${BASE}/dir.hpp"
     "${BASE}/fixed-point-layout.hpp"
@@ -34,6 +36,7 @@ set(
     "${BASE}/subset.hpp"
     "${BASE}/tube.hpp"
     "${BASE}/vector-point-table.hpp"
+    "${BASE}/version.hpp"
 )
 
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})

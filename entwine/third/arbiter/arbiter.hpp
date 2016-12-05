@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 64e6d2d02436c9bf3d874ed486583a28f1b35b5f
+// Git SHA: 2c7ce9b45ee5eeb0753b50bb63384ad769783680
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -49,29 +49,14 @@ SOFTWARE.
 #define ARBITER_EXTERNAL_JSON
 
 // //////////////////////////////////////////////////////////////////////
-// Beginning of content of file: arbiter/util/http.hpp
+// Beginning of content of file: arbiter/util/types.hpp
 // //////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include <condition_variable>
 #include <map>
-#include <memory>
-#include <mutex>
 #include <string>
 #include <vector>
-
-#include <curl/curl.h>
-
-#ifndef ARBITER_IS_AMALGAMATION
-#ifndef ARBITER_EXTERNAL_JSON
-#include <arbiter/third/json/json.hpp>
-#endif
-#endif
-
-#ifdef ARBITER_EXTERNAL_JSON
-#include <json/json.h>
-#endif
 
 #ifdef ARBITER_CUSTOM_NAMESPACE
 namespace ARBITER_CUSTOM_NAMESPACE
@@ -80,6 +65,14 @@ namespace ARBITER_CUSTOM_NAMESPACE
 
 namespace arbiter
 {
+
+/** @brief Exception class for all internally thrown runtime errors. */
+class ArbiterError : public std::runtime_error
+{
+public:
+    ArbiterError(std::string msg) : std::runtime_error(msg) { }
+};
+
 namespace http
 {
 
@@ -88,17 +81,6 @@ using Headers = std::map<std::string, std::string>;
 
 /** HTTP query parameters. */
 using Query = std::map<std::string, std::string>;
-
-/** Perform URI percent-encoding, without encoding characters included in
- * @p exclusions.
- */
-std::string sanitize(std::string path, std::string exclusions = "/");
-
-/** Build a query string from key-value pairs.  If @p query is empty, the
- * result is an empty string.  Otherwise, the result will start with the
- * '?' character.
- */
-std::string buildQueryString(const http::Query& query);
 
 /** @cond arbiter_internal */
 
@@ -140,6 +122,54 @@ private:
     Headers m_headers;
 };
 
+/** @endcond */
+
+} // namespace http
+} // namespace arbiter
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
+
+// //////////////////////////////////////////////////////////////////////
+// End of content of file: arbiter/util/types.hpp
+// //////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+// //////////////////////////////////////////////////////////////////////
+// Beginning of content of file: arbiter/util/curl.hpp
+// //////////////////////////////////////////////////////////////////////
+
+#pragma once
+
+#include <cstddef>
+#include <string>
+
+#ifndef ARBITER_IS_AMALGAMATION
+
+#include <arbiter/util/types.hpp>
+
+#endif
+
+class curl_slist;
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
+
+namespace arbiter
+{
+namespace http
+{
+
+/** @cond arbiter_internal */
+
 class Pool;
 
 class Curl
@@ -177,13 +207,85 @@ private:
     Curl(const Curl&);
     Curl& operator=(const Curl&);
 
-    CURL* m_curl;
+    void* m_curl;
     curl_slist* m_headers;
     const bool m_verbose;
-    const std::size_t m_timeout;
+    const long m_timeout;
 
     std::vector<char> m_data;
 };
+
+/** @endcond */
+
+} // namespace http
+} // namespace arbiter
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
+
+// //////////////////////////////////////////////////////////////////////
+// End of content of file: arbiter/util/curl.hpp
+// //////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+// //////////////////////////////////////////////////////////////////////
+// Beginning of content of file: arbiter/util/http.hpp
+// //////////////////////////////////////////////////////////////////////
+
+#pragma once
+
+#include <condition_variable>
+#include <cstddef>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <vector>
+
+#ifndef ARBITER_IS_AMALGAMATION
+
+#include <arbiter/util/curl.hpp>
+#include <arbiter/util/types.hpp>
+
+#ifndef ARBITER_EXTERNAL_JSON
+#include <arbiter/third/json/json.hpp>
+#endif
+#endif
+
+#ifdef ARBITER_EXTERNAL_JSON
+#include <json/json.h>
+#endif
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
+
+namespace arbiter
+{
+namespace http
+{
+
+/** Perform URI percent-encoding, without encoding characters included in
+ * @p exclusions.
+ */
+std::string sanitize(std::string path, std::string exclusions = "/");
+
+/** Build a query string from key-value pairs.  If @p query is empty, the
+ * result is an empty string.  Otherwise, the result will start with the
+ * '?' character.
+ */
+std::string buildQueryString(const http::Query& query);
+
+/** @cond arbiter_internal */
+
+class Pool;
 
 class Resource
 {
@@ -462,6 +564,9 @@ namespace fs
 
     /** @brief Get temporary path from environment. */
     std::string getTempPath();
+
+    /** @brief Resolve a possible wildcard path. */
+    std::vector<std::string> glob(std::string path);
 
     /** @brief A scoped local filehandle for a possibly remote path.
      *
@@ -3589,6 +3694,7 @@ std::string encodeAsHex(const std::string& data);
 
 #pragma once
 
+#include <memory>
 #include <string>
 
 #ifdef ARBITER_CUSTOM_NAMESPACE
@@ -4139,7 +4245,7 @@ private:
 
 #ifndef ARBITER_IS_AMALGAMATION
 
-#include <arbiter/util/http.hpp>
+#include <arbiter/util/types.hpp>
 
 #endif
 
@@ -4152,6 +4258,7 @@ namespace arbiter
 {
 
 namespace drivers { class Http; }
+namespace http { class Pool; }
 
 class Driver;
 
@@ -4339,6 +4446,7 @@ private:
 #include <arbiter/drivers/http.hpp>
 #include <arbiter/drivers/s3.hpp>
 #include <arbiter/drivers/dropbox.hpp>
+#include <arbiter/util/types.hpp>
 
 #ifndef ARBITER_EXTERNAL_JSON
 #include <arbiter/third/json/json.hpp>
@@ -4360,12 +4468,7 @@ namespace ARBITER_CUSTOM_NAMESPACE
 namespace arbiter
 {
 
-/** @brief Exception class for all internally thrown runtime errors. */
-class ArbiterError : public std::runtime_error
-{
-public:
-    ArbiterError(std::string msg) : std::runtime_error(msg) { }
-};
+namespace http { class Pool; }
 
 /** @brief The primary interface for storage abstraction.
  *
@@ -4617,14 +4720,14 @@ public:
     /** Fetch the common HTTP pool, which may be useful when dynamically
      * constructing adding a Driver via Arbiter::addDriver.
      */
-    http::Pool& httpPool() { return m_pool; }
+    http::Pool& httpPool() { return *m_pool; }
 
 private:
     const drivers::Http* tryGetHttpDriver(std::string path) const;
     const drivers::Http& getHttpDriver(std::string path) const;
 
     DriverMap m_drivers;
-    http::Pool m_pool;
+    std::unique_ptr<http::Pool> m_pool;
 };
 
 } // namespace arbiter

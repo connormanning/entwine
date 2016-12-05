@@ -83,9 +83,9 @@ bool Sequence::checkInfo(Origin origin)
         m_manifest.set(origin, FileInfo::Status::Omitted);
         return false;
     }
-    else if (const Bounds* bounds = info.bounds())
+    else if (const Bounds* infoBounds = info.bounds())
     {
-        if (!checkBounds(origin, *bounds, info.numPoints()))
+        if (!checkBounds(origin, *infoBounds, info.numPoints()))
         {
             m_manifest.set(origin, FileInfo::Status::Inserted);
             return false;

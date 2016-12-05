@@ -11,6 +11,7 @@
 #include <entwine/reader/cache.hpp>
 
 #include <entwine/reader/chunk-reader.hpp>
+#include <entwine/reader/reader.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/util/pool.hpp>
@@ -29,6 +30,15 @@ FetchInfo::FetchInfo(
     , numPoints(numPoints)
     , depth(depth)
 { }
+
+bool FetchInfo::operator<(const FetchInfo& other) const
+{
+    const auto& lhsEp(reader.endpoint());
+    const auto& rhsEp(other.reader.endpoint());
+    return
+        (lhsEp.root() < rhsEp.root()) ||
+        (lhsEp.root() == rhsEp.root() && (id < other.id));
+}
 
 Block::Block(
         Cache& cache,

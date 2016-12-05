@@ -46,7 +46,8 @@ namespace
 
             "\t-o <output-path>\n"
             "\t\tIf provided, detailed per-file information will be written\n"
-            "\t\tto this file in JSON format.\n\n"
+            "\t\tto this file in JSON format.  The extension\n"
+            "'.entwine-inference' will be added automatically.\n\n"
 
             "\t-h\n"
             "\t\tIf set, the user-supplied input SRS will always override\n"
@@ -164,7 +165,7 @@ void Kernel::infer(std::vector<std::string> args)
         {
             if (++a < args.size())
             {
-                output = args[a];
+                output = args[a] + ".entwine-inference";
             }
             else
             {
@@ -253,11 +254,12 @@ void Kernel::infer(std::vector<std::string> args)
 
     Inference inference(
             path,
+            reprojection.get(),
+            trustHeaders,
+            true,
             tmpPath,
             threads,
             true,
-            reprojection.get(),
-            trustHeaders,
             arbiter.get());
 
     inference.go();
@@ -269,20 +271,33 @@ void Kernel::infer(std::vector<std::string> args)
         Json::Value json;
         json["manifest"] = inference.manifest().toInferenceJson();
         json["schema"] = inference.schema().toJson();
-        json["bounds"] = inference.bounds().toJson();
+        json["bounds"] = inference.nativeBounds().toJson();
         json["numPoints"] = Json::UInt64(inference.numPoints());
 
-        if (reprojection) json["reproject"] = reprojection->toJson();
+        if (reprojection) json["reprojection"] = reprojection->toJson();
+
+        if (const auto delta = inference.delta())
+        {
+            json["scale"] = delta->scale().toJson();
+            json["offset"] = delta->offset().toJson();
+        }
 
         arbiter->put(output, json.toStyledString());
     }
 
     std::cout << "Schema: " << inference.schema() << std::endl;
-    std::cout << "Bounds: " << inference.bounds() << std::endl;
+    std::cout << "Bounds: " << inference.nativeBounds() << std::endl;
     std::cout << "Points: " << inference.numPoints() << std::endl;
+
     if (reprojection)
     {
         std::cout << "Reprojection: " << *reprojection << std::endl;
+    }
+
+    if (const auto delta = inference.delta())
+    {
+        std::cout << "Scale:  " << delta->scale() << std::endl;
+        std::cout << "Offset: " << delta->offset() << std::endl;
     }
 }
 

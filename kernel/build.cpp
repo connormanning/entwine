@@ -106,9 +106,6 @@ namespace
             "\t-e\n"
             "\t\tEnable AWS server-side-encryption.\n\n"
 
-            "\t-g <max inserted files>\n"
-            "\t\tFor directories, stop inserting after the specified count.\n\n"
-
             "\t-p\n"
             "\t\tPrefix stored IDs with a SHA (may be useful for\n"
             "\t\tfilename-based distributed filesystems).\n\n"
@@ -119,6 +116,13 @@ namespace
 
             "\t-c\n"
             "\t\tIf set, compression will be disabled.\n\n"
+
+            "\t-n\n"
+            "\t\tIf set, absolute positioning will be used, even if values\n"
+            "\t\tfor scale/offset can be inferred.\n\n"
+
+            "\t-s <scale>\n"
+            "\t\tSet a scale factor for indexed output.\n\n"
 
             "\t-s <subset-number> <subset-total>\n"
             "\t\tBuild only a portion of the index.  If output paths are\n"
@@ -205,32 +209,6 @@ namespace
         }
         std::cout << "\t]" << std::endl;
     }
-
-    const Json::Value defaults(([]()
-    {
-        Json::Value json;
-
-        json["input"]["manifest"] = Json::Value::null;
-        json["input"]["threads"] = 9;
-        json["input"]["trustHeaders"] = true;
-
-        json["output"]["path"] = Json::Value::null;
-        json["output"]["tmp"] = "tmp";
-        json["output"]["compress"] = true;
-
-        json["structure"]["nullDepth"] = 7;
-        json["structure"]["baseDepth"] = 10;
-        json["structure"]["numPointsHint"] = Json::Value::null;
-        json["structure"]["pointsPerChunk"] = 262144;
-        json["structure"]["dynamicChunks"] = true;
-        json["structure"]["type"] = "hybrid";
-        json["structure"]["prefixIds"] = false;
-
-        json["geometry"]["bounds"] = Json::Value::null;
-        json["geometry"]["schema"] = Json::Value::null;
-
-        return json;
-    })());
 }
 
 void Kernel::build(std::vector<std::string> args)
@@ -250,7 +228,7 @@ void Kernel::build(std::vector<std::string> args)
         }
     }
 
-    Json::Value json(defaults);
+    Json::Value json(ConfigParser::defaults());
     Json::Value arbiterConfig(json["arbiter"]);
     entwine::arbiter::Arbiter localArbiter(arbiterConfig);
 
@@ -261,10 +239,13 @@ void Kernel::build(std::vector<std::string> args)
         // First argument is a config path.
         const std::string configPath(args[0]);
         const Json::Value config(parse(localArbiter.get(configPath)));
-        recMerge(json, ConfigParser::unflatten(config));
-
         ++a;
     }
+
+    auto error([](const std::string& message)
+    {
+        throw std::runtime_error(message);
+    });
 
     while (a < args.size())
     {
@@ -272,48 +253,18 @@ void Kernel::build(std::vector<std::string> args)
 
         if (arg == "-i")
         {
-            if (++a < args.size())
-            {
-                json["input"]["manifest"] = args[a];
-            }
-            else
-            {
-                throw std::runtime_error("Invalid input path specification");
-            }
+            if (++a < args.size()) json["input"] = args[a];
+            else error("Invalid input path specification");
         }
         else if (arg == "-o")
         {
-            if (++a < args.size())
-            {
-                json["output"]["path"] = args[a];
-            }
-            else
-            {
-                throw std::runtime_error("Invalid output path specification");
-            }
+            if (++a < args.size()) json["output"] = args[a];
+            else error("Invalid output path specification");
         }
         else if (arg == "-a")
         {
-            if (++a < args.size())
-            {
-                json["output"]["tmp"] = args[a];
-            }
-            else
-            {
-                throw std::runtime_error("Invalid tmp specification");
-            }
-        }
-        else if (arg == "-n")
-        {
-            if (++a < args.size())
-            {
-                const Json::UInt64 bd(std::stoul(args[a]));
-                json["structure"]["baseDepth"] = bd;
-            }
-            else
-            {
-                throw std::runtime_error("Invalid tmp specification");
-            }
+            if (++a < args.size()) json["tmp"] = args[a];
+            else error("Invalid tmp specification");
         }
         else if (arg == "-b")
         {
@@ -326,43 +277,49 @@ void Kernel::build(std::vector<std::string> args)
                 if (args[a].find(']') != std::string::npos) done = true;
             }
 
-            if (done)
-            {
-                Json::Reader reader;
-                Json::Value boundsJson;
-
-                reader.parse(str, boundsJson, false);
-                json["geometry"]["bounds"] = boundsJson;
-            }
-            else
-            {
-                throw std::runtime_error("Invalid bounds: " + str);
-            }
+            if (done) json["bounds"] = parse(str);
+            else error("Invalid bounds: " + str);
         }
-        else if (arg == "-f") { json["output"]["force"] = true; }
-        else if (arg == "-x") { json["input"]["trustHeaders"] = false; }
-        else if (arg == "-p") { json["structure"]["prefixIds"] = true; }
-        else if (arg == "-c") { json["output"]["compress"] = false; }
+        else if (arg == "-f") { json["force"] = true; }
+        else if (arg == "-x") { json["trustHeaders"] = false; }
+        else if (arg == "-p") { json["prefixIds"] = true; }
+        else if (arg == "-c") { json["compress"] = false; }
+        else if (arg == "-n") { json["absolute"] = true; }
         else if (arg == "-e") { arbiterConfig["s3"]["sse"] = true; }
         else if (arg == "-h")
         {
-            json["geometry"]["reproject"]["hammer"] = true;
+            json["reprojection"]["hammer"] = true;
         }
         else if (arg == "-s")
         {
-            if (a + 2 < args.size())
+            if (++a < args.size())
             {
-                ++a;
-                const Json::UInt64 id(std::stoul(args[a]));
-                ++a;
-                const Json::UInt64 of(std::stoul(args[a]));
+                // If there's only one following argument, then this is a
+                // scale specification.  Otherwise, it's a subset specification.
+                if (a + 1 >= args.size() || args[a + 1].front() == '-')
+                {
+                    if (args[a].front() == '[')
+                    {
+                        json["scale"] = parse(args[a]);
+                    }
+                    else
+                    {
+                        const double d(std::stod(args[a]));
+                        for (int i(0); i < 3; ++i) json["scale"].append(d);
+                    }
+                }
+                else
+                {
+                    const Json::UInt64 id(std::stoul(args[a]));
+                    const Json::UInt64 of(std::stoul(args[++a]));
 
-                json["subset"]["id"] = id;
-                json["subset"]["of"] = of;
+                    json["subset"]["id"] = id;
+                    json["subset"]["of"] = of;
+                }
             }
             else
             {
-                throw std::runtime_error("Invalid subset specification");
+                error("Invalid -s specification");
             }
         }
         else if (arg == "-u")
@@ -373,7 +330,7 @@ void Kernel::build(std::vector<std::string> args)
             }
             else
             {
-                throw std::runtime_error("Invalid AWS user argument");
+                error("Invalid AWS user argument");
             }
         }
         else if (arg == "-r")
@@ -386,48 +343,37 @@ void Kernel::build(std::vector<std::string> args)
 
                 if (onlyOutput)
                 {
-                    json["geometry"]["reproject"]["out"] = args[a];
+                    json["reprojection"]["out"] = args[a];
                 }
                 else
                 {
-                    json["geometry"]["reproject"]["in"] = args[a];
-                    json["geometry"]["reproject"]["out"] = args[++a];
+                    json["reprojection"]["in"] = args[a];
+                    json["reprojection"]["out"] = args[++a];
                 }
             }
             else
             {
-                throw std::runtime_error("Invalid reprojection argument");
+                error("Invalid reprojection argument");
             }
         }
         else if (arg == "-h")
         {
-            json["geometry"]["reproject"]["hammer"] = true;
-        }
-        else if (arg == "-g")
-        {
-            if (++a < args.size())
-            {
-                json["input"]["run"] = Json::UInt64(std::stoul(args[a]));
-            }
-            else
-            {
-                throw std::runtime_error("Invalid run count specification");
-            }
+            json["reprojection"]["hammer"] = true;
         }
         else if (arg == "-t")
         {
             if (++a < args.size())
             {
-                json["input"]["threads"] = Json::UInt64(std::stoul(args[a]));
+                json["threads"] = Json::UInt64(std::stoul(args[a]));
             }
             else
             {
-                throw std::runtime_error("Invalid thread count specification");
+                error("Invalid thread count specification");
             }
         }
         else
         {
-            throw std::runtime_error("Invalid argument: " + args[a]);
+            error("Invalid argument: " + args[a]);
         }
 
         ++a;
@@ -435,6 +381,7 @@ void Kernel::build(std::vector<std::string> args)
 
     auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(arbiterConfig));
 
+    json["verbose"] = true;
     std::unique_ptr<Builder> builder(ConfigParser::getBuilder(json, arbiter));
 
     if (builder->isContinuation())
@@ -446,7 +393,7 @@ void Kernel::build(std::vector<std::string> args)
     const auto& tmpEndpoint(builder->tmpEndpoint());
 
     std::string outPath(
-            (outEndpoint.type() != "fs" ? outEndpoint.type() + "://" : "") +
+            (outEndpoint.type() != "file" ? outEndpoint.type() + "://" : "") +
             outEndpoint.root());
     std::string tmpPath(tmpEndpoint.root());
 
@@ -456,7 +403,7 @@ void Kernel::build(std::vector<std::string> args)
 
     const Reprojection* reprojection(metadata.reprojection());
     const Schema& schema(metadata.schema());
-    const std::size_t runCount(json["input"]["run"].asUInt64());
+    const std::size_t runCount(json["run"].asUInt64());
 
     std::cout << std::endl;
 
@@ -504,6 +451,13 @@ void Kernel::build(std::vector<std::string> args)
         "\tCompressed output? " << yesNo(format.compress()) <<
         std::endl;
 
+    if (const auto* delta = metadata.delta())
+    {
+        std::cout << "\tScale: " << delta->scale() << std::endl;
+        std::cout << "\tOffset: " << delta->offset() << std::endl;
+        std::cout << "\tXYZ width: " << schema.find("X").size() << std::endl;
+    }
+
     std::cout <<
         "Tree structure:\n" <<
         "\tNull depth: " << structure.nullDepthEnd() << "\n" <<
@@ -518,7 +472,7 @@ void Kernel::build(std::vector<std::string> args)
 
     std::cout <<
         "Geometry:\n" <<
-        "\tConforming bounds: " << metadata.boundsConforming() << "\n" <<
+        "\tNative bounds: " << metadata.boundsNative() << "\n" <<
         "\tCubic bounds: " << metadata.bounds() << "\n" <<
         "\tReprojection: " << getReprojString(reprojection) << "\n" <<
         "\tStoring dimensions: " << getDimensionString(schema) <<

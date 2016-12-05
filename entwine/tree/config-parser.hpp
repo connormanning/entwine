@@ -20,19 +20,22 @@ namespace entwine
 
 namespace arbiter { class Arbiter; }
 
+class Bounds;
 class Builder;
+class Delta;
 class Manifest;
+class Subset;
 
 class ConfigParser
 {
 public:
+    static Json::Value defaults();
+
     static std::unique_ptr<Builder> getBuilder(
             Json::Value json,
-            std::shared_ptr<arbiter::Arbiter> arbiter);
+            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
 
     static std::string directorify(std::string path);
-
-    static Json::Value unflatten(Json::Value json);
 
 private:
     static void extractManifest(
@@ -45,6 +48,11 @@ private:
             const std::string& outPath,
             const std::string& tmpPath,
             std::size_t numThreads);
+
+    static std::unique_ptr<Subset> maybeAccommodateSubset(
+            Json::Value& json,
+            const Bounds& boundsConforming,
+            const Delta* delta);
 };
 
 } // namespace entwine

@@ -15,11 +15,13 @@
 #include <pdal/BufferReader.hpp>
 #include <pdal/Dimension.hpp>
 #include <pdal/Filter.hpp>
+#include <pdal/LasReader.hpp>
 #include <pdal/QuickInfo.hpp>
 #include <pdal/Reader.hpp>
 #include <pdal/SpatialReference.hpp>
 #include <pdal/StageFactory.hpp>
 
+#include <entwine/types/delta.hpp>
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
@@ -180,7 +182,8 @@ bool Executor::good(const std::string path) const
 
 std::unique_ptr<Preview> Executor::preview(
         const std::string path,
-        const Reprojection* reprojection)
+        const Reprojection* reprojection,
+        const Delta* delta)
 {
     std::unique_ptr<Preview> result;
 
@@ -197,9 +200,19 @@ std::unique_ptr<Preview> Executor::preview(
 
     if (!qi.valid() || qi.m_bounds.empty()) return result;
 
+    std::unique_ptr<Scale> scale;
     Bounds bounds(
             Point(qi.m_bounds.minx, qi.m_bounds.miny, qi.m_bounds.minz),
             Point(qi.m_bounds.maxx, qi.m_bounds.maxy, qi.m_bounds.maxz));
+
+    if (const auto lasReader = dynamic_cast<pdal::LasReader*>(reader))
+    {
+        const auto& header(lasReader->header());
+        scale = makeUnique<Scale>(
+                header.scaleX(),
+                header.scaleY(),
+                header.scaleZ());
+    }
 
     std::string srs;
 
@@ -250,7 +263,15 @@ std::unique_ptr<Preview> Executor::preview(
         srs = pdal::SpatialReference(reprojection->out()).getWKT();
     }
 
-    result.reset(new Preview(bounds, qi.m_pointCount, srs, qi.m_dimNames));
+    if (delta) bounds = bounds.deltify(*delta);
+
+    result = makeUnique<Preview>(
+            bounds,
+            qi.m_pointCount,
+            srs,
+            qi.m_dimNames,
+            scale.get());
+
     return result;
 }
 
@@ -379,7 +400,6 @@ UniqueStage Executor::createTransformationFilter(
         std::ostringstream ss;
         ss << std::setprecision(std::numeric_limits<double>::digits10);
         for (const double d : matrix) ss << d << " ";
-        // std::cout << "TXFORM: " << ss.str() << std::endl;
 
         pdal::Options options;
         options.add(pdal::Option("matrix", ss.str()));

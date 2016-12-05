@@ -12,15 +12,20 @@
 
 #include <algorithm>
 #include <iterator>
+#include <limits>
+
+#include <pdal/util/Utils.hpp>
 
 #include <entwine/reader/cache.hpp>
 #include <entwine/reader/chunk-reader.hpp>
+#include <entwine/reader/reader.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/types/dir.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/tube.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
@@ -35,15 +40,37 @@ Query::Query(
         const Schema& schema,
         const Json::Value& filter,
         Cache& cache,
+        const std::size_t depthBegin,
+        const std::size_t depthEnd,
+        const Point* scale,
+        const Point* offset)
+    : Query(
+            reader,
+            schema,
+            filter,
+            cache,
+            Bounds::everything(),
+            depthBegin,
+            depthEnd,
+            scale,
+            offset)
+{ }
+
+Query::Query(
+        const Reader& reader,
+        const Schema& schema,
+        const Json::Value& filter,
+        Cache& cache,
         const Bounds& queryBounds,
         const std::size_t depthBegin,
         const std::size_t depthEnd,
-        const double scale,
-        const Point& offset)
+        const Point* scale,
+        const Point* offset)
     : m_reader(reader)
     , m_structure(m_reader.metadata().structure())
     , m_cache(cache)
-    , m_queryBounds(queryBounds)
+    , m_delta(Delta::maybeCreate(scale, offset))
+    , m_queryBounds(queryBounds.intersection(m_reader.metadata().bounds()))
     , m_depthBegin(depthBegin)
     , m_depthEnd(depthEnd)
     , m_chunks()
@@ -53,8 +80,6 @@ Query::Query(
     , m_base(true)
     , m_done(false)
     , m_outSchema(schema)
-    , m_scale(scale)
-    , m_offset(offset)
     , m_table(m_reader.metadata().schema())
     , m_pointRef(m_table, 0)
     , m_filter(m_reader.metadata(), m_queryBounds, filter)
@@ -63,7 +88,7 @@ Query::Query(
     {
         QueryChunkState chunkState(m_structure, m_reader.metadata().bounds());
         getFetches(chunkState);
-        std::cout << "Fetches: " << m_chunks.size() << std::endl;
+        // std::cout << "Fetches: " << m_chunks.size() << std::endl;
     }
 }
 
@@ -135,7 +160,7 @@ bool Query::next(std::vector<char>& buffer)
 
 void Query::getBase(std::vector<char>& buffer, const PointState& pointState)
 {
-    if (!m_filter.check(pointState.bounds())) return;
+    if (!m_queryBounds.overlaps(pointState.bounds(), true)) return;
 
     if (pointState.depth() >= m_structure.baseDepthBegin())
     {
@@ -155,8 +180,7 @@ void Query::getBase(std::vector<char>& buffer, const PointState& pointState)
             pointState.depth() + 1 < m_structure.baseDepthEnd() &&
             pointState.depth() + 1 < m_depthEnd)
     {
-        // Always climb in 2d.
-        for (std::size_t i(0); i < 4; ++i)
+        for (std::size_t i(0); i < dirHalfEnd(); ++i)
         {
             getBase(buffer, pointState.getClimb(toDir(i)));
         }
@@ -219,23 +243,25 @@ bool Query::processPoint(std::vector<char>& buffer, const PointInfo& info)
         buffer.resize(buffer.size() + m_outSchema.pointSize(), 0);
         char* pos(buffer.data() + buffer.size() - m_outSchema.pointSize());
 
-        bool isX(false), isY(false), isZ(false);
+        std::size_t dimNum(0);
+        const auto& mid(m_reader.metadata().bounds().mid());
 
         for (const auto& dim : m_outSchema.dims())
         {
-            isX = dim.id() == pdal::Dimension::Id::X;
-            isY = dim.id() == pdal::Dimension::Id::Y;
-            isZ = dim.id() == pdal::Dimension::Id::Z;
+            // Subtract one to ignore Dimension::Id::Unknown.
+            dimNum = pdal::Utils::toNative(dim.id()) - 1;
 
-            if (isX || isY || isZ)
+            if (m_delta && dimNum < 3)
             {
                 double d(m_pointRef.getFieldAs<double>(dim.id()));
 
-                if (isX)        d -= m_offset.x;
-                else if (isY)   d -= m_offset.y;
-                else            d -= m_offset.z;
-
-                if (m_scale) d /= m_scale;
+                // Center the point around the origin, scale it, then un-center
+                // it and apply the user's offset from the origin bounds center.
+                d = Point::scale(
+                        d,
+                        mid[dimNum],
+                        m_delta->scale()[dimNum],
+                        m_delta->offset()[dimNum]);
 
                 switch (dim.type())
                 {

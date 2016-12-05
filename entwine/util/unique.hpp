@@ -28,5 +28,12 @@ std::unique_ptr<T> maybeClone(const T* t)
     else return std::unique_ptr<T>();
 }
 
+template<typename T>
+inline std::unique_ptr<T> maybeCreate(const Json::Value& json)
+{
+    if (!json.isNull()) return makeUnique<T>(json);
+    else return std::unique_ptr<T>();
+}
+
 } // namespace entwine
 
