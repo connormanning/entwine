@@ -5,3 +5,7 @@ CMakeCache.txt
 build/*
 dev/*
 
+test/data/*
+!test/data/generate
+!test/data/generate-ellipsoid.cpp
+
