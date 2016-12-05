@@ -811,7 +811,7 @@ namespace
             std::ofstream::out |
             std::ofstream::trunc);
 
-    const std::string home(([]()
+    std::string getHome()
     {
         std::string s;
 
@@ -833,7 +833,7 @@ namespace
         if (s.empty()) std::cout << "No home directory found" << std::endl;
 
         return s;
-    })());
+    }
 }
 
 namespace drivers
@@ -1096,11 +1096,10 @@ std::vector<std::string> glob(std::string path)
 std::string expandTilde(std::string in)
 {
     std::string out(in);
-
+    static std::string home(getHome());
     if (!in.empty() && in.front() == '~')
     {
         if (home.empty()) throw ArbiterError("No home directory found");
-
         out = home + in.substr(1);
     }
 
@@ -1397,8 +1396,6 @@ namespace
         else return "s3-" + region + ".amazonaws.com/";
     }
 
-    drivers::Fs fsDriver;
-
     std::string line(const std::string& data) { return data + "\n"; }
     const std::vector<char> empty;
 
@@ -1549,6 +1546,7 @@ std::unique_ptr<S3> S3::create(Pool& pool, const Json::Value& json)
             util::env("AWS_CONFIG_FILE") ?
                 *util::env("AWS_CONFIG_FILE") : "~/.aws/config");
 
+    drivers::Fs fsDriver;
     if (auto p = util::env("AWS_REGION"))
     {
         region = *p;
@@ -2113,6 +2111,7 @@ std::unique_ptr<S3::Auth> S3::Auth::find(std::string profile)
     const std::string credFile("~/.aws/credentials");
 
     // First, try reading credentials file.
+    drivers::Fs fsDriver;
     if (std::unique_ptr<std::string> cred = fsDriver.tryGet(credFile))
     {
         const std::vector<std::string> lines(condense(split(*cred)));
@@ -2692,8 +2691,10 @@ void Curl::init(
     // Substantially faster DNS lookups without IPv6.
     curl_easy_setopt(m_curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
 
-    // Don't wait forever.
-    curl_easy_setopt(m_curl, CURLOPT_TIMEOUT, m_timeout);
+    // Don't wait forever.  Use the low-speed options instead of the timeout
+    // option to make the timeout a sliding window instead of an absolute.
+    curl_easy_setopt(m_curl, CURLOPT_LOW_SPEED_LIMIT, 1L);
+    curl_easy_setopt(m_curl, CURLOPT_LOW_SPEED_TIME, m_timeout);
 
     // Configuration options.
     if (followRedirect) curl_easy_setopt(m_curl, CURLOPT_FOLLOWLOCATION, 1L);
