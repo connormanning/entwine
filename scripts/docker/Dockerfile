@@ -15,7 +15,6 @@ ENV CXX g++
 ADD http://www.timeapi.org/utc/now /tmp/bust-cache
 RUN git clone https://github.com/connormanning/entwine.git && \
     cd entwine && \
-    git checkout scale-offset && \
     mkdir build && \
     cd build && \
     cmake -G "Unix Makefiles" \
