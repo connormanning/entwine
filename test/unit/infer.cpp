@@ -48,7 +48,7 @@ void checkCommon(const Inference& inference)
     EXPECT_TRUE(schema.contains("Blue"));
 
     EXPECT_EQ(inference.nativeBounds(), nominalBounds);
-    EXPECT_EQ(inference.numPoints(), 100000);
+    EXPECT_EQ(inference.numPoints(), 100000u);
 }
 
 void checkDelta(const Inference& inference, const Delta& ver)
@@ -81,7 +81,7 @@ TEST(Infer, EllipsoidSingleLaz)
     checkCommon(inference);
     checkDelta(inference, Delta(Scale(.01), Offset(0)));
 
-    EXPECT_EQ(inference.manifest().size(), 1);
+    EXPECT_EQ(inference.manifest().size(), 1u);
     EXPECT_FALSE(inference.reprojection());
     EXPECT_FALSE(inference.transformation());
 }
@@ -95,7 +95,7 @@ TEST(Infer, EllipsoidMultiLaz)
     checkCommon(inference);
     checkDelta(inference, Delta(Scale(.01), Offset(0)));
 
-    EXPECT_EQ(inference.manifest().size(), 8);
+    EXPECT_EQ(inference.manifest().size(), 8u);
     EXPECT_FALSE(inference.reprojection());
     EXPECT_FALSE(inference.transformation());
 }
@@ -109,7 +109,7 @@ TEST(Infer, EllipsoidMultiBpf)
     checkCommon(inference);
     EXPECT_FALSE(inference.delta());
 
-    EXPECT_EQ(inference.manifest().size(), 8);
+    EXPECT_EQ(inference.manifest().size(), 8u);
     EXPECT_FALSE(inference.reprojection());
     EXPECT_FALSE(inference.transformation());
 }
