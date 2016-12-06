@@ -253,8 +253,32 @@ void Kernel::build(std::vector<std::string> args)
 
         if (arg == "-i")
         {
-            if (++a < args.size()) json["input"] = args[a];
-            else error("Invalid input path specification");
+            ++a;
+            auto i(a);
+
+            while (i < args.size() && args[i].front() != '-')
+            {
+                ++i;
+            }
+
+            if (i == a || i > args.size())
+            {
+                error("Invalid input path specification");
+            }
+            else if (i == a + 1)
+            {
+                json["input"] = args[a];
+            }
+            else
+            {
+                while (a < i)
+                {
+                    json["input"].append(args[a]);
+                    ++a;
+                }
+
+                --a;
+            }
         }
         else if (arg == "-o")
         {
@@ -407,10 +431,19 @@ void Kernel::build(std::vector<std::string> args)
 
     std::cout << std::endl;
 
-    std::cout <<
-        "Input:\n" <<
-        "\tBuilding from " << manifest.size() << " source file" <<
-            (manifest.size() > 1 ? "s" : "") << "\n";
+    if (manifest.size() == 1)
+    {
+        std::cout <<
+            "Input:\n" <<
+            "\tBuilding file " << manifest.get(0).path() << std::endl;
+    }
+    else
+    {
+        std::cout <<
+            "Input:\n" <<
+            "\tBuilding from " << manifest.size() << " source file" <<
+                (manifest.size() > 1 ? "s" : "") << std::endl;
+    }
 
     if (const Subset* subset = metadata.subset())
     {
