@@ -6,7 +6,6 @@ cd /entwine
 mkdir -p _build || exit 1
 cd _build || exit 1
 
-
 cmake \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     ..
