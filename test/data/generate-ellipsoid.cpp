@@ -6,10 +6,10 @@
 #include <entwine/types/schema.hpp>
 #include <entwine/types/vector-point-table.hpp>
 
-#include <pdal/BufferReader.hpp>
 #include <pdal/Reader.hpp>
 #include <pdal/StageFactory.hpp>
 #include <pdal/Writer.hpp>
+#include <pdal/io/BufferReader.hpp>
 
 using namespace entwine;
 using D = pdal::Dimension::Id;
