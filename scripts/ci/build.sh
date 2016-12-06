@@ -16,7 +16,7 @@ cmake \
 NUMTHREADS=2
 make -j ${NUMTHREADS} && \
     LD_LIBRARY_PATH=./lib && \
-    ctest -V && \
+    make test && \
     make install && \
     /sbin/ldconfig
 
