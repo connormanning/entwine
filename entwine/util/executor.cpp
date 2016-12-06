@@ -12,14 +12,14 @@
 
 #include <sstream>
 
-#include <pdal/BufferReader.hpp>
 #include <pdal/Dimension.hpp>
 #include <pdal/Filter.hpp>
-#include <pdal/LasReader.hpp>
 #include <pdal/QuickInfo.hpp>
 #include <pdal/Reader.hpp>
 #include <pdal/SpatialReference.hpp>
 #include <pdal/StageFactory.hpp>
+#include <pdal/io/BufferReader.hpp>
+#include <pdal/io/LasReader.hpp>
 
 #include <entwine/types/delta.hpp>
 #include <entwine/types/pooled-point-table.hpp>
