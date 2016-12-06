@@ -145,6 +145,8 @@ TEST_P(BuildTest, Verify)
             config.isMember("trustHeaders") ?
                 config["trustHeaders"].asBool() : true);
 
+    EXPECT_EQ(Version(meta["version"].asString()), currentVersion());
+
     // Verify results against a simple octree implementation.
     Cache cache(32);
     Reader r(outPath, cache);

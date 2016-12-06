@@ -93,6 +93,7 @@ public:
         return m_cesiumSettings.get();
     }
 
+    const Version& version() const { return *m_version; }
     const std::string& srs() const { return m_srs; }
 
     const std::vector<std::string>& errors() const { return m_errors; }

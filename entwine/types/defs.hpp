@@ -21,7 +21,10 @@ namespace pdal { class PointView; }
 namespace entwine
 {
 
-static const Version currentVersion(0);
+inline Version currentVersion()
+{
+    return Version(0, 0, 0);
+}
 
 using Id = BigUint;
 

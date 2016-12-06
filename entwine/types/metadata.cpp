@@ -82,6 +82,7 @@ Metadata::Metadata(
     , m_subset(maybeClone(subset))
     , m_transformation(maybeClone(transformation))
     , m_cesiumSettings(maybeClone(cesiumSettings))
+    , m_version(makeUnique<Version>(currentVersion()))
     , m_srs()
     , m_errors()
 { }
@@ -129,6 +130,7 @@ Metadata::Metadata(const Json::Value& json)
             json.isMember("formats") && json["formats"].isMember("cesium") ?
                 makeUnique<cesium::Settings>(json["formats"]["cesium"]) :
                 nullptr)
+    , m_version(makeUnique<Version>(json["version"].asString()))
     , m_srs(json["srs"].asString())
     , m_errors(fromJsonArray(json["errors"]))
 {
@@ -156,6 +158,7 @@ Metadata::Metadata(const Metadata& other)
     , m_subset(maybeClone(other.subset()))
     , m_transformation(maybeClone(other.transformation()))
     , m_cesiumSettings(maybeClone(other.cesiumSettings()))
+    , m_version(makeUnique<Version>(other.version()))
     , m_srs(other.srs())
     , m_errors(other.errors())
 { }
@@ -203,6 +206,8 @@ Json::Value Metadata::toJson() const
     {
         for (const auto& e : m_errors) json["errors"].append(e);
     }
+
+    json["version"] = m_version->toString();
 
     return json;
 }
