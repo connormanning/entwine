@@ -16,6 +16,7 @@ cmake \
 NUMTHREADS=2
 make -j ${NUMTHREADS} && \
     LD_LIBRARY_PATH=./lib && \
+    (cd /entwine/test/data && ./generate) &&
     make test && \
     make install && \
     /sbin/ldconfig
