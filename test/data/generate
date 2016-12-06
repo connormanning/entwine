@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
-g++ -std=c++11 generate-ellipsoid.cpp -lentwine -lpdalcpp -o generate-ellipsoid && \
-    ./generate-ellipsoid && \
-    rm generate-ellipsoid
+g++ -std=c++11 \
+    -I/usr/include/jsoncpp -I/usr/local/include/jsoncpp \
+    generate-ellipsoid.cpp \
+    -lentwine -lpdalcpp \
+    -o generate-ellipsoid && \
+    ./generate-ellipsoid
 
