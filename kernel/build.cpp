@@ -239,6 +239,9 @@ void Kernel::build(std::vector<std::string> args)
         // First argument is a config path.
         const std::string configPath(args[0]);
         const Json::Value config(parse(localArbiter.get(configPath)));
+
+        recMerge(json, config);
+
         ++a;
     }
 

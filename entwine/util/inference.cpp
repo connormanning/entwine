@@ -202,11 +202,15 @@ void Inference::go()
     {
         std::cout << "Transforming inference" << std::endl;
         m_transformation = makeUnique<Transformation>(calcTransformation());
+
+        m_bounds = makeUnique<Bounds>(expander);
         for (std::size_t i(0); i < m_manifest.size(); ++i)
         {
             auto& f(m_manifest.get(i));
             if (!f.bounds()) throw std::runtime_error("No bounds present");
             f.bounds(m_executor.transform(*f.bounds(), *m_transformation));
+
+            m_bounds->grow(*f.bounds());
         }
     }
 
