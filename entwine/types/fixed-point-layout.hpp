@@ -23,25 +23,27 @@ private:
             pdal::Dimension::Detail dimDetail,
             const std::string& name) override
     {
-        bool added(false);
-
-        if (!m_finalized && !contains(m_used, dimDetail.id()))
+        if (!m_finalized)
         {
-            dimDetail.setOffset(m_pointSize);
+            if (!contains(m_used, dimDetail.id()))
+            {
+                dimDetail.setOffset(m_pointSize);
 
-            m_pointSize += dimDetail.size();
-            m_used.push_back(dimDetail.id());
-            m_detail[pdal::Utils::toNative(dimDetail.id())] = dimDetail;
+                m_pointSize += dimDetail.size();
+                m_used.push_back(dimDetail.id());
+                m_detail[pdal::Utils::toNative(dimDetail.id())] = dimDetail;
 
-            added = true;
+                return true;
+            }
         }
+        else return m_propIds.count(name);
 
-        return added;
+        return false;
     }
 
     bool contains(
             const pdal::Dimension::IdList& idList,
-            const pdal::Dimension::Id id)
+            const pdal::Dimension::Id id) const
     {
         for (const auto current : idList)
         {

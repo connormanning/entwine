@@ -28,6 +28,8 @@ public:
 
     Version(std::string s)
     {
+        if (s.empty()) return;
+
         auto invalidCharacter([](char c)
         {
             return !(std::isdigit(c) || c == '.');
