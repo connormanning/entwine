@@ -138,7 +138,7 @@ TEST_P(BuildTest, Verify)
             meta["compress"].asBool(),
             config.isMember("compress") ? config["compress"].asBool() : true);
 
-    EXPECT_EQ(meta["compress-hierarchy"].asString(), "lzma");
+    EXPECT_EQ(meta["compressHierarchy"].asString(), "lzma");
 
     EXPECT_EQ(
             meta["trustHeaders"].asBool(),
@@ -289,7 +289,7 @@ TEST(Build, Basic)
 
     EXPECT_TRUE(meta["compress"].asBool());
     EXPECT_TRUE(meta["trustHeaders"].asBool());
-    EXPECT_EQ(meta["compress-hierarchy"].asString(), "lzma");
+    EXPECT_EQ(meta["compressHierarchy"].asString(), "lzma");
 
     const Schema schema(meta["schema"]);
     for (const auto d : actualDims)

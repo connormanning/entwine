@@ -70,7 +70,7 @@ public:
             json["tail"].append(tailFieldNames.at(f));
         }
 
-        json["compress-hierarchy"] =
+        json["compressHierarchy"] =
             hierarchyCompressionNames.count(m_hierarchyCompression) ?
                 hierarchyCompressionNames.at(m_hierarchyCompression) :
                 "none";

@@ -89,7 +89,7 @@ Format::Format(const Metadata& metadata, const Json::Value& json)
             metadata,
             json["trustHeaders"].asBool(),
             json["compress"].asBool(),
-            hierarchyCompressionFromName(json["compress-hierarchy"].asString()),
+            hierarchyCompressionFromName(json["compressHierarchy"].asString()),
             fieldsFromJson(json["tail"]))
 { }
 
