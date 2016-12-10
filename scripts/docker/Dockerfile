@@ -1,4 +1,4 @@
-FROM connormanning/pdal:entwine-pin
+FROM pdal/pdal
 MAINTAINER Connor Manning <connor@hobu.co>
 
 RUN apt-get update && apt-get install -y \
@@ -13,8 +13,8 @@ ENV CC gcc
 ENV CXX g++
 
 ADD http://www.timeapi.org/utc/now /tmp/bust-cache
-RUN git clone https://github.com/connormanning/entwine.git && \
-    cd entwine && \
+RUN git clone https://github.com/connormanning/entwine.git /var/entwine && \
+    cd /var/entwine && \
     mkdir build && \
     cd build && \
     cmake -G "Unix Makefiles" \
@@ -22,4 +22,6 @@ RUN git clone https://github.com/connormanning/entwine.git && \
         -DCMAKE_BUILD_TYPE=Release .. && \
     make -j4 && \
     make install
+
+ENTRYPOINT ["entwine"]
 
