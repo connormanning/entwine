@@ -136,11 +136,7 @@ Json::Value FileInfo::toInferenceJson() const
 
     if (m_bounds) json["bounds"] = m_bounds->toJson();
     if (m_numPoints) json["numPoints"] = static_cast<Json::UInt64>(m_numPoints);
-
-    if (!m_srs.empty())
-    {
-        json["srs"] = m_srs.getWKT(pdal::SpatialReference::eCompoundOK);
-    }
+    if (!m_srs.empty()) json["srs"] = m_srs.getWKT();
 
     return json;
 }
