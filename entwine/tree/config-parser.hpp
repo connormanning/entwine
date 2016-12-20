@@ -38,7 +38,7 @@ public:
     static std::string directorify(std::string path);
 
 private:
-    static void extractManifest(
+    static void normalizeInput(
             Json::Value& json,
             const arbiter::Arbiter& arbiter);
 

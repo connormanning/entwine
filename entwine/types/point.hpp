@@ -95,17 +95,20 @@ public:
         return sqDist2d(other) + zDelta * zDelta;
     }
 
-    static bool exists(Point p)
+    bool exists() const
     {
         return
-            p.x != Point::emptyCoord() ||
-            p.y != Point::emptyCoord() ||
-            p.z != Point::emptyCoord();
+            x != Point::emptyCoord() ||
+            y != Point::emptyCoord() ||
+            z != Point::emptyCoord();
     }
 
     static bool exists(double x, double y, double z)
     {
-        return exists(Point(x, y, z));
+        return
+            x != Point::emptyCoord() ||
+            y != Point::emptyCoord() ||
+            z != Point::emptyCoord();
     }
 
     static double emptyCoord()

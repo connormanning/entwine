@@ -81,7 +81,7 @@ TEST(Infer, EllipsoidSingleLaz)
     checkCommon(inference);
     checkDelta(inference, Delta(Scale(.01), Offset(0)));
 
-    EXPECT_EQ(inference.manifest().size(), 1u);
+    EXPECT_EQ(inference.fileInfo().size(), 1u);
     EXPECT_FALSE(inference.reprojection());
     EXPECT_FALSE(inference.transformation());
 }
@@ -95,7 +95,7 @@ TEST(Infer, EllipsoidMultiLaz)
     checkCommon(inference);
     checkDelta(inference, Delta(Scale(.01), Offset(0)));
 
-    EXPECT_EQ(inference.manifest().size(), 8u);
+    EXPECT_EQ(inference.fileInfo().size(), 8u);
     EXPECT_FALSE(inference.reprojection());
     EXPECT_FALSE(inference.transformation());
 }
@@ -109,7 +109,7 @@ TEST(Infer, EllipsoidMultiBpf)
     checkCommon(inference);
     EXPECT_FALSE(inference.delta());
 
-    EXPECT_EQ(inference.manifest().size(), 8u);
+    EXPECT_EQ(inference.fileInfo().size(), 8u);
     EXPECT_FALSE(inference.reprojection());
     EXPECT_FALSE(inference.transformation());
 }

@@ -360,6 +360,14 @@ void Kernel::build(std::vector<std::string> args)
                 error("Invalid AWS user argument");
             }
         }
+        else if (arg == "-g")
+        {
+            if (++a < args.size())
+            {
+                json["run"] = Json::UInt64(std::stoul(args[a]));
+            }
+            else error("Invalid run-count argument");
+        }
         else if (arg == "-r")
         {
             if (++a < args.size())
@@ -539,7 +547,7 @@ void Kernel::build(std::vector<std::string> args)
     auto start = now();
     const std::size_t alreadyInserted(manifest.pointStats().inserts());
     builder->go(runCount);
-    std::cout << "\nIndex completed in " << secondsSince(start) <<
+    std::cout << "\nIndex completed in " << commify(secondsSince(start)) <<
         " seconds." << std::endl;
 
     std::cout << "Save complete.  Indexing stats:\n";
@@ -550,20 +558,22 @@ void Kernel::build(std::vector<std::string> args)
     {
         std::cout <<
             "\tPoints inserted:\n" <<
-            "\t\tPreviously: " << alreadyInserted << "\n" <<
+            "\t\tPreviously: " << commify(alreadyInserted) << "\n" <<
             "\t\tCurrently:  " <<
-                (stats.inserts() - alreadyInserted) << "\n" <<
-            "\t\tTotal:      " << stats.inserts() << std::endl;
+                commify((stats.inserts() - alreadyInserted)) << "\n" <<
+            "\t\tTotal:      " << commify(stats.inserts()) << std::endl;
     }
     else
     {
-        std::cout << "\tPoints inserted: " << stats.inserts() << "\n";
+        std::cout << "\tPoints inserted: " << commify(stats.inserts()) << "\n";
     }
 
     std::cout <<
         "\tPoints discarded:\n" <<
-        "\t\tOutside specified bounds: " << stats.outOfBounds() << "\n" <<
-        "\t\tOverflow past max depth: " << stats.overflows() << "\n" <<
+        "\t\tOutside specified bounds: " <<
+            commify(stats.outOfBounds()) << "\n" <<
+        "\t\tOverflow past max depth: " <<
+            commify(stats.overflows()) << "\n" <<
         std::endl;
 }
 

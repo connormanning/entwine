@@ -1,6 +1,7 @@
 #pragma once
 
 #define ENTWINE_TEST_CONFIG_DATA_PATH "@CMAKE_SOURCE_DIR@/test/data/"
+#define ENTWINE_TEST_CONFIG_BINARY_PATH "@CMAKE_BINARY_DIR@/kernel/"
 
 #include <string>
 
@@ -8,6 +9,7 @@ namespace test
 {
 
 inline std::string dataPath() { return ENTWINE_TEST_CONFIG_DATA_PATH; }
+inline std::string binaryPath() { return ENTWINE_TEST_CONFIG_BINARY_PATH; }
 
 }
 

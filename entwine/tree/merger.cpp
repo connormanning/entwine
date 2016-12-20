@@ -9,9 +9,9 @@
 ******************************************************************************/
 
 #include <entwine/tree/builder.hpp>
-#include <entwine/tree/manifest.hpp>
 #include <entwine/tree/merger.hpp>
 #include <entwine/tree/thread-pools.hpp>
+#include <entwine/types/manifest.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/unique.hpp>

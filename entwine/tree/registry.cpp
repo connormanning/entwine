@@ -10,8 +10,6 @@
 
 #include <entwine/tree/registry.hpp>
 
-#include <algorithm>
-
 #include <pdal/PointView.hpp>
 
 #include <entwine/third/arbiter/arbiter.hpp>

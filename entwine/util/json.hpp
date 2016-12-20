@@ -40,6 +40,18 @@ inline Json::Value parse(const std::string& input)
     return json;
 }
 
+// Not really JSON-related, but fine for now...
+inline std::string commify(const std::size_t n)
+{
+    std::string s(std::to_string(n));
+    for (std::size_t i(s.size() - 3u); i && i < s.size(); i -= 3)
+    {
+        s.insert(i, ",");
+    }
+
+    return s;
+}
+
 inline void recMerge(Json::Value& dst, const Json::Value& add)
 {
     for (const auto& key : add.getMemberNames())
@@ -131,7 +143,7 @@ inline std::string toFastString(const Json::Value& json)
     return writer.write(json);
 }
 
-template <typename T>
+template<typename T>
 inline Json::Value toJsonArray(const std::vector<T>& vec)
 {
     Json::Value json;
@@ -140,6 +152,20 @@ inline Json::Value toJsonArray(const std::vector<T>& vec)
     for (std::size_t i(0); i < vec.size(); ++i)
     {
         json[static_cast<Json::ArrayIndex>(i)] = vec[i];
+    }
+
+    return json;
+}
+
+template<typename T>
+inline Json::Value toJsonArrayOfObjects(const std::vector<T>& vec)
+{
+    Json::Value json;
+    json.resize(vec.size());
+
+    for (std::size_t i(0); i < vec.size(); ++i)
+    {
+        json[static_cast<Json::ArrayIndex>(i)] = vec[i].toJson();
     }
 
     return json;
@@ -166,7 +192,15 @@ namespace extraction
     {
         static std::vector<T> go(const Json::Value& json)
         {
-            static_assert(!sizeof(T), "Cannot extract JSON as this type");
+            std::vector<T> result;
+            result.reserve(json.size());
+
+            for (Json::ArrayIndex i(0); i < json.size(); ++i)
+            {
+                result.emplace_back(json[i]);
+            }
+
+            return result;
         }
     };
 

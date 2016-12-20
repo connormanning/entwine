@@ -16,9 +16,9 @@
 #include <entwine/formats/cesium/settings.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
-#include <entwine/tree/manifest.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/format.hpp>
+#include <entwine/types/manifest.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
@@ -32,20 +32,6 @@ namespace entwine
 namespace
 {
     Json::Reader reader;
-
-    std::unique_ptr<Bounds> getBounds(const Json::Value& json)
-    {
-        std::unique_ptr<Bounds> bounds;
-        if (!json.empty()) bounds = makeUnique<Bounds>(json);
-        return bounds;
-    }
-
-    std::unique_ptr<Reprojection> getReprojection(const Json::Value& json)
-    {
-        std::unique_ptr<Reprojection> reprojection;
-        if (!json.empty()) reprojection = makeUnique<Reprojection>(json);
-        return reprojection;
-    }
 
     std::unique_ptr<cesium::Settings> getCesiumSettings(const Json::Value& json)
     {
@@ -95,28 +81,14 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         if (!json.isMember(k)) json[k] = d[k];
     }
 
-    extractManifest(json, *arbiter);
-
     const std::string outPath(json["output"].asString());
     const std::string tmpPath(json["tmp"].asString());
-    const bool compress(json["compress"].asUInt64());
-    const bool force(json["force"].asBool());
-    const bool trustHeaders(json["trustHeaders"].asBool());
     const std::size_t threads(json["threads"].asUInt64());
 
-    auto manifest(makeUnique<Manifest>(json["input"]));
-    auto cesiumSettings(getCesiumSettings(json["formats"]));
-    bool absolute(json["absolute"].asBool());
+    normalizeInput(json, *arbiter);
+    auto fileInfo(extract<FileInfo>(json["input"]));
 
-    if (cesiumSettings)
-    {
-        absolute = true;
-        json["reprojection"]["out"] = "EPSG:4978";
-    }
-
-    auto reprojection(getReprojection(json["reprojection"]));
-
-    if (!force)
+    if (!json["force"].asBool())
     {
         auto builder = tryGetExisting(
                 json,
@@ -127,37 +99,46 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
         if (builder)
         {
-            if (manifest) builder->append(*manifest);
+            // If we have more paths to add, add them to the manifest.
+            // Otherwise we might be continuing a partial build, in which case
+            // the paths to be built are already outstanding in the manifest.
+            //
+            // It's plausible that the input field could be empty to continue
+            // a previous build.
+            if (json["input"].isArray()) builder->append(fileInfo);
             return builder;
         }
     }
+
+    const bool compress(json["compress"].asUInt64());
+    const bool trustHeaders(json["trustHeaders"].asBool());
+    auto cesiumSettings(getCesiumSettings(json["formats"]));
+    bool absolute(json["absolute"].asBool());
+
+    if (cesiumSettings)
+    {
+        absolute = true;
+        json["reprojection"]["out"] = "EPSG:4978";
+    }
+
+    auto reprojection(maybeCreate<Reprojection>(json["reprojection"]));
 
     std::unique_ptr<std::vector<double>> transformation;
     std::unique_ptr<Delta> delta;
     if (!absolute && Delta::existsIn(json)) delta = makeUnique<Delta>(json);
 
+    // If we're building from an inference, then we already have these.  A user
+    // could have also pre-supplied them in the config.
+    //
+    // Either way, these three values are prerequisites for building, so if
+    // we're missing any we'll need to infer them from the files.
     std::size_t numPointsHint(json["numPointsHint"].asUInt64());
-
-    if (!numPointsHint && manifest)
-    {
-        numPointsHint = std::accumulate(
-                manifest->paths().begin(),
-                manifest->paths().end(),
-                std::size_t(0),
-                [](std::size_t sum, const FileInfo& f)
-                {
-                    return sum + f.numPoints();
-                });
-    }
-
-    auto boundsConforming(getBounds(json["bounds"]));
-    auto schema(
-            json["schema"].isNull() ?
-                std::unique_ptr<Schema>() : makeUnique<Schema>(json["schema"]));
+    auto boundsConforming(maybeCreate<Bounds>(json["bounds"]));
+    auto schema(maybeCreate<Schema>(json["schema"]));
 
     const bool needsInference(!boundsConforming || !schema || !numPointsHint);
 
-    if (manifest && needsInference)
+    if (needsInference)
     {
         if (verbose)
         {
@@ -165,18 +146,21 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         }
 
         Inference inference(
-                *manifest,
+                fileInfo,
                 reprojection.get(),
                 trustHeaders,
                 !absolute,
                 tmpPath,
                 threads,
                 verbose,
-                arbiter.get(),
-                !!cesiumSettings);
+                !!cesiumSettings,
+                arbiter.get());
 
         inference.go();
-        manifest = makeUnique<Manifest>(inference.manifest());
+
+        // Overwrite our initial fileInfo with the inferred version, which
+        // contains details for each file instead of just paths.
+        fileInfo = inference.fileInfo();
 
         if (!absolute && inference.delta())
         {
@@ -213,21 +197,21 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                 dims = Schema::deltify(cube, *delta, inference.schema()).dims();
             }
 
-            const std::size_t pointIdSize([&manifest]()
+            const std::size_t pointIdSize([&fileInfo]()
             {
                 std::size_t max(0);
-                for (std::size_t i(0); i < manifest->size(); ++i)
+                for (const auto& f : fileInfo)
                 {
-                    max = std::max(max, manifest->get(i).numPoints());
+                    max = std::max(max, f.numPoints());
                 }
 
                 if (max <= std::numeric_limits<uint32_t>::max()) return 4;
                 else return 8;
             }());
 
-            const std::size_t originSize([&manifest]()
+            const std::size_t originSize([&fileInfo]()
             {
-                if (manifest->size() <= std::numeric_limits<uint32_t>::max())
+                if (fileInfo.size() <= std::numeric_limits<uint32_t>::max())
                     return 4;
                 else
                     return 8;
@@ -255,12 +239,15 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     const HierarchyCompression hierarchyCompression(
             compress ? HierarchyCompression::Lzma : HierarchyCompression::None);
 
+    const auto ep(arbiter->getEndpoint(json["output"].asString()));
+    const Manifest manifest(fileInfo, ep);
+
     const Metadata metadata(
             *boundsConforming,
             *schema,
             structure,
             hierarchyStructure,
-            *manifest,
+            manifest,
             trustHeaders,
             compress,
             hierarchyCompression,
@@ -301,7 +288,7 @@ std::unique_ptr<Builder> ConfigParser::tryGetExisting(
     return builder;
 }
 
-void ConfigParser::extractManifest(
+void ConfigParser::normalizeInput(
         Json::Value& json,
         const arbiter::Arbiter& arbiter)
 {
@@ -316,12 +303,13 @@ void ConfigParser::extractManifest(
 
     if (!isInferencePath)
     {
-        // The input source is a path or array of paths.
-        std::vector<std::string> paths;
+        // The input source is a path or array of paths.  First, we possibly
+        // need to expand out directories into their containing files.
+        Paths paths;
 
         auto insert([&paths, &arbiter, verbose](std::string in)
         {
-            std::vector<std::string> current(arbiter.resolve(in, verbose));
+            Paths current(arbiter.resolve(in, verbose));
             paths.insert(paths.end(), current.begin(), current.end());
         });
 
@@ -334,13 +322,16 @@ void ConfigParser::extractManifest(
             insert(directorify(input.asString()));
         }
 
-        // Reset our input with our resolved paths.
+        // Now, _paths_ is an array of files (no directories).
+        //
+        // Reset our input with our resolved paths.  config.input.fileInfo will
+        // be an array of strings, containing only paths with no associated
+        // information.
         input = Json::Value();
-        auto& fileInfo(input["fileInfo"]);
-        fileInfo.resize(paths.size());
+        input.resize(paths.size());
         for (std::size_t i(0); i < paths.size(); ++i)
         {
-            fileInfo[Json::ArrayIndex(i)]["path"] = paths[i];
+            input[Json::ArrayIndex(i)] = paths[i];
         }
     }
     else if (isInferencePath)
@@ -348,14 +339,24 @@ void ConfigParser::extractManifest(
         const std::string path(input.asString());
         const Json::Value inference(parse(arbiter.get(path)));
 
-        input = inference["manifest"];
-        json["schema"] = inference["schema"];
-        json["bounds"] = inference["bounds"];
-        json["numPointsHint"] = inference["numPoints"];
+        input = inference["fileInfo"];
+
+        if (!json.isMember("schema")) json["schema"] = inference["schema"];
+        if (!json.isMember("bounds")) json["bounds"] = inference["bounds"];
+        if (!json.isMember("numPointsHint"))
+        {
+            json["numPointsHint"] = inference["numPoints"];
+        }
 
         if (inference.isMember("reprojection"))
         {
             json["reprojection"] = inference["reprojection"];
+        }
+
+        if (Delta::existsIn(inference))
+        {
+            if (!json.isMember("scale")) json["scale"] = inference["scale"];
+            if (!json.isMember("offset")) json["offset"] = inference["offset"];
         }
     }
 }

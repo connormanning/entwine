@@ -198,6 +198,14 @@ std::unique_ptr<Preview> Executor::preview(
         return q;
     })());
 
+    const Json::Value metadata(([this, reader]()
+    {
+        auto lock(getLock());
+        const auto s(pdal::Utils::toJSON(reader->getMetadata()));
+        try { return parse(s); }
+        catch (...) { return Json::Value(s); }
+    })());
+
     if (!qi.valid() || qi.m_bounds.empty()) return result;
 
     std::unique_ptr<Scale> scale;
@@ -270,7 +278,8 @@ std::unique_ptr<Preview> Executor::preview(
             qi.m_pointCount,
             srs,
             qi.m_dimNames,
-            scale.get());
+            scale.get(),
+            metadata);
 
     return result;
 }

@@ -3,6 +3,7 @@
 
 #include <pdal/Dimension.hpp>
 #include <pdal/util/FileUtils.hpp>
+#include <pdal/util/Utils.hpp>
 
 #include "entwine/reader/cache.hpp"
 #include "entwine/reader/reader.hpp"
@@ -19,6 +20,13 @@ using namespace entwine;
 namespace
 {
     const std::string outPath(test::dataPath() + "out");
+    const std::string binPath(test::binaryPath() + "entwine ");
+
+    int run(std::string command)
+    {
+        std::string output;
+        return pdal::Utils::run_shell_command(binPath + command, output);
+    }
 
     arbiter::Arbiter a;
     arbiter::Endpoint outEp(a.getEndpoint(outPath));
@@ -85,20 +93,44 @@ protected:
 
 TEST_P(BuildTest, Verify)
 {
-    const auto& config(expect.config);
+    auto build([](const Json::Value& config, bool isContinuation)
+    {
+        auto builder(ConfigParser::getBuilder(config));
+        ASSERT_TRUE(builder);
+        ASSERT_EQ(builder->isContinuation(), isContinuation);
+        builder->go(config["run"].asUInt64());
+    });
 
-    auto builder(ConfigParser::getBuilder(config));
-    ASSERT_TRUE(builder);
-    ASSERT_FALSE(builder->isContinuation());
-    builder->go();
+    Json::Value config(expect.config);
+    if (config.isArray()) config = config[0];
 
-    const std::string input(
-            arbiter::util::getBasename(config["input"].asString()));
+    if (expect.config.isObject())
+    {
+        const std::size_t run(config["run"].asUInt64());
+        std::size_t ran(0);
+        std::size_t total(0);
+
+        do
+        {
+            build(config, ran);
+            const Json::Value mani(parse(outEp.get("entwine-manifest")));
+            total = mani["fileInfo"].size();
+            ran += run;
+        }
+        while (run && ran < total);
+    }
+    else
+    {
+        for (Json::ArrayIndex i(0); i < expect.config.size(); ++i)
+        {
+            build(expect.config[i], i != 0);
+        }
+    }
 
     const Json::Value meta(parse(outEp.get("entwine")));
 
     const Metadata metadata(meta);
-    const Manifest manifest(parse(outEp.get("entwine-manifest")));
+    const Manifest manifest(parse(outEp.get("entwine-manifest")), outEp);
     const Delta delta(Delta::existsIn(meta) ? Delta(meta) : Delta());
 
     // Delta.
@@ -209,13 +241,24 @@ namespace absolute
         return json;
     })());
 
+    Json::Value continued(([]()
+    {
+        Json::Value json;
+        json["input"] = test::dataPath() + "ellipsoid-multi-laz";
+        json["output"] = outPath;
+        json["absolute"] = true;
+        json["run"] = 4;
+        return json;
+    })());
+
     Expectations one(single, actualBounds);
     Expectations two(multi, actualBounds);
+    Expectations con(continued, actualBounds);
 
     INSTANTIATE_TEST_CASE_P(
             Absolute,
             BuildTest,
-            testing::Values(one, two), );
+            testing::Values(one, two, con), );
 }
 
 namespace scaled
@@ -236,90 +279,37 @@ namespace scaled
         return json;
     })());
 
+    Json::Value continued(([]()
+    {
+        Json::Value json;
+        json["input"] = test::dataPath() + "ellipsoid-multi-laz";
+        json["output"] = outPath;
+        json["run"] = 4;
+        return json;
+    })());
+
     const Delta delta(Scale(.01));
     const Bounds actualScaledBounds(
             actualBounds.scale(delta.scale(), delta.offset()));
 
     Expectations one(single, actualScaledBounds, delta);
     Expectations two(multi, actualScaledBounds, delta);
+    Expectations con(continued, actualScaledBounds, delta);
 
     INSTANTIATE_TEST_CASE_P(
             Scaled,
             BuildTest,
-            testing::Values(one, two), );
+            testing::Values(one, two, con), );
 }
 
-TEST(Build, Basic)
+TEST(Build, Kernel)
 {
-    Json::Value json;
-    json["input"] = test::dataPath() + "ellipsoid-single-laz";
-    json["output"] = outPath;
-    json["absolute"] = true;
+    std::string output;
+    int status(0);
 
-    for (const auto p : a.resolve(outPath + "/**"))
-    {
-        pdal::FileUtils::deleteFile(p);
-    }
+    status = run("build");
+    EXPECT_EQ(status, 0);
 
-    auto builder(ConfigParser::getBuilder(json));
-    ASSERT_TRUE(builder);
-    ASSERT_FALSE(builder->isContinuation());
-    builder->go();
-
-    const Json::Value meta(parse(outEp.get("entwine")));
-
-    const Delta delta(meta);
-    /*
-    const Scale scale(meta["scale"]);
-    const Offset offset(meta["offset"]);
-    EXPECT_EQ(scale, Scale(.01));
-    EXPECT_EQ(offset, Offset());
-    */
-
-    const Bounds boundsNative(meta["boundsNative"]);
-    const Bounds boundsConforming(meta["boundsConforming"]);
-    const Bounds bounds(meta["bounds"]);
-
-    EXPECT_EQ(
-            boundsConforming,
-            boundsNative.scale(delta.scale(), delta.offset()));
-    EXPECT_EQ(boundsNative, actualBounds);
-    EXPECT_TRUE(bounds.contains(boundsConforming));
-    EXPECT_TRUE(bounds.isCubic());
-
-    EXPECT_TRUE(meta["compress"].asBool());
-    EXPECT_TRUE(meta["trustHeaders"].asBool());
-    EXPECT_EQ(meta["compressHierarchy"].asString(), "lzma");
-
-    const Schema schema(meta["schema"]);
-    for (const auto d : actualDims)
-    {
-        EXPECT_TRUE(schema.contains(pdal::Dimension::name(d)));
-    }
-
-    test::Octree o(bounds, meta["structure"]["nullDepth"].asUInt64());
-    o.insert(test::dataPath() + "ellipsoid-single-laz/ellipsoid.laz");
-
-    Cache cache(32);
-    Reader r(outPath, cache);
-
-    ASSERT_EQ(
-            r.metadata().manifest().pointStats().inserts(),
-            o.inserts());
-
-    bool pointsFound(false);
-    bool pointsEnded(false);
-    std::size_t depth(0);
-
-    while (!pointsEnded)
-    {
-        const std::size_t np(r.query(depth).size() / schema.pointSize());
-        ASSERT_EQ(np, o.query(depth).size());
-
-        if (np) pointsFound = true;
-        if (!np && pointsFound) pointsEnded = true;
-
-        ++depth;
-    }
+    // TODO Test other CLI invocations.
 }
 

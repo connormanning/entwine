@@ -9,9 +9,9 @@
 ******************************************************************************/
 
 #include <entwine/formats/cesium/settings.hpp>
-#include <entwine/tree/manifest.hpp>
 #include <entwine/types/delta.hpp>
 #include <entwine/types/format.hpp>
+#include <entwine/types/manifest.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
@@ -90,7 +90,8 @@ Metadata::Metadata(
 Metadata::Metadata(const arbiter::Endpoint& ep, const std::size_t* subsetId)
     : Metadata(([&ep, subsetId]()
     {
-        // Prior to 1.0.
+        // Prior to 1.0, there were some keys nested in the top-level "format"
+        // key.  Now those nested keys are themselves at the top level.
         Json::Value json(parse(ep.get("entwine" + getPostfix(subsetId))));
         if (json.isMember("format"))
         {
@@ -102,9 +103,10 @@ Metadata::Metadata(const arbiter::Endpoint& ep, const std::size_t* subsetId)
         return json;
     })())
 {
-    const Json::Value manifest(
+    const Json::Value json(
             parse(ep.get("entwine-manifest" + getPostfix(subsetId))));
-    m_manifest = makeUnique<Manifest>(manifest);
+
+    m_manifest = makeUnique<Manifest>(json, ep);
 }
 
 Metadata::Metadata(const Json::Value& json)
@@ -215,18 +217,8 @@ Json::Value Metadata::toJson() const
 void Metadata::save(const arbiter::Endpoint& endpoint) const
 {
     const auto json(toJson());
-    const auto pf(postfix());
-    Storage::ensurePut(endpoint, "entwine" + pf, json.toStyledString());
-
-    if (m_manifest)
-    {
-        const std::string manifestContents(
-                m_manifest->size() < 500 ?
-                    m_manifest->toJson().toStyledString() :
-                    toFastString(m_manifest->toJson()));
-
-        Storage::ensurePut(endpoint, "entwine-manifest" + pf, manifestContents);
-    }
+    Storage::ensurePut(endpoint, "entwine" + postfix(), json.toStyledString());
+    if (m_manifest) m_manifest->save(postfix());
 }
 
 void Metadata::merge(const Metadata& other)

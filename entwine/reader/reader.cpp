@@ -19,9 +19,9 @@
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/builder.hpp>
 #include <entwine/tree/hierarchy.hpp>
-#include <entwine/tree/manifest.hpp>
 #include <entwine/tree/registry.hpp>
 #include <entwine/types/bounds.hpp>
+#include <entwine/types/manifest.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
