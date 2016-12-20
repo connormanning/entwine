@@ -240,7 +240,7 @@ void Manifest::save(const std::string postfix) const
             // We're storing the file info separately, so the "fileInfo" key
             // will just contain string paths instead of the full info object.
             json["remote"] = true;
-            json["chunkSize"] = static_cast<uint64_t>(chunkSize);
+            json["chunkSize"] = static_cast<Json::UInt64>(chunkSize);
             fileInfo[i] = m_fileInfo[i].path();
         }
 

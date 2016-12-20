@@ -77,7 +77,7 @@ Json::Value FileInfo::toInferenceJson() const
     json["path"] = m_path;
 
     if (m_bounds.exists()) json["bounds"] = m_bounds.toJson();
-    if (m_numPoints) json["numPoints"] = static_cast<uint64_t>(m_numPoints);
+    if (m_numPoints) json["numPoints"] = static_cast<Json::UInt64>(m_numPoints);
     if (!m_srs.empty()) json["srs"] = m_srs.getWKT();
     if (!m_metadata.isNull()) json["metadata"] = m_metadata;
 
