@@ -72,7 +72,7 @@ const HierarchyCompressionLookup hierarchyCompressionNames
 
 inline HierarchyCompression hierarchyCompressionFromName(std::string name)
 {
-    if (name.empty()) return HierarchyCompression::Lzma;
+    if (name.empty()) return HierarchyCompression::None;
 
     const auto it(
             std::find_if(
