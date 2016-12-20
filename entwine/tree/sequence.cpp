@@ -10,7 +10,6 @@
 
 #include <entwine/tree/sequence.hpp>
 
-#include <algorithm>
 #include <iterator>
 
 #include <entwine/types/bounds.hpp>

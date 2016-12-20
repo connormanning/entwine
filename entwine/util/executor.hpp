@@ -61,12 +61,14 @@ public:
             std::size_t numPoints,
             const std::string& srs,
             const std::vector<std::string>& dimNames,
-            const Scale* scale)
+            const Scale* scale,
+            const Json::Value& metadata)
         : bounds(bounds)
         , numPoints(numPoints)
         , srs(srs)
         , dimNames(dimNames)
         , scale(maybeClone(scale))
+        , metadata(metadata)
     { }
 
     Bounds bounds;
@@ -74,6 +76,7 @@ public:
     std::string srs;
     std::vector<std::string> dimNames;
     std::unique_ptr<Scale> scale;
+    Json::Value metadata;
 };
 
 class Executor

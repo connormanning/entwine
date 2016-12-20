@@ -20,8 +20,8 @@
 
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/hierarchy.hpp>
-#include <entwine/tree/manifest.hpp>
 #include <entwine/types/defs.hpp>
+#include <entwine/types/manifest.hpp>
 #include <entwine/types/outer-scope.hpp>
 #include <entwine/types/point-pool.hpp>
 
@@ -113,7 +113,7 @@ public:
     // Set up our metadata as finished with merging.
     void makeWhole();
 
-    void append(const Manifest& manifest);
+    void append(const FileInfoList& fileInfo);
 
     bool verbose() const { return m_verbose; }
     void verbose(bool v) { m_verbose = v; }

@@ -11,6 +11,8 @@
 #pragma once
 
 #include <functional>
+#include <string>
+#include <vector>
 
 #include <entwine/third/bigint/little-big-int.hpp>
 #include <entwine/types/bounds.hpp>
@@ -35,6 +37,8 @@ using TileFunction = std::function<void(pdal::PointView& view, Bounds bounds)>;
 
 using Offset = Point;
 using Scale = Point;
+
+using Paths = std::vector<std::string>;
 
 } // namespace entwine
 

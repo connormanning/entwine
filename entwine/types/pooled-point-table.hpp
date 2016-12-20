@@ -13,7 +13,7 @@
 #include <pdal/Dimension.hpp>
 #include <pdal/PointTable.hpp>
 
-#include <entwine/tree/manifest.hpp>
+#include <entwine/types/manifest.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>

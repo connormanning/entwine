@@ -18,9 +18,9 @@
 #include <pdal/SpatialReference.hpp>
 
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/tree/manifest.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/delta.hpp>
+#include <entwine/types/file-info.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/util/executor.hpp>
 #include <entwine/util/pool.hpp>
@@ -35,6 +35,29 @@ class Inference
 {
 public:
     Inference(
+            const FileInfoList& fileInfo,
+            const Reprojection* reprojection = nullptr,
+            bool trustHeaders = true,
+            bool allowDelta = true,
+            std::string tmpPath = ".",
+            std::size_t threads = 4,
+            bool verbose = false,
+            bool cesiumify = false,
+            arbiter::Arbiter* arbiter = nullptr);
+
+    // For API convenience.
+    Inference(
+            const Paths& paths,
+            const Reprojection* reprojection = nullptr,
+            bool trustHeaders = true,
+            bool allowDelta = true,
+            std::string tmpPath = ".",
+            std::size_t threads = 4,
+            bool verbose = false,
+            bool cesiumify = false,
+            arbiter::Arbiter* arbiter = nullptr);
+
+    Inference(
             std::string path,
             const Reprojection* reprojection = nullptr,
             bool trustHeaders = true,
@@ -42,18 +65,8 @@ public:
             std::string tmpPath = ".",
             std::size_t threads = 4,
             bool verbose = false,
+            bool cesiumify = false,
             arbiter::Arbiter* arbiter = nullptr);
-
-    Inference(
-            const Manifest& manifest,
-            const Reprojection* reprojection = nullptr,
-            bool trustHeaders = true,
-            bool allowDelta = true,
-            std::string tmpPath = ".",
-            std::size_t threads = 4,
-            bool verbose = false,
-            arbiter::Arbiter* arbiter = nullptr,
-            bool cesiumify = false);
 
     void go();
     bool done() const { return m_done; }
@@ -64,7 +77,7 @@ public:
         return m_index;
     }
 
-    const Manifest& manifest() const { return m_manifest; }
+    const FileInfoList& fileInfo() const { return m_fileInfo; }
     Schema schema() const;
     Bounds nativeBounds() const;
     std::size_t numPoints() const;
@@ -91,6 +104,8 @@ public:
         return m_transformation.get();
     }
 
+    Json::Value toJson() const;
+
 private:
     void aggregate();   // Aggregate bounds and numPoints.
     void makeSchema();  // Figure out schema and delta.
@@ -99,24 +114,23 @@ private:
     Transformation calcTransformation();
 
     Executor m_executor;
-
-    std::string m_path;
     std::string m_tmpPath;
 
     PointPool m_pointPool;
     const Reprojection* m_reproj;
-    std::size_t m_threads;
-    bool m_verbose;
-    bool m_trustHeaders;
-    bool m_allowDelta;
-    bool m_done;
+    std::size_t m_threads = 4;
+    bool m_verbose = true;
+    bool m_trustHeaders = true;
+    bool m_allowDelta = true;
+    bool m_done = false;
+    bool m_cesiumify = false;
+    std::unique_ptr<Transformation> m_transformation;
 
     std::unique_ptr<Pool> m_pool;
     std::unique_ptr<arbiter::Arbiter> m_ownedArbiter;
     arbiter::Arbiter* m_arbiter;
     arbiter::Endpoint m_tmp;
-    Manifest m_manifest;
-    std::size_t m_index;
+    std::size_t m_index = 0;
 
     std::vector<std::string> m_dimVec;
     std::set<std::string> m_dimSet;
@@ -128,8 +142,7 @@ private:
     std::unique_ptr<Bounds> m_deltaBounds;
     std::vector<std::string> m_srsList;
 
-    bool m_cesiumify;
-    std::unique_ptr<Transformation> m_transformation;
+    FileInfoList m_fileInfo;
 
     mutable std::mutex m_mutex;
 };

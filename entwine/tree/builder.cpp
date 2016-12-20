@@ -136,6 +136,7 @@ Builder::~Builder()
 void Builder::go(std::size_t max)
 {
     m_hierarchy->awakenAll(m_threadPools->workPool());
+    m_threadPools->workPool().cycle();
 
     if (!m_tmpEndpoint)
     {
@@ -464,9 +465,9 @@ const arbiter::Endpoint& Builder::tmpEndpoint() const { return *m_tmpEndpoint; }
 Executor& Builder::executor() { return *m_executor; }
 std::mutex& Builder::mutex() { return m_mutex; }
 
-void Builder::append(const Manifest& other)
+void Builder::append(const FileInfoList& fileInfo)
 {
-    m_metadata->manifest().append(other);
+    m_metadata->manifest().append(fileInfo);
     m_sequence = makeUnique<Sequence>(*this);
 }
 

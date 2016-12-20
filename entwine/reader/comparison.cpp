@@ -12,7 +12,7 @@
 
 #include <json/json.h>
 
-#include <entwine/tree/manifest.hpp>
+#include <entwine/types/manifest.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/util/json.hpp>

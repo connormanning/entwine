@@ -40,6 +40,13 @@ namespace
         return b;
     })());
 
+    const arbiter::http::Headers range(([]()
+    {
+        arbiter::http::Headers h;
+        h["Range"] = "bytes=0-16384";
+        return h;
+    })());
+
     const Schema xyzSchema(([]()
     {
         DimList dims;
@@ -51,6 +58,62 @@ namespace
 }
 
 Inference::Inference(
+        const FileInfoList& fileInfo,
+        const Reprojection* reprojection,
+        const bool trustHeaders,
+        const bool allowDelta,
+        const std::string tmpPath,
+        const std::size_t threads,
+        const bool verbose,
+        const bool cesiumify,
+        arbiter::Arbiter* arbiter)
+    : m_tmpPath(tmpPath)
+    , m_pointPool(xyzSchema, nullptr)
+    , m_reproj(reprojection)
+    , m_threads(threads)
+    , m_verbose(verbose)
+    , m_trustHeaders(trustHeaders)
+    , m_allowDelta(allowDelta)
+    , m_cesiumify(cesiumify)
+    , m_ownedArbiter(arbiter ? nullptr : makeUnique<arbiter::Arbiter>())
+    , m_arbiter(arbiter ? arbiter : m_ownedArbiter.get())
+    , m_tmp(m_arbiter->getEndpoint(tmpPath))
+    , m_fileInfo(fileInfo)
+{ }
+
+Inference::Inference(
+        const Paths& paths,
+        const Reprojection* reprojection,
+        const bool trustHeaders,
+        const bool allowDelta,
+        const std::string tmpPath,
+        const std::size_t threads,
+        const bool verbose,
+        const bool cesiumify,
+        arbiter::Arbiter* arbiter)
+    : Inference(
+            FileInfoList(),
+            reprojection,
+            trustHeaders,
+            allowDelta,
+            tmpPath,
+            threads,
+            verbose,
+            cesiumify,
+            arbiter)
+{
+    for (const auto& p : paths)
+    {
+        const std::string expanded(ConfigParser::directorify(p));
+        auto resolved(m_arbiter->resolve(expanded, m_verbose));
+        for (const auto& f : resolved)
+        {
+            m_fileInfo.emplace_back(f);
+        }
+    }
+}
+
+Inference::Inference(
         const std::string path,
         const Reprojection* reprojection,
         const bool trustHeaders,
@@ -58,59 +121,26 @@ Inference::Inference(
         const std::string tmpPath,
         const std::size_t threads,
         const bool verbose,
+        const bool cesiumify,
         arbiter::Arbiter* arbiter)
-    : m_executor()
-    , m_path(path)
-    , m_tmpPath(tmpPath)
-    , m_pointPool(xyzSchema, nullptr)
-    , m_reproj(reprojection)
-    , m_threads(threads)
-    , m_verbose(verbose)
-    , m_trustHeaders(trustHeaders)
-    , m_allowDelta(allowDelta)
-    , m_done(false)
-    , m_ownedArbiter(arbiter ? nullptr : new arbiter::Arbiter())
-    , m_arbiter(arbiter ? arbiter : m_ownedArbiter.get())
-    , m_tmp(m_arbiter->getEndpoint(tmpPath))
-    , m_manifest(m_arbiter->resolve(ConfigParser::directorify(path), verbose))
-    , m_index(0)
-    , m_dimVec()
-    , m_dimSet()
-    , m_cesiumify(false)
-    , m_transformation()
-    , m_mutex()
-{ }
-
-Inference::Inference(
-        const Manifest& manifest,
-        const Reprojection* reprojection,
-        const bool trustHeaders,
-        const bool allowDelta,
-        const std::string tmpPath,
-        const std::size_t threads,
-        const bool verbose,
-        arbiter::Arbiter* arbiter,
-        const bool cesiumify)
-    : m_executor()
-    , m_tmpPath(tmpPath)
-    , m_pointPool(xyzSchema, nullptr)
-    , m_reproj(reprojection)
-    , m_threads(threads)
-    , m_verbose(verbose)
-    , m_trustHeaders(trustHeaders)
-    , m_allowDelta(allowDelta)
-    , m_done(false)
-    , m_ownedArbiter(arbiter ? nullptr : new arbiter::Arbiter())
-    , m_arbiter(arbiter ? arbiter : m_ownedArbiter.get())
-    , m_tmp(m_arbiter->getEndpoint(tmpPath))
-    , m_manifest(manifest)
-    , m_index(0)
-    , m_dimVec()
-    , m_dimSet()
-    , m_cesiumify(cesiumify)
-    , m_transformation()
-    , m_mutex()
-{ }
+    : Inference(
+            FileInfoList(),
+            reprojection,
+            trustHeaders,
+            allowDelta,
+            tmpPath,
+            threads,
+            verbose,
+            cesiumify,
+            arbiter)
+{
+    const std::string expanded(ConfigParser::directorify(path));
+    auto resolved(m_arbiter->resolve(expanded, m_verbose));
+    for (const auto& f : resolved)
+    {
+        m_fileInfo.emplace_back(f);
+    }
+}
 
 void Inference::go()
 {
@@ -121,11 +151,11 @@ void Inference::go()
 
     bool valid(false);
     m_pool.reset(new Pool(m_threads));
-    const std::size_t size(m_manifest.size());
+    const std::size_t size(m_fileInfo.size());
 
     for (std::size_t i(0); i < size; ++i)
     {
-        FileInfo& f(m_manifest.get(i));
+        FileInfo& f(m_fileInfo[i]);
         m_index = i;
 
         if (m_verbose)
@@ -140,14 +170,7 @@ void Inference::go()
 
             if (m_arbiter->isHttpDerived(f.path()))
             {
-                const arbiter::http::Headers range(([&f]()
-                {
-                    arbiter::http::Headers h;
-                    h["Range"] = "bytes=0-16384";
-                    return h;
-                })());
-
-                m_pool->add([this, &f, range]()
+                m_pool->add([this, &f]()
                 {
                     const auto data(m_arbiter->getBinary(f.path(), range));
 
@@ -172,6 +195,10 @@ void Inference::go()
                     add(localHandle->localPath(), f);
                 });
             }
+        }
+        else
+        {
+            f.status(FileInfo::Status::Omitted);
         }
     }
 
@@ -204,9 +231,8 @@ void Inference::go()
         m_transformation = makeUnique<Transformation>(calcTransformation());
 
         m_bounds = makeUnique<Bounds>(expander);
-        for (std::size_t i(0); i < m_manifest.size(); ++i)
+        for (auto& f : m_fileInfo)
         {
-            auto& f(m_manifest.get(i));
             if (!f.bounds()) throw std::runtime_error("No bounds present");
             f.bounds(m_executor.transform(*f.bounds(), *m_transformation));
 
@@ -289,17 +315,20 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
 {
     std::unique_ptr<Preview> preview(m_executor.preview(localPath, m_reproj));
 
-    auto update([&fileInfo](std::size_t numPoints, const Bounds& bounds)
+    auto update([&fileInfo](
+                std::size_t numPoints,
+                const Bounds& bounds,
+                const Json::Value* metadata)
     {
         fileInfo.numPoints(numPoints);
         fileInfo.bounds(bounds);
+        if (metadata) fileInfo.metadata(*metadata);
     });
 
     if (preview)
     {
         {
             std::lock_guard<std::mutex> lock(m_mutex);
-
             fileInfo.srs(preview->srs);
 
             if (preview->scale)
@@ -318,7 +347,7 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
                 }
                 else if (m_allowDelta)
                 {
-                    m_delta = makeUnique<Delta>(scale, Offset(0, 0, 0));
+                    m_delta = makeUnique<Delta>(scale, Offset(0));
                 }
             }
 
@@ -334,7 +363,7 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
 
         if (m_trustHeaders)
         {
-            update(preview->numPoints, preview->bounds);
+            update(preview->numPoints, preview->bounds, &preview->metadata);
             return;
         }
     }
@@ -355,7 +384,7 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
 
     if (m_executor.run(table, localPath, m_reproj, m_transformation.get()))
     {
-        update(curNumPoints, curBounds);
+        update(curNumPoints, curBounds, nullptr);
     }
 }
 
@@ -364,10 +393,8 @@ void Inference::aggregate()
     m_numPoints = makeUnique<std::size_t>(0);
     m_bounds = makeUnique<Bounds>(expander);
 
-    for (std::size_t i(0); i < m_manifest.size(); ++i)
+    for (const auto& f : m_fileInfo)
     {
-        const auto& f(m_manifest.get(i));
-
         *m_numPoints += f.numPoints();
 
         if (const Bounds* current = f.bounds())
@@ -398,10 +425,8 @@ void Inference::aggregate()
             },
             m_bounds->mid());
 
-        for (std::size_t i(0); i < m_manifest.size(); ++i)
+        for (auto& f : m_fileInfo)
         {
-            auto& f(m_manifest.get(i));
-
             if (const Bounds* current = f.bounds())
             {
                 f.bounds(current->deltify(*m_delta));
@@ -456,6 +481,24 @@ Schema Inference::schema() const
 {
     if (!m_schema) throw std::runtime_error("Inference incomplete");
     else return *m_schema;
+}
+
+Json::Value Inference::toJson() const
+{
+    Json::Value json;
+    json["fileInfo"] = toJsonArrayOfObjects(m_fileInfo);
+    json["schema"] = schema().toJson();
+    json["bounds"] = nativeBounds().toJson();
+    json["numPoints"] = Json::UInt64(numPoints());
+    if (m_reproj) json["reprojection"] = m_reproj->toJson();
+
+    if (delta())
+    {
+        json["scale"] = delta()->scale().toJson();
+        json["offset"] = delta()->offset().toJson();
+    }
+
+    return json;
 }
 
 } // namespace entwine

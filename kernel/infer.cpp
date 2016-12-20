@@ -120,7 +120,8 @@ void Kernel::infer(std::vector<std::string> args)
         }
     }
 
-    std::string path;
+    // TODO Allow multiple.
+    Paths paths;
 
     std::size_t threads(4);
     Json::Value jsonReprojection;
@@ -139,15 +140,15 @@ void Kernel::infer(std::vector<std::string> args)
         if (arg.front() != '-')
         {
             // If this is not an option argument, use it as the path.
-            if (path.empty())
+            if (paths.empty())
             {
-                path = arg;
+                paths.push_back(arg);
             }
             else
             {
                 throw std::runtime_error(
                         "Only one path allowed - found both '" +
-                        path + "' and '" + arg + "'");
+                        paths.front() + "' and '" + arg + "'");
             }
         }
         else if (arg == "-a")
@@ -246,20 +247,25 @@ void Kernel::infer(std::vector<std::string> args)
     const auto reprojString(getReprojString(reprojection.get()));
     const auto trustHeadersString(trustHeaders ? "yes" : "no");
 
-    std::cout << "Inferring from: " << path << std::endl;
+    std::cout << "Inferring from: " << paths.front() << std::endl;
     std::cout << "\tTemp path: " << tmpPath << std::endl;
     std::cout << "\tThreads: " << threads << std::endl;
     std::cout << "\tReprojection: " << reprojString << std::endl;
     std::cout << "\tTrust file headers? " << trustHeadersString << std::endl;
 
+    const bool allowDelta(true);
+    const bool verbose(true);
+    const bool cesiumify(false);
+
     Inference inference(
-            path,
+            paths,
             reprojection.get(),
             trustHeaders,
-            true,
+            allowDelta,
             tmpPath,
             threads,
-            true,
+            verbose,
+            cesiumify,
             arbiter.get());
 
     inference.go();
@@ -267,27 +273,13 @@ void Kernel::infer(std::vector<std::string> args)
     if (output.size())
     {
         std::cout << "Writing details to " << output << "..." << std::endl;
-
-        Json::Value json;
-        json["manifest"] = inference.manifest().toInferenceJson();
-        json["schema"] = inference.schema().toJson();
-        json["bounds"] = inference.nativeBounds().toJson();
-        json["numPoints"] = Json::UInt64(inference.numPoints());
-
-        if (reprojection) json["reprojection"] = reprojection->toJson();
-
-        if (const auto delta = inference.delta())
-        {
-            json["scale"] = delta->scale().toJson();
-            json["offset"] = delta->offset().toJson();
-        }
-
+        Json::Value json(inference.toJson());
         arbiter->put(output, json.toStyledString());
     }
 
     std::cout << "Schema: " << inference.schema() << std::endl;
     std::cout << "Bounds: " << inference.nativeBounds() << std::endl;
-    std::cout << "Points: " << inference.numPoints() << std::endl;
+    std::cout << "Points: " << commify(inference.numPoints()) << std::endl;
 
     if (reprojection)
     {

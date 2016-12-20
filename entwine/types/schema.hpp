@@ -100,6 +100,20 @@ public:
         else throw std::runtime_error("Dimension not found: " + name);
     }
 
+    const DimInfo& find(pdal::Dimension::Id id) const
+    {
+        const auto it(
+                std::find_if(
+                    m_dims.begin(),
+                    m_dims.end(),
+                    [&id](const DimInfo& d) { return d.id() == id; }));
+
+        if (it != m_dims.end()) return *it;
+        else throw std::runtime_error(
+                "Dimension not found: " +
+                std::to_string(pdal::Utils::toNative(id)));
+    }
+
     pdal::Dimension::Id getId(const std::string& name) const
     {
         return pdalLayout().findDim(name);

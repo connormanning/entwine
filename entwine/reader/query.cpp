@@ -10,7 +10,6 @@
 
 #include <entwine/reader/query.hpp>
 
-#include <algorithm>
 #include <iterator>
 #include <limits>
 
