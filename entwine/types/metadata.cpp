@@ -120,10 +120,9 @@ Metadata::Metadata(const Json::Value& json)
     , m_structure(makeUnique<Structure>(json["structure"]))
     , m_hierarchyStructure(makeUnique<Structure>(json["hierarchyStructure"]))
     , m_manifest()
-    , m_delta(Delta::existsIn(json) ? makeUnique<Delta>(json) : nullptr)
+    , m_delta(Delta::maybeCreate(json))
     , m_format(makeUnique<Format>(*this, json))
-    , m_reprojection(json.isMember("reprojection") ?
-            makeUnique<Reprojection>(json["reprojection"]) : nullptr)
+    , m_reprojection(maybeCreate<Reprojection>(json["reprojection"]))
     , m_subset(json.isMember("subset") ?
             makeUnique<Subset>(*m_bounds, json["subset"]) : nullptr)
     , m_transformation(json.isMember("transformation") ?

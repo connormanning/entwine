@@ -130,20 +130,15 @@ std::unique_ptr<HierarchyBlock> HierarchyBlock::create(
 
 void HierarchyBlock::save(const arbiter::Endpoint& ep, const std::string pf)
 {
-    const auto data(combine());
+    auto data(combine());
 
-    if (m_metadata.format().hierarchyCompression() ==
-            HierarchyCompression::Lzma)
+    const auto type(m_metadata.format().hierarchyCompression());
+    if (type == HierarchyCompression::Lzma)
     {
-        Storage::ensurePut(
-                ep,
-                m_id.str() + pf,
-                *Compression::compressLzma(data));
+        data = *Compression::compressLzma(data);
     }
-    else
-    {
-        Storage::ensurePut(ep, m_id.str() + pf, data);
-    }
+
+    Storage::ensurePut(ep, m_id.str() + pf, data);
 }
 
 ContiguousBlock::ContiguousBlock(

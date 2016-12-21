@@ -49,6 +49,11 @@ public:
         else return std::unique_ptr<Delta>();
     }
 
+    static std::unique_ptr<Delta> maybeCreate(const Json::Value& json)
+    {
+        return existsIn(json) ? makeUnique<Delta>(json) : nullptr;
+    }
+
     static bool existsIn(const Json::Value& json)
     {
         return json.isMember("scale") || json.isMember("offset");
