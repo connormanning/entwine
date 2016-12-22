@@ -28,20 +28,6 @@ namespace
 {
     const double epsilon(0.005);
 
-    std::vector<std::string> fromJsonArray(const Json::Value& json)
-    {
-        std::vector<std::string> v;
-
-        if (json.isNull() || !json.isArray()) return v;
-
-        for (Json::ArrayIndex i(0); i < json.size(); ++i)
-        {
-            v.push_back(json[i].asString());
-        }
-
-        return v;
-    }
-
     std::string getPostfix(const std::size_t* subsetId)
     {
         if (subsetId) return "-" + std::to_string(*subsetId);
@@ -50,7 +36,7 @@ namespace
 }
 
 Metadata::Metadata(
-        const Bounds& boundsNative,
+        const Bounds& boundsConforming,
         const Schema& schema,
         const Structure& structure,
         const Structure& hierarchyStructure,
@@ -63,15 +49,14 @@ Metadata::Metadata(
         const Delta* delta,
         const Transformation* transformation,
         const cesium::Settings* cesiumSettings)
-    : m_boundsNative(makeUnique<Bounds>(boundsNative))
-    , m_boundsConforming(makeUnique<Bounds>(m_boundsNative->deltify(delta)))
+    : m_delta(maybeClone(delta))
+    , m_boundsConforming(makeUnique<Bounds>(boundsConforming.deltify(delta)))
     , m_boundsEpsilon(makeUnique<Bounds>(m_boundsConforming->growBy(epsilon)))
-    , m_bounds(makeUnique<Bounds>(m_boundsNative->cubeify(delta)))
+    , m_bounds(makeUnique<Bounds>(boundsConforming.cubeify(delta)))
     , m_schema(makeUnique<Schema>(schema))
     , m_structure(makeUnique<Structure>(structure))
     , m_hierarchyStructure(makeUnique<Structure>(hierarchyStructure))
     , m_manifest(makeUnique<Manifest>(manifest))
-    , m_delta(maybeClone(delta))
     , m_format(
             makeUnique<Format>(
                 *this,
@@ -110,42 +95,33 @@ Metadata::Metadata(const arbiter::Endpoint& ep, const std::size_t* subsetId)
 }
 
 Metadata::Metadata(const Json::Value& json)
-    : m_boundsNative(
-            makeUnique<Bounds>(json.isMember("boundsNative") ?
-                json["boundsNative"] : json["boundsConforming"]))
-    , m_boundsConforming(makeUnique<Bounds>(json["boundsConforming"]))
+    : m_delta(Delta::maybeCreate(json))
+    , m_boundsConforming(makeUnique<Bounds>(json["boundsConforming"], delta()))
     , m_boundsEpsilon(makeUnique<Bounds>(m_boundsConforming->growBy(epsilon)))
-    , m_bounds(makeUnique<Bounds>(json["bounds"]))
+    , m_bounds(makeUnique<Bounds>(json["bounds"], delta()))
     , m_schema(makeUnique<Schema>(json["schema"]))
     , m_structure(makeUnique<Structure>(json["structure"]))
     , m_hierarchyStructure(makeUnique<Structure>(json["hierarchyStructure"]))
     , m_manifest()
-    , m_delta(Delta::maybeCreate(json))
     , m_format(makeUnique<Format>(*this, json))
     , m_reprojection(maybeCreate<Reprojection>(json["reprojection"]))
     , m_subset(json.isMember("subset") ?
             makeUnique<Subset>(*m_bounds, json["subset"]) : nullptr)
     , m_transformation(json.isMember("transformation") ?
-            makeUnique<Transformation>() : nullptr)
+            makeUnique<Transformation>(
+                extract<double>(json["transformation"])) :
+            nullptr)
     , m_cesiumSettings(
             json.isMember("formats") && json["formats"].isMember("cesium") ?
                 makeUnique<cesium::Settings>(json["formats"]["cesium"]) :
                 nullptr)
     , m_version(makeUnique<Version>(json["version"].asString()))
     , m_srs(json["srs"].asString())
-    , m_errors(fromJsonArray(json["errors"]))
-{
-    if (m_transformation)
-    {
-        for (const auto& v : json["transformation"])
-        {
-            m_transformation->push_back(v.asDouble());
-        }
-    }
-}
+    , m_errors(extract<std::string>(json["errors"]))
+{ }
 
 Metadata::Metadata(const Metadata& other)
-    : m_boundsNative(makeUnique<Bounds>(other.boundsNative()))
+    : m_delta(maybeClone(other.delta()))
     , m_boundsConforming(makeUnique<Bounds>(other.boundsConforming()))
     , m_boundsEpsilon(makeUnique<Bounds>(other.boundsEpsilon()))
     , m_bounds(makeUnique<Bounds>(other.bounds()))
@@ -153,7 +129,6 @@ Metadata::Metadata(const Metadata& other)
     , m_structure(makeUnique<Structure>(other.structure()))
     , m_hierarchyStructure(makeUnique<Structure>(other.hierarchyStructure()))
     , m_manifest(makeUnique<Manifest>(other.manifest()))
-    , m_delta(maybeClone(other.delta()))
     , m_format(makeUnique<Format>(*this, other.format()))
     , m_reprojection(maybeClone(other.reprojection()))
     , m_subset(maybeClone(other.subset()))
@@ -170,9 +145,8 @@ Json::Value Metadata::toJson() const
 {
     Json::Value json;
 
-    json["boundsNative"] = m_boundsNative->toJson();
-    json["boundsConforming"] = m_boundsConforming->toJson();
-    json["bounds"] = m_bounds->toJson();
+    json["bounds"] = boundsNative().toJson();
+    json["boundsConforming"] = boundsNativeConforming().toJson();
     json["schema"] = m_schema->toJson();
     json["structure"] = m_structure->toJson();
     json["hierarchyStructure"] = m_hierarchyStructure->toJson();

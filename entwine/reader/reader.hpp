@@ -118,11 +118,9 @@ public:
     bool exists(const Id& id) const { return m_ids.count(id); }
 
 private:
-    const Bounds& bounds() const;
     Bounds localize(
             const Bounds& inBounds,
-            const Scale* scale,
-            const Offset* offset) const;
+            const Delta& localDelta) const;
 
     arbiter::Endpoint m_endpoint;
 

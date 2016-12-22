@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 
+#include <entwine/types/bounds.hpp>
 #include <entwine/types/format-types.hpp>
 
 namespace Json { class Value; }
@@ -24,7 +25,6 @@ namespace entwine
 namespace arbiter { class Endpoint; }
 namespace cesium { class Settings; }
 
-class Bounds;
 class Delta;
 class Format;
 class Manifest;
@@ -42,7 +42,7 @@ class Metadata
 
 public:
     Metadata(
-            const Bounds& boundsNative,
+            const Bounds& nativeBounds,
             const Schema& schema,
             const Structure& structure,
             const Structure& hierarchyStructure,
@@ -68,11 +68,19 @@ public:
 
     void save(const arbiter::Endpoint& endpoint) const;
 
-    const Bounds& boundsNative() const { return *m_boundsNative; }
+    const Bounds& bounds() const { return *m_bounds; }
     const Bounds& boundsConforming() const { return *m_boundsConforming; }
     const Bounds& boundsEpsilon() const { return *m_boundsEpsilon; }
-    const Bounds& bounds() const { return *m_bounds; }
     const Bounds* boundsSubset() const;
+    const Bounds  boundsNative() const
+    {
+        return m_bounds->undeltify(delta());
+    }
+    const Bounds  boundsNativeConforming() const
+    {
+        return m_boundsConforming->undeltify(delta());
+    }
+
     const Schema& schema() const { return *m_schema; }
     const Structure& structure() const { return *m_structure; }
     const Structure& hierarchyStructure() const
@@ -112,16 +120,17 @@ private:
     std::vector<std::string>& errors() { return m_errors; }
     std::string& srs() { return m_srs; }
 
-    // The native bounds here is the only one without scale/offset applied.
-    std::unique_ptr<Bounds> m_boundsNative;
+    std::unique_ptr<Delta> m_delta;
+
+    // All bounds have scale/offset already applied, if they exist.
     std::unique_ptr<Bounds> m_boundsConforming;
     std::unique_ptr<Bounds> m_boundsEpsilon;
     std::unique_ptr<Bounds> m_bounds;
+
     std::unique_ptr<Schema> m_schema;
     std::unique_ptr<Structure> m_structure;
     std::unique_ptr<Structure> m_hierarchyStructure;
     std::unique_ptr<Manifest> m_manifest;
-    std::unique_ptr<Delta> m_delta;
     std::unique_ptr<Format> m_format;
     std::unique_ptr<Reprojection> m_reprojection;
     std::unique_ptr<Subset> m_subset;
