@@ -147,16 +147,11 @@ TEST_P(BuildTest, Verify)
     // Bounds.
     const Bounds bounds(meta["bounds"]);
     const Bounds boundsConforming(meta["boundsConforming"]);
-    const Bounds boundsNative(meta["boundsNative"]);
 
     EXPECT_EQ(boundsConforming, expect.boundsConforming);
 
     EXPECT_TRUE(bounds.isCubic());
     EXPECT_TRUE(bounds.contains(boundsConforming));
-
-    EXPECT_EQ(
-            boundsNative.scale(delta.scale(), delta.offset()),
-            boundsConforming);
 
     // Schema.
     const Schema schema(meta["schema"]);
@@ -183,9 +178,10 @@ TEST_P(BuildTest, Verify)
     Cache cache(32);
     Reader r(outPath, cache);
 
+    const Delta empty;
     test::Octree o(
             bounds,
-            delta,
+            empty,
             meta["structure"]["nullDepth"].asUInt64(),
             meta["structure"]["coldDepth"].asUInt64());
 
@@ -213,6 +209,8 @@ TEST_P(BuildTest, Verify)
         {
             q = q.get(toDir((depth + n) % 8));
             const std::size_t np(r.query(q, depth).size() / schema.pointSize());
+
+            // const Bounds s(q.deltify(delta));
             ASSERT_EQ(np, o.query(q, depth).size()) <<
                 " B: " << bounds << " D: " << depth << std::endl;
         }
@@ -292,9 +290,9 @@ namespace scaled
     const Bounds actualScaledBounds(
             actualBounds.scale(delta.scale(), delta.offset()));
 
-    Expectations one(single, actualScaledBounds, delta);
-    Expectations two(multi, actualScaledBounds, delta);
-    Expectations con(continued, actualScaledBounds, delta);
+    Expectations one(single, actualBounds, delta);
+    Expectations two(multi, actualBounds, delta);
+    Expectations con(continued, actualBounds, delta);
 
     INSTANTIATE_TEST_CASE_P(
             Scaled,
