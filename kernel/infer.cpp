@@ -290,6 +290,11 @@ void Kernel::infer(std::vector<std::string> args)
     {
         std::cout << "Scale:  " << delta->scale() << std::endl;
         std::cout << "Offset: " << delta->offset() << std::endl;
+        std::cout << "Transformed: " <<
+            inference.nativeBounds().deltify(*delta) << std::endl;
     }
+
+    std::cout << "Cubified: " <<
+        inference.nativeBounds().cubeify(inference.delta()) << std::endl;
 }
 

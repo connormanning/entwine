@@ -22,7 +22,7 @@ namespace entwine
 class Delta
 {
 public:
-    Delta() : m_scale(1, 1, 1), m_offset(0, 0, 0) { }
+    Delta() : m_scale(1), m_offset(0) { }
 
     Delta(const Scale& scale, const Offset& offset = Offset())
         : m_scale(scale)
@@ -30,8 +30,14 @@ public:
     { }
 
     Delta(const Scale* scale, const Offset* offset)
-        : m_scale(scale ? *scale : Point(1, 1, 1))
-        , m_offset(offset ? *offset : Point(0, 0, 0))
+        : m_scale(scale ? *scale : Scale(1))
+        , m_offset(offset ? *offset : Offset(0))
+    { }
+
+    Delta(const Delta* delta)
+        : Delta(
+                delta ? delta->scale() : Scale(1),
+                delta ? delta->offset() : Offset(0))
     { }
 
     Delta(const Json::Value& json)
@@ -66,6 +72,7 @@ public:
     Offset& offset() { return m_offset; }
 
     bool empty() const { return m_scale == Scale(1) && m_offset == Offset(0); }
+    bool exists() const { return !empty(); }
 
     Delta inverse() const
     {

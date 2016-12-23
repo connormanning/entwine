@@ -177,6 +177,9 @@ namespace extraction
     std::vector<T> doExtract(const Json::Value& json, F f)
     {
         std::vector<T> result;
+
+        if (json.isNull() || !json.isArray()) return result;
+
         result.reserve(json.size());
 
         for (Json::ArrayIndex i(0); i < json.size(); ++i)

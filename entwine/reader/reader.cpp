@@ -103,7 +103,13 @@ Json::Value Reader::hierarchy(
 {
     checkQuery(depthBegin, depthEnd);
 
-    Bounds queryBounds(localize(inBounds, scale, offset));
+    const Delta indexDelta(m_metadata->delta());
+    const Delta queryDelta(scale, offset);
+    const Delta localDelta(
+            queryDelta.scale() / indexDelta.scale(),
+            queryDelta.offset() - indexDelta.offset());
+
+    const Bounds queryBounds(localize(inBounds, localDelta));
 
     Hierarchy::QueryResults results(
             vertical ?
@@ -172,7 +178,6 @@ std::unique_ptr<Query> Reader::getQuery(
         const Point* scale,
         const Point* offset)
 {
-    checkQuery(depthBegin, depthEnd);
     return getQuery(
             schema,
             filter,
@@ -183,6 +188,7 @@ std::unique_ptr<Query> Reader::getQuery(
             offset);
 }
 
+// All other getQuery operations fall through to this one.
 std::unique_ptr<Query> Reader::getQuery(
         const Schema& schema,
         const Json::Value& filter,
@@ -209,52 +215,58 @@ std::unique_ptr<Query> Reader::getQuery(
                     std::numeric_limits<double>::max()));
     }
 
+    const Delta indexDelta(m_metadata->delta());
+    const Delta queryDelta(scale, offset);
+    const Delta localDelta(
+            queryDelta.scale() / indexDelta.scale(),
+            queryDelta.offset() - indexDelta.offset());
+
     return makeUnique<Query>(
             *this,
             schema,
             filter,
             m_cache,
-            localize(queryCube, scale, offset),
+            localize(queryCube, localDelta),
             depthBegin,
             depthEnd,
-            scale,
-            offset);
+            localDelta.exists() ? &localDelta.scale() : nullptr,
+            localDelta.exists() ? &localDelta.offset() : nullptr);
 }
-
-const Bounds& Reader::bounds() const { return m_metadata->bounds(); }
 
 Bounds Reader::localize(
         const Bounds& queryBounds,
-        const Scale* scale,
-        const Offset* offset) const
+        const Delta& localDelta) const
 {
-    const auto delta(Delta::maybeCreate(scale, offset));
-    if (!delta || queryBounds == Bounds::everything()) return queryBounds;
+    if (localDelta.empty() || queryBounds == Bounds::everything())
+    {
+        return queryBounds;
+    }
 
-    const Bounds& indexedBounds(m_metadata->bounds());
+    const Bounds indexedBounds(m_metadata->bounds());
+
     const Point queryReferenceCenter(
             Bounds(
                 Point::scale(
                     indexedBounds.min(),
                     indexedBounds.mid(),
-                    delta->scale(),
-                    delta->offset()),
+                    localDelta.scale(),
+                    localDelta.offset()),
                 Point::scale(
                     indexedBounds.max(),
                     indexedBounds.mid(),
-                    delta->scale(),
-                    delta->offset())).mid());
+                    localDelta.scale(),
+                    localDelta.offset())).mid());
 
     const Bounds queryTransformed(
             Point::unscale(
                 queryBounds.min(),
                 Point(),
-                delta->scale(),
+                localDelta.scale(),
                 -queryReferenceCenter),
             Point::unscale(
                 queryBounds.max(),
                 Point(),
-                delta->scale(),
+                localDelta.scale(),
                 -queryReferenceCenter));
 
     Bounds queryCube(

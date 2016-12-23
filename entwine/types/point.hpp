@@ -189,6 +189,15 @@ public:
         return (d - origin) / scale + origin - offset;
     }
 
+    static double scaleInversed(
+            double d,
+            double origin,
+            double scaleInversed,
+            double offset)
+    {
+        return (d - origin) * scaleInversed + origin - offset;
+    }
+
     static Point unscale(
             const Point& p,
             const Point& scale,
