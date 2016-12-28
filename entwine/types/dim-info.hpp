@@ -86,10 +86,15 @@ public:
 
     static bool isXyz(const DimInfo& dim)
     {
+        return isXyz(dim.id());
+    }
+
+    static bool isXyz(pdal::Dimension::Id id)
+    {
         return
-            dim.id() == pdal::Dimension::Id::X ||
-            dim.id() == pdal::Dimension::Id::Y ||
-            dim.id() == pdal::Dimension::Id::Z;
+            id == pdal::Dimension::Id::X ||
+            id == pdal::Dimension::Id::Y ||
+            id == pdal::Dimension::Id::Z;
     }
 
 private:

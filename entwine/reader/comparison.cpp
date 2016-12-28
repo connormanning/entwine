@@ -12,6 +12,9 @@
 
 #include <json/json.h>
 
+#include <pdal/Dimension.hpp>
+#include <pdal/util/Utils.hpp>
+
 #include <entwine/types/manifest.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
@@ -26,7 +29,8 @@ namespace
 double extractComparisonValue(
         const Metadata& metadata,
         const std::string& dimensionName,
-        const Json::Value& val)
+        const Json::Value& val,
+        const Delta* delta)
 {
     double d(0);
 
@@ -68,6 +72,27 @@ double extractComparisonValue(
         }
 
         d = val.asDouble();
+
+        // If this is a spatial filter, transform from user-space into our
+        // local coordinate space.
+        //
+        // Delta here represents the local-delta which needs to be applied to
+        // all points to match the requested coordinate system.  However,
+        // filter values are already in the requested coordinate system, so
+        // unscale them to match our native space.
+        if (delta)
+        {
+            const auto id(pdal::Dimension::id(dimensionName));
+            const auto pos(pdal::Utils::toNative(id) - 1);
+            if (DimInfo::isXyz(id))
+            {
+                d = Point::unscale(
+                        d,
+                        metadata.boundsScaledCubic().mid()[pos],
+                        delta->scale()[pos],
+                        delta->offset()[pos]);
+            }
+        }
     }
 
     return d;
@@ -76,7 +101,9 @@ double extractComparisonValue(
 std::unique_ptr<Bounds> maybeExtractBounds(
         const Metadata& metadata,
         const std::string& dimensionName,
-        double val)
+        const double val,
+        const ComparisonType type,
+        const Delta* delta)
 {
     std::unique_ptr<Bounds> b;
 
@@ -85,9 +112,11 @@ std::unique_ptr<Bounds> maybeExtractBounds(
         const Origin origin(val);
         const auto& fileInfo(metadata.manifest().get(origin));
 
+        // File info is stored absolutely positioned, so convert it into the
+        // local coordinate system for the index.
         if (const Bounds* bounds = fileInfo.bounds())
         {
-            b = makeUnique<Bounds>(*bounds);
+            b = makeUnique<Bounds>(bounds->deltify(metadata.delta()));
         }
         else
         {
@@ -96,18 +125,49 @@ std::unique_ptr<Bounds> maybeExtractBounds(
                 std::to_string(origin));
         }
     }
+    else
+    {
+        pdal::Dimension::Id id(pdal::Dimension::id(dimensionName));
+
+        // Optimize spatial filters if they are inequalities.
+        if (DimInfo::isXyz(id))
+        {
+            auto min(Bounds::everything().min());
+            auto max(Bounds::everything().max());
+            const std::size_t pos(pdal::Utils::toNative(id) - 1);
+
+            bool inequality(false);
+
+            if (type == ComparisonType::lt || type == ComparisonType::lte)
+            {
+                max[pos] = val;
+                inequality = true;
+            }
+            else if (type == ComparisonType::gt || type == ComparisonType::gte)
+            {
+                min[pos] = val;
+                inequality = true;
+            }
+
+            if (inequality)
+            {
+                b = makeUnique<Bounds>(min, max);
+            }
+        }
+    }
 
     return b;
 }
 
-}
+} // unnamed namespace
 
 std::unique_ptr<Comparison> Comparison::create(
         const Metadata& metadata,
         std::string dimensionName,
-        const Json::Value& val)
+        const Json::Value& val,
+        const Delta* delta)
 {
-    auto op(ComparisonOperator::create(metadata, dimensionName, val));
+    auto op(ComparisonOperator::create(metadata, dimensionName, val, delta));
     if (dimensionName == "Path") dimensionName = "OriginId";
 
     const auto id(metadata.schema().getId(dimensionName));
@@ -122,7 +182,8 @@ std::unique_ptr<Comparison> Comparison::create(
 std::unique_ptr<ComparisonOperator> ComparisonOperator::create(
         const Metadata& metadata,
         const std::string& dimensionName,
-        const Json::Value& json)
+        const Json::Value& json,
+        const Delta* delta)
 {
     if (json.isObject())
     {
@@ -139,9 +200,13 @@ std::unique_ptr<ComparisonOperator> ComparisonOperator::create(
         if (isSingle(co))
         {
             const double d(
-                    extractComparisonValue(metadata, dimensionName, val));
+                    extractComparisonValue(
+                        metadata,
+                        dimensionName,
+                        val,
+                        delta));
 
-            auto b(maybeExtractBounds(metadata, dimensionName, d));
+            auto b(maybeExtractBounds(metadata, dimensionName, d, co, delta));
 
             if (dimensionName == "Path" || dimensionName == "OriginId")
             {
@@ -194,11 +259,17 @@ std::unique_ptr<ComparisonOperator> ComparisonOperator::create(
                         extractComparisonValue(
                             metadata,
                             dimensionName,
-                            single));
+                            single,
+                            delta));
 
                 vals.push_back(d);
 
-                if (auto b = maybeExtractBounds(metadata, dimensionName, d))
+                if (auto b = maybeExtractBounds(
+                            metadata,
+                            dimensionName,
+                            d,
+                            co,
+                            delta))
                 {
                     boundsList.push_back(*b);
                 }
@@ -229,7 +300,7 @@ std::unique_ptr<ComparisonOperator> ComparisonOperator::create(
     {
         Json::Value next;
         next["$eq"] = json;
-        return create(metadata, dimensionName, next);
+        return create(metadata, dimensionName, next, delta);
     }
 }
 

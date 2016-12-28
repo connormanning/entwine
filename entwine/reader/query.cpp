@@ -82,7 +82,7 @@ Query::Query(
     , m_outSchema(schema)
     , m_table(m_reader.metadata().schema())
     , m_pointRef(m_table, 0)
-    , m_filter(m_reader.metadata(), m_queryBounds, filter)
+    , m_filter(m_reader.metadata(), m_queryBounds, filter, m_delta.get())
 {
     if (!m_depthEnd || m_depthEnd > m_structure.coldDepthBegin())
     {
@@ -255,6 +255,11 @@ bool Query::processPoint(std::vector<char>& buffer, const PointInfo& info)
             // Subtract one to ignore Dimension::Id::Unknown.
             dimNum = pdal::Utils::toNative(dim.id()) - 1;
 
+            // Up to this point, everything has been in our local coordinate
+            // system.  Query bounds were transformed to match our local view
+            // of the world, as well as spatial attributes in the filter.  Now
+            // that we've selected a point in our own local space, finally we
+            // will transform that selection into user-requested space.
             if (m_delta && dimNum < 3)
             {
                 double d(m_pointRef.getFieldAs<double>(dim.id()));

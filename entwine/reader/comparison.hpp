@@ -106,7 +106,8 @@ public:
     static std::unique_ptr<ComparisonOperator> create(
             const Metadata& metadata,
             const std::string& dimensionName,
-            const Json::Value& json);
+            const Json::Value& json,
+            const Delta* delta);
 
     virtual bool operator()(double in) const = 0;
     virtual bool operator()(const Bounds& bounds) const { return true; }
@@ -268,7 +269,8 @@ public:
     static std::unique_ptr<Comparison> create(
             const Metadata& metadata,
             std::string dimName,
-            const Json::Value& val);
+            const Json::Value& val,
+            const Delta* delta);
 
     bool check(const pdal::PointRef& pointRef) const override
     {
