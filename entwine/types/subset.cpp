@@ -30,41 +30,6 @@ Subset::Subset(
     if (!id) throw std::runtime_error("Subset IDs should be 1-based.");
     if (id > of) throw std::runtime_error("Invalid subset ID - too large.");
 
-    split(bounds);
-}
-
-Subset::Subset(const Bounds& bounds, const Json::Value& json)
-    : Subset(bounds, json["id"].asUInt64(), json["of"].asUInt64())
-{ }
-
-Json::Value Subset::toJson() const
-{
-    Json::Value json;
-
-    json["id"] = static_cast<Json::UInt64>(m_id + 1);
-    json["of"] = static_cast<Json::UInt64>(m_of);
-
-    return json;
-}
-
-std::size_t Subset::minimumBaseDepth(const std::size_t pointsPerChunk) const
-{
-    const std::size_t nominalChunkDepth(ChunkInfo::logN(pointsPerChunk, 4));
-    std::size_t min(nominalChunkDepth);
-
-    std::size_t chunksAtDepth(1);
-
-    while (chunksAtDepth < m_of)
-    {
-        ++min;
-        chunksAtDepth *= 4;
-    }
-
-    return min;
-}
-
-void Subset::split(const Bounds& bounds)
-{
     if (m_of <= 1)
     {
         throw std::runtime_error("Invalid subset range");
@@ -120,6 +85,36 @@ void Subset::split(const Bounds& bounds)
             m_sub.grow(current);
         }
     }
+}
+
+Subset::Subset(const Bounds& bounds, const Json::Value& json)
+    : Subset(bounds, json["id"].asUInt64(), json["of"].asUInt64())
+{ }
+
+Json::Value Subset::toJson() const
+{
+    Json::Value json;
+
+    json["id"] = static_cast<Json::UInt64>(m_id + 1);
+    json["of"] = static_cast<Json::UInt64>(m_of);
+
+    return json;
+}
+
+std::size_t Subset::minimumBaseDepth(const std::size_t pointsPerChunk) const
+{
+    const std::size_t nominalChunkDepth(ChunkInfo::logN(pointsPerChunk, 4));
+    std::size_t min(nominalChunkDepth);
+
+    std::size_t chunksAtDepth(1);
+
+    while (chunksAtDepth < m_of)
+    {
+        ++min;
+        chunksAtDepth *= 4;
+    }
+
+    return min;
 }
 
 std::vector<Subset::Span> Subset::calcSpans(

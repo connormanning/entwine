@@ -33,17 +33,14 @@ Sequence::Sequence(Builder& builder)
 {
     const Bounds activeBounds(
             m_metadata.subset() ?
-                *m_metadata.boundsSubset() : m_metadata.bounds());
+                *m_metadata.boundsNativeSubset() :
+                m_metadata.boundsNativeCubic());
 
     for (Origin i(m_origin); i < m_end; ++i)
     {
         const FileInfo& f(m_manifest.get(i));
 
-        if (const Bounds* b = f.bounds())
-        {
-            if (activeBounds.overlaps(*b)) m_overlaps.push_back(i);
-        }
-        else
+        if (!f.bounds() || activeBounds.overlaps(*f.bounds()))
         {
             m_overlaps.push_back(i);
         }
@@ -99,14 +96,14 @@ bool Sequence::checkBounds(
         const Bounds& bounds,
         const std::size_t numPoints)
 {
-    if (!m_metadata.bounds().overlaps(bounds))
+    if (!m_metadata.boundsNativeCubic().overlaps(bounds))
     {
         const Subset* subset(m_metadata.subset());
         const bool primary(!subset || subset->primary());
         m_manifest.addOutOfBounds(origin, numPoints, primary);
         return false;
     }
-    else if (const Bounds* boundsSubset = m_metadata.boundsSubset())
+    else if (const auto boundsSubset = m_metadata.boundsNativeSubset())
     {
         if (!boundsSubset->overlaps(bounds)) return false;
     }

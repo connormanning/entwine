@@ -103,14 +103,7 @@ Json::Value Reader::hierarchy(
 {
     checkQuery(depthBegin, depthEnd);
 
-    const Delta indexDelta(m_metadata->delta());
-    const Delta queryDelta(scale, offset);
-    const Delta localDelta(
-            queryDelta.scale() / indexDelta.scale(),
-            queryDelta.offset() - indexDelta.offset());
-
-    const Bounds queryBounds(localize(inBounds, localDelta));
-
+    const Bounds queryBounds(inBounds.undeltify(Delta(scale, offset)));
     Hierarchy::QueryResults results(
             vertical ?
                 m_hierarchy->queryVertical(queryBounds, depthBegin, depthEnd) :
@@ -242,7 +235,7 @@ Bounds Reader::localize(
         return queryBounds;
     }
 
-    const Bounds indexedBounds(m_metadata->bounds());
+    const Bounds indexedBounds(m_metadata->boundsScaledCubic());
 
     const Point queryReferenceCenter(
             Bounds(

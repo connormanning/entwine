@@ -120,7 +120,7 @@ void Base::populate(std::unique_ptr<std::vector<char>> data)
 Base::Base(const Tiler& tiler)
     : Above(
             tiler.metadata().structure().baseIndexBegin(),
-            tiler.metadata().bounds(),
+            tiler.metadata().boundsScaledCubic(),
             tiler.activeSchema(),
             tiler.sliceDepth())
     , m_metadata(tiler.metadata())
@@ -203,7 +203,7 @@ void Tiler::init(const double tileWidth)
         throw std::runtime_error("Schema must contain X and Y");
     }
 
-    const double fullWidth(m_metadata.bounds().width());
+    const double fullWidth(m_metadata.boundsScaledCubic().width());
     const Structure& structure(m_metadata.structure());
 
     m_sliceDepth = structure.coldDepthBegin();
@@ -227,7 +227,7 @@ void Tiler::init(const double tileWidth)
 
     if (structure.hasBase())
     {
-        m_aboves[m_metadata.bounds()].reset(new Base(*this));
+        m_aboves[m_metadata.boundsScaledCubic()].reset(new Base(*this));
     }
 }
 

@@ -132,7 +132,7 @@ bool TileInfo::insertInto(
 
             json["boundingVolume"] = cesium::boundingVolumeJson(
                     depth >= m.structure().coldDepthBegin() ?
-                        conformingBounds(m, tick) : m.bounds());
+                        conformingBounds(m, tick) : m.boundsNativeCubic());
 
             json["geometricError"] = geometricError;
 

@@ -30,8 +30,8 @@ class Structure;
 class Subset
 {
 public:
-    Subset(const Bounds& bounds, std::size_t id, std::size_t of);
-    Subset(const Bounds& bounds, const Json::Value& json);
+    Subset(const Bounds& boundsNativeCubic, std::size_t id, std::size_t of);
+    Subset(const Bounds& boundsNativeCubic, const Json::Value& json);
 
     Json::Value toJson() const;
 
@@ -94,8 +94,6 @@ public:
             const Bounds& bounds) const;
 
 private:
-    void split(const Bounds& fullBounds);
-
     std::size_t m_id;
     std::size_t m_of;
 

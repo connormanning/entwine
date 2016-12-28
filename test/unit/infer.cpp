@@ -47,7 +47,7 @@ void checkCommon(const Inference& inference)
     EXPECT_TRUE(schema.contains("Green"));
     EXPECT_TRUE(schema.contains("Blue"));
 
-    EXPECT_EQ(inference.nativeBounds(), nominalBounds);
+    EXPECT_EQ(inference.bounds(), nominalBounds);
     EXPECT_EQ(inference.numPoints(), 100000u);
 }
 
@@ -128,7 +128,7 @@ TEST(Infer, Reprojection)
         inference.go();
         ASSERT_TRUE(inference.done());
 
-        checkBoundsNear(inference.nativeBounds(), nycBounds);
+        checkBoundsNear(inference.bounds(), nycBounds);
 
         const Delta* d(inference.delta());
         ASSERT_TRUE(d);
@@ -142,7 +142,7 @@ TEST(Infer, Reprojection)
         inference.go();
         ASSERT_TRUE(inference.done());
 
-        checkBoundsNear(inference.nativeBounds(), utmBounds);
+        checkBoundsNear(inference.bounds(), utmBounds);
 
         const Delta* d(inference.delta());
         ASSERT_TRUE(d);
@@ -170,7 +170,7 @@ TEST(Infer, TrustHeaders)
     ASSERT_TRUE(inference.done());
 
     EXPECT_EQ(
-            inference.nativeBounds(),
+            inference.bounds(),
             Bounds(
                 nycCenter + nominalBounds.min(),
                 nycCenter + nominalBounds.max()));

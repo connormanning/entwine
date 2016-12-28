@@ -172,8 +172,6 @@ private:
     std::unique_ptr<Executor> m_executor;
     std::unique_ptr<Sequence> m_sequence;
 
-    pdal::Dimension::Id m_originId;
-
     mutable std::shared_ptr<PointPool> m_pointPool;
     mutable std::shared_ptr<HierarchyCell::Pool> m_hierarchyPool;
 

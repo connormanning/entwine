@@ -281,11 +281,21 @@ public:
                 Point::unscale(max(), scale, offset));
     }
 
-    static const Bounds& everything()
+    static Bounds everything()
     {
         static const double dmin(std::numeric_limits<double>::lowest());
         static const double dmax(std::numeric_limits<double>::max());
-        static const Bounds b(Point(dmin, dmin, dmin), Point(dmax, dmax, dmax));
+        return Bounds(dmin, dmin, dmin, dmax, dmax, dmax);
+    }
+
+    static Bounds expander()
+    {
+        static const double dmin(std::numeric_limits<double>::lowest());
+        static const double dmax(std::numeric_limits<double>::max());
+
+        // Use Bounds::set to avoid malformed bounds warning.
+        Bounds b;
+        b.set(Point(dmax, dmax, dmax), Point(dmin, dmin, dmin));
         return b;
     }
 

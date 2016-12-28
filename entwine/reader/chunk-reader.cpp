@@ -27,7 +27,7 @@ ChunkReader::ChunkReader(
         const std::size_t depth,
         std::unique_ptr<std::vector<char>> data)
     : m_schema(metadata.schema())
-    , m_bounds(metadata.bounds())
+    , m_bounds(metadata.boundsScaledCubic())
     , m_id(id)
     , m_depth(depth)
     , m_data()

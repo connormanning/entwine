@@ -69,7 +69,8 @@ Query::Query(
     , m_structure(m_reader.metadata().structure())
     , m_cache(cache)
     , m_delta(Delta::maybeCreate(scale, offset))
-    , m_queryBounds(queryBounds.intersection(m_reader.metadata().bounds()))
+    , m_queryBounds(
+            queryBounds.intersection(m_reader.metadata().boundsScaledCubic()))
     , m_depthBegin(depthBegin)
     , m_depthEnd(depthEnd)
     , m_chunks()
@@ -85,7 +86,9 @@ Query::Query(
 {
     if (!m_depthEnd || m_depthEnd > m_structure.coldDepthBegin())
     {
-        QueryChunkState chunkState(m_structure, m_reader.metadata().bounds());
+        QueryChunkState chunkState(
+                m_structure,
+                m_reader.metadata().boundsScaledCubic());
         getFetches(chunkState);
         // std::cout << "Fetches: " << m_chunks.size() << std::endl;
     }
@@ -139,7 +142,9 @@ bool Query::next(std::vector<char>& buffer)
 
         if (m_reader.base())
         {
-            PointState pointState(m_structure, m_reader.metadata().bounds());
+            PointState pointState(
+                    m_structure,
+                    m_reader.metadata().boundsScaledCubic());
             getBase(buffer, pointState);
         }
 
@@ -243,7 +248,7 @@ bool Query::processPoint(std::vector<char>& buffer, const PointInfo& info)
         char* pos(buffer.data() + buffer.size() - m_outSchema.pointSize());
 
         std::size_t dimNum(0);
-        const auto& mid(m_reader.metadata().bounds().mid());
+        const auto& mid(m_reader.metadata().boundsScaledCubic().mid());
 
         for (const auto& dim : m_outSchema.dims())
         {

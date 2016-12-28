@@ -24,22 +24,6 @@ namespace entwine
 
 namespace
 {
-    const Bounds expander(([]()
-    {
-        // Use Bounds::set to avoid malformed bounds warning.
-        Bounds b;
-        b.set(
-                Point(
-                    std::numeric_limits<double>::max(),
-                    std::numeric_limits<double>::max(),
-                    std::numeric_limits<double>::max()),
-                Point(
-                    std::numeric_limits<double>::lowest(),
-                    std::numeric_limits<double>::lowest(),
-                    std::numeric_limits<double>::lowest()));
-        return b;
-    })());
-
     const arbiter::http::Headers range(([]()
     {
         arbiter::http::Headers h;
@@ -150,7 +134,7 @@ void Inference::go()
     }
 
     bool valid(false);
-    m_pool.reset(new Pool(m_threads));
+    m_pool = makeUnique<Pool>(m_threads);
     const std::size_t size(m_fileInfo.size());
 
     for (std::size_t i(0); i < size; ++i)
@@ -220,7 +204,7 @@ void Inference::go()
     {
         throw std::runtime_error("No schema dimensions found");
     }
-    else if (nativeBounds() == expander)
+    else if (bounds() == Bounds::expander())
     {
         throw std::runtime_error("No bounds found");
     }
@@ -230,7 +214,7 @@ void Inference::go()
         std::cout << "Transforming inference" << std::endl;
         m_transformation = makeUnique<Transformation>(calcTransformation());
 
-        m_bounds = makeUnique<Bounds>(expander);
+        m_bounds = makeUnique<Bounds>(Bounds::expander());
         for (auto& f : m_fileInfo)
         {
             if (!f.bounds()) throw std::runtime_error("No bounds present");
@@ -271,7 +255,7 @@ Transformation Inference::calcTransformation()
     // i' = "east" = j' cross k'
 
     // Determine normalized vector k'.
-    const Point p(nativeBounds().mid());
+    const Point p(bounds().mid());
     const Vector up(Vector::normalize(p));
 
     // Project the north pole vector onto k'.
@@ -299,7 +283,7 @@ Transformation Inference::calcTransformation()
     // Then, translate around our current best guess at a center point.  This
     // should be close enough to the origin for reasonable precision.
     const Bounds tentativeCenter(
-            m_executor.transform(nativeBounds(), rotation));
+            m_executor.transform(bounds(), rotation));
     const std::vector<double> translation
     {
         1, 0, 0, -tentativeCenter.mid().x,
@@ -368,7 +352,7 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
         }
     }
 
-    Bounds curBounds(expander);
+    Bounds curBounds(Bounds::expander());
     std::size_t curNumPoints(0);
 
     auto tracker([this, &curBounds, &curNumPoints](Cell::PooledStack stack)
@@ -391,7 +375,7 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
 void Inference::aggregate()
 {
     m_numPoints = makeUnique<std::size_t>(0);
-    m_bounds = makeUnique<Bounds>(expander);
+    m_bounds = makeUnique<Bounds>(Bounds::expander());
 
     for (const auto& f : m_fileInfo)
     {
@@ -424,14 +408,6 @@ void Inference::aggregate()
                 else return (v + 10) / 10 * 10;
             },
             m_bounds->mid());
-
-        for (auto& f : m_fileInfo)
-        {
-            if (const Bounds* current = f.bounds())
-            {
-                f.bounds(current->deltify(*m_delta));
-            }
-        }
     }
 }
 
@@ -471,7 +447,7 @@ std::size_t Inference::numPoints() const
     else return *m_numPoints;
 }
 
-Bounds Inference::nativeBounds() const
+Bounds Inference::bounds() const
 {
     if (!m_bounds) throw std::runtime_error("Inference incomplete");
     return *m_bounds;
@@ -488,7 +464,7 @@ Json::Value Inference::toJson() const
     Json::Value json;
     json["fileInfo"] = toJsonArrayOfObjects(m_fileInfo);
     json["schema"] = schema().toJson();
-    json["bounds"] = nativeBounds().toJson();
+    json["bounds"] = bounds().toJson();
     json["numPoints"] = Json::UInt64(numPoints());
     if (m_reproj) json["reprojection"] = m_reproj->toJson();
 

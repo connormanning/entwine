@@ -34,7 +34,7 @@ public:
         if (const auto cs = m_metadata.cesiumSettings())
         {
             const auto& s(m_metadata.structure());
-            const Bounds& bounds(m_metadata.bounds());
+            const Bounds& bounds(m_metadata.boundsNativeCubic());
             double baseGeometricError(
                     bounds.width() / cs->geometricErrorDivisor());
 

@@ -35,7 +35,7 @@ Hierarchy::Hierarchy(
     : Splitter(metadata.hierarchyStructure())
     , m_pool(pool)
     , m_metadata(metadata)
-    , m_bounds(metadata.bounds())
+    , m_bounds(metadata.boundsNativeCubic())
     , m_structure(metadata.hierarchyStructure())
     , m_endpoint(ep.getSubEndpoint("h"))
     , m_outpoint(out ?

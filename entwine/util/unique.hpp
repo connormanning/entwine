@@ -22,6 +22,12 @@ std::unique_ptr<T> makeUnique(Args&&... args)
 }
 
 template<typename T>
+std::unique_ptr<T> clone(const T& t)
+{
+    return makeUnique<T>(t);
+}
+
+template<typename T>
 std::unique_ptr<T> maybeClone(const T* t)
 {
     if (t) return makeUnique<T>(*t);

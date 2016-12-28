@@ -179,12 +179,11 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
         if (!boundsConforming)
         {
-            boundsConforming.reset(new Bounds(inference.nativeBounds()));
+            boundsConforming = makeUnique<Bounds>(inference.bounds());
 
             if (verbose)
             {
-                std::cout << "Inferred: " << inference.nativeBounds() <<
-                    std::endl;
+                std::cout << "Inferred: " << inference.bounds() << std::endl;
             }
         }
 
@@ -193,7 +192,10 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
             auto dims(inference.schema().dims());
             if (delta)
             {
-                Bounds cube(boundsConforming->cubeify(*delta));
+                const Bounds cube(
+                        Metadata::makeScaledCube(
+                            *boundsConforming,
+                            delta.get()));
                 dims = Schema::deltify(cube, *delta, inference.schema()).dims();
             }
 
@@ -305,33 +307,43 @@ void ConfigParser::normalizeInput(
     {
         // The input source is a path or array of paths.  First, we possibly
         // need to expand out directories into their containing files.
-        Paths paths;
+        FileInfoList fileInfo;
 
-        auto insert([&paths, &arbiter, verbose](std::string in)
+        auto insert([&fileInfo, &arbiter, verbose](std::string in)
         {
             Paths current(arbiter.resolve(in, verbose));
-            paths.insert(paths.end(), current.begin(), current.end());
+            for (const auto& c : current) fileInfo.emplace_back(c);
         });
 
         if (input.isArray())
         {
-            for (const auto& path : input) insert(directorify(path.asString()));
+            for (const auto& entry : input)
+            {
+                if (entry.isString())
+                {
+                    insert(directorify(entry.asString()));
+                }
+                else
+                {
+                    fileInfo.emplace_back(entry);
+                }
+            }
         }
         else
         {
             insert(directorify(input.asString()));
         }
 
-        // Now, _paths_ is an array of files (no directories).
+        // Now, we have an array of files (no directories).
         //
         // Reset our input with our resolved paths.  config.input.fileInfo will
         // be an array of strings, containing only paths with no associated
         // information.
         input = Json::Value();
-        input.resize(paths.size());
-        for (std::size_t i(0); i < paths.size(); ++i)
+        input.resize(fileInfo.size());
+        for (std::size_t i(0); i < fileInfo.size(); ++i)
         {
-            input[Json::ArrayIndex(i)] = paths[i];
+            input[Json::ArrayIndex(i)] = fileInfo[i].toJson();
         }
     }
     else if (isInferencePath)
@@ -392,7 +404,7 @@ std::unique_ptr<Subset> ConfigParser::maybeAccommodateSubset(
 
     if (json.isMember("subset"))
     {
-        Bounds cube(boundsConforming.cubeify(delta));
+        Bounds cube(Metadata::makeNativeCube(boundsConforming, delta));
         subset = makeUnique<Subset>(cube, json["subset"]);
         const std::size_t configNullDepth(json["nullDepth"].asUInt64());
         const std::size_t minimumNullDepth(subset->minimumNullDepth());

@@ -214,7 +214,9 @@ public:
             const Metadata& metadata,
             Hierarchy* hierarchy,
             bool cache = true)
-        : PointState(metadata.hierarchyStructure(), metadata.bounds())
+        : PointState(
+                metadata.hierarchyStructure(),
+                metadata.boundsScaledCubic())
         , m_hierarchy(hierarchy)
         , m_baseCache(m_hierarchy && cache && false ?
                 std::vector<CellCache>(m_structure.baseIndexSpan()) :
@@ -284,7 +286,7 @@ class ChunkState : public PointState
 
 public:
     ChunkState(const Metadata& metadata)
-        : ChunkState(metadata.structure(), metadata.bounds())
+        : ChunkState(metadata.structure(), metadata.boundsScaledCubic())
     { }
 
     ChunkState(const Structure& structure, const Bounds& bounds)
@@ -326,7 +328,7 @@ public:
             Hierarchy* hierarchy = nullptr,
             bool cache = true)
         : m_metadata(metadata)
-        , m_pointState(metadata.structure(), metadata.bounds())
+        , m_pointState(metadata.structure(), metadata.boundsScaledCubic())
         , m_hierarchyState(metadata, hierarchy, cache)
     { }
 

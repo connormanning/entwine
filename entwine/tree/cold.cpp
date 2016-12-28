@@ -76,7 +76,7 @@ Cold::Cold(const Builder& builder, bool exists)
         {
             m_base.t->chunk = Chunk::create(
                     m_builder,
-                    metadata.bounds(),
+                    metadata.boundsScaledCubic(),
                     0,
                     m_structure.baseIndexBegin(),
                     m_structure.baseIndexSpan());
@@ -90,7 +90,7 @@ Cold::Cold(const Builder& builder, bool exists)
             {
                 m_base.t->chunk = Chunk::create(
                         m_builder,
-                        metadata.bounds(),
+                        metadata.boundsScaledCubic(),
                         0,
                         m_structure.baseIndexBegin(),
                         m_structure.baseIndexSpan(),

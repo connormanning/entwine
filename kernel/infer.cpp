@@ -278,7 +278,7 @@ void Kernel::infer(std::vector<std::string> args)
     }
 
     std::cout << "Schema: " << inference.schema() << std::endl;
-    std::cout << "Bounds: " << inference.nativeBounds() << std::endl;
+    std::cout << "Bounds: " << inference.bounds() << std::endl;
     std::cout << "Points: " << commify(inference.numPoints()) << std::endl;
 
     if (reprojection)
@@ -291,10 +291,10 @@ void Kernel::infer(std::vector<std::string> args)
         std::cout << "Scale:  " << delta->scale() << std::endl;
         std::cout << "Offset: " << delta->offset() << std::endl;
         std::cout << "Transformed: " <<
-            inference.nativeBounds().deltify(*delta) << std::endl;
+            inference.bounds().deltify(*delta) << std::endl;
     }
 
     std::cout << "Cubified: " <<
-        inference.nativeBounds().cubeify(inference.delta()) << std::endl;
+        inference.bounds().cubeify(inference.delta()) << std::endl;
 }
 

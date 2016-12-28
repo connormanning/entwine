@@ -39,6 +39,8 @@ public:
         return json;
     }
 
+    bool empty() const { return !m_inserts && !m_outOfBounds && !m_overflows; }
+
     void add(const PointStats& other)
     {
         m_inserts += other.m_inserts;

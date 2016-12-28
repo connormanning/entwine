@@ -21,7 +21,6 @@
 #include <pdal/io/BufferReader.hpp>
 #include <pdal/io/LasReader.hpp>
 
-#include <entwine/types/delta.hpp>
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
@@ -39,9 +38,6 @@ namespace
         if (given.hammer() || found.empty()) return given;
         else return Reprojection(found.getWKT(), given.out());
     }
-
-    const double hi(std::numeric_limits<double>::max());
-    const double lo(std::numeric_limits<double>::lowest());
 
     class BufferState
     {
@@ -135,7 +131,7 @@ bool Executor::run(
     pdal::Reader* reader(scopedReader->getAs<pdal::Reader*>());
     pdal::Stage* executor(reader);
 
-    // Needed so that getSpatialReference has been initialized.
+    // Needed so that the SRS has been initialized.
     { auto lock(getLock()); reader->prepare(table); }
 
     UniqueStage scopedReproj;
@@ -149,6 +145,7 @@ bool Executor::run(
         scopedReproj = createReprojectionFilter(srs);
         if (!scopedReproj) return false;
 
+        scopedReproj->getAs<pdal::Filter*>()->setInput(*reader);
         pdal::Filter* filter(scopedReproj->getAs<pdal::Filter*>());
         filter->setInput(*reader);
 
@@ -182,8 +179,7 @@ bool Executor::good(const std::string path) const
 
 std::unique_ptr<Preview> Executor::preview(
         const std::string path,
-        const Reprojection* reprojection,
-        const Delta* delta)
+        const Reprojection* reprojection)
 {
     std::unique_ptr<Preview> result;
 
@@ -240,14 +236,13 @@ std::unique_ptr<Preview> Executor::preview(
         UniqueStage scopedFilter(createReprojectionFilter(selectedSrs));
         if (!scopedFilter) return result;
 
-        pdal::Filter* filter(scopedFilter->getAs<pdal::Filter*>());
+        pdal::Filter& filter(*scopedFilter->getAs<pdal::Filter*>());
 
-        filter->setInput(bufferState.getBuffer());
-        { auto lock(getLock()); filter->prepare(bufferState.getTable()); }
-        filter->execute(bufferState.getTable());
+        filter.setInput(bufferState.getBuffer());
+        { auto lock(getLock()); filter.prepare(bufferState.getTable()); }
+        filter.execute(bufferState.getTable());
 
-        Point min(hi, hi, hi);
-        Point max(lo, lo, lo);
+        Bounds b(Bounds::expander());
 
         for (std::size_t i(0); i < bufferState.getView().size(); ++i)
         {
@@ -256,22 +251,14 @@ std::unique_ptr<Preview> Executor::preview(
                     bufferState.getView().getFieldAs<double>(DimId::Y, i),
                     bufferState.getView().getFieldAs<double>(DimId::Z, i));
 
-            min.x = std::min(min.x, p.x);
-            min.y = std::min(min.y, p.y);
-            min.z = std::min(min.z, p.z);
-
-            max.x = std::max(max.x, p.x);
-            max.y = std::max(max.y, p.y);
-            max.z = std::max(max.z, p.z);
+            b.grow(p);
         }
 
-        bounds = Bounds(min, max);
+        bounds = b;
 
         auto lock(getLock());
         srs = pdal::SpatialReference(reprojection->out()).getWKT();
     }
-
-    if (delta) bounds = bounds.deltify(*delta);
 
     result = makeUnique<Preview>(
             bounds,
@@ -296,14 +283,13 @@ Bounds Executor::transform(
         throw std::runtime_error("Could not create transformation filter");
     }
 
-    pdal::Filter* filter(scopedFilter->getAs<pdal::Filter*>());
+    pdal::Filter& filter(*scopedFilter->getAs<pdal::Filter*>());
 
-    filter->setInput(bufferState.getBuffer());
-    { auto lock(getLock()); filter->prepare(bufferState.getTable()); }
-    filter->execute(bufferState.getTable());
+    filter.setInput(bufferState.getBuffer());
+    { auto lock(getLock()); filter.prepare(bufferState.getTable()); }
+    filter.execute(bufferState.getTable());
 
-    Point min(hi, hi, hi);
-    Point max(lo, lo, lo);
+    Bounds b(Bounds::expander());
 
     using DimId = pdal::Dimension::Id;
 
@@ -314,16 +300,10 @@ Bounds Executor::transform(
                 bufferState.getView().getFieldAs<double>(DimId::Y, i),
                 bufferState.getView().getFieldAs<double>(DimId::Z, i));
 
-        min.x = std::min(min.x, p.x);
-        min.y = std::min(min.y, p.y);
-        min.z = std::min(min.z, p.z);
-
-        max.x = std::max(max.x, p.x);
-        max.y = std::max(max.y, p.y);
-        max.z = std::max(max.z, p.z);
+        b.grow(p);
     }
 
-    return Bounds(min, max);
+    return b;
 }
 
 std::string Executor::getSrsString(const std::string input) const

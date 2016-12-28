@@ -64,7 +64,6 @@ Builder::Builder(
     , m_threadPools(makeUnique<ThreadPools>(totalThreads))
     , m_executor(makeUnique<Executor>())
     , m_sequence(makeUnique<Sequence>(*this))
-    , m_originId(m_metadata->schema().pdalLayout().findDim("OriginId"))
     , m_pointPool(
             outerScope.getPointPool(m_metadata->schema(), m_metadata->delta()))
     , m_hierarchyPool(outerScope.getHierarchyPool(heuristics::poolBlockSize))
@@ -94,7 +93,6 @@ Builder::Builder(
     , m_threadPools(makeUnique<ThreadPools>(totalThreads))
     , m_executor(makeUnique<Executor>())
     , m_sequence(makeUnique<Sequence>(*this))
-    , m_originId(m_metadata->schema().pdalLayout().findDim("OriginId"))
     , m_pointPool(
             outerScope.getPointPool(m_metadata->schema(), m_metadata->delta()))
     , m_hierarchyPool(outerScope.getHierarchyPool(heuristics::poolBlockSize))
@@ -237,9 +235,10 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
     // If we don't have an inferred bounds, check against the actual file.
     if (!info.bounds())
     {
-        if (auto pre = m_executor->preview(localPath, reprojection, delta))
+        if (auto pre = m_executor->preview(localPath, reprojection))
         {
-            if (!m_sequence->checkBounds(origin, pre->bounds, pre->numPoints))
+            const auto b(pre->bounds.deltify(delta));
+            if (!m_sequence->checkBounds(origin, b, pre->numPoints))
             {
                 return false;
             }
@@ -314,8 +313,8 @@ Cell::PooledStack Builder::insertData(
         rejected.push(std::move(cell));
     });
 
-    const Bounds& boundsConforming(m_metadata->boundsEpsilon());
-    const Bounds* boundsSubset(m_metadata->boundsSubset());
+    const Bounds& boundsConforming(m_metadata->boundsScaledEpsilon());
+    const auto boundsSubset(m_metadata->boundsScaledSubset());
     const std::size_t baseDepthBegin(m_metadata->structure().baseDepthBegin());
 
     while (!cells.empty())

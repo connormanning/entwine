@@ -33,7 +33,6 @@ public:
             const FileInfoList& fileInfo,
             const arbiter::Endpoint& endpoint);
 
-    Manifest(const arbiter::Endpoint& endpoint);
     Manifest(const Json::Value& json, const arbiter::Endpoint& endpoint);
 
     Manifest(const Manifest& other);

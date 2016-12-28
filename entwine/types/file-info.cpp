@@ -65,7 +65,7 @@ Json::Value FileInfo::toJson() const
     Json::Value json(toInferenceJson());
 
     json["status"] = toString(m_status);
-    json["pointStats"] = m_pointStats.toJson();
+    if (!m_pointStats.empty()) json["pointStats"] = m_pointStats.toJson();
 
     return json;
 }

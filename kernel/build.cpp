@@ -516,8 +516,7 @@ void Kernel::build(std::vector<std::string> args)
 
     std::cout <<
         "Geometry:\n" <<
-        "\tNative bounds: " << metadata.boundsNative() << "\n" <<
-        "\tCubic bounds: " << metadata.bounds() << "\n" <<
+        "\tNative bounds: " << metadata.boundsNativeConforming() << "\n" <<
         "\tReprojection: " << getReprojString(reprojection) << "\n" <<
         "\tStoring dimensions: " << getDimensionString(schema) <<
         std::endl;

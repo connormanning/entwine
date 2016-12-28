@@ -79,7 +79,7 @@ public:
 
     const FileInfoList& fileInfo() const { return m_fileInfo; }
     Schema schema() const;
-    Bounds nativeBounds() const;
+    Bounds bounds() const;
     std::size_t numPoints() const;
     const Reprojection* reprojection() const { return m_reproj; }
     const Delta* delta() const { return m_delta.get(); }

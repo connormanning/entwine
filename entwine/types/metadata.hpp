@@ -68,18 +68,43 @@ public:
 
     void save(const arbiter::Endpoint& endpoint) const;
 
-    const Bounds& bounds() const { return *m_bounds; }
-    const Bounds& boundsConforming() const { return *m_boundsConforming; }
-    const Bounds& boundsEpsilon() const { return *m_boundsEpsilon; }
-    const Bounds* boundsSubset() const;
-    const Bounds  boundsNative() const
+    static Bounds makeScaledCube(
+            const Bounds& nativeConformingBounds,
+            const Delta* delta);
+
+    static Bounds makeNativeCube(
+            const Bounds& nativeConformingBounds,
+            const Delta* delta);
+
+    // Native bounds - no scale/offset applied.
+    const Bounds& boundsNativeConforming() const
     {
-        return m_bounds->undeltify(delta());
+        return *m_boundsNativeConforming;
     }
-    const Bounds  boundsNativeConforming() const
+    const Bounds& boundsNativeCubic() const
     {
-        return m_boundsConforming->undeltify(delta());
+        return *m_boundsNativeCubic;
     }
+    std::unique_ptr<Bounds> boundsNativeSubset() const;
+
+    // Aliases for API simplicity.
+    const Bounds& boundsConforming() const { return boundsNativeConforming(); }
+    const Bounds& boundsCubic() const { return boundsNativeCubic(); }
+
+    // Scaled bounds - scale/offset applied.
+    const Bounds& boundsScaledConforming() const
+    {
+        return *m_boundsScaledConforming;
+    }
+    const Bounds& boundsScaledCubic() const
+    {
+        return *m_boundsScaledCubic;
+    }
+    const Bounds& boundsScaledEpsilon() const
+    {
+        return *m_boundsScaledEpsilon;
+    }
+    std::unique_ptr<Bounds> boundsScaledSubset() const;
 
     const Schema& schema() const { return *m_schema; }
     const Structure& structure() const { return *m_structure; }
@@ -122,10 +147,12 @@ private:
 
     std::unique_ptr<Delta> m_delta;
 
-    // All bounds have scale/offset already applied, if they exist.
-    std::unique_ptr<Bounds> m_boundsConforming;
-    std::unique_ptr<Bounds> m_boundsEpsilon;
-    std::unique_ptr<Bounds> m_bounds;
+    std::unique_ptr<Bounds> m_boundsNativeConforming;
+    std::unique_ptr<Bounds> m_boundsNativeCubic;
+
+    std::unique_ptr<Bounds> m_boundsScaledConforming;
+    std::unique_ptr<Bounds> m_boundsScaledCubic;
+    std::unique_ptr<Bounds> m_boundsScaledEpsilon;
 
     std::unique_ptr<Schema> m_schema;
     std::unique_ptr<Structure> m_structure;

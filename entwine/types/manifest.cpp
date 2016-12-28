@@ -41,7 +41,9 @@ Manifest::Manifest(
     , m_chunkSize(chunkSize)
 { }
 
-Manifest::Manifest(const Json::Value& json, const arbiter::Endpoint& endpoint)
+Manifest::Manifest(
+        const Json::Value& json,
+        const arbiter::Endpoint& endpoint)
     : m_endpoint(endpoint)
 {
     if (!json.isObject()) throw std::runtime_error("Invalid manifest JSON");

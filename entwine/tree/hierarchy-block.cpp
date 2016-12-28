@@ -279,7 +279,9 @@ BaseBlock::BaseBlock(
     if (m_metadata.subset())
     {
         const std::vector<Subset::Span> spans(
-                m_metadata.subset()->calcSpans(s, m_metadata.bounds()));
+                m_metadata.subset()->calcSpans(
+                    s,
+                    m_metadata.boundsNativeCubic()));
 
         const std::size_t sharedDepth(m_metadata.subset()->minimumNullDepth());
 

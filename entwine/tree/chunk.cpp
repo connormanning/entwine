@@ -406,7 +406,7 @@ void BaseChunk::tile() const
 BaseChunk::BaseChunk(const Builder& builder)
     : Chunk(
             builder,
-            builder.metadata().bounds(),
+            builder.metadata().boundsScaledCubic(),
             builder.metadata().structure().baseDepthBegin(),
             builder.metadata().structure().baseIndexBegin(),
             builder.metadata().structure().baseIndexSpan())
@@ -423,7 +423,7 @@ BaseChunk::BaseChunk(const Builder& builder)
     {
         m_chunks.emplace_back(
                 m_builder,
-                m_metadata.bounds(),
+                m_metadata.boundsScaledCubic(),
                 d,
                 ChunkInfo::calcLevelIndex(2, d),
                 0,
@@ -435,13 +435,13 @@ BaseChunk::BaseChunk(const Builder& builder)
         const std::vector<Subset::Span> spans(
                 m_metadata.subset()->calcSpans(
                     m_metadata.structure(),
-                    m_metadata.bounds()));
+                    m_metadata.boundsScaledCubic()));
 
         for (std::size_t d(s.baseDepthBegin()); d < s.baseDepthEnd(); ++d)
         {
             m_chunks.emplace_back(
                     m_builder,
-                    m_metadata.bounds(),
+                    m_metadata.boundsScaledCubic(),
                     d,
                     spans[d].begin(),
                     spans[d].end() - spans[d].begin(),
@@ -454,7 +454,7 @@ BaseChunk::BaseChunk(const Builder& builder)
         {
             m_chunks.emplace_back(
                     m_builder,
-                    m_metadata.bounds(),
+                    m_metadata.boundsScaledCubic(),
                     d,
                     ChunkInfo::calcLevelIndex(2, d),
                     ChunkInfo::pointsAtDepth(2, d),
