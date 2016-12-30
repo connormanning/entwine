@@ -268,7 +268,7 @@ namespace absolute
         json["input"] = test::dataPath() + "ellipsoid-multi-laz";
         json["output"] = outPath;
         json["absolute"] = true;
-        json["subset"]["of"] = 4;
+        json["subset"]["of"] = 16;
         return json;
     })());
 
@@ -315,7 +315,7 @@ namespace scaled
         Json::Value json;
         json["input"] = test::dataPath() + "ellipsoid-multi-laz";
         json["output"] = outPath;
-        json["subset"]["of"] = 4;
+        json["subset"]["of"] = 16;
         return json;
     })());
 

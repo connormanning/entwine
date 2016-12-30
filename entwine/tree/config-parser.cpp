@@ -219,8 +219,8 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                     return 8;
             }());
 
-            dims.emplace_back("PointId", "unsigned", pointIdSize);
             dims.emplace_back("OriginId", "unsigned", originSize);
+            dims.emplace_back("PointId", "unsigned", pointIdSize);
 
             schema = makeUnique<Schema>(dims);
         }
@@ -262,7 +262,11 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     OuterScope outerScope;
     outerScope.setArbiter(arbiter);
 
-    return makeUnique<Builder>(metadata, outPath, tmpPath, threads, outerScope);
+    auto builder =
+        makeUnique<Builder>(metadata, outPath, tmpPath, threads, outerScope);
+
+    if (verbose) builder->verbose(true);
+    return builder;
 }
 
 std::unique_ptr<Builder> ConfigParser::tryGetExisting(
