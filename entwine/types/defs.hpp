@@ -25,7 +25,7 @@ namespace entwine
 
 inline Version currentVersion()
 {
-    return Version(0, 0, 0);
+    return Version(0, 0, 1);
 }
 
 using Id = BigUint;
