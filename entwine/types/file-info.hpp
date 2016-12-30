@@ -59,7 +59,16 @@ public:
         return m_bounds.exists() ? &m_bounds : nullptr;
     }
 
-    void bounds(const Bounds& bounds) { m_bounds = bounds; }
+    const Bounds* boundsEpsilon() const
+    {
+        return m_bounds.exists() ? &m_boundsEpsilon : nullptr;
+    }
+
+    void bounds(const Bounds& bounds)
+    {
+        m_bounds = bounds;
+        m_boundsEpsilon = bounds.growBy(.005);
+    }
     void numPoints(std::size_t n) { m_numPoints = n; }
     void srs(const pdal::SpatialReference& s) { m_srs = s; }
     void metadata(const Json::Value& json) { m_metadata = json; }
@@ -76,6 +85,7 @@ private:
     // If Bounds is set while the Status is Outstanding, then we have inferred
     // the bounds and number of points in this file from the header.
     Bounds m_bounds;    // Represented in the output projection.
+    Bounds m_boundsEpsilon;
     std::size_t m_numPoints = 0;
     pdal::SpatialReference m_srs;
     Json::Value m_metadata;

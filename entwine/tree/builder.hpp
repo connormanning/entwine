@@ -83,12 +83,6 @@ public:
     // the manifest.
     void go(std::size_t maxFileInsertions = 0);
 
-    // Save the current state of the tree.  Files may no longer be inserted
-    // after this call, but getters are still valid.
-    void save();
-    void save(std::string to);
-    void save(const arbiter::Endpoint& to);
-
     // Aggregate spatially segmented build.
     void merge(Builder& other);
 
@@ -121,6 +115,12 @@ public:
 private:
     Executor& executor();
     std::mutex& mutex();
+
+    // Save the current state of the tree.  Files may no longer be inserted
+    // after this call, but getters are still valid.
+    void save();
+    void save(std::string to);
+    void save(const arbiter::Endpoint& to);
 
     // Attempt to wake up a possibly subset build with indeterminate metadata
     // state.  Used to wake up the active Builder for merging.

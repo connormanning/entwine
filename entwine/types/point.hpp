@@ -231,6 +231,11 @@ public:
         return (d - origin + offset) * scale + origin;
     }
 
+    template<typename Op> Point apply(Op op) const
+    {
+        return Point(op(x), op(y), op(z));
+    }
+
     template<typename Op> static Point apply(Op op, const Point& p)
     {
         return Point(op(p.x), op(p.y), op(p.z));

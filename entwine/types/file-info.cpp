@@ -52,11 +52,16 @@ FileInfo::FileInfo(const Json::Value& json)
             m_status = toStatus(json["status"].asString());
         }
 
-        if (json.isMember("bounds")) m_bounds = Bounds(json["bounds"]);
+        if (json.isMember("bounds")) bounds(Bounds(json["bounds"]));
 
         m_numPoints = json["numPoints"].asUInt64();
         m_metadata = json["metadata"];
         m_pointStats = PointStats(json["pointStats"]);
+
+        if (json.isMember("srs"))
+        {
+            m_srs = pdal::SpatialReference(json["srs"].asString());
+        }
     }
 }
 

@@ -98,14 +98,13 @@ void Kernel::merge(std::vector<std::string> args)
 
     auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(arbiterConfig));
 
-    Merger merger(path, threads, subset.get(), arbiter);
+    Merger merger(path, threads, subset.get(), true, arbiter);
 
     std::cout << "Merging " << path;
     if (subset) std::cout << " at subset: " << *subset;
     std::cout << "..." << std::endl;
 
-    merger.merge();
-    merger.save();
+    merger.go();
     std::cout << "Merge complete." << std::endl;
 }
 

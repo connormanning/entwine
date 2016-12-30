@@ -435,7 +435,7 @@ BaseChunk::BaseChunk(const Builder& builder)
         const std::vector<Subset::Span> spans(
                 m_metadata.subset()->calcSpans(
                     m_metadata.structure(),
-                    m_metadata.boundsScaledCubic()));
+                    m_metadata.boundsNativeCubic()));
 
         for (std::size_t d(s.baseDepthBegin()); d < s.baseDepthEnd(); ++d)
         {
@@ -661,10 +661,13 @@ std::set<Id> BaseChunk::merge(BaseChunk& other)
             {
                 const Id id(write.front().id());
 
-                throw std::runtime_error(
-                        "Chunk bounds required - not implemented here");
-
                 // Manual save, since we don't want to write empty chunks.
+                //
+                // Our lack of chunk bounds here is one reason we can't do
+                // Cesium output for merged builds, since Cesium needs the
+                // bounds for each chunk.  We could calculate it but there are
+                // other issues for non-standard Cesium builds as well, so it's
+                // fine for now with these limitations in mind.
                 ContiguousChunk chunk(
                         m_builder,
                         Bounds(),

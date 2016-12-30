@@ -400,14 +400,37 @@ void Inference::aggregate()
     {
         // Since the delta bounds guarantee us an extra buffer of at least 20,
         // we can slop this by 10 for prettier numbers.
-        m_delta->offset() =
-            Point::apply([](double d)
+        m_delta->offset() = m_bounds->mid().apply([](double d)
+        {
+            const int64_t v(d);
+            if (static_cast<double>(v / 10 * 10) == d) return v;
+            else return (v + 10) / 10 * 10;
+        });
+
+        m_delta->scale() = m_delta->scale().apply([](double d)->double
+        {
+            const double epsilon(1e-6);
+            double mult(10);
+            while (d * mult < 1.0) mult *= 10;
+
+            if (d * mult - 1.0 < epsilon)
             {
-                const int64_t v(d);
-                if (static_cast<double>(v / 10 * 10) == d) return v;
-                else return (v + 10) / 10 * 10;
-            },
-            m_bounds->mid());
+                switch (static_cast<int>(mult))
+                {
+                    case int(1e1): return 1e-1;
+                    case int(1e2): return 1e-2;
+                    case int(1e3): return 1e-3;
+                    case int(1e4): return 1e-4;
+                    case int(1e5): return 1e-5;
+                    case int(1e6): return 1e-6;
+                    case int(1e7): return 1e-7;
+                    case int(1e8): return 1e-8;
+                    case int(1e9): return 1e-9;
+                    default: break;
+                }
+            }
+            return d;
+        });
     }
 }
 
@@ -467,12 +490,7 @@ Json::Value Inference::toJson() const
     json["bounds"] = bounds().toJson();
     json["numPoints"] = Json::UInt64(numPoints());
     if (m_reproj) json["reprojection"] = m_reproj->toJson();
-
-    if (delta())
-    {
-        json["scale"] = delta()->scale().toJson();
-        json["offset"] = delta()->offset().toJson();
-    }
+    if (m_delta) m_delta->insertInto(json);
 
     return json;
 }

@@ -230,14 +230,13 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
 
     const Reprojection* reprojection(m_metadata->reprojection());
     const Transformation* transformation(m_metadata->transformation());
-    const Delta* delta(m_metadata->delta());
 
     // If we don't have an inferred bounds, check against the actual file.
     if (!info.bounds())
     {
         if (auto pre = m_executor->preview(localPath, reprojection))
         {
-            const auto b(pre->bounds.deltify(delta));
+            const auto b(pre->bounds.growBy(.01));
             if (!m_sequence->checkBounds(origin, b, pre->numPoints))
             {
                 return false;

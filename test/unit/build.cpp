@@ -10,6 +10,7 @@
 #include "entwine/third/arbiter/arbiter.hpp"
 #include "entwine/tree/builder.hpp"
 #include "entwine/tree/config-parser.hpp"
+#include "entwine/tree/merger.hpp"
 #include "entwine/util/inference.hpp"
 #include "entwine/util/json.hpp"
 
@@ -102,9 +103,8 @@ TEST_P(BuildTest, Verify)
     });
 
     Json::Value config(expect.config);
-    if (config.isArray()) config = config[0];
 
-    if (expect.config.isObject())
+    if (config.isMember("run"))
     {
         const std::size_t run(config["run"].asUInt64());
         std::size_t ran(0);
@@ -119,12 +119,26 @@ TEST_P(BuildTest, Verify)
         }
         while (run && ran < total);
     }
+    else if (config.isMember("subset"))
+    {
+        std::size_t id(0);
+        const std::size_t of(config["subset"]["of"].asUInt64());
+
+        while (id < of)
+        {
+            // Subset IDs are one-based.
+            Json::Value current(config);
+            current["subset"]["id"] = Json::UInt64(id + 1);
+            ++id;
+            build(current, false);
+        }
+
+        entwine::Merger merger(config["output"].asString(), 1);
+        merger.go();
+    }
     else
     {
-        for (Json::ArrayIndex i(0); i < expect.config.size(); ++i)
-        {
-            build(expect.config[i], i != 0);
-        }
+        build(config, false);
     }
 
     const Json::Value meta(parse(outEp.get("entwine")));
@@ -210,7 +224,6 @@ TEST_P(BuildTest, Verify)
             q = q.get(toDir((depth + n) % 8));
             const std::size_t np(r.query(q, depth).size() / schema.pointSize());
 
-            // const Bounds s(q.deltify(delta));
             ASSERT_EQ(np, o.query(q, depth).size()) <<
                 " B: " << bounds << " D: " << depth << std::endl;
         }
@@ -249,14 +262,25 @@ namespace absolute
         return json;
     })());
 
+    Json::Value subset(([]()
+    {
+        Json::Value json;
+        json["input"] = test::dataPath() + "ellipsoid-multi-laz";
+        json["output"] = outPath;
+        json["absolute"] = true;
+        json["subset"]["of"] = 4;
+        return json;
+    })());
+
     Expectations one(single, actualBounds);
     Expectations two(multi, actualBounds);
     Expectations con(continued, actualBounds);
+    Expectations sub(subset, actualBounds);
 
     INSTANTIATE_TEST_CASE_P(
             Absolute,
             BuildTest,
-            testing::Values(one, two, con), );
+            testing::Values(one, two, con, sub), );
 }
 
 namespace scaled
@@ -286,18 +310,26 @@ namespace scaled
         return json;
     })());
 
+    Json::Value subset(([]()
+    {
+        Json::Value json;
+        json["input"] = test::dataPath() + "ellipsoid-multi-laz";
+        json["output"] = outPath;
+        json["subset"]["of"] = 4;
+        return json;
+    })());
+
     const Delta delta(Scale(.01));
-    const Bounds actualScaledBounds(
-            actualBounds.scale(delta.scale(), delta.offset()));
 
     Expectations one(single, actualBounds, delta);
     Expectations two(multi, actualBounds, delta);
     Expectations con(continued, actualBounds, delta);
+    Expectations sub(subset, actualBounds, delta);
 
     INSTANTIATE_TEST_CASE_P(
             Scaled,
             BuildTest,
-            testing::Values(one, two, con), );
+            testing::Values(one, two, con, sub), );
 }
 
 TEST(Build, Kernel)

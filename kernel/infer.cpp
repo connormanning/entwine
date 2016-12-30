@@ -293,8 +293,5 @@ void Kernel::infer(std::vector<std::string> args)
         std::cout << "Transformed: " <<
             inference.bounds().deltify(*delta) << std::endl;
     }
-
-    std::cout << "Cubified: " <<
-        inference.bounds().cubeify(inference.delta()) << std::endl;
 }
 

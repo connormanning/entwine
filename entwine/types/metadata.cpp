@@ -172,8 +172,7 @@ Json::Value Metadata::toJson() const
 
     if (m_delta)
     {
-        json["scale"] = m_delta->scale().toJsonArray();
-        json["offset"] = m_delta->offset().toJsonArray();
+        m_delta->insertInto(json);
     }
 
     if (m_transformation)

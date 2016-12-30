@@ -29,12 +29,12 @@ public:
             std::string path,
             std::size_t threads,
             const std::size_t* subsetId = nullptr,
+            bool verbose = false,
             std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
 
     ~Merger();
 
-    void merge();   // Join geographically-subsetted builds.
-    void save();    // Save results.
+    void go();
 
     std::size_t index() const { return m_pos; }
     std::size_t total() const { return m_others.size() + 1; }
@@ -47,6 +47,8 @@ private:
     std::unique_ptr<OuterScope> m_outerScope;
 
     std::size_t m_pos;
+
+    bool m_verbose;
 };
 
 } // namespace entwine

@@ -40,7 +40,7 @@ Sequence::Sequence(Builder& builder)
     {
         const FileInfo& f(m_manifest.get(i));
 
-        if (!f.bounds() || activeBounds.overlaps(*f.bounds()))
+        if (!f.boundsEpsilon() || activeBounds.overlaps(*f.boundsEpsilon()))
         {
             m_overlaps.push_back(i);
         }
@@ -79,7 +79,7 @@ bool Sequence::checkInfo(Origin origin)
         m_manifest.set(origin, FileInfo::Status::Omitted);
         return false;
     }
-    else if (const Bounds* infoBounds = info.bounds())
+    else if (const Bounds* infoBounds = info.boundsEpsilon())
     {
         if (!checkBounds(origin, *infoBounds, info.numPoints()))
         {

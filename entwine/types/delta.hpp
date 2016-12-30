@@ -47,6 +47,19 @@ public:
         if (json.isMember("offset")) m_offset = Scale(json["offset"]);
     }
 
+    void insertInto(Json::Value& json)
+    {
+        if (empty()) return;
+
+        if (m_scale.x == m_scale.y && m_scale.x == m_scale.z)
+        {
+            json["scale"] = m_scale.x;
+        }
+        else json["scale"] = m_scale.toJsonArray();
+
+        json["offset"] = m_offset.toJsonArray();
+    }
+
     static std::unique_ptr<Delta> maybeCreate(
             const Scale* scale,
             const Offset* offset)

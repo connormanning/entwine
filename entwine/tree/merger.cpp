@@ -23,6 +23,7 @@ Merger::Merger(
         const std::string path,
         const std::size_t threads,
         const std::size_t* subsetId,
+        const bool verbose,
         std::shared_ptr<arbiter::Arbiter> arbiter)
     : m_builder()
     , m_path(path)
@@ -30,6 +31,7 @@ Merger::Merger(
     , m_threads(threads)
     , m_outerScope(makeUnique<OuterScope>())
     , m_pos(0)
+    , m_verbose(verbose)
 {
     m_outerScope->setArbiter(arbiter);
 
@@ -41,9 +43,12 @@ Merger::Merger(
 
     if (!m_builder)
     {
-        std::cout << "No builder for " << path;
-        if (subsetId) std::cout << " at " << *subsetId;
-        std::cout << std::endl;
+        if (m_verbose)
+        {
+            std::cout << "No builder for " << path;
+            if (subsetId) std::cout << " at " << *subsetId;
+            std::cout << std::endl;
+        }
 
         throw std::runtime_error("Path not mergeable");
     }
@@ -69,12 +74,15 @@ Merger::Merger(
         }
     }
 
-    std::cout << "Awakened 1 / " << m_others.size() + 1 << std::endl;
+    if (m_verbose)
+    {
+        std::cout << "Awakened 1 / " << m_others.size() + 1 << std::endl;
+    }
 }
 
 Merger::~Merger() { }
 
-void Merger::merge()
+void Merger::go()
 {
     const std::size_t total(m_others.size() + 1);
 
@@ -82,7 +90,10 @@ void Merger::merge()
     {
         m_pos = id + 1;
 
-        std::cout << "Merging " << m_pos << " / " << total << std::endl;
+        if (m_verbose)
+        {
+            std::cout << "Merging " << m_pos << " / " << total << std::endl;
+        }
 
         auto current(
                 Builder::create(
@@ -97,17 +108,11 @@ void Merger::merge()
     }
 
     m_builder->makeWhole();
-}
 
-void Merger::save()
-{
-    if (m_builder)
-    {
-        std::cout << "Merge complete.  Saving..." << std::endl;
-        m_builder->save();
-        m_builder.reset();
-        std::cout << "\tFinal save complete." << std::endl;
-    }
+    if (m_verbose) std::cout << "Merge complete.  Saving..." << std::endl;
+    m_builder->save();
+    m_builder.reset();
+    if (m_verbose) std::cout << "\tFinal save complete." << std::endl;
 }
 
 } // namespace entwine
