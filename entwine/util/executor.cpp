@@ -145,10 +145,9 @@ bool Executor::run(
         scopedReproj = createReprojectionFilter(srs);
         if (!scopedReproj) return false;
 
-        scopedReproj->getAs<pdal::Filter*>()->setInput(*reader);
         pdal::Filter* filter(scopedReproj->getAs<pdal::Filter*>());
-        filter->setInput(*reader);
 
+        filter->setInput(*executor);
         executor = filter;
     }
 
@@ -160,6 +159,7 @@ bool Executor::run(
         if (!scopedTransform) return false;
 
         pdal::Filter* filter(scopedTransform->getAs<pdal::Filter*>());
+
         filter->setInput(*executor);
         executor = filter;
     }
@@ -338,8 +338,7 @@ UniqueStage Executor::createReader(const std::string path) const
     return result;
 }
 
-UniqueStage Executor::createReprojectionFilter(
-        const Reprojection& reproj) const
+UniqueStage Executor::createReprojectionFilter(const Reprojection& reproj) const
 {
     UniqueStage result;
 
