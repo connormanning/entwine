@@ -8,6 +8,8 @@
 *
 ******************************************************************************/
 
+#include <cassert>
+
 #include <entwine/formats/cesium/settings.hpp>
 #include <entwine/types/delta.hpp>
 #include <entwine/types/format.hpp>
@@ -27,12 +29,6 @@ namespace entwine
 namespace
 {
     const double epsilon(0.005);
-
-    std::string getPostfix(const std::size_t* subsetId)
-    {
-        if (subsetId) return "-" + std::to_string(*subsetId);
-        else return "";
-    }
 }
 
 Metadata::Metadata(
@@ -82,7 +78,10 @@ Metadata::Metadata(const arbiter::Endpoint& ep, const std::size_t* subsetId)
     {
         // Prior to 1.0, there were some keys nested in the top-level "format"
         // key.  Now those nested keys are themselves at the top level.
-        Json::Value json(parse(ep.get("entwine" + getPostfix(subsetId))));
+        //
+        // Note that we are not fully-constructed yet so we can't call our
+        // Metadata::postfix() yet, as we would like to.
+        Json::Value json(parse(ep.get("entwine" + Subset::postfix(subsetId))));
         if (json.isMember("format"))
         {
             for (const auto& k : json["format"].getMemberNames())
@@ -93,9 +92,8 @@ Metadata::Metadata(const arbiter::Endpoint& ep, const std::size_t* subsetId)
         return json;
     })())
 {
-    const Json::Value json(
-            parse(ep.get("entwine-manifest" + getPostfix(subsetId))));
-
+    assert(!subsetId || *subsetId == m_subset->id());
+    const Json::Value json(parse(ep.get("entwine-manifest" + postfix())));
     m_manifest = makeUnique<Manifest>(json, ep);
 }
 

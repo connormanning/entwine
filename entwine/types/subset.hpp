@@ -40,6 +40,12 @@ public:
     const Bounds& bounds() const { return m_sub; }
 
     std::string postfix() const { return "-" + std::to_string(m_id); }
+    static std::string postfix(const std::size_t* subsetId)
+    {
+        if (subsetId) return "-" + std::to_string(*subsetId);
+        else return "";
+    }
+
     bool primary() const { return !m_id; }
 
     // The minimum null depth represents the depth at which *nodes* first

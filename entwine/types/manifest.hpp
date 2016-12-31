@@ -11,6 +11,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <mutex>
 #include <string>
@@ -29,7 +30,7 @@ namespace entwine
 class Manifest
 {
 public:
-    explicit Manifest(
+    Manifest(
             const FileInfoList& fileInfo,
             const arbiter::Endpoint& endpoint);
 

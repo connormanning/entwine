@@ -224,8 +224,12 @@ void Manifest::save(const std::string postfix) const
     json["pointStats"] = m_pointStats.toJson();
     Json::Value& fileInfo(json["fileInfo"]);
 
+    // If we have a postfix (and therefore we're a subset), we'll just write
+    // everything out together even if it's huge.  The split-up metadata is a
+    // read-time optimization - we'll need to wake everything up to merge at
+    // build time anyway.
     const auto n(size());
-    const bool dense(n <= denseSize);
+    const bool dense(n <= denseSize || postfix.size());
     fileInfo.resize(n);
 
     if (dense || (m.isLocal() && !arbiter::fs::mkdirp(m.root())))
@@ -237,6 +241,8 @@ void Manifest::save(const std::string postfix) const
     }
     else
     {
+        assert(postfix.empty());
+
         for (Json::ArrayIndex i(0); i < n; ++i)
         {
             // We're storing the file info separately, so the "fileInfo" key
