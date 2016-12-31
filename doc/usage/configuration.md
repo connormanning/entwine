@@ -12,7 +12,7 @@ For example, a configuration file named `web-mercator.json` could be used to tra
 ```json
 {
     "threads": 6,
-    "reproject": { "out": "EPSG:3857" }
+    "reprojection": { "out": "EPSG:3857" }
 }
 ```
 
