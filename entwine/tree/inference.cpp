@@ -8,14 +8,13 @@
 *
 ******************************************************************************/
 
-#include <entwine/util/inference.hpp>
+#include <entwine/tree/inference.hpp>
 
 #include <limits>
 
 #include <entwine/tree/config-parser.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/pooled-point-table.hpp>
-#include <entwine/util/inference.hpp>
 #include <entwine/util/matrix.hpp>
 #include <entwine/util/unique.hpp>
 

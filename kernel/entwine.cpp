@@ -136,10 +136,6 @@ int main(int argc, char** argv)
         {
             Kernel::infer(args);
         }
-        else if (kernel == "convert")
-        {
-            Kernel::convert(args);
-        }
         else
         {
             if (kernel != "help" && kernel != "-h" && kernel != "--help")

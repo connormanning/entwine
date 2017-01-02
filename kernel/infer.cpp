@@ -13,8 +13,8 @@
 #include <cstddef>
 #include <string>
 
+#include <entwine/tree/inference.hpp>
 #include <entwine/types/reprojection.hpp>
-#include <entwine/util/inference.hpp>
 
 using namespace entwine;
 

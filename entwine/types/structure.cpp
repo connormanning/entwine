@@ -222,7 +222,6 @@ Structure::Structure(
             ChunkInfo::calcLevelIndex(dimensions, m_sparseDepthBegin))
     , m_mappedIndexBegin(
             ChunkInfo::calcLevelIndex(dimensions, m_mappedDepthBegin))
-
 {
     if (m_baseDepthEnd < 4)
     {

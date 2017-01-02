@@ -5,7 +5,6 @@ set(
     SOURCES
     "${BASE}/compression.cpp"
     "${BASE}/executor.cpp"
-    "${BASE}/inference.cpp"
     "${BASE}/lzma.cpp"
     "${BASE}/pool.cpp"
     "${BASE}/storage.cpp"
@@ -15,7 +14,6 @@ set(
     HEADERS
     "${BASE}/compression.hpp"
     "${BASE}/executor.hpp"
-    "${BASE}/inference.hpp"
     "${BASE}/json.hpp"
     "${BASE}/locker.hpp"
     "${BASE}/matrix.hpp"

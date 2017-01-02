@@ -507,11 +507,13 @@ void Kernel::build(std::vector<std::string> args)
         "\tNull depth: " << structure.nullDepthEnd() << "\n" <<
         "\tBase depth: " << structure.baseDepthEnd() << "\n" <<
         "\tCold depth: " << coldDepthString << "\n" <<
-        "\tChunk size: " << structure.basePointsPerChunk() << " points\n" <<
+        "\tChunk size: " << commify(structure.basePointsPerChunk()) <<
+            " points\n" <<
         "\tDynamic chunks? " << yesNo(structure.dynamicChunks()) << "\n" <<
         "\tPrefix IDs? " << yesNo(structure.prefixIds()) << "\n" <<
         "\tBuild type: " << structure.typeString() << "\n" <<
-        "\tPoint count hint: " << structure.numPointsHint() << " points" <<
+        "\tPoint count hint: " << commify(structure.numPointsHint()) <<
+            " points" <<
         std::endl;
 
     std::cout <<

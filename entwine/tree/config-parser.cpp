@@ -16,6 +16,7 @@
 #include <entwine/formats/cesium/settings.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
+#include <entwine/tree/inference.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/format.hpp>
 #include <entwine/types/manifest.hpp>
@@ -23,7 +24,6 @@
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/subset.hpp>
-#include <entwine/util/inference.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine

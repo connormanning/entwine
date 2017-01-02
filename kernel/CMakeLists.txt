@@ -3,7 +3,6 @@ set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 set(
     SOURCES
     "${BASE}/build.cpp"
-    "${BASE}/convert.cpp"
     "${BASE}/entwine.cpp"
     "${BASE}/infer.cpp"
     "${BASE}/merge.cpp"

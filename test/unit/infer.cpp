@@ -1,8 +1,8 @@
 #include "gtest/gtest.h"
 #include "config.hpp"
 
+#include "entwine/tree/inference.hpp"
 #include "entwine/types/reprojection.hpp"
-#include "entwine/util/inference.hpp"
 
 using namespace entwine;
 

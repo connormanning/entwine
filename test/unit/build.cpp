@@ -10,8 +10,8 @@
 #include "entwine/third/arbiter/arbiter.hpp"
 #include "entwine/tree/builder.hpp"
 #include "entwine/tree/config-parser.hpp"
+#include "entwine/tree/inference.hpp"
 #include "entwine/tree/merger.hpp"
-#include "entwine/util/inference.hpp"
 #include "entwine/util/json.hpp"
 
 #include "octree.hpp"
