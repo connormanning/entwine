@@ -250,7 +250,7 @@ Structure::Structure(
     if (!mappedDepth)
     {
         m_mappedDepthBegin =
-            std::ceil(std::log2(activeNumPointsHint) / std::log2(m_factor)) + 1;
+            std::ceil(std::log2(activeNumPointsHint) / std::log2(m_factor));
     }
 
     m_mappedDepthBegin = std::max(m_mappedDepthBegin, activeMinDepth);
