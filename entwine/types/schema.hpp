@@ -32,9 +32,7 @@ class Schema
 {
 public:
     explicit Schema(DimList dims)
-        : m_pointId(pdal::Dimension::Id::Unknown)
-        , m_originId(pdal::Dimension::Id::Unknown)
-        , m_dims(dims)
+        : m_dims(dims)
         , m_layout(makePointLayout(m_dims))
     { }
 
@@ -60,8 +58,6 @@ public:
     Schema(const Schema& other) : Schema(other.m_dims) { }
     Schema& operator=(const Schema& other)
     {
-        m_pointId = pdal::Dimension::Id::Unknown;
-        m_originId = pdal::Dimension::Id::Unknown;
         m_dims = other.m_dims;
         m_layout = makePointLayout(m_dims);
         return *this;
@@ -221,9 +217,6 @@ public:
         return Schema(dims);
     }
 
-    pdal::Dimension::Id pointIdDim() const { return m_pointId; }
-    pdal::Dimension::Id originIdDim() const { return m_originId; }
-
 private:
     std::unique_ptr<pdal::PointLayout> makePointLayout(DimList& dims)
     {
@@ -242,18 +235,12 @@ private:
                 throw std::runtime_error(
                         "Could not register dimension " + dim.name());
             }
-
-            if (dim.name() == "PointId") m_pointId = dim.id();
-            if (dim.name() == "OriginId") m_originId = dim.id();
         }
 
         layout->finalize();
 
         return layout;
     }
-
-    pdal::Dimension::Id m_pointId;
-    pdal::Dimension::Id m_originId;
 
     DimList m_dims;
     std::unique_ptr<pdal::PointLayout> m_layout;

@@ -363,7 +363,7 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
         return stack;
     });
 
-    NormalPooledPointTable table(m_pointPool, tracker, invalidOrigin);
+    PooledPointTable table(m_pointPool, tracker, invalidOrigin);
 
     if (m_executor.run(table, localPath, m_reproj, m_transformation.get()))
     {

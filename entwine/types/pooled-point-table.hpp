@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <array>
+
 #include <pdal/Dimension.hpp>
 #include <pdal/PointTable.hpp>
 
@@ -28,14 +30,18 @@ public:
     // can return any that do not need to be kept for reuse.
     using Process = std::function<Cell::PooledStack(Cell::PooledStack)>;
 
+    PooledPointTable(PointPool& pointPool, Process process, Origin origin)
+        : PooledPointTable(pointPool, process, origin, pointPool.schema())
+    { }
+
     PooledPointTable(
             PointPool& pointPool,
-            const Schema& schema,
             Process process,
-            Origin origin)
-        : pdal::StreamPointTable(schema.pdalLayout())
+            Origin origin,
+            const Schema& outwardSchema)
+        : pdal::StreamPointTable(outwardSchema.pdalLayout())
         , m_pointPool(pointPool)
-        , m_inSchema(schema)
+        , m_schema(pointPool.schema())
         , m_process(process)
         , m_dataNodes(pointPool.dataPool())
         , m_cellNodes(pointPool.cellPool())
@@ -47,13 +53,6 @@ public:
         m_refs.reserve(capacity());
         allocate();
     }
-
-    PooledPointTable(
-            PointPool& pointPool,
-            Process process,
-            Origin origin)
-        : PooledPointTable(pointPool, pointPool.schema(), process, origin)
-    { }
 
     virtual ~PooledPointTable() { }
 
@@ -67,15 +66,13 @@ public:
     virtual void reset() override;
 
 protected:
-    virtual void allocated() { }
-    virtual void preprocess() = 0;
-    virtual const Schema& outSchema() const { return m_inSchema; }
+    // virtual const Schema& outSchema() const { return m_schema; }
 
     std::size_t index() const { return m_index; }
     std::size_t outstanding() const { return m_outstanding; }
 
     PointPool& m_pointPool;
-    const Schema& m_inSchema;
+    const Schema& m_schema;
     Process m_process;
 
     Data::PooledStack m_dataNodes;
@@ -83,7 +80,7 @@ protected:
 
     std::vector<char*> m_refs;
 
-private:
+protected:
     virtual char* getPoint(pdal::PointId i) override
     {
         m_outstanding = i + 1;
@@ -97,54 +94,79 @@ private:
     std::size_t m_outstanding;
 };
 
-class NormalPooledPointTable : public PooledPointTable
+class ConvertingPointTable : public PooledPointTable
 {
 public:
-    NormalPooledPointTable(
+    ConvertingPointTable(
             PointPool& pointPool,
-            PooledPointTable::Process process,
-            Origin origin)
-        : PooledPointTable(pointPool, process, origin)
+            Process process,
+            Origin origin,
+            const Delta& delta,
+            std::unique_ptr<Schema> normalizedSchema)
+        : PooledPointTable(pointPool, process, origin, *normalizedSchema)
+        , m_delta(delta)
+        , m_normalizedSchema(std::move(normalizedSchema))
+        , m_sizes{ {
+            m_schema.find("X").size(),
+            m_schema.find("Y").size(),
+            m_schema.find("Z").size()
+        } }
+        , m_offsets{ { 0, m_sizes[0], m_sizes[0] + m_sizes[1] } }
+        , m_xyzSize(m_sizes[0] + m_sizes[1] + m_sizes[2])
+        , m_xyzNormal(3 * sizeof(double) - m_xyzSize)
     {
-        allocated();
+        assert(m_schema.find("X").typeString() == "signed");
+        assert(m_schema.find("Y").typeString() == "signed");
+        assert(m_schema.find("Z").typeString() == "signed");
     }
 
-private:
-    virtual void allocated() override;
-    virtual void preprocess() override { }
-};
-
-class ConvertingPooledPointTable : public PooledPointTable
-{
-public:
-    ConvertingPooledPointTable(
-            PointPool& pointPool,
-            std::unique_ptr<Schema> normalizedSchema,
-            PooledPointTable::Process process,
-            const Delta& delta,
-            Origin origin)
-        : PooledPointTable(pointPool, *normalizedSchema, process, origin)
-        , m_delta(delta)
-        , m_preSchema(std::move(normalizedSchema))
-        , m_preData(m_preSchema->pointSize() * capacity(), 0)
+protected:
+    virtual void setFieldInternal(
+            pdal::Dimension::Id id,
+            pdal::PointId index,
+            const void* value) override
     {
-        for (std::size_t i(0); i < capacity(); ++i)
+        char* pos(getPoint(index));
+        const auto dim(pdal::Utils::toNative(id) - 1);
+
+        if (dim >= 3)
         {
-            m_refs.push_back(m_preData.data() + i * m_preSchema->pointSize());
+            const pdal::Dimension::Detail* d(m_layoutRef.dimDetail(id));
+            const char* src(reinterpret_cast<const char*>(value));
+            char* dst(pos + d->offset() - m_xyzNormal);
+            std::copy(src, src + d->size(), dst);
+        }
+        else
+        {
+            const int64_t v(
+                    std::llround(
+                        Point::scale(
+                            *reinterpret_cast<const double*>(value),
+                            m_delta.scale()[dim],
+                            m_delta.offset()[dim])));
+
+            char* dst(pos + m_offsets[dim]);
+
+            if (m_sizes[dim] == 4)      setConverted<int32_t>(v, dst);
+            else if (m_sizes[dim] == 8) setConverted<int64_t>(v, dst);
+            else throw std::runtime_error("Invalid XYZ size");
         }
     }
 
-private:
-    virtual void preprocess() override;
-
-    virtual const Schema& outSchema() const override
+    template<typename T>
+    void setConverted(T value, char* dst)
     {
-        return m_pointPool.schema();
+        const char* src(reinterpret_cast<const char*>(&value));
+        std::copy(src, src + sizeof(src), dst);
     }
 
+private:
     const Delta& m_delta;
-    std::unique_ptr<Schema> m_preSchema;
-    std::vector<char> m_preData;
+    std::unique_ptr<Schema> m_normalizedSchema;
+    std::array<std::size_t, 3> m_sizes;
+    std::array<std::size_t, 3> m_offsets;
+    std::size_t m_xyzSize;
+    std::size_t m_xyzNormal;
 };
 
 } // namespace entwine
