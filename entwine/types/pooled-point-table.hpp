@@ -66,8 +66,6 @@ public:
     virtual void reset() override;
 
 protected:
-    // virtual const Schema& outSchema() const { return m_schema; }
-
     std::size_t index() const { return m_index; }
     std::size_t outstanding() const { return m_outstanding; }
 
@@ -104,6 +102,7 @@ public:
             const Delta& delta,
             std::unique_ptr<Schema> normalizedSchema)
         : PooledPointTable(pointPool, process, origin, *normalizedSchema)
+        , m_points(capacity())
         , m_delta(delta)
         , m_normalizedSchema(std::move(normalizedSchema))
         , m_sizes{ {
@@ -126,11 +125,11 @@ protected:
             pdal::PointId index,
             const void* value) override
     {
-        char* pos(getPoint(index));
         const auto dim(pdal::Utils::toNative(id) - 1);
 
         if (dim >= 3)
         {
+            char* pos(getPoint(index));
             const pdal::Dimension::Detail* d(m_layoutRef.dimDetail(id));
             const char* src(reinterpret_cast<const char*>(value));
             char* dst(pos + d->offset() - m_xyzNormal);
@@ -138,29 +137,73 @@ protected:
         }
         else
         {
-            const int64_t v(
-                    std::llround(
-                        Point::scale(
-                            *reinterpret_cast<const double*>(value),
-                            m_delta.scale()[dim],
-                            m_delta.offset()[dim])));
+            m_points[index][dim] = *reinterpret_cast<const double*>(value);
+        }
+    }
 
-            char* dst(pos + m_offsets[dim]);
+    virtual void getFieldInternal(
+            pdal::Dimension::Id id,
+            pdal::PointId index,
+            void* value) const override
+    {
+        const auto dim(pdal::Utils::toNative(id) - 1);
 
-            if (m_sizes[dim] == 4)      setConverted<int32_t>(v, dst);
-            else if (m_sizes[dim] == 8) setConverted<int64_t>(v, dst);
-            else throw std::runtime_error("Invalid XYZ size");
+        if (dim >= 3)
+        {
+            const char* pos(m_refs[index]);
+            const pdal::Dimension::Detail* d(m_layoutRef.dimDetail(id));
+            const char* src(pos + d->offset() - m_xyzNormal);
+            std::copy(src, src + d->size(), reinterpret_cast<char*>(value));
+        }
+        else
+        {
+            assert(d->size() == sizeof(double));
+            *reinterpret_cast<double*>(value) = m_points[index][dim];
         }
     }
 
     template<typename T>
     void setConverted(T value, char* dst)
     {
-        const char* src(reinterpret_cast<const char*>(&value));
-        std::copy(src, src + sizeof(src), dst);
+        *reinterpret_cast<T*>(dst) = value;
+    }
+
+    virtual void reset() override
+    {
+        int64_t v(0);
+        for (std::size_t i(0); i < outstanding(); ++i)
+        {
+            const Point& p(m_points[i]);
+            char* dst(m_refs[i]);
+
+            for (std::size_t dim(0); dim < 3; ++dim)
+            {
+                v = std::llround(
+                        Point::scale(
+                            p[dim],
+                            m_delta.scale()[dim],
+                            m_delta.offset()[dim]));
+
+                if (m_sizes[dim] == 4)
+                {
+                    *reinterpret_cast<int32_t*>(dst + m_offsets[dim]) = v;
+                }
+                else if (m_sizes[dim] == 8)
+                {
+                    *reinterpret_cast<int64_t*>(dst + m_offsets[dim]) = v;
+                }
+                else
+                {
+                    throw std::runtime_error("Invalid XYZ size");
+                }
+            }
+        }
+
+        PooledPointTable::reset();
     }
 
 private:
+    std::vector<Point> m_points;
     const Delta& m_delta;
     std::unique_ptr<Schema> m_normalizedSchema;
     std::array<std::size_t, 3> m_sizes;
