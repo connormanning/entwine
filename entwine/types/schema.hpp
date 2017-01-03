@@ -206,14 +206,6 @@ public:
             std::cout << "Cannot use this scale for these bounds" << std::endl;
         }
 
-        auto isXyz([](pdal::Dimension::Id id)
-        {
-            return
-                id == pdal::Dimension::Id::X ||
-                id == pdal::Dimension::Id::Y ||
-                id == pdal::Dimension::Id::Z;
-        });
-
         DimList dims
         {
             DimInfo(pdal::Dimension::Id::X, spatialType),
@@ -223,7 +215,7 @@ public:
 
         for (const auto& dim : inSchema.dims())
         {
-            if (!isXyz(dim.id())) dims.emplace_back(dim);
+            if (!DimInfo::isXyz(dim.id())) dims.emplace_back(dim);
         }
 
         return Schema(dims);
