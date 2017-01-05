@@ -52,7 +52,7 @@ Inference::Inference(
         arbiter::Arbiter* arbiter)
     : m_tmpPath(tmpPath)
     , m_pointPool(xyzSchema, nullptr)
-    , m_reproj(reprojection)
+    , m_reproj(maybeClone(reprojection))
     , m_threads(threads)
     , m_verbose(verbose)
     , m_trustHeaders(trustHeaders)
@@ -127,12 +127,11 @@ Inference::Inference(
 
 void Inference::go()
 {
-    if (m_pool)
+    if (m_pool || m_valid)
     {
         throw std::runtime_error("Cannot call Inference::go twice");
     }
 
-    bool valid(false);
     m_pool = makeUnique<Pool>(m_threads);
     const std::size_t size(m_fileInfo.size());
 
@@ -149,7 +148,7 @@ void Inference::go()
 
         if (m_executor.good(f.path()))
         {
-            valid = true;
+            m_valid = true;
 
             if (m_arbiter->isHttpDerived(f.path()))
             {
@@ -187,7 +186,7 @@ void Inference::go()
 
     m_pool->join();
 
-    if (!valid)
+    if (!m_valid)
     {
         throw std::runtime_error("No point cloud files found");
     }
@@ -296,7 +295,8 @@ Transformation Inference::calcTransformation()
 
 void Inference::add(const std::string localPath, FileInfo& fileInfo)
 {
-    std::unique_ptr<Preview> preview(m_executor.preview(localPath, m_reproj));
+    std::unique_ptr<Preview> preview(
+            m_executor.preview(localPath, m_reproj.get()));
 
     auto update([&fileInfo](
                 std::size_t numPoints,
@@ -365,7 +365,11 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
 
     PooledPointTable table(m_pointPool, tracker, invalidOrigin);
 
-    if (m_executor.run(table, localPath, m_reproj, m_transformation.get()))
+    if (m_executor.run(
+                table,
+                localPath,
+                m_reproj.get(),
+                m_transformation.get()))
     {
         update(curNumPoints, curBounds, nullptr);
     }
@@ -490,9 +494,30 @@ Json::Value Inference::toJson() const
     json["numPoints"] = Json::UInt64(numPoints());
     if (m_reproj) json["reprojection"] = m_reproj->toJson();
     if (m_delta) m_delta->insertInto(json);
+    if (m_transformation)
+    {
+        json["transformation"] = toJsonArray(*m_transformation);
+    }
 
     return json;
 }
+
+Inference::Inference(const Json::Value& json)
+    : m_pointPool(xyzSchema, nullptr)
+    , m_valid(true)
+    , m_transformation(json.isMember("transformation") ?
+            makeUnique<Transformation>(
+                extract<double>(json["transformation"])) :
+            nullptr)
+    , m_ownedArbiter(makeUnique<arbiter::Arbiter>())
+    , m_arbiter(m_ownedArbiter.get())
+    , m_tmp(m_arbiter->getEndpoint("tmp"))
+    , m_numPoints(makeUnique<std::size_t>(json["numPoints"].asUInt64()))
+    , m_bounds(makeUnique<Bounds>(json["bounds"]))
+    , m_schema(makeUnique<Schema>(json["schema"]))
+    , m_delta(Delta::maybeCreate(json))
+    , m_fileInfo(toFileInfo(json["fileInfo"]))
+{ }
 
 } // namespace entwine
 

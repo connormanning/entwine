@@ -30,7 +30,7 @@ public:
     Bounds() = default;
     Bounds(const Point& min, const Point& max);
     Bounds(const Point& center, double radius);
-    Bounds(const Json::Value& json, const Delta* delta = nullptr);
+    Bounds(const Json::Value& json);
     Bounds(double xMin, double yMin, double xMax, double yMax);
     Bounds(
             double xMin,
@@ -297,6 +297,11 @@ public:
         Bounds b;
         b.set(Point(dmax, dmax, dmax), Point(dmin, dmin, dmin));
         return b;
+    }
+
+    double operator[](std::size_t i) const
+    {
+        return i < 3 ? min()[i] : max()[i - 3];
     }
 
 private:

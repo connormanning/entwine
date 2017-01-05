@@ -68,6 +68,8 @@ public:
             bool cesiumify = false,
             arbiter::Arbiter* arbiter = nullptr);
 
+    Inference(const Json::Value& json);
+
     void go();
     bool done() const { return m_done; }
 
@@ -81,23 +83,8 @@ public:
     Schema schema() const;
     Bounds bounds() const;
     std::size_t numPoints() const;
-    const Reprojection* reprojection() const { return m_reproj; }
+    const Reprojection* reprojection() const { return m_reproj.get(); }
     const Delta* delta() const { return m_delta.get(); }
-    const std::vector<std::string>& srsList() const { return m_srsList; }
-
-    std::unique_ptr<std::string> uniqueSrs() const
-    {
-        std::unique_ptr<std::string> s;
-        if (m_srsList.empty())
-        {
-            s = makeUnique<std::string>();
-        }
-        else if (m_srsList.size() == 1)
-        {
-            s = makeUnique<std::string>(m_srsList.front());
-        }
-        return s;
-    }
 
     const std::vector<double>* transformation() const
     {
@@ -117,11 +104,12 @@ private:
     std::string m_tmpPath;
 
     PointPool m_pointPool;
-    const Reprojection* m_reproj;
+    std::unique_ptr<Reprojection> m_reproj;
     std::size_t m_threads = 4;
     bool m_verbose = true;
     bool m_trustHeaders = true;
     bool m_allowDelta = true;
+    bool m_valid = false;
     bool m_done = false;
     bool m_cesiumify = false;
     std::unique_ptr<Transformation> m_transformation;
@@ -139,7 +127,6 @@ private:
     std::unique_ptr<Bounds> m_bounds;
     std::unique_ptr<Schema> m_schema;
     std::unique_ptr<Delta> m_delta;
-    std::unique_ptr<Bounds> m_deltaBounds;
     std::vector<std::string> m_srsList;
 
     FileInfoList m_fileInfo;

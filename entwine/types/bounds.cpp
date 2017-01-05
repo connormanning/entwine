@@ -39,7 +39,7 @@ Bounds::Bounds(const Point& min, const Point& max)
     }
 }
 
-Bounds::Bounds(const Json::Value& json, const Delta* delta)
+Bounds::Bounds(const Json::Value& json)
 {
     if (!json.isArray() || (json.size() != 4 && json.size() != 6))
     {
@@ -69,8 +69,6 @@ Bounds::Bounds(const Json::Value& json, const Delta* delta)
                 json.get(Json::ArrayIndex(2), 0).asDouble(),
                 json.get(Json::ArrayIndex(3), 0).asDouble());
     }
-
-    *this = Bounds(m_min, m_max).deltify(delta);
 }
 
 Bounds::Bounds(const Point& center, const double radius)
