@@ -11,6 +11,7 @@
 #pragma once
 
 #include <array>
+#include <cassert>
 
 #include <pdal/Dimension.hpp>
 #include <pdal/PointTable.hpp>
@@ -157,7 +158,6 @@ protected:
         }
         else
         {
-            assert(d->size() == sizeof(double));
             *reinterpret_cast<double*>(value) = m_points[index][dim];
         }
     }
