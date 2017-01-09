@@ -69,6 +69,8 @@ Bounds::Bounds(const Json::Value& json)
                 json.get(Json::ArrayIndex(2), 0).asDouble(),
                 json.get(Json::ArrayIndex(3), 0).asDouble());
     }
+
+    setMid();
 }
 
 Bounds::Bounds(const Point& center, const double radius)
