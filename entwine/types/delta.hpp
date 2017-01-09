@@ -47,7 +47,7 @@ public:
         if (json.isMember("offset")) m_offset = Scale(json["offset"]);
     }
 
-    void insertInto(Json::Value& json)
+    void insertInto(Json::Value& json) const
     {
         if (empty()) return;
 
