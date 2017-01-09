@@ -939,7 +939,8 @@ bool mkdirp(std::string raw)
 
         // Remove consecutive slashes.  For Windows, we'll need to be careful
         // not to remove drive letters like C:\\.
-        const auto end = std::unique(s.begin(), s.end(), [](char l, char r){
+        const auto end = std::unique(s.begin(), s.end(), [](char l, char r)
+        {
             return util::isSlash(l) && util::isSlash(r);
         });
 
@@ -1934,7 +1935,7 @@ std::string S3::ApiV4::buildCanonicalRequest(
         const Query& query,
         const std::vector<char>& data) const
 {
-    const std::string canonicalUri(sanitize("/" + resource.object()));
+    const std::string canonicalUri("/" + resource.object());
 
     auto canonicalizeQuery([](const std::string& s, const Query::value_type& q)
     {
@@ -2682,7 +2683,7 @@ void Curl::init(
     m_headers = nullptr;
 
     // Set path.
-    const std::string path(sanitize(rawPath + buildQueryString(query)));
+    const std::string path(rawPath + buildQueryString(query));
     curl_easy_setopt(m_curl, CURLOPT_URL, path.c_str());
 
     // Needed for multithreaded Curl usage.
@@ -2693,9 +2694,8 @@ void Curl::init(
 
     // Don't wait forever.  Use the low-speed options instead of the timeout
     // option to make the timeout a sliding window instead of an absolute.
-    curl_easy_setopt(m_curl, CURLOPT_TIMEOUT, m_timeout);
-    // curl_easy_setopt(m_curl, CURLOPT_LOW_SPEED_LIMIT, 1L);
-    // curl_easy_setopt(m_curl, CURLOPT_LOW_SPEED_TIME, m_timeout);
+    curl_easy_setopt(m_curl, CURLOPT_LOW_SPEED_LIMIT, 1L);
+    curl_easy_setopt(m_curl, CURLOPT_LOW_SPEED_TIME, m_timeout);
 
     // Configuration options.
     if (followRedirect) curl_easy_setopt(m_curl, CURLOPT_FOLLOWLOCATION, 1L);
@@ -2710,6 +2710,18 @@ void Curl::init(
 #else
     throw ArbiterError(fail);
 #endif
+}
+
+void Curl::perform()
+{
+    const auto code(curl_easy_perform(m_curl));
+
+    if (code != CURLE_OK)
+    {
+        throw ArbiterError(
+                "Curl failed with code: " + std::to_string(code) +
+                " - see: https://curl.haxx.se/libcurl/c/libcurl-errors.html");
+    }
 }
 
 Response Curl::get(
@@ -2740,7 +2752,7 @@ Response Curl::get(
     curl_easy_setopt(m_curl, CURLOPT_HEADERDATA, &receivedHeaders);
 
     // Run the command.
-    curl_easy_perform(m_curl);
+    perform();
     curl_easy_getinfo(m_curl, CURLINFO_RESPONSE_CODE, &httpCode);
 
     curl_easy_reset(m_curl);
@@ -2775,7 +2787,7 @@ Response Curl::head(std::string path, Headers headers, Query query)
     curl_easy_setopt(m_curl, CURLOPT_NOBODY, 1L);
 
     // Run the command.
-    curl_easy_perform(m_curl);
+    perform();
     curl_easy_getinfo(m_curl, CURLINFO_RESPONSE_CODE, &httpCode);
 
     curl_easy_reset(m_curl);
@@ -2821,7 +2833,7 @@ Response Curl::put(
     curl_easy_setopt(m_curl, CURLOPT_WRITEFUNCTION, eatLogging);
 
     // Run the command.
-    curl_easy_perform(m_curl);
+    perform();
     curl_easy_getinfo(m_curl, CURLINFO_RESPONSE_CODE, &httpCode);
 
     curl_easy_reset(m_curl);
@@ -2873,7 +2885,7 @@ Response Curl::post(
             static_cast<curl_off_t>(data.size()));
 
     // Run the command.
-    curl_easy_perform(m_curl);
+    perform();
     curl_easy_getinfo(m_curl, CURLINFO_RESPONSE_CODE, &httpCode);
 
     curl_easy_reset(m_curl);
@@ -2909,8 +2921,12 @@ Response Curl::post(
 #include <arbiter/util/http.hpp>
 #endif
 
+#include <cctype>
+#include <iomanip>
 #include <iostream>
 #include <numeric>
+#include <set>
+#include <sstream>
 
 #ifdef ARBITER_CUSTOM_NAMESPACE
 namespace ARBITER_CUSTOM_NAMESPACE
@@ -2924,57 +2940,33 @@ namespace http
 
 namespace
 {
-    const std::map<char, std::string> sanitizers
-    {
-        { ' ', "%20" },
-        { '!', "%21" },
-        { '"', "%22" },
-        { '#', "%23" },
-        { '$', "%24" },
-        { '\'', "%27" },
-        { '(', "%28" },
-        { ')', "%29" },
-        { '*', "%2A" },
-        { '+', "%2B" },
-        { ',', "%2C" },
-        { '/', "%2F" },
-        { ';', "%3B" },
-        { '<', "%3C" },
-        { '>', "%3E" },
-        { '@', "%40" },
-        { '[', "%5B" },
-        { '\\', "%5C" },
-        { ']', "%5D" },
-        { '^', "%5E" },
-        { '`', "%60" },
-        { '{', "%7B" },
-        { '|', "%7C" },
-        { '}', "%7D" },
-        { '~', "%7E" }
-    };
+    const std::size_t defaultHttpTimeout(10);
+}
 
-    const std::size_t defaultHttpTimeout(60 * 5);
-} // unnamed namespace
-
-std::string sanitize(const std::string path, const std::string exclusions)
+std::string sanitize(const std::string path, const std::string excStr)
 {
-    std::string result;
+    static const std::set<char> unreserved = { '-', '.', '_', '~' };
+    const std::set<char> exclusions(excStr.begin(), excStr.end());
+    std::ostringstream result;
+    result.fill('0');
+    result << std::hex;
 
     for (const auto c : path)
     {
-        const auto it(sanitizers.find(c));
-
-        if (it == sanitizers.end() || exclusions.find(c) != std::string::npos)
+        if (std::isalnum(c) || unreserved.count(c) || exclusions.count(c))
         {
-            result += c;
+            result << c;
         }
         else
         {
-            result += it->second;
+            result << std::uppercase;
+            result << '%' << std::setw(2) <<
+                static_cast<int>(static_cast<uint8_t>(c));
+            result << std::nouppercase;
         }
     }
 
-    return result;
+    return result.str();
 }
 
 std::string buildQueryString(const Query& query)

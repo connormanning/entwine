@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 2c7ce9b45ee5eeb0753b50bb63384ad769783680
+// Git SHA: b76013728bcd9ba91ba490c9434e0c4ecf15b0de
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -203,6 +203,7 @@ private:
     Curl(bool verbose, std::size_t timeout);
 
     void init(std::string path, const Headers& headers, const Query& query);
+    void perform();
 
     Curl(const Curl&);
     Curl& operator=(const Curl&);
