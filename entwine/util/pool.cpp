@@ -44,8 +44,6 @@ void Pool::resize(const std::size_t numThreads)
 
 void Pool::go()
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
-
     if (!stop())
     {
         throw std::runtime_error(

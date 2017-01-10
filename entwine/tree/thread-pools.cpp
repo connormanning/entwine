@@ -44,12 +44,5 @@ ThreadPools::ThreadPools(const std::size_t totalThreads)
     , m_ratio(heuristics::defaultWorkToClipRatio)
 { }
 
-void ThreadPools::setRatio(const double r)
-{
-    const std::size_t total(size());
-    m_workPool.resize(getWorkThreads(total, r));
-    m_clipPool.resize(getClipThreads(total, r));
-}
-
 } //namespace entwine
 

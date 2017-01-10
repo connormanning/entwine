@@ -50,7 +50,6 @@ public:
     }
 
     const double ratio() const { return m_ratio; }
-    void setRatio(double r);
 
 private:
     Pool m_workPool;
