@@ -47,6 +47,13 @@ namespace
 int main(int argc, char** argv)
 {
 #ifndef _WIN32
+    signal(SIGINT, [](int sig)
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        std::cout << "Got SIGINT " << sig << std::endl;
+        exit(1);
+    });
+
     signal(SIGSEGV, [](int sig)
     {
         std::lock_guard<std::mutex> lock(mutex);

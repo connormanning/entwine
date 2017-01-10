@@ -57,9 +57,6 @@ Json::Value ConfigParser::defaults()
     json["trustHeaders"] = true;
     json["prefixIds"] = false;
     json["pointsPerChunk"] = 262144;
-    json["numPointsHint"] = Json::Value::null;
-    json["bounds"] = Json::Value::null;
-    json["schema"] = Json::Value::null;
     json["compress"] = true;
     json["nullDepth"] = 7;
     json["baseDepth"] = 10;
