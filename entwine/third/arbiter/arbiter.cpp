@@ -2712,16 +2712,23 @@ void Curl::init(
 #endif
 }
 
-void Curl::perform()
+int Curl::perform()
 {
+    long httpCode(0);
+
     const auto code(curl_easy_perform(m_curl));
+    curl_easy_getinfo(m_curl, CURLINFO_RESPONSE_CODE, &httpCode);
+    curl_easy_reset(m_curl);
 
     if (code != CURLE_OK)
     {
+        // curl_easy_reset must occur before this throw.
         throw ArbiterError(
                 "Curl failed with code: " + std::to_string(code) +
                 " - see: https://curl.haxx.se/libcurl/c/libcurl-errors.html");
     }
+
+    return httpCode;
 }
 
 Response Curl::get(
@@ -2731,7 +2738,6 @@ Response Curl::get(
         const std::size_t reserve)
 {
 #ifdef ARBITER_CURL
-    long httpCode(0);
     std::vector<char> data;
 
     if (reserve) data.reserve(reserve);
@@ -2752,10 +2758,7 @@ Response Curl::get(
     curl_easy_setopt(m_curl, CURLOPT_HEADERDATA, &receivedHeaders);
 
     // Run the command.
-    perform();
-    curl_easy_getinfo(m_curl, CURLINFO_RESPONSE_CODE, &httpCode);
-
-    curl_easy_reset(m_curl);
+    const int httpCode(perform());
     return Response(httpCode, data, receivedHeaders);
 #else
     throw ArbiterError(fail);
@@ -2765,7 +2768,6 @@ Response Curl::get(
 Response Curl::head(std::string path, Headers headers, Query query)
 {
 #ifdef ARBITER_CURL
-    long httpCode(0);
     std::vector<char> data;
 
     init(path, headers, query);
@@ -2787,10 +2789,7 @@ Response Curl::head(std::string path, Headers headers, Query query)
     curl_easy_setopt(m_curl, CURLOPT_NOBODY, 1L);
 
     // Run the command.
-    perform();
-    curl_easy_getinfo(m_curl, CURLINFO_RESPONSE_CODE, &httpCode);
-
-    curl_easy_reset(m_curl);
+    const int httpCode(perform());
     return Response(httpCode, data, receivedHeaders);
 #else
     throw ArbiterError(fail);
@@ -2806,8 +2805,6 @@ Response Curl::put(
 #ifdef ARBITER_CURL
     init(path, headers, query);
     if (m_verbose) curl_easy_setopt(m_curl, CURLOPT_VERBOSE, 1L);
-
-    long httpCode(0);
 
     std::unique_ptr<PutData> putData(new PutData(data));
 
@@ -2833,10 +2830,7 @@ Response Curl::put(
     curl_easy_setopt(m_curl, CURLOPT_WRITEFUNCTION, eatLogging);
 
     // Run the command.
-    perform();
-    curl_easy_getinfo(m_curl, CURLINFO_RESPONSE_CODE, &httpCode);
-
-    curl_easy_reset(m_curl);
+    const int httpCode(perform());
     return Response(httpCode);
 #else
     throw ArbiterError(fail);
@@ -2852,8 +2846,6 @@ Response Curl::post(
 #ifdef ARBITER_CURL
     init(path, headers, query);
     if (m_verbose) curl_easy_setopt(m_curl, CURLOPT_VERBOSE, 1L);
-
-    long httpCode(0);
 
     std::unique_ptr<PutData> putData(new PutData(data));
     std::vector<char> writeData;
@@ -2885,12 +2877,8 @@ Response Curl::post(
             static_cast<curl_off_t>(data.size()));
 
     // Run the command.
-    perform();
-    curl_easy_getinfo(m_curl, CURLINFO_RESPONSE_CODE, &httpCode);
-
-    curl_easy_reset(m_curl);
-    Response response(httpCode, writeData, receivedHeaders);
-    return response;
+    const int httpCode(perform());
+    return Response(httpCode, writeData, receivedHeaders);
 #else
     throw ArbiterError(fail);
 #endif
