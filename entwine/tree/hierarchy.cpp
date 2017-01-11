@@ -203,7 +203,7 @@ uint64_t Hierarchy::tryGet(const PointState& s) const
     return 0;
 }
 
-void Hierarchy::save()
+void Hierarchy::save(Pool& pool) const
 {
     if (!m_outpoint) return;
 
@@ -217,7 +217,7 @@ void Hierarchy::save()
                 const Slot& slot)
     {
         if (slot.t) slot.t->save(*m_outpoint, coldPostfix);
-    });
+    }, &pool);
 
     Json::Value json;
     for (const auto& id : ids()) json.append(id.str());

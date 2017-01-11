@@ -15,6 +15,7 @@
 #include <limits>
 
 #include <entwine/util/json.hpp>
+#include <entwine/util/pool.hpp>
 #include <entwine/util/storage.hpp>
 #include <entwine/util/unique.hpp>
 
@@ -184,9 +185,14 @@ Json::Value Manifest::toInferenceJson() const
     return json;
 }
 
-void Manifest::awakenAll()
+void Manifest::awakenAll(Pool& pool) const
 {
-    for (std::size_t i(0); i < m_fileInfo.size(); i += m_chunkSize) awaken(i);
+    for (std::size_t i(0); i < m_fileInfo.size(); i += m_chunkSize)
+    {
+        pool.add([this, i]() { awaken(i); });
+    }
+
+    pool.cycle();
 
     if (std::any_of(
                 m_remote.begin(),
@@ -206,6 +212,8 @@ void Manifest::awaken(Origin origin) const
     const auto bytes(Storage::ensureGet(m, std::to_string(chunk)));
     const auto json(parse(bytes->data()));
 
+    std::lock_guard<std::mutex> lock(m_mutex);
+
     std::size_t i(chunk);
     for (const auto& f : json)
     {
@@ -215,7 +223,7 @@ void Manifest::awaken(Origin origin) const
     }
 }
 
-void Manifest::save(const std::string postfix) const
+void Manifest::save(const bool primary, const std::string postfix) const
 {
     auto m(m_endpoint.getSubEndpoint("m"));
 
@@ -236,7 +244,7 @@ void Manifest::save(const std::string postfix) const
     {
         for (Json::ArrayIndex i(0); i < n; ++i)
         {
-            fileInfo[i] = m_fileInfo[i].toJson();
+            fileInfo[i] = m_fileInfo[i].toJson(primary);
         }
     }
     else
@@ -260,7 +268,7 @@ void Manifest::save(const std::string postfix) const
 
             for (Json::ArrayIndex c(0); c < chunk.size(); ++c)
             {
-                chunk[c] = m_fileInfo[i + c].toJson();
+                chunk[c] = m_fileInfo[i + c].toJson(primary);
             }
 
             Storage::ensurePut(m, std::to_string(i), chunk.toStyledString());

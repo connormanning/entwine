@@ -27,6 +27,8 @@
 namespace entwine
 {
 
+class Pool;
+
 class Manifest
 {
 public:
@@ -96,7 +98,7 @@ public:
         return m_pointStats.toJson();
     }
 
-    void save(std::string postfix = "") const;
+    void save(bool primary, std::string postfix = "") const;
 
     Paths paths() const
     {
@@ -106,7 +108,7 @@ public:
         return p;
     }
 
-    void awakenAll();
+    void awakenAll(Pool& pool) const;
 
 private:
     void awaken(Origin origin) const;

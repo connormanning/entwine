@@ -163,19 +163,19 @@ private:
     std::unique_ptr<arbiter::Endpoint> m_outEndpoint;
     std::unique_ptr<arbiter::Endpoint> m_tmpEndpoint;
 
+    std::unique_ptr<ThreadPools> m_threadPools;
     std::unique_ptr<Metadata> m_metadata;
 
     mutable std::mutex m_mutex;
     bool m_isContinuation;
 
-    std::unique_ptr<ThreadPools> m_threadPools;
     std::unique_ptr<Executor> m_executor;
-    std::unique_ptr<Sequence> m_sequence;
 
     mutable std::shared_ptr<PointPool> m_pointPool;
     mutable std::shared_ptr<HierarchyCell::Pool> m_hierarchyPool;
 
     std::unique_ptr<Hierarchy> m_hierarchy;
+    std::unique_ptr<Sequence> m_sequence;
     std::unique_ptr<Registry> m_registry;
 
     bool m_verbose = false;

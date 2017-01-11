@@ -5,8 +5,7 @@ compiler:
 - g++
 - clang
 before_install: "./scripts/ci/before_install.sh"
-script: docker run -v $TRAVIS_BUILD_DIR:/entwine -t connormanning/entwine
-  /bin/sh -c "/entwine/scripts/ci/build.sh"
+script: docker run -v $TRAVIS_BUILD_DIR:/entwine -t --entrypoint /bin/sh connormanning/entwine -c "/entwine/scripts/ci/build.sh"
 after_success:
 - echo "secure travis:" "$TRAVIS_SECURE_ENV_VARS"
   # Update the TRAVIS_BRANCH value as necessary to force the build/deploy of the website

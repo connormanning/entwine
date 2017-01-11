@@ -65,9 +65,9 @@ FileInfo::FileInfo(const Json::Value& json)
     }
 }
 
-Json::Value FileInfo::toJson() const
+Json::Value FileInfo::toJson(const bool includeMetadata) const
 {
-    Json::Value json(toInferenceJson());
+    Json::Value json(toInferenceJson(includeMetadata));
 
     json["status"] = toString(m_status);
     if (!m_pointStats.empty()) json["pointStats"] = m_pointStats.toJson();
@@ -75,7 +75,7 @@ Json::Value FileInfo::toJson() const
     return json;
 }
 
-Json::Value FileInfo::toInferenceJson() const
+Json::Value FileInfo::toInferenceJson(const bool includeMetadata) const
 {
     Json::Value json;
 
@@ -84,7 +84,7 @@ Json::Value FileInfo::toInferenceJson() const
     if (m_bounds.exists()) json["bounds"] = m_bounds.toJson();
     if (m_numPoints) json["numPoints"] = static_cast<Json::UInt64>(m_numPoints);
     if (!m_srs.empty()) json["srs"] = m_srs.getWKT();
-    if (!m_metadata.isNull()) json["metadata"] = m_metadata;
+    if (includeMetadata && !m_metadata.isNull()) json["metadata"] = m_metadata;
 
     return json;
 }

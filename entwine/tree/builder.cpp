@@ -58,12 +58,15 @@ Builder::Builder(
     : m_arbiter(outerScope.getArbiter())
     , m_outEndpoint(makeUnique<Endpoint>(m_arbiter->getEndpoint(outPath)))
     , m_tmpEndpoint(makeUnique<Endpoint>(m_arbiter->getEndpoint(tmpPath)))
-    , m_metadata(makeUnique<Metadata>(metadata))
-    , m_mutex()
-    , m_isContinuation(false)
     , m_threadPools(makeUnique<ThreadPools>(totalThreads))
+    , m_metadata(([this, &metadata]()
+    {
+        auto m(clone(metadata));
+        m->manifest().awakenAll(m_threadPools->clipPool());
+        return m;
+    })())
+    , m_isContinuation(false)
     , m_executor(makeUnique<Executor>())
-    , m_sequence(makeUnique<Sequence>(*this))
     , m_pointPool(
             outerScope.getPointPool(m_metadata->schema(), m_metadata->delta()))
     , m_hierarchyPool(outerScope.getHierarchyPool(heuristics::poolBlockSize))
@@ -73,6 +76,7 @@ Builder::Builder(
                 *m_outEndpoint,
                 m_outEndpoint.get(),
                 false))
+    , m_sequence(makeUnique<Sequence>(*this))
     , m_registry(makeUnique<Registry>(*this))
 {
     prepareEndpoints();
@@ -87,12 +91,15 @@ Builder::Builder(
     : m_arbiter(outerScope.getArbiter())
     , m_outEndpoint(makeUnique<Endpoint>(m_arbiter->getEndpoint(outPath)))
     , m_tmpEndpoint(makeUnique<Endpoint>(m_arbiter->getEndpoint(tmpPath)))
-    , m_metadata(makeUnique<Metadata>(*m_outEndpoint, subId))
-    , m_mutex()
-    , m_isContinuation(true)
     , m_threadPools(makeUnique<ThreadPools>(totalThreads))
+    , m_metadata(([this, subId]()
+    {
+        auto m(makeUnique<Metadata>(*m_outEndpoint, subId));
+        m->manifest().awakenAll(m_threadPools->clipPool());
+        return m;
+    })())
+    , m_isContinuation(true)
     , m_executor(makeUnique<Executor>())
-    , m_sequence(makeUnique<Sequence>(*this))
     , m_pointPool(
             outerScope.getPointPool(m_metadata->schema(), m_metadata->delta()))
     , m_hierarchyPool(outerScope.getHierarchyPool(heuristics::poolBlockSize))
@@ -102,6 +109,7 @@ Builder::Builder(
                 *m_outEndpoint,
                 m_outEndpoint.get(),
                 true))
+    , m_sequence(makeUnique<Sequence>(*this))
     , m_registry(makeUnique<Registry>(*this, true))
 {
     prepareEndpoints();
@@ -133,8 +141,7 @@ Builder::~Builder()
 
 void Builder::go(std::size_t max)
 {
-    m_hierarchy->awakenAll(m_threadPools->workPool());
-    m_threadPools->workPool().cycle();
+    m_hierarchy->awakenAll(m_threadPools->clipPool());
 
     if (!m_tmpEndpoint)
     {
@@ -369,7 +376,7 @@ void Builder::save(const arbiter::Endpoint& ep)
     m_threadPools->cycle();
 
     if (verbose()) std::cout << "Saving hierarchy..." << std::endl;
-    m_hierarchy->save();
+    m_hierarchy->save(m_threadPools->clipPool());
 
     if (verbose()) std::cout << "Saving registry..." << std::endl;
     m_registry->save(*m_outEndpoint);

@@ -58,6 +58,7 @@ Merger::Merger(
                 "This path is already whole - no merge needed");
     }
 
+    m_builder->verbose(m_verbose);
     m_outerScope->setPointPool(m_builder->sharedPointPool());
     m_outerScope->setHierarchyPool(m_builder->sharedHierarchyPool());
 
@@ -104,6 +105,7 @@ void Merger::go()
 
         if (!current) throw std::runtime_error("Couldn't create subset");
 
+        current->verbose(m_verbose);
         m_builder->merge(*current);
     }
 

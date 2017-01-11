@@ -200,7 +200,9 @@ void Metadata::save(const arbiter::Endpoint& endpoint) const
 {
     const auto json(toJson());
     Storage::ensurePut(endpoint, "entwine" + postfix(), json.toStyledString());
-    if (m_manifest) m_manifest->save(postfix());
+
+    const bool primary(!m_subset || m_subset->primary());
+    if (m_manifest) m_manifest->save(primary, postfix());
 }
 
 void Metadata::merge(const Metadata& other)

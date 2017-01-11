@@ -74,7 +74,7 @@ public:
 
     uint64_t tryGet(const PointState& pointState) const;
 
-    void save();
+    void save(Pool& pool) const;
     void awakenAll(Pool& pool) const;
     void merge(Hierarchy& other, Pool& pool);
 
