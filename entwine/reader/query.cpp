@@ -31,7 +31,8 @@ namespace entwine
 
 namespace
 {
-    std::size_t fetchesPerIteration(4);
+    std::size_t fetchesPerIteration(6);
+    std::size_t minBytesPerIteration(1024 * 1024);
 }
 
 Query::Query(
@@ -136,27 +137,26 @@ bool Query::next(std::vector<char>& buffer)
 {
     if (m_done) throw std::runtime_error("Called next after query completed");
 
-    if (m_base)
-    {
-        m_base = false;
+    const std::size_t startSize(buffer.size());
 
-        if (m_reader.base())
-        {
-            PointState pointState(
-                    m_structure,
-                    m_reader.metadata().boundsScaledCubic());
-            getBase(buffer, pointState);
-        }
-
-        if (buffer.empty())
-        {
-            if (m_chunks.empty()) m_done = true;
-            else getChunked(buffer);
-        }
-    }
-    else
+    while (!m_done && buffer.size() - startSize < minBytesPerIteration)
     {
-        getChunked(buffer);
+        if (m_base)
+        {
+            m_base = false;
+
+            if (m_reader.base())
+            {
+                PointState pointState(
+                        m_structure,
+                        m_reader.metadata().boundsScaledCubic());
+                getBase(buffer, pointState);
+            }
+        }
+        else
+        {
+            getChunked(buffer);
+        }
     }
 
     return !m_done;
