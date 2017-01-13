@@ -35,12 +35,14 @@ HierarchyBlock::HierarchyBlock(
         const Metadata& metadata,
         const Id& id,
         const arbiter::Endpoint* ep,
-        const Id& maxPoints)
+        const Id& maxPoints,
+        const std::size_t size)
     : m_pool(pool)
     , m_metadata(metadata)
     , m_id(id)
     , m_ep(ep)
     , m_maxPoints(maxPoints)
+    , m_size(size)
 {
     ++chunkCount;
 }
@@ -148,7 +150,7 @@ ContiguousBlock::ContiguousBlock(
         const arbiter::Endpoint* outEndpoint,
         const std::size_t maxPoints,
         const std::vector<char>& data)
-    : HierarchyBlock(pool, metadata, id, outEndpoint, maxPoints)
+    : HierarchyBlock(pool, metadata, id, outEndpoint, maxPoints, data.size())
     , m_tubes(maxPoints)
     , m_spinners(maxPoints)
 {
@@ -208,7 +210,7 @@ SparseBlock::SparseBlock(
         const arbiter::Endpoint* outEndpoint,
         const Id& maxPoints,
         const std::vector<char>& data)
-    : HierarchyBlock(pool, metadata, id, outEndpoint, maxPoints)
+    : HierarchyBlock(pool, metadata, id, outEndpoint, maxPoints, data.size())
     , m_spinner()
     , m_tubes()
 {
@@ -270,7 +272,8 @@ BaseBlock::BaseBlock(
             metadata,
             0,
             outEndpoint,
-            metadata.hierarchyStructure().baseIndexSpan())
+            metadata.hierarchyStructure().baseIndexSpan(),
+            0)
     , m_blocks()
 {
     Structure s(m_metadata.hierarchyStructure());

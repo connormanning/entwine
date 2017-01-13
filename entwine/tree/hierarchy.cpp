@@ -192,8 +192,7 @@ uint64_t Hierarchy::tryGet(const PointState& s) const
 
             if (!block)
             {
-                throw std::runtime_error(
-                        "Failed awaken " + s.chunkId().str());
+                throw std::runtime_error("Failed awaken " + s.chunkId().str());
             }
         }
 

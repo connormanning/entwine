@@ -123,7 +123,7 @@ class Cache
     friend class Block;
 
 public:
-    Cache(std::size_t maxChunks);
+    Cache(std::size_t maxBytes);
 
     std::unique_ptr<Block> acquire(
             const std::string& readerPath,
@@ -138,24 +138,20 @@ private:
             const std::string& readerPath,
             const FetchInfoSet& fetches);
 
-    bool populate(
-            const std::string& readerPath,
-            const FetchInfoSet& fetches,
-            Block& block);
-
     const ChunkReader* fetch(
             const std::string& readerPath,
             const FetchInfo& fetchInfo);
 
-    std::size_t m_maxChunks;
+    const std::size_t m_maxBytes;
+    const std::size_t m_maxHierarchyBytes;
+    std::size_t m_activeBytes = 0;
+    std::size_t m_hierarchyBytes = 0;
 
     GlobalManager m_chunkManager;
     InactiveList m_inactiveList;
 
     std::map<std::string, HierarchyCache> m_hierarchyCache;
     std::mutex m_hierarchyMutex;
-
-    std::atomic_size_t m_activeCount;
 
     std::mutex m_mutex;
     std::condition_variable m_cv;

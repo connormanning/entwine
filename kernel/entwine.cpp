@@ -47,10 +47,10 @@ namespace
 int main(int argc, char** argv)
 {
 #ifndef _WIN32
+    // Since we use entrypoint for docker, we need to explicitly listen for
+    // this so that Ctrl+C will work in that context.
     signal(SIGINT, [](int sig)
     {
-        std::lock_guard<std::mutex> lock(mutex);
-        std::cout << "Got SIGINT " << sig << std::endl;
         exit(1);
     });
 

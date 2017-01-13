@@ -62,6 +62,13 @@ public:
     };
 
     QueryRange candidates(const Bounds& queryBounds) const;
+    std::size_t size() const
+    {
+        if (m_data) return m_data->size();
+        else throw std::runtime_error("No ChunkReader data:" + m_id.str());
+    }
+
+    const Id& id() const { return m_id; }
 
 private:
     const Schema& schema() const { return m_schema; }

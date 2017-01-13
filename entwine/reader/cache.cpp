@@ -77,13 +77,9 @@ DataChunkState::~DataChunkState() { }
 
 
 
-Cache::Cache(const std::size_t maxChunks)
-    : m_maxChunks(std::max<std::size_t>(maxChunks, 16))
-    , m_chunkManager()
-    , m_inactiveList()
-    , m_activeCount(0)
-    , m_mutex()
-    , m_cv()
+Cache::Cache(const std::size_t maxBytes)
+    : m_maxBytes(std::max<std::size_t>(maxBytes, 1024 * 1024 * 256))
+    , m_maxHierarchyBytes(m_maxBytes / 8)
 { }
 
 std::unique_ptr<Block> Cache::acquire(
@@ -92,7 +88,29 @@ std::unique_ptr<Block> Cache::acquire(
 {
     std::unique_ptr<Block> block(reserve(readerPath, fetches));
 
-    if (!populate(readerPath, fetches, *block))
+    bool success(true);
+    std::mutex mutex;
+    Pool pool(std::min<std::size_t>(2, fetches.size()));
+
+    for (const auto& f : fetches)
+    {
+        pool.add([this, &readerPath, &f, &block, &mutex, &success]()->void
+        {
+            if (const ChunkReader* chunkReader = fetch(readerPath, f))
+            {
+                std::lock_guard<std::mutex> lock(mutex);
+                block->set(f.id, chunkReader);
+            }
+            else
+            {
+                success = false;
+            }
+        });
+    }
+
+    pool.join();
+
+    if (!success)
     {
         throw std::runtime_error("Invalid remote index state: " + readerPath);
     }
@@ -124,7 +142,6 @@ void Cache::release(const Block& block)
                 chunkState->inactiveIt.reset(
                         new InactiveList::iterator(m_inactiveList.begin()));
 
-                --m_activeCount;
                 notify = true;
             }
         }
@@ -136,16 +153,27 @@ void Cache::release(const Block& block)
         }
     }
 
-    if (m_activeCount)
+    while (m_activeBytes > m_maxBytes && m_inactiveList.size())
     {
-        std::cout <<
-            "\tActive size: " << m_activeCount <<
-            "\tIdle size: " << m_inactiveList.size() <<
-            "\tThis query: " << block.chunkMap().size() << std::endl;
+        const GlobalChunkInfo& toRemove(m_inactiveList.back());
+
+        LocalManager& localManager(m_chunkManager.at(toRemove.path));
+        m_activeBytes -= localManager.at(toRemove.id)->chunkReader->size();
+        localManager.erase(toRemove.id);
+
+        if (localManager.empty()) m_chunkManager.erase(toRemove.path);
+
+        m_inactiveList.pop_back();
+        notify = true;
     }
 
     if (notify)
     {
+        std::cout <<
+            "\tData: " << (m_activeBytes / 1024 / 1024) << "MB" <<
+            "\tFetches: " << block.chunkMap().size() <<
+            "\tChunks: " << m_inactiveList.size() << std::endl;
+
         lock.unlock();
         m_cv.notify_all();
     }
@@ -155,15 +183,10 @@ std::unique_ptr<Block> Cache::reserve(
         const std::string& readerPath,
         const FetchInfoSet& fetches)
 {
-    if (m_activeCount > m_maxChunks)
-    {
-        throw std::runtime_error("Unexpected cache state");
-    }
-
     std::unique_lock<std::mutex> lock(m_mutex);
     m_cv.wait(lock, [this, &fetches]()->bool
     {
-        return m_activeCount + fetches.size() <= m_maxChunks;
+        return m_activeBytes < m_maxBytes;
     });
 
     // Make the Block responsible for these chunks now, so even if something
@@ -183,63 +206,17 @@ std::unique_ptr<Block> Cache::reserve(
         if (!chunkState)
         {
             chunkState.reset(new DataChunkState());
-            ++m_activeCount;
         }
         else if (chunkState->inactiveIt)
         {
             m_inactiveList.erase(*chunkState->inactiveIt);
-            chunkState->inactiveIt.reset(nullptr);
-            ++m_activeCount;
+            chunkState->inactiveIt.reset();
         }
 
         ++chunkState->refs;
     }
 
-    // Do the removal after the reservation so we don't remove anything we are
-    // about to need to fetch.
-    while (m_activeCount + m_inactiveList.size() > m_maxChunks)
-    {
-        const GlobalChunkInfo& toRemove(m_inactiveList.back());
-
-        LocalManager& localManager(m_chunkManager.at(toRemove.path));
-        localManager.erase(toRemove.id);
-
-        if (localManager.empty()) m_chunkManager.erase(toRemove.path);
-
-        m_inactiveList.pop_back();
-    }
-
     return block;
-}
-
-bool Cache::populate(
-        const std::string& readerPath,
-        const FetchInfoSet& fetches,
-        Block& block)
-{
-    bool success(true);
-    std::mutex mutex;
-    Pool pool(std::min<std::size_t>(2, fetches.size()));
-
-    for (const auto& f : fetches)
-    {
-        pool.add([this, &readerPath, &f, &block, &mutex, &success]()->void
-        {
-            if (const ChunkReader* chunkReader = fetch(readerPath, f))
-            {
-                std::lock_guard<std::mutex> lock(mutex);
-                block.set(f.id, chunkReader);
-            }
-            else
-            {
-                success = false;
-            }
-        });
-    }
-
-    pool.join();
-
-    return success;
 }
 
 const ChunkReader* Cache::fetch(
@@ -264,6 +241,9 @@ const ChunkReader* Cache::fetch(
                 fetchInfo.depth,
                 makeUnique<std::vector<char>>(
                     reader.endpoint().getBinary(path)));
+
+        globalLock.lock();
+        m_activeBytes += chunkState.chunkReader->size();
     }
 
     return chunkState.chunkReader.get();
@@ -275,12 +255,10 @@ void Cache::markHierarchy(
 {
     if (touched.empty()) return;
 
-    std::cout << "Blocks touched: " << touched.size() << std::endl;
+    std::lock_guard<std::mutex> topLock(m_hierarchyMutex);
 
-    std::unique_lock<std::mutex> topLock(m_hierarchyMutex);
     HierarchyCache& selected(m_hierarchyCache[name]);
-    std::lock_guard<std::mutex> lock(selected.mutex);
-    topLock.unlock();
+    std::lock_guard<std::mutex> selectedLock(selected.mutex);
 
     auto& slots(selected.slots);
     auto& order(selected.order);
@@ -296,25 +274,25 @@ void Cache::markHierarchy(
             auto it(slots.insert(std::make_pair(s, order.end())).first);
             order.push_front(s);
             it->second = order.begin();
+
+            m_hierarchyBytes += s->t->size();
         }
     }
 
-    std::cout << "Awake for " << name << ": " << slots.size() << std::endl;
-
-    if (slots.size() > m_maxChunks)
-    {
-        std::cout << "Erasing " << (slots.size() - m_maxChunks) << std::endl;
-    }
-
-    while (order.size() > m_maxChunks)
+    while (m_hierarchyBytes > m_maxHierarchyBytes && order.size())
     {
         const Hierarchy::Slot* s(order.back());
         order.pop_back();
 
         SpinGuard spinLock(s->spinner);
+        m_hierarchyBytes -= s->t->size();
         s->t.reset();
         slots.erase(s);
     }
+
+    std::cout <<
+        "\tHier: " << (m_hierarchyBytes / 1024 / 1024) << "MB" <<
+        "\tFetches: " << touched.size() << std::endl;
 
     assert(order.size() == slots.size());
 }

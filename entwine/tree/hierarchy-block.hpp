@@ -71,7 +71,8 @@ public:
             const Metadata& metadata,
             const Id& id,
             const arbiter::Endpoint* outEndpoint,
-            const Id& maxPoints);
+            const Id& maxPoints,
+            std::size_t size);
 
     virtual ~HierarchyBlock();
 
@@ -98,6 +99,7 @@ public:
 
     const Id& id() const { return m_id; }
     const Id& maxPoints() const { return m_maxPoints; }
+    std::size_t size() const { return m_size; }
 
 protected:
     Id normalize(const Id& id) const { return id - m_id; }
@@ -119,6 +121,7 @@ protected:
     const Id m_id;
     const arbiter::Endpoint* m_ep;
     const Id m_maxPoints;
+    const std::size_t m_size;
 };
 
 class ContiguousBlock : public HierarchyBlock
@@ -134,7 +137,7 @@ public:
             const Id& id,
             const arbiter::Endpoint* outEndpoint,
             std::size_t maxPoints)
-        : HierarchyBlock(pool, metadata, id, outEndpoint, maxPoints)
+        : HierarchyBlock(pool, metadata, id, outEndpoint, maxPoints, 0)
         , m_tubes(maxPoints)
         , m_spinners(maxPoints)
     { }
@@ -256,7 +259,7 @@ public:
             const Id& id,
             const arbiter::Endpoint* outEndpoint,
             const Id& maxPoints)
-        : HierarchyBlock(pool, metadata, id, outEndpoint, maxPoints)
+        : HierarchyBlock(pool, metadata, id, outEndpoint, maxPoints, 0)
         , m_spinner()
         , m_tubes()
     { }
