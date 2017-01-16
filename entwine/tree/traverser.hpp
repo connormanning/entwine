@@ -18,6 +18,7 @@
 #include <pdal/PointTable.hpp>
 #include <pdal/PointView.hpp>
 
+#include <entwine/tree/climber.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/structure.hpp>

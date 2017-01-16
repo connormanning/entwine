@@ -169,10 +169,12 @@ void Cache::release(const Block& block)
 
     if (notify)
     {
+        /*
         std::cout <<
             "\tData: " << (m_activeBytes / 1024 / 1024) << "MB" <<
             "\tFetches: " << block.chunkMap().size() <<
             "\tChunks: " << m_inactiveList.size() << std::endl;
+        */
 
         lock.unlock();
         m_cv.notify_all();

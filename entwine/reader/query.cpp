@@ -91,7 +91,6 @@ Query::Query(
                 m_structure,
                 m_reader.metadata().boundsScaledCubic());
         getFetches(chunkState);
-        // std::cout << "Fetches: " << m_chunks.size() << std::endl;
     }
 }
 

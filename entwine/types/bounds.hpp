@@ -61,15 +61,10 @@ public:
     // Returns true if these Bounds share any area in common with another.
     bool overlaps(const Bounds& other, bool force2d = false) const
     {
-        Point otherMid(other.mid());
-
         return
-            std::abs(m_mid.x - otherMid.x) <=
-                width() / 2.0 + other.width() / 2.0 &&
-            std::abs(m_mid.y - otherMid.y) <=
-                depth() / 2.0 + other.depth() / 2.0 &&
-            (force2d || std::abs(m_mid.z - otherMid.z) <=
-                height() / 2.0 + other.height() / 2.0);
+            max().x > other.min().x && min().x < other.max().x &&
+            max().y > other.min().y && min().y < other.max().y &&
+            (force2d || (max().z > other.min().z && min().z < other.max().z));
     }
 
     // Returns true if the requested Bounds are contained within these Bounds.
