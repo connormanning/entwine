@@ -14,11 +14,6 @@ namespace
     const std::string outPath(test::dataPath() + "out/");
     arbiter::Arbiter a;
 
-    const std::vector<std::string> order{
-        "ned.laz", "neu.laz", "nwd.laz", "nwu.laz",
-        "sed.laz", "seu.laz", "swd.laz", "swu.laz"
-    };
-
     std::string basename(std::string path)
     {
         return arbiter::util::getBasename(path);
@@ -100,7 +95,9 @@ TEST_F(FilesTest, SingleOrigin)
 {
     for (Origin i(0); i < 8; ++i)
     {
-        ASSERT_EQ(basename(reader->files(i).path()), order[i]);
+        ASSERT_EQ(
+                basename(reader->files(i).path()),
+                basename(reader->metadata().manifest().get(i).path()));
     }
 
     EXPECT_ANY_THROW(reader->files(8));
@@ -115,7 +112,9 @@ TEST_F(FilesTest, MultiOrigin)
 
     for (std::size_t i(0); i < files.size(); ++i)
     {
-        ASSERT_EQ(basename(files[i].path()), order[origins[i]]);
+        ASSERT_EQ(
+                basename(files[i].path()),
+                basename(reader->metadata().manifest().get(origins[i]).path()));
     }
 
     std::vector<Origin> badOrigins{ 0, 8 };
@@ -124,7 +123,12 @@ TEST_F(FilesTest, MultiOrigin)
 
 TEST_F(FilesTest, SingleSearch)
 {
-    for (const auto search : order)
+    const std::vector<std::string> files{
+        "ned.laz", "neu.laz", "nwd.laz", "nwu.laz",
+        "sed.laz", "seu.laz", "swd.laz", "swu.laz"
+    };
+
+    for (const auto search : files)
     {
         ASSERT_EQ(basename(reader->files(search).path()), search);
     }
