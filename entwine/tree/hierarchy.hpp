@@ -45,7 +45,7 @@ public:
             const Metadata& metadata,
             const arbiter::Endpoint& top,
             const arbiter::Endpoint* topOut,
-            bool exists = false);
+            bool exists);
 
     ~Hierarchy()
     {
@@ -78,72 +78,13 @@ public:
     void awakenAll(Pool& pool) const;
     void merge(Hierarchy& other, Pool& pool);
 
-    using Slots = std::set<const Slot*>;
-    struct QueryResults
-    {
-        Json::Value json;
-        Slots touched;
-    };
-
-    QueryResults query(
-            const Bounds& queryBounds,
-            std::size_t depthBegin,
-            std::size_t depthEnd);
-
-    QueryResults queryVertical(
-            const Bounds& queryBounds,
-            std::size_t depthBegin,
-            std::size_t depthEnd);
-
     static Structure structure(
             const Structure& treeStructure,
             const Subset* subset = nullptr);
 
-private:
-    class Query
-    {
-    public:
-        Query(
-                const Bounds& bounds,
-                std::size_t depthBegin,
-                std::size_t depthEnd)
-            : m_bounds(bounds)
-            , m_depthBegin(depthBegin)
-            , m_depthEnd(depthEnd)
-        { }
+    using Slots = std::set<const Slot*>;
 
-        const Bounds& bounds() const { return m_bounds; }
-        std::size_t depthBegin() const { return m_depthBegin; }
-        std::size_t depthEnd() const { return m_depthEnd; }
-
-    private:
-        const Bounds m_bounds;
-        const std::size_t m_depthBegin;
-        const std::size_t m_depthEnd;
-    };
-
-    void traverse(
-            Json::Value& json,
-            Slots& ids,
-            const Query& query,
-            const PointState& pointState,
-            std::deque<Dir>& lag);
-
-    void accumulate(
-            Json::Value& json,
-            Slots& ids,
-            const Query& query,
-            const PointState& pointState,
-            std::deque<Dir>& lag,
-            uint64_t inc);
-
-    void reduce(
-            std::vector<std::size_t>& out,
-            std::size_t depth,
-            const Json::Value& in) const;
-
-    void maybeTouch(Slots& ids, const PointState& pointState) const;
-
+protected:
     HierarchyCell::Pool& m_pool;
     const Metadata& m_metadata;
     const Bounds& m_bounds;

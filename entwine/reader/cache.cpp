@@ -253,7 +253,7 @@ const ChunkReader* Cache::fetch(
 
 void Cache::markHierarchy(
         const std::string& name,
-        const Hierarchy::Slots& touched)
+        const HierarchyReader::Slots& touched)
 {
     if (touched.empty()) return;
 
@@ -265,7 +265,7 @@ void Cache::markHierarchy(
     auto& slots(selected.slots);
     auto& order(selected.order);
 
-    for (const Hierarchy::Slot* s : touched)
+    for (const HierarchyReader::Slot* s : touched)
     {
         if (slots.count(s))
         {
@@ -283,7 +283,7 @@ void Cache::markHierarchy(
 
     while (m_hierarchyBytes > m_maxHierarchyBytes && order.size())
     {
-        const Hierarchy::Slot* s(order.back());
+        const HierarchyReader::Slot* s(order.back());
         order.pop_back();
 
         SpinGuard spinLock(s->spinner);

@@ -20,6 +20,8 @@
 
 #include <entwine/reader/query.hpp>
 #include <entwine/tree/hierarchy.hpp>
+#include <entwine/types/file-info.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/types/outer-scope.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
@@ -43,7 +45,6 @@ class BaseChunkReader;
 class Bounds;
 class Cache;
 class Hierarchy;
-class Metadata;
 class Schema;
 
 class Reader
@@ -54,6 +55,7 @@ public:
     Reader(std::string path, Cache& cache);
     ~Reader();
 
+    // Data queries.
     template<typename... Args>
     std::vector<char> query(Args&&... args)
     {
@@ -102,6 +104,7 @@ public:
             const Point* scale = nullptr,
             const Point* offset = nullptr);
 
+    // Hierarchy query.
     Json::Value hierarchy(
             const Bounds& qbox,
             std::size_t depthBegin,
@@ -110,7 +113,31 @@ public:
             const Point* scale = nullptr,
             const Point* offset = nullptr);
 
-    const Metadata& metadata() const { return *m_metadata; }
+    // File metadata queries.
+    FileInfo files(Origin origin) const;
+    FileInfoList files(const std::vector<Origin>& origins) const;
+
+    FileInfo files(std::string search) const;
+    FileInfoList files(const std::vector<std::string>& searches) const;
+
+    FileInfoList files(
+            const Bounds& bounds,
+            const Point* scale,
+            const Point* offset) const;
+
+    FileInfoList files(
+            const Json::Value& filter,
+            const Point* scale,
+            const Point* offset) const;
+
+    FileInfoList files(
+            const Bounds& bounds,
+            const Json::Value& filter,
+            const Point* scale,
+            const Point* offset) const;
+
+    // Miscellaneous.
+    const Metadata& metadata() const { return m_metadata; }
     std::string path() const { return m_endpoint.root(); }
 
     const BaseChunkReader* base() const { return m_base.get(); }
@@ -125,11 +152,12 @@ private:
 
     arbiter::Endpoint m_endpoint;
 
-    std::unique_ptr<Metadata> m_metadata;
-    std::unique_ptr<Hierarchy> m_hierarchy;
+    const Metadata m_metadata;
+    Cache& m_cache;
+
+    std::unique_ptr<HierarchyReader> m_hierarchy;
     std::unique_ptr<BaseChunkReader> m_base;
 
-    Cache& m_cache;
     std::set<Id> m_ids;
 };
 

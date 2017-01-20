@@ -14,6 +14,7 @@
 #include <iostream>
 #include <limits>
 
+#include <entwine/types/bounds.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/pool.hpp>
 #include <entwine/util/storage.hpp>
@@ -95,6 +96,21 @@ Origin Manifest::find(const std::string& search) const
     return invalidOrigin;
 }
 
+OriginList Manifest::find(const Bounds& bounds) const
+{
+    OriginList origins;
+
+    for (std::size_t i(0); i < size(); ++i)
+    {
+        if (const auto b = m_fileInfo[i].bounds())
+        {
+            if (b->overlaps(bounds)) origins.push_back(i);
+        }
+    }
+
+    return origins;
+}
+
 void Manifest::append(const FileInfoList& fileInfo)
 {
     for (const auto& f : fileInfo)
@@ -161,26 +177,8 @@ Json::Value Manifest::toJson() const
         value = info.toJson();
     }
 
-    json["fileStats"] = m_fileStats.toJson();
-    json["pointStats"] = m_pointStats.toJson();
-
-    return json;
-}
-
-Json::Value Manifest::toInferenceJson() const
-{
-    Json::Value json;
-
-    Json::Value& fileInfo(json["fileInfo"]);
-    fileInfo.resize(size());
-
-    for (std::size_t i(0); i < size(); ++i)
-    {
-        const FileInfo& info(m_fileInfo[i]);
-        Json::Value& value(fileInfo[static_cast<Json::ArrayIndex>(i)]);
-
-        value = info.toInferenceJson();
-    }
+    if (!m_fileStats.empty())   json["fileStats"] = m_fileStats.toJson();
+    if (!m_pointStats.empty())  json["pointStats"] = m_pointStats.toJson();
 
     return json;
 }
@@ -257,7 +255,8 @@ void Manifest::save(const bool primary, const std::string postfix) const
             // will just contain string paths instead of the full info object.
             json["remote"] = true;
             json["chunkSize"] = static_cast<Json::UInt64>(chunkSize);
-            fileInfo[i] = m_fileInfo[i].path();
+            fileInfo[i]["path"] = m_fileInfo[i].path();
+            fileInfo[i]["bounds"] = m_fileInfo[i].bounds();
         }
 
         // TODO Could pool these.

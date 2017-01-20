@@ -20,7 +20,7 @@
 #include <set>
 #include <string>
 
-#include <entwine/tree/hierarchy.hpp>
+#include <entwine/reader/hierarchy-reader.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 
@@ -80,8 +80,8 @@ struct DataChunkState
 };
 
 
-using SlotOrder = std::list<const Hierarchy::Slot*>;
-using SlotMap = std::map<const Hierarchy::Slot*, SlotOrder::iterator>;
+using SlotOrder = std::list<const HierarchyReader::Slot*>;
+using SlotMap = std::map<const HierarchyReader::Slot*, SlotOrder::iterator>;
 
 struct HierarchyCache
 {
@@ -129,7 +129,9 @@ public:
             const std::string& readerPath,
             const FetchInfoSet& fetches);
 
-    void markHierarchy(const std::string& name, const Hierarchy::Slots& slots);
+    void markHierarchy(
+            const std::string& name,
+            const HierarchyReader::Slots& slots);
 
     std::size_t maxBytes() const { return m_maxBytes; }
     std::size_t activeBytes() const { return m_activeBytes; }

@@ -31,6 +31,7 @@ inline Version currentVersion()
 using Id = BigUint;
 
 using Origin = uint64_t;
+using OriginList = std::vector<Origin>;
 static constexpr Origin invalidOrigin = std::numeric_limits<Origin>::max();
 
 using TileFunction = std::function<void(pdal::PointView& view, Bounds bounds)>;

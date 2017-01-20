@@ -27,6 +27,7 @@
 namespace entwine
 {
 
+class Bounds;
 class Pool;
 
 class Manifest
@@ -43,10 +44,10 @@ public:
     void append(const FileInfoList& fileInfo);
 
     Json::Value toJson() const;
-    Json::Value toInferenceJson() const;
     std::size_t size() const { return m_fileInfo.size(); }
 
     Origin find(const std::string& path) const;
+    OriginList find(const Bounds& bounds) const;
 
     FileInfo& get(Origin o) { awaken(o); return m_fileInfo.at(o); }
     const FileInfo& get(Origin o) const { awaken(o); return m_fileInfo.at(o); }

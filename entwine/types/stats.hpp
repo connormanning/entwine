@@ -101,6 +101,8 @@ public:
     void addOmit()      { ++m_omits; }
     void addError()     { ++m_errors; }
 
+    bool empty() const { return !m_inserts && !m_omits && !m_errors; }
+
 private:
     std::size_t m_inserts = 0;
     std::size_t m_omits = 0;

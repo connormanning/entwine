@@ -14,15 +14,14 @@
 
 #include <entwine/reader/cache.hpp>
 #include <entwine/reader/chunk-reader.hpp>
+#include <entwine/reader/hierarchy-reader.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/builder.hpp>
-#include <entwine/tree/hierarchy.hpp>
 #include <entwine/tree/registry.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/manifest.hpp>
-#include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
@@ -55,19 +54,18 @@ Reader::Reader(const std::string path, Cache& cache)
 
 Reader::Reader(const arbiter::Endpoint& endpoint, Cache& cache)
     : m_endpoint(endpoint)
-    , m_metadata(makeUnique<Metadata>(m_endpoint))
-    , m_hierarchy(
-            makeUnique<Hierarchy>(
-                hierarchyPool,
-                *m_metadata,
-                endpoint,
-                nullptr,
-                true))
-    , m_base()
+    , m_metadata(m_endpoint)
     , m_cache(cache)
+    , m_hierarchy(
+            makeUnique<HierarchyReader>(
+                hierarchyPool,
+                m_metadata,
+                endpoint,
+                m_cache))
+    , m_base()
     , m_ids()
 {
-    const Structure& structure(m_metadata->structure());
+    const Structure& structure(m_metadata.structure());
 
     if (structure.hasBase())
     {
@@ -76,8 +74,8 @@ Reader::Reader(const arbiter::Endpoint& endpoint, Cache& cache)
                     endpoint.getBinary(structure.baseIndexBegin().str())));
 
         m_base = makeUnique<BaseChunkReader>(
-                *m_metadata,
-                BaseChunk::makeCelled(m_metadata->schema()),
+                m_metadata,
+                BaseChunk::makeCelled(m_metadata.schema()),
                 structure.baseIndexBegin(),
                 std::move(compressed));
     }
@@ -104,14 +102,9 @@ Json::Value Reader::hierarchy(
     checkQuery(depthBegin, depthEnd);
 
     const Bounds queryBounds(inBounds.undeltify(Delta(scale, offset)));
-    Hierarchy::QueryResults results(
-            vertical ?
-                m_hierarchy->queryVertical(queryBounds, depthBegin, depthEnd) :
-                m_hierarchy->query(queryBounds, depthBegin, depthEnd));
-
-    m_cache.markHierarchy(m_endpoint.prefixedRoot(), results.touched);
-
-    return results.json;
+    return vertical ?
+        m_hierarchy->queryVertical(queryBounds, depthBegin, depthEnd) :
+        m_hierarchy->query(queryBounds, depthBegin, depthEnd);
 }
 
 std::unique_ptr<Query> Reader::getQuery(
@@ -138,7 +131,7 @@ std::unique_ptr<Query> Reader::getQuery(
         const Point* offset)
 {
     return getQuery(
-            m_metadata->schema(),
+            m_metadata.schema(),
             Json::Value(),
             depthBegin,
             depthEnd,
@@ -154,7 +147,7 @@ std::unique_ptr<Query> Reader::getQuery(
         const Point* offset)
 {
     return getQuery(
-            m_metadata->schema(),
+            m_metadata.schema(),
             Json::Value(),
             qbox,
             depthBegin,
@@ -208,7 +201,7 @@ std::unique_ptr<Query> Reader::getQuery(
                     std::numeric_limits<double>::max()));
     }
 
-    const Delta indexDelta(m_metadata->delta());
+    const Delta indexDelta(m_metadata.delta());
     const Delta queryDelta(scale, offset);
     const Delta localDelta(
             queryDelta.scale() / indexDelta.scale(),
@@ -226,6 +219,59 @@ std::unique_ptr<Query> Reader::getQuery(
             localDelta.exists() ? &localDelta.offset() : nullptr);
 }
 
+FileInfo Reader::files(const Origin origin) const
+{
+    return m_metadata.manifest().get(origin);
+}
+
+FileInfoList Reader::files(const std::vector<Origin>& origins) const
+{
+    FileInfoList fileInfo;
+    fileInfo.reserve(origins.size());
+    for (const auto origin : origins) fileInfo.push_back(files(origin));
+    return fileInfo;
+}
+
+FileInfo Reader::files(std::string search) const
+{
+    return files(m_metadata.manifest().find(search));
+}
+
+FileInfoList Reader::files(const std::vector<std::string>& searches) const
+{
+    FileInfoList fileInfo;
+    fileInfo.reserve(searches.size());
+    for (const auto& search : searches) fileInfo.push_back(files(search));
+    return fileInfo;
+}
+
+FileInfoList Reader::files(
+        const Bounds& bounds,
+        const Point* scale,
+        const Point* offset) const
+{
+    return files(m_metadata.manifest().find(bounds));
+}
+
+FileInfoList Reader::files(
+        const Json::Value& filter,
+        const Point* scale,
+        const Point* offset) const
+{
+    // TODO.
+    return FileInfoList();
+}
+
+FileInfoList Reader::files(
+        const Bounds& bounds,
+        const Json::Value& filter,
+        const Point* scale,
+        const Point* offset) const
+{
+    // TODO
+    return FileInfoList();
+}
+
 Bounds Reader::localize(
         const Bounds& queryBounds,
         const Delta& localDelta) const
@@ -235,7 +281,7 @@ Bounds Reader::localize(
         return queryBounds;
     }
 
-    const Bounds indexedBounds(m_metadata->boundsScaledCubic());
+    const Bounds indexedBounds(m_metadata.boundsScaledCubic());
 
     const Point queryReferenceCenter(
             Bounds(

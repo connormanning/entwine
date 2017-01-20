@@ -30,9 +30,9 @@ protected:
 public:
     struct Slot
     {
-        Slot() : mark(false), spinner(), t() { }
+        Slot() : exists(false), spinner(), t() { }
 
-        bool mark;  // Data exists?
+        bool exists;
         mutable SpinLock spinner;
         mutable UniqueT t;
     };
@@ -52,7 +52,7 @@ public:
 
     void mark(const Id& chunkId, std::size_t chunkNum)
     {
-        getOrCreate(chunkId, chunkNum).mark = true;
+        getOrCreate(chunkId, chunkNum).exists = true;
     }
 
     bool isWithinBase(std::size_t depth) const
@@ -123,7 +123,7 @@ public:
 
         for (std::size_t i(0); i < m_fast.size(); ++i)
         {
-            if (m_fast[i].mark)
+            if (m_fast[i].exists)
             {
                 call(m_structure.getInfoFromNum(i).chunkId(), i, m_fast[i]);
             }

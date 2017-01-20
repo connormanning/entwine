@@ -69,7 +69,7 @@ Cold::Cold(const Builder& builder, bool exists)
 
     if (m_structure.baseIndexSpan())
     {
-        m_base.mark = true;
+        m_base.exists = true;
         m_base.t = makeUnique<CountedChunk>();
 
         if (!exists)
@@ -127,8 +127,8 @@ Tube::Insertion Cold::insert(
     {
         UniqueSpin slotLock(slot.spinner);
 
-        const bool exists(slot.mark);
-        slot.mark = true;
+        const bool alreadyExists(slot.exists);
+        slot.exists = true;
 
         if (!countedChunk) countedChunk = makeUnique<CountedChunk>();
 
@@ -139,7 +139,7 @@ Tube::Insertion Cold::insert(
 
         if (!countedChunk->chunk)
         {
-            ensureChunk(climber, countedChunk->chunk, exists);
+            ensureChunk(climber, countedChunk->chunk, alreadyExists);
         }
     }
 
@@ -297,7 +297,7 @@ void Cold::clip(
         const bool sync)
 {
     auto& slot(at(chunkId, chunkNum));
-    assert(slot.mark);
+    assert(slot.exists);
 
     auto unref([this, chunkId, &slot, id]()
     {

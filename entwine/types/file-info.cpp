@@ -67,19 +67,12 @@ FileInfo::FileInfo(const Json::Value& json)
 
 Json::Value FileInfo::toJson(const bool includeMetadata) const
 {
-    Json::Value json(toInferenceJson(includeMetadata));
-
-    json["status"] = toString(m_status);
-    if (!m_pointStats.empty()) json["pointStats"] = m_pointStats.toJson();
-
-    return json;
-}
-
-Json::Value FileInfo::toInferenceJson(const bool includeMetadata) const
-{
     Json::Value json;
 
     json["path"] = m_path;
+
+    if (m_status != Status::Outstanding) json["status"] = toString(m_status);
+    if (!m_pointStats.empty()) json["pointStats"] = m_pointStats.toJson();
 
     if (m_bounds.exists()) json["bounds"] = m_bounds.toJson();
     if (m_numPoints) json["numPoints"] = static_cast<Json::UInt64>(m_numPoints);

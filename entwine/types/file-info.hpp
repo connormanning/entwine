@@ -46,7 +46,6 @@ public:
     explicit FileInfo(const Json::Value& json);
 
     Json::Value toJson(bool includeMetadata = true) const;
-    Json::Value toInferenceJson(bool includeMetadata = true) const;
 
     const std::string& path() const             { return m_path; }
     Status status() const                       { return m_status; }
