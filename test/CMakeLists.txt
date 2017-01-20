@@ -1,6 +1,7 @@
 add_executable(entwine-test
     unit/infer.cpp
     unit/build.cpp
+    unit/files.cpp
     unit/version.cpp
     unit/run.cpp
     unit/octree.cpp

@@ -12,12 +12,7 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <deque>
-#include <map>
-#include <mutex>
 #include <set>
-#include <string>
-#include <vector>
 
 #include <json/json.h>
 

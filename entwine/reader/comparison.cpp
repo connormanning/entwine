@@ -206,7 +206,8 @@ std::unique_ptr<ComparisonOperator> ComparisonOperator::create(
                         val,
                         delta));
 
-            auto b(maybeExtractBounds(metadata, dimensionName, d, co, delta));
+            auto ub(maybeExtractBounds(metadata, dimensionName, d, co, delta));
+            auto b(ub.get());
 
             if (dimensionName == "Path" || dimensionName == "OriginId")
             {
@@ -221,23 +222,22 @@ std::unique_ptr<ComparisonOperator> ComparisonOperator::create(
             switch (co)
             {
             case ComparisonType::eq:
-                return createSingle(co, std::equal_to<double>(), d, b.get());
+                return createSingle(co, std::equal_to<double>(), d, b);
                 break;
             case ComparisonType::gt:
-                return createSingle(co, std::greater<double>(), d);
+                return createSingle(co, std::greater<double>(), d, b);
                 break;
             case ComparisonType::gte:
-                return createSingle(co, std::greater_equal<double>(), d);
+                return createSingle(co, std::greater_equal<double>(), d, b);
                 break;
             case ComparisonType::lt:
-                return createSingle(co, std::less<double>(), d);
+                return createSingle(co, std::less<double>(), d, b);
                 break;
             case ComparisonType::lte:
-                return createSingle(co, std::less_equal<double>(), d);
+                return createSingle(co, std::less_equal<double>(), d, b);
                 break;
             case ComparisonType::ne:
-                return createSingle(
-                        co, std::not_equal_to<double>(), d, b.get());
+                return createSingle(co, std::not_equal_to<double>(), d, b);
                 break;
             default:
                 throw std::runtime_error("Invalid single comparison operator");

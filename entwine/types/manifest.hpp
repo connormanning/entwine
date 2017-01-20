@@ -19,6 +19,7 @@
 
 #include <json/json.h>
 
+#include <entwine/reader/filter.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/file-info.hpp>
@@ -48,6 +49,7 @@ public:
 
     Origin find(const std::string& path) const;
     OriginList find(const Bounds& bounds) const;
+    OriginList find(const Filter& filter) const;
 
     FileInfo& get(Origin o) { awaken(o); return m_fileInfo.at(o); }
     const FileInfo& get(Origin o) const { awaken(o); return m_fileInfo.at(o); }

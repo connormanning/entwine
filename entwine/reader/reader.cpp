@@ -43,6 +43,26 @@ namespace
         }
     }
 
+    Bounds ensure3d(const Bounds& bounds)
+    {
+        if (bounds.is3d())
+        {
+            return bounds;
+        }
+        else
+        {
+            return Bounds(
+                    Point(
+                        bounds.min().x,
+                        bounds.min().y,
+                        std::numeric_limits<double>::lowest()),
+                    Point(
+                        bounds.max().x,
+                        bounds.max().y,
+                        std::numeric_limits<double>::max()));
+        }
+    }
+
     HierarchyCell::Pool hierarchyPool(4096);
 
     arbiter::Arbiter defaultArbiter;
@@ -186,33 +206,15 @@ std::unique_ptr<Query> Reader::getQuery(
 {
     checkQuery(depthBegin, depthEnd);
 
-    Bounds queryCube(queryBounds);
-
-    if (!queryCube.is3d())
-    {
-        queryCube = Bounds(
-                Point(
-                    queryCube.min().x,
-                    queryCube.min().y,
-                    std::numeric_limits<double>::lowest()),
-                Point(
-                    queryCube.max().x,
-                    queryCube.max().y,
-                    std::numeric_limits<double>::max()));
-    }
-
-    const Delta indexDelta(m_metadata.delta());
-    const Delta queryDelta(scale, offset);
-    const Delta localDelta(
-            queryDelta.scale() / indexDelta.scale(),
-            queryDelta.offset() - indexDelta.offset());
+    const Delta localDelta(localizeDelta(scale, offset));
+    const Bounds localQueryCube(localize(ensure3d(queryBounds), localDelta));
 
     return makeUnique<Query>(
             *this,
             schema,
             filter,
             m_cache,
-            localize(queryCube, localDelta),
+            localQueryCube,
             depthBegin,
             depthEnd,
             localDelta.exists() ? &localDelta.scale() : nullptr,
@@ -246,11 +248,11 @@ FileInfoList Reader::files(const std::vector<std::string>& searches) const
 }
 
 FileInfoList Reader::files(
-        const Bounds& bounds,
+        const Bounds& queryBounds,
         const Point* scale,
         const Point* offset) const
 {
-    return files(m_metadata.manifest().find(bounds));
+    return files(queryBounds, Json::Value(), scale, offset);
 }
 
 FileInfoList Reader::files(
@@ -258,18 +260,32 @@ FileInfoList Reader::files(
         const Point* scale,
         const Point* offset) const
 {
-    // TODO.
-    return FileInfoList();
+    return files(Bounds::everything(), filter, scale, offset);
 }
 
 FileInfoList Reader::files(
-        const Bounds& bounds,
-        const Json::Value& filter,
+        const Bounds& queryBounds,
+        const Json::Value& jsonFilter,
         const Point* scale,
         const Point* offset) const
 {
-    // TODO
-    return FileInfoList();
+    const auto delta(Delta::maybeCreate(scale, offset));
+    const Filter filter(
+            m_metadata,
+            ensure3d(queryBounds),
+            jsonFilter,
+            delta.get());
+
+    return files(m_metadata.manifest().find(filter));
+}
+
+Delta Reader::localizeDelta(const Point* scale, const Point* offset) const
+{
+    const Delta builtInDelta(m_metadata.delta());
+    const Delta queryDelta(scale, offset);
+    return Delta(
+            queryDelta.scale() / builtInDelta.scale(),
+            queryDelta.offset() - builtInDelta.offset());
 }
 
 Bounds Reader::localize(

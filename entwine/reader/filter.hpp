@@ -35,7 +35,6 @@ public:
         , m_root()
     {
         if (json.isObject()) build(m_root, json, delta);
-        m_root.log("");
     }
 
     bool check(const pdal::PointRef& pointRef) const
@@ -46,6 +45,11 @@ public:
     bool check(const Bounds& bounds) const
     {
         return m_queryBounds.overlaps(bounds) && m_root.check(bounds);
+    }
+
+    void log() const
+    {
+        m_root.log("");
     }
 
 private:

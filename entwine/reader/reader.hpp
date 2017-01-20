@@ -122,19 +122,19 @@ public:
 
     FileInfoList files(
             const Bounds& bounds,
-            const Point* scale,
-            const Point* offset) const;
+            const Point* scale = nullptr,
+            const Point* offset = nullptr) const;
 
     FileInfoList files(
             const Json::Value& filter,
-            const Point* scale,
-            const Point* offset) const;
+            const Point* scale = nullptr,
+            const Point* offset = nullptr) const;
 
     FileInfoList files(
             const Bounds& bounds,
             const Json::Value& filter,
-            const Point* scale,
-            const Point* offset) const;
+            const Point* scale = nullptr,
+            const Point* offset = nullptr) const;
 
     // Miscellaneous.
     const Metadata& metadata() const { return m_metadata; }
@@ -146,6 +146,7 @@ public:
     const std::set<Id>& ids() const { return m_ids; }
 
 private:
+    Delta localizeDelta(const Point* scale, const Point* offset) const;
     Bounds localize(
             const Bounds& inBounds,
             const Delta& localDelta) const;

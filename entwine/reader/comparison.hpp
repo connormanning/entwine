@@ -142,7 +142,7 @@ public:
 
     virtual bool operator()(const Bounds& bounds) const override
     {
-        return !m_bounds || m_bounds->overlaps(bounds, true);
+        return !m_bounds || m_bounds->overlaps(bounds);
     }
 
     virtual void log(const std::string& pre) const override
