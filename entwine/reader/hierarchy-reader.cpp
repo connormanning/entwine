@@ -49,15 +49,8 @@ Json::Value HierarchyReader::query(
     std::deque<Dir> lag;
 
     Json::Value json;
-    Slots touched;
-
-    // TODO We should be a bit more fine-grained with this lock, since there
-    // will likely be remote fetches involved during traversal.  There will
-    // need to be an "active" block-locking mechanism similar to the data
-    // chunks.
-    std::lock_guard<std::mutex> lock(m_mutex);
-    traverse(json, touched, query, pointState, lag);
-    m_cache.markHierarchy(m_endpoint.prefixedRoot(), touched);
+    Reservation reservation(m_cache, m_endpoint.prefixedRoot());
+    traverse(json, reservation, query, pointState, lag);
     return json;
 }
 
@@ -77,12 +70,12 @@ Json::Value HierarchyReader::queryVertical(
 
 void HierarchyReader::traverse(
         Json::Value& json,
-        Slots& ids,
+        Reservation& res,
         const HierarchyReader::Query& query,
         const PointState& pointState,
         std::deque<Dir>& lag)
 {
-    maybeTouch(ids, pointState);
+    maybeReserve(res, pointState);
 
     const uint64_t inc(tryGet(pointState));
     if (!inc) return;
@@ -102,7 +95,7 @@ void HierarchyReader::traverse(
                 const Dir dir(toDir(i));
                 auto curlag(lag);
                 curlag.push_back(dir);
-                traverse(json, ids, query, pointState.getClimb(dir), curlag);
+                traverse(json, res, query, pointState.getClimb(dir), curlag);
             }
         }
         else
@@ -114,27 +107,27 @@ void HierarchyReader::traverse(
                         pointState.bounds().mid(),
                         query.bounds().mid()));
 
-            traverse(json, ids, query, pointState.getClimb(dir), lag);
+            traverse(json, res, query, pointState.getClimb(dir), lag);
         }
     }
     else if (
             query.bounds().contains(pointState.bounds()) &&
             pointState.depth() < query.depthEnd())
     {
-        accumulate(json, ids, query, pointState, lag, inc);
+        accumulate(json, res, query, pointState, lag, inc);
     }
 }
 
 void HierarchyReader::accumulate(
         Json::Value& json,
-        Slots& ids,
+        Reservation& res,
         const HierarchyReader::Query& query,
         const PointState& pointState,
         std::deque<Dir>& lag,
         uint64_t inc)
 {
     // Caller should not call if inc == 0 to avoid creating null keys.
-    maybeTouch(ids, pointState);
+    maybeReserve(res, pointState);
     json[countKey] = json[countKey].asUInt64() + inc;
 
     if (pointState.depth() + 1 >= query.depthEnd()) return;
@@ -149,7 +142,7 @@ void HierarchyReader::accumulate(
             if (const uint64_t inc = tryGet(nextState))
             {
                 Json::Value& nextJson(json[dirToString(dir)]);
-                accumulate(nextJson, ids, query, nextState, lag, inc);
+                accumulate(nextJson, res, query, nextState, lag, inc);
             }
         }
     }
@@ -172,7 +165,7 @@ void HierarchyReader::accumulate(
                 auto curlag(lag);
                 curlag.push_back(curdir);
 
-                accumulate(*nextJson, ids, query, nextState, curlag, inc);
+                accumulate(*nextJson, res, query, nextState, curlag, inc);
             }
         }
     }
@@ -197,7 +190,9 @@ void HierarchyReader::reduce(
     }
 }
 
-void HierarchyReader::maybeTouch(Slots& ids, const PointState& pointState) const
+void HierarchyReader::maybeReserve(
+        Reservation& reservation,
+        const PointState& pointState) const
 {
     if (!isWithinBase(pointState.depth()))
     {
@@ -206,8 +201,23 @@ void HierarchyReader::maybeTouch(Slots& ids, const PointState& pointState) const
                     pointState.chunkNum(),
                     pointState.depth()))
         {
-            if (slot->exists) ids.insert(slot);
+            if (slot->exists) reservation.insert(slot);
         }
+    }
+}
+
+HierarchyReader::Reservation::~Reservation()
+{
+    if (!m_slots.empty()) m_cache.unrefHierarchy(m_path, m_slots);
+}
+
+void HierarchyReader::Reservation::insert(const Slot* slot)
+{
+    auto it(m_slots.find(slot));
+    if (it == m_slots.end())
+    {
+        m_slots.insert(slot);
+        m_cache.refHierarchySlot(m_path, slot);
     }
 }
 

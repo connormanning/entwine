@@ -68,16 +68,33 @@ private:
         const std::size_t m_depthEnd;
     };
 
+    class Reservation
+    {
+    public:
+        Reservation(Cache& cache, std::string path)
+            : m_cache(cache)
+            , m_path(path)
+        { }
+
+        ~Reservation();
+        void insert(const Slot* slot);
+
+    private:
+        Cache& m_cache;
+        const std::string m_path;
+        Slots m_slots;
+    };
+
     void traverse(
             Json::Value& json,
-            Slots& ids,
+            Reservation& reservation,
             const Query& query,
             const PointState& pointState,
             std::deque<Dir>& lag);
 
     void accumulate(
             Json::Value& json,
-            Slots& ids,
+            Reservation& reservation,
             const Query& query,
             const PointState& pointState,
             std::deque<Dir>& lag,
@@ -88,7 +105,9 @@ private:
             std::size_t depth,
             const Json::Value& in) const;
 
-    void maybeTouch(Slots& ids, const PointState& pointState) const;
+    void maybeReserve(
+            Reservation& reservation,
+            const PointState& pointState) const;
 
     Cache& m_cache;
     std::mutex m_mutex;

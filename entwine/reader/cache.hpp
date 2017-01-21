@@ -79,7 +79,6 @@ struct DataChunkState
     std::mutex mutex;
 };
 
-
 using SlotOrder = std::list<const HierarchyReader::Slot*>;
 using SlotMap = std::map<const HierarchyReader::Slot*, SlotOrder::iterator>;
 
@@ -88,6 +87,7 @@ struct HierarchyCache
     std::mutex mutex;
     SlotMap slots;
     SlotOrder order;
+    std::map<const HierarchyReader::Slot*, std::size_t> refs;
 };
 
 
@@ -129,7 +129,11 @@ public:
             const std::string& readerPath,
             const FetchInfoSet& fetches);
 
-    void markHierarchy(
+    void refHierarchySlot(
+            const std::string& name,
+            const HierarchyReader::Slot* slot);
+
+    void unrefHierarchy(
             const std::string& name,
             const HierarchyReader::Slots& slots);
 
