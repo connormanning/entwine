@@ -37,12 +37,10 @@ struct FetchInfo
     FetchInfo(
             const Reader& reader,
             const Id& id,
-            const Id& numPoints,
             std::size_t depth);
 
     const Reader& reader;
     const Id id;
-    const Id numPoints;
     const std::size_t depth;
 
     bool operator<(const FetchInfo& rhs) const;

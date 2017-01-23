@@ -25,11 +25,9 @@ namespace entwine
 FetchInfo::FetchInfo(
         const Reader& reader,
         const Id& id,
-        const Id& numPoints,
         const std::size_t depth)
     : reader(reader)
     , id(id)
-    , numPoints(numPoints)
     , depth(depth)
 { }
 

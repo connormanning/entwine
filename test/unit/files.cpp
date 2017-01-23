@@ -19,6 +19,8 @@ namespace
         return arbiter::util::getBasename(path);
     }
 
+    const Point nycCenter(-8242596.036, 4966606.257);
+
     class Matches
     {
     public:
@@ -27,6 +29,8 @@ namespace
         bool good(const FileInfoList& check)
         {
             m_list = check;
+            if (m_list.size() != m_paths.size()) return false;
+
             std::set<std::string> set(m_paths.begin(), m_paths.end());
 
             for (const auto& fileInfo : check)
@@ -63,9 +67,7 @@ namespace
 class FilesTest : public ::testing::Test
 {
 protected:
-    FilesTest() : cache(5000) { }
-
-    virtual void SetUp()
+    static void SetUpTestCase()
     {
         {
             Json::Value config;
@@ -76,10 +78,21 @@ protected:
             builder->go();
         }
 
-        reader = makeUnique<Reader>(outPath + "f", cache);
+        {
+            Json::Value config;
+            config["input"] = test::dataPath() + "ellipsoid-multi-nyc";
+            config["output"] = outPath + "n";
+
+            auto builder(ConfigParser::getBuilder(config));
+            builder->go();
+        }
+
+        cache = makeUnique<Cache>(5000);
+        reader = makeUnique<Reader>(outPath + "f", *cache);
+        nycReader = makeUnique<Reader>(outPath + "n", *cache);
     }
 
-    virtual void TearDown()
+    static void TearDownTestCase()
     {
         for (const auto p : a.resolve(outPath + "/**"))
         {
@@ -87,9 +100,14 @@ protected:
         }
     }
 
-    Cache cache;
-    std::unique_ptr<Reader> reader;
+    static std::unique_ptr<Cache> cache;
+    static std::unique_ptr<Reader> reader;
+    static std::unique_ptr<Reader> nycReader;
 };
+
+std::unique_ptr<Cache> FilesTest::cache = nullptr;
+std::unique_ptr<Reader> FilesTest::reader = nullptr;
+std::unique_ptr<Reader> FilesTest::nycReader = nullptr;
 
 TEST_F(FilesTest, SingleOrigin)
 {
@@ -98,9 +116,14 @@ TEST_F(FilesTest, SingleOrigin)
         ASSERT_EQ(
                 basename(reader->files(i).path()),
                 basename(reader->metadata().manifest().get(i).path()));
+
+        ASSERT_EQ(
+                basename(nycReader->files(i).path()),
+                basename(nycReader->metadata().manifest().get(i).path()));
     }
 
     EXPECT_ANY_THROW(reader->files(8));
+    EXPECT_ANY_THROW(nycReader->files(8));
 }
 
 TEST_F(FilesTest, MultiOrigin)
@@ -171,117 +194,24 @@ TEST_F(FilesTest, Bounds)
     }
 }
 
-TEST_F(FilesTest, Filter)
+TEST_F(FilesTest, BoundsScaled)
 {
+    const Scale scale(.01, .1, .0025);
+    const Offset offset(314159, 271828, 42);
+
     {
-        Json::Value filter;
-
-        // Up or east - everything but west-down.
-        Json::Value zFilter; zFilter["Z"]["$gt"] = 0;
-        Json::Value xFilter; xFilter["X"]["$gt"] = 0;
-
-        auto& orJson(filter["$or"]);
-        orJson.append(zFilter); orJson.append(xFilter);
-
-        const auto files(reader->files(filter));
-        Matches matches(Paths{
-            "ned.laz", "neu.laz", "nwu.laz",
-            "sed.laz", "seu.laz", "swu.laz"
-        });
+        const Bounds b(-5, -5, 0, 5, 5, 5);
+        const Bounds up = (b + nycCenter).scale(scale, offset);
+        const auto files(nycReader->files(up, &scale, &offset));
+        Matches matches(Paths{ "neu.laz", "nwu.laz", "seu.laz", "swu.laz" });
         EXPECT_TRUE(matches.good(files)) << matches.message();
     }
 
     {
-        Json::Value filter;
-        filter["Path"]["$in"].append("swd.laz");
-        filter["Path"]["$in"].append("swu.laz");
-
-        const auto files(reader->files(filter));
-        Matches matches(Paths{ "swd.laz", "swu.laz" });
-        EXPECT_TRUE(matches.good(files)) << matches.message();
-    }
-
-    {
-        Json::Value pathsIn;
-        pathsIn["Path"]["$in"].append("swd.laz");
-        pathsIn["Path"]["$in"].append("swu.laz");
-
-        Json::Value xFilter; xFilter["X"]["$gt"] = 0;
-        Json::Value yFilter; yFilter["Y"]["$gt"] = 0;
-        Json::Value zFilter; zFilter["Z"]["$gt"] = 0;
-
-        Json::Value neu;
-        neu["$and"].append(xFilter);
-        neu["$and"].append(yFilter);
-        neu["$and"].append(zFilter);
-
-        Json::Value filter;
-        auto& orJson(filter["$or"]);
-        orJson.append(pathsIn);
-        orJson.append(neu);
-
-        const auto files(reader->files(filter));
-        Matches matches(Paths{ "swd.laz", "swu.laz", "neu.laz" });
-        EXPECT_TRUE(matches.good(files)) << matches.message();
-    }
-}
-
-TEST_F(FilesTest, FilterWithBounds)
-{
-    {
-        // South only.
-        const Bounds bounds(-5, -5, -5, 5, 0, 5);
-
-        // Up or east - everything but west-down.
-        Json::Value zFilter; zFilter["Z"]["$gt"] = 0;
-        Json::Value xFilter; xFilter["X"]["$gt"] = 0;
-
-        Json::Value filter;
-        auto& orJson(filter["$or"]);
-        orJson.append(zFilter); orJson.append(xFilter);
-
-        const auto files(reader->files(bounds, filter));
-        Matches matches(Paths{ "sed.laz", "seu.laz", "swu.laz" });
-        EXPECT_TRUE(matches.good(files)) << matches.message();
-    }
-
-    {
-        // Up only.
-        const Bounds bounds(-5, -5, 0, 5, 5, 5);
-
-        Json::Value filter;
-        filter["Path"]["$in"].append("swd.laz");
-        filter["Path"]["$in"].append("swu.laz");
-
-        const auto files(reader->files(bounds, filter));
-        Matches matches(Paths{ "swu.laz" });
-        EXPECT_TRUE(matches.good(files)) << matches.message();
-    }
-
-    {
-        // South-west-up only.
-        const Bounds bounds(-5, -5, 0, 0, 0, 5);
-
-        Json::Value pathsIn;
-        pathsIn["Path"]["$in"].append("swd.laz");
-        pathsIn["Path"]["$in"].append("swu.laz");
-
-        Json::Value xFilter; xFilter["X"]["$gt"] = 0;
-        Json::Value yFilter; yFilter["Y"]["$gt"] = 0;
-        Json::Value zFilter; zFilter["Z"]["$gt"] = 0;
-
-        Json::Value neu;
-        neu["$and"].append(xFilter);
-        neu["$and"].append(yFilter);
-        neu["$and"].append(zFilter);
-
-        Json::Value filter;
-        auto& orJson(filter["$or"]);
-        orJson.append(pathsIn);
-        orJson.append(neu);
-
-        const auto files(reader->files(bounds, filter));
-        Matches matches(Paths{ "swu.laz" });
+        const Bounds b(-5, -5, 0, 0);
+        const Bounds southwest = (b + nycCenter).scale(scale, offset);
+        const auto files(nycReader->files(southwest, &scale, &offset));
+        Matches matches(Paths{ "swu.laz", "swd.laz" });
         EXPECT_TRUE(matches.good(files)) << matches.message();
     }
 }

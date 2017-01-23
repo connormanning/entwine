@@ -224,7 +224,7 @@ public:
 
     bool empty() const { return !exists(); }
     bool exists() const { return min().exists() || max().exists(); }
-    bool is3d() const { return m_min.z || m_max.z; }
+    bool is3d() const { return m_min.z != m_max.z; }
 
     Json::Value toJson() const;
 
@@ -335,6 +335,11 @@ inline bool operator==(const Bounds& lhs, const Bounds& rhs)
 inline bool operator!=(const Bounds& lhs, const Bounds& rhs)
 {
     return !(lhs == rhs);
+}
+
+inline Bounds operator+(const Bounds& b, const Point& p)
+{
+    return Bounds(b.min() + p, b.max() + p);
 }
 
 } // namespace entwine

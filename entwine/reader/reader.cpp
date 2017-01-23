@@ -252,31 +252,13 @@ FileInfoList Reader::files(
         const Point* scale,
         const Point* offset) const
 {
-    return files(queryBounds, Json::Value(), scale, offset);
-}
-
-FileInfoList Reader::files(
-        const Json::Value& filter,
-        const Point* scale,
-        const Point* offset) const
-{
-    return files(Bounds::everything(), filter, scale, offset);
-}
-
-FileInfoList Reader::files(
-        const Bounds& queryBounds,
-        const Json::Value& jsonFilter,
-        const Point* scale,
-        const Point* offset) const
-{
-    const auto delta(Delta::maybeCreate(scale, offset));
-    const Filter filter(
-            m_metadata,
-            ensure3d(queryBounds),
-            jsonFilter,
-            delta.get());
-
-    return files(m_metadata.manifest().find(filter));
+    auto delta(Delta::maybeCreate(scale, offset));
+    const Bounds absoluteBounds(
+            delta ?
+                queryBounds.unscale(delta->scale(), delta->offset()) :
+                queryBounds);
+    const Bounds absoluteCube(ensure3d(absoluteBounds));
+    return files(m_metadata.manifest().find(absoluteCube));
 }
 
 Delta Reader::localizeDelta(const Point* scale, const Point* offset) const

@@ -117,6 +117,10 @@ public:
     FileInfo files(Origin origin) const;
     FileInfoList files(const std::vector<Origin>& origins) const;
 
+    FileInfo files(const char* search) const
+    {
+        return files(std::string(search));
+    }
     FileInfo files(std::string search) const;
     FileInfoList files(const std::vector<std::string>& searches) const;
 

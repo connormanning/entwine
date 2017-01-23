@@ -381,7 +381,9 @@ inline std::ostream& operator<<(std::ostream& os, const Point& point)
 
     auto printCoord([&os](double d)
     {
-        if (std::trunc(d) == d) os << static_cast<long>(d);
+        if (d == std::numeric_limits<double>::max()) os << "max";
+        else if (d == std::numeric_limits<double>::lowest()) os << "min";
+        else if (std::trunc(d) == d) os << static_cast<long>(d);
         else os << d;
     });
 
@@ -391,14 +393,8 @@ inline std::ostream& operator<<(std::ostream& os, const Point& point)
     printCoord(point.x);
     os << ", ";
     printCoord(point.y);
-
-    if (
-            point.z != std::numeric_limits<double>::max() &&
-            point.z != std::numeric_limits<double>::lowest())
-    {
-        os << ", ";
-        printCoord(point.z);
-    }
+    os << ", ";
+    printCoord(point.z);
     os << ")";
 
     os << std::setprecision(precision);

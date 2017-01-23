@@ -111,21 +111,6 @@ OriginList Manifest::find(const Bounds& bounds) const
     return origins;
 }
 
-OriginList Manifest::find(const Filter& filter) const
-{
-    OriginList origins;
-
-    for (std::size_t i(0); i < size(); ++i)
-    {
-        if (const auto b = m_fileInfo[i].bounds())
-        {
-            if (filter.check(*b)) origins.push_back(i);
-        }
-    }
-
-    return origins;
-}
-
 void Manifest::append(const FileInfoList& fileInfo)
 {
     for (const auto& f : fileInfo)
