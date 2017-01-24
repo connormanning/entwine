@@ -392,7 +392,7 @@ void Builder::merge(Builder& other)
         throw std::runtime_error("Cannot merge non-subset build");
     }
 
-    if (!m_threadPools->clipPool().joined())
+    if (m_threadPools->clipPool().running())
     {
         m_threadPools->workPool().resize(m_threadPools->size());
         m_threadPools->clipPool().join();

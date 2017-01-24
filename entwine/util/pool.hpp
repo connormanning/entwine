@@ -10,7 +10,6 @@
 
 #pragma once
 
-#include <atomic>
 #include <condition_variable>
 #include <cstddef>
 #include <functional>
@@ -37,8 +36,8 @@ public:
 
     // Wait for all currently running tasks to complete.
     void join();
-
-    bool joined() const { return stop(); }
+    bool running() const { return m_running; }
+    bool joined() const { return !m_running; }
 
     void cycle() { join(); go(); }
 
@@ -63,21 +62,18 @@ private:
     // called, complete any outstanding task and return.
     void work();
 
-    // Atomically set/get the stop flag.
-    bool stop() const;
-    void stop(bool val);
-
     std::size_t m_numThreads;
     std::size_t m_queueSize;
     std::vector<std::thread> m_threads;
     std::queue<std::function<void()>> m_tasks;
-    std::atomic_size_t m_running;
 
     std::vector<std::string> m_errors;
     std::mutex m_errorMutex;
 
-    std::atomic<bool> m_stop;
-    std::mutex m_mutex;
+    std::size_t m_outstanding = 0;
+    bool m_running = false;
+
+    mutable std::mutex m_mutex;
     std::condition_variable m_produceCv;
     std::condition_variable m_consumeCv;
 

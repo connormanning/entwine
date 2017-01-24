@@ -10,7 +10,6 @@
 
 #include <entwine/util/pool.hpp>
 
-#include <cassert>
 #include <iostream>
 
 namespace entwine
@@ -19,13 +18,6 @@ namespace entwine
 Pool::Pool(const std::size_t numThreads, const std::size_t queueSize)
     : m_numThreads(std::max<std::size_t>(numThreads, 1))
     , m_queueSize(std::max<std::size_t>(queueSize, 1))
-    , m_threads()
-    , m_tasks()
-    , m_running(0)
-    , m_stop(true)
-    , m_mutex()
-    , m_produceCv()
-    , m_consumeCv()
 {
     go();
 }
@@ -35,22 +27,11 @@ Pool::~Pool()
     join();
 }
 
-void Pool::resize(const std::size_t numThreads)
-{
-    join();
-    m_numThreads = numThreads;
-    go();
-}
-
 void Pool::go()
 {
-    if (!stop())
-    {
-        throw std::runtime_error(
-                "Attempted to call Pool::go on an already running Pool");
-    }
-
-    stop(false);
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_running) return;
+    m_running = true;
 
     for (std::size_t i(0); i < m_numThreads; ++i)
     {
@@ -60,62 +41,55 @@ void Pool::go()
 
 void Pool::join()
 {
-    if (!stop())
-    {
-        stop(true);
+    std::unique_lock<std::mutex> lock(m_mutex);
+    if (!m_running) return;
+    m_running = false;
+    lock.unlock();
 
-        for (auto& t : m_threads)
-        {
-            m_consumeCv.notify_all();
-            t.join();
-        }
-
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_threads.clear();
-        assert(m_tasks.empty());
-    }
+    m_consumeCv.notify_all();
+    for (auto& t : m_threads) t.join();
+    m_threads.clear();
 }
 
 void Pool::await()
 {
     std::unique_lock<std::mutex> lock(m_mutex);
-    m_produceCv.wait(lock, [this]() { return !m_running && m_tasks.empty(); });
+    m_produceCv.wait(lock, [this]()
+    {
+        return !m_outstanding && m_tasks.empty();
+    });
 }
 
 void Pool::add(std::function<void()> task)
 {
-    if (stop())
+    std::unique_lock<std::mutex> lock(m_mutex);
+
+    if (!m_running)
     {
         throw std::runtime_error("Attempted to add a task to a stopped Pool");
     }
 
-    if (!numThreads())
-    {
-        throw std::runtime_error("Attempted to add a task to an empty Pool");
-    }
-
-    std::unique_lock<std::mutex> lock(m_mutex);
-
     m_produceCv.wait(lock, [this]() { return m_tasks.size() < m_queueSize; });
     m_tasks.emplace(task);
 
-    lock.unlock();
-
     // Notify worker that a task is available.
+    lock.unlock();
     m_consumeCv.notify_all();
 }
 
 void Pool::work()
 {
-    std::unique_lock<std::mutex> lock(m_mutex);
-
-    while (!stop() || !m_tasks.empty())
+    while (true)
     {
-        m_consumeCv.wait(lock, [this]() { return !m_tasks.empty() || stop(); });
-
-        if (!m_tasks.empty())
+        std::unique_lock<std::mutex> lock(m_mutex);
+        m_consumeCv.wait(lock, [this]()
         {
-            ++m_running;
+            return m_tasks.size() || !m_running;
+        });
+
+        if (m_tasks.size())
+        {
+            ++m_outstanding;
             auto task(std::move(m_tasks.front()));
             m_tasks.pop();
 
@@ -124,38 +98,35 @@ void Pool::work()
             // Notify add(), which may be waiting for a spot in the queue.
             m_produceCv.notify_all();
 
-            try
-            {
-                task();
-            }
-            catch (std::exception& e)
-            {
-                std::cout <<
-                    "Exception caught in pool task: " << e.what() << std::endl;
-            }
-            catch (...)
-            {
-                std::cout <<
-                    "Unknown exception caught in pool task." << std::endl;
-            }
-
-            // Notify await(), which may be waiting for a running task.
-            --m_running;
-            m_produceCv.notify_all();
+            std::string err;
+            try { task(); }
+            catch (std::exception& e) { err = e.what(); }
+            catch (...) { err = "Unknown error"; }
 
             lock.lock();
+            --m_outstanding;
+            if (err.size())
+            {
+                std::cout << "Exception in pool task: " << err << std::endl;
+                m_errors.push_back(err);
+            }
+            lock.unlock();
+
+            // Notify await(), which may be waiting for a running task.
+            m_produceCv.notify_all();
+        }
+        else if (!m_running)
+        {
+            return;
         }
     }
 }
 
-bool Pool::stop() const
+void Pool::resize(const std::size_t numThreads)
 {
-    return m_stop.load();
-}
-
-void Pool::stop(const bool val)
-{
-    m_stop.store(val);
+    join();
+    m_numThreads = numThreads;
+    go();
 }
 
 } // namespace entwine
