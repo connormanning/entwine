@@ -40,6 +40,12 @@ inline Json::Value parse(const std::string& input)
     return json;
 }
 
+inline Json::Value parse(const char* input)
+{
+    if (input) return parse(std::string(input));
+    else return Json::nullValue;
+}
+
 // Not really JSON-related, but fine for now...
 inline std::string commify(const std::size_t n)
 {

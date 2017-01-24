@@ -96,6 +96,8 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
         if (builder)
         {
+            if (verbose) builder->verbose(true);
+
             // If we have more paths to add, add them to the manifest.
             // Otherwise we might be continuing a partial build, in which case
             // the paths to be built are already outstanding in the manifest.
@@ -330,10 +332,11 @@ void ConfigParser::normalizeInput(
                 }
             }
         }
-        else
+        else if (input.isString())
         {
             insert(directorify(input.asString()));
         }
+        else return;
 
         // Now, we have an array of files (no directories).
         //

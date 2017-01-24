@@ -45,6 +45,11 @@ FileInfo::FileInfo(const std::string path, const Status status)
 FileInfo::FileInfo(const Json::Value& json)
     : FileInfo(json.isObject() ? json["path"].asString() : json.asString())
 {
+    if (m_path.empty())
+    {
+        throw std::runtime_error("Empty path found in file-info");
+    }
+
     if (json.isObject())
     {
         if (json.isMember("status"))

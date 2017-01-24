@@ -212,6 +212,17 @@ void Manifest::awaken(Origin origin) const
 
     std::lock_guard<std::mutex> lock(m_mutex);
 
+    if (!json.isArray())
+    {
+        throw std::runtime_error(
+                "Invalid file-info chunk - expected array: " +
+                json.toStyledString());
+    }
+    else if (json.size() != std::min(m_chunkSize, size() - chunk))
+    {
+        throw std::runtime_error("Invalid file-info chunk - unexpected size");
+    }
+
     std::size_t i(chunk);
     for (const auto& f : json)
     {

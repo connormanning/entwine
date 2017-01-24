@@ -141,8 +141,6 @@ Builder::~Builder()
 
 void Builder::go(std::size_t max)
 {
-    m_hierarchy->awakenAll(m_threadPools->clipPool());
-
     if (!m_tmpEndpoint)
     {
         throw std::runtime_error("Cannot add to read-only builder");
