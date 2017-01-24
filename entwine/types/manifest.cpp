@@ -256,7 +256,11 @@ void Manifest::save(const bool primary, const std::string postfix) const
             json["remote"] = true;
             json["chunkSize"] = static_cast<Json::UInt64>(chunkSize);
             fileInfo[i]["path"] = m_fileInfo[i].path();
-            fileInfo[i]["bounds"] = m_fileInfo[i].bounds();
+
+            if (const auto b = m_fileInfo[i].bounds())
+            {
+                fileInfo[i]["bounds"] = b->toJson();
+            }
         }
 
         // TODO Could pool these.
