@@ -67,6 +67,8 @@ FileInfo::FileInfo(const Json::Value& json)
         {
             m_srs = pdal::SpatialReference(json["srs"].asString());
         }
+
+        if (json.isMember("origin")) m_origin = json["origin"].asUInt64();
     }
 }
 
@@ -78,6 +80,7 @@ Json::Value FileInfo::toJson(const bool includeMetadata) const
 
     if (m_status != Status::Outstanding) json["status"] = toString(m_status);
     if (!m_pointStats.empty()) json["pointStats"] = m_pointStats.toJson();
+    if (m_origin != invalidOrigin) json["origin"] = (Json::UInt64)m_origin;
 
     if (m_bounds.exists()) json["bounds"] = m_bounds.toJson();
     if (m_numPoints) json["numPoints"] = static_cast<Json::UInt64>(m_numPoints);

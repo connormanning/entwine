@@ -53,6 +53,7 @@ public:
     const pdal::SpatialReference& srs() const   { return m_srs; }
     const PointStats& pointStats() const        { return m_pointStats; }
     const Json::Value& metadata() const         { return m_metadata; }
+    Origin origin() const { return m_origin; }
     const Bounds* bounds() const
     {
         return m_bounds.exists() ? &m_bounds : nullptr;
@@ -71,6 +72,7 @@ public:
     void numPoints(std::size_t n) { m_numPoints = n; }
     void srs(const pdal::SpatialReference& s) { m_srs = s; }
     void metadata(const Json::Value& json) { m_metadata = json; }
+    void origin(Origin o) { m_origin = o; }
 
     void add(const PointStats& stats) { m_pointStats.add(stats); }
 
@@ -88,6 +90,7 @@ private:
     std::size_t m_numPoints = 0;
     pdal::SpatialReference m_srs;
     Json::Value m_metadata;
+    Origin m_origin = invalidOrigin;
 
     PointStats m_pointStats;
 };

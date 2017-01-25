@@ -1,6 +1,6 @@
 {
     "absolute": true,
-    "reproject": {
+    "reprojection": {
         "out": "EPSG:4978"
     },
     "formats": {

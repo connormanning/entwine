@@ -117,10 +117,6 @@ public:
     FileInfo files(Origin origin) const;
     FileInfoList files(const std::vector<Origin>& origins) const;
 
-    FileInfo files(const char* search) const
-    {
-        return files(std::string(search));
-    }
     FileInfo files(std::string search) const;
     FileInfoList files(const std::vector<std::string>& searches) const;
 
@@ -129,16 +125,10 @@ public:
             const Point* scale = nullptr,
             const Point* offset = nullptr) const;
 
-    FileInfoList files(
-            const Json::Value& filter,
-            const Point* scale = nullptr,
-            const Point* offset = nullptr) const;
-
-    FileInfoList files(
-            const Bounds& bounds,
-            const Json::Value& filter,
-            const Point* scale = nullptr,
-            const Point* offset = nullptr) const;
+    FileInfo files(const char* search) const
+    {
+        return files(std::string(search));
+    }
 
     // Miscellaneous.
     const Metadata& metadata() const { return m_metadata; }

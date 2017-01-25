@@ -56,7 +56,9 @@ Manifest::Manifest(
         m_fileInfo.reserve(fileInfo.size());
         for (Json::ArrayIndex i(0); i < fileInfo.size(); ++i)
         {
-            m_fileInfo.emplace_back(fileInfo[i]);
+            Json::Value fileJson(fileInfo[i]);
+            fileJson["origin"] = i;
+            m_fileInfo.emplace_back(fileJson);
         }
     }
 
