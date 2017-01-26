@@ -27,17 +27,27 @@ class Schema;
 class PointInfo
 {
 public:
-    PointInfo(const Point& point, const char* data)
+    PointInfo(const Point& point, const char* data, uint64_t tick = 0)
         : m_point(point)
         , m_data(data)
+        , m_tick(tick)
     { }
+
+    PointInfo(uint64_t tick) : m_tick(tick) { }
 
     const Point& point() const { return m_point; }
     const char* data() const { return m_data; }
+    uint64_t tick() const { return m_tick; }
+
+    bool operator<(const PointInfo& other) const
+    {
+        return m_tick < other.m_tick;
+    }
 
 private:
-    const Point m_point;
-    const char* m_data;
+    Point m_point;
+    const char* m_data = nullptr;
+    uint64_t m_tick;
 };
 
 // Ordered by Z-tick to perform the tubular-quadtree-as-octree query.
@@ -50,8 +60,8 @@ public:
             std::size_t depth,
             std::unique_ptr<std::vector<char>> data);
 
-    using PointMap = std::multimap<uint64_t, PointInfo>;
-    using It = PointMap::const_iterator;
+    using PointOrder = std::vector<PointInfo>;
+    using It = PointOrder::const_iterator;
 
     struct QueryRange
     {
@@ -84,7 +94,7 @@ private:
     const std::size_t m_depth;
 
     std::unique_ptr<std::vector<char>> m_data;
-    PointMap m_points;
+    std::vector<PointInfo> m_points;
 };
 
 // Ordered by normal BaseChunk ordering for traversal.

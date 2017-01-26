@@ -216,7 +216,7 @@ void Query::getChunked(std::vector<char>& buffer)
 
             while (it != range.end)
             {
-                if (processPoint(buffer, it->second)) ++m_numPoints;
+                if (processPoint(buffer, *it)) ++m_numPoints;
                 ++it;
             }
 

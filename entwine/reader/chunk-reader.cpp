@@ -30,8 +30,6 @@ ChunkReader::ChunkReader(
     , m_bounds(metadata.boundsScaledCubic())
     , m_id(id)
     , m_depth(depth)
-    , m_data()
-    , m_points()
 {
     Unpacker unpacker(metadata.format().unpack(std::move(data)));
     m_data = unpacker.acquireBytes();
@@ -45,6 +43,8 @@ ChunkReader::ChunkReader(
     const char* pos(m_data->data());
     Point point;
 
+    m_points.reserve(numPoints);
+
     for (std::size_t i(0); i < numPoints; ++i)
     {
         table.setPoint(pos);
@@ -53,25 +53,24 @@ ChunkReader::ChunkReader(
         point.y = pointRef.getFieldAs<double>(pdal::Dimension::Id::Y);
         point.z = pointRef.getFieldAs<double>(pdal::Dimension::Id::Z);
 
-        m_points.emplace(
-                std::piecewise_construct,
-                std::forward_as_tuple(Tube::calcTick(point, m_bounds, m_depth)),
-                std::forward_as_tuple(point, pos));
+        m_points.emplace_back(
+                point,
+                pos,
+                Tube::calcTick(point, m_bounds, m_depth));
 
         pos += pointSize;
     }
+
+    std::sort(m_points.begin(), m_points.end());
 }
 
 ChunkReader::QueryRange ChunkReader::candidates(const Bounds& queryBounds) const
 {
-    const std::size_t minTick(
-            Tube::calcTick(queryBounds.min(), m_bounds, m_depth));
+    const PointInfo min(Tube::calcTick(queryBounds.min(), m_bounds, m_depth));
+    const PointInfo max(Tube::calcTick(queryBounds.max(), m_bounds, m_depth));
 
-    const std::size_t maxTick(
-            Tube::calcTick(queryBounds.max(), m_bounds, m_depth));
-
-    It begin(m_points.lower_bound(minTick));
-    It end(m_points.upper_bound(maxTick));
+    It begin(std::lower_bound(m_points.begin(), m_points.end(), min));
+    It end(std::upper_bound(m_points.begin(), m_points.end(), max));
 
     return QueryRange(begin, end);
 }
