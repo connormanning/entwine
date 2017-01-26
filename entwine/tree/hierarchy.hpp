@@ -40,7 +40,8 @@ public:
             const Metadata& metadata,
             const arbiter::Endpoint& top,
             const arbiter::Endpoint* topOut,
-            bool exists);
+            bool exists,
+            bool readOnly = false);
 
     ~Hierarchy()
     {
@@ -70,7 +71,6 @@ public:
     uint64_t tryGet(const PointState& pointState) const;
 
     void save(Pool& pool) const;
-    void awakenAll(Pool& pool) const;
     void merge(Hierarchy& other, Pool& pool);
 
     static Structure structure(
@@ -86,6 +86,7 @@ protected:
     const Structure& m_structure;
     const arbiter::Endpoint m_endpoint;
     const std::unique_ptr<arbiter::Endpoint> m_outpoint;
+    const bool m_readOnly;
 };
 
 } // namespace entwine

@@ -25,7 +25,8 @@ Hierarchy::Hierarchy(
         const Metadata& metadata,
         const arbiter::Endpoint& ep,
         const arbiter::Endpoint* out,
-        const bool exists)
+        const bool exists,
+        const bool readOnly)
     : Splitter(metadata.hierarchyStructure())
     , m_pool(pool)
     , m_metadata(metadata)
@@ -35,6 +36,7 @@ Hierarchy::Hierarchy(
     , m_outpoint(out ?
             makeUnique<arbiter::Endpoint>(out->getSubEndpoint("h")) :
             nullptr)
+    , m_readOnly(readOnly)
 {
     m_base.exists = true;
 
@@ -182,7 +184,8 @@ uint64_t Hierarchy::tryGet(const PointState& s) const
                     m_outpoint.get(),
                     s.pointsPerChunk(),
                     m_endpoint.getBinary(
-                        s.chunkId().str() + m_metadata.postfix()));
+                        s.chunkId().str() + m_metadata.postfix()),
+                    m_readOnly);
 
             if (!block)
             {
@@ -217,6 +220,7 @@ void Hierarchy::save(Pool& pool) const
     Storage::ensurePut(*m_outpoint, "ids" + topPostfix, toFastString(json));
 }
 
+/*
 void Hierarchy::awakenAll(Pool& pool) const
 {
     iterateCold([this](const Id chunkId, std::size_t num, const Slot& slot)
@@ -230,6 +234,7 @@ void Hierarchy::awakenAll(Pool& pool) const
                 m_endpoint.getBinary(chunkId.str() + m_metadata.postfix(true)));
     }, &pool);
 }
+*/
 
 void Hierarchy::merge(Hierarchy& other, Pool& pool)
 {

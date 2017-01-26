@@ -89,7 +89,8 @@ std::unique_ptr<HierarchyBlock> HierarchyBlock::create(
         const Id& id,
         const arbiter::Endpoint* outEndpoint,
         const Id& maxPoints,
-        const std::vector<char>& data)
+        const std::vector<char>& data,
+        const bool readOnly)
 {
     std::unique_ptr<std::vector<char>> decompressed;
 
@@ -118,9 +119,19 @@ std::unique_ptr<HierarchyBlock> HierarchyBlock::create(
                 maxPoints.getSimple(),
                 decompressed ? *decompressed : data);
     }
-    else
+    else if (!readOnly)
     {
         return makeUnique<SparseBlock>(
+                pool,
+                metadata,
+                id,
+                outEndpoint,
+                maxPoints,
+                decompressed ? *decompressed : data);
+    }
+    else
+    {
+        return makeUnique<ReadOnlySparseBlock>(
                 pool,
                 metadata,
                 id,
@@ -237,8 +248,8 @@ SparseBlock::SparseBlock(
         tick = extract();
         cell = extract();
 
-        m_tubes[Id(tubePos, tubePos + tubeBlocks)].insert(
-                std::make_pair(tick, m_pool.acquireOne(cell)));
+        m_tubes[Id(tubePos, tubePos + tubeBlocks)].emplace(
+                tick, m_pool.acquireOne(cell));
     }
 }
 
@@ -484,6 +495,52 @@ void BaseBlock::makeWritable()
         {
             m_writes[i].emplace_back(std::move(m_blocks.at(i)));
         }
+    }
+}
+
+ReadOnlySparseBlock::ReadOnlySparseBlock(
+        HierarchyCell::Pool& pool,
+        const Metadata& metadata,
+        const Id& id,
+        const arbiter::Endpoint* outEndpoint,
+        const Id& maxPoints,
+        const std::vector<char>& data)
+    : HierarchyBlock(pool, metadata, id, outEndpoint, maxPoints, data.size())
+{
+    // Assuming that all the Id values are within a 64-bit range, then we have
+    // four uint64 values per cell.
+    m_data.reserve(data.size() / 32);
+
+    const char* pos(data.data());
+    const char* end(data.data() + data.size());
+
+    const Id::Block* tubePos(nullptr);
+    uint64_t tubeBlocks, tubeBytes, tick, cell;
+
+    auto extract([&pos]()
+    {
+        const uint64_t v(*reinterpret_cast<const uint64_t*>(pos));
+        pos += sizeof(uint64_t);
+        return v;
+    });
+
+    while (pos < end)
+    {
+        tubeBlocks = extract();
+        tubeBytes = tubeBlocks * sizeof(Id::Block);
+        tubePos = reinterpret_cast<const Id::Block*>(pos);
+        pos += tubeBytes;
+
+        tick = extract();
+        cell = extract();
+
+        m_data.emplace_back(Id(tubePos, tubePos + tubeBlocks), tick, cell);
+    }
+
+    if (!std::is_sorted(m_data.begin(), m_data.end()))
+    {
+        std::cout << "Unsorted hierarchy block found" << std::endl;
+        std::sort(m_data.begin(), m_data.end());
     }
 }
 

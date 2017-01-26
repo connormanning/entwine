@@ -31,7 +31,7 @@ public:
             const Metadata& metadata,
             const arbiter::Endpoint& top,
             Cache& cache)
-        : Hierarchy(pool, metadata, top, nullptr, true)
+        : Hierarchy(pool, metadata, top, nullptr, true, true)
         , m_cache(cache)
     { }
 

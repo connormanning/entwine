@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <set>
@@ -89,7 +90,8 @@ public:
             const Id& id,
             const arbiter::Endpoint* outEndpoint,
             const Id& maxPoints,
-            const std::vector<char>& data);
+            const std::vector<char>& data,
+            bool readOnly = false);
 
     void save(const arbiter::Endpoint& ep, std::string pf = "");
 
@@ -312,6 +314,66 @@ private:
 
     SpinLock m_spinner;
     std::map<Id, HierarchyTube> m_tubes;
+};
+
+class ReadOnlySparseBlock : public HierarchyBlock
+{
+public:
+    struct Cell
+    {
+        Cell(const Id& id, uint64_t tick, uint64_t count = 0)
+            : id(id)
+            , tick(tick)
+            , count(count)
+        { }
+
+        Id id;
+        uint64_t tick;
+        uint64_t count;
+
+        bool operator==(const Cell& other) const
+        {
+            return id == other.id && tick == other.tick;
+        }
+
+        bool operator<(const Cell& other) const
+        {
+            return id < other.id || (id == other.id && tick < other.tick);
+        }
+    };
+
+    ReadOnlySparseBlock(
+            HierarchyCell::Pool& pool,
+            const Metadata& metadata,
+            const Id& id,
+            const arbiter::Endpoint* outEndpoint,
+            const Id& maxPoints,
+            const std::vector<char>& data);
+
+    virtual uint64_t get(const Id& id, uint64_t tick) const override
+    {
+        Cell search(normalize(id), tick);
+        const auto lb(std::lower_bound(m_data.begin(), m_data.end(), search));
+
+        if (lb != m_data.end() && *lb == search) return lb->count;
+        else return 0;
+    }
+
+    virtual HierarchyCell& count(
+            const Id& id,
+            uint64_t tick,
+            int delta) override
+    {
+        throw std::runtime_error("Cannot count a read-only block");
+    }
+
+private:
+    virtual std::vector<char> combine() override
+    {
+        throw std::runtime_error("Cannot combine a read-only block");
+    }
+
+    std::vector<Cell> m_data;
 };
 
 } // namespace entwine
