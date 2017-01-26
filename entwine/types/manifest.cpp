@@ -57,7 +57,7 @@ Manifest::Manifest(
         for (Json::ArrayIndex i(0); i < fileInfo.size(); ++i)
         {
             Json::Value fileJson(fileInfo[i]);
-            fileJson["origin"] = i;
+            if (fileJson.isObject()) fileJson["origin"] = i;
             m_fileInfo.emplace_back(fileJson);
         }
     }
