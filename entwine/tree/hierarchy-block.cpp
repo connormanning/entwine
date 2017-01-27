@@ -517,8 +517,13 @@ ReadOnlySparseBlock::ReadOnlySparseBlock(
     const Id::Block* tubePos(nullptr);
     uint64_t tubeBlocks, tubeBytes, tick, cell;
 
-    auto extract([&pos]()
+    auto extract([&pos, end, &id]()
     {
+        if (static_cast<std::size_t>(end - pos) < sizeof(uint64_t))
+        {
+            throw std::runtime_error("Truncated hierarchy block: " + id.str());
+        }
+
         const uint64_t v(*reinterpret_cast<const uint64_t*>(pos));
         pos += sizeof(uint64_t);
         return v;
