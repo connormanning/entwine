@@ -534,6 +534,12 @@ ReadOnlySparseBlock::ReadOnlySparseBlock(
         tubeBlocks = extract();
         tubeBytes = tubeBlocks * sizeof(Id::Block);
         tubePos = reinterpret_cast<const Id::Block*>(pos);
+
+        if (pos + tubeBytes > end)
+        {
+            throw std::runtime_error("Invalid blocks: " + id.str());
+        }
+
         pos += tubeBytes;
 
         tick = extract();
