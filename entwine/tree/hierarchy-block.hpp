@@ -11,6 +11,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <set>
@@ -112,6 +113,47 @@ protected:
                 data.end(),
                 reinterpret_cast<const char*>(&val),
                 reinterpret_cast<const char*>(&val) + sizeof(val));
+    }
+
+    uint64_t extract(const char*& pos, const char* end) const
+    {
+        if (pos >= end || end - pos < sizeof(uint64_t))
+        {
+            throw std::runtime_error("Corrupt hierarchy block: " + m_id.str());
+        }
+
+        uint64_t v(0);
+        std::copy(pos, pos + sizeof(uint64_t), reinterpret_cast<char*>(&v));
+        pos += sizeof(uint64_t);
+        return v;
+    }
+
+    void parse(const char* pos, const char* end)
+    {
+        assert(pos <= end);
+        const char* tubePos(nullptr);
+        uint64_t tubeBytes, tick, cell;
+        while (pos < end)
+        {
+            tubeBytes = extract(pos, end) * BigUint::bytesPerBlock;
+            tubePos = pos;
+            pos += tubeBytes;
+
+            if (pos > end)
+            {
+                throw std::runtime_error("Invalid blocks: " + m_id.str());
+            }
+
+            tick = extract(pos, end);
+            cell = extract(pos, end);
+
+            insertCold(Id(tubePos, tubePos + tubeBytes), tick, cell);
+        }
+    }
+
+    virtual void insertCold(const Id& id, uint64_t tick, uint64_t cell)
+    {
+        throw std::runtime_error("Invalid block type");
     }
 
     Id endId() const { return m_id + m_maxPoints; }
@@ -310,6 +352,11 @@ public:
     const std::map<Id, HierarchyTube>& tubes() const { return m_tubes; }
 
 private:
+    virtual void insertCold(const Id& id, uint64_t tick, uint64_t cell) override
+    {
+        m_tubes[id].emplace(tick, m_pool.acquireOne(cell));
+    }
+
     virtual std::vector<char> combine() override;
 
     SpinLock m_spinner;
@@ -368,6 +415,11 @@ public:
     }
 
 private:
+    virtual void insertCold(const Id& id, uint64_t tick, uint64_t cell) override
+    {
+        m_data.emplace_back(id, tick, cell);
+    }
+
     virtual std::vector<char> combine() override
     {
         throw std::runtime_error("Cannot combine a read-only block");

@@ -127,18 +127,19 @@ protected:
             const void* value) override
     {
         const auto dim(pdal::Utils::toNative(id) - 1);
+        const char* src(reinterpret_cast<const char*>(value));
 
         if (dim >= 3)
         {
             char* pos(getPoint(index));
             const pdal::Dimension::Detail* d(m_layoutRef.dimDetail(id));
-            const char* src(reinterpret_cast<const char*>(value));
             char* dst(pos + d->offset() - m_xyzNormal);
             std::copy(src, src + d->size(), dst);
         }
         else
         {
-            m_points[index][dim] = *reinterpret_cast<const double*>(value);
+            char* dst(reinterpret_cast<char*>(&m_points[index][dim]));
+            std::copy(src, src + sizeof(double), dst);
         }
     }
 
@@ -148,33 +149,31 @@ protected:
             void* value) const override
     {
         const auto dim(pdal::Utils::toNative(id) - 1);
+        char* dst(reinterpret_cast<char*>(value));
 
         if (dim >= 3)
         {
             const char* pos(m_refs[index]);
             const pdal::Dimension::Detail* d(m_layoutRef.dimDetail(id));
             const char* src(pos + d->offset() - m_xyzNormal);
-            std::copy(src, src + d->size(), reinterpret_cast<char*>(value));
+            std::copy(src, src + d->size(), dst);
         }
         else
         {
-            *reinterpret_cast<double*>(value) = m_points[index][dim];
+            const double d(m_points[index][dim]);
+            const char* src(reinterpret_cast<const char*>(&d));
+            std::copy(src, src + sizeof(double), dst);
         }
-    }
-
-    template<typename T>
-    void setConverted(T value, char* dst)
-    {
-        *reinterpret_cast<T*>(dst) = value;
     }
 
     virtual void reset() override
     {
         int64_t v(0);
+
         for (std::size_t i(0); i < outstanding(); ++i)
         {
             const Point& p(m_points[i]);
-            char* dst(m_refs[i]);
+            char* pos(m_refs[i]);
 
             for (std::size_t dim(0); dim < 3; ++dim)
             {
@@ -184,18 +183,11 @@ protected:
                             m_delta.scale()[dim],
                             m_delta.offset()[dim]));
 
-                if (m_sizes[dim] == 4)
-                {
-                    *reinterpret_cast<int32_t*>(dst + m_offsets[dim]) = v;
-                }
-                else if (m_sizes[dim] == 8)
-                {
-                    *reinterpret_cast<int64_t*>(dst + m_offsets[dim]) = v;
-                }
-                else
-                {
-                    throw std::runtime_error("Invalid XYZ size");
-                }
+                char* dst(pos + m_offsets[dim]);
+
+                if (m_sizes[dim] == 4) insert<int32_t>(v, dst);
+                else if (m_sizes[dim] == 8) insert<int64_t>(v, dst);
+                else throw std::runtime_error("Invalid XYZ size");
             }
         }
 
@@ -203,6 +195,13 @@ protected:
     }
 
 private:
+    template<typename T>
+    void insert(T t, char* dst) const
+    {
+        const char* src(reinterpret_cast<const char*>(&t));
+        std::copy(src, src + sizeof(T), dst);
+    }
+
     std::vector<Point> m_points;
     const Delta& m_delta;
     std::unique_ptr<Schema> m_normalizedSchema;

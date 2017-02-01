@@ -200,10 +200,11 @@ std::unique_ptr<Query> Reader::getQuery(
         const Json::Value& filter,
         const Bounds& queryBounds,
         const std::size_t depthBegin,
-        const std::size_t depthEnd,
+        std::size_t depthEnd,
         const Point* scale,
         const Point* offset)
 {
+    if (!depthEnd) depthEnd = std::numeric_limits<uint32_t>::max();
     checkQuery(depthBegin, depthEnd);
 
     const Delta localDelta(localizeDelta(scale, offset));

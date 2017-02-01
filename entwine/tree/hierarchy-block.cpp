@@ -170,18 +170,11 @@ ContiguousBlock::ContiguousBlock(
 
     uint64_t tube, tick, cell;
 
-    auto extract([&pos]()
-    {
-        const uint64_t v(*reinterpret_cast<const uint64_t*>(pos));
-        pos += sizeof(uint64_t);
-        return v;
-    });
-
     while (pos < end)
     {
-        tube = extract();
-        tick = extract();
-        cell = extract();
+        tube = extract(pos, end);
+        tick = extract(pos, end);
+        cell = extract(pos, end);
 
         m_tubes.at(tube).insert(std::make_pair(tick, m_pool.acquireOne(cell)));
     }
@@ -225,32 +218,7 @@ SparseBlock::SparseBlock(
     , m_spinner()
     , m_tubes()
 {
-    const char* pos(data.data());
-    const char* end(data.data() + data.size());
-
-    const Id::Block* tubePos(nullptr);
-    uint64_t tubeBlocks, tubeBytes, tick, cell;
-
-    auto extract([&pos]()
-    {
-        const uint64_t v(*reinterpret_cast<const uint64_t*>(pos));
-        pos += sizeof(uint64_t);
-        return v;
-    });
-
-    while (pos < end)
-    {
-        tubeBlocks = extract();
-        tubeBytes = tubeBlocks * sizeof(Id::Block);
-        tubePos = reinterpret_cast<const Id::Block*>(pos);
-        pos += tubeBytes;
-
-        tick = extract();
-        cell = extract();
-
-        m_tubes[Id(tubePos, tubePos + tubeBlocks)].emplace(
-                tick, m_pool.acquireOne(cell));
-    }
+    parse(data.data(), data.data() + data.size());
 }
 
 std::vector<char> SparseBlock::combine()
@@ -345,20 +313,13 @@ BaseBlock::BaseBlock(
 
     uint64_t tube, tick, cell;
 
-    auto extract([&pos]()
-    {
-        const uint64_t v(*reinterpret_cast<const uint64_t*>(pos));
-        pos += sizeof(uint64_t);
-        return v;
-    });
-
     const std::size_t factor(m_metadata.hierarchyStructure().factor());
 
     while (pos < end)
     {
-        tube = extract();
-        tick = extract();
-        cell = extract();
+        tube = extract(pos, end);
+        tick = extract(pos, end);
+        cell = extract(pos, end);
 
         const std::size_t depth(ChunkInfo::calcDepth(factor, m_id + tube));
 
@@ -510,43 +471,7 @@ ReadOnlySparseBlock::ReadOnlySparseBlock(
     // Assuming that all the Id values are within a 64-bit range, then we have
     // four uint64 values per cell.
     m_data.reserve(data.size() / 32);
-
-    const char* pos(data.data());
-    const char* end(data.data() + data.size());
-
-    const Id::Block* tubePos(nullptr);
-    uint64_t tubeBlocks, tubeBytes, tick, cell;
-
-    auto extract([&pos, end, &id]()
-    {
-        if (static_cast<std::size_t>(end - pos) < sizeof(uint64_t))
-        {
-            throw std::runtime_error("Truncated hierarchy block: " + id.str());
-        }
-
-        const uint64_t v(*reinterpret_cast<const uint64_t*>(pos));
-        pos += sizeof(uint64_t);
-        return v;
-    });
-
-    while (pos < end)
-    {
-        tubeBlocks = extract();
-        tubeBytes = tubeBlocks * sizeof(Id::Block);
-        tubePos = reinterpret_cast<const Id::Block*>(pos);
-
-        if (pos + tubeBytes > end)
-        {
-            throw std::runtime_error("Invalid blocks: " + id.str());
-        }
-
-        pos += tubeBytes;
-
-        tick = extract();
-        cell = extract();
-
-        m_data.emplace_back(Id(tubePos, tubePos + tubeBlocks), tick, cell);
-    }
+    parse(data.data(), data.data() + data.size());
 
     if (!std::is_sorted(m_data.begin(), m_data.end()))
     {

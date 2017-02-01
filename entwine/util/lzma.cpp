@@ -94,10 +94,8 @@ std::unique_ptr<std::vector<char>> Compression::compressLzma(
 
     // Append compressed size to guard against partial downloads.
     const uint64_t outSize(out->size());
-    out->insert(
-            out->end(),
-            reinterpret_cast<const char*>(&outSize),
-            reinterpret_cast<const char*>(&outSize) + sizeof(uint64_t));
+    const char* pos(reinterpret_cast<const char*>(&outSize));
+    out->insert(out->end(), pos, pos + sizeof(uint64_t));
 
     return out;
 }
@@ -109,7 +107,8 @@ std::unique_ptr<std::vector<char>> Compression::decompressLzma(
     const char* cpos(endPos - sizeof(uint64_t));
 
     // Grab sizing info from tail.
-    uint64_t compressedSize(*reinterpret_cast<const uint64_t*>(cpos));
+    uint64_t compressedSize(0);
+    std::copy(cpos, endPos, reinterpret_cast<char*>(&compressedSize));
 
     if (in.size() - sizeof(uint64_t) != compressedSize)
     {

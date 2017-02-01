@@ -190,22 +190,33 @@ private:
 class BigUint
 {
 public:
-    using Block = unsigned long long;
-    static constexpr std::size_t bitsPerBlock = CHAR_BIT * sizeof(Block);
+    using Block = uint64_t;
+    static constexpr std::size_t bytesPerBlock = sizeof(Block);
+    static constexpr std::size_t bitsPerBlock = CHAR_BIT * bytesPerBlock;
     static const std::size_t blockMax;
 
-    BigUint() : m_arena(), m_val(1, 0, Alloc(m_arena)) { }
-    BigUint(const Block val) : m_arena(), m_val(1, val, Alloc(m_arena)) { }
+    BigUint() : m_val(1, 0, Alloc(m_arena)) { }
+    BigUint(const Block val) : m_val(1, val, Alloc(m_arena)) { }
     explicit BigUint(const std::string& val);
 
     BigUint(const Block* begin, const Block* end)
-        : m_arena()
-        , m_val(begin, end, Alloc(m_arena))
+        : m_val(begin, end, Alloc(m_arena))
     { }
 
+    BigUint(const char* begin, const char* end)
+        : BigUint()
+    {
+        if ((end - begin) % bytesPerBlock)
+        {
+            throw std::runtime_error("Invalid binary BigUint positions");
+        }
+        const std::size_t blocks((begin - end) / bytesPerBlock);
+        m_val.resize(blocks);
+        std::copy(begin, end, reinterpret_cast<char*>(m_val.data()));
+    }
+
     BigUint(const BigUint& other)
-        : m_arena()
-        , m_val(other.m_val, Alloc(m_arena))
+        : m_val(other.m_val, Alloc(m_arena))
     { }
 
     BigUint& operator=(const BigUint& other)

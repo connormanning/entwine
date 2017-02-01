@@ -149,6 +149,8 @@ bool Query::next(std::vector<char>& buffer)
                         m_structure,
                         m_reader.metadata().boundsScaledCubic());
                 getBase(buffer, pointState);
+
+                if (m_chunks.empty()) m_done = true;
             }
         }
         else

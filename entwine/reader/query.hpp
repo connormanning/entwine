@@ -132,6 +132,8 @@ public:
     bool done() const { return m_done; }
     std::size_t numPoints() const { return m_numPoints; }
 
+    const Schema& schema() const { return m_outSchema; }
+
 protected:
     bool getBase(std::vector<char>& buffer); // True if base data existed.
     void getChunked(std::vector<char>& buffer);
