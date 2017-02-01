@@ -18,13 +18,7 @@
 #include <string>
 #include <vector>
 
-#ifndef _WIN32
-#include <pdal/util/Utils.hpp>
-
-#include <execinfo.h>
-#include <unistd.h>
-#include <dlfcn.h>
-#endif
+#include <entwine/util/stack-trace.hpp>
 
 namespace
 {
@@ -46,62 +40,10 @@ namespace
 
 int main(int argc, char** argv)
 {
-#ifndef _WIN32
     // Since we use entrypoint for docker, we need to explicitly listen for
     // this so that Ctrl+C will work in that context.
-    signal(SIGINT, [](int sig)
-    {
-        exit(1);
-    });
-
-    signal(SIGSEGV, [](int sig)
-    {
-        std::lock_guard<std::mutex> lock(mutex);
-        std::cout << "Got error " << sig << std::endl;
-
-        void* buffer[32];
-        const std::size_t size(backtrace(buffer, 32));
-        char** symbols(backtrace_symbols(buffer, size));
-
-        std::vector<std::string> lines;
-
-        for (std::size_t i(0); i < size; ++i)
-        {
-            std::string symbol(symbols[i]);
-            Dl_info info;
-
-            if (dladdr(buffer[i], &info))
-            {
-                const auto demangled(pdal::Utils::demangle(info.dli_sname));
-
-                const std::size_t offset(
-                        static_cast<char*>(buffer[i]) -
-                        static_cast<char*>(info.dli_saddr));
-
-                // Replace the address and mangled name with a human-readable
-                // name.
-                std::string prefix(std::to_string(i) + "  ");
-                const std::size_t pos(symbol.find("0x"));
-                if (pos != std::string::npos)
-                {
-                    prefix = symbol.substr(0, pos);
-                }
-
-                lines.push_back(prefix + demangled + " + " +
-                        std::to_string(offset));
-            }
-            else
-            {
-                lines.push_back(symbol);
-            }
-        }
-
-        for (const auto& l : lines) std::cout << l << std::endl;
-
-        free(symbols);
-        exit(1);
-    });
-#endif
+    signal(SIGINT, [](int sig) { exit(1); });
+    entwine::stackTraceOn(SIGSEGV);
 
     if (argc < 2)
     {

@@ -20,6 +20,7 @@ set(
     "${BASE}/pool.hpp"
     "${BASE}/spin-lock.hpp"
     "${BASE}/storage.hpp"
+    "${BASE}/stack-trace.hpp"
     "${BASE}/unique.hpp"
 )
 

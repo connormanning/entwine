@@ -206,11 +206,10 @@ public:
     BigUint(const char* begin, const char* end)
         : BigUint()
     {
-        if ((end - begin) % bytesPerBlock)
-        {
-            throw std::runtime_error("Invalid binary BigUint positions");
-        }
-        const std::size_t blocks((begin - end) / bytesPerBlock);
+        assert(begin <= end);
+        assert((end - begin) % bytesPerBlock == 0);
+
+        const std::size_t blocks((end - begin) / bytesPerBlock);
         m_val.resize(blocks);
         std::copy(begin, end, reinterpret_cast<char*>(m_val.data()));
     }

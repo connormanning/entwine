@@ -117,7 +117,9 @@ protected:
 
     uint64_t extract(const char*& pos, const char* end) const
     {
-        if (pos >= end || end - pos < sizeof(uint64_t))
+        if (
+                pos >= end ||
+                static_cast<std::size_t>(end - pos) < sizeof(uint64_t))
         {
             throw std::runtime_error("Corrupt hierarchy block: " + m_id.str());
         }
