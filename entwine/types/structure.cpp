@@ -17,9 +17,17 @@
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/heuristics.hpp>
 #include <entwine/types/subset.hpp>
+#include <entwine/util/env.hpp>
 
 namespace entwine
 {
+
+namespace
+{
+    const bool shallow(
+            env("TESTING_SHALLOW") &&
+            *env("TESTING_SHALLOW") == "true");
+}
 
 ChunkInfo::ChunkInfo(const Structure& structure, const Id& index)
     : m_structure(structure)
@@ -190,7 +198,7 @@ Structure::Structure(
     , m_numPointsHint(numPointsHint)
 
     // Chunk-related.
-    , m_pointsPerChunk(pointsPerChunk)
+    , m_pointsPerChunk(shallow ? 256 : pointsPerChunk)
     , m_nominalChunkDepth(ChunkInfo::logN(m_pointsPerChunk, m_factor))
     , m_nominalChunkIndex(
             ChunkInfo::calcLevelIndex(
@@ -199,9 +207,9 @@ Structure::Structure(
 
     // Depths.
     , m_nullDepthBegin(0)
-    , m_nullDepthEnd(nullDepth)
+    , m_nullDepthEnd(shallow ? 0 : nullDepth)
     , m_baseDepthBegin(m_nullDepthEnd)
-    , m_baseDepthEnd(std::max({
+    , m_baseDepthEnd(shallow ? 4 : std::max({
                 m_baseDepthBegin, baseDepth, m_nominalChunkDepth }))
     , m_coldDepthBegin(m_baseDepthEnd)
     , m_coldDepthEnd(coldDepth ? std::max(m_coldDepthBegin, coldDepth) : 0)
@@ -223,6 +231,11 @@ Structure::Structure(
     , m_mappedIndexBegin(
             ChunkInfo::calcLevelIndex(dimensions, m_mappedDepthBegin))
 {
+    if (shallow)
+    {
+        std::cout << "Using shallow test configuration" << std::endl;
+    }
+
     if (m_baseDepthEnd < 4)
     {
         throw std::runtime_error("Base depth too small");

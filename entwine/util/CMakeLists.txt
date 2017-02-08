@@ -13,6 +13,7 @@ set(
 set(
     HEADERS
     "${BASE}/compression.hpp"
+    "${BASE}/env.hpp"
     "${BASE}/executor.hpp"
     "${BASE}/json.hpp"
     "${BASE}/locker.hpp"
