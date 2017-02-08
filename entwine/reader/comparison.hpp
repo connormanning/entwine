@@ -142,7 +142,7 @@ public:
 
     virtual bool operator()(const Bounds& bounds) const override
     {
-        return !m_bounds || m_bounds->overlaps(bounds);
+        return !m_bounds || m_bounds->overlaps(bounds.growBy(.005));
     }
 
     virtual void log(const std::string& pre) const override
@@ -218,7 +218,7 @@ public:
         {
             for (const auto& b : m_boundsList)
             {
-                if (b.overlaps(bounds, true)) return true;
+                if (b.overlaps(bounds.growBy(.005), true)) return true;
             }
 
             return false;

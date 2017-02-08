@@ -35,6 +35,10 @@ public:
         , m_root()
     {
         if (json.isObject()) build(m_root, json, delta);
+        else if (!json.isNull())
+        {
+            throw std::runtime_error("Invalid filter type");
+        }
     }
 
     bool check(const pdal::PointRef& pointRef) const

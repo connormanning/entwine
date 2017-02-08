@@ -237,7 +237,7 @@ public:
 
     void count(int delta)
     {
-        if (m_hierarchy)
+        if (m_hierarchy && m_depth >= m_structure.startDepth())
         {
             const std::size_t workingDepth(depth());
 
