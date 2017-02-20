@@ -1,6 +1,6 @@
 ![Entwine logo](./doc/logo/color/entwine_logo_2-color-small.png)
 
-[![Build Status](https://travis-ci.org/connormanning/entwine.png?branch=master)](https://travis-ci.org/connormanning/entwine)
+[![Build Status](https://travis-ci.org/connormanning/entwine.svg?branch=master)](https://travis-ci.org/connormanning/entwine)
 
 |
 |
