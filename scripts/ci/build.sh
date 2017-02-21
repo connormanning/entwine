@@ -8,6 +8,7 @@ cd _build || exit 1
 
 cmake \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DCMAKE_INSTALL_PREFIX=/usr \
     ..
 
 # Don't use ninja's default number of threads because it can
@@ -17,6 +18,6 @@ make -j ${NUMTHREADS} && \
     LD_LIBRARY_PATH=./lib && \
     make install && \
     (cd /entwine/test/data && ./generate) &&
-    make test && \
+    ./test/entwine-test && \
     /sbin/ldconfig
 

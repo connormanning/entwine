@@ -29,9 +29,6 @@ namespace
         return pdal::Utils::run_shell_command(binPath + command, output);
     }
 
-    arbiter::Arbiter a;
-    arbiter::Endpoint outEp(a.getEndpoint(outPath));
-
     const Bounds actualBounds(-150, -100, -50, 150, 100, 50);
 
     using D = pdal::Dimension::Id;
@@ -83,7 +80,7 @@ protected:
     virtual void TearDown() override { cleanup(); }
     void cleanup()
     {
-        for (const auto p : a.resolve(outPath + "/**"))
+        for (const auto p : arbiter::Arbiter().resolve(outPath + "/**"))
         {
             pdal::FileUtils::deleteFile(p);
         }
@@ -101,6 +98,9 @@ TEST_P(BuildTest, Verify)
         ASSERT_EQ(builder->isContinuation(), isContinuation);
         builder->go(config["run"].asUInt64());
     });
+
+    arbiter::Arbiter a;
+    arbiter::Endpoint outEp(a.getEndpoint(outPath));
 
     Json::Value config(expect.config);
 
