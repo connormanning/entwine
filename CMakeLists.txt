@@ -3,6 +3,11 @@ cmake_minimum_required(VERSION 2.8.8)
 project(entwine)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules" ${CMAKE_MODULE_PATH})
 
+if ("${CMAKE_BUILD_TYPE}" STREQUAL "")
+    MESSAGE("Defaulting to release mode")
+    set(CMAKE_BUILD_TYPE "Release")
+endif()
+
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR
     "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     add_definitions(${CMAKE_CXX_FLAGS} "-std=c++11")
@@ -12,6 +17,16 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR
     add_definitions(${CMAKE_CXX_FLAGS} "-fexceptions")
     add_definitions(${CMAKE_CXX_FLAGS} "-fPIC")
 endif()
+
+set(ENTWINE_VERSION_STRING "1.0.0" CACHE STRING "Entwine version" FORCE)
+set(entwine_defs_hpp_in
+    "${CMAKE_CURRENT_SOURCE_DIR}/entwine/types/defs.hpp.in")
+set(entwine_defs_hpp
+    "${CMAKE_CURRENT_BINARY_DIR}/include/entwine/types/defs.hpp")
+
+configure_file(${entwine_defs_hpp_in} ${entwine_defs_hpp})
+install(FILES ${entwine_defs_hpp} DESTINATION "include/entwine/types")
+include_directories("${CMAKE_CURRENT_BINARY_DIR}/include")
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/json.cmake")
 
@@ -89,10 +104,22 @@ endif()
 
 install(TARGETS entwine DESTINATION lib EXPORT entwine-targets)
 
-export(EXPORT entwine-targets FILE "${PROJECT_BINARY_DIR}/entwine-targets.cmake")
-configure_file(cmake/entwine-config.cmake.in "${PROJECT_BINARY_DIR}/entwine-config.cmake" @ONLY)
-install(EXPORT entwine-targets FILE entwine-targets.cmake NAMESPACE Entwine:: DESTINATION lib/cmake/entwine)
-install(FILES "${PROJECT_BINARY_DIR}/entwine-config.cmake" DESTINATION lib/cmake/entwine)
+export(
+    EXPORT entwine-targets
+    FILE "${PROJECT_BINARY_DIR}/entwine-targets.cmake")
+
+configure_file(
+    cmake/entwine-config.cmake.in "${PROJECT_BINARY_DIR}/entwine-config.cmake"
+    @ONLY)
+
+install(
+    EXPORT entwine-targets
+    FILE entwine-targets.cmake
+    NAMESPACE Entwine:: DESTINATION lib/cmake/entwine)
+
+install(
+    FILES "${PROJECT_BINARY_DIR}/entwine-config.cmake"
+    DESTINATION lib/cmake/entwine)
 
 add_subdirectory(test/gtest-1.8.0)
 include_directories(entwine test/gtest-1.8.0/include test/gtest-1.8.0)

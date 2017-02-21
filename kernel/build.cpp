@@ -451,6 +451,7 @@ void Kernel::build(std::vector<std::string> args)
     else
     {
         std::cout <<
+            "Version: " << currentVersion().toString() << "\n" <<
             "Input:\n" <<
             "\tBuilding from " << manifest.size() << " source file" <<
                 (manifest.size() > 1 ? "s" : "") << std::endl;

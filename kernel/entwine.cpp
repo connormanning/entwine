@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 
+#include <entwine/types/defs.hpp>
 #include <entwine/util/stack-trace.hpp>
 
 namespace
@@ -25,6 +26,7 @@ namespace
     std::string getUsageString()
     {
         return
+            "\tVersion: " + entwine::currentVersion().toString() + "\n" +
             "\tUsage: entwine <kernel> <options>\n"
             "\tKernels:\n"
             "\t\tbuild\n"

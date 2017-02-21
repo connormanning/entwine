@@ -18,6 +18,8 @@
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/version.hpp>
 
+#define ENTWINE_VERSION_STRING "@ENTWINE_VERSION_STRING@"
+
 namespace pdal { class PointView; }
 
 namespace entwine
@@ -25,7 +27,7 @@ namespace entwine
 
 inline Version currentVersion()
 {
-    return Version(0, 0, 1);
+    return Version(ENTWINE_VERSION_STRING);
 }
 
 using Id = BigUint;
