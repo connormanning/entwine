@@ -102,9 +102,22 @@ Arbiter::Arbiter(const Json::Value& json)
     auto https(Https::create(*m_pool, json["http"]));
     if (https) m_drivers[https->type()] = std::move(https);
 
-    auto s3(S3::create(*m_pool, json["s3"]));
-    if (s3) m_drivers[s3->type()] = std::move(s3);
+    if (json["s3"].isArray())
+    {
+        for (const auto& sub : json["s3"])
+        {
+            auto s3(S3::create(*m_pool, sub));
+            m_drivers[s3->type()] = std::move(s3);
+        }
+    }
+    else
+    {
+        auto s3(S3::create(*m_pool, json["s3"]));
+        if (s3) m_drivers[s3->type()] = std::move(s3);
+    }
 
+    // Credential-based drivers should probably all do something similar to the
+    // S3 driver to support multiple profiles.
     auto dropbox(Dropbox::create(*m_pool, json["dropbox"]));
     if (dropbox) m_drivers[dropbox->type()] = std::move(dropbox);
 #endif
@@ -1365,6 +1378,7 @@ Response Http::internalPost(
 #include <functional>
 #include <iostream>
 #include <numeric>
+#include <sstream>
 #include <thread>
 
 #ifndef ARBITER_IS_AMALGAMATION
@@ -1387,8 +1401,20 @@ namespace arbiter
 
 namespace
 {
-    const std::string dateFormat("%Y%m%d");
-    const std::string timeFormat("%H%M%S");
+#ifdef ARBITER_CURL
+    http::Pool pool;
+    drivers::Http httpDriver(pool);
+
+    // Re-fetch credentials when there are less then 4 minutes remaining.  New
+    // ones are guaranteed by AWS to be available within 5 minutes remaining.
+    constexpr int64_t reauthSeconds(60 * 4);
+#endif
+
+    // See:
+    // https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/iam-roles-for-amazon-ec2.html
+    const std::string credIp("http://169.254.169.254/");
+    const std::string credBase(
+            credIp + "latest/meta-data/iam/security-credentials/");
 
     std::string getBaseUrl(const std::string& region)
     {
@@ -1502,7 +1528,7 @@ S3::S3(
         const bool sse,
         const bool precheck)
     : Http(pool)
-    , m_auth(auth)
+    , m_auth(new Auth(auth))
     , m_region(region)
     , m_baseUrl(getBaseUrl(region))
     , m_baseHeaders()
@@ -1518,26 +1544,14 @@ S3::S3(
 
 std::unique_ptr<S3> S3::create(Pool& pool, const Json::Value& json)
 {
-    std::unique_ptr<Auth> auth;
     std::unique_ptr<S3> s3;
 
     const std::string profile(extractProfile(json));
+    auto auth = S3::Auth::find(json, profile);
+    if (!auth) return s3;
+
     const bool sse(json["sse"].asBool());
     const bool precheck(json["precheck"].asBool());
-
-    if (!json.isNull() && json.isMember("access") & json.isMember("hidden"))
-    {
-        auth.reset(
-                new Auth(
-                    json["access"].asString(),
-                    json["hidden"].asString()));
-    }
-    else
-    {
-        auth = Auth::find(profile);
-    }
-
-    if (!auth) return s3;
 
     // Try to get the region from the config file, or default to US standard.
     std::string region("us-east-1");
@@ -1600,7 +1614,6 @@ std::unique_ptr<S3> S3::create(Pool& pool, const Json::Value& json)
                         return false;
                     });
 
-
                     const std::string& l1(lines[i + 1]);
                     const std::string& l2(lines[i + 2]);
 
@@ -1610,11 +1623,6 @@ std::unique_ptr<S3> S3::create(Pool& pool, const Json::Value& json)
                 ++i;
             }
         }
-    }
-    else if (json["verbose"].asBool())
-    {
-        std::cout <<
-            "~/.aws/config not found - using region us-east-1" << std::endl;
     }
 
     if (!regionFound && json["verbose"].asBool())
@@ -1651,6 +1659,12 @@ std::string S3::extractProfile(const Json::Value& json)
     }
 }
 
+std::string S3::type() const
+{
+    if (!m_auth || m_auth->profile() == "default") return "s3";
+    else return m_auth->profile() + "@s3";
+}
+
 std::unique_ptr<std::size_t> S3::tryGetSize(std::string rawPath) const
 {
     std::unique_ptr<std::size_t> size;
@@ -1660,7 +1674,7 @@ std::unique_ptr<std::size_t> S3::tryGetSize(std::string rawPath) const
             "HEAD",
             m_region,
             resource,
-            m_auth,
+            *m_auth,
             Query(),
             Headers(),
             empty);
@@ -1691,7 +1705,7 @@ bool S3::get(
             "GET",
             m_region,
             resource,
-            m_auth,
+            *m_auth,
             query,
             headers,
             empty);
@@ -1731,7 +1745,7 @@ void S3::put(
             "PUT",
             m_region,
             resource,
-            m_auth,
+            *m_auth,
             query,
             headers,
             data);
@@ -1867,15 +1881,19 @@ S3::ApiV4::ApiV4(
         const Query& query,
         const Headers& headers,
         const std::vector<char>& data)
-    : m_auth(auth)
+    : m_auth(auth.getStatic())
     , m_region(region)
-    , m_formattedTime()
+    , m_time()
     , m_headers(headers)
     , m_query(query)
     , m_signedHeadersString()
 {
     m_headers["Host"] = resource.host();
-    m_headers["X-Amz-Date"] = m_formattedTime.amazonDate();
+    m_headers["X-Amz-Date"] = m_time.str(Time::iso8601NoSeparators);
+    if (m_auth.token().size())
+    {
+        m_headers["X-Amz-Security-Token"] = m_auth.token();
+    }
     m_headers["X-Amz-Content-Sha256"] =
             crypto::encodeAsHex(crypto::sha256(data));
 
@@ -1967,8 +1985,9 @@ std::string S3::ApiV4::buildStringToSign(
 {
     return
         line("AWS4-HMAC-SHA256") +
-        line(m_formattedTime.amazonDate()) +
-        line(m_formattedTime.date() + "/" + m_region + "/s3/aws4_request") +
+        line(m_time.str(Time::iso8601NoSeparators)) +
+        line(m_time.str(Time::dateNoSeparators) +
+                "/" + m_region + "/s3/aws4_request") +
         crypto::encodeAsHex(crypto::sha256(canonicalRequest));
 }
 
@@ -1978,7 +1997,7 @@ std::string S3::ApiV4::calculateSignature(
     const std::string kDate(
             crypto::hmacSha256(
                 "AWS4" + m_auth.hidden(),
-                m_formattedTime.date()));
+                m_time.str(Time::dateNoSeparators)));
 
     const std::string kRegion(crypto::hmacSha256(kDate, m_region));
     const std::string kService(crypto::hmacSha256(kRegion, "s3"));
@@ -1995,7 +2014,8 @@ std::string S3::ApiV4::getAuthHeader(
     return
         std::string("AWS4-HMAC-SHA256 ") +
         "Credential=" + m_auth.access() + '/' +
-            m_formattedTime.date() + "/" + m_region + "/s3/aws4_request, " +
+            m_time.str(Time::dateNoSeparators) + "/" +
+            m_region + "/s3/aws4_request, " +
         "SignedHeaders=" + signedHeadersString + ", " +
         "Signature=" + signature;
 }
@@ -2058,45 +2078,18 @@ std::string S3::Resource::host() const
     }
 }
 
-S3::FormattedTime::FormattedTime()
-    : m_date(formatTime(dateFormat))
-    , m_time(formatTime(timeFormat))
-{ }
-
-std::string S3::FormattedTime::formatTime(const std::string& format) const
+std::unique_ptr<S3::Auth> S3::Auth::find(
+        const Json::Value& json,
+        const std::string profile)
 {
-    std::time_t time(std::time(nullptr));
-    std::vector<char> buf(80, 0);
-
-    if (std::strftime(
-                buf.data(),
-                buf.size(),
-                format.data(),
-                std::gmtime(&time)))
-    {
-        return std::string(buf.data());
-    }
-    else
-    {
-        throw ArbiterError("Could not format time");
-    }
-}
-
-S3::Auth::Auth(const std::string access, const std::string hidden)
-    : m_access(access)
-    , m_hidden(hidden)
-{ }
-
-std::unique_ptr<S3::Auth> S3::Auth::find(std::string profile)
-{
-    std::unique_ptr<S3::Auth> auth;
+    std::unique_ptr<Auth> auth;
 
     auto access(util::env("AWS_ACCESS_KEY_ID"));
     auto hidden(util::env("AWS_SECRET_ACCESS_KEY"));
 
     if (access && hidden)
     {
-        auth.reset(new S3::Auth(*access, *hidden));
+        auth.reset(new S3::Auth(profile, *access, *hidden));
         return auth;
     }
 
@@ -2105,15 +2098,32 @@ std::unique_ptr<S3::Auth> S3::Auth::find(std::string profile)
 
     if (access && hidden)
     {
-        auth.reset(new S3::Auth(*access, *hidden));
+        auth.reset(new S3::Auth(profile, *access, *hidden));
         return auth;
     }
 
-    const std::string credFile("~/.aws/credentials");
+    if (
+            !json.isNull() &&
+            json.isMember("access") &&
+            (json.isMember("secret") || json.isMember("hidden")))
+    {
+        auth.reset(
+                new Auth(
+                    profile,
+                    json["access"].asString(),
+                    json.isMember("secret") ?
+                        json["secret"].asString() :
+                        json["hidden"].asString()));
+        return auth;
+    }
+
+    const std::string credPath(
+            util::env("AWS_CREDENTIAL_FILE") ?
+                *util::env("AWS_CREDENTIAL_FILE") : "~/.aws/credentials");
 
     // First, try reading credentials file.
     drivers::Fs fsDriver;
-    if (std::unique_ptr<std::string> cred = fsDriver.tryGet(credFile))
+    if (std::unique_ptr<std::string> cred = fsDriver.tryGet(credPath))
     {
         const std::vector<std::string> lines(condense(split(*cred)));
 
@@ -2149,7 +2159,8 @@ std::unique_ptr<S3::Auth> S3::Auth::find(std::string profile)
                                     hiddenPos + hiddenFind.size(),
                                     hiddenLine.find(';')));
 
-                        auth.reset(new S3::Auth(access, hidden));
+                        auth.reset(new S3::Auth(profile, access, hidden));
+                        return auth;
                     }
                 }
 
@@ -2158,11 +2169,86 @@ std::unique_ptr<S3::Auth> S3::Auth::find(std::string profile)
         }
     }
 
+#ifdef ARBITER_CURL
+    if (const auto iamRole = httpDriver.tryGet(credBase))
+    {
+        auth.reset(new S3::Auth(*iamRole));
+    }
+#endif
+
     return auth;
 }
 
-std::string S3::Auth::access() const { return m_access; }
-std::string S3::Auth::hidden() const { return m_hidden; }
+S3::Auth::Auth(
+        const std::string profile,
+        const std::string access,
+        const std::string hidden,
+        const std::string token)
+    : m_profile(profile)
+    , m_access(access)
+    , m_hidden(hidden)
+    , m_token(token)
+{ }
+
+S3::Auth::Auth(const std::string iamRole)
+    : m_iamRole(iamRole)
+{ }
+
+S3::Auth::Auth(const Auth& other)
+    : m_profile(other.m_profile)
+    , m_access(other.m_access)
+    , m_hidden(other.m_hidden)
+    , m_token(other.m_token)
+    , m_iamRole(other.m_iamRole)
+    , m_expiration(other.m_expiration ? new Time(*other.m_expiration) : nullptr)
+{ }
+
+std::string S3::Auth::access() const
+{
+    if (m_expiration) throw ArbiterError("Must use S3::Auth::getStatic");
+    return m_access;
+}
+
+std::string S3::Auth::hidden() const
+{
+    if (m_expiration) throw ArbiterError("Must use S3::Auth::getStatic");
+    return m_hidden;
+}
+
+std::string S3::Auth::token() const
+{
+    if (m_expiration) throw ArbiterError("Must use S3::Auth::getStatic");
+    return m_token;
+}
+
+S3::Auth S3::Auth::getStatic() const
+{
+#ifdef ARBITER_CURL
+    if (m_iamRole.size())
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+
+        const Time now;
+        if (!m_expiration || *m_expiration - now < reauthSeconds)
+        {
+            std::istringstream ss(httpDriver.get(credBase + m_iamRole));
+            Json::Value creds;
+            ss >> creds;
+            m_access = creds["AccessKeyId"].asString();
+            m_hidden = creds["SecretAccessKey"].asString();
+            m_token = creds["Token"].asString();
+            m_expiration.reset(new Time(creds["Expiration"].asString()));
+
+            if (*m_expiration - now < reauthSeconds)
+            {
+                throw ArbiterError("Got invalid instance profile credentials");
+            }
+        }
+    }
+#endif
+
+    return S3::Auth(m_profile, m_access, m_hidden, m_token);
+}
 
 } // namespace drivers
 } // namespace arbiter
@@ -2549,6 +2635,7 @@ std::vector<std::string> Dropbox::glob(std::string rawPath, bool verbose) const
 // Beginning of content of file: arbiter/util/curl.cpp
 // //////////////////////////////////////////////////////////////////////
 
+#include <algorithm>
 #include <cstring>
 
 #ifndef ARBITER_IS_AMALGAMATION
@@ -2714,21 +2801,19 @@ void Curl::init(
 
 int Curl::perform()
 {
+#ifdef ARBITER_CURL
     long httpCode(0);
 
     const auto code(curl_easy_perform(m_curl));
     curl_easy_getinfo(m_curl, CURLINFO_RESPONSE_CODE, &httpCode);
     curl_easy_reset(m_curl);
 
-    if (code != CURLE_OK)
-    {
-        // curl_easy_reset must occur before this throw.
-        throw ArbiterError(
-                "Curl failed with code: " + std::to_string(code) +
-                " - see: https://curl.haxx.se/libcurl/c/libcurl-errors.html");
-    }
+    if (code != CURLE_OK) httpCode = 500;
 
     return httpCode;
+#else
+    throw ArbiterError(fail);
+#endif
 }
 
 Response Curl::get(
@@ -2909,6 +2994,10 @@ Response Curl::post(
 #include <arbiter/util/http.hpp>
 #endif
 
+#ifdef ARBITER_CURL
+#include <curl/curl.h>
+#endif
+
 #include <cctype>
 #include <iomanip>
 #include <iostream>
@@ -2928,7 +3017,9 @@ namespace http
 
 namespace
 {
+#ifdef ARBITER_CURL
     const std::size_t defaultHttpTimeout(10);
+#endif
 }
 
 std::string sanitize(const std::string path, const std::string excStr)
@@ -3052,19 +3143,24 @@ Response Resource::exec(std::function<Response()> f)
 Pool::Pool(
         const std::size_t concurrent,
         const std::size_t retry,
-        const Json::Value& json)
+        const Json::Value json)
     : m_curls(concurrent)
     , m_available(concurrent)
     , m_retry(retry)
     , m_mutex()
     , m_cv()
 {
+#ifdef ARBITER_CURL
+    curl_global_init(CURL_GLOBAL_ALL);
+
     const bool verbose(
-            json.isMember("arbiter") ?
+            !json.isNull() && json.isMember("arbiter") ?
                 json["arbiter"]["verbose"].asBool() : false);
 
     const std::size_t timeout(
-            json.isMember("http") && json["http"]["timeout"].asUInt64() ?
+            !json.isNull() &&
+            json.isMember("http") &&
+            json["http"]["timeout"].asUInt64() ?
                 json["http"]["timeout"].asUInt64() : defaultHttpTimeout);
 
     for (std::size_t i(0); i < concurrent; ++i)
@@ -3072,7 +3168,10 @@ Pool::Pool(
         m_available[i] = i;
         m_curls[i].reset(new Curl(verbose, timeout));
     }
+#endif
 }
+
+Pool::~Pool() { }
 
 Resource Pool::acquire()
 {
@@ -3700,6 +3799,112 @@ std::string encodeAsHex(const std::string& input)
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/util/transforms.cpp
+// //////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+// //////////////////////////////////////////////////////////////////////
+// Beginning of content of file: arbiter/util/time.cpp
+// //////////////////////////////////////////////////////////////////////
+
+#ifndef ARBITER_IS_AMALGAMATION
+#include <arbiter/util/time.hpp>
+#endif
+
+#include <iomanip>
+#include <mutex>
+#include <sstream>
+
+#ifndef ARBITER_IS_AMALGAMATION
+#include <arbiter/util/types.hpp>
+#endif
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
+
+namespace arbiter
+{
+
+namespace
+{
+    std::mutex mutex;
+
+    int64_t utcOffsetSeconds()
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        std::time_t now(std::time(nullptr));
+        std::tm utc(*std::gmtime(&now));
+        std::tm loc(*std::localtime(&now));
+        return std::difftime(std::mktime(&utc), std::mktime(&loc));
+    }
+
+    std::tm getTm()
+    {
+        std::tm tm;
+        tm.tm_sec = 0;
+        tm.tm_min = 0;
+        tm.tm_hour = 0;
+        tm.tm_mday = 0;
+        tm.tm_mon = 0;
+        tm.tm_year = 0;
+        tm.tm_wday = 0;
+        tm.tm_yday = 0;
+        tm.tm_isdst = 0;
+        return tm;
+    }
+}
+
+const std::string Time::iso8601 = "%Y-%m-%dT%H:%M:%SZ";
+const std::string Time::iso8601NoSeparators = "%Y%m%dT%H%M%SZ";
+const std::string Time::dateNoSeparators = "%Y%m%d";
+
+Time::Time()
+{
+    m_time = std::time(nullptr);
+}
+
+Time::Time(const std::string& s, const std::string& format)
+{
+    static const int64_t utcOffset(utcOffsetSeconds());
+
+    auto tm(getTm());
+    std::istringstream ss(s);
+    ss >> std::get_time(&tm, format.c_str());
+    if (ss.fail())
+    {
+        throw ArbiterError("Failed to parse " + s + " as time: " + format);
+    }
+    tm.tm_sec -= utcOffset;
+    m_time = std::mktime(&tm);
+}
+
+std::string Time::str(const std::string& format) const
+{
+    std::ostringstream ss;
+    std::lock_guard<std::mutex> lock(mutex);
+    ss << std::put_time(std::gmtime(&m_time), format.c_str());
+    return ss.str();
+}
+
+int64_t Time::operator-(const Time& other) const
+{
+    return std::difftime(m_time, other.m_time);
+}
+
+} // namespace arbiter
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
+
+// //////////////////////////////////////////////////////////////////////
+// End of content of file: arbiter/util/time.cpp
 // //////////////////////////////////////////////////////////////////////
 
 
