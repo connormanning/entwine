@@ -140,11 +140,14 @@ public:
     const std::set<Id>& ids() const { return m_ids; }
 
 private:
+    void init();
+
     Delta localizeDelta(const Point* scale, const Point* offset) const;
     Bounds localize(
             const Bounds& inBounds,
             const Delta& localDelta) const;
 
+    std::unique_ptr<arbiter::Arbiter> m_ownedArbiter;
     arbiter::Endpoint m_endpoint;
 
     const Metadata m_metadata;

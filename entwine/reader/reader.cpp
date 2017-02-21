@@ -67,8 +67,19 @@ namespace
 }
 
 Reader::Reader(const std::string path, Cache& cache)
-    : Reader(arbiter::Arbiter().getEndpoint(path), cache)
-{ }
+    : m_ownedArbiter(makeUnique<arbiter::Arbiter>())
+    , m_endpoint(m_ownedArbiter->getEndpoint(path))
+    , m_metadata(m_endpoint)
+    , m_cache(cache)
+    , m_hierarchy(
+            makeUnique<HierarchyReader>(
+                hierarchyPool,
+                m_metadata,
+                m_endpoint,
+                m_cache))
+{
+    init();
+}
 
 Reader::Reader(const arbiter::Endpoint& endpoint, Cache& cache)
     : m_endpoint(endpoint)
@@ -78,10 +89,13 @@ Reader::Reader(const arbiter::Endpoint& endpoint, Cache& cache)
             makeUnique<HierarchyReader>(
                 hierarchyPool,
                 m_metadata,
-                endpoint,
+                m_endpoint,
                 m_cache))
-    , m_base()
-    , m_ids()
+{
+    init();
+}
+
+void Reader::init()
 {
     const Structure& structure(m_metadata.structure());
 
@@ -89,7 +103,7 @@ Reader::Reader(const arbiter::Endpoint& endpoint, Cache& cache)
     {
         auto compressed(
                 makeUnique<std::vector<char>>(
-                    endpoint.getBinary(structure.baseIndexBegin().str())));
+                    m_endpoint.getBinary(structure.baseIndexBegin().str())));
 
         m_base = makeUnique<BaseChunkReader>(
                 m_metadata,

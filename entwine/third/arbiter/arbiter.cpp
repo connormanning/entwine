@@ -2170,9 +2170,12 @@ std::unique_ptr<S3::Auth> S3::Auth::find(
     }
 
 #ifdef ARBITER_CURL
-    if (const auto iamRole = httpDriver.tryGet(credBase))
+    if (json["allowInstanceProfile"].asBool())
     {
-        auth.reset(new S3::Auth(*iamRole));
+        if (const auto iamRole = httpDriver.tryGet(credBase))
+        {
+            auth.reset(new S3::Auth(*iamRole));
+        }
     }
 #endif
 
@@ -2783,6 +2786,9 @@ void Curl::init(
     // option to make the timeout a sliding window instead of an absolute.
     curl_easy_setopt(m_curl, CURLOPT_LOW_SPEED_LIMIT, 1L);
     curl_easy_setopt(m_curl, CURLOPT_LOW_SPEED_TIME, m_timeout);
+
+    curl_easy_setopt(m_curl, CURLOPT_CONNECTTIMEOUT_MS, 2000L);
+    curl_easy_setopt(m_curl, CURLOPT_ACCEPTTIMEOUT_MS, 2000L);
 
     // Configuration options.
     if (followRedirect) curl_easy_setopt(m_curl, CURLOPT_FOLLOWLOCATION, 1L);
