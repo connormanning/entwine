@@ -64,12 +64,10 @@ namespace
     }
 
     HierarchyCell::Pool hierarchyPool(4096);
-
-    arbiter::Arbiter defaultArbiter;
 }
 
 Reader::Reader(const std::string path, Cache& cache)
-    : Reader(defaultArbiter.getEndpoint(path), cache)
+    : Reader(arbiter::Arbiter().getEndpoint(path), cache)
 { }
 
 Reader::Reader(const arbiter::Endpoint& endpoint, Cache& cache)
