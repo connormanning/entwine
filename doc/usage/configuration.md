@@ -366,5 +366,5 @@ The standard operation of `infer` logs information to STDOUT.  If the `-o` flag 
 ## Cesium 3D Tiles
 Entwine ships with a [Cesium](https://cesiumjs.org) configuration that will output a [3D Tiles](https://github.com/AnalyticalGraphicsInc/3d-tiles) tileset in addition to the standard Entwine output.  For detailed instructions and a set of static pages to view tileset output in Cesium, check out the [Entwine/Cesium pages](https://github.com/connormanning/entwine-cesium-pages) repository.
 
-At this time, some Entwine features are not supported when using the Cesium configuration.  Continuing a build by adding more files to a previously completed Entwine index is not yet supported, and neither are subset builds.
+At this time, some Entwine features are not supported when using the Cesium configuration.  Continuing a build by adding more files to a previously completed Entwine index is not yet supported, and neither are subset builds.  Input data for Cesium builds must contain only 8-bit color and intensity values.
 
