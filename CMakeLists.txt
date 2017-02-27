@@ -3,6 +3,9 @@ cmake_minimum_required(VERSION 2.8.8)
 project(entwine)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules" ${CMAKE_MODULE_PATH})
 
+set(ENTWINE_API_VERSION "1")
+set(ENTWINE_BUILD_VERSION "1.0.0")
+
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "")
     MESSAGE("Defaulting to release mode")
     set(CMAKE_BUILD_TYPE "Release")
@@ -18,7 +21,13 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR
     add_definitions(${CMAKE_CXX_FLAGS} "-fPIC")
 endif()
 
-set(ENTWINE_VERSION_STRING "1.0.0" CACHE STRING "Entwine version" FORCE)
+set(ENTWINE_VERSION_MAJOR 1 CACHE STRING "Entwine major version" FORCE)
+set(ENTWINE_VERSION_MINOR 0 CACHE STRING "Entwine major version" FORCE)
+set(ENTWINE_VERSION_PATCH 0 CACHE STRING "Entwine major version" FORCE)
+set(ENTWINE_VERSION_STRING
+    "${ENTWINE_VERSION_MAJOR}.${ENTWINE_VERSION_MINOR}.${ENTWINE_VERSION_PATCH}"
+    CACHE STRING "Entwine version string" FORCE)
+
 set(entwine_defs_hpp_in
     "${CMAKE_CURRENT_SOURCE_DIR}/entwine/types/defs.hpp.in")
 set(entwine_defs_hpp
@@ -102,6 +111,13 @@ else ()
     target_link_libraries(entwine ${CURL_LIBRARIES})
 endif()
 
+set_target_properties(
+    entwine
+    PROPERTIES
+    VERSION ${ENTWINE_BUILD_VERSION}
+    SOVERSION ${ENTWINE_API_VERSION}
+    CLEAN_DIRECT_OUTPUT 1)
+
 install(TARGETS entwine DESTINATION lib EXPORT entwine-targets)
 
 export(
@@ -124,4 +140,7 @@ install(
 add_subdirectory(test/gtest-1.8.0)
 include_directories(entwine test/gtest-1.8.0/include test/gtest-1.8.0)
 add_subdirectory(test)
+
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/cpack.cmake")
+add_custom_target(dist COMMAND ${CMAKE_MAKE_PROGRAM} package_source)
 
