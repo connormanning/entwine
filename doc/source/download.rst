@@ -13,17 +13,12 @@ Download
 Current Release(s)
 ------------------------------------------------------------------------------
 
-.. * **2016-03-31** `PDAL-1.2.0-src.tar.gz`_ `Release Notes`_ (`md5`_)
 
+* **2017-03-01** `entwine-1.0.0-src.tar.gz`_ `Release Notes`_ (`md5`_)
 
-No official release at this time ... please obtain the software from
-http://github.com/connormanning/entwine
-
-.. _`Release Notes`: https://github.com/PDAL/PDAL/releases/tag/1.2.0
-
-.. _`PDAL-1.2.0-src.tar.gz`: http://download.osgeo.org/pdal/PDAL-1.2.0-src.tar.gz
-.. _`md5`: http://download.osgeo.org/pdal/PDAL-1.2.0-src.tar.gz.md5
-.. _`DebianGIS`: http://wiki.debian.org/DebianGis
+.. _`Release Notes`: https://github.com/connormanning/entwine/releases/tag/1.0.0
+.. _`entwine-1.0.0-src.tar.gz`: https://entwine.io/releases/entwine-1.0.0-src.tar.gz
+.. _`md5`: https://entwine.io/releases/entwine-1.0.0-src.tar.gz.md5
 
 
 Development Source
@@ -49,9 +44,4 @@ The fastest way to get going with Entwine is to use the Docker build.  See the
 ::
 
     docker pull connormanning/entwine
-
-Windows
-................................................................................
-
-Probably never
 
