@@ -76,18 +76,23 @@ Metadata::Metadata(
 Metadata::Metadata(const arbiter::Endpoint& ep, const std::size_t* subsetId)
     : Metadata(([&ep, subsetId]()
     {
-        // Prior to 1.0, there were some keys nested in the top-level "format"
-        // key.  Now those nested keys are themselves at the top level.
-        //
         // Note that we are not fully-constructed yet so we can't call our
         // Metadata::postfix() yet, as we would like to.
         Json::Value json(parse(ep.get("entwine" + Subset::postfix(subsetId))));
+
+        // Pre-1.0: nested keys have since been flattened.
         if (json.isMember("format"))
         {
             for (const auto& k : json["format"].getMemberNames())
             {
                 json[k] = json["format"][k];
             }
+        }
+
+        // Pre-1.0: casing was inconsistent with other keys.
+        if (json.isMember("compress-hierarchy"))
+        {
+            json["compressHierarchy"] = json["compress-hierarchy"];
         }
         return json;
     })())
