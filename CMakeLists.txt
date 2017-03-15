@@ -67,6 +67,12 @@ else()
     message("Curl NOT found")
 endif()
 
+get_target_property(PDALCPP_INCLUDE_DIRS pdalcpp INTERFACE_INCLUDE_DIRECTORIES)
+if (PDALCPP_INCLUDE_DIRS)
+    message("Including from PDAL: ${PDALCPP_INCLUDE_DIRS}")
+    include_directories(${PDALCPP_INCLUDE_DIRS})
+endif()
+
 mark_as_advanced(CLEAR PDAL_INCLUDE_DIRS)
 mark_as_advanced(CLEAR LazPerf_INCLUDE_DIR)
 mark_as_advanced(CLEAR PDAL_LIBRARIES)
