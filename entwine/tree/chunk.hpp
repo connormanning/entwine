@@ -116,9 +116,9 @@ protected:
 
     const std::size_t m_depth;
     const std::size_t m_zDepth;
-    const Id m_id;
+    Id m_id;
 
-    const Id m_maxPoints;
+    Id m_maxPoints;
 };
 
 class SparseChunk : public Chunk
@@ -208,7 +208,22 @@ protected:
         return (rawIndex - m_id).getSimple();
     }
 
-    std::vector<Tube>& tubes() { return m_tubes; }
+    void append(ContiguousChunk& other)
+    {
+        m_tubes.insert(
+                m_tubes.end(),
+                std::make_move_iterator(other.m_tubes.begin()),
+                std::make_move_iterator(other.m_tubes.end()));
+
+        m_maxPoints += other.maxPoints();
+    }
+
+    void clear()
+    {
+        m_id = endId();
+        m_tubes.clear();
+        m_maxPoints = 0;
+    }
 
     std::vector<Tube> m_tubes;
 };
@@ -237,13 +252,9 @@ private:
         return m_chunks.at(climber.depth()).getTube(climber);
     }
 
-    void makeWritable();
-
     std::vector<ContiguousChunk> m_chunks;
     Schema m_celledSchema;
     PointPool m_celledPool;
-
-    std::vector<std::vector<ContiguousChunk>> m_writes;
 };
 
 } // namespace entwine

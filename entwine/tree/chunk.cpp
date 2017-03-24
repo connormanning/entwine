@@ -392,8 +392,6 @@ BaseChunk::BaseChunk(const Builder& builder, const bool exists)
 
 Cell::PooledStack BaseChunk::acquire()
 {
-    makeWritable();
-
     Cell::PooledStack cellStack(m_celledPool.cellPool());
     BinaryPointTable table(m_celledSchema);
     pdal::PointRef pointRef(table, 0);
@@ -405,11 +403,12 @@ Cell::PooledStack BaseChunk::acquire()
 
     const std::size_t nativePointSize(m_metadata.schema().pointSize());
 
-    for (auto& w : m_writes) for (auto& c : w)
+    for (auto& chunk : m_chunks)
     {
-        for (std::size_t i(0); i < c.tubes().size(); ++i)
+        for (std::size_t i(0); i < chunk.m_tubes.size(); ++i)
         {
-            for (auto& inner : c.tubes()[i])
+            Tube& tube(chunk.m_tubes[i]);
+            for (auto& inner : tube)
             {
                 Cell::PooledNode& cell(inner.second);
                 for (const char* d : *cell)
@@ -417,7 +416,7 @@ Cell::PooledStack BaseChunk::acquire()
                     auto cellNode(m_celledPool.cellPool().acquireOne());
                     auto dataNode(m_celledPool.dataPool().acquireOne());
 
-                    tubeId = c.id().getSimple() + i - m_id.getSimple();
+                    tubeId = chunk.id().getSimple() + i - m_id.getSimple();
                     std::copy(d, d + nativePointSize, *dataNode);
                     std::copy(tPos, tEnd, *dataNode + nativePointSize);
 
@@ -475,78 +474,35 @@ void BaseChunk::populate(Cell::PooledStack cells)
     }
 }
 
-void BaseChunk::makeWritable()
-{
-    if (m_writes.empty())
-    {
-        const auto& s(m_metadata.structure());
-        m_writes.resize(s.baseDepthEnd());
-
-        for (std::size_t i(s.baseDepthBegin()); i < m_writes.size(); ++i)
-        {
-            m_writes[i].emplace_back(std::move(m_chunks[i]));
-        }
-    }
-}
-
 std::set<Id> BaseChunk::merge(BaseChunk& other)
 {
     std::set<Id> ids;
 
-    makeWritable();
-
     const auto& s(m_metadata.structure());
 
-    for (std::size_t d(s.baseDepthBegin()); d < m_writes.size(); ++d)
+    for (std::size_t d(s.baseDepthBegin()); d < m_chunks.size(); ++d)
     {
-        std::vector<ContiguousChunk>& write(m_writes[d]);
-        ContiguousChunk& adding(other.m_chunks[d]);
+        ContiguousChunk& chunk(m_chunks[d]);
+        ContiguousChunk& toAdd(other.m_chunks[d]);
 
-        if (!write.empty())
+        if (chunk.endId() != toAdd.id())
         {
-            if (write.back().endId() != adding.id())
-            {
-                throw std::runtime_error(
-                        "Merges must be performed consecutively");
-            }
+            throw std::runtime_error("Merges must be performed consecutively");
         }
 
-        write.emplace_back(std::move(adding));
+        chunk.append(toAdd);
 
         if (s.bumpDepth() && d >= s.bumpDepth())
         {
-            const auto span(write.back().endId() - write.front().id());
-
-            if (span == s.basePointsPerChunk())
+            if (chunk.maxPoints() == s.basePointsPerChunk())
             {
-                const Id id(write.front().id());
-
-                // TODO Calculate correct bounds for this chunk.
-                ContiguousChunk chunk(
-                        m_builder,
-                        m_metadata.boundsScaledCubic(),
-                        d,
-                        id,
-                        s.basePointsPerChunk(),
-                        false);
-
-                chunk.tubes().clear();
-
-                for (ContiguousChunk& piece : write)
-                {
-                    chunk.tubes().insert(
-                            chunk.tubes().end(),
-                            std::make_move_iterator(piece.tubes().begin()),
-                            std::make_move_iterator(piece.tubes().end()));
-                }
-
                 if (!chunk.empty())
                 {
                     m_metadata.format().serialize(chunk);
-                    ids.insert(id);
+                    ids.insert(chunk.id());
                 }
 
-                write.clear();
+                chunk.clear();
             }
         }
     }
