@@ -41,7 +41,7 @@ namespace
         D::ScanAngleRank,
         D::PointSourceId, D::GpsTime,
         D::Red, D::Green, D::Blue,
-        D::PointId, D::OriginId
+        D::OriginId
     };
 }
 
@@ -176,8 +176,9 @@ TEST_P(BuildTest, Verify)
 
     // Miscellaneous parameters.
     EXPECT_EQ(
-            meta["compress"].asBool(),
-            config.isMember("compress") ? config["compress"].asBool() : true);
+            meta["compression"].asString(),
+            config.isMember("compression") ?
+                config["compression"].asString() : "laszip");
 
     EXPECT_EQ(meta["compressHierarchy"].asString(), "lzma");
 
@@ -272,6 +273,7 @@ namespace absolute
         return json;
     })());
 
+    /*
     Expectations one(single, actualBounds);
     Expectations two(multi, actualBounds);
     Expectations con(continued, actualBounds);
@@ -281,6 +283,7 @@ namespace absolute
             Absolute,
             BuildTest,
             testing::Values(one, two, con, sub), );
+            */
 }
 
 namespace scaled

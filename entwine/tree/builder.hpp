@@ -113,7 +113,6 @@ public:
     void verbose(bool v) { m_verbose = v; }
 
 private:
-    Executor& executor();
     std::mutex& mutex();
 
     // Save the current state of the tree.  Files may no longer be inserted
@@ -168,8 +167,6 @@ private:
 
     mutable std::mutex m_mutex;
     bool m_isContinuation;
-
-    std::unique_ptr<Executor> m_executor;
 
     mutable std::shared_ptr<PointPool> m_pointPool;
     mutable std::shared_ptr<HierarchyCell::Pool> m_hierarchyPool;

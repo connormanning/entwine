@@ -16,13 +16,17 @@
 
 #include <pdal/Dimension.hpp>
 #include <pdal/PointView.hpp>
+#include <pdal/io/LasWriter.hpp>
 
 #include <entwine/formats/cesium/tileset.hpp>
 #include <entwine/formats/cesium/tile-builder.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
+#include <entwine/types/binary-point-table.hpp>
+#include <entwine/types/format.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/pooled-point-table.hpp>
+#include <entwine/types/reprojection.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/compression.hpp>
 #include <entwine/util/storage.hpp>
@@ -34,7 +38,6 @@ namespace entwine
 namespace
 {
     std::atomic_size_t chunkCount(0);
-    const std::string tubeIdDim("TubeId");
 }
 
 std::size_t Chunk::count() { return chunkCount; }
@@ -53,7 +56,6 @@ Chunk::Chunk(
     , m_zDepth(std::min(Tube::maxTickDepth(), depth))
     , m_id(id)
     , m_maxPoints(maxPoints)
-    , m_data()
 {
     ++chunkCount;
 }
@@ -73,33 +75,13 @@ void Chunk::populate(Cell::PooledStack cells)
     }
 }
 
-void Chunk::collect(ChunkType type)
+void Chunk::save()
 {
-    assert(!m_data);
-
-    if (m_metadata.cesiumSettings()) tile();
-
-    Cell::PooledStack cellStack(acquire());
-    Data::PooledStack dataStack(m_pointPool.dataPool());
-
-    for (Cell& cell : cellStack) dataStack.push(cell.acquire());
-
-    cellStack.reset();
-
-    m_data = m_metadata.format().pack(std::move(dataStack), type);
+    m_metadata.format().serialize(*this);
 }
 
 Chunk::~Chunk()
 {
-    if (m_data)
-    {
-        const std::string path(
-                m_metadata.structure().maybePrefix(m_id) +
-                m_metadata.postfix(true));
-
-        Storage::ensurePut(m_builder.outEndpoint(), path, *m_data);
-    }
-
     if (chunkCount) --chunkCount;
 }
 
@@ -108,69 +90,33 @@ std::unique_ptr<Chunk> Chunk::create(
         const Bounds& bounds,
         const std::size_t depth,
         const Id& id,
-        const Id& maxPoints)
-{
-    if (id < builder.metadata().structure().mappedIndexBegin())
-    {
-        if (depth)
-        {
-            return makeUnique<ContiguousChunk>(
-                    builder,
-                    bounds,
-                    depth,
-                    id,
-                    maxPoints);
-        }
-        else
-        {
-            return makeUnique<BaseChunk>(builder);
-        }
-    }
-    else
-    {
-        return makeUnique<SparseChunk>(builder, bounds, depth, id, maxPoints);
-    }
-}
-
-std::unique_ptr<Chunk> Chunk::create(
-        const Builder& builder,
-        const Bounds& bounds,
-        const std::size_t depth,
-        const Id& id,
         const Id& maxPoints,
-        std::unique_ptr<std::vector<char>> data)
+        const bool exists)
 {
-    Unpacker unpacker(builder.metadata().format().unpack(std::move(data)));
-
-    if (depth)
+    if (depth && id < builder.metadata().structure().mappedIndexBegin())
     {
-        if (unpacker.chunkType() == ChunkType::Contiguous)
-        {
-            return makeUnique<ContiguousChunk>(
-                    builder,
-                    bounds,
-                    depth,
-                    id,
-                    maxPoints,
-                    unpacker.acquireCells(builder.pointPool()));
-        }
-        else if (unpacker.chunkType() == ChunkType::Sparse)
-        {
-            return makeUnique<SparseChunk>(
-                    builder,
-                    bounds,
-                    depth,
-                    id,
-                    maxPoints,
-                    unpacker.acquireCells(builder.pointPool()));
-        }
+        return makeUnique<ContiguousChunk>(
+                builder,
+                bounds,
+                depth,
+                id,
+                maxPoints,
+                exists);
+    }
+    else if (depth)
+    {
+        return makeUnique<SparseChunk>(
+                builder,
+                bounds,
+                depth,
+                id,
+                maxPoints,
+                exists);
     }
     else
     {
-        return makeUnique<BaseChunk>(builder, std::move(unpacker));
+        return makeUnique<BaseChunk>(builder, exists);
     }
-
-    return std::unique_ptr<Chunk>();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -180,30 +126,17 @@ SparseChunk::SparseChunk(
         const Bounds& bounds,
         const std::size_t depth,
         const Id& id,
-        const Id& maxPoints)
-    : Chunk(builder, bounds, depth, id, maxPoints)
-    , m_tubes()
-    , m_mutex()
-{ }
-
-SparseChunk::SparseChunk(
-        const Builder& builder,
-        const Bounds& bounds,
-        const std::size_t depth,
-        const Id& id,
         const Id& maxPoints,
-        Cell::PooledStack cells)
+        const bool exists)
     : Chunk(builder, bounds, depth, id, maxPoints)
-    , m_tubes()
-    , m_mutex()
 {
-    populate(std::move(cells));
+    if (exists)
+    {
+        populate(format().deserialize(builder.outEndpoint(), m_pointPool, id));
+    }
 }
 
-SparseChunk::~SparseChunk()
-{
-    collect(ChunkType::Sparse);
-}
+SparseChunk::~SparseChunk() { }
 
 Cell::PooledStack SparseChunk::acquire()
 {
@@ -277,29 +210,14 @@ ContiguousChunk::ContiguousChunk(
         const std::size_t depth,
         const Id& id,
         const Id& maxPoints,
-        const bool autosave)
+        const bool exists)
     : Chunk(builder, bounds, depth, id, maxPoints)
     , m_tubes(maxPoints.getSimple())
-    , m_autosave(autosave)
-{ }
-
-ContiguousChunk::ContiguousChunk(
-        const Builder& builder,
-        const Bounds& bounds,
-        const std::size_t depth,
-        const Id& id,
-        const Id& maxPoints,
-        Cell::PooledStack cells)
-    : Chunk(builder, bounds, depth, id, maxPoints)
-    , m_tubes(maxPoints.getSimple())
-    , m_autosave(true)
 {
-    populate(std::move(cells));
-}
-
-ContiguousChunk::~ContiguousChunk()
-{
-    if (m_autosave) collect(ChunkType::Contiguous);
+    if (exists)
+    {
+        populate(format().deserialize(builder.outEndpoint(), m_pointPool, id));
+    }
 }
 
 Cell::PooledStack ContiguousChunk::acquire()
@@ -403,16 +321,15 @@ void BaseChunk::tile() const
     }
 }
 
-BaseChunk::BaseChunk(const Builder& builder)
+BaseChunk::BaseChunk(const Builder& builder, const bool exists)
     : Chunk(
             builder,
             builder.metadata().boundsScaledCubic(),
             builder.metadata().structure().baseDepthBegin(),
             builder.metadata().structure().baseIndexBegin(),
             builder.metadata().structure().baseIndexSpan())
-    , m_chunks()
-    , m_celledSchema(makeCelled(m_metadata.schema()))
-    , m_writes()
+    , m_celledSchema(Schema::makeCelled(m_metadata.schema()))
+    , m_celledPool(m_celledSchema, m_metadata.delta())
 {
     std::srand(std::time(0));
     const auto& s(m_metadata.structure());
@@ -463,156 +380,99 @@ BaseChunk::BaseChunk(const Builder& builder)
     }
 
     chunkCount = 1;
+
+    if (exists)
+    {
+        populate(format().deserialize(
+                    builder.outEndpoint(),
+                    m_celledPool,
+                    m_id));
+    }
 }
 
-BaseChunk::BaseChunk(const Builder& builder, Unpacker unpacker)
-    : BaseChunk(builder)
+Cell::PooledStack BaseChunk::acquire()
 {
-    auto data(unpacker.acquireRawBytes());
-    const std::size_t numPoints(unpacker.numPoints());
+    makeWritable();
 
-    if (m_metadata.format().compress())
-    {
-        data = Compression::decompress(*data, m_celledSchema, numPoints);
-    }
-
-    const std::size_t celledPointSize(m_celledSchema.pointSize());
-    const auto tubeId(m_celledSchema.getId(tubeIdDim));
-
-    // Skip tube IDs.
-    const std::size_t dataOffset(sizeof(uint64_t));
-
+    Cell::PooledStack cellStack(m_celledPool.cellPool());
     BinaryPointTable table(m_celledSchema);
     pdal::PointRef pointRef(table, 0);
 
-    Cell::PooledStack cellStack(m_pointPool.cellPool().acquire(numPoints));
-    Data::PooledStack dataStack(m_pointPool.dataPool().acquire(numPoints));
-
-    const std::size_t factor(m_metadata.structure().factor());
-
-    Climber climber(m_metadata);
-
-    const char* pos(data->data());
-
-    for (std::size_t i(0); i < numPoints; ++i)
-    {
-        table.setPoint(pos);
-
-        Data::PooledNode data(dataStack.popOne());
-        std::copy(pos + dataOffset, pos + celledPointSize, *data);
-
-        Cell::PooledNode cell(cellStack.popOne());
-        cell->set(pointRef, std::move(data));
-
-        const std::size_t tube(pointRef.getFieldAs<uint64_t>(tubeId));
-        const std::size_t curDepth(ChunkInfo::calcDepth(factor, m_id + tube));
-
-        climber.reset();
-        climber.magnifyTo(cell->point(), curDepth);
-
-        if (tube != (climber.index() - m_id).getSimple())
-        {
-            throw std::runtime_error("Bad serialized base tube");
-        }
-
-        insert(climber, cell);
-
-        pos += celledPointSize;
-    }
-}
-
-void BaseChunk::save(const arbiter::Endpoint& endpoint)
-{
-    if (m_metadata.cesiumSettings()) tile();
-    makeWritable();
-
-    Data::PooledStack dataStack(m_pointPool.dataPool());
-    Cell::PooledStack cellStack(m_pointPool.cellPool());
-
-    const std::size_t celledPointSize(m_celledSchema.pointSize());
-    const std::size_t nativePointSize(m_metadata.schema().pointSize());
-
-    std::vector<char> point(celledPointSize);
-
     const std::size_t tubeIdSize(sizeof(uint64_t));
-
-    const bool compress(m_metadata.format().compress());
-    std::unique_ptr<Compressor> compressor(
-            compress ? makeUnique<Compressor>(m_celledSchema) : nullptr);
-
-    std::unique_ptr<std::vector<char>> data(makeUnique<std::vector<char>>());
-
     uint64_t tubeId(0);
     const char* tPos(reinterpret_cast<char*>(&tubeId));
     const char* tEnd(tPos + tubeIdSize);
 
+    const std::size_t nativePointSize(m_metadata.schema().pointSize());
+
     for (auto& w : m_writes) for (auto& c : w)
     {
-        auto& tubes(c.tubes());
-
-        for (std::size_t i = 0; i < tubes.size(); ++i)
+        for (std::size_t i(0); i < c.tubes().size(); ++i)
         {
-            Tube& tube(tubes[i]);
-
-            for (auto& inner : tube)
+            for (auto& inner : c.tubes()[i])
             {
                 Cell::PooledNode& cell(inner.second);
-
                 for (const char* d : *cell)
                 {
+                    auto cellNode(m_celledPool.cellPool().acquireOne());
+                    auto dataNode(m_celledPool.dataPool().acquireOne());
+
                     tubeId = c.id().getSimple() + i - m_id.getSimple();
-                    std::copy(tPos, tEnd, point.data());
-                    std::copy(
-                            d,
-                            d + nativePointSize,
-                            point.data() + tubeIdSize);
+                    std::copy(d, d + nativePointSize, *dataNode);
+                    std::copy(tPos, tEnd, *dataNode + nativePointSize);
 
-                    if (compress)
-                    {
-                        compressor->push(point.data(), point.size());
-                    }
-                    else
-                    {
-                        data->insert(
-                                data->end(),
-                                point.data(),
-                                point.data() + point.size());
-                    }
+                    table.setPoint(*dataNode);
+                    cellNode->set(pointRef, std::move(dataNode));
+                    cellStack.push(std::move(cellNode));
                 }
-
-                cellStack.push(std::move(cell));
             }
         }
     }
 
-    for (Cell& cell : cellStack) dataStack.push(cell.acquire());
-
-    if (compress) data = compressor->data();
-
-    // Since the base is serialized with a different schema, we'll compress it
-    // on our own.
-    Packer packer(
-            m_metadata.format().tailFields(),
-            *data,
-            dataStack.size(),
-            ChunkType::Contiguous);
-    auto tail(packer.buildTail());
-    data->insert(data->end(), tail.begin(), tail.end());
-
-    // No prefixing on base.
-    const std::string path(m_id.str() + m_metadata.postfix());
-
-    Storage::ensurePut(endpoint, path, *data);
-
-    assert(!m_data);    // Don't let the parent destructor serialize.
+    return cellStack;
 }
 
-Schema BaseChunk::makeCelled(const Schema& in)
+void BaseChunk::populate(Cell::PooledStack cells)
 {
-    DimList dims;
-    dims.push_back(DimInfo(tubeIdDim, "unsigned", 8));
-    dims.insert(dims.end(), in.dims().begin(), in.dims().end());
-    return Schema(dims);
+    const std::size_t numPoints(cells.size());
+    Data::PooledStack dataStack(m_pointPool.dataPool().acquire(numPoints));
+    Cell::PooledStack cellStack(m_pointPool.cellPool().acquire(numPoints));
+
+    const std::size_t nativePointSize(m_metadata.schema().pointSize());
+    const std::size_t celledPointSize(m_celledSchema.pointSize());
+    const auto factor(m_metadata.structure().factor());
+
+    uint64_t tubeId(0);
+    char* tPos(reinterpret_cast<char*>(&tubeId));
+
+    BinaryPointTable table(m_metadata.schema());
+    pdal::PointRef pointRef(table, 0);
+
+    Climber climber(m_metadata);
+
+    for (const auto& in : cells)
+    {
+        Cell::PooledNode cellNode(cellStack.popOne());
+        Data::PooledNode dataNode(dataStack.popOne());
+
+        const char* pos(in.uniqueData());
+        std::copy(pos, pos + nativePointSize, *dataNode);
+        std::copy(pos + nativePointSize, pos + celledPointSize, tPos);
+
+        table.setPoint(*dataNode);
+        cellNode->set(pointRef, std::move(dataNode));
+
+        const std::size_t curDepth(ChunkInfo::calcDepth(factor, m_id + tubeId));
+        climber.reset();
+        climber.magnifyTo(cellNode->point(), curDepth);
+
+        if (tubeId != (climber.index() - m_id).getSimple())
+        {
+            throw std::runtime_error("Bad serialized base tube");
+        }
+
+        insert(climber, cellNode);
+    }
 }
 
 void BaseChunk::makeWritable()
@@ -661,16 +521,10 @@ std::set<Id> BaseChunk::merge(BaseChunk& other)
             {
                 const Id id(write.front().id());
 
-                // Manual save, since we don't want to write empty chunks.
-                //
-                // Our lack of chunk bounds here is one reason we can't do
-                // Cesium output for merged builds, since Cesium needs the
-                // bounds for each chunk.  We could calculate it but there are
-                // other issues for non-standard Cesium builds as well, so it's
-                // fine for now with these limitations in mind.
+                // TODO Calculate correct bounds for this chunk.
                 ContiguousChunk chunk(
                         m_builder,
-                        Bounds(),
+                        m_metadata.boundsScaledCubic(),
                         d,
                         id,
                         s.basePointsPerChunk(),
@@ -688,8 +542,7 @@ std::set<Id> BaseChunk::merge(BaseChunk& other)
 
                 if (!chunk.empty())
                 {
-                    // Calling collect will ensure that this chunk gets saved.
-                    chunk.collect(ChunkType::Contiguous);
+                    m_metadata.format().serialize(chunk);
                     ids.insert(id);
                 }
 
@@ -699,11 +552,6 @@ std::set<Id> BaseChunk::merge(BaseChunk& other)
     }
 
     return ids;
-}
-
-Cell::PooledStack BaseChunk::acquire()
-{
-    return Cell::PooledStack(m_pointPool.cellPool());
 }
 
 } // namespace entwine

@@ -8,8 +8,12 @@
 *
 ******************************************************************************/
 
+#pragma once
+
 #include <string>
 #include <vector>
+
+#include <entwine/types/format-types.hpp>
 
 namespace arbiter
 {

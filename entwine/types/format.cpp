@@ -12,118 +12,84 @@
 
 #include <numeric>
 
+#include <entwine/third/arbiter/arbiter.hpp>
+#include <entwine/tree/builder.hpp>
+#include <entwine/tree/chunk.hpp>
 #include <entwine/types/binary-point-table.hpp>
 #include <entwine/types/metadata.hpp>
+#include <entwine/types/pooled-point-table.hpp>
+#include <entwine/types/reprojection.hpp>
 #include <entwine/util/compression.hpp>
+#include <entwine/util/storage.hpp>
 #include <entwine/util/unique.hpp>
+
+#include <entwine/tree/storage/storage.hpp>
+#include <entwine/tree/storage/lazperf.hpp>
+#include <entwine/tree/storage/laszip.hpp>
 
 namespace entwine
 {
 
-namespace
-{
-    void append(std::vector<char>& data, const std::vector<char>& add)
-    {
-        data.insert(data.end(), add.begin(), add.end());
-    }
-
-    std::vector<std::string> fieldsFromJson(const Json::Value& json)
-    {
-        return std::accumulate(
-                json.begin(),
-                json.end(),
-                std::vector<std::string>(),
-                [](const std::vector<std::string>& in, const Json::Value& f)
-                {
-                    auto out(in);
-                    out.push_back(f.asString());
-                    return out;
-                });
-    }
-}
-
 Format::Format(
         const Metadata& metadata,
         const bool trustHeaders,
-        const bool compress,
-        const HierarchyCompression hierarchyCompression,
-        const std::vector<std::string> tailFields)
+        const ChunkCompression compression,
+        const HierarchyCompression hierarchyCompression)
     : m_metadata(metadata)
     , m_trustHeaders(trustHeaders)
-    , m_compress(compress)
+    , m_compression(compression)
     , m_hierarchyCompression(hierarchyCompression)
-    , m_tailFields(std::accumulate(
-                tailFields.begin(),
-                tailFields.end(),
-                TailFields(),
-                [](const TailFields& in, const std::string& v)
-                {
-                    auto out(in);
-                    out.push_back(tailFieldFromName(v));
-                    return out;
-                }))
 {
-    for (const auto f : m_tailFields)
-    {
-        if (std::count(m_tailFields.begin(), m_tailFields.end(), f) > 1)
-        {
-            throw std::runtime_error("Identical tail fields detected");
-        }
-    }
-
-    const bool hasNumPoints(
-            std::count(
-                m_tailFields.begin(),
-                m_tailFields.end(),
-                TailField::NumPoints));
-
-    if (m_compress && !hasNumPoints)
-    {
-        throw std::runtime_error(
-                "Cannot specify compression without numPoints");
-    }
+    m_storage = ChunkStorage::create(m_metadata, m_compression);
 }
 
 Format::Format(const Metadata& metadata, const Json::Value& json)
-    : Format(
-            metadata,
-            json["trustHeaders"].asBool(),
-            json["compress"].asBool(),
-            hierarchyCompressionFromName(json["compressHierarchy"].asString()),
-            fieldsFromJson(json["tail"]))
-{ }
-
-std::unique_ptr<std::vector<char>> Format::pack(
-        Data::PooledStack dataStack,
-        const ChunkType chunkType) const
+    : m_metadata(metadata)
+    , m_json(json)
+    , m_trustHeaders(json["trustHeaders"].asBool())
+    , m_compression(toCompression(json["compression"]))
+    , m_hierarchyCompression(toHierarchyCompression(json["compressHierarchy"]))
 {
-    std::unique_ptr<std::vector<char>> data;
-    const std::size_t numPoints(dataStack.size());
-    const std::size_t pointSize(schema().pointSize());
+    m_storage = ChunkStorage::create(m_metadata, m_compression, m_json);
+}
 
-    if (m_compress)
-    {
-        Compressor compressor(m_metadata.schema(), dataStack.size());
-        for (const char* pos : dataStack) compressor.push(pos, pointSize);
-        data = compressor.data();
-    }
-    else
-    {
-        data = makeUnique<std::vector<char>>();
-        data->reserve(numPoints * pointSize);
-        for (const char* pos : dataStack)
-        {
-            data->insert(data->end(), pos, pos + pointSize);
-        }
-    }
+Format::Format(const Metadata& metadata, const Format& other)
+    : m_metadata(metadata)
+    , m_json(other.m_json)
+    , m_trustHeaders(other.m_trustHeaders)
+    , m_compression(other.m_compression)
+    , m_hierarchyCompression(other.m_hierarchyCompression)
+{
+    m_storage = ChunkStorage::create(m_metadata, m_compression, m_json);
+}
 
-    assert(data);
-    dataStack.reset();
+Format::~Format() { }
 
-    Packer packer(m_tailFields, *data, numPoints, chunkType);
-    append(*data, packer.buildTail());
+Json::Value Format::toJson() const
+{
+    Json::Value json;
+    json["trustHeaders"] = m_trustHeaders;
+    json["compression"] = toString(m_compression);
+    json["compressHierarchy"] = toString(m_hierarchyCompression);
 
-    return data;
+    const auto s(m_storage->toJson());
+    for (const auto f : s.getMemberNames()) json[f] = s[f];
+
+    return json;
+}
+
+void Format::serialize(Chunk& chunk) const
+{
+    if (m_metadata.cesiumSettings()) chunk.tile();
+    m_storage->write(chunk);
+}
+
+Cell::PooledStack Format::deserialize(
+        const arbiter::Endpoint& endpoint,
+        PointPool& pool,
+        const Id& chunkId) const
+{
+    return m_storage->read(endpoint, pool, chunkId);
 }
 
 const Metadata& Format::metadata() const { return m_metadata; }

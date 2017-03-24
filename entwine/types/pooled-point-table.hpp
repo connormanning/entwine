@@ -15,7 +15,9 @@
 
 #include <pdal/Dimension.hpp>
 #include <pdal/PointTable.hpp>
+#include <pdal/Reader.hpp>
 
+#include <entwine/types/binary-point-table.hpp>
 #include <entwine/types/manifest.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/schema.hpp>
@@ -209,6 +211,210 @@ private:
     std::array<std::size_t, 3> m_offsets;
     std::size_t m_xyzSize;
     std::size_t m_xyzNormal;
+};
+
+class CellTable : public pdal::StreamPointTable
+{
+    static constexpr std::size_t m_blockSize = 4096;
+
+public:
+    CellTable(PointPool& pool, std::unique_ptr<Schema> outwardSchema)
+        : pdal::StreamPointTable(outwardSchema->pdalLayout())
+        , m_pool(pool)
+        , m_schema(pool.schema())
+        , m_delta(*pool.delta())
+        , m_cellStack(pool.cellPool())
+        , m_outwardSchema(std::move(outwardSchema))
+        , m_sizes{ {
+            m_schema.find("X").size(),
+            m_schema.find("Y").size(),
+            m_schema.find("Z").size()
+        } }
+        , m_offsets{ { 0, m_sizes[0], m_sizes[0] + m_sizes[1] } }
+        , m_xyzSize(m_sizes[0] + m_sizes[1] + m_sizes[2])
+        , m_xyzNormal(3 * sizeof(double) - m_xyzSize)
+    { }
+
+    CellTable(
+            PointPool& pool,
+            Cell::PooledStack cellStack,
+            std::unique_ptr<Schema> outwardSchema)
+        : CellTable(pool, std::move(outwardSchema))
+    {
+        m_cellStack = std::move(cellStack);
+        for (Cell& cell : m_cellStack)
+        {
+            for (char* data : cell)
+            {
+                ++m_size;
+                m_refs.emplace_back(cell, data);
+            }
+        }
+
+        using DimId = pdal::Dimension::Id;
+        BinaryPointTable ta(m_schema), tb(m_schema);
+
+        std::sort(
+                m_refs.begin(),
+                m_refs.end(),
+                [&ta, &tb](const Ref& a, const Ref& b)
+                {
+                    ta.setPoint(a.data());
+                    tb.setPoint(b.data());
+                    return
+                        ta.ref().getFieldAs<double>(DimId::GpsTime) <
+                        tb.ref().getFieldAs<double>(DimId::GpsTime);
+                });
+    }
+
+    Cell::PooledStack acquire()
+    {
+        m_size = 0;
+        return std::move(m_cellStack);
+    }
+
+    void resize(std::size_t s)
+    {
+        m_cellStack = m_pool.cellPool().acquire(s);
+        auto dataStack(m_pool.dataPool().acquire(s));
+
+        m_size = s;
+        for (auto& cell : m_cellStack)
+        {
+            cell.push(dataStack.popOne());
+            m_refs.emplace_back(cell, cell.uniqueData());
+        }
+    }
+
+    std::size_t size() const { return m_size; }
+    pdal::point_count_t capacity() const override { return size(); }
+
+private:
+    virtual pdal::PointId addPoint() override
+    {
+        throw std::runtime_error("CellTable::addPoint not allowed");
+    }
+
+    virtual char* getPoint(pdal::PointId i) override
+    {
+        return m_refs.at(i).data();
+    }
+
+    virtual void setFieldInternal(
+            pdal::Dimension::Id id,
+            pdal::PointId index,
+            const void* value) override
+    {
+        const auto dim(pdal::Utils::toNative(id) - 1);
+        const char* src(reinterpret_cast<const char*>(value));
+        char* pos(m_refs.at(index).data());
+
+        if (dim >= 3)
+        {
+            const pdal::Dimension::Detail* d(m_layoutRef.dimDetail(id));
+            char* dst(pos + d->offset() - m_xyzNormal);
+            std::copy(src, src + d->size(), dst);
+        }
+        else
+        {
+            // First set the scaled value into the Cell's Point.
+            double& v(m_refs[index].cell().point()[dim]);
+            char* dbl(reinterpret_cast<char*>(&v));
+            std::copy(src, src + sizeof(double), dbl);
+
+            v = std::llround(
+                    Point::scale(
+                        v,
+                        m_delta.scale()[dim],
+                        m_delta.offset()[dim]));
+
+            // Then copy the scaled value into the binary point data.
+            char* dst(pos + m_offsets[dim]);
+
+            if (m_sizes[dim] == 4) insert<int32_t>(v, dst);
+            else if (m_sizes[dim] == 8) insert<int64_t>(v, dst);
+            else throw std::runtime_error("Invalid XYZ size");
+        }
+    }
+
+    template<typename T>
+    void insert(T t, char* dst) const
+    {
+        const char* src(reinterpret_cast<const char*>(&t));
+        std::copy(src, src + sizeof(T), dst);
+    }
+
+    virtual void getFieldInternal(
+            pdal::Dimension::Id id,
+            pdal::PointId index,
+            void* value) const override
+    {
+        const auto dim(pdal::Utils::toNative(id) - 1);
+        char* dst(reinterpret_cast<char*>(value));
+
+        if (dim >= 3)
+        {
+            const char* pos(m_refs[index].data());
+            const pdal::Dimension::Detail* d(m_layoutRef.dimDetail(id));
+            const char* src(pos + d->offset() - m_xyzNormal);
+            std::copy(src, src + d->size(), dst);
+        }
+        else
+        {
+            const double d(
+                    Point::unscale(
+                        m_refs[index].cell().point()[dim],
+                        m_delta.scale()[dim],
+                        m_delta.offset()[dim]));
+            const char* src(reinterpret_cast<const char*>(&d));
+            std::copy(src, src + sizeof(double), dst);
+        }
+    }
+
+    class Ref
+    {
+    public:
+        Ref(Cell& cell, char* data) : m_cell(&cell), m_data(data) { }
+
+        Cell& cell() { return *m_cell; }
+        char* data() { return m_data; }
+        const Cell& cell() const { return *m_cell; }
+        const char* data() const { return m_data; }
+
+    private:
+        Cell* m_cell;
+        char* m_data;
+    };
+
+    PointPool& m_pool;
+    const Schema& m_schema;
+    const Delta& m_delta;
+    Cell::PooledStack m_cellStack;
+    std::vector<Ref> m_refs;
+    std::size_t m_size = 0;
+
+    std::unique_ptr<Schema> m_outwardSchema;
+    std::array<std::size_t, 3> m_sizes;
+    std::array<std::size_t, 3> m_offsets;
+    std::size_t m_xyzSize;
+    std::size_t m_xyzNormal;
+};
+
+class StreamReader : public pdal::Reader
+{
+public:
+    StreamReader(pdal::StreamPointTable& table) : m_table(table) { }
+
+    virtual bool processOne(pdal::PointRef& point) override
+    {
+        return ++m_index <= m_table.capacity();
+    }
+
+    std::string getName() const override { return "readers.stream"; }
+
+private:
+    pdal::StreamPointTable& m_table;
+    std::size_t m_index = 0;
 };
 
 } // namespace entwine

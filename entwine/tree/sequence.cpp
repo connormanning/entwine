@@ -24,7 +24,6 @@ namespace entwine
 Sequence::Sequence(Builder& builder)
     : m_metadata(*builder.m_metadata)
     , m_manifest(m_metadata.manifest())
-    , m_executor(builder.executor())
     , m_mutex(builder.mutex())
     , m_origin(0)
     , m_end(m_manifest.size())
@@ -74,7 +73,7 @@ bool Sequence::checkInfo(Origin origin)
     {
         return false;
     }
-    else if (!m_executor.good(info.path()))
+    else if (!Executor::get().good(info.path()))
     {
         m_manifest.set(origin, FileInfo::Status::Omitted);
         return false;

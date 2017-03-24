@@ -114,8 +114,9 @@ namespace
             "\t\tDo not trust file headers when determining bounds.  By\n"
             "\t\tdefault, the headers are considered to be good.\n\n"
 
-            "\t-c\n"
-            "\t\tIf set, compression will be disabled.\n\n"
+            "\t-c <compression-type>\n"
+            "\t\tSet data storage type.  Valid value: 'none', 'laszip',\n"
+            "\t\tor 'lazperf'.\n\n"
 
             "\t-n\n"
             "\t\tIf set, absolute positioning will be used, even if values\n"
@@ -288,6 +289,11 @@ void Kernel::build(std::vector<std::string> args)
             if (++a < args.size()) json["output"] = args[a];
             else error("Invalid output path specification");
         }
+        else if (arg == "-c")
+        {
+            if (++a < args.size()) json["compression"] = args[a];
+            else error("Invalid compression specification");
+        }
         else if (arg == "-a")
         {
             if (++a < args.size()) json["tmp"] = args[a];
@@ -310,7 +316,6 @@ void Kernel::build(std::vector<std::string> args)
         else if (arg == "-f") { json["force"] = true; }
         else if (arg == "-x") { json["trustHeaders"] = false; }
         else if (arg == "-p") { json["prefixIds"] = true; }
-        else if (arg == "-c") { json["compress"] = false; }
         else if (arg == "-n") { json["absolute"] = true; }
         else if (arg == "-e") { arbiterConfig["s3"]["sse"] = true; }
         else if (arg == "-h")
@@ -493,7 +498,7 @@ void Kernel::build(std::vector<std::string> args)
         "Output:\n" <<
         "\tOutput path: " << outPath << "\n" <<
         "\tTemporary path: " << tmpPath << "\n" <<
-        "\tCompressed output? " << yesNo(format.compress()) <<
+        "\tCompressed output? " << toString(format.compression()) <<
         std::endl;
 
     if (const auto* delta = metadata.delta())

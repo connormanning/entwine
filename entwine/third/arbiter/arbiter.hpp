@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 353e2ca0d38a7157e3eebce40d4a60ef2a94d6dc
+// Git SHA: 5717b5f7b450db996b4a44d4865671f925e2ff50
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -55,6 +55,7 @@ SOFTWARE.
 #pragma once
 
 #include <map>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -226,10 +227,13 @@ private:
 
     void* m_curl = nullptr;
     curl_slist* m_headers = nullptr;
+
     bool m_verbose = false;
-    bool m_followRedirect = true;
     long m_timeout = defaultHttpTimeout;
+    bool m_followRedirect = true;
+    bool m_verifyPeer = true;
     std::unique_ptr<std::string> m_caPath;
+    std::unique_ptr<std::string> m_caInfo;
 
     std::vector<char> m_data;
 };
@@ -745,6 +749,7 @@ namespace drivers
 class Fs : public Driver
 {
 public:
+    Fs() { }
     static std::unique_ptr<Fs> create(const Json::Value& json);
 
     virtual std::string type() const override { return "file"; }

@@ -21,14 +21,13 @@
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/delta.hpp>
 #include <entwine/types/file-info.hpp>
+#include <entwine/types/point-pool.hpp>
 #include <entwine/types/schema.hpp>
-#include <entwine/util/executor.hpp>
 #include <entwine/util/pool.hpp>
 
 namespace entwine
 {
 
-class Executor;
 class Reprojection;
 
 class Inference
@@ -100,7 +99,6 @@ private:
     void add(std::string localPath, FileInfo& fileInfo);
     Transformation calcTransformation();
 
-    Executor m_executor;
     std::string m_tmpPath;
 
     PointPool m_pointPool;

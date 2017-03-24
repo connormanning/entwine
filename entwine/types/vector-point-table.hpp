@@ -43,33 +43,31 @@ public:
             pdal::PointLayout layout,
             std::size_t initialPointCapacity = 0)
         : StreamPointTable(m_layout)
-        , m_data(initialPointCapacity * layout.pointSize(), 0)
         , m_layout(layout)
-    { }
+    {
+        m_data.reserve(initialPointCapacity * layout.pointSize());
+    }
 
     VectorPointTable(pdal::PointLayout layout, const std::vector<char>& data)
         : pdal::StreamPointTable(m_layout)
-        , m_data(data)
         , m_layout(layout)
+        , m_data(data)
+        , m_size(m_data.size() / m_layout.pointSize())
     { }
 
     VectorPointTable(pdal::PointLayout layout, std::vector<char>&& data)
         : pdal::StreamPointTable(m_layout)
-        , m_data(std::move(data))
         , m_layout(layout)
+        , m_data(std::move(data))
+        , m_size(m_data.size() / m_layout.pointSize())
     { }
 
-    std::size_t size() const { return capacity(); }
-
-    pdal::point_count_t capacity() const override
-    {
-        assert(m_data.size() % m_layout.pointSize() == 0);
-        return m_data.size() / m_layout.pointSize();
-    }
+    std::size_t size() const { return m_size; }
+    pdal::point_count_t capacity() const override { return size(); }
 
     pdal::PointRef at(pdal::PointId index)
     {
-        if (index >= capacity())
+        if (index >= size())
         {
             throw std::out_of_range("Invalid index to VectorPointTable::at");
         }
@@ -131,11 +129,12 @@ private:
     virtual pdal::PointId addPoint() override
     {
         m_data.insert(m_data.end(), m_layout.pointSize(), 0);
-        return capacity() - 1;
+        return m_size++;
     }
 
-    std::vector<char> m_data;
     pdal::PointLayout m_layout;
+    std::vector<char> m_data;
+    std::size_t m_size = 0;
 };
 
 } // namespace entwine

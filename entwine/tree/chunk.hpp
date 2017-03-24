@@ -23,12 +23,9 @@
 #include <entwine/formats/cesium/util.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/types/dim-info.hpp>
-#include <entwine/types/format.hpp>
 #include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/tube.hpp>
-#include <entwine/util/locker.hpp>
-#include <entwine/util/matrix.hpp>
 
 namespace entwine
 {
@@ -37,10 +34,13 @@ namespace arbiter { class Endpoint; }
 
 class Builder;
 class Metadata;
+class Unpacker;
 
 class Chunk
 {
+    friend class ChunkStorage;
     friend class Builder;
+    friend class Format;
 
 public:
     Chunk(
@@ -59,18 +59,23 @@ public:
             const Bounds& bounds,
             std::size_t depth,
             const Id& id,
-            const Id& maxPoints);
-
-    static std::unique_ptr<Chunk> create(
-            const Builder& builder,
-            const Bounds& bounds,
-            std::size_t depth,
-            const Id& id,
             const Id& maxPoints,
-            std::unique_ptr<std::vector<char>> data);
+            bool exists);
 
     const Id& maxPoints() const { return m_maxPoints; }
     const Id& id() const { return m_id; }
+    const Builder& builder() const { return m_builder; }
+    const Metadata& metadata() const { return m_metadata; }
+    const Format& format() const { return m_metadata.format(); }
+    const Bounds& bounds() const { return m_bounds; }
+
+    void save();
+
+    virtual ChunkType type() const = 0;
+    virtual const Schema& schema() const { return m_metadata.schema(); }
+    virtual PointPool& pool() { return m_pointPool; }
+
+    virtual Cell::PooledStack acquire() = 0;
 
     Tube::Insertion insert(const Climber& climber, Cell::PooledNode& cell)
     {
@@ -82,11 +87,8 @@ public:
     virtual cesium::TileInfo info() const = 0;
 
 protected:
-    void populate(Cell::PooledStack cells);
+    virtual void populate(Cell::PooledStack cells);
 
-    void collect(ChunkType type);
-
-    virtual Cell::PooledStack acquire() = 0;
     virtual Tube& getTube(const Climber& climber) = 0;
 
     std::size_t divisor() const
@@ -117,8 +119,6 @@ protected:
     const Id m_id;
 
     const Id m_maxPoints;
-
-    std::unique_ptr<std::vector<char>> m_data;
 };
 
 class SparseChunk : public Chunk
@@ -129,18 +129,12 @@ public:
             const Bounds& bounds,
             std::size_t depth,
             const Id& id,
-            const Id& maxPoints);
-
-    SparseChunk(
-            const Builder& builder,
-            const Bounds& bounds,
-            std::size_t depth,
-            const Id& id,
             const Id& maxPoints,
-            Cell::PooledStack cells);
+            bool exists);
 
     virtual ~SparseChunk();
 
+    virtual ChunkType type() const override { return ChunkType::Sparse; }
     virtual cesium::TileInfo info() const override;
 
 private:
@@ -179,19 +173,11 @@ public:
             std::size_t depth,
             const Id& id,
             const Id& maxPoints,
-            bool autosave = true);
-
-    ContiguousChunk(
-            const Builder& builder,
-            const Bounds& bounds,
-            std::size_t depth,
-            const Id& id,
-            const Id& maxPoints,
-            Cell::PooledStack cells);
+            bool exists);
 
     ContiguousChunk(ContiguousChunk&& other) = default;
 
-    virtual ~ContiguousChunk();
+    virtual ChunkType type() const override { return ChunkType::Contiguous; }
 
     virtual cesium::TileInfo info() const override;
 
@@ -225,28 +211,24 @@ protected:
     std::vector<Tube>& tubes() { return m_tubes; }
 
     std::vector<Tube> m_tubes;
-    bool m_autosave;
 };
 
 class BaseChunk : public Chunk
 {
 public:
-    BaseChunk(const Builder& builder);
-    BaseChunk(const Builder& builder, Unpacker unpacker);
-
-    // Unlike the other Chunk types, the BaseChunk requires an explicit call to
-    // save, rather than serializing during its destructor.
-    void save(const arbiter::Endpoint& endpoint);
+    BaseChunk(const Builder& builder, bool exists);
 
     std::set<Id> merge(BaseChunk& other);
 
-    static Schema makeCelled(const Schema& in);
-
+    virtual PointPool& pool() override { return m_celledPool; }
+    virtual const Schema& schema() const override { return m_celledSchema; }
     virtual cesium::TileInfo info() const override;
+    virtual ChunkType type() const override { return ChunkType::Contiguous; }
     std::vector<cesium::TileInfo> baseInfo() const;
 
 private:
     virtual Cell::PooledStack acquire() override;
+    virtual void populate(Cell::PooledStack cells) override;
 
     virtual void tile() const override;
 
@@ -259,6 +241,7 @@ private:
 
     std::vector<ContiguousChunk> m_chunks;
     Schema m_celledSchema;
+    PointPool m_celledPool;
 
     std::vector<std::vector<ContiguousChunk>> m_writes;
 };

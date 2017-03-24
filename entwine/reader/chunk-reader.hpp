@@ -20,6 +20,7 @@
 namespace entwine
 {
 
+namespace arbiter { class Endpoint; }
 class Bounds;
 class Metadata;
 class Schema;
@@ -56,9 +57,10 @@ class ChunkReader
 public:
     ChunkReader(
             const Metadata& metadata,
+            const arbiter::Endpoint& endpoint,
+            PointPool& pool,
             const Id& id,
-            std::size_t depth,
-            std::unique_ptr<std::vector<char>> data);
+            std::size_t depth);
 
     using PointOrder = std::vector<PointInfo>;
     using It = PointOrder::const_iterator;
@@ -74,8 +76,7 @@ public:
     QueryRange candidates(const Bounds& queryBounds) const;
     std::size_t size() const
     {
-        if (m_data) return m_data->size();
-        else throw std::runtime_error("No ChunkReader data:" + m_id.str());
+        return m_cells.size() * m_schema.pointSize();
     }
 
     const Id& id() const { return m_id; }
@@ -93,7 +94,7 @@ private:
     const Id m_id;
     const std::size_t m_depth;
 
-    std::unique_ptr<std::vector<char>> m_data;
+    Cell::PooledStack m_cells;
     std::vector<PointInfo> m_points;
 };
 
@@ -101,11 +102,7 @@ private:
 class BaseChunkReader
 {
 public:
-    BaseChunkReader(
-            const Metadata& metadata,
-            const Schema& celledSchema,
-            const Id& id,
-            std::unique_ptr<std::vector<char>> data);
+    BaseChunkReader(const Metadata& metadata, const arbiter::Endpoint& ep);
 
     using TubeData = std::vector<PointInfo>;
 
@@ -120,8 +117,11 @@ private:
         return (rawIndex - m_id).getSimple();
     }
 
+    const Schema m_celledSchema;
+    PointPool m_pool;
     const Id m_id;
-    std::unique_ptr<std::vector<char>> m_data;
+
+    Cell::PooledStack m_cells;
     std::vector<TubeData> m_tubes;
 };
 

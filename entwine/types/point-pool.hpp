@@ -47,6 +47,7 @@ public:
 
     Cell() noexcept : m_point(), m_dataStack() { }
 
+    Point& point() { return m_point; }
     const Point& point() const { return m_point; }
     Data::RawStack&& acquire() { return std::move(m_dataStack); }
 
@@ -61,12 +62,23 @@ public:
                 });
     }
 
+    void push(Data::PooledNode&& node)
+    {
+        m_dataStack.push(node.release());
+    }
+
     std::size_t size() const { return m_dataStack.size(); }
     bool unique() const { return m_dataStack.size() == 1; }
     bool empty() const { return m_dataStack.empty(); }
 
     Data::RawStack::ConstIterator begin() const { return m_dataStack.cbegin(); }
     Data::RawStack::ConstIterator end() const { return m_dataStack.cend(); }
+
+    const char* uniqueData() const
+    {
+        assert(unique());
+        return **m_dataStack.head();
+    }
 
     char* uniqueData()
     {

@@ -20,7 +20,6 @@
 
 #include <entwine/types/defs.hpp>
 #include <entwine/types/delta.hpp>
-#include <entwine/types/format-packing.hpp>
 #include <entwine/types/format-types.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/schema.hpp>
@@ -29,6 +28,9 @@
 namespace entwine
 {
 
+namespace arbiter { class Endpoint; }
+class Chunk;
+class ChunkStorage;
 class Metadata;
 
 // The Format contains the attributes that give insight about what the tree
@@ -42,55 +44,23 @@ public:
     Format(
             const Metadata& metadata,
             bool trustHeaders = true,
-            bool compress = true,
-            HierarchyCompression hierarchyCompression =
-                HierarchyCompression::Lzma,
-            std::vector<std::string> tailFields = std::vector<std::string> {
-                "numPoints", "chunkType"
-            });
-
-    Format(const Metadata& metadata, const Format& other)
-        : m_metadata(metadata)
-        , m_trustHeaders(other.trustHeaders())
-        , m_compress(other.compress())
-        , m_hierarchyCompression(other.hierarchyCompression())
-        , m_tailFields(other.tailFields())
-    { }
-
+            ChunkCompression compression = ChunkCompression::LasZip,
+            HierarchyCompression hc = HierarchyCompression::Lzma);
+    Format(const Metadata& metadata, const Format& other);
     Format(const Metadata& metadata, const Json::Value& json);
+    Format(const Format&) = delete;
+    ~Format();
 
-    Json::Value toJson() const
-    {
-        Json::Value json;
-        json["trustHeaders"] = m_trustHeaders;
-        json["compress"] = m_compress;
+    Json::Value toJson() const;
 
-        for (const TailField f : m_tailFields)
-        {
-            json["tail"].append(tailFieldNames.at(f));
-        }
-
-        json["compressHierarchy"] =
-            hierarchyCompressionNames.count(m_hierarchyCompression) ?
-                hierarchyCompressionNames.at(m_hierarchyCompression) :
-                "none";
-
-        return json;
-    }
-
-    std::unique_ptr<std::vector<char>> pack(
-            Data::PooledStack dataStack,
-            ChunkType chunkType) const;
-
-    Unpacker unpack(std::unique_ptr<std::vector<char>> data) const
-    {
-        return Unpacker(*this, std::move(data));
-    }
-
-    const TailFields& tailFields() const { return m_tailFields; }
+    void serialize(Chunk& chunk) const;
+    Cell::PooledStack deserialize(
+        const arbiter::Endpoint& endpoint,
+        PointPool& pool,
+        const Id& chunkId) const;
 
     bool trustHeaders() const { return m_trustHeaders; }
-    bool compress() const { return m_compress; }
+    ChunkCompression compression() const { return m_compression; }
     HierarchyCompression hierarchyCompression() const
     {
         return m_hierarchyCompression;
@@ -101,11 +71,14 @@ public:
 
 private:
     const Metadata& m_metadata;
+    const Json::Value m_json;
 
+    // TODO Move trustHeaders out to Metadata.
     bool m_trustHeaders;
-    bool m_compress;
+    ChunkCompression m_compression;
     HierarchyCompression m_hierarchyCompression;
-    TailFields m_tailFields;
+
+    std::unique_ptr<ChunkStorage> m_storage;
 };
 
 } // namespace entwine

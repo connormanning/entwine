@@ -132,6 +132,7 @@ public:
 
     // Miscellaneous.
     const Metadata& metadata() const { return m_metadata; }
+    PointPool& pool() const { return m_pool; }
     std::string path() const { return m_endpoint.root(); }
 
     const BaseChunkReader* base() const { return m_base.get(); }
@@ -151,6 +152,7 @@ private:
     arbiter::Endpoint m_endpoint;
 
     const Metadata m_metadata;
+    mutable PointPool m_pool;
     Cache& m_cache;
 
     std::unique_ptr<HierarchyReader> m_hierarchy;

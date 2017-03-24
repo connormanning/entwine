@@ -64,13 +64,7 @@ void Block::set(const Id& id, const ChunkReader* chunkReader)
     m_chunkMap.at(id) = chunkReader;
 }
 
-DataChunkState::DataChunkState()
-    : chunkReader()
-    , inactiveIt()
-    , refs(0)
-    , mutex()
-{ }
-
+DataChunkState::DataChunkState() : refs(0) { }
 DataChunkState::~DataChunkState() { }
 
 
@@ -81,6 +75,35 @@ Cache::Cache(const std::size_t maxBytes)
     : m_maxBytes(std::max<std::size_t>(maxBytes, 1024 * 1024 * 256))
     , m_maxHierarchyBytes(m_maxBytes / 8)
 { }
+
+void Cache::release(const Reader& reader)
+{
+    std::unique_lock<std::mutex> lock(m_mutex);
+    if (!m_chunkManager.count(reader.path())) return;
+    LocalManager& localManager(m_chunkManager.at(reader.path()));
+
+    auto it(m_inactiveList.begin());
+
+    while (it != m_inactiveList.end())
+    {
+        if (it->path == reader.path())
+        {
+            m_activeBytes -= localManager.at(it->id)->chunkReader->size();
+            localManager.erase(it->id);
+            it = m_inactiveList.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+
+    assert(localManager.empty());
+    m_chunkManager.erase(reader.path());
+
+    lock.unlock();
+    m_cv.notify_all();
+}
 
 std::unique_ptr<Block> Cache::acquire(
         const std::string& readerPath,
@@ -235,14 +258,14 @@ const ChunkReader* Cache::fetch(
     {
         const Reader& reader(fetchInfo.reader);
         const Metadata& metadata(reader.metadata());
-        const std::string path(metadata.structure().maybePrefix(fetchInfo.id));
+        const std::string path(metadata.basename(fetchInfo.id));
 
         chunkState.chunkReader = makeUnique<ChunkReader>(
                 metadata,
+                reader.endpoint(),
+                reader.pool(),
                 fetchInfo.id,
-                fetchInfo.depth,
-                makeUnique<std::vector<char>>(
-                    reader.endpoint().getBinary(path)));
+                fetchInfo.depth);
 
         globalLock.lock();
         m_activeBytes += chunkState.chunkReader->size();

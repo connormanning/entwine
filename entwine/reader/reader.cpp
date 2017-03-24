@@ -70,6 +70,7 @@ Reader::Reader(const std::string path, Cache& cache)
     : m_ownedArbiter(makeUnique<arbiter::Arbiter>())
     , m_endpoint(m_ownedArbiter->getEndpoint(path))
     , m_metadata(m_endpoint)
+    , m_pool(m_metadata.schema(), m_metadata.delta())
     , m_cache(cache)
     , m_hierarchy(
             makeUnique<HierarchyReader>(
@@ -84,6 +85,7 @@ Reader::Reader(const std::string path, Cache& cache)
 Reader::Reader(const arbiter::Endpoint& endpoint, Cache& cache)
     : m_endpoint(endpoint)
     , m_metadata(m_endpoint)
+    , m_pool(m_metadata.schema(), m_metadata.delta())
     , m_cache(cache)
     , m_hierarchy(
             makeUnique<HierarchyReader>(
@@ -101,15 +103,7 @@ void Reader::init()
 
     if (structure.hasBase())
     {
-        auto compressed(
-                makeUnique<std::vector<char>>(
-                    m_endpoint.getBinary(structure.baseIndexBegin().str())));
-
-        m_base = makeUnique<BaseChunkReader>(
-                m_metadata,
-                BaseChunk::makeCelled(m_metadata.schema()),
-                structure.baseIndexBegin(),
-                std::move(compressed));
+        m_base = makeUnique<BaseChunkReader>(m_metadata, m_endpoint);
     }
 
     if (structure.hasCold())
@@ -121,7 +115,9 @@ void Reader::init()
 }
 
 Reader::~Reader()
-{ }
+{
+    m_cache.release(*this);
+}
 
 Json::Value Reader::hierarchy(
         const Bounds& inBounds,

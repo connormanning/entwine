@@ -56,9 +56,12 @@ struct CountedChunk
     {
         if (!--refs.at(id))
         {
-            assert(chunk);
             refs.erase(id);
-            if (refs.empty()) chunk.reset();
+            if (refs.empty())
+            {
+                chunk->save();
+                chunk.reset();
+            }
         }
     }
 };

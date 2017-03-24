@@ -57,7 +57,6 @@ private:
 
     Metadata& m_metadata;
     Manifest& m_manifest;
-    Executor& m_executor;
     std::mutex& m_mutex;
 
     Origin m_origin;

@@ -15,6 +15,7 @@
 #include <entwine/tree/config-parser.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/pooled-point-table.hpp>
+#include <entwine/util/executor.hpp>
 #include <entwine/util/matrix.hpp>
 #include <entwine/util/unique.hpp>
 
@@ -30,14 +31,11 @@ namespace
         return h;
     })());
 
-    const Schema xyzSchema(([]()
-    {
-        DimList dims;
-        dims.push_back(DimInfo("X", "floating", 8));
-        dims.push_back(DimInfo("Y", "floating", 8));
-        dims.push_back(DimInfo("Z", "floating", 8));
-        return Schema(dims);
-    })());
+    const Schema xyzSchema({
+        { pdal::Dimension::Id::X },
+        { pdal::Dimension::Id::Y },
+        { pdal::Dimension::Id::Z }
+    });
 }
 
 Inference::Inference(
@@ -146,7 +144,7 @@ void Inference::go()
                 std::endl;
         }
 
-        if (m_executor.good(f.path()))
+        if (Executor::get().good(f.path()))
         {
             m_valid = true;
 
@@ -216,7 +214,7 @@ void Inference::go()
         for (auto& f : m_fileInfo)
         {
             if (!f.bounds()) throw std::runtime_error("No bounds present");
-            f.bounds(m_executor.transform(*f.bounds(), *m_transformation));
+            f.bounds(Executor::get().transform(*f.bounds(), *m_transformation));
 
             m_bounds->grow(*f.bounds());
         }
@@ -281,7 +279,7 @@ Transformation Inference::calcTransformation()
     // Then, translate around our current best guess at a center point.  This
     // should be close enough to the origin for reasonable precision.
     const Bounds tentativeCenter(
-            m_executor.transform(bounds(), rotation));
+            Executor::get().transform(bounds(), rotation));
     const std::vector<double> translation
     {
         1, 0, 0, -tentativeCenter.mid().x,
@@ -296,7 +294,7 @@ Transformation Inference::calcTransformation()
 void Inference::add(const std::string localPath, FileInfo& fileInfo)
 {
     std::unique_ptr<Preview> preview(
-            m_executor.preview(localPath, m_reproj.get()));
+            Executor::get().preview(localPath, m_reproj.get()));
 
     auto update([&fileInfo](
                 std::size_t numPoints,
@@ -365,7 +363,7 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
 
     PooledPointTable table(m_pointPool, tracker, invalidOrigin);
 
-    if (m_executor.run(
+    if (Executor::get().run(
                 table,
                 localPath,
                 m_reproj.get(),

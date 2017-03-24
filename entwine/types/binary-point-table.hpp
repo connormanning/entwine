@@ -11,6 +11,7 @@
 #pragma once
 
 #include <pdal/PointTable.hpp>
+#include <pdal/PointRef.hpp>
 
 #include <entwine/types/schema.hpp>
 
@@ -23,11 +24,13 @@ public:
     BinaryPointTable(const Schema& schema)
         : pdal::StreamPointTable(schema.pdalLayout())
         , m_pos(nullptr)
+        , m_ref(*this, 0)
     { }
 
     BinaryPointTable(const Schema& schema, const char* pos)
         : pdal::StreamPointTable(schema.pdalLayout())
         , m_pos(pos)
+        , m_ref(*this, 0)
     { }
 
     virtual pdal::point_count_t capacity() const override { return 1; }
@@ -38,9 +41,12 @@ public:
     }
 
     void setPoint(const char* pos) { m_pos = pos; }
+    pdal::PointRef& ref() { return m_ref; }
+    const pdal::PointRef& ref() const { return m_ref; }
 
 protected:
     const char* m_pos;
+    pdal::PointRef m_ref;
 };
 
 } // namespace entwine

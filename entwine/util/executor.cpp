@@ -13,16 +13,13 @@
 #include <sstream>
 
 #include <pdal/Dimension.hpp>
-#include <pdal/Filter.hpp>
 #include <pdal/QuickInfo.hpp>
-#include <pdal/Reader.hpp>
 #include <pdal/SpatialReference.hpp>
 #include <pdal/StageFactory.hpp>
 #include <pdal/io/BufferReader.hpp>
 #include <pdal/io/LasReader.hpp>
 
 #include <entwine/types/pooled-point-table.hpp>
-#include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/util/unique.hpp>
 
@@ -31,14 +28,6 @@ namespace entwine
 
 namespace
 {
-    Reprojection srsFoundOrDefault(
-            const pdal::SpatialReference& found,
-            const Reprojection& given)
-    {
-        if (given.hammer() || found.empty()) return given;
-        else return Reprojection(found.getWKT(), given.out());
-    }
-
     class BufferState
     {
     public:
@@ -113,62 +102,10 @@ namespace
 
 Executor::Executor()
     : m_stageFactory(makeUnique<pdal::StageFactory>())
-    , m_factoryMutex()
 { }
 
 Executor::~Executor()
 { }
-
-bool Executor::run(
-        PooledPointTable& table,
-        const std::string path,
-        const Reprojection* reprojection,
-        const std::vector<double>* transform)
-{
-    UniqueStage scopedReader(createReader(path));
-    if (!scopedReader) return false;
-
-    pdal::Reader* reader(scopedReader->getAs<pdal::Reader*>());
-    pdal::Stage* executor(reader);
-
-    // Needed so that the SRS has been initialized.
-    { auto lock(getLock()); reader->prepare(table); }
-
-    UniqueStage scopedReproj;
-
-    if (reprojection)
-    {
-        const auto srs(
-                srsFoundOrDefault(
-                    reader->getSpatialReference(), *reprojection));
-
-        scopedReproj = createReprojectionFilter(srs);
-        if (!scopedReproj) return false;
-
-        pdal::Filter* filter(scopedReproj->getAs<pdal::Filter*>());
-
-        filter->setInput(*executor);
-        executor = filter;
-    }
-
-    UniqueStage scopedTransform;
-
-    if (transform)
-    {
-        scopedTransform = createTransformationFilter(*transform);
-        if (!scopedTransform) return false;
-
-        pdal::Filter* filter(scopedTransform->getAs<pdal::Filter*>());
-
-        filter->setInput(*executor);
-        executor = filter;
-    }
-
-    { auto lock(getLock()); executor->prepare(table); }
-    executor->execute(table);
-
-    return true;
-}
 
 bool Executor::good(const std::string path) const
 {
@@ -332,7 +269,7 @@ UniqueStage Executor::createReader(const std::string path) const
         // hold the lock during its destructor.
         lock.unlock();
 
-        result.reset(new ScopedStage(reader, *m_stageFactory, m_factoryMutex));
+        result.reset(new ScopedStage(reader, *m_stageFactory, mutex()));
     }
 
     return result;
@@ -362,7 +299,7 @@ UniqueStage Executor::createReprojectionFilter(const Reprojection& reproj) const
         // hold the lock during its destructor.
         lock.unlock();
 
-        result.reset(new ScopedStage(filter, *m_stageFactory, m_factoryMutex));
+        result.reset(new ScopedStage(filter, *m_stageFactory, mutex()));
     }
 
     return result;
@@ -395,18 +332,23 @@ UniqueStage Executor::createTransformationFilter(
 
         lock.unlock();
 
-        result = makeUnique<ScopedStage>(
-                filter,
-                *m_stageFactory,
-                m_factoryMutex);
+        result = makeUnique<ScopedStage>(filter, *m_stageFactory, mutex());
     }
 
     return result;
 }
 
-std::unique_lock<std::mutex> Executor::getLock() const
+std::unique_lock<std::mutex> Executor::getLock()
 {
-    return std::unique_lock<std::mutex>(m_factoryMutex);
+    return std::unique_lock<std::mutex>(mutex());
+}
+
+Reprojection Executor::srsFoundOrDefault(
+        const pdal::SpatialReference& found,
+        const Reprojection& given)
+{
+    if (given.hammer() || found.empty()) return given;
+    else return Reprojection(found.getWKT(), given.out());
 }
 
 ScopedStage::ScopedStage(

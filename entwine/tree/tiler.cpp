@@ -15,6 +15,7 @@
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/traverser.hpp>
 #include <entwine/types/binary-point-table.hpp>
+#include <entwine/types/format.hpp>
 #include <entwine/types/vector-point-table.hpp>
 #include <entwine/util/compression.hpp>
 #include <entwine/util/json.hpp>
@@ -127,7 +128,7 @@ Base::Base(const Tiler& tiler)
     , m_structure(tiler.metadata().structure())
 {
     const Metadata& metadata(tiler.metadata());
-    const Schema celledSchema(BaseChunk::makeCelled(metadata.schema()));
+    const Schema celledSchema(Schema::makeCelled(metadata.schema()));
 
     const std::string path(metadata.structure().maybePrefix(m_chunkId));
     auto data(Storage::ensureGet(tiler.inEndpoint(), path));
@@ -148,12 +149,20 @@ Base::Base(const Tiler& tiler)
     }
     */
 
+    // TODO.
+    /*
     auto unpacker(tiler.metadata().format().unpack(std::move(data)));
     data = unpacker.acquireRawBytes();
     const std::size_t numPoints(unpacker.numPoints());
 
     std::cout << "Base points: " << numPoints << std::endl;
-    if (tiler.metadata().format().compress())
+    const auto compression(tiler.metadata().format().compression());
+
+    if (compression == ChunkCompression::LasZip)
+    {
+        throw std::runtime_error("No LasZip in Tiler's Base");
+    }
+    else if (compression == ChunkCompression::LazPerf)
     {
         data =
                 Compression::decompress(
@@ -169,6 +178,7 @@ Base::Base(const Tiler& tiler)
     }
 
     populate(std::move(data));
+    */
 }
 
 Tiler::Tiler(

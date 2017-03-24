@@ -191,7 +191,8 @@ public:
 
     std::string maybePrefix(const Id& id) const
     {
-        if (prefixIds())
+        // Don't prefix the base chunk.
+        if (prefixIds() && id != m_baseIndexBegin)
         {
             // Prefix the ID with 4 base32-encoded characters based on its hash.
             // Useful for S3 sharding performance.

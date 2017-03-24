@@ -73,6 +73,7 @@ protected:
             Json::Value config;
             config["input"] = test::dataPath() + "ellipsoid-multi-laz";
             config["output"] = outPath + "f";
+            config["force"] = true;
 
             auto builder(ConfigParser::getBuilder(config));
             builder->go();
@@ -82,6 +83,7 @@ protected:
             Json::Value config;
             config["input"] = test::dataPath() + "ellipsoid-multi-nyc";
             config["output"] = outPath + "n";
+            config["force"] = true;
 
             auto builder(ConfigParser::getBuilder(config));
             builder->go();

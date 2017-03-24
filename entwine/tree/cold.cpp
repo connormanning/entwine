@@ -71,36 +71,13 @@ Cold::Cold(const Builder& builder, bool exists)
     {
         m_base.exists = true;
         m_base.t = makeUnique<CountedChunk>();
-
-        if (!exists)
-        {
-            m_base.t->chunk = Chunk::create(
-                    m_builder,
-                    metadata.boundsScaledCubic(),
-                    0,
-                    m_structure.baseIndexBegin(),
-                    m_structure.baseIndexSpan());
-        }
-        else
-        {
-            const std::string basePath(
-                    m_structure.baseIndexBegin().str() + metadata.postfix());
-
-            if (auto data = m_builder.outEndpoint().tryGetBinary(basePath))
-            {
-                m_base.t->chunk = Chunk::create(
-                        m_builder,
-                        metadata.boundsScaledCubic(),
-                        0,
-                        m_structure.baseIndexBegin(),
-                        m_structure.baseIndexSpan(),
-                        std::move(data));
-            }
-            else
-            {
-                throw std::runtime_error("No base data found");
-            }
-        }
+        m_base.t->chunk = Chunk::create(
+                m_builder,
+                metadata.boundsScaledCubic(),
+                0,
+                m_structure.baseIndexBegin(),
+                m_structure.baseIndexSpan(),
+                exists);
     }
 }
 
@@ -156,33 +133,13 @@ void Cold::ensureChunk(
     std::size_t tries(0);
     while (!chunk)
     {
-        if (exists)
-        {
-            const std::string path(
-                    m_builder.metadata().structure().maybePrefix(chunkId) +
-                    m_builder.metadata().postfix(true));
-
-            auto data(Storage::ensureGet(m_builder.outEndpoint(), path));
-
-            chunk =
-                    Chunk::create(
-                        m_builder,
-                        climber.chunkBounds(),
-                        climber.depth(),
-                        chunkId,
-                        climber.pointsPerChunk(),
-                        std::move(data));
-        }
-        else
-        {
-            chunk =
-                    Chunk::create(
-                        m_builder,
-                        climber.chunkBounds(),
-                        climber.depth(),
-                        chunkId,
-                        climber.pointsPerChunk());
-        }
+        chunk = Chunk::create(
+                m_builder,
+                climber.chunkBounds(),
+                climber.depth(),
+                chunkId,
+                climber.pointsPerChunk(),
+                exists);
 
         if (!chunk)
         {
@@ -208,9 +165,10 @@ void Cold::save(const arbiter::Endpoint& endpoint) const
 {
     m_pool.join();
 
-    BaseChunk* baseChunk(dynamic_cast<BaseChunk*>(m_base.t->chunk.get()));
-
-    if (baseChunk) baseChunk->save(endpoint);
+    if (BaseChunk* baseChunk = dynamic_cast<BaseChunk*>(m_base.t->chunk.get()))
+    {
+        baseChunk->save();
+    }
 
     const auto aggregated(ids());
     Json::Value json;
@@ -301,8 +259,8 @@ void Cold::clip(
 
     auto unref([this, chunkId, &slot, id]()
     {
-        assert(slot.t);
         SpinGuard lock(slot.spinner);
+        assert(slot.t);
 
         if (m_builder.metadata().cesiumSettings() && slot.t->unique())
         {

@@ -38,7 +38,7 @@ Metadata::Metadata(
         const Structure& hierarchyStructure,
         const Manifest& manifest,
         const bool trustHeaders,
-        const bool compress,
+        const ChunkCompression compression,
         const HierarchyCompression hierarchyCompress,
         const Reprojection* reprojection,
         const Subset* subset,
@@ -62,7 +62,7 @@ Metadata::Metadata(
             makeUnique<Format>(
                 *this,
                 trustHeaders,
-                compress,
+                compression,
                 hierarchyCompress))
     , m_reprojection(maybeClone(reprojection))
     , m_subset(maybeClone(subset))
@@ -94,6 +94,14 @@ Metadata::Metadata(const arbiter::Endpoint& ep, const std::size_t* subsetId)
         {
             json["compressHierarchy"] = json["compress-hierarchy"];
         }
+
+        // 1.0: compression was a boolean named "compress".
+        if (json.isMember("compress") && json["compress"].isBool())
+        {
+            json["compression"] = json["compress"].asBool() ?
+                "lazperf" : "none";
+        }
+
         return json;
     })())
 {
@@ -216,6 +224,13 @@ void Metadata::merge(const Metadata& other)
     m_manifest->merge(other.manifest());
 }
 
+std::string Metadata::basename(const Id& chunkId) const
+{
+    return
+        m_structure->maybePrefix(chunkId) +
+        postfix(chunkId != m_structure->baseIndexBegin());
+}
+
 std::string Metadata::postfix(const bool isColdChunk) const
 {
     // Things we save, and their postfixing.
@@ -234,11 +249,7 @@ std::string Metadata::postfix(const bool isColdChunk) const
     //
     // Hierarchy metadata:
     //      All postfixes applied.
-    std::string pf;
-
-    if (m_subset && !isColdChunk) pf += m_subset->postfix();
-
-    return pf;
+    return m_subset && !isColdChunk ? m_subset->postfix() : "";
 }
 
 void Metadata::makeWhole()

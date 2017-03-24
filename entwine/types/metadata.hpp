@@ -48,7 +48,7 @@ public:
             const Structure& hierarchyStructure,
             const Manifest& manifest,
             bool trustHeaders,
-            bool compress,
+            ChunkCompression compression,
             HierarchyCompression hierarchyCompress,
             const Reprojection* reprojection = nullptr,
             const Subset* subset = nullptr,
@@ -131,6 +131,7 @@ public:
 
     const std::vector<std::string>& errors() const { return m_errors; }
 
+    std::string basename(const Id& chunkId) const;
     std::string postfix(bool isColdChunk = false) const;
     void makeWhole();
 

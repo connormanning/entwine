@@ -130,12 +130,37 @@ public:
 
     void push(Stack& other)
     {
-        if (!other.empty())
+        if (other.empty()) return;
+
+        push(other.m_tail);
+        m_head = other.head();
+        m_size += other.size() - 1; // Tail has already been accounted for.
+        other.clear();
+    }
+
+    void pushBack(Node<T>* node)
+    {
+        // The incoming node will be our new tail - make sure it ends the chain.
+        node->setNext(nullptr);
+
+        if (empty()) m_head = node;
+        else m_tail->setNext(node);
+
+        m_tail = node;
+        ++m_size;
+    }
+
+    void pushBack(Stack& other)
+    {
+        if (!empty())
         {
-            push(other.m_tail);
-            m_head = other.head();
-            m_size += other.size() - 1; // Tail has already been accounted for.
+            m_tail->setNext(other.head());
+            m_size += other.size();
             other.clear();
+        }
+        else
+        {
+            push(other);
         }
     }
 
@@ -564,6 +589,7 @@ public:
         m_splicePool.release(std::move(m_stack));
     }
 
+    // Push to front.
     void push(Node<T>* node) { m_stack.push(node); }
     void push(Stack<T>& other) { m_stack.push(other); }
     void push(Stack<T>&& other) { m_stack.push(other); other.clear(); }
@@ -580,6 +606,24 @@ public:
         m_stack.push(pushing);
     }
 
+    // Push to back.
+    void pushBack(Node<T>* node) { m_stack.pushBack(node); }
+    void pushBack(Stack<T>& other) { m_stack.pushBack(other); }
+    void pushBack(Stack<T>&& other) { m_stack.pushBack(other); other.clear(); }
+
+    void pushBack(UniqueNodeType&& node)
+    {
+        Node<T>* pushing(node.release());
+        m_stack.pushBack(pushing);
+    }
+
+    void pushBack(UniqueStack&& other)
+    {
+        Stack<T> pushing(other.release());
+        m_stack.pushBack(pushing);
+    }
+
+    // Push sorted.
     template <typename Compare>
     void push(Node<T>* node, Compare compare)
     {
@@ -662,6 +706,8 @@ public:
     Iterator end() { return Iterator(nullptr); }
     ConstIterator end() const { return ConstIterator(nullptr); }
     ConstIterator cend() const { return end(); }
+
+    SplicePool<T>& pool() { return m_splicePool; }
 
 private:
     UniqueStack(const UniqueStack&) = delete;

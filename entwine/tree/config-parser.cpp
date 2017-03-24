@@ -52,12 +52,12 @@ Json::Value ConfigParser::defaults()
 
     json["input"] = Json::Value::null;
     json["output"] = Json::Value::null;
-    json["tmp"] = "tmp";
+    json["tmp"] = arbiter::fs::getTempPath();
     json["threads"] = 8;
     json["trustHeaders"] = true;
     json["prefixIds"] = false;
     json["pointsPerChunk"] = 262144;
-    json["compress"] = true;
+    json["compression"] = "laszip";
     json["nullDepth"] = 7;
     json["baseDepth"] = 10;
 
@@ -109,8 +109,9 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         }
     }
 
-    const bool compress(json["compress"].asUInt64());
+    const auto compression(toCompression(json["compression"]));
     const bool trustHeaders(json["trustHeaders"].asBool());
+    const bool storePointId(json["storePointId"].asBool());
     auto cesiumSettings(getCesiumSettings(json["formats"]));
     bool absolute(json["absolute"].asBool());
 
@@ -212,6 +213,8 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
             const std::size_t originSize([&fileInfo]()
             {
+                if (fileInfo.size() <= std::numeric_limits<uint16_t>::max())
+                    return 2;
                 if (fileInfo.size() <= std::numeric_limits<uint32_t>::max())
                     return 4;
                 else
@@ -219,7 +222,11 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
             }());
 
             dims.emplace_back("OriginId", "unsigned", originSize);
-            dims.emplace_back("PointId", "unsigned", pointIdSize);
+
+            if (storePointId)
+            {
+                dims.emplace_back("PointId", "unsigned", pointIdSize);
+            }
 
             schema = makeUnique<Schema>(dims);
         }
@@ -238,7 +245,8 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     Structure structure(json);
     Structure hierarchyStructure(Hierarchy::structure(structure, subset.get()));
     const HierarchyCompression hierarchyCompression(
-            compress ? HierarchyCompression::Lzma : HierarchyCompression::None);
+            compression != ChunkCompression::None ?
+                HierarchyCompression::Lzma : HierarchyCompression::None);
 
     const auto ep(arbiter->getEndpoint(json["output"].asString()));
     const Manifest manifest(fileInfo, ep);
@@ -250,7 +258,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
             hierarchyStructure,
             manifest,
             trustHeaders,
-            compress,
+            compression,
             hierarchyCompression,
             reprojection.get(),
             subset.get(),

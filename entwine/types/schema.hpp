@@ -84,6 +84,16 @@ public:
         return it != m_dims.end();
     }
 
+    bool hasColor() const
+    {
+        return contains("Red") || contains("Green") || contains("Blue");
+    }
+
+    bool hasTime() const
+    {
+        return contains("GpsTime");
+    }
+
     const DimInfo& find(const std::string& name) const
     {
         const auto it(
@@ -214,6 +224,13 @@ public:
             if (!DimInfo::isXyz(dim.id())) dims.emplace_back(dim);
         }
 
+        return Schema(dims);
+    }
+
+    static Schema makeCelled(const Schema& in)
+    {
+        DimList dims(in.dims());
+        dims.push_back(DimInfo("TubeId", "unsigned", 8));
         return Schema(dims);
     }
 

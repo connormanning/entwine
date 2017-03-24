@@ -15,20 +15,22 @@
 #include <mutex>
 #include <string>
 
+#include <pdal/Filter.hpp>
+#include <pdal/Reader.hpp>
+
 #include <entwine/types/bounds.hpp>
+#include <entwine/types/reprojection.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace pdal
 {
-    class Stage;
     class StageFactory;
 }
 
 namespace entwine
 {
 
-class PooledPointTable;
 class Reprojection;
 class Schema;
 
@@ -81,14 +83,23 @@ public:
 class Executor
 {
 public:
-    Executor();
-    ~Executor();
+    static Executor& get()
+    {
+        static Executor e;
+        return e;
+    }
+
+    static std::mutex& mutex()
+    {
+        return get().m_mutex;
+    }
 
     // Returns true if no errors occurred during insertion.
+    template<typename T>
     bool run(
-            PooledPointTable& table,
+            T& table,
             std::string path,
-            const Reprojection* reprojection,
+            const Reprojection* reprojection = nullptr,
             const std::vector<double>* transform = nullptr);
 
     // True if this path is recognized as a point cloud file.
@@ -98,7 +109,7 @@ public:
     // reading the whole file.
     std::unique_ptr<Preview> preview(
             std::string path,
-            const Reprojection* reprojection);
+            const Reprojection* reprojection = nullptr);
 
     std::string getSrsString(std::string input) const;
 
@@ -106,16 +117,78 @@ public:
             const Bounds& bounds,
             const Transformation& transformation) const;
 
+    static std::unique_lock<std::mutex> getLock();
+
 private:
+    Executor();
+    ~Executor();
+
+    Executor(const Executor&) = delete;
+    Executor& operator=(const Executor&) = delete;
+
+    Reprojection srsFoundOrDefault(
+            const pdal::SpatialReference& found,
+            const Reprojection& given);
+
     UniqueStage createReader(std::string path) const;
     UniqueStage createReprojectionFilter(const Reprojection& r) const;
     UniqueStage createTransformationFilter(const std::vector<double>& m) const;
 
-    std::unique_lock<std::mutex> getLock() const;
-
+    mutable std::mutex m_mutex;
     std::unique_ptr<pdal::StageFactory> m_stageFactory;
-    mutable std::mutex m_factoryMutex;
 };
+
+template<typename T>
+bool Executor::run(
+        T& table,
+        const std::string path,
+        const Reprojection* reprojection,
+        const std::vector<double>* transform)
+{
+    UniqueStage scopedReader(createReader(path));
+    if (!scopedReader) return false;
+
+    pdal::Reader* reader(scopedReader->getAs<pdal::Reader*>());
+    pdal::Stage* executor(reader);
+
+    // Needed so that the SRS has been initialized.
+    { auto lock(getLock()); reader->prepare(table); }
+
+    UniqueStage scopedReproj;
+
+    if (reprojection)
+    {
+        const auto srs(
+                srsFoundOrDefault(
+                    reader->getSpatialReference(), *reprojection));
+
+        scopedReproj = createReprojectionFilter(srs);
+        if (!scopedReproj) return false;
+
+        pdal::Filter* filter(scopedReproj->getAs<pdal::Filter*>());
+
+        filter->setInput(*executor);
+        executor = filter;
+    }
+
+    UniqueStage scopedTransform;
+
+    if (transform)
+    {
+        scopedTransform = createTransformationFilter(*transform);
+        if (!scopedTransform) return false;
+
+        pdal::Filter* filter(scopedTransform->getAs<pdal::Filter*>());
+
+        filter->setInput(*executor);
+        executor = filter;
+    }
+
+    { auto lock(getLock()); executor->prepare(table); }
+    executor->execute(table);
+
+    return true;
+}
 
 } // namespace entwine
 

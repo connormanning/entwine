@@ -28,3 +28,6 @@ set(
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})
 add_library(${MODULE} OBJECT ${SOURCES})
 
+get_target_property(PDAL_INCLUDE_DIRS pdalcpp INTERFACE_INCLUDE_DIRECTORIES)
+target_include_directories(${MODULE} PRIVATE "${PDALCPP_INCLUDE_DIRS}")
+

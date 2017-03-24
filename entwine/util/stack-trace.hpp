@@ -29,7 +29,7 @@ namespace
     std::mutex mutex;
 }
 
-void stackTrace()
+inline void stackTrace()
 {
     std::lock_guard<std::mutex> lock(mutex);
 
@@ -76,7 +76,7 @@ void stackTrace()
 }
 
 template<typename Signal>
-void stackTraceOn(Signal s)
+inline void stackTraceOn(Signal s)
 {
 #ifndef _WIN32
     signal(s, [](int sig)

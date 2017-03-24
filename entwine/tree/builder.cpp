@@ -66,7 +66,6 @@ Builder::Builder(
         return m;
     })())
     , m_isContinuation(false)
-    , m_executor(makeUnique<Executor>())
     , m_pointPool(
             outerScope.getPointPool(m_metadata->schema(), m_metadata->delta()))
     , m_hierarchyPool(outerScope.getHierarchyPool(heuristics::poolBlockSize))
@@ -99,7 +98,6 @@ Builder::Builder(
         return m;
     })())
     , m_isContinuation(true)
-    , m_executor(makeUnique<Executor>())
     , m_pointPool(
             outerScope.getPointPool(m_metadata->schema(), m_metadata->delta()))
     , m_hierarchyPool(outerScope.getHierarchyPool(heuristics::poolBlockSize))
@@ -239,7 +237,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
     // If we don't have an inferred bounds, check against the actual file.
     if (!info.bounds())
     {
-        if (auto pre = m_executor->preview(localPath, reprojection))
+        if (auto pre = Executor::get().preview(localPath, reprojection))
         {
             const auto b(pre->bounds.growBy(.01));
             if (!m_sequence->checkBounds(origin, b, pre->numPoints))
@@ -259,11 +257,11 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
             {
                 // Don't construct the pdal::SpatialReference ourself, since
                 // we need to use the Executor's lock to do so.
-                srs = m_executor->getSrsString(reprojection->out());
+                srs = Executor::get().getSrsString(reprojection->out());
             }
             else
             {
-                auto preview(m_executor->preview(localPath, nullptr));
+                auto preview(Executor::get().preview(localPath, nullptr));
                 if (preview) srs = preview->srs;
             }
 
@@ -300,7 +298,7 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
                 m_metadata->delta(),
                 origin));
 
-    return m_executor->run(*table, localPath, reprojection, transformation);
+    return Executor::get().run(*table, localPath, reprojection, transformation);
 }
 
 Cell::PooledStack Builder::insertData(
@@ -428,6 +426,11 @@ void Builder::prepareEndpoints()
                 throw std::runtime_error("Couldn't create " + rootDir + "h");
             }
 
+            if (!arbiter::fs::mkdirp(rootDir + "laz"))
+            {
+                throw std::runtime_error("Couldn't create " + rootDir + "h");
+            }
+
             if (
                     m_metadata->cesiumSettings() &&
                     !arbiter::fs::mkdirp(rootDir + "cesium"))
@@ -465,7 +468,6 @@ std::shared_ptr<HierarchyCell::Pool> Builder::sharedHierarchyPool() const
 const arbiter::Endpoint& Builder::outEndpoint() const { return *m_outEndpoint; }
 const arbiter::Endpoint& Builder::tmpEndpoint() const { return *m_tmpEndpoint; }
 
-Executor& Builder::executor() { return *m_executor; }
 std::mutex& Builder::mutex() { return m_mutex; }
 
 void Builder::append(const FileInfoList& fileInfo)

@@ -138,6 +138,8 @@ public:
     std::size_t maxBytes() const { return m_maxBytes; }
     std::size_t activeBytes() const { return m_activeBytes; }
 
+    void release(const Reader& reader);
+
 private:
     void release(const Block& block);
 

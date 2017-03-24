@@ -67,6 +67,9 @@ else()
     message("Curl NOT found")
 endif()
 
+get_target_property(PDALCPP_INCLUDE_DIRS pdalcpp INTERFACE_INCLUDE_DIRECTORIES)
+include_directories("${PDALCPP_INCLUDE_DIRS}")
+
 mark_as_advanced(CLEAR PDAL_INCLUDE_DIRS)
 mark_as_advanced(CLEAR LazPerf_INCLUDE_DIR)
 mark_as_advanced(CLEAR PDAL_LIBRARIES)
@@ -86,6 +89,7 @@ add_subdirectory(kernel)
 set(OBJS
     $<TARGET_OBJECTS:formats>
     $<TARGET_OBJECTS:reader>
+    $<TARGET_OBJECTS:storage>
     $<TARGET_OBJECTS:third>
     $<TARGET_OBJECTS:tree>
     $<TARGET_OBJECTS:types>
