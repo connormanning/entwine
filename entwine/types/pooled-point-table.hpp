@@ -267,6 +267,8 @@ public:
                 });
     }
 
+    ~CellTable() { m_pool.release(acquire()); }
+
     Cell::PooledStack acquire()
     {
         m_size = 0;

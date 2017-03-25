@@ -29,7 +29,8 @@ ChunkReader::ChunkReader(
         PointPool& pool,
         const Id& id,
         const std::size_t depth)
-    : m_schema(metadata.schema())
+    : m_pool(pool)
+    , m_schema(metadata.schema())
     , m_bounds(metadata.boundsScaledCubic())
     , m_id(id)
     , m_depth(depth)
@@ -49,6 +50,11 @@ ChunkReader::ChunkReader(
     std::sort(m_points.begin(), m_points.end());
 }
 
+ChunkReader::~ChunkReader()
+{
+    m_pool.release(std::move(m_cells));
+}
+
 ChunkReader::QueryRange ChunkReader::candidates(const Bounds& queryBounds) const
 {
     const PointInfo min(Tube::calcTick(queryBounds.min(), m_bounds, m_depth));
@@ -66,6 +72,8 @@ BaseChunkReader::BaseChunkReader(const Metadata& m, PointPool& pool)
     , m_cells(m_pool.cellPool())
     , m_points(m.structure().baseIndexSpan())
 { }
+
+BaseChunkReader::~BaseChunkReader() { m_pool.release(std::move(m_cells)); }
 
 SlicedBaseChunkReader::SlicedBaseChunkReader(
         const Metadata& m,
@@ -116,6 +124,7 @@ CelledBaseChunkReader::CelledBaseChunkReader(
     PointPool celledPool(celledSchema, m.delta());
 
     auto tubedCells(m.format().deserialize(endpoint, celledPool, m_id));
+    Data::PooledStack tubedData(celledPool.dataPool());
 
     auto dataNodes(m_pool.dataPool().acquire(tubedCells.size()));
     m_cells = m_pool.cellPool().acquire(tubedCells.size());
@@ -142,6 +151,8 @@ CelledBaseChunkReader::CelledBaseChunkReader(
         cell.set(pointRef, std::move(data));
 
         m_points.at(tube).emplace_back(cell.point(), cell.uniqueData());
+
+        tubedData.push(tubedCell->acquire());
     }
 }
 

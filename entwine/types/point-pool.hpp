@@ -47,7 +47,8 @@ public:
     using PooledNode = Pool::UniqueNodeType;
     using PooledStack = Pool::UniqueStackType;
 
-    Cell() noexcept : m_point(), m_dataStack() { }
+    Cell() noexcept { }
+    ~Cell() { assert(empty()); }
 
     Point& point() { return m_point; }
     const Point& point() const { return m_point; }
@@ -120,6 +121,12 @@ public:
     const Delta* delta() const { return m_delta; }
     Data::Pool& dataPool() { return m_dataPool; }
     Cell::Pool& cellPool() { return m_cellPool; }
+
+    void release(Cell::PooledStack cells)
+    {
+        Data::PooledStack dataStack(dataPool());
+        for (auto& cell : cells) dataStack.push(cell.acquire());
+    }
 
 private:
     const Schema& m_schema;

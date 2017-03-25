@@ -64,6 +64,8 @@ public:
             const Id& id,
             std::size_t depth);
 
+    ~ChunkReader();
+
     using It = TubeData::const_iterator;
     struct QueryRange
     {
@@ -89,6 +91,7 @@ private:
         return (rawIndex - m_id).getSimple();
     }
 
+    PointPool& m_pool;
     const Schema& m_schema;
     const Bounds& m_bounds;
     const Id m_id;
@@ -103,6 +106,7 @@ class BaseChunkReader
 {
 public:
     BaseChunkReader(const Metadata& m, PointPool& pool);
+    ~BaseChunkReader();
 
     const TubeData& tubeData(const Id& id) const
     {
