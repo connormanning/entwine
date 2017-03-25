@@ -21,6 +21,8 @@
 #include <entwine/types/schema.hpp>
 #include <entwine/third/splice-pool/splice-pool.hpp>
 
+#include <entwine/util/stack-trace.hpp>
+
 namespace entwine
 {
 
@@ -54,8 +56,9 @@ public:
     void push(Cell::PooledNode&& other, std::size_t pointSize)
     {
         assert(point() == other->point());
+        auto adding(other->acquire());
         m_dataStack.push(
-                other->m_dataStack,
+                adding,
                 [pointSize](const char* a, const char* b)
                 {
                     return std::memcmp(a, b, pointSize) < 0;

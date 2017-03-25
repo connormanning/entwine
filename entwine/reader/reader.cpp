@@ -103,7 +103,20 @@ void Reader::init()
 
     if (structure.hasBase())
     {
-        m_base = makeUnique<BaseChunkReader>(m_metadata, m_endpoint);
+        if (m_metadata.slicedBase())
+        {
+            m_base = makeUnique<SlicedBaseChunkReader>(
+                    m_metadata,
+                    m_pool,
+                    m_endpoint);
+        }
+        else
+        {
+            m_base = makeUnique<CelledBaseChunkReader>(
+                    m_metadata,
+                    m_pool,
+                    m_endpoint);
+        }
     }
 
     if (structure.hasCold())

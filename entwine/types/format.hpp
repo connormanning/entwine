@@ -43,7 +43,6 @@ class Format
 public:
     Format(
             const Metadata& metadata,
-            bool trustHeaders = true,
             ChunkCompression compression = ChunkCompression::LasZip,
             HierarchyCompression hc = HierarchyCompression::Lzma);
     Format(const Metadata& metadata, const Format& other);
@@ -59,7 +58,6 @@ public:
         PointPool& pool,
         const Id& chunkId) const;
 
-    bool trustHeaders() const { return m_trustHeaders; }
     ChunkCompression compression() const { return m_compression; }
     HierarchyCompression hierarchyCompression() const
     {
@@ -73,8 +71,6 @@ private:
     const Metadata& m_metadata;
     const Json::Value m_json;
 
-    // TODO Move trustHeaders out to Metadata.
-    bool m_trustHeaders;
     ChunkCompression m_compression;
     HierarchyCompression m_hierarchyCompression;
 

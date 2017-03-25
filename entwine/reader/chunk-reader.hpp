@@ -48,8 +48,10 @@ public:
 private:
     Point m_point;
     const char* m_data = nullptr;
-    uint64_t m_tick;
+    uint64_t m_tick = 0;
 };
+
+using TubeData = std::vector<PointInfo>;
 
 // Ordered by Z-tick to perform the tubular-quadtree-as-octree query.
 class ChunkReader
@@ -62,9 +64,7 @@ public:
             const Id& id,
             std::size_t depth);
 
-    using PointOrder = std::vector<PointInfo>;
-    using It = PointOrder::const_iterator;
-
+    using It = TubeData::const_iterator;
     struct QueryRange
     {
         QueryRange(It begin, It end) : begin(begin), end(end) { }
@@ -95,34 +95,45 @@ private:
     const std::size_t m_depth;
 
     Cell::PooledStack m_cells;
-    std::vector<PointInfo> m_points;
+    TubeData m_points;
 };
 
 // Ordered by normal BaseChunk ordering for traversal.
 class BaseChunkReader
 {
 public:
-    BaseChunkReader(const Metadata& metadata, const arbiter::Endpoint& ep);
+    BaseChunkReader(const Metadata& m, PointPool& pool);
 
-    using TubeData = std::vector<PointInfo>;
-
-    const TubeData& getTubeData(const Id& id) const
+    const TubeData& tubeData(const Id& id) const
     {
-        return m_tubes.at(normalize(id));
+        return m_points.at(normalize(id));
     }
 
-private:
-    std::size_t normalize(const Id& rawIndex) const
-    {
-        return (rawIndex - m_id).getSimple();
-    }
+protected:
+    std::size_t normalize(const Id& v) const { return (v - m_id).getSimple(); }
 
-    const Schema m_celledSchema;
-    PointPool m_pool;
     const Id m_id;
-
+    PointPool& m_pool;
     Cell::PooledStack m_cells;
-    std::vector<TubeData> m_tubes;
+    std::vector<TubeData> m_points;
+};
+
+class SlicedBaseChunkReader : public BaseChunkReader
+{
+public:
+    SlicedBaseChunkReader(
+            const Metadata& m,
+            PointPool& pool,
+            const arbiter::Endpoint& ep);
+};
+
+class CelledBaseChunkReader : public BaseChunkReader
+{
+public:
+    CelledBaseChunkReader(
+            const Metadata& m,
+            PointPool& pool,
+            const arbiter::Endpoint& ep);
 };
 
 } // namespace entwine

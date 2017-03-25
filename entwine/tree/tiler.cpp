@@ -128,7 +128,7 @@ Base::Base(const Tiler& tiler)
     , m_structure(tiler.metadata().structure())
 {
     const Metadata& metadata(tiler.metadata());
-    const Schema celledSchema(Schema::makeCelled(metadata.schema()));
+    // const Schema celledSchema(Schema::makeCelled(metadata.schema()));
 
     const std::string path(metadata.structure().maybePrefix(m_chunkId));
     auto data(Storage::ensureGet(tiler.inEndpoint(), path));

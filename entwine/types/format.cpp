@@ -32,11 +32,9 @@ namespace entwine
 
 Format::Format(
         const Metadata& metadata,
-        const bool trustHeaders,
         const ChunkCompression compression,
         const HierarchyCompression hierarchyCompression)
     : m_metadata(metadata)
-    , m_trustHeaders(trustHeaders)
     , m_compression(compression)
     , m_hierarchyCompression(hierarchyCompression)
 {
@@ -46,7 +44,6 @@ Format::Format(
 Format::Format(const Metadata& metadata, const Json::Value& json)
     : m_metadata(metadata)
     , m_json(json)
-    , m_trustHeaders(json["trustHeaders"].asBool())
     , m_compression(toCompression(json["compression"]))
     , m_hierarchyCompression(toHierarchyCompression(json["compressHierarchy"]))
 {
@@ -56,7 +53,6 @@ Format::Format(const Metadata& metadata, const Json::Value& json)
 Format::Format(const Metadata& metadata, const Format& other)
     : m_metadata(metadata)
     , m_json(other.m_json)
-    , m_trustHeaders(other.m_trustHeaders)
     , m_compression(other.m_compression)
     , m_hierarchyCompression(other.m_hierarchyCompression)
 {
@@ -68,7 +64,6 @@ Format::~Format() { }
 Json::Value Format::toJson() const
 {
     Json::Value json;
-    json["trustHeaders"] = m_trustHeaders;
     json["compression"] = toString(m_compression);
     json["compressHierarchy"] = toString(m_hierarchyCompression);
 

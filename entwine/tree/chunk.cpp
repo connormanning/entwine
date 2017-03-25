@@ -328,8 +328,6 @@ BaseChunk::BaseChunk(const Builder& builder, const bool exists)
             builder.metadata().structure().baseDepthBegin(),
             builder.metadata().structure().baseIndexBegin(),
             builder.metadata().structure().baseIndexSpan())
-    , m_celledSchema(Schema::makeCelled(m_metadata.schema()))
-    , m_celledPool(m_celledSchema, m_metadata.delta())
 {
     std::srand(std::time(0));
     const auto& s(m_metadata.structure());
@@ -362,7 +360,7 @@ BaseChunk::BaseChunk(const Builder& builder, const bool exists)
                     d,
                     spans[d].begin(),
                     spans[d].end() - spans[d].begin(),
-                    false);
+                    exists);
         }
     }
     else
@@ -375,102 +373,19 @@ BaseChunk::BaseChunk(const Builder& builder, const bool exists)
                     d,
                     ChunkInfo::calcLevelIndex(2, d),
                     ChunkInfo::pointsAtDepth(2, d),
-                    false);
+                    exists);
         }
     }
 
     chunkCount = 1;
-
-    if (exists)
-    {
-        populate(format().deserialize(
-                    builder.outEndpoint(),
-                    m_celledPool,
-                    m_id));
-    }
 }
 
-Cell::PooledStack BaseChunk::acquire()
+void BaseChunk::save()
 {
-    Cell::PooledStack cellStack(m_celledPool.cellPool());
-    BinaryPointTable table(m_celledSchema);
-    pdal::PointRef pointRef(table, 0);
-
-    const std::size_t tubeIdSize(sizeof(uint64_t));
-    uint64_t tubeId(0);
-    const char* tPos(reinterpret_cast<char*>(&tubeId));
-    const char* tEnd(tPos + tubeIdSize);
-
-    const std::size_t nativePointSize(m_metadata.schema().pointSize());
-
-    for (auto& chunk : m_chunks)
+    const auto& s(m_metadata.structure());
+    for (std::size_t d(s.baseDepthBegin()); d < m_chunks.size(); ++d)
     {
-        for (std::size_t i(0); i < chunk.m_tubes.size(); ++i)
-        {
-            Tube& tube(chunk.m_tubes[i]);
-            for (auto& inner : tube)
-            {
-                Cell::PooledNode& cell(inner.second);
-                for (const char* d : *cell)
-                {
-                    auto cellNode(m_celledPool.cellPool().acquireOne());
-                    auto dataNode(m_celledPool.dataPool().acquireOne());
-
-                    tubeId = chunk.id().getSimple() + i - m_id.getSimple();
-                    std::copy(d, d + nativePointSize, *dataNode);
-                    std::copy(tPos, tEnd, *dataNode + nativePointSize);
-
-                    table.setPoint(*dataNode);
-                    cellNode->set(pointRef, std::move(dataNode));
-                    cellStack.push(std::move(cellNode));
-                }
-            }
-        }
-    }
-
-    return cellStack;
-}
-
-void BaseChunk::populate(Cell::PooledStack cells)
-{
-    const std::size_t numPoints(cells.size());
-    Data::PooledStack dataStack(m_pointPool.dataPool().acquire(numPoints));
-    Cell::PooledStack cellStack(m_pointPool.cellPool().acquire(numPoints));
-
-    const std::size_t nativePointSize(m_metadata.schema().pointSize());
-    const std::size_t celledPointSize(m_celledSchema.pointSize());
-    const auto factor(m_metadata.structure().factor());
-
-    uint64_t tubeId(0);
-    char* tPos(reinterpret_cast<char*>(&tubeId));
-
-    BinaryPointTable table(m_metadata.schema());
-    pdal::PointRef pointRef(table, 0);
-
-    Climber climber(m_metadata);
-
-    for (const auto& in : cells)
-    {
-        Cell::PooledNode cellNode(cellStack.popOne());
-        Data::PooledNode dataNode(dataStack.popOne());
-
-        const char* pos(in.uniqueData());
-        std::copy(pos, pos + nativePointSize, *dataNode);
-        std::copy(pos + nativePointSize, pos + celledPointSize, tPos);
-
-        table.setPoint(*dataNode);
-        cellNode->set(pointRef, std::move(dataNode));
-
-        const std::size_t curDepth(ChunkInfo::calcDepth(factor, m_id + tubeId));
-        climber.reset();
-        climber.magnifyTo(cellNode->point(), curDepth);
-
-        if (tubeId != (climber.index() - m_id).getSimple())
-        {
-            throw std::runtime_error("Bad serialized base tube");
-        }
-
-        insert(climber, cellNode);
+        m_metadata.format().serialize(m_chunks.at(d));
     }
 }
 

@@ -168,7 +168,7 @@ void Query::getBase(std::vector<char>& buffer, const PointState& pointState)
 
     if (pointState.depth() >= m_structure.baseDepthBegin())
     {
-        const auto& cell(m_reader.base()->getTubeData(pointState.index()));
+        const auto& cell(m_reader.base()->tubeData(pointState.index()));
         if (cell.empty()) return;
 
         if (pointState.depth() >= m_depthBegin)

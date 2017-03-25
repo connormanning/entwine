@@ -227,13 +227,6 @@ public:
         return Schema(dims);
     }
 
-    static Schema makeCelled(const Schema& in)
-    {
-        DimList dims(in.dims());
-        dims.push_back(DimInfo("TubeId", "unsigned", 8));
-        return Schema(dims);
-    }
-
 private:
     std::unique_ptr<pdal::PointLayout> makePointLayout(DimList& dims)
     {

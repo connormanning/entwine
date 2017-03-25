@@ -489,7 +489,7 @@ void Kernel::build(std::vector<std::string> args)
     const auto& threadPools(builder->threadPools());
 
     std::cout <<
-        "\tTrust file headers? " << yesNo(format.trustHeaders()) << "\n" <<
+        "\tTrust file headers? " << yesNo(metadata.trustHeaders()) << "\n" <<
         "\tWork threads: " << threadPools.workPool().numThreads() << "\n" <<
         "\tClip threads: " << threadPools.clipPool().numThreads() <<
         std::endl;

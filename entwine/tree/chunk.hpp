@@ -69,11 +69,11 @@ public:
     const Format& format() const { return m_metadata.format(); }
     const Bounds& bounds() const { return m_bounds; }
 
-    void save();
+    virtual void save();
 
     virtual ChunkType type() const = 0;
-    virtual const Schema& schema() const { return m_metadata.schema(); }
-    virtual PointPool& pool() { return m_pointPool; }
+    const Schema& schema() const { return m_metadata.schema(); }
+    PointPool& pool() { return m_pointPool; }
 
     virtual Cell::PooledStack acquire() = 0;
 
@@ -235,15 +235,23 @@ public:
 
     std::set<Id> merge(BaseChunk& other);
 
-    virtual PointPool& pool() override { return m_celledPool; }
-    virtual const Schema& schema() const override { return m_celledSchema; }
     virtual cesium::TileInfo info() const override;
     virtual ChunkType type() const override { return ChunkType::Contiguous; }
     std::vector<cesium::TileInfo> baseInfo() const;
 
+    virtual void save() override;
+
 private:
-    virtual Cell::PooledStack acquire() override;
-    virtual void populate(Cell::PooledStack cells) override;
+    virtual Cell::PooledStack acquire() override
+    {
+        std::cout << "No BaseChunk::acquire" << std::endl;
+        throw std::runtime_error("No BaseChunk::acquire");
+    }
+    virtual void populate(Cell::PooledStack cells) override
+    {
+        std::cout << "No BaseChunk::populate" << std::endl;
+        throw std::runtime_error("No BaseChunk::populate");
+    }
 
     virtual void tile() const override;
 
@@ -253,8 +261,6 @@ private:
     }
 
     std::vector<ContiguousChunk> m_chunks;
-    Schema m_celledSchema;
-    PointPool m_celledPool;
 };
 
 } // namespace entwine

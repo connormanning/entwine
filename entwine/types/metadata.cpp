@@ -58,18 +58,14 @@ Metadata::Metadata(
     , m_structure(makeUnique<Structure>(structure))
     , m_hierarchyStructure(makeUnique<Structure>(hierarchyStructure))
     , m_manifest(makeUnique<Manifest>(manifest))
-    , m_format(
-            makeUnique<Format>(
-                *this,
-                trustHeaders,
-                compression,
-                hierarchyCompress))
+    , m_format(makeUnique<Format>(*this, compression, hierarchyCompress))
     , m_reprojection(maybeClone(reprojection))
     , m_subset(maybeClone(subset))
     , m_transformation(maybeClone(transformation))
     , m_cesiumSettings(maybeClone(cesiumSettings))
     , m_version(makeUnique<Version>(currentVersion()))
     , m_srs()
+    , m_trustHeaders(trustHeaders)
     , m_errors()
 { }
 
@@ -138,6 +134,8 @@ Metadata::Metadata(const Json::Value& json)
                 nullptr)
     , m_version(makeUnique<Version>(json["version"].asString()))
     , m_srs(json["srs"].asString())
+    , m_trustHeaders(json["trustHeaders"].asBool())
+    , m_slicedBase(json["baseType"].asString() == "sliced")
     , m_errors(extract<std::string>(json["errors"]))
 { }
 
@@ -159,6 +157,8 @@ Metadata::Metadata(const Metadata& other)
     , m_cesiumSettings(maybeClone(other.cesiumSettings()))
     , m_version(makeUnique<Version>(other.version()))
     , m_srs(other.srs())
+    , m_trustHeaders(other.trustHeaders())
+    , m_slicedBase(other.slicedBase())
     , m_errors(other.errors())
 { }
 
@@ -173,6 +173,7 @@ Json::Value Metadata::toJson() const
     json["schema"] = m_schema->toJson();
     json["structure"] = m_structure->toJson();
     json["hierarchyStructure"] = m_hierarchyStructure->toJson();
+    json["trustHeaders"] = m_trustHeaders;
 
     const Json::Value format(m_format->toJson());
     for (const auto& k : format.getMemberNames()) json[k] = format[k];
@@ -181,10 +182,8 @@ Json::Value Metadata::toJson() const
     if (m_reprojection) json["reprojection"] = m_reprojection->toJson();
     if (m_subset) json["subset"] = m_subset->toJson();
 
-    if (m_delta)
-    {
-        m_delta->insertInto(json);
-    }
+    if (m_delta) m_delta->insertInto(json);
+    if (m_slicedBase) json["baseType"] = "sliced";
 
     if (m_transformation)
     {

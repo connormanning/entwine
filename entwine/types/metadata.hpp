@@ -128,6 +128,8 @@ public:
 
     const Version& version() const { return *m_version; }
     const std::string& srs() const { return m_srs; }
+    bool trustHeaders() const { return m_trustHeaders; }
+    bool slicedBase() const { return m_slicedBase; }
 
     const std::vector<std::string>& errors() const { return m_errors; }
 
@@ -166,6 +168,8 @@ private:
     std::unique_ptr<cesium::Settings> m_cesiumSettings;
     std::unique_ptr<Version> m_version;
     std::string m_srs;
+    bool m_trustHeaders = true;
+    bool m_slicedBase = true;
 
     std::vector<std::string> m_errors;
 };
