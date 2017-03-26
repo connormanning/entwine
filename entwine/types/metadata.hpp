@@ -135,6 +135,7 @@ public:
 
     std::string basename(const Id& chunkId) const;
     std::string postfix(bool isColdChunk = false) const;
+    void unbump();
     void makeWhole();
 
     Json::Value toJson() const;

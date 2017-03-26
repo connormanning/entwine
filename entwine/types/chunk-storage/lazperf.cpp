@@ -40,7 +40,7 @@ Cell::PooledStack LazPerfStorage::read(
     BinaryPointTable table(schema);
     pdal::PointRef pointRef(table, 0);
 
-    if (id != m_metadata.structure().baseIndexBegin() && !numPoints)
+    if (id >= m_metadata.structure().coldIndexBegin() && !numPoints)
     {
         throw std::runtime_error("Invalid lazperf chunk - no numPoints");
     }

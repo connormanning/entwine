@@ -442,6 +442,7 @@ void Builder::prepareEndpoints()
     }
 }
 
+void Builder::unbump() { m_metadata->unbump(); }
 void Builder::makeWhole() { m_metadata->makeWhole(); }
 
 const Metadata& Builder::metadata() const           { return *m_metadata; }

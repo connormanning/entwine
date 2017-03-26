@@ -87,6 +87,8 @@ void Merger::go()
 {
     const std::size_t total(m_others.size() + 1);
 
+    m_builder->unbump();
+
     for (const auto id : m_others)
     {
         m_pos = id + 1;

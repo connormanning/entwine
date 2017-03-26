@@ -109,6 +109,11 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         }
     }
 
+    if (json["absolute"].asBool() && json["storage"].asString() == "laszip")
+    {
+        json["storage"] = "lazperf";
+    }
+
     const auto storage(toChunkStorageType(json["storage"]));
     const bool trustHeaders(json["trustHeaders"].asBool());
     const bool storePointId(json["storePointId"].asBool());

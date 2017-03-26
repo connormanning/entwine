@@ -227,7 +227,7 @@ std::string Metadata::basename(const Id& chunkId) const
 {
     return
         m_structure->maybePrefix(chunkId) +
-        postfix(chunkId != m_structure->baseIndexBegin());
+        postfix(chunkId >= m_structure->coldIndexBegin());
 }
 
 std::string Metadata::postfix(const bool isColdChunk) const
@@ -256,6 +256,11 @@ void Metadata::makeWhole()
     m_subset.reset();
     m_structure->unbump();
     m_hierarchyStructure->unbump();
+}
+
+void Metadata::unbump()
+{
+    m_structure->unbump();
 }
 
 std::unique_ptr<Bounds> Metadata::boundsNativeSubset() const

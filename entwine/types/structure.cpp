@@ -192,7 +192,6 @@ Structure::Structure(
     : m_tubular(tubular)
     , m_dynamicChunks(dynamicChunks)
     , m_prefixIds(prefixIds)
-    , m_unbump(false)
     , m_dimensions(dimensions)
     , m_factor(1ULL << m_dimensions)
     , m_numPointsHint(numPointsHint)
@@ -311,7 +310,7 @@ Json::Value Structure::toJson() const
 
     if (m_bumpDepth)
     {
-        if (m_unbump)
+        if (m_bumpDepth == m_baseDepthEnd)
         {
             // Save metadata as if the base depth end was never increased.
             json["baseDepth"] = static_cast<Json::UInt64>(m_bumpDepth);
@@ -323,6 +322,14 @@ Json::Value Structure::toJson() const
     }
 
     return json;
+}
+
+void Structure::unbump()
+{
+    m_baseDepthEnd = m_bumpDepth;
+    m_coldDepthBegin = m_bumpDepth;
+    m_baseIndexEnd = ChunkInfo::calcLevelIndex(m_dimensions, m_baseDepthEnd);
+    m_coldIndexBegin = m_baseIndexEnd;
 }
 
 ChunkInfo Structure::getInfoFromNum(const std::size_t chunkNum) const

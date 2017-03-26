@@ -177,8 +177,7 @@ TEST_P(BuildTest, Verify)
     // Miscellaneous parameters.
     EXPECT_EQ(
             meta["storage"].asString(),
-            config.isMember("storage") ?
-                config["storage"].asString() : "laszip");
+            config["absolute"].asBool() ? "lazperf" : "laszip");
 
     EXPECT_EQ(meta["compressHierarchy"].asString(), "lzma");
 
@@ -273,7 +272,6 @@ namespace absolute
         return json;
     })());
 
-    /*
     Expectations one(single, actualBounds);
     Expectations two(multi, actualBounds);
     Expectations con(continued, actualBounds);
@@ -283,7 +281,6 @@ namespace absolute
             Absolute,
             BuildTest,
             testing::Values(one, two, con, sub), );
-            */
 }
 
 namespace scaled

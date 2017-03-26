@@ -219,10 +219,7 @@ public:
 
     std::size_t maxChunksPerDepth() const { return m_maxChunksPerDepth; }
 
-    void unbump()
-    {
-        m_unbump = true;
-    }
+    void unbump();
 
     void clearStart()
     {
@@ -234,7 +231,6 @@ private:
     bool m_dynamicChunks;
     bool m_discardDuplicates;
     bool m_prefixIds;
-    bool m_unbump;
 
     std::size_t m_dimensions;
     std::size_t m_factor;

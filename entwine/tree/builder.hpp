@@ -106,6 +106,7 @@ public:
 
     // Set up our metadata as finished with merging.
     void makeWhole();
+    void unbump();
 
     void append(const FileInfoList& fileInfo);
 
