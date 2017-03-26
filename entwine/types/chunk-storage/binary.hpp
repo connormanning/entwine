@@ -12,8 +12,8 @@
 
 #include <cassert>
 
-#include <entwine/tree/storage/storage.hpp>
 #include <entwine/types/binary-point-table.hpp>
+#include <entwine/types/chunk-storage/chunk-storage.hpp>
 
 namespace entwine
 {
@@ -54,7 +54,7 @@ public:
             PointPool& pool,
             const Id& id) const override
     {
-        auto data(Storage::ensureGet(endpoint, m_metadata.basename(id)));
+        auto data(io::ensureGet(endpoint, m_metadata.basename(id)));
         const Tail tail(*data, m_tailFields);
         const char* pos(data->data());
 

@@ -13,7 +13,7 @@
 #include <cmath>
 #include <iomanip>
 #include <limits>
-#include <ostream>
+#include <sstream>
 #include <vector>
 
 #include <json/json.h>
@@ -384,7 +384,19 @@ inline std::ostream& operator<<(std::ostream& os, const Point& point)
         if (d == std::numeric_limits<double>::max()) os << "max";
         else if (d == std::numeric_limits<double>::lowest()) os << "min";
         else if (std::trunc(d) == d) os << static_cast<long>(d);
-        else os << d;
+        else
+        {
+            std::ostringstream oss;
+            oss << std::setprecision(8) << d;
+            std::string s(oss.str());
+
+            while (s.size() > 2 && s.back() == '0' && s[s.size() - 2] != '.')
+            {
+                s.pop_back();
+            }
+
+            os << s;
+        }
     });
 
     os << std::setprecision(5) << std::fixed;

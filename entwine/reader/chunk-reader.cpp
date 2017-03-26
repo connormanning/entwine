@@ -15,9 +15,9 @@
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/types/binary-point-table.hpp>
-#include <entwine/types/format.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/storage.hpp>
 #include <entwine/util/compression.hpp>
 
 namespace entwine
@@ -34,7 +34,7 @@ ChunkReader::ChunkReader(
     , m_bounds(metadata.boundsScaledCubic())
     , m_id(id)
     , m_depth(depth)
-    , m_cells(metadata.format().deserialize(endpoint, pool, m_id))
+    , m_cells(metadata.storage().deserialize(endpoint, pool, m_id))
 {
     const std::size_t numPoints(m_cells.size());
     m_points.reserve(numPoints);
@@ -90,7 +90,7 @@ SlicedBaseChunkReader::SlicedBaseChunkReader(
         t.add([this, &mutex, &m, &endpoint, d]()
         {
             const auto id(ChunkInfo::calcLevelIndex(2, d));
-            auto cells(m.format().deserialize(endpoint, m_pool, id));
+            auto cells(m.storage().deserialize(endpoint, m_pool, id));
             Climber climber(m);
 
             std::lock_guard<std::mutex> lock(mutex);
@@ -123,7 +123,7 @@ CelledBaseChunkReader::CelledBaseChunkReader(
     const Schema celledSchema(dims);
     PointPool celledPool(celledSchema, m.delta());
 
-    auto tubedCells(m.format().deserialize(endpoint, celledPool, m_id));
+    auto tubedCells(m.storage().deserialize(endpoint, celledPool, m_id));
     Data::PooledStack tubedData(celledPool.dataPool());
 
     auto dataNodes(m_pool.dataPool().acquire(tubedCells.size()));

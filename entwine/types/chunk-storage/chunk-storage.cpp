@@ -8,11 +8,11 @@
 *
 ******************************************************************************/
 
-#include <entwine/tree/storage/storage.hpp>
+#include <entwine/types/chunk-storage/chunk-storage.hpp>
 
-#include <entwine/tree/storage/binary.hpp>
-#include <entwine/tree/storage/lazperf.hpp>
-#include <entwine/tree/storage/laszip.hpp>
+#include <entwine/types/chunk-storage/binary.hpp>
+#include <entwine/types/chunk-storage/lazperf.hpp>
+#include <entwine/types/chunk-storage/laszip.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -20,14 +20,14 @@ namespace entwine
 
 std::unique_ptr<ChunkStorage> ChunkStorage::create(
         const Metadata& m,
-        const ChunkCompression c,
+        const ChunkStorageType s,
         const Json::Value& j)
 {
-    switch (c)
+    switch (s)
     {
-        case ChunkCompression::LazPerf: return makeUnique<LazPerfStorage>(m, j);
-        case ChunkCompression::LasZip: return makeUnique<LasZipStorage>(m, j);
-        case ChunkCompression::None: return makeUnique<BinaryStorage>(m, j);
+        case ChunkStorageType::LazPerf: return makeUnique<LazPerfStorage>(m, j);
+        case ChunkStorageType::LasZip: return makeUnique<LasZipStorage>(m, j);
+        case ChunkStorageType::Binary: return makeUnique<BinaryStorage>(m, j);
         default: throw std::runtime_error("Invalid chunk compression type");
     }
 }

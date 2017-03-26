@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include <entwine/tree/storage/lazperf.hpp>
+#include <entwine/types/chunk-storage/lazperf.hpp>
 
 namespace entwine
 {
@@ -30,7 +30,7 @@ Cell::PooledStack LazPerfStorage::read(
         PointPool& pool,
         const Id& id) const
 {
-    auto compressed(Storage::ensureGet(endpoint, m_metadata.basename(id)));
+    auto compressed(io::ensureGet(endpoint, m_metadata.basename(id)));
     const Tail tail(*compressed, m_tailFields);
 
     const Schema& schema(pool.schema());

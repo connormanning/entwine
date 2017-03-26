@@ -20,7 +20,6 @@
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/types/subset.hpp>
-#include <entwine/util/storage.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine

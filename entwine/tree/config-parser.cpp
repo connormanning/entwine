@@ -18,7 +18,7 @@
 #include <entwine/tree/builder.hpp>
 #include <entwine/tree/inference.hpp>
 #include <entwine/types/bounds.hpp>
-#include <entwine/types/format.hpp>
+#include <entwine/types/storage.hpp>
 #include <entwine/types/manifest.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
@@ -57,7 +57,7 @@ Json::Value ConfigParser::defaults()
     json["trustHeaders"] = true;
     json["prefixIds"] = false;
     json["pointsPerChunk"] = 262144;
-    json["compression"] = "laszip";
+    json["storage"] = "laszip";
     json["nullDepth"] = 7;
     json["baseDepth"] = 10;
 
@@ -109,7 +109,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         }
     }
 
-    const auto compression(toCompression(json["compression"]));
+    const auto storage(toChunkStorageType(json["storage"]));
     const bool trustHeaders(json["trustHeaders"].asBool());
     const bool storePointId(json["storePointId"].asBool());
     auto cesiumSettings(getCesiumSettings(json["formats"]));
@@ -244,9 +244,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     json["numPointsHint"] = static_cast<Json::UInt64>(numPointsHint);
     Structure structure(json);
     Structure hierarchyStructure(Hierarchy::structure(structure, subset.get()));
-    const HierarchyCompression hierarchyCompression(
-            compression != ChunkCompression::None ?
-                HierarchyCompression::Lzma : HierarchyCompression::None);
+    const HierarchyCompression hierarchyCompression(HierarchyCompression::Lzma);
 
     const auto ep(arbiter->getEndpoint(json["output"].asString()));
     const Manifest manifest(fileInfo, ep);
@@ -258,7 +256,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
             hierarchyStructure,
             manifest,
             trustHeaders,
-            compression,
+            storage,
             hierarchyCompression,
             reprojection.get(),
             subset.get(),

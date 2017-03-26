@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include <entwine/tree/storage/laszip.hpp>
+#include <entwine/types/chunk-storage/laszip.hpp>
 
 #include <pdal/io/LasWriter.hpp>
 
@@ -87,10 +87,7 @@ void LasZipStorage::write(Chunk& chunk) const
 
     if (!outEndpoint.isLocal())
     {
-        Storage::ensurePut(
-                outEndpoint,
-                filename,
-                tmpEndpoint.getBinary(filename));
+        io::ensurePut(outEndpoint, filename, tmpEndpoint.getBinary(filename));
 
         arbiter::fs::remove(tmpEndpoint.prefixedRoot() + filename);
     }
@@ -110,7 +107,7 @@ Cell::PooledStack LasZipStorage::read(
         localFile = tmp + basename;
 
         static const arbiter::drivers::Fs fs;
-        fs.put(localFile, *Storage::ensureGet(endpoint, basename));
+        fs.put(localFile, *io::ensureGet(endpoint, basename));
     }
 
     CellTable table(pool, makeUnique<Schema>(Schema::normalize(pool.schema())));

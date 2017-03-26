@@ -5,9 +5,9 @@ set(
     SOURCES
     "${BASE}/compression.cpp"
     "${BASE}/executor.cpp"
+    "${BASE}/io.cpp"
     "${BASE}/lzma.cpp"
     "${BASE}/pool.cpp"
-    "${BASE}/storage.cpp"
 )
 
 set(
@@ -15,12 +15,12 @@ set(
     "${BASE}/compression.hpp"
     "${BASE}/env.hpp"
     "${BASE}/executor.hpp"
+    "${BASE}/io.hpp"
     "${BASE}/json.hpp"
     "${BASE}/locker.hpp"
     "${BASE}/matrix.hpp"
     "${BASE}/pool.hpp"
     "${BASE}/spin-lock.hpp"
-    "${BASE}/storage.hpp"
     "${BASE}/stack-trace.hpp"
     "${BASE}/unique.hpp"
 )

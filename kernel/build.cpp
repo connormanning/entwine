@@ -21,10 +21,10 @@
 #include <entwine/tree/config-parser.hpp>
 #include <entwine/tree/thread-pools.hpp>
 #include <entwine/types/bounds.hpp>
-#include <entwine/types/format.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/storage.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/json.hpp>
@@ -446,20 +446,17 @@ void Kernel::build(std::vector<std::string> args)
     const std::size_t runCount(json["run"].asUInt64());
 
     std::cout << std::endl;
+    std::cout <<
+        "Version: " << currentVersion().toString() << "\n" <<
+        "Input:\n\t";
 
     if (manifest.size() == 1)
     {
-        std::cout <<
-            "Input:\n" <<
-            "\tBuilding file " << manifest.get(0).path() << std::endl;
+        std::cout << "File: " << manifest.get(0).path() << std::endl;
     }
     else
     {
-        std::cout <<
-            "Version: " << currentVersion().toString() << "\n" <<
-            "Input:\n" <<
-            "\tBuilding from " << manifest.size() << " source file" <<
-                (manifest.size() > 1 ? "s" : "") << std::endl;
+        std::cout << "Files: " << manifest.size() << std::endl;
     }
 
     if (const Subset* subset = metadata.subset())
@@ -479,7 +476,7 @@ void Kernel::build(std::vector<std::string> args)
             (runCount > 1 ? "s" : "") << "\n";
     }
 
-    const Format& format(metadata.format());
+    const Storage& storage(metadata.storage());
 
     const std::string coldDepthString(
             structure.lossless() ?
@@ -489,41 +486,42 @@ void Kernel::build(std::vector<std::string> args)
     const auto& threadPools(builder->threadPools());
 
     std::cout <<
-        "\tTrust file headers? " << yesNo(metadata.trustHeaders()) << "\n" <<
-        "\tWork threads: " << threadPools.workPool().numThreads() << "\n" <<
-        "\tClip threads: " << threadPools.clipPool().numThreads() <<
+        "\tPoint count hint: " << commify(structure.numPointsHint()) <<
+            " points\n";
+
+    if (!metadata.trustHeaders())
+    {
+        std::cout << "\tTrust file headers? " << yesNo(false) << "\n";
+    }
+
+    std::cout <<
+        "\tThreads: " << threadPools.size() <<
         std::endl;
 
     std::cout <<
         "Output:\n" <<
         "\tOutput path: " << outPath << "\n" <<
-        "\tTemporary path: " << tmpPath << "\n" <<
-        "\tCompressed output? " << toString(format.compression()) <<
+        "\tData storage: " << toString(storage.chunkStorageType()) <<
         std::endl;
 
     if (const auto* delta = metadata.delta())
     {
-        std::cout << "\tScale: " << delta->scale() << std::endl;
+        std::cout << "\tScale: ";
+        const auto& scale(delta->scale());
+        if (scale.x == scale.y && scale.x == scale.z)
+        {
+            std::cout << scale.x << std::endl;
+        }
+        else
+        {
+            std::cout << scale << std::endl;
+        }
         std::cout << "\tOffset: " << delta->offset() << std::endl;
         std::cout << "\tXYZ width: " << schema.find("X").size() << std::endl;
     }
 
     std::cout <<
-        "Tree structure:\n" <<
-        "\tNull depth: " << structure.nullDepthEnd() << "\n" <<
-        "\tBase depth: " << structure.baseDepthEnd() << "\n" <<
-        "\tCold depth: " << coldDepthString << "\n" <<
-        "\tChunk size: " << commify(structure.basePointsPerChunk()) <<
-            " points\n" <<
-        "\tDynamic chunks? " << yesNo(structure.dynamicChunks()) << "\n" <<
-        "\tPrefix IDs? " << yesNo(structure.prefixIds()) << "\n" <<
-        "\tBuild type: " << structure.typeString() << "\n" <<
-        "\tPoint count hint: " << commify(structure.numPointsHint()) <<
-            " points" <<
-        std::endl;
-
-    std::cout <<
-        "Geometry:\n" <<
+        "Metadata:\n" <<
         "\tNative bounds: " << metadata.boundsNativeConforming() << "\n" <<
         "\tReprojection: " << getReprojString(reprojection) << "\n" <<
         "\tStoring dimensions: " << getDimensionString(schema) <<

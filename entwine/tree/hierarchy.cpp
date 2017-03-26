@@ -13,8 +13,8 @@
 #include <entwine/tree/cold.hpp>
 #include <entwine/tree/heuristics.hpp>
 #include <entwine/types/subset.hpp>
+#include <entwine/util/io.hpp>
 #include <entwine/util/json.hpp>
-#include <entwine/util/storage.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -217,7 +217,7 @@ void Hierarchy::save(Pool& pool) const
 
     Json::Value json;
     for (const auto& id : ids()) json.append(id.str());
-    Storage::ensurePut(*m_outpoint, "ids" + topPostfix, toFastString(json));
+    io::ensurePut(*m_outpoint, "ids" + topPostfix, toFastString(json));
 }
 
 /*

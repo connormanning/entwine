@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include <entwine/tree/storage/storage.hpp>
+#include <entwine/types/chunk-storage/chunk-storage.hpp>
 
 namespace entwine
 {

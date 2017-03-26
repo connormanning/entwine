@@ -38,9 +38,9 @@ class Unpacker;
 
 class Chunk
 {
-    friend class ChunkStorage;
+    // friend class ChunkStorage;
     friend class Builder;
-    friend class Format;
+    friend class Storage;
 
 public:
     Chunk(
@@ -66,7 +66,7 @@ public:
     const Id& id() const { return m_id; }
     const Builder& builder() const { return m_builder; }
     const Metadata& metadata() const { return m_metadata; }
-    const Format& format() const { return m_metadata.format(); }
+    const Storage& storage() const { return m_metadata.storage(); }
     const Bounds& bounds() const { return m_bounds; }
 
     virtual void save();

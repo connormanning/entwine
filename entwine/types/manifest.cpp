@@ -17,7 +17,7 @@
 #include <entwine/types/bounds.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/pool.hpp>
-#include <entwine/util/storage.hpp>
+#include <entwine/util/io.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -209,7 +209,7 @@ void Manifest::awaken(Origin origin) const
 
     const std::size_t chunk(origin / m_chunkSize * m_chunkSize);
     const auto m(m_endpoint.getSubEndpoint("m"));
-    const auto bytes(Storage::ensureGet(m, std::to_string(chunk)));
+    const auto bytes(io::ensureGet(m, std::to_string(chunk)));
     const auto json(parse(bytes->data()));
 
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -287,11 +287,11 @@ void Manifest::save(const bool primary, const std::string postfix) const
                 chunk[c] = m_fileInfo[i + c].toJson(primary);
             }
 
-            Storage::ensurePut(m, std::to_string(i), chunk.toStyledString());
+            io::ensurePut(m, std::to_string(i), chunk.toStyledString());
         }
     }
 
-    Storage::ensurePut(
+    io::ensurePut(
             m_endpoint,
             "entwine-manifest" + postfix,
             json.toStyledString());

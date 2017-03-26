@@ -23,9 +23,9 @@
 #include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
+#include <entwine/util/io.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/pool.hpp>
-#include <entwine/util/storage.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -175,7 +175,7 @@ void Cold::save(const arbiter::Endpoint& endpoint) const
     for (const auto& id : aggregated) json.append(id.str());
 
     const std::string subpath("entwine-ids" + m_builder.metadata().postfix());
-    Storage::ensurePut(endpoint, subpath, toFastString(json));
+    io::ensurePut(endpoint, subpath, toFastString(json));
 
     if (m_builder.metadata().cesiumSettings()) saveCesiumMetadata(endpoint);
 }

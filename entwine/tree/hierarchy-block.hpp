@@ -18,7 +18,7 @@
 
 #include <entwine/third/splice-pool/splice-pool.hpp>
 #include <entwine/types/defs.hpp>
-#include <entwine/types/format-types.hpp>
+#include <entwine/types/storage-types.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/util/spin-lock.hpp>
 

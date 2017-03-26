@@ -14,9 +14,9 @@
 
 #include <entwine/tree/builder.hpp>
 #include <entwine/tree/chunk.hpp>
-#include <entwine/types/format-types.hpp>
 #include <entwine/types/point-pool.hpp>
-#include <entwine/util/storage.hpp>
+#include <entwine/types/storage-types.hpp>
+#include <entwine/util/io.hpp>
 
 namespace entwine
 {
@@ -29,7 +29,7 @@ public:
 
     static std::unique_ptr<ChunkStorage> create(
             const Metadata& metadata,
-            ChunkCompression compression,
+            ChunkStorageType storageType,
             const Json::Value& json = Json::nullValue);
 
     virtual void write(Chunk& chunk) const = 0;
@@ -46,14 +46,14 @@ protected:
             const std::string& path,
             const std::vector<char>& data) const
     {
-        Storage::ensurePut(chunk.builder().outEndpoint(), path, data);
+        io::ensurePut(chunk.builder().outEndpoint(), path, data);
     }
 
     std::unique_ptr<std::vector<char>> ensureGet(
             const Chunk& chunk,
             const std::string& path) const
     {
-        return Storage::ensureGet(chunk.builder().outEndpoint(), path);
+        return io::ensureGet(chunk.builder().outEndpoint(), path);
     }
 
     const Metadata& m_metadata;

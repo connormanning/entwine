@@ -16,7 +16,7 @@
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/util/matrix.hpp>
-#include <entwine/util/storage.hpp>
+#include <entwine/util/io.hpp>
 
 namespace entwine
 {
@@ -53,7 +53,7 @@ void TileInfo::write(
     }
 
     std::cout << "Writing root" << std::endl;
-    Storage::ensurePut(endpoint, "tileset.json", json.toStyledString());
+    io::ensurePut(endpoint, "tileset.json", json.toStyledString());
 }
 
 bool TileInfo::restart(
@@ -76,7 +76,7 @@ bool TileInfo::restart(
                 depth,
                 tick))
     {
-        Storage::ensurePut(
+        io::ensurePut(
                 endpoint,
                 "tileset-" + m_id.str() + "-" + std::to_string(tick) + ".json",
                 json.toStyledString());

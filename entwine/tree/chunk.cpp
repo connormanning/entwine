@@ -23,13 +23,13 @@
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
 #include <entwine/types/binary-point-table.hpp>
-#include <entwine/types/format.hpp>
+#include <entwine/types/storage.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/compression.hpp>
-#include <entwine/util/storage.hpp>
+#include <entwine/util/io.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -77,7 +77,7 @@ void Chunk::populate(Cell::PooledStack cells)
 
 void Chunk::save()
 {
-    m_metadata.format().serialize(*this);
+    storage().serialize(*this);
 }
 
 Chunk::~Chunk()
@@ -132,7 +132,7 @@ SparseChunk::SparseChunk(
 {
     if (exists)
     {
-        populate(format().deserialize(builder.outEndpoint(), m_pointPool, id));
+        populate(storage().deserialize(builder.outEndpoint(), m_pointPool, id));
     }
 }
 
@@ -195,7 +195,7 @@ void SparseChunk::tile() const
 
         cesium::Tile tile(tileData.points, tileData.colors);
 
-        Storage::ensurePut(
+        io::ensurePut(
                 endpoint,
                 m_id.str() + "-" + std::to_string(tick) + ".pnts",
                 tile.asBinary());
@@ -216,7 +216,7 @@ ContiguousChunk::ContiguousChunk(
 {
     if (exists)
     {
-        populate(format().deserialize(builder.outEndpoint(), m_pointPool, id));
+        populate(storage().deserialize(builder.outEndpoint(), m_pointPool, id));
     }
 }
 
@@ -274,7 +274,7 @@ void ContiguousChunk::tile() const
 
         cesium::Tile tile(tileData.points, tileData.colors);
 
-        Storage::ensurePut(
+        io::ensurePut(
                 endpoint,
                 m_id.str() + "-" + std::to_string(tick) + ".pnts",
                 tile.asBinary());
@@ -385,7 +385,7 @@ void BaseChunk::save()
     const auto& s(m_metadata.structure());
     for (std::size_t d(s.baseDepthBegin()); d < m_chunks.size(); ++d)
     {
-        m_metadata.format().serialize(m_chunks.at(d));
+        storage().serialize(m_chunks.at(d));
     }
 }
 
@@ -413,7 +413,7 @@ std::set<Id> BaseChunk::merge(BaseChunk& other)
             {
                 if (!chunk.empty())
                 {
-                    m_metadata.format().serialize(chunk);
+                    storage().serialize(chunk);
                     ids.insert(chunk.id());
                 }
 

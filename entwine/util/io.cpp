@@ -8,6 +8,8 @@
 *
 ******************************************************************************/
 
+#include <entwine/util/io.hpp>
+
 #include <chrono>
 #include <iostream>
 #include <mutex>
@@ -15,8 +17,6 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/chunk.hpp>
-#include <entwine/types/format.hpp>
-#include <entwine/util/storage.hpp>
 
 namespace
 {
@@ -47,8 +47,10 @@ namespace
 
 namespace entwine
 {
+namespace io
+{
 
-void Storage::ensurePut(
+void ensurePut(
         const arbiter::Endpoint& endpoint,
         const std::string& path,
         const std::vector<char>& data)
@@ -71,7 +73,7 @@ void Storage::ensurePut(
     }
 }
 
-std::unique_ptr<std::vector<char>> Storage::ensureGet(
+std::unique_ptr<std::vector<char>> ensureGet(
         const arbiter::Endpoint& endpoint,
         const std::string& path)
 {
@@ -98,5 +100,6 @@ std::unique_ptr<std::vector<char>> Storage::ensureGet(
     return data;
 }
 
+} // namespace io
 } // namespace entwine
 

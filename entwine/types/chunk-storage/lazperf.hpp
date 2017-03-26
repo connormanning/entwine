@@ -12,7 +12,7 @@
 
 #include <pdal/Compression.hpp>
 
-#include <entwine/tree/storage/binary.hpp>
+#include <entwine/types/chunk-storage/binary.hpp>
 #include <entwine/util/compression.hpp>
 
 namespace entwine

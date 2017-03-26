@@ -176,9 +176,9 @@ TEST_P(BuildTest, Verify)
 
     // Miscellaneous parameters.
     EXPECT_EQ(
-            meta["compression"].asString(),
-            config.isMember("compression") ?
-                config["compression"].asString() : "laszip");
+            meta["storage"].asString(),
+            config.isMember("storage") ?
+                config["storage"].asString() : "laszip");
 
     EXPECT_EQ(meta["compressHierarchy"].asString(), "lzma");
 

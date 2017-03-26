@@ -15,11 +15,11 @@
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/traverser.hpp>
 #include <entwine/types/binary-point-table.hpp>
-#include <entwine/types/format.hpp>
+#include <entwine/types/storage.hpp>
 #include <entwine/types/vector-point-table.hpp>
 #include <entwine/util/compression.hpp>
+#include <entwine/util/io.hpp>
 #include <entwine/util/json.hpp>
-#include <entwine/util/storage.hpp>
 
 namespace entwine
 {
@@ -131,7 +131,7 @@ Base::Base(const Tiler& tiler)
     // const Schema celledSchema(Schema::makeCelled(metadata.schema()));
 
     const std::string path(metadata.structure().maybePrefix(m_chunkId));
-    auto data(Storage::ensureGet(tiler.inEndpoint(), path));
+    auto data(io::ensureGet(tiler.inEndpoint(), path));
 
     if (!data)
     {
@@ -476,7 +476,7 @@ void Tiler::maybeProcess(const TileFunction& f)
 std::unique_ptr<std::vector<char>> Tiler::acquire(const Id& chunkId)
 {
     const std::string path(m_metadata.structure().maybePrefix(chunkId));
-    auto compressed(Storage::ensureGet(m_inEndpoint, path));
+    auto compressed(io::ensureGet(m_inEndpoint, path));
 
     if (!compressed)
     {

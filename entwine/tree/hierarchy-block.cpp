@@ -12,12 +12,12 @@
 
 #include <atomic>
 
-#include <entwine/types/format.hpp>
 #include <entwine/types/metadata.hpp>
+#include <entwine/types/storage.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/compression.hpp>
-#include <entwine/util/storage.hpp>
+#include <entwine/util/io.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -94,7 +94,7 @@ std::unique_ptr<HierarchyBlock> HierarchyBlock::create(
 {
     std::unique_ptr<std::vector<char>> decompressed;
 
-    const auto compress(metadata.format().hierarchyCompression());
+    const auto compress(metadata.storage().hierarchyCompression());
 
     if (compress == HierarchyCompression::Lzma)
     {
@@ -145,13 +145,13 @@ void HierarchyBlock::save(const arbiter::Endpoint& ep, const std::string pf)
 {
     auto data(combine());
 
-    const auto type(m_metadata.format().hierarchyCompression());
+    const auto type(m_metadata.storage().hierarchyCompression());
     if (type == HierarchyCompression::Lzma)
     {
         data = *Compression::compressLzma(data);
     }
 
-    Storage::ensurePut(ep, m_id.str() + pf, data);
+    io::ensurePut(ep, m_id.str() + pf, data);
 }
 
 ContiguousBlock::ContiguousBlock(

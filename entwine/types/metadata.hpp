@@ -15,7 +15,7 @@
 #include <vector>
 
 #include <entwine/types/bounds.hpp>
-#include <entwine/types/format-types.hpp>
+#include <entwine/types/storage-types.hpp>
 
 namespace Json { class Value; }
 
@@ -26,11 +26,11 @@ namespace arbiter { class Endpoint; }
 namespace cesium { class Settings; }
 
 class Delta;
-class Format;
 class Manifest;
 class Point;
 class Reprojection;
 class Schema;
+class Storage;
 class Structure;
 class Subset;
 class Version;
@@ -48,7 +48,7 @@ public:
             const Structure& hierarchyStructure,
             const Manifest& manifest,
             bool trustHeaders,
-            ChunkCompression compression,
+            ChunkStorageType chunkStorage,
             HierarchyCompression hierarchyCompress,
             const Reprojection* reprojection = nullptr,
             const Subset* subset = nullptr,
@@ -113,7 +113,7 @@ public:
         return *m_hierarchyStructure;
     }
     const Manifest& manifest() const { return *m_manifest; }
-    const Format& format() const { return *m_format; }
+    const Storage& storage() const { return *m_storage; }
     const Reprojection* reprojection() const { return m_reprojection.get(); }
     const Subset* subset() const { return m_subset.get(); }
     const Delta* delta() const { return m_delta.get(); }
@@ -144,7 +144,7 @@ private:
 
     // These are aggregated as the Builder runs.
     Manifest& manifest() { return *m_manifest; }
-    Format& format() { return *m_format; }
+    // Storage& storage() { return *m_storage; }
     std::vector<std::string>& errors() { return m_errors; }
     std::string& srs() { return m_srs; }
 
@@ -161,7 +161,7 @@ private:
     std::unique_ptr<Structure> m_structure;
     std::unique_ptr<Structure> m_hierarchyStructure;
     std::unique_ptr<Manifest> m_manifest;
-    std::unique_ptr<Format> m_format;
+    std::unique_ptr<Storage> m_storage;
     std::unique_ptr<Reprojection> m_reprojection;
     std::unique_ptr<Subset> m_subset;
     std::unique_ptr<Transformation> m_transformation;

@@ -12,15 +12,15 @@
 
 #include <entwine/formats/cesium/settings.hpp>
 #include <entwine/types/delta.hpp>
-#include <entwine/types/format.hpp>
 #include <entwine/types/manifest.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/storage.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/types/subset.hpp>
+#include <entwine/util/io.hpp>
 #include <entwine/util/json.hpp>
-#include <entwine/util/storage.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -38,7 +38,7 @@ Metadata::Metadata(
         const Structure& hierarchyStructure,
         const Manifest& manifest,
         const bool trustHeaders,
-        const ChunkCompression compression,
+        const ChunkStorageType chunkStorage,
         const HierarchyCompression hierarchyCompress,
         const Reprojection* reprojection,
         const Subset* subset,
@@ -58,7 +58,7 @@ Metadata::Metadata(
     , m_structure(makeUnique<Structure>(structure))
     , m_hierarchyStructure(makeUnique<Structure>(hierarchyStructure))
     , m_manifest(makeUnique<Manifest>(manifest))
-    , m_format(makeUnique<Format>(*this, compression, hierarchyCompress))
+    , m_storage(makeUnique<Storage>(*this, chunkStorage, hierarchyCompress))
     , m_reprojection(maybeClone(reprojection))
     , m_subset(maybeClone(subset))
     , m_transformation(maybeClone(transformation))
@@ -91,11 +91,11 @@ Metadata::Metadata(const arbiter::Endpoint& ep, const std::size_t* subsetId)
             json["compressHierarchy"] = json["compress-hierarchy"];
         }
 
-        // 1.0: compression was a boolean named "compress".
-        if (json.isMember("compress") && json["compress"].isBool())
+        // 1.0: storage was a boolean named "compress", and only lazperf and
+        // uncompressed-binary was supported.
+        if (json.isMember("compress"))
         {
-            json["compression"] = json["compress"].asBool() ?
-                "lazperf" : "none";
+            json["storage"] = json["compress"].asBool() ? "lazperf" : "binary";
         }
 
         return json;
@@ -120,7 +120,7 @@ Metadata::Metadata(const Json::Value& json)
     , m_structure(makeUnique<Structure>(json["structure"]))
     , m_hierarchyStructure(makeUnique<Structure>(json["hierarchyStructure"]))
     , m_manifest()
-    , m_format(makeUnique<Format>(*this, json))
+    , m_storage(makeUnique<Storage>(*this, json))
     , m_reprojection(maybeCreate<Reprojection>(json["reprojection"]))
     , m_subset(json.isMember("subset") ?
             makeUnique<Subset>(boundsNativeCubic(), json["subset"]) : nullptr)
@@ -150,7 +150,7 @@ Metadata::Metadata(const Metadata& other)
     , m_structure(makeUnique<Structure>(other.structure()))
     , m_hierarchyStructure(makeUnique<Structure>(other.hierarchyStructure()))
     , m_manifest(makeUnique<Manifest>(other.manifest()))
-    , m_format(makeUnique<Format>(*this, other.format()))
+    , m_storage(makeUnique<Storage>(*this, other.storage()))
     , m_reprojection(maybeClone(other.reprojection()))
     , m_subset(maybeClone(other.subset()))
     , m_transformation(maybeClone(other.transformation()))
@@ -175,8 +175,8 @@ Json::Value Metadata::toJson() const
     json["hierarchyStructure"] = m_hierarchyStructure->toJson();
     json["trustHeaders"] = m_trustHeaders;
 
-    const Json::Value format(m_format->toJson());
-    for (const auto& k : format.getMemberNames()) json[k] = format[k];
+    const Json::Value storage(m_storage->toJson());
+    for (const auto& k : storage.getMemberNames()) json[k] = storage[k];
 
     if (m_srs.size()) json["srs"] = m_srs;
     if (m_reprojection) json["reprojection"] = m_reprojection->toJson();
@@ -211,7 +211,7 @@ Json::Value Metadata::toJson() const
 void Metadata::save(const arbiter::Endpoint& endpoint) const
 {
     const auto json(toJson());
-    Storage::ensurePut(endpoint, "entwine" + postfix(), json.toStyledString());
+    io::ensurePut(endpoint, "entwine" + postfix(), json.toStyledString());
 
     const bool primary(!m_subset || m_subset->primary());
     if (m_manifest) m_manifest->save(primary, postfix());

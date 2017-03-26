@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include <entwine/types/format.hpp>
+#include <entwine/types/storage.hpp>
 
 #include <numeric>
 
@@ -20,51 +20,48 @@
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/util/compression.hpp>
-#include <entwine/util/storage.hpp>
 #include <entwine/util/unique.hpp>
 
-#include <entwine/tree/storage/storage.hpp>
-#include <entwine/tree/storage/lazperf.hpp>
-#include <entwine/tree/storage/laszip.hpp>
+#include <entwine/types/chunk-storage/chunk-storage.hpp>
 
 namespace entwine
 {
 
-Format::Format(
+Storage::Storage(
         const Metadata& metadata,
-        const ChunkCompression compression,
+        const ChunkStorageType chunkStorageType,
         const HierarchyCompression hierarchyCompression)
     : m_metadata(metadata)
-    , m_compression(compression)
+    , m_chunkStorageType(chunkStorageType)
     , m_hierarchyCompression(hierarchyCompression)
 {
-    m_storage = ChunkStorage::create(m_metadata, m_compression);
+    m_storage = ChunkStorage::create(m_metadata, m_chunkStorageType);
 }
 
-Format::Format(const Metadata& metadata, const Json::Value& json)
+Storage::Storage(const Metadata& metadata, const Json::Value& json)
     : m_metadata(metadata)
     , m_json(json)
-    , m_compression(toCompression(json["compression"]))
+    , m_chunkStorageType(toChunkStorageType(json["storage"]))
     , m_hierarchyCompression(toHierarchyCompression(json["compressHierarchy"]))
 {
-    m_storage = ChunkStorage::create(m_metadata, m_compression, m_json);
+    m_storage = ChunkStorage::create(m_metadata, m_chunkStorageType, m_json);
 }
 
-Format::Format(const Metadata& metadata, const Format& other)
+Storage::Storage(const Metadata& metadata, const Storage& other)
     : m_metadata(metadata)
     , m_json(other.m_json)
-    , m_compression(other.m_compression)
+    , m_chunkStorageType(other.m_chunkStorageType)
     , m_hierarchyCompression(other.m_hierarchyCompression)
 {
-    m_storage = ChunkStorage::create(m_metadata, m_compression, m_json);
+    m_storage = ChunkStorage::create(m_metadata, m_chunkStorageType, m_json);
 }
 
-Format::~Format() { }
+Storage::~Storage() { }
 
-Json::Value Format::toJson() const
+Json::Value Storage::toJson() const
 {
     Json::Value json;
-    json["compression"] = toString(m_compression);
+    json["storage"] = toString(m_chunkStorageType);
     json["compressHierarchy"] = toString(m_hierarchyCompression);
 
     const auto s(m_storage->toJson());
@@ -73,13 +70,13 @@ Json::Value Format::toJson() const
     return json;
 }
 
-void Format::serialize(Chunk& chunk) const
+void Storage::serialize(Chunk& chunk) const
 {
     if (m_metadata.cesiumSettings()) chunk.tile();
     m_storage->write(chunk);
 }
 
-Cell::PooledStack Format::deserialize(
+Cell::PooledStack Storage::deserialize(
         const arbiter::Endpoint& endpoint,
         PointPool& pool,
         const Id& chunkId) const
@@ -87,8 +84,8 @@ Cell::PooledStack Format::deserialize(
     return m_storage->read(endpoint, pool, chunkId);
 }
 
-const Metadata& Format::metadata() const { return m_metadata; }
-const Schema& Format::schema() const { return m_metadata.schema(); }
+const Metadata& Storage::metadata() const { return m_metadata; }
+const Schema& Storage::schema() const { return m_metadata.schema(); }
 
 } // namespace entwine
 

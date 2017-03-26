@@ -20,35 +20,31 @@
 
 #include <entwine/types/defs.hpp>
 #include <entwine/types/delta.hpp>
-#include <entwine/types/format-types.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/storage-types.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
 {
 
 namespace arbiter { class Endpoint; }
+
 class Chunk;
 class ChunkStorage;
 class Metadata;
 
-// The Format contains the attributes that give insight about what the tree
-// looks like at a more micro-oriented level than the Structure, which gives
-// information about the overall tree structure.  Whereas the Structure can
-// tell us about the chunks that exist in the tree, the Format can tell us
-// about what those chunks look like.
-class Format
+class Storage
 {
 public:
-    Format(
+    Storage(
             const Metadata& metadata,
-            ChunkCompression compression = ChunkCompression::LasZip,
+            ChunkStorageType compression = ChunkStorageType::LasZip,
             HierarchyCompression hc = HierarchyCompression::Lzma);
-    Format(const Metadata& metadata, const Format& other);
-    Format(const Metadata& metadata, const Json::Value& json);
-    Format(const Format&) = delete;
-    ~Format();
+    Storage(const Metadata& metadata, const Storage& other);
+    Storage(const Metadata& metadata, const Json::Value& json);
+    Storage(const Storage&) = delete;
+    ~Storage();
 
     Json::Value toJson() const;
 
@@ -58,7 +54,7 @@ public:
         PointPool& pool,
         const Id& chunkId) const;
 
-    ChunkCompression compression() const { return m_compression; }
+    ChunkStorageType chunkStorageType() const { return m_chunkStorageType; }
     HierarchyCompression hierarchyCompression() const
     {
         return m_hierarchyCompression;
@@ -71,7 +67,7 @@ private:
     const Metadata& m_metadata;
     const Json::Value m_json;
 
-    ChunkCompression m_compression;
+    ChunkStorageType m_chunkStorageType;
     HierarchyCompression m_hierarchyCompression;
 
     std::unique_ptr<ChunkStorage> m_storage;

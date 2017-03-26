@@ -39,8 +39,6 @@ set(
     "${BASE}/traverser.hpp"
 )
 
-add_subdirectory(storage)
-
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})
 add_library(${MODULE} OBJECT ${SOURCES})
 

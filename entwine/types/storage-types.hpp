@@ -25,7 +25,7 @@ namespace entwine
 
 enum class ChunkType : char { Sparse = 0, Contiguous, Invalid };
 enum class TailField { ChunkType, NumPoints, NumBytes };
-enum class ChunkCompression { None, LasZip, LazPerf };
+enum class ChunkStorageType { Binary, LasZip, LazPerf };
 enum class HierarchyCompression { None, Lzma };
 
 using TailFieldList = std::vector<TailField>;
@@ -83,23 +83,27 @@ private:
     std::size_t m_numBytes = 0;
 };
 
-inline std::string toString(ChunkCompression c)
+inline std::string toString(ChunkStorageType c)
 {
     switch (c)
     {
-        case ChunkCompression::LasZip: return "laszip";
-        case ChunkCompression::LazPerf: return "lazperf";
-        case ChunkCompression::None: return "none";
-        default: throw std::runtime_error("Invalid ChunkCompression value");
+        case ChunkStorageType::LasZip: return "laszip";
+        case ChunkStorageType::LazPerf: return "lazperf";
+        case ChunkStorageType::Binary: return "binary";
+        default: throw std::runtime_error("Invalid ChunkStorageType value");
     }
 }
 
-inline ChunkCompression toCompression(const Json::Value& j)
+inline ChunkStorageType toChunkStorageType(const Json::Value& j)
 {
-    if (j.isNull() || j.asString() == "none") return ChunkCompression::None;
+    if (j.isNull() || j.asString() == "none" || j.asString() == "binary")
+    {
+        return ChunkStorageType::Binary;
+    }
+
     const std::string s(j.asString());
-    if (s == "laszip") return ChunkCompression::LasZip;
-    if (s == "lazperf") return ChunkCompression::LazPerf;
+    if (s == "laszip") return ChunkStorageType::LasZip;
+    if (s == "lazperf") return ChunkStorageType::LazPerf;
     throw std::runtime_error("Invalid compression: " + j.toStyledString());
 }
 
