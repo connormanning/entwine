@@ -68,7 +68,12 @@ else()
 endif()
 
 get_target_property(PDALCPP_INCLUDE_DIRS pdalcpp INTERFACE_INCLUDE_DIRECTORIES)
-include_directories("${PDALCPP_INCLUDE_DIRS}")
+if (PDALCPP_INCLUDE_DIRS)
+    include_directories("${PDALCPP_INCLUDE_DIRS}")
+else()
+    include_directories(/usr/include/laszip)
+    include_directories(/usr/local/include/laszip)
+endif()
 
 mark_as_advanced(CLEAR PDAL_INCLUDE_DIRS)
 mark_as_advanced(CLEAR LazPerf_INCLUDE_DIR)

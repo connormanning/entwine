@@ -175,7 +175,7 @@ TEST_F(FilesTest, MultiSearch)
         ASSERT_EQ(basename(files[i].path()), searches[i]);
     }
 
-    std::vector<Origin> badSearches{ "ned.laz", "asdf" };
+    std::vector<std::string> badSearches{ "ned.laz", "asdf" };
     EXPECT_ANY_THROW(reader->files(badSearches));
 }
 
