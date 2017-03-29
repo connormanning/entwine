@@ -17,17 +17,9 @@
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/heuristics.hpp>
 #include <entwine/types/subset.hpp>
-#include <entwine/util/env.hpp>
 
 namespace entwine
 {
-
-namespace
-{
-    const bool shallow(
-            env("TESTING_SHALLOW") &&
-            *env("TESTING_SHALLOW") == "true");
-}
 
 ChunkInfo::ChunkInfo(const Structure& structure, const Id& index)
     : m_structure(structure)
