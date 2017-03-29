@@ -197,7 +197,7 @@ Structure::Structure(
     , m_numPointsHint(numPointsHint)
 
     // Chunk-related.
-    , m_pointsPerChunk(shallow ? 256 : pointsPerChunk)
+    , m_pointsPerChunk(pointsPerChunk)
     , m_nominalChunkDepth(ChunkInfo::logN(m_pointsPerChunk, m_factor))
     , m_nominalChunkIndex(
             ChunkInfo::calcLevelIndex(
@@ -206,9 +206,9 @@ Structure::Structure(
 
     // Depths.
     , m_nullDepthBegin(0)
-    , m_nullDepthEnd(shallow ? 0 : nullDepth)
+    , m_nullDepthEnd(nullDepth)
     , m_baseDepthBegin(m_nullDepthEnd)
-    , m_baseDepthEnd(shallow ? 4 : std::max({
+    , m_baseDepthEnd(std::max({
                 m_baseDepthBegin, baseDepth, m_nominalChunkDepth }))
     , m_coldDepthBegin(m_baseDepthEnd)
     , m_coldDepthEnd(coldDepth ? std::max(m_coldDepthBegin, coldDepth) : 0)
@@ -230,11 +230,6 @@ Structure::Structure(
     , m_mappedIndexBegin(
             ChunkInfo::calcLevelIndex(dimensions, m_mappedDepthBegin))
 {
-    if (shallow)
-    {
-        std::cout << "Using shallow test configuration" << std::endl;
-    }
-
     if (m_baseDepthEnd < 4)
     {
         throw std::runtime_error("Base depth too small");
@@ -326,10 +321,13 @@ Json::Value Structure::toJson() const
 
 void Structure::unbump()
 {
-    m_baseDepthEnd = m_bumpDepth;
-    m_coldDepthBegin = m_bumpDepth;
-    m_baseIndexEnd = ChunkInfo::calcLevelIndex(m_dimensions, m_baseDepthEnd);
-    m_coldIndexBegin = m_baseIndexEnd;
+    if (m_bumpDepth)
+    {
+        m_baseDepthEnd = m_bumpDepth;
+        m_coldDepthBegin = m_bumpDepth;
+        m_baseIndexEnd = ChunkInfo::calcLevelIndex(m_dimensions, m_baseDepthEnd);
+        m_coldIndexBegin = m_baseIndexEnd;
+    }
 }
 
 ChunkInfo Structure::getInfoFromNum(const std::size_t chunkNum) const

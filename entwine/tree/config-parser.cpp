@@ -24,10 +24,18 @@
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/subset.hpp>
+#include <entwine/util/env.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
 {
+
+namespace
+{
+    const bool shallow(
+            env("TESTING_SHALLOW") &&
+            *env("TESTING_SHALLOW") == "true");
+}
 
 namespace
 {
@@ -56,10 +64,22 @@ Json::Value ConfigParser::defaults()
     json["threads"] = 8;
     json["trustHeaders"] = true;
     json["prefixIds"] = false;
-    json["pointsPerChunk"] = 262144;
     json["storage"] = "laszip";
-    json["nullDepth"] = 7;
-    json["baseDepth"] = 10;
+
+    if (!shallow)
+    {
+        json["pointsPerChunk"] = 262144;
+        json["nullDepth"] = 7;
+        json["baseDepth"] = 10;
+    }
+    else
+    {
+        std::cout << "Using shallow test configuration" << std::endl;
+
+        json["pointsPerChunk"] = 1024;
+        json["nullDepth"] = 4;
+        json["baseDepth"] = 6;
+    }
 
     return json;
 }

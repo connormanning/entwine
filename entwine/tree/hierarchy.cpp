@@ -13,12 +13,20 @@
 #include <entwine/tree/cold.hpp>
 #include <entwine/tree/heuristics.hpp>
 #include <entwine/types/subset.hpp>
+#include <entwine/util/env.hpp>
 #include <entwine/util/io.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
 {
+
+namespace
+{
+    const bool shallow(
+            env("TESTING_SHALLOW") &&
+            *env("TESTING_SHALLOW") == "true");
+}
 
 Hierarchy::Hierarchy(
         HierarchyCell::Pool& pool,
@@ -249,8 +257,8 @@ Structure Hierarchy::structure(
         const Structure& treeStructure,
         const Subset* subset)
 {
-    const std::size_t minStartDepth(6);
-    const std::size_t minBaseDepth(12);
+    const std::size_t minStartDepth(shallow ? 4 : 6);
+    const std::size_t minBaseDepth(shallow ? 6 : 12);
     const std::size_t pointsPerChunk(treeStructure.basePointsPerChunk());
 
     const std::size_t startDepth(

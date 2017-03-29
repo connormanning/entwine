@@ -15,7 +15,7 @@
 namespace entwine
 {
 
-std::unique_ptr<std::string> env(const std::string& var)
+inline std::unique_ptr<std::string> env(const std::string& var)
 {
     std::unique_ptr<std::string> result;
 
