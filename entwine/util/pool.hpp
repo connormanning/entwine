@@ -55,6 +55,7 @@ public:
     // called, add() may not be called again until go() is called and completes.
     void add(std::function<void()> task);
 
+    std::size_t size() const { return m_numThreads; }
     std::size_t numThreads() const { return m_numThreads; }
 
 private:

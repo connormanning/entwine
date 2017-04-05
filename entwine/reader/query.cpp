@@ -106,6 +106,7 @@ void Query::getFetches(const QueryChunkState& chunkState)
         m_chunks.emplace(
                 m_reader,
                 chunkState.chunkId(),
+                chunkState.bounds(),
                 chunkState.depth());
     }
     else if (

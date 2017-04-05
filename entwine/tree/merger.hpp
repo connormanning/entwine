@@ -28,7 +28,6 @@ public:
     Merger(
             std::string path,
             std::size_t threads,
-            const std::size_t* subsetId = nullptr,
             bool verbose = false,
             std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
 
@@ -36,8 +35,8 @@ public:
 
     void go();
 
-    std::size_t index() const { return m_pos; }
-    std::size_t total() const { return m_others.size() + 1; }
+    std::size_t index() const { return m_pos + 1; }
+    std::size_t total() const { return m_of; }
 
 private:
     std::unique_ptr<Builder> m_builder;
@@ -46,8 +45,8 @@ private:
     std::size_t m_threads;
     std::unique_ptr<OuterScope> m_outerScope;
 
-    std::size_t m_pos;
-
+    std::size_t m_pos = 1;
+    std::size_t m_of = 0;
     bool m_verbose;
 };
 

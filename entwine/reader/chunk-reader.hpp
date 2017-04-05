@@ -60,6 +60,7 @@ public:
     ChunkReader(
             const Metadata& metadata,
             const arbiter::Endpoint& endpoint,
+            const Bounds& bounds,
             PointPool& pool,
             const Id& id,
             std::size_t depth);
@@ -91,9 +92,10 @@ private:
         return (rawIndex - m_id).getSimple();
     }
 
+    const Metadata& m_metadata;
     PointPool& m_pool;
+    const Bounds m_bounds;
     const Schema& m_schema;
-    const Bounds& m_bounds;
     const Id m_id;
     const std::size_t m_depth;
 

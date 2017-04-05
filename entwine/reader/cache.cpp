@@ -25,9 +25,11 @@ namespace entwine
 FetchInfo::FetchInfo(
         const Reader& reader,
         const Id& id,
+        const Bounds& bounds,
         const std::size_t depth)
     : reader(reader)
     , id(id)
+    , bounds(bounds)
     , depth(depth)
 { }
 
@@ -263,6 +265,7 @@ const ChunkReader* Cache::fetch(
         chunkState.chunkReader = makeUnique<ChunkReader>(
                 metadata,
                 reader.endpoint(),
+                fetchInfo.bounds,
                 reader.pool(),
                 fetchInfo.id,
                 fetchInfo.depth);

@@ -26,12 +26,14 @@ namespace entwine
 ChunkReader::ChunkReader(
         const Metadata& metadata,
         const arbiter::Endpoint& endpoint,
+        const Bounds& bounds,
         PointPool& pool,
         const Id& id,
         const std::size_t depth)
-    : m_pool(pool)
+    : m_metadata(metadata)
+    , m_pool(pool)
+    , m_bounds(bounds)
     , m_schema(metadata.schema())
-    , m_bounds(metadata.boundsScaledCubic())
     , m_id(id)
     , m_depth(depth)
     , m_cells(metadata.storage().deserialize(endpoint, pool, m_id))
@@ -39,12 +41,14 @@ ChunkReader::ChunkReader(
     const std::size_t numPoints(m_cells.size());
     m_points.reserve(numPoints);
 
+    const auto& globalBounds(m_metadata.boundsScaledCubic());
+
     for (const auto& cell : m_cells)
     {
         m_points.emplace_back(
                 cell.point(),
                 cell.uniqueData(),
-                Tube::calcTick(cell.point(), m_bounds, m_depth));
+                Tube::calcTick(cell.point(), globalBounds, m_depth));
     }
 
     std::sort(m_points.begin(), m_points.end());
@@ -57,8 +61,14 @@ ChunkReader::~ChunkReader()
 
 ChunkReader::QueryRange ChunkReader::candidates(const Bounds& queryBounds) const
 {
-    const PointInfo min(Tube::calcTick(queryBounds.min(), m_bounds, m_depth));
-    const PointInfo max(Tube::calcTick(queryBounds.max(), m_bounds, m_depth));
+    if (queryBounds.contains(m_bounds))
+    {
+        return QueryRange(m_points.begin(), m_points.end());
+    }
+
+    const auto& gb(m_metadata.boundsScaledCubic());
+    const PointInfo min(Tube::calcTick(queryBounds.min(), gb, m_depth));
+    const PointInfo max(Tube::calcTick(queryBounds.max(), gb, m_depth));
 
     It begin(std::lower_bound(m_points.begin(), m_points.end(), min));
     It end(std::upper_bound(m_points.begin(), m_points.end(), max));
