@@ -13,7 +13,7 @@ Getting started with Entwine is easy with `Docker`_.  Pull the most recent image
 
     mkdir ~/entwine
     docker run -it -v $HOME:/opt/data connormanning/entwine \
-        entwine build -i /opt/data/abc.laz -o /opt/data/entwine/abc
+        build -i /opt/data/abc.laz -o /opt/data/entwine/abc
 
 |
 
@@ -43,7 +43,7 @@ Now we should be viewing our dataset dynamically with progressive level-of-detai
 Going further
 --------------------------------------------------------------------------------
 
-The default settings are fine for many datasets, but Entwine provides many parameters to more finely control your indexing configuration.  Check out ``docker run -it connormanning/entwine entwine build`` for a list of command line overrides.  We've already seen ``-i`` and ``-o``.  Some other highlights:
+The default settings are fine for many datasets, but Entwine provides many parameters to more finely control your indexing configuration.  Check out ``docker run -it connormanning/entwine build`` for a list of command line overrides.  We've already seen ``-i`` and ``-o``.  Some other highlights:
 
 - ``-r``: Specify a dataset reprojection.  If your data has no color and you reproject to ``EPSG:3857``, speck.ly can overlay imagery tiles in real-time.
 - ``-t``: Specify the number of indexing threads.  The default is 9.  If you have a monster machine like an EC2 c3.8xlarge instance, you can try 30.  We recommend a number close to, but no greater than, the number of physical cores on the machine for optimal performance.
