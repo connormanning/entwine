@@ -249,7 +249,9 @@ void Kernel::infer(std::vector<std::string> args)
     const auto reprojString(getReprojString(reprojection.get()));
     const auto trustHeadersString(trustHeaders ? "yes" : "no");
 
-    std::cout << "Inferring from: " << paths.front() << std::endl;
+    std::cout << "Inferring from: ";
+    if (paths.size() == 1) std::cout << paths.front() << std::endl;
+    else std::cout << paths.size() << " paths" << std::endl;
     std::cout << "\tTemp path: " << tmpPath << std::endl;
     std::cout << "\tThreads: " << threads << std::endl;
     std::cout << "\tReprojection: " << reprojString << std::endl;
