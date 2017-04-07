@@ -412,7 +412,7 @@ void Inference::aggregate()
         {
             const double epsilon(1e-6);
             double mult(10);
-            while (d * mult < 1.0) mult *= 10;
+            while (std::round(d * mult) < 1.0) mult *= 10;
 
             if (d * mult - 1.0 < epsilon)
             {

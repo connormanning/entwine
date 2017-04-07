@@ -120,8 +120,8 @@ void Kernel::infer(std::vector<std::string> args)
         }
     }
 
-    // TODO Allow multiple.
     Paths paths;
+    bool addingPath(args.front().front() != '-');
 
     std::size_t threads(4);
     Json::Value jsonReprojection;
@@ -137,19 +137,21 @@ void Kernel::infer(std::vector<std::string> args)
     {
         const std::string arg(args[a]);
 
-        if (arg.front() != '-')
+        if (addingPath)
         {
-            // If this is not an option argument, use it as the path.
-            if (paths.empty())
+            if (arg.front() != '-')
             {
                 paths.push_back(arg);
             }
             else
             {
-                throw std::runtime_error(
-                        "Only one path allowed - found both '" +
-                        paths.front() + "' and '" + arg + "'");
+                addingPath = false;
             }
+        }
+
+        if (arg == "-i")
+        {
+            addingPath = true;
         }
         else if (arg == "-a")
         {

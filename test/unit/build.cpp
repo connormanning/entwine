@@ -12,6 +12,7 @@
 #include "entwine/tree/config-parser.hpp"
 #include "entwine/tree/inference.hpp"
 #include "entwine/tree/merger.hpp"
+#include "entwine/types/vector-point-table.hpp"
 #include "entwine/util/json.hpp"
 
 #include "octree.hpp"
@@ -207,13 +208,49 @@ TEST_P(BuildTest, Verify)
     EXPECT_EQ(o.inserts(), manifest.pointStats().inserts());
     EXPECT_EQ(o.outOfBounds(), manifest.pointStats().outOfBounds());
 
+    using DimId = pdal::Dimension::Id;
+
+    const std::map<Dir, Origin> alphabetical {
+        { Dir::ned, 0 },
+        { Dir::neu, 1 },
+        { Dir::nwd, 2 },
+        { Dir::nwu, 3 },
+        { Dir::sed, 4 },
+        { Dir::seu, 5 },
+        { Dir::swd, 6 },
+        { Dir::swu, 7 }
+    };
+
     // Check that each depth has the same point count.
     std::size_t depth(0);
     bool pointsFound(false), pointsEnded(false);
     while (!pointsEnded)
     {
-        const std::size_t np(r.query(depth).size() / schema.pointSize());
+        const auto data(r.query(depth));
+        const std::size_t np(data.size() / schema.pointSize());
         ASSERT_EQ(np, o.query(depth).size());
+
+        VectorPointTable table(schema, data);
+        pdal::PointRef pr(table, 0);
+
+        if (!config["single"].asBool())
+        {
+            for (std::size_t i(0); i < np; ++i)
+            {
+                pr.setPointId(i);
+                const Point p(
+                        pr.getFieldAs<double>(DimId::X),
+                        pr.getFieldAs<double>(DimId::Y),
+                        pr.getFieldAs<double>(DimId::Z));
+
+                if (p.x && p.y && p.z)
+                {
+                    const auto origin(pr.getFieldAs<Origin>(DimId::OriginId));
+                    const Dir dir(getDirection(Point(), p));
+                    ASSERT_EQ(alphabetical.at(dir), origin);
+                }
+            }
+        }
 
         if (np) pointsFound = true;
         else if (pointsFound) pointsEnded = true;
@@ -240,6 +277,7 @@ namespace absolute
         json["input"] = test::dataPath() + "ellipsoid-single-laz";
         json["output"] = outPath;
         json["absolute"] = true;
+        json["single"] = true;
         return json;
     })());
 
@@ -290,6 +328,7 @@ namespace scaled
         Json::Value json;
         json["input"] = test::dataPath() + "ellipsoid-single-laz";
         json["output"] = outPath;
+        json["single"] = true;
         return json;
     })());
 
