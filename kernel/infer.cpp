@@ -125,9 +125,9 @@ void Kernel::infer(std::vector<std::string> args)
 
     std::size_t threads(4);
     Json::Value jsonReprojection;
-    std::string user;
     std::string tmpPath("tmp");
     bool trustHeaders(true);
+    Json::Value arbiterConfig;
 
     std::string output;
 
@@ -221,12 +221,16 @@ void Kernel::infer(std::vector<std::string> args)
         {
             if (++a < args.size())
             {
-                user = args[a];
+                arbiterConfig["s3"]["profile"] = args[a];
             }
             else
             {
                 throw std::runtime_error("Invalid AWS user argument");
             }
+        }
+        else if (arg == "-v")
+        {
+            arbiterConfig["verbose"] = true;
         }
 
         ++a;
@@ -240,9 +244,6 @@ void Kernel::infer(std::vector<std::string> args)
     {
         reprojection.reset(new Reprojection(jsonReprojection));
     }
-
-    Json::Value arbiterConfig;
-    arbiterConfig["s3"]["profile"] = user;
 
     auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(arbiterConfig));
 
