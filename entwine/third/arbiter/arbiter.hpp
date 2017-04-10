@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: effcbcf1fe1c514591ffebcaa7970032d23e938a
+// Git SHA: dd016e14f6cbc8b1912b738d4ea8198ec51ecd19
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -211,6 +211,8 @@ private:
 #ifdef ARBITER_CURL
 #include <curl/curl.h>
 #endif
+
+struct curl_slist;
 
 #ifdef ARBITER_CUSTOM_NAMESPACE
 namespace ARBITER_CUSTOM_NAMESPACE
@@ -990,6 +992,11 @@ private:
             std::vector<char>& data) const final override
     {
         return get(path, data, http::Headers(), http::Query());
+    }
+
+    std::string typedPath(const std::string& p) const
+    {
+        return type() + "://" + p;
     }
 
     http::Pool& m_pool;
