@@ -230,8 +230,7 @@ void Kernel::build(std::vector<std::string> args)
     }
 
     Json::Value json(ConfigParser::defaults());
-    Json::Value arbiterConfig(json["arbiter"]);
-    entwine::arbiter::Arbiter localArbiter(arbiterConfig);
+    entwine::arbiter::Arbiter localArbiter;
 
     std::size_t a(0);
 
@@ -317,7 +316,7 @@ void Kernel::build(std::vector<std::string> args)
         else if (arg == "-x") { json["trustHeaders"] = false; }
         else if (arg == "-p") { json["prefixIds"] = true; }
         else if (arg == "-n") { json["absolute"] = true; }
-        else if (arg == "-e") { arbiterConfig["s3"]["sse"] = true; }
+        else if (arg == "-e") { json["arbiter"]["s3"]["sse"] = true; }
         else if (arg == "-h")
         {
             json["reprojection"]["hammer"] = true;
@@ -358,7 +357,7 @@ void Kernel::build(std::vector<std::string> args)
         {
             if (++a < args.size())
             {
-                arbiterConfig["s3"]["profile"] = args[a];
+                json["arbiter"]["s3"]["profile"] = args[a];
             }
             else
             {
@@ -419,7 +418,7 @@ void Kernel::build(std::vector<std::string> args)
         ++a;
     }
 
-    auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(arbiterConfig));
+    auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(json["arbiter"]));
 
     json["verbose"] = true;
     std::unique_ptr<Builder> builder(ConfigParser::getBuilder(json, arbiter));
