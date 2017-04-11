@@ -87,6 +87,7 @@ Inference::Inference(
     {
         const std::string expanded(ConfigParser::directorify(p));
         auto resolved(m_arbiter->resolve(expanded, m_verbose));
+        std::sort(resolved.begin(), resolved.end());
         for (const auto& f : resolved)
         {
             m_fileInfo.emplace_back(f);
@@ -117,6 +118,7 @@ Inference::Inference(
 {
     const std::string expanded(ConfigParser::directorify(path));
     auto resolved(m_arbiter->resolve(expanded, m_verbose));
+    std::sort(resolved.begin(), resolved.end());
     for (const auto& f : resolved)
     {
         m_fileInfo.emplace_back(f);

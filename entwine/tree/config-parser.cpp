@@ -346,6 +346,7 @@ void ConfigParser::normalizeInput(
         auto insert([&fileInfo, &arbiter, verbose](std::string in)
         {
             Paths current(arbiter.resolve(in, verbose));
+            std::sort(current.begin(), current.end());
             for (const auto& c : current) fileInfo.emplace_back(c);
         });
 
