@@ -45,7 +45,7 @@ public:
     explicit FileInfo(std::string path, Status status = Status::Outstanding);
     explicit FileInfo(const Json::Value& json);
 
-    Json::Value toJson(bool includeMetadata = true) const;
+    Json::Value toJson(bool everything = true) const;
 
     const std::string& path() const             { return m_path; }
     Status status() const                       { return m_status; }
@@ -72,7 +72,7 @@ public:
     void numPoints(std::size_t n) { m_numPoints = n; }
     void srs(const pdal::SpatialReference& s) { m_srs = s; }
     void metadata(const Json::Value& json) { m_metadata = json; }
-    void origin(Origin o) { m_origin = o; }
+    // void origin(Origin o) { m_origin = o; }
 
     void add(const PointStats& stats) { m_pointStats.add(stats); }
 

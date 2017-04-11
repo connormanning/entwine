@@ -18,6 +18,7 @@
 #include <entwine/util/json.hpp>
 #include <entwine/util/pool.hpp>
 #include <entwine/util/io.hpp>
+#include <entwine/util/json.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -294,7 +295,7 @@ void Manifest::save(const bool primary, const std::string postfix) const
     io::ensurePut(
             m_endpoint,
             "entwine-manifest" + postfix,
-            json.toStyledString());
+            primary ? json.toStyledString() : toFastString(json));
 }
 
 } // namespace entwine
