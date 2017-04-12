@@ -240,8 +240,7 @@ Structure::Structure(
                 "must be of the form 4^n for quadtree, or 8^n for octree");
     }
 
-    const std::size_t activeMinDepth(
-            m_bumpDepth ? m_bumpDepth : m_coldDepthBegin);
+    const std::size_t activeMinDepth(std::max(m_bumpDepth, m_coldDepthBegin));
 
     const std::size_t activeNumPointsHint(
             std::max<std::size_t>(m_numPointsHint, 10000000));

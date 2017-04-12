@@ -121,6 +121,12 @@ std::vector<Subset::Span> Subset::calcSpans(
         const Structure& structure,
         const Bounds& bounds) const
 {
+    if (structure.maxChunksPerDepth() < m_of)
+    {
+        throw std::runtime_error(
+                "Maximum chunks per depth < number of subsets");
+    }
+
     const std::size_t depthEnd(structure.baseDepthEnd());
     std::set<Span> spans;
 
@@ -129,6 +135,11 @@ std::vector<Subset::Span> Subset::calcSpans(
         ChunkState c(structure, bounds);
         while (c.chunkBounds() != b && c.chunkBounds().contains(b))
         {
+            if (c.depth() > structure.sparseDepthBegin())
+            {
+                throw std::runtime_error("Exceeded sparse depth");
+            }
+
             c.climb(b.mid());
         }
 
