@@ -27,11 +27,15 @@ public:
     Delta(const Scale& scale, const Offset& offset = Offset())
         : m_scale(scale)
         , m_offset(offset)
-    { }
+    {
+        if (!m_scale.x || !m_scale.y || !m_scale.z)
+        {
+            throw std::runtime_error("Scale of zero not allowed");
+        }
+    }
 
     Delta(const Scale* scale, const Offset* offset)
-        : m_scale(scale ? *scale : Scale(1))
-        , m_offset(offset ? *offset : Offset(0))
+        : Delta(scale ? *scale : Scale(1), offset ? *offset : Offset(0))
     { }
 
     Delta(const Delta* delta)
@@ -45,6 +49,11 @@ public:
     {
         if (json.isMember("scale")) m_scale = Scale(json["scale"]);
         if (json.isMember("offset")) m_offset = Scale(json["offset"]);
+
+        if (!m_scale.x || !m_scale.y || !m_scale.z)
+        {
+            throw std::runtime_error("Scale of zero not allowed");
+        }
     }
 
     void insertInto(Json::Value& json) const
