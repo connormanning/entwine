@@ -263,6 +263,14 @@ TEST_P(BuildTest, Verify)
 
             ASSERT_EQ(np, o.query(q, depth).size()) <<
                 " B: " << bounds << " D: " << depth << std::endl;
+
+        }
+
+        if (depth >= meta["hierarchyStructure"]["startDepth"].asUInt64())
+        {
+            const auto j = r.hierarchy(bounds, depth, depth + 1);
+            const std::size_t h(j.isNull() ? 0 : j["n"].asUInt64());
+            ASSERT_EQ(np, h);
         }
 
         ++depth;

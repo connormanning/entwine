@@ -15,6 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <set>
+#include <stdexcept>
 
 #include <entwine/third/splice-pool/splice-pool.hpp>
 #include <entwine/types/defs.hpp>
@@ -164,9 +165,9 @@ protected:
 
     HierarchyCell::Pool& m_pool;
     const Metadata& m_metadata;
-    const Id m_id;
+    Id m_id;
     const arbiter::Endpoint* m_ep;
-    const Id m_maxPoints;
+    Id m_maxPoints;
     const std::size_t m_size;
 };
 
@@ -238,6 +239,28 @@ public:
 
     const std::vector<HierarchyTube>& tubes() const { return m_tubes; }
 
+protected:
+    void append(ContiguousBlock& other)
+    {
+        if (endId() != other.id())
+        {
+            throw std::runtime_error("Hierarchy merge must be consecutive");
+        }
+
+        m_maxPoints += other.tubes().size();
+        m_tubes.insert(
+                m_tubes.end(),
+                std::make_move_iterator(other.tubes().begin()),
+                std::make_move_iterator(other.tubes().end()));
+    }
+
+    void clear()
+    {
+        m_id = endId();
+        m_maxPoints = 0;
+        m_tubes.clear();
+    }
+
 private:
     virtual std::vector<char> combine() override;
 
@@ -288,10 +311,7 @@ public:
 private:
     virtual std::vector<char> combine() override;
 
-    void makeWritable();
-
     std::vector<ContiguousBlock> m_blocks;
-    std::vector<std::vector<ContiguousBlock>> m_writes;
 };
 
 class SparseBlock : public HierarchyBlock

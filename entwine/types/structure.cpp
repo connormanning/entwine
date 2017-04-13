@@ -310,7 +310,7 @@ Json::Value Structure::toJson() const
     return json;
 }
 
-void Structure::unbump()
+void Structure::unbump(const bool contiguous)
 {
     if (m_bumpDepth)
     {
@@ -318,6 +318,14 @@ void Structure::unbump()
         m_coldDepthBegin = m_bumpDepth;
         m_baseIndexEnd = ChunkInfo::calcLevelIndex(m_dimensions, m_baseDepthEnd);
         m_coldIndexBegin = m_baseIndexEnd;
+
+        if (!contiguous)
+        {
+            // For the hierarchy, we convert bumped depths (which were
+            // contiguous) to be sparse before writing them out.
+            m_mappedDepthBegin = m_baseDepthEnd;
+            m_mappedIndexBegin = m_baseIndexEnd;
+        }
     }
 }
 

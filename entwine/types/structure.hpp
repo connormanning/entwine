@@ -219,7 +219,7 @@ public:
 
     std::size_t maxChunksPerDepth() const { return m_maxChunksPerDepth; }
 
-    void unbump();
+    void unbump(bool contiguous = true);
 
     void clearStart()
     {

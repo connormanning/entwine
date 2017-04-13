@@ -255,7 +255,7 @@ void Metadata::makeWhole()
 {
     m_subset.reset();
     m_structure->unbump();
-    m_hierarchyStructure->unbump();
+    m_hierarchyStructure->unbump(false);
 }
 
 void Metadata::unbump()

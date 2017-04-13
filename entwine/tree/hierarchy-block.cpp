@@ -184,7 +184,7 @@ std::vector<char> ContiguousBlock::combine()
 {
     std::vector<char> data;
 
-    for (std::size_t tube(0); tube < m_tubes.size(); ++tube)
+    for (uint64_t tube(0); tube < m_tubes.size(); ++tube)
     {
         for (const auto& cell : m_tubes[tube])
         {
@@ -333,22 +333,17 @@ std::vector<char> BaseBlock::combine()
     // relative to our own ID.
     std::vector<char> data;
 
-    makeWritable();
-
-    for (const auto& write : m_writes)
+    for (const auto& block : m_blocks)
     {
-        for (const auto& block : write)
-        {
-            const auto& tubes(block.tubes());
+        const auto& tubes(block.tubes());
 
-            for (std::size_t tube(0); tube < tubes.size(); ++tube)
+        for (std::size_t tube(0); tube < tubes.size(); ++tube)
+        {
+            for (const auto& cell : tubes[tube])
             {
-                for (const auto& cell : tubes[tube])
-                {
-                    push(data, (block.id() + tube).getSimple());
-                    push(data, cell.first);
-                    push(data, cell.second->val());
-                }
+                push(data, (block.id() + tube).getSimple());
+                push(data, cell.first);
+                push(data, cell.second->val());
             }
         }
     }
@@ -362,101 +357,52 @@ std::set<Id> BaseBlock::merge(BaseBlock& other)
 {
     std::set<Id> ids;
 
-    makeWritable();
-
     const auto& s(m_metadata.hierarchyStructure());
-
+    const auto ppc(s.basePointsPerChunk());
     const std::size_t sharedDepth(
             m_metadata.subset() ?
                 m_metadata.subset()->minimumNullDepth() : 0);
 
-    for (std::size_t d(s.baseDepthBegin()); d < m_writes.size(); ++d)
+    for (std::size_t d(s.baseDepthBegin()); d < m_blocks.size(); ++d)
     {
-        std::vector<ContiguousBlock>& write(m_writes[d]);
-        ContiguousBlock& adding(other.m_blocks[d]);
+        auto& block(m_blocks[d]);
+        auto& adding(other.m_blocks[d]);
 
-        if (!write.empty())
-        {
-            if (d < sharedDepth)
-            {
-                if (write.size() != 1)
-                {
-                    throw std::runtime_error("Invalid shared depth size");
-                }
-                else if (write.front().id() != adding.id())
-                {
-                    throw std::runtime_error("Invalid shared depth id");
-                }
-                else if (write.front().endId() != adding.endId())
-                {
-                    throw std::runtime_error("Invalid shared depth span");
-                }
-            }
-            else if (write.back().endId() != adding.id())
-            {
-                throw std::runtime_error(
-                        "Hierarchy merges must be performed consecutively");
-            }
-        }
-
-        if (d < sharedDepth) write.front().merge(adding);
-        else write.emplace_back(std::move(adding));
+        if (d < sharedDepth) block.merge(adding);
+        else block.append(adding);
 
         if (s.bumpDepth() && d >= s.bumpDepth())
         {
-            const auto span(write.back().endId() - write.front().id());
-
-            if (span == s.basePointsPerChunk())
+            if (block.maxPoints() == ppc)
             {
-                const Id id(write.front().id());
+                const Id id(block.id());
+                SparseBlock write(m_pool, m_metadata, id, m_ep, ppc);
 
-                SparseBlock block(m_pool, m_metadata, id, m_ep, span);
-
-                for (ContiguousBlock& piece : write)
+                for (std::size_t i(0); i < block.tubes().size(); ++i)
                 {
-                    for (std::size_t t(0); t < piece.tubes().size(); ++t)
+                    for (const auto& c : block.tubes().at(i))
                     {
-                        for (const auto& c : piece.tubes().at(t))
-                        {
-                            block.count(
-                                    piece.id() + t,
-                                    c.first,
-                                    c.second->val());
-                        }
+                        write.count(id + i, c.first, c.second->val());
                     }
                 }
 
-                if (!block.tubes().empty())
+                if (!write.tubes().empty())
                 {
                     if (!m_ep)
                     {
                         throw std::runtime_error("Missing hierarchy endpoint");
                     }
 
-                    block.save(*m_ep);
+                    write.save(*m_ep);
                     ids.insert(id);
                 }
 
-                write.clear();
+                block.clear();
             }
         }
     }
 
     return ids;
-}
-
-void BaseBlock::makeWritable()
-{
-    if (m_writes.empty())
-    {
-        const auto& s(m_metadata.hierarchyStructure());
-        m_writes.resize(s.baseDepthEnd());
-
-        for (std::size_t i(s.baseDepthBegin()); i < m_writes.size(); ++i)
-        {
-            m_writes[i].emplace_back(std::move(m_blocks.at(i)));
-        }
-    }
 }
 
 ReadOnlySparseBlock::ReadOnlySparseBlock(
