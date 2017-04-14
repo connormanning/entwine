@@ -85,15 +85,15 @@ Builder::Builder(
         const std::string outPath,
         const std::string tmpPath,
         const std::size_t totalThreads,
-        const std::size_t* subId,
+        const std::size_t* subsetId,
         const OuterScope outerScope)
     : m_arbiter(outerScope.getArbiter())
     , m_outEndpoint(makeUnique<Endpoint>(m_arbiter->getEndpoint(outPath)))
     , m_tmpEndpoint(makeUnique<Endpoint>(m_arbiter->getEndpoint(tmpPath)))
     , m_threadPools(makeUnique<ThreadPools>(totalThreads))
-    , m_metadata(([this, subId]()
+    , m_metadata(([this, subsetId]()
     {
-        auto m(makeUnique<Metadata>(*m_outEndpoint, subId));
+        auto m(makeUnique<Metadata>(*m_outEndpoint, subsetId));
         m->manifest().awakenAll(m_threadPools->clipPool());
         return m;
     })())
@@ -113,22 +113,18 @@ Builder::Builder(
     prepareEndpoints();
 }
 
-std::unique_ptr<Builder> Builder::create(
-        const std::string path,
+std::unique_ptr<Builder> Builder::tryCreateExisting(
+        const std::string out,
+        const std::string tmp,
         const std::size_t threads,
         const std::size_t* subsetId,
         OuterScope os)
 {
-    // Try the passed-in build.
-    try { return makeUnique<Builder>(path, ".", threads, subsetId, os); }
-    catch (...) { }
+    const std::string postfix(Subset::postfix(subsetId));
 
-    if (!subsetId)
+    if (os.getArbiter()->getEndpoint(out).tryGetSize("entwine" + postfix))
     {
-        // Try the subset-zero build.
-        const std::size_t zero(0);
-        try { return makeUnique<Builder>(path, ".", threads, &zero, os); }
-        catch (...) { }
+        return makeUnique<Builder>(out, tmp, threads, subsetId, os);
     }
 
     return std::unique_ptr<Builder>();

@@ -98,8 +98,8 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         if (!json.isMember(k)) json[k] = d[k];
     }
 
-    const std::string outPath(json["output"].asString());
-    const std::string tmpPath(json["tmp"].asString());
+    const std::string out(json["output"].asString());
+    const std::string tmp(json["tmp"].asString());
     const std::size_t threads(json["threads"].asUInt64());
 
     normalizeInput(json, *arbiter);
@@ -107,14 +107,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
     if (!json["force"].asBool())
     {
-        auto builder = tryGetExisting(
-                json,
-                *arbiter,
-                outPath,
-                tmpPath,
-                threads);
-
-        if (builder)
+        if (auto builder = tryGetExisting(json, arbiter, out, tmp, threads))
         {
             if (verbose) builder->verbose(true);
 
@@ -175,7 +168,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                 reprojection.get(),
                 trustHeaders,
                 !absolute,
-                tmpPath,
+                tmp,
                 threads,
                 verbose,
                 !!cesiumSettings,
@@ -292,8 +285,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     OuterScope outerScope;
     outerScope.setArbiter(arbiter);
 
-    auto builder =
-        makeUnique<Builder>(metadata, outPath, tmpPath, threads, outerScope);
+    auto builder = makeUnique<Builder>(metadata, out, tmp, threads, outerScope);
 
     if (verbose) builder->verbose(true);
     return builder;
@@ -301,7 +293,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
 std::unique_ptr<Builder> ConfigParser::tryGetExisting(
         const Json::Value& config,
-        const arbiter::Arbiter& arbiter,
+        std::shared_ptr<arbiter::Arbiter> arbiter,
         const std::string& outPath,
         const std::string& tmpPath,
         const std::size_t numThreads)
@@ -314,14 +306,15 @@ std::unique_ptr<Builder> ConfigParser::tryGetExisting(
         subsetId = makeUnique<std::size_t>(config["subset"]["id"].asUInt64());
     }
 
-    const std::string postfix(subsetId ? "-" + std::to_string(*subsetId) : "");
+    OuterScope os;
+    os.setArbiter(arbiter);
 
-    if (arbiter.getEndpoint(outPath).tryGetSize("entwine" + postfix))
-    {
-        builder = makeUnique<Builder>(outPath, tmpPath, numThreads);
-    }
-
-    return builder;
+    return Builder::tryCreateExisting(
+            outPath,
+            tmpPath,
+            numThreads,
+            subsetId.get(),
+            os);
 }
 
 void ConfigParser::normalizeInput(

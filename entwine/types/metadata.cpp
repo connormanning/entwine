@@ -74,7 +74,8 @@ Metadata::Metadata(const arbiter::Endpoint& ep, const std::size_t* subsetId)
     {
         // Note that we are not fully-constructed yet so we can't call our
         // Metadata::postfix() yet, as we would like to.
-        Json::Value json(parse(ep.get("entwine" + Subset::postfix(subsetId))));
+        const std::string path("entwine" + Subset::postfix(subsetId));
+        Json::Value json(parse(io::ensureGetString(ep, path)));
 
         // Pre-1.0: nested keys have since been flattened.
         if (json.isMember("format"))
@@ -102,7 +103,8 @@ Metadata::Metadata(const arbiter::Endpoint& ep, const std::size_t* subsetId)
     })())
 {
     assert(!subsetId || *subsetId == m_subset->id());
-    const Json::Value json(parse(ep.get("entwine-manifest" + postfix())));
+    const std::string path("entwine-manifest" + postfix());
+    const Json::Value json(parse(io::ensureGetString(ep, path)));
     m_manifest = makeUnique<Manifest>(json, ep);
 }
 

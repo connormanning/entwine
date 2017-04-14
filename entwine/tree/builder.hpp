@@ -113,6 +113,13 @@ public:
     bool verbose() const { return m_verbose; }
     void verbose(bool v) { m_verbose = v; }
 
+    static std::unique_ptr<Builder> tryCreateExisting(
+            std::string path,
+            std::string tmp,
+            std::size_t threads,
+            const std::size_t* subsetId = nullptr,
+            OuterScope outerScope = OuterScope());
+
 private:
     std::mutex& mutex();
 
@@ -121,14 +128,6 @@ private:
     void save();
     void save(std::string to);
     void save(const arbiter::Endpoint& to);
-
-    // Attempt to wake up a possibly subset build with indeterminate metadata
-    // state.  Used to wake up the active Builder for merging.
-    static std::unique_ptr<Builder> create(
-            std::string path,
-            std::size_t threads,
-            const std::size_t* subsetId,
-            OuterScope outerScope = OuterScope());
 
     // Insert points from a file.  Return true if successful.  Sets any
     // previously unset FileInfo fields based on file contents.

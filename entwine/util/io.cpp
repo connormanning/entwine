@@ -100,6 +100,17 @@ std::unique_ptr<std::vector<char>> ensureGet(
     return data;
 }
 
+std::string ensureGetString(
+        const arbiter::Endpoint& endpoint,
+        const std::string& path)
+{
+    if (auto data = ensureGet(endpoint, path))
+    {
+        return std::string(data->begin(), data->end());
+    }
+    return std::string();
+}
+
 } // namespace io
 } // namespace entwine
 

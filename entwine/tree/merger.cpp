@@ -33,10 +33,12 @@ Merger::Merger(
 {
     m_outerScope->setArbiter(arbiter);
 
-    m_builder = Builder::create(
-            path,
+    const std::size_t zero(0);
+    m_builder = Builder::tryCreateExisting(
+            m_path,
+            ".",
             threads,
-            nullptr,
+            &zero,
             *m_outerScope);
 
     if (!m_builder)
@@ -93,7 +95,14 @@ void Merger::go()
 
             pool.add([this, &b, id]()
             {
-                b = Builder::create(m_path, m_threads, &id, *m_outerScope);
+                b = Builder::tryCreateExisting(
+                        m_path,
+                        ".",
+                        m_threads,
+                        &id,
+                        *m_outerScope);
+
+                if (!b) std::cout << "Create failed: " << id << std::endl;
             });
         }
 

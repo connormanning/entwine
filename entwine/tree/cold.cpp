@@ -50,8 +50,8 @@ Cold::Cold(const Builder& builder, bool exists)
     {
         const Json::Value json(([this, &metadata]()
         {
-            const std::string subpath("entwine-ids" + metadata.postfix());
-            return parse(m_builder.outEndpoint().get(subpath));
+            const std::string path("entwine-ids" + metadata.postfix());
+            return parse(io::ensureGetString(m_builder.outEndpoint(), path));
         })());
 
         Id chunkId(0);

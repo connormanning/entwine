@@ -41,6 +41,10 @@ std::unique_ptr<std::vector<char>> ensureGet(
         const arbiter::Endpoint& endpoint,
         const std::string& path);
 
+std::string ensureGetString(
+        const arbiter::Endpoint& endpoint,
+        const std::string& path);
+
 } // namespace io
 } // namespace entwine
 
