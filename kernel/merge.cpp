@@ -46,10 +46,10 @@ void Kernel::merge(std::vector<std::string> args)
 
     const std::string path(args[0]);
 
-    std::string user;
-
     std::size_t a(1);
     std::size_t threads(1);
+
+    Json::Value arbiterConfig;
 
     while (a < args.size())
     {
@@ -59,7 +59,7 @@ void Kernel::merge(std::vector<std::string> args)
         {
             if (++a < args.size())
             {
-                user = args[a];
+                arbiterConfig["s3"]["profile"] = args[a];
             }
             else
             {
@@ -80,9 +80,6 @@ void Kernel::merge(std::vector<std::string> args)
 
         ++a;
     }
-
-    Json::Value arbiterConfig;
-    arbiterConfig["s3"]["profile"] = user;
 
     auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(arbiterConfig));
 

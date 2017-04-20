@@ -11,6 +11,7 @@
 #pragma once
 
 #include <algorithm>
+#include <sstream>
 #include <string>
 
 #include <json/json.h>
@@ -22,18 +23,17 @@ namespace entwine
 
 inline Json::Value parse(const std::string& input)
 {
+    Json::CharReaderBuilder builder;
     Json::Value json;
-    Json::Reader reader;
+
+    std::istringstream ss(input);
+    std::string errors;
 
     if (input.size())
     {
-        if (!reader.parse(input, json, false))
+        if (!parseFromStream(builder, ss, &json, &errors))
         {
-            const std::string jsonError(reader.getFormattedErrorMessages());
-            if (!jsonError.empty())
-            {
-                throw std::runtime_error("Error during parsing: " + jsonError);
-            }
+            throw std::runtime_error("Error during parsing: " + errors);
         }
     }
 
