@@ -117,6 +117,8 @@ public:
             const Bounds& bounds,
             const Transformation& transformation) const;
 
+    std::vector<std::string> dims(std::string path) const;
+
     static std::unique_lock<std::mutex> getLock();
 
 private:

@@ -32,9 +32,24 @@ class Schema
 {
 public:
     explicit Schema(DimList dims)
-        : m_dims(dims)
-        , m_layout(makePointLayout(m_dims))
-    { }
+    {
+        auto push([this, &dims](std::string name)
+        {
+            auto comp([&name](const DimInfo& d) { return d.name() == name; });
+
+            auto d(std::find_if(dims.begin(), dims.end(), comp));
+
+            if (d != dims.end())
+            {
+                m_dims.push_back(*d);
+                dims.erase(std::remove_if(dims.begin(), dims.end(), comp));
+            }
+        });
+
+        push("X"); push("Y"); push("Z");
+        for (const auto& dim : dims) m_dims.push_back(dim);
+        m_layout = makePointLayout(m_dims);
+    }
 
     explicit Schema(const Json::Value& json)
         : Schema(

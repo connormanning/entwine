@@ -113,6 +113,20 @@ bool Executor::good(const std::string path) const
     return !m_stageFactory->inferReaderDriver(path).empty();
 }
 
+std::vector<std::string> Executor::dims(const std::string path) const
+{
+    std::vector<std::string> list;
+    UniqueStage scopedReader(createReader(path));
+    pdal::Reader* reader(scopedReader->getAs<pdal::Reader*>());
+    pdal::PointTable table;
+    { auto lock(getLock()); reader->prepare(table); }
+    for (const auto& id : table.layout()->dims())
+    {
+        list.push_back(table.layout()->dimName(id));
+    }
+    return list;
+}
+
 std::unique_ptr<Preview> Executor::preview(
         const std::string path,
         const Reprojection* reprojection)

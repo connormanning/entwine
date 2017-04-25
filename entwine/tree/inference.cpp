@@ -60,7 +60,9 @@ Inference::Inference(
     , m_arbiter(arbiter ? arbiter : m_ownedArbiter.get())
     , m_tmp(m_arbiter->getEndpoint(tmpPath))
     , m_fileInfo(fileInfo)
-{ }
+{
+    if (m_allowDelta) m_delta = makeUnique<Delta>(0.01, Offset(0));
+}
 
 Inference::Inference(
         const Paths& paths,
@@ -372,6 +374,15 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
                 m_transformation.get()))
     {
         update(curNumPoints, curBounds, nullptr);
+
+        for (const auto& d : Executor::get().dims(localPath))
+        {
+            if (!m_dimSet.count(d))
+            {
+                m_dimSet.insert(d);
+                m_dimVec.push_back(d);
+            }
+        }
     }
 }
 
