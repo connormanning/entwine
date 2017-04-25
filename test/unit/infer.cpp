@@ -102,7 +102,11 @@ TEST(Infer, EllipsoidMultiLaz)
 
 TEST(Infer, EllipsoidMultiBpf)
 {
-    Inference inference(test::dataPath() + "ellipsoid-multi-bpf");
+    Inference inference(
+            test::dataPath() + "ellipsoid-multi-bpf",
+            nullptr,
+            true,
+            false);
     inference.go();
     ASSERT_TRUE(inference.done());
 
