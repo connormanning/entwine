@@ -159,6 +159,7 @@ void Builder::go(std::size_t max)
         m_threadPools->workPool().add([this, origin, &info, path]()
         {
             FileInfo::Status status(FileInfo::Status::Inserted);
+            std::string message;
 
             try
             {
@@ -173,7 +174,7 @@ void Builder::go(std::size_t max)
                 }
 
                 status = FileInfo::Status::Error;
-                addError(path, e.what());
+                message = e.what();
             }
             catch (...)
             {
@@ -183,10 +184,10 @@ void Builder::go(std::size_t max)
                 }
 
                 status = FileInfo::Status::Error;
-                addError(path, "Unknown error");
+                message = "Unknown error";
             }
 
-            m_metadata->manifest().set(origin, status);
+            m_metadata->manifest().set(origin, status, message);
         });
     }
 
@@ -480,16 +481,6 @@ void Builder::clip(
         const bool sync)
 {
     m_registry->clip(index, chunkNum, id, sync);
-}
-
-void Builder::addError(const std::string& path, const std::string& error)
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-
-    const std::size_t lastSlash(path.find_last_of('/'));
-    const std::string file(
-            lastSlash != std::string::npos ? path.substr(lastSlash + 1) : path);
-    m_metadata->errors().push_back(file + ": " + error);
 }
 
 } // namespace entwine

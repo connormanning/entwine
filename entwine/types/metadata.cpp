@@ -66,7 +66,6 @@ Metadata::Metadata(
     , m_version(makeUnique<Version>(currentVersion()))
     , m_srs()
     , m_trustHeaders(trustHeaders)
-    , m_errors()
 { }
 
 Metadata::Metadata(const arbiter::Endpoint& ep, const std::size_t* subsetId)
@@ -138,7 +137,6 @@ Metadata::Metadata(const Json::Value& json)
     , m_srs(json["srs"].asString())
     , m_trustHeaders(json["trustHeaders"].asBool())
     , m_slicedBase(json["baseType"].asString() == "sliced")
-    , m_errors(extract<std::string>(json["errors"]))
 { }
 
 Metadata::Metadata(const Metadata& other)
@@ -161,7 +159,6 @@ Metadata::Metadata(const Metadata& other)
     , m_srs(other.srs())
     , m_trustHeaders(other.trustHeaders())
     , m_slicedBase(other.slicedBase())
-    , m_errors(other.errors())
 { }
 
 Metadata::~Metadata() { }
@@ -198,11 +195,6 @@ Json::Value Metadata::toJson() const
     if (m_cesiumSettings)
     {
         json["formats"]["cesium"] = m_cesiumSettings->toJson();
-    }
-
-    if (m_errors.size())
-    {
-        for (const auto& e : m_errors) json["errors"].append(e);
     }
 
     json["version"] = m_version->toString();

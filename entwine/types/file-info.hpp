@@ -78,7 +78,11 @@ public:
 
 private:
     PointStats& pointStats() { return m_pointStats; }
-    void status(Status status) { m_status = status; }
+    void status(Status status, std::string message = "")
+    {
+        m_status = status;
+        if (message.size()) m_message = message;
+    }
 
     std::string m_path;
     Status m_status;
@@ -93,6 +97,7 @@ private:
     Origin m_origin = invalidOrigin;
 
     PointStats m_pointStats;
+    std::string m_message;
 };
 
 using FileInfoList = std::vector<FileInfo>;

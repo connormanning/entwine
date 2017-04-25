@@ -53,10 +53,10 @@ public:
 
     FileInfo& get(Origin o) { awaken(o); return m_fileInfo.at(o); }
     const FileInfo& get(Origin o) const { awaken(o); return m_fileInfo.at(o); }
-    void set(Origin origin, FileInfo::Status status)
+    void set(Origin origin, FileInfo::Status status, std::string message = "")
     {
         countStatus(status);
-        get(origin).status(status);
+        get(origin).status(status, message);
     }
 
     void add(Origin origin, const PointStats& stats)

@@ -110,7 +110,6 @@ Executor::~Executor()
 bool Executor::good(const std::string path) const
 {
     auto ext(arbiter::Arbiter::getExtension(path));
-    if (ext == "txt" || ext == "text") return false;
     return !m_stageFactory->inferReaderDriver(path).empty();
 }
 

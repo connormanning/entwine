@@ -131,8 +131,6 @@ public:
     bool trustHeaders() const { return m_trustHeaders; }
     bool slicedBase() const { return m_slicedBase; }
 
-    const std::vector<std::string>& errors() const { return m_errors; }
-
     std::string basename(const Id& chunkId) const;
     std::string postfix(bool isColdChunk = false) const;
     void unbump();
@@ -146,7 +144,6 @@ private:
     // These are aggregated as the Builder runs.
     Manifest& manifest() { return *m_manifest; }
     // Storage& storage() { return *m_storage; }
-    std::vector<std::string>& errors() { return m_errors; }
     std::string& srs() { return m_srs; }
 
     std::unique_ptr<Delta> m_delta;
@@ -171,8 +168,6 @@ private:
     std::string m_srs;
     bool m_trustHeaders = true;
     bool m_slicedBase = true;
-
-    std::vector<std::string> m_errors;
 };
 
 } // namespace entwine

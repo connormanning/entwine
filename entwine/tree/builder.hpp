@@ -154,8 +154,6 @@ private:
     // Return the local path.
     std::string localize(std::string path, Origin origin);
 
-    void addError(const std::string& path, const std::string& error);
-
     //
 
     std::shared_ptr<arbiter::Arbiter> m_arbiter;

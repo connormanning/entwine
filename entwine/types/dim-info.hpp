@@ -38,7 +38,7 @@ public:
     DimInfo(
             const std::string& name,
             const std::string& baseTypeName,
-            std::size_t size)
+            std::size_t size = 0)
         : DimInfo(
                 name,
                 pdal::Dimension::Id::Unknown,
@@ -107,27 +107,43 @@ private:
     void setId(pdal::Dimension::Id id) { m_id = id; }
 
     pdal::Dimension::Type getType(
-            const std::string& baseTypeName,
-            std::size_t size)
+            const std::string& type,
+            const std::size_t size)
     {
-        if (baseTypeName == "floating")
+        using D = pdal::Dimension::Type;
+
+        if (type == "floating")
         {
-            if      (size == 4) return pdal::Dimension::Type::Float;
-            else if (size == 8) return pdal::Dimension::Type::Double;
+            if      (size == 4) return D::Float;
+            else if (size == 8) return D::Double;
         }
-        if (baseTypeName == "unsigned")
+        if (type == "unsigned")
         {
-            if      (size == 1) return pdal::Dimension::Type::Unsigned8;
-            else if (size == 2) return pdal::Dimension::Type::Unsigned16;
-            else if (size == 4) return pdal::Dimension::Type::Unsigned32;
-            else if (size == 8) return pdal::Dimension::Type::Unsigned64;
+            if      (size == 1) return D::Unsigned8;
+            else if (size == 2) return D::Unsigned16;
+            else if (size == 4) return D::Unsigned32;
+            else if (size == 8) return D::Unsigned64;
         }
-        else if (baseTypeName == "signed")
+        if (type == "signed")
         {
-            if      (size == 1) return pdal::Dimension::Type::Signed8;
-            else if (size == 2) return pdal::Dimension::Type::Signed16;
-            else if (size == 4) return pdal::Dimension::Type::Signed32;
-            else if (size == 8) return pdal::Dimension::Type::Signed64;
+            if      (size == 1) return D::Signed8;
+            else if (size == 2) return D::Signed16;
+            else if (size == 4) return D::Signed32;
+            else if (size == 8) return D::Signed64;
+        }
+
+        if (!size)
+        {
+            if (type == "float32") return D::Float;
+            if (type == "float64") return D::Double;
+            if (type == "uint8") return D::Unsigned8;
+            if (type == "uint16") return D::Unsigned16;
+            if (type == "uint32") return D::Unsigned32;
+            if (type == "uint64") return D::Unsigned64;
+            if (type == "int8") return D::Signed8;
+            if (type == "int16") return D::Signed16;
+            if (type == "int32") return D::Signed32;
+            if (type == "int64") return D::Signed64;
         }
 
         throw std::runtime_error("Invalid type specification");

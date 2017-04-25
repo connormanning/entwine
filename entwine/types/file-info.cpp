@@ -62,6 +62,7 @@ FileInfo::FileInfo(const Json::Value& json)
         m_numPoints = json["numPoints"].asUInt64();
         m_metadata = json["metadata"];
         m_pointStats = PointStats(json["pointStats"]);
+        m_message = json["message"].asString();
 
         if (json.isMember("srs"))
         {
@@ -88,6 +89,7 @@ Json::Value FileInfo::toJson(const bool everything) const
         if (m_bounds.exists()) json["bounds"] = m_bounds.toJson();
         if (m_numPoints) json["numPoints"] = (Json::UInt64)m_numPoints;
         if (!m_srs.empty()) json["srs"] = m_srs.getWKT();
+        if (!m_message.empty()) json["message"] = m_message;
         if (!m_metadata.isNull()) json["metadata"] = m_metadata;
     }
 
