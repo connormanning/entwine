@@ -109,7 +109,24 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     {
         if (auto builder = tryGetExisting(json, arbiter, out, tmp, threads))
         {
-            if (verbose) builder->verbose(true);
+            if (verbose)
+            {
+                builder->verbose(true);
+                std::cout << "Scanning for new files..." << std::endl;
+            }
+
+            // Only scan for files that aren't already in the index.
+            fileInfo = builder->metadata().manifest().diff(fileInfo);
+
+            if (fileInfo.size())
+            {
+                Inference inference(*builder, fileInfo);
+                inference.go();
+                fileInfo = inference.fileInfo();
+
+                std::cout << "Adding " << fileInfo.size() << " new files" <<
+                    std::endl;
+            }
 
             // If we have more paths to add, add them to the manifest.
             // Otherwise we might be continuing a partial build, in which case
@@ -204,6 +221,18 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                 std::cout << "Inferred: " << inference.bounds() << std::endl;
             }
         }
+        else if (delta)
+        {
+            // If we were passed a bounds initially, it might not match the
+            // inference we just performed.  Make sure our offset is consistent
+            // with what we'll use as our bounds later.
+            delta->offset() = boundsConforming->mid().apply([](double d)
+            {
+                const int64_t v(d);
+                if (static_cast<double>(v / 10 * 10) == d) return v;
+                else return (v + 10) / 10 * 10;
+            });
+        }
 
         if (!schema)
         {
@@ -258,7 +287,6 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     }
 
     auto subset(maybeAccommodateSubset(json, *boundsConforming, delta.get()));
-
     json["numPointsHint"] = static_cast<Json::UInt64>(numPointsHint);
     Structure structure(json);
     Structure hierarchyStructure(Hierarchy::structure(structure, subset.get()));

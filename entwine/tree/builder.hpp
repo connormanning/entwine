@@ -57,7 +57,6 @@ class Builder
 {
     friend class Clipper;
     friend class Merger;
-    friend class Reader;
     friend class Sequence;
 
 public:
@@ -91,6 +90,7 @@ public:
     const Registry& registry() const;
     const Hierarchy& hierarchy() const;
     ThreadPools& threadPools() const;
+    arbiter::Arbiter& arbiter();
     const arbiter::Arbiter& arbiter() const;
     const Sequence& sequence() const;
     Sequence& sequence();

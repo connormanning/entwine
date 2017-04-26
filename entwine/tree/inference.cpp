@@ -12,7 +12,9 @@
 
 #include <limits>
 
+#include <entwine/tree/builder.hpp>
 #include <entwine/tree/config-parser.hpp>
+#include <entwine/tree/thread-pools.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/util/executor.hpp>
@@ -63,6 +65,19 @@ Inference::Inference(
 {
     if (m_allowDelta) m_delta = makeUnique<Delta>(0.01, Offset(0));
 }
+
+Inference::Inference(Builder& builder, const FileInfoList& fileInfo)
+    : Inference(
+            fileInfo,
+            builder.metadata().reprojection(),
+            builder.metadata().trustHeaders(),
+            false,  // Delta won't matter - we will just use the file-info.
+            builder.tmpEndpoint().prefixedRoot(),
+            builder.threadPools().size(),
+            builder.verbose(),
+            false,  // Adding to existing index isn't allows for Cesium.
+            &builder.arbiter())
+{ }
 
 Inference::Inference(
         const Paths& paths,

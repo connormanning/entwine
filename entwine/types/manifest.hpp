@@ -42,6 +42,7 @@ public:
 
     Manifest(const Manifest& other);
 
+    FileInfoList diff(const FileInfoList& fileInfo) const;
     void append(const FileInfoList& fileInfo);
 
     Json::Value toJson() const;

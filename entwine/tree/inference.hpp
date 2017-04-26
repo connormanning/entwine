@@ -28,6 +28,7 @@
 namespace entwine
 {
 
+class Builder;
 class Reprojection;
 
 class Inference
@@ -66,6 +67,8 @@ public:
             bool verbose = false,
             bool cesiumify = false,
             arbiter::Arbiter* arbiter = nullptr);
+
+    Inference(Builder& builder, const FileInfoList& fileInfo);
 
     Inference(const Json::Value& json);
 

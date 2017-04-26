@@ -446,6 +446,7 @@ const Metadata& Builder::metadata() const           { return *m_metadata; }
 const Registry& Builder::registry() const           { return *m_registry; }
 const Hierarchy& Builder::hierarchy() const         { return *m_hierarchy; }
 const arbiter::Arbiter& Builder::arbiter() const    { return *m_arbiter; }
+arbiter::Arbiter& Builder::arbiter() { return *m_arbiter; }
 
 Sequence& Builder::sequence() { return *m_sequence; }
 const Sequence& Builder::sequence() const { return *m_sequence; }

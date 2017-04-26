@@ -116,18 +116,29 @@ OriginList Manifest::find(const Bounds& bounds) const
 
 void Manifest::append(const FileInfoList& fileInfo)
 {
-    for (const auto& f : fileInfo)
+    FileInfoList adding(diff(fileInfo));
+
+    for (const auto& f : adding)
     {
-        auto matches([&f](const FileInfo& info)
-        {
-            return f.path() == info.path();
-        });
+        m_fileInfo.emplace_back(f);
+        m_remote.push_back(false);
+    }
+}
+
+FileInfoList Manifest::diff(const FileInfoList& in) const
+{
+    FileInfoList out;
+    for (const auto& f : in)
+    {
+        auto matches([&f](const FileInfo& x) { return f.path() == x.path(); });
 
         if (std::none_of(m_fileInfo.begin(), m_fileInfo.end(), matches))
         {
-            m_fileInfo.emplace_back(f);
+            out.emplace_back(f);
         }
     }
+
+    return out;
 }
 
 void Manifest::merge(const Manifest& other)

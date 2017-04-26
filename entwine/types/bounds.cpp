@@ -209,16 +209,12 @@ Bounds Bounds::cubeify(const Delta& delta) const
     const double radius(20 + (rawRadius + 10) / 10 * 10);
 
     const auto& s(delta.scale());
-    const Point neg(
-            Point::apply(
-                [](double v) { return std::floor(v); },
-                Point(-radius / s.x, -radius / s.y, -radius / s.z)));
-    const Point pos(
+    const Point p(
             Point::apply(
                 [](double v) { return std::ceil(v); },
-                Point( radius / s.x,  radius / s.y,  radius / s.z)));
+                Point(radius / s.x, radius / s.y, radius / s.z)));
 
-    return Bounds(neg, pos);
+    return Bounds(-p, p);
 }
 
 std::ostream& operator<<(std::ostream& os, const Bounds& bounds)
