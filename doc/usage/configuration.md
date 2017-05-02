@@ -253,7 +253,7 @@ Generally, this field can be omitted and will be inferred from the input files. 
 The `name` of a dimension maps directly to a [PDAL](https://pdal.io) dimension name.  The `type` and `size` fields specify the representation of the dimension.  Sizes are always specified in 8-bit bytes.
 
 | Type          | Description                       | Available sizes
-|---------------|-------------------------------------------------------
+|---------------|-----------------------------------|-------------------
 | Floating      | A floating point representation   | `4`, `8`
 | Unsigned      | Unsigned integer representation   | `1`, `2`, `4`, `8`
 | Signed        | Signed integer representation     | `1`, `2`, `4`, `8`
@@ -269,7 +269,7 @@ Entwine uses [Arbiter](http://arbitercpp.com) ([source repository](https://githu
 }
 ```
 
-For S3, if AWSCLI has been installed, then the credentials will be picked up from there, making this field unnecessary.
+For S3, if AWSCLI has been installed, then the credentials will be picked up from there, making this field unnecessary.  See the [S3](#s3) section for more information.
 
 ### Compress
 Determines whether point data is compressed via [LAZ-perf](https://github.com/hobu/laz-perf).  In general, turning off compression is not very useful except for special cases of debugging or validating output.
@@ -291,7 +291,7 @@ Builds may be split into multiple subsets, or tasks, and then be merged later.  
     "subset": {
         "id": 1,
         "of": 4
-    "
+    }
 }
 ```
 
@@ -363,8 +363,15 @@ The standard operation of `infer` logs information to STDOUT.  If the `-o` flag 
 
 # More
 
+## S3
+Entwine can read and write S3 backends directly using the REST API from AWS.  The simplest way to make use of this functionality is to install [awscli](https://aws.amazon.com/cli/) and run `aws configure`, which will write your credentials and configuration information to `~/.aws`, which will be picked up by Entwine.  Don't forget to set your region if you are not in AWS's default of `us-east-1`.
+
+If you're using Docker, you'll need to map that directory as a volume.  Entwine's docker container runs as user `root`, so that mapping is as simple as adding `-v ~/.aws:/root/.aws` to your `docker run` invocation.
+
+## Issues for HTTP backends
+If failures are occurring when using an HTTP-based backend (which includes S3), verbose output from [Curl](https://curl.haxx.se/) can be useful to see the HTTP error messages.  Verbose Curl output can be enabled by setting environment variable `CURL_VERBOSE` to `1`.  For Docker, add `-e "CURL_VERBOSE=1"` to your `docker run` invocation.
+
 ## Cesium 3D Tiles
 Entwine ships with a [Cesium](https://cesiumjs.org) configuration that will output a [3D Tiles](https://github.com/AnalyticalGraphicsInc/3d-tiles) tileset in addition to the standard Entwine output.  For detailed instructions and a set of static pages to view tileset output in Cesium, check out the [Entwine/Cesium pages](https://github.com/connormanning/entwine-cesium-pages) repository.
 
 At this time, some Entwine features are not supported when using the Cesium configuration.  Continuing a build by adding more files to a previously completed Entwine index is not yet supported, and neither are subset builds.  Input data for Cesium builds must contain only 8-bit color and intensity values.
-
