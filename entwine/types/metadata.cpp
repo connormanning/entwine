@@ -64,7 +64,7 @@ Metadata::Metadata(
     , m_transformation(maybeClone(transformation))
     , m_cesiumSettings(maybeClone(cesiumSettings))
     , m_version(makeUnique<Version>(currentVersion()))
-    , m_srs()
+    , m_srs(m_reprojection ? m_reprojection->out() : "")
     , m_trustHeaders(trustHeaders)
 { }
 

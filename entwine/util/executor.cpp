@@ -46,45 +46,22 @@ namespace
 
             std::size_t i(0);
 
-            m_view->setField(DimId::X, i, bounds.min().x);
-            m_view->setField(DimId::Y, i, bounds.min().y);
-            m_view->setField(DimId::Z, i, bounds.min().z);
-            ++i;
+            auto insert([this, &i, &bounds](int x, int y, int z)
+            {
+                m_view->setField(DimId::X, i, bounds[x ? 0 : 3]);
+                m_view->setField(DimId::Y, i, bounds[y ? 1 : 4]);
+                m_view->setField(DimId::Z, i, bounds[z ? 2 : 5]);
+                ++i;
+            });
 
-            m_view->setField(DimId::X, i, bounds.min().x);
-            m_view->setField(DimId::Y, i, bounds.min().y);
-            m_view->setField(DimId::Z, i, bounds.max().z);
-            ++i;
-
-            m_view->setField(DimId::X, i, bounds.max().x);
-            m_view->setField(DimId::Y, i, bounds.max().y);
-            m_view->setField(DimId::Z, i, bounds.min().z);
-            ++i;
-
-            m_view->setField(DimId::X, i, bounds.max().x);
-            m_view->setField(DimId::Y, i, bounds.max().y);
-            m_view->setField(DimId::Z, i, bounds.max().z);
-            ++i;
-
-            m_view->setField(DimId::X, i, bounds.min().x);
-            m_view->setField(DimId::Y, i, bounds.max().y);
-            m_view->setField(DimId::Z, i, bounds.min().z);
-            ++i;
-
-            m_view->setField(DimId::X, i, bounds.min().x);
-            m_view->setField(DimId::Y, i, bounds.max().y);
-            m_view->setField(DimId::Z, i, bounds.max().z);
-            ++i;
-
-            m_view->setField(DimId::X, i, bounds.max().x);
-            m_view->setField(DimId::Y, i, bounds.min().y);
-            m_view->setField(DimId::Z, i, bounds.min().z);
-            ++i;
-
-            m_view->setField(DimId::X, i, bounds.max().x);
-            m_view->setField(DimId::Y, i, bounds.min().y);
-            m_view->setField(DimId::Z, i, bounds.max().z);
-            ++i;
+            insert(0, 0, 0);
+            insert(0, 0, 1);
+            insert(0, 1, 0);
+            insert(0, 1, 1);
+            insert(1, 0, 0);
+            insert(1, 0, 1);
+            insert(1, 1, 0);
+            insert(1, 1, 1);
 
             m_buffer.addView(m_view);
         }
@@ -131,54 +108,81 @@ std::unique_ptr<Preview> Executor::preview(
         const std::string path,
         const Reprojection* reprojection)
 {
-    std::unique_ptr<Preview> result;
-
     UniqueStage scopedReader(createReader(path));
-    if (!scopedReader) return result;
+    if (!scopedReader) return nullptr;
+
+    auto result(makeUnique<Preview>());
+    auto& p(*result);
 
     pdal::Reader* reader(scopedReader->getAs<pdal::Reader*>());
     const pdal::QuickInfo qi(([this, reader]()
     {
         auto lock(getLock());
-        pdal::QuickInfo q = reader->preview();
-        return q;
+        return reader->preview();
     })());
 
-    const Json::Value metadata(([this, reader]()
+    if (qi.valid())
     {
-        auto lock(getLock());
-        const auto s(pdal::Utils::toJSON(reader->getMetadata()));
-        try { return parse(s); }
-        catch (...) { return Json::Value(s); }
-    })());
+        if (!qi.m_bounds.empty())
+        {
+            p.bounds = Bounds(
+                    qi.m_bounds.minx, qi.m_bounds.miny, qi.m_bounds.minz,
+                    qi.m_bounds.maxx, qi.m_bounds.maxy, qi.m_bounds.maxz);
+        }
 
-    if (!qi.valid() || qi.m_bounds.empty()) return result;
+        { auto lock(getLock()); p.srs = qi.m_srs.getWKT(); }
+        p.numPoints = qi.m_pointCount;
+        p.dimNames = qi.m_dimNames;
 
-    std::unique_ptr<Scale> scale;
-    Bounds bounds(
-            Point(qi.m_bounds.minx, qi.m_bounds.miny, qi.m_bounds.minz),
-            Point(qi.m_bounds.maxx, qi.m_bounds.maxy, qi.m_bounds.maxz));
+        if (const auto las = dynamic_cast<pdal::LasReader*>(reader))
+        {
+            const auto& h(las->header());
+            p.scale = makeUnique<Scale>(h.scaleX(), h.scaleY(), h.scaleZ());
+        }
 
-    if (const auto lasReader = dynamic_cast<pdal::LasReader*>(reader))
-    {
-        const auto& header(lasReader->header());
-        scale = makeUnique<Scale>(
-                header.scaleX(),
-                header.scaleY(),
-                header.scaleZ());
-    }
-
-    std::string srs;
-
-    if (!reprojection)
-    {
-        srs = qi.m_srs.getWKT();
+        p.metadata = ([this, reader]()
+        {
+            auto lock(getLock());
+            const auto s(pdal::Utils::toJSON(reader->getMetadata()));
+            try { return parse(s); }
+            catch (...) { return Json::Value(s); }
+        })();
     }
     else
     {
+        using D = pdal::Dimension::Id;
+        const Schema xyzSchema({ { D::X }, { D::Y }, { D::Z } });
+        PointPool pointPool(xyzSchema);
+
+        p.bounds = Bounds::expander();
+
+        // We'll pick up the number of points and bounds here.
+        auto counter([&p](Cell::PooledStack stack)
+        {
+            p.numPoints += stack.size();
+            for (const auto& cell : stack) p.bounds.grow(cell.point());
+            return stack;
+        });
+
+        PooledPointTable table(pointPool, counter, invalidOrigin);
+
+        if (Executor::get().run(table, path))
+        {
+            // And we'll pick up added dimensions here.
+            for (const auto& d : xyzSchema.fixedLayout().added())
+            {
+                p.dimNames.push_back(d.first);
+            }
+        }
+    }
+
+    // Now we have all of our info in native format.  If a reprojection has
+    // been set, then we'll need to transform our bounds and SRS values.
+    if (reprojection)
+    {
         using DimId = pdal::Dimension::Id;
 
-        BufferState bufferState(bounds);
+        BufferState bufferState(p.bounds);
 
         const auto selectedSrs(
                 srsFoundOrDefault(qi.m_srs, *reprojection));
@@ -192,31 +196,20 @@ std::unique_ptr<Preview> Executor::preview(
         { auto lock(getLock()); filter.prepare(bufferState.getTable()); }
         filter.execute(bufferState.getTable());
 
-        Bounds b(Bounds::expander());
-
+        p.bounds = Bounds::expander();
         for (std::size_t i(0); i < bufferState.getView().size(); ++i)
         {
-            const Point p(
+            const Point point(
                     bufferState.getView().getFieldAs<double>(DimId::X, i),
                     bufferState.getView().getFieldAs<double>(DimId::Y, i),
                     bufferState.getView().getFieldAs<double>(DimId::Z, i));
 
-            b.grow(p);
+            p.bounds.grow(point);
         }
 
-        bounds = b;
-
         auto lock(getLock());
-        srs = pdal::SpatialReference(reprojection->out()).getWKT();
+        p.srs = pdal::SpatialReference(reprojection->out()).getWKT();
     }
-
-    result = makeUnique<Preview>(
-            bounds,
-            qi.m_pointCount,
-            srs,
-            qi.m_dimNames,
-            scale.get(),
-            metadata);
 
     return result;
 }

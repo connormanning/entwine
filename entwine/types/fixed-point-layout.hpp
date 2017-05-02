@@ -18,11 +18,17 @@ namespace entwine
 
 class FixedPointLayout : public pdal::PointLayout
 {
+public:
+    using Added = std::map<std::string, pdal::Dimension::Detail>;
+    const Added& added() const { return m_added; }
+
 private:
     virtual bool update(
             pdal::Dimension::Detail dimDetail,
             const std::string& name) override
     {
+        m_added[name] = dimDetail;
+
         if (!m_finalized)
         {
             if (!contains(m_used, dimDetail.id()))
@@ -52,6 +58,8 @@ private:
 
         return false;
     }
+
+    Added m_added;
 };
 
 } // namespace entwine

@@ -69,8 +69,16 @@ public:
     virtual void reset() override;
 
 protected:
+    virtual char* getPoint(pdal::PointId i) override
+    {
+        m_outstanding = i + 1;
+        return m_refs[i];
+    }
+
     std::size_t index() const { return m_index; }
     std::size_t outstanding() const { return m_outstanding; }
+
+    void allocate();
 
     PointPool& m_pointPool;
     const Schema& m_schema;
@@ -80,15 +88,6 @@ protected:
     Cell::PooledStack m_cellNodes;
 
     std::vector<char*> m_refs;
-
-protected:
-    virtual char* getPoint(pdal::PointId i) override
-    {
-        m_outstanding = i + 1;
-        return m_refs[i];
-    }
-
-    void allocate();
 
     const Origin m_origin;
     std::size_t m_index;

@@ -19,6 +19,7 @@
 #include <pdal/Reader.hpp>
 
 #include <entwine/types/bounds.hpp>
+#include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/util/unique.hpp>
@@ -57,6 +58,8 @@ typedef std::unique_ptr<ScopedStage> UniqueStage;
 class Preview
 {
 public:
+    Preview() = default;
+
     Preview(
             const Bounds& bounds,
             std::size_t numPoints,
@@ -73,7 +76,7 @@ public:
     { }
 
     Bounds bounds;
-    std::size_t numPoints;
+    std::size_t numPoints = 0;
     std::string srs;
     std::vector<std::string> dimNames;
     std::unique_ptr<Scale> scale;
@@ -94,6 +97,9 @@ public:
         return get().m_mutex;
     }
 
+    // True if this path is recognized as a point cloud file.
+    bool good(std::string path) const;
+
     // Returns true if no errors occurred during insertion.
     template<typename T>
     bool run(
@@ -101,9 +107,6 @@ public:
             std::string path,
             const Reprojection* reprojection = nullptr,
             const std::vector<double>* transform = nullptr);
-
-    // True if this path is recognized as a point cloud file.
-    bool good(std::string path) const;
 
     // If available, return the bounds specified in the file header without
     // reading the whole file.
@@ -122,6 +125,10 @@ public:
     static std::unique_lock<std::mutex> getLock();
 
 private:
+    std::unique_ptr<Preview> slowPreview(
+            std::string path,
+            const Reprojection* reprojection) const;
+
     Executor();
     ~Executor();
 
@@ -187,7 +194,52 @@ bool Executor::run(
     }
 
     { auto lock(getLock()); executor->prepare(table); }
-    executor->execute(table);
+
+    try
+    {
+        executor->execute(table);
+    }
+    catch (pdal::pdal_error& e)
+    {
+        static bool logged(false);
+        if (!logged)
+        {
+            logged = true;
+            std::cout <<
+                "Streaming execution error - falling back to non-streaming: " <<
+                e.what() << std::endl;
+        }
+
+        pdal::PointTable pdalTable;
+        executor->prepare(pdalTable);
+        auto views = executor->execute(pdalTable);
+
+        pdal::PointView pooledView(table);
+        auto& layout(*table.layout());
+        const auto dimTypes(layout.dimTypes());
+
+        std::vector<char> point(layout.pointSize(), 0);
+        char* pos(point.data());
+
+        std::size_t current(0);
+
+        for (auto& view : views)
+        {
+            for (std::size_t i(0); i < view->size(); ++i)
+            {
+                view->getPackedPoint(dimTypes, i, pos);
+                pooledView.setPackedPoint(dimTypes, current, pos);
+
+                if (++current == table.capacity())
+                {
+                    table.reset();
+                    current = 0;
+                }
+            }
+        }
+
+        if (current) table.reset();
+    }
 
     return true;
 }

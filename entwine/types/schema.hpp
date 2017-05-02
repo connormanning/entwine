@@ -142,7 +142,16 @@ public:
 
     pdal::PointLayout& pdalLayout() const
     {
-        return *m_layout.get();
+        return *m_layout;
+    }
+
+    const FixedPointLayout& fixedLayout() const
+    {
+        if (const auto* f = static_cast<FixedPointLayout*>(m_layout.get()))
+        {
+            return *f;
+        }
+        else throw std::runtime_error("Layout is not a FixedPointLayout");
     }
 
     Json::Value toJson() const

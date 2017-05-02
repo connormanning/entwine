@@ -231,36 +231,14 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
     const Reprojection* reprojection(m_metadata->reprojection());
     const Transformation* transformation(m_metadata->transformation());
 
-    // If we don't have an inferred bounds, check against the actual file.
-    if (!info.bounds())
-    {
-        if (auto pre = Executor::get().preview(localPath, reprojection))
-        {
-            const auto b(pre->bounds.growBy(.01));
-            if (!m_sequence->checkBounds(origin, b, pre->numPoints))
-            {
-                return false;
-            }
-        }
-    }
-
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         std::string& srs(m_metadata->srs());
 
         if (srs.empty())
         {
-            if (reprojection)
-            {
-                // Don't construct the pdal::SpatialReference ourself, since
-                // we need to use the Executor's lock to do so.
-                srs = Executor::get().getSrsString(reprojection->out());
-            }
-            else
-            {
-                auto preview(Executor::get().preview(localPath, nullptr));
-                if (preview) srs = preview->srs;
-            }
+            auto preview(Executor::get().preview(localPath, nullptr));
+            if (preview) srs = preview->srs;
 
             if (verbose() && srs.size())
             {

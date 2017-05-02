@@ -110,7 +110,7 @@ class Delta;
 class PointPool
 {
 public:
-    PointPool(const Schema& schema, const Delta* delta)
+    PointPool(const Schema& schema, const Delta* delta = nullptr)
         : m_schema(schema)
         , m_delta(delta)
         , m_dataPool(schema.pointSize(), heuristics::poolBlockSize)
