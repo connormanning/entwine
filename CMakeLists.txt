@@ -107,13 +107,27 @@ set(OBJS
     $<TARGET_OBJECTS:util>
 )
 
-add_library(entwine SHARED ${OBJS})
+if (MSVC)
+    add_library(entwine STATIC ${OBJS})
+else()
+    add_library(entwine SHARED ${OBJS})
+endif()
 
-target_link_libraries(entwine pdalcpp lzma dl)
+if (MSVC)
+    find_library(LZMA_LIBRARY liblzma PATHS "${CMAKE_INSTALL_PREFIX}/lib")
+    target_link_libraries(entwine pdalcpp pdal_util ${LZMA_LIBRARY})
+else()
+    target_link_libraries(entwine pdalcpp lzma dl)
+endif()
 
 if (ENTWINE_JSONCPP_INCLUDE_DIR)
     MESSAGE("Linking system JsonCpp")
-    target_link_libraries(entwine jsoncpp)
+    if (MSVC)
+        find_library(JSONCPP_LIBRARY jsoncpp PATHS "${CMAKE_INSTALL_PREFIX}/lib")
+        target_link_libraries(entwine ${JSONCPP_LIBRARY})
+    else()
+        target_link_libraries(entwine jsoncpp)
+    endif()
 endif()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
