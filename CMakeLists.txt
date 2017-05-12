@@ -21,6 +21,11 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR
     add_definitions(${CMAKE_CXX_FLAGS} "-fPIC")
 endif()
 
+if (MSVC)
+    # prevents clashes between macros min\max and std::min\std::max
+    add_definitions(${CMAKE_CXX_FLAGS} "/DNOMINMAX")
+endif(MSVC)
+
 set(ENTWINE_VERSION_MAJOR 1 CACHE STRING "Entwine major version" FORCE)
 set(ENTWINE_VERSION_MINOR 0 CACHE STRING "Entwine major version" FORCE)
 set(ENTWINE_VERSION_PATCH 0 CACHE STRING "Entwine major version" FORCE)
