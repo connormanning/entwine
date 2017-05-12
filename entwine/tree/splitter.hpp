@@ -37,8 +37,6 @@ public:
         mutable UniqueT t;
     };
 
-    using SlotType = Splitter<T>::Slot;
-
     Splitter(const Structure& structure)
         : m_structure(structure)
         , m_base()
