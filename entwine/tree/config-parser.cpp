@@ -69,9 +69,9 @@ Json::Value ConfigParser::defaults()
 
     if (!shallow)
     {
-        json["pointsPerChunk"] = std::pow(4, 10);
+        json["pointsPerChunk"] = std::pow(4, 9);
         json["nullDepth"] = 7;
-        json["baseDepth"] = 11;
+        json["baseDepth"] = 10;
     }
     else
     {

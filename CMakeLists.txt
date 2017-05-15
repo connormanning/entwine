@@ -3,8 +3,15 @@ cmake_minimum_required(VERSION 2.8.8)
 project(entwine)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules" ${CMAKE_MODULE_PATH})
 
-set(ENTWINE_API_VERSION "1")
-set(ENTWINE_BUILD_VERSION "1.0.0")
+set(ENTWINE_VERSION_MAJOR 1 CACHE STRING "Entwine major version" FORCE)
+set(ENTWINE_VERSION_MINOR 1 CACHE STRING "Entwine minor version" FORCE)
+set(ENTWINE_VERSION_PATCH 0 CACHE STRING "Entwine patch version" FORCE)
+set(ENTWINE_VERSION_STRING
+    "${ENTWINE_VERSION_MAJOR}.${ENTWINE_VERSION_MINOR}.${ENTWINE_VERSION_PATCH}"
+    CACHE STRING "Entwine version string" FORCE)
+
+set(ENTWINE_API_VERSION "2")
+set(ENTWINE_BUILD_VERSION ${ENTWINE_VERSION_STRING})
 
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "")
     MESSAGE("Defaulting to release mode")
@@ -20,13 +27,6 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR
     add_definitions(${CMAKE_CXX_FLAGS} "-fexceptions")
     add_definitions(${CMAKE_CXX_FLAGS} "-fPIC")
 endif()
-
-set(ENTWINE_VERSION_MAJOR 1 CACHE STRING "Entwine major version" FORCE)
-set(ENTWINE_VERSION_MINOR 0 CACHE STRING "Entwine major version" FORCE)
-set(ENTWINE_VERSION_PATCH 0 CACHE STRING "Entwine major version" FORCE)
-set(ENTWINE_VERSION_STRING
-    "${ENTWINE_VERSION_MAJOR}.${ENTWINE_VERSION_MINOR}.${ENTWINE_VERSION_PATCH}"
-    CACHE STRING "Entwine version string" FORCE)
 
 set(entwine_defs_hpp_in
     "${CMAKE_CURRENT_SOURCE_DIR}/entwine/types/defs.hpp.in")
