@@ -8,6 +8,7 @@
 *
 ******************************************************************************/
 
+#include <cmath>
 #include <limits>
 #include <numeric>
 
@@ -68,15 +69,15 @@ Json::Value ConfigParser::defaults()
 
     if (!shallow)
     {
-        json["pointsPerChunk"] = 262144;
+        json["pointsPerChunk"] = std::pow(4, 10);
         json["nullDepth"] = 7;
-        json["baseDepth"] = 10;
+        json["baseDepth"] = 11;
     }
     else
     {
         std::cout << "Using shallow test configuration" << std::endl;
 
-        json["pointsPerChunk"] = 1024;
+        json["pointsPerChunk"] = std::pow(4, 5);
         json["nullDepth"] = 4;
         json["baseDepth"] = 6;
     }
