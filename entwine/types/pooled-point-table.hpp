@@ -141,6 +141,12 @@ protected:
         {
             char* dst(reinterpret_cast<char*>(&m_points[index][dim]));
             std::copy(src, src + sizeof(double), dst);
+
+            // This would normally occur in getPoint, but if the schema is only
+            // XYZ then the above branch will never execute, so we'd think
+            // there are no points.  For the XYZ-only special case, we need to
+            // include this here.
+            m_outstanding = index + 1;
         }
     }
 
