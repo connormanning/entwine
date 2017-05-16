@@ -28,6 +28,11 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR
     add_definitions(${CMAKE_CXX_FLAGS} "-fPIC")
 endif()
 
+if (MSVC)
+    # prevents clashes between macros min\max and std::min\std::max
+    add_definitions(${CMAKE_CXX_FLAGS} "/DNOMINMAX")
+endif(MSVC)
+
 set(entwine_defs_hpp_in
     "${CMAKE_CURRENT_SOURCE_DIR}/entwine/types/defs.hpp.in")
 set(entwine_defs_hpp
@@ -102,13 +107,27 @@ set(OBJS
     $<TARGET_OBJECTS:util>
 )
 
-add_library(entwine SHARED ${OBJS})
+if (MSVC)
+    add_library(entwine STATIC ${OBJS})
+else()
+    add_library(entwine SHARED ${OBJS})
+endif()
 
-target_link_libraries(entwine pdalcpp lzma dl)
+if (MSVC)
+    find_library(LZMA_LIBRARY liblzma PATHS "${CMAKE_INSTALL_PREFIX}/lib")
+    target_link_libraries(entwine pdalcpp pdal_util ${LZMA_LIBRARY})
+else()
+    target_link_libraries(entwine pdalcpp lzma dl)
+endif()
 
 if (ENTWINE_JSONCPP_INCLUDE_DIR)
     MESSAGE("Linking system JsonCpp")
-    target_link_libraries(entwine jsoncpp)
+    if (MSVC)
+        find_library(JSONCPP_LIBRARY jsoncpp PATHS "${CMAKE_INSTALL_PREFIX}/lib")
+        target_link_libraries(entwine ${JSONCPP_LIBRARY})
+    else()
+        target_link_libraries(entwine jsoncpp)
+    endif()
 endif()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
@@ -147,9 +166,11 @@ install(
     FILES "${PROJECT_BINARY_DIR}/entwine-config.cmake"
     DESTINATION lib/cmake/entwine)
 
-add_subdirectory(test/gtest-1.8.0)
-include_directories(entwine test/gtest-1.8.0/include test/gtest-1.8.0)
-add_subdirectory(test)
+if (NOT MSVC)
+    add_subdirectory(test/gtest-1.8.0)
+    include_directories(entwine test/gtest-1.8.0/include test/gtest-1.8.0)
+    add_subdirectory(test)
+endif()
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/cpack.cmake")
 add_custom_target(dist COMMAND ${CMAKE_MAKE_PROGRAM} package_source)

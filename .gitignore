@@ -1,5 +1,6 @@
 credentials.json
 CMakeCache.txt
+CMakeFiles/
 
 .DS_Store
 build/*
@@ -9,3 +10,6 @@ test/data/*
 !test/data/generate
 !test/data/generate-ellipsoid.cpp
 
+*.vcxproj
+*.vcxproj.filters
+*.sln

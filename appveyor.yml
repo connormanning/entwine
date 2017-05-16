@@ -1,0 +1,53 @@
+version: 1.0.{build}
+
+os: Visual Studio 2015
+
+platform: x64
+
+configuration: Release
+
+matrix:
+  fast_finish: true
+
+environment:
+  OSGEO4W_ROOT: C:\OSGeo4W64
+
+# Should speed up repository cloning
+shallow_clone: true
+clone_depth: 5
+
+# Uncomment if you need to debug AppVeyor session (https://www.appveyor.com/docs/how-to/rdp-to-build-worker)
+# on_finish:
+# - ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
+
+init:
+  - set PYTHONHOME=C:\Python27-x64
+  - set PYTHONPATH=%PYTHONHOME%\Lib;%OSGEO4W_ROOT%\apps\Python27\lib\site-packages
+  - set PATH=C:\Program Files (x86)\MSBuild\14.0\Bin;%PATH%
+  - set PATH=%PYTHONHOME%;%PATH%
+  - ps: iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
+
+install:
+  - ps: mkdir $env:OSGEO4W_ROOT | out-null
+  # make an install directory for packacing
+  - ps: mkdir C:\pdalbin | out-null
+  # call our Entwine install script
+  - call .\\scripts\\appveyor\\config.cmd
+
+build:
+  parallel: true
+  project: entwine.sln
+  verbosity: minimal
+
+after_build:
+  - 7z a entwine.zip %APPVEYOR_BUILD_FOLDER%\bin\*.*
+
+artifacts:
+  - path: entwine.zip
+    name: entwinemaster
+
+notifications:
+  - provider: Email
+    on_build_success: false
+    on_build_failure: false
+    on_build_status_changed: false

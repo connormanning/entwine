@@ -85,7 +85,7 @@ std::unique_ptr<std::vector<char>> run(
 std::unique_ptr<std::vector<char>> Compression::compressLzma(
         const std::vector<char>& in)
 {
-    lzma_stream stream(LZMA_STREAM_INIT);
+    lzma_stream stream = LZMA_STREAM_INIT;
     const lzma_ret ret(lzma_easy_encoder(&stream, mode, LZMA_CHECK_CRC64));
 
     if (ret != LZMA_OK) check(ret);
@@ -117,7 +117,7 @@ std::unique_ptr<std::vector<char>> Compression::decompressLzma(
         throw std::runtime_error("Possible LZMA partial download detected");
     }
 
-    lzma_stream stream(LZMA_STREAM_INIT);
+    lzma_stream stream = LZMA_STREAM_INIT;
 
     const lzma_ret ret(
             lzma_auto_decoder(

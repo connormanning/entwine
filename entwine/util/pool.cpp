@@ -11,6 +11,7 @@
 #include <entwine/util/pool.hpp>
 
 #include <iostream>
+#include <string>
 
 namespace entwine
 {
