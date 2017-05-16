@@ -201,6 +201,15 @@ bool Executor::run(
     }
     catch (pdal::pdal_error& e)
     {
+        const std::string nostream("Point streaming not supported for stage");
+        if (std::string(e.what()).find(nostream) == std::string::npos)
+        {
+            // If the error was from lack of streaming support, then we'll
+            // fall back to the non-streaming API.  Otherwise, return false
+            // indicating we couldn't successfully execute this file.
+            return false;
+        }
+
         static bool logged(false);
         if (!logged)
         {
