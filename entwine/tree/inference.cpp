@@ -331,32 +331,35 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
             std::lock_guard<std::mutex> lock(m_mutex);
             fileInfo.srs(preview->srs);
 
-            if (preview->scale)
+            if (preview->numPoints)
             {
-                const auto& scale(*preview->scale);
-
-                if (!scale.x || !scale.y || !scale.z)
+                if (preview->scale)
                 {
-                    throw std::runtime_error(
-                            "Invalid scale at " + fileInfo.path());
+                    const auto& scale(*preview->scale);
+
+                    if (!scale.x || !scale.y || !scale.z)
+                    {
+                        throw std::runtime_error(
+                                "Invalid scale at " + fileInfo.path());
+                    }
+
+                    if (m_delta)
+                    {
+                        m_delta->scale() = Point::min(m_delta->scale(), scale);
+                    }
+                    else if (m_allowDelta)
+                    {
+                        m_delta = makeUnique<Delta>(scale, Offset(0));
+                    }
                 }
 
-                if (m_delta)
+                for (const auto& d : preview->dimNames)
                 {
-                    m_delta->scale() = Point::min(m_delta->scale(), scale);
-                }
-                else if (m_allowDelta)
-                {
-                    m_delta = makeUnique<Delta>(scale, Offset(0));
-                }
-            }
-
-            for (const auto& d : preview->dimNames)
-            {
-                if (!m_dimSet.count(d))
-                {
-                    m_dimSet.insert(d);
-                    m_dimVec.push_back(d);
+                    if (!m_dimSet.count(d))
+                    {
+                        m_dimSet.insert(d);
+                        m_dimVec.push_back(d);
+                    }
                 }
             }
         }
@@ -388,14 +391,19 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
                 m_reproj.get(),
                 m_transformation.get()))
     {
+        if (!curNumPoints) curBounds = Bounds();
+
         update(curNumPoints, curBounds, nullptr);
 
-        for (const auto& d : Executor::get().dims(localPath))
+        if (curNumPoints)
         {
-            if (!m_dimSet.count(d))
+            for (const auto& d : Executor::get().dims(localPath))
             {
-                m_dimSet.insert(d);
-                m_dimVec.push_back(d);
+                if (!m_dimSet.count(d))
+                {
+                    m_dimSet.insert(d);
+                    m_dimVec.push_back(d);
+                }
             }
         }
     }

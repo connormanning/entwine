@@ -391,9 +391,16 @@ inline std::ostream& operator<<(std::ostream& os, const Point& point)
             oss << std::setprecision(8) << d;
             std::string s(oss.str());
 
-            while (s.size() > 2 && s.back() == '0' && s[s.size() - 2] != '.')
+            // Don't strip out trailing zeroes after exponential notation.
+            if (s.find_first_of("Ee") == std::string::npos)
             {
-                s.pop_back();
+                while (
+                        s.size() > 2 &&
+                        s.back() == '0' &&
+                        s[s.size() - 2] != '.')
+                {
+                    s.pop_back();
+                }
             }
 
             os << s;

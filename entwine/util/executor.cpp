@@ -176,9 +176,11 @@ std::unique_ptr<Preview> Executor::preview(
         }
     }
 
+    if (!p.numPoints) p.bounds = Bounds();
+
     // Now we have all of our info in native format.  If a reprojection has
     // been set, then we'll need to transform our bounds and SRS values.
-    if (reprojection)
+    if (p.numPoints && reprojection)
     {
         using DimId = pdal::Dimension::Id;
 
