@@ -395,6 +395,7 @@ inline std::ostream& operator<<(std::ostream& os, const Point& point)
             if (s.find_first_of("Ee") == std::string::npos)
             {
                 while (
+                        s.find('.') != std::string::npos &&
                         s.size() > 2 &&
                         s.back() == '0' &&
                         s[s.size() - 2] != '.')
