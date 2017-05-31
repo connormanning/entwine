@@ -28,7 +28,8 @@ public:
 
     FeatureTable(
             const std::vector<Point>& points,
-            const std::vector<Color>& colors);
+            const std::vector<Color>& colors,
+            const std::vector<Point>& normals);
 
     // Not really used anywhere, but may be useful for output validation.
     FeatureTable(const Json::Value& json, const char* pos);
@@ -41,14 +42,17 @@ public:
     {
         return
             m_points.size() * 3 * sizeof(float) +
+            m_normals.size() * 3 * sizeof(float) +
             m_colors.size() * 3 * sizeof(uint8_t);
     }
 
 private:
     void summarizePoints() const;
     void summarizeColors() const;
+    void summarizeNormals() const;
 
     std::vector<Point> m_points;
+    std::vector<Point> m_normals;
     std::vector<Color> m_colors;
 };
 

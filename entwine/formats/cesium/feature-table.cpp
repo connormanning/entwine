@@ -26,9 +26,11 @@ namespace
 
 FeatureTable::FeatureTable(
         const std::vector<Point>& points,
-        const std::vector<Color>& colors)
+        const std::vector<Color>& colors,
+        const std::vector<Point>& normals)
     : m_points(points)
     , m_colors(colors)
+    , m_normals(normals)
 {
     if (colors.size() && colors.size() != points.size())
     {
@@ -39,21 +41,24 @@ FeatureTable::FeatureTable(
 
 Json::Value FeatureTable::getJson() const
 {
+    long byteOffset = 0;
+
     Json::Value json;
     json["POINTS_LENGTH"] = Json::UInt64(m_points.size());
-    json["POSITION"]["byteOffset"] = 0;
+    json["POSITION"]["byteOffset"] = Json::UInt64(byteOffset);
+    byteOffset += m_points.size() * 3 * sizeof(float);
 
     if (m_colors.size())
     {
-        json["RGB"]["byteOffset"] =
-            Json::UInt64(m_points.size() * 3 * sizeof(float));
+        json["RGB"]["byteOffset"] = Json::UInt64(byteOffset);
+        byteOffset += m_colors.size() * 3 * sizeof(uint8_t);
     }
 
-    /*
-    json["RTC_CENTER"].append(m_center.x);
-    json["RTC_CENTER"].append(m_center.y);
-    json["RTC_CENTER"].append(m_center.z);
-    */
+    if (m_normals.size())
+    {
+        json["NORMAL"]["byteOffset"] = Json::UInt64(byteOffset);
+        byteOffset += m_normals.size() * 3 * sizeof(float);
+    }
 
     return json;
 }
@@ -81,6 +86,18 @@ void FeatureTable::appendBinary(std::vector<char>& data) const
         data.push_back(c.r);
         data.push_back(c.g);
         data.push_back(c.b);
+    }
+
+    for (const Point& p : m_normals)
+    {
+        f = p.x;
+        data.insert(data.end(), pos, end);
+
+        f = p.y;
+        data.insert(data.end(), pos, end);
+
+        f = p.z;
+        data.insert(data.end(), pos, end);
     }
 }
 
@@ -158,6 +175,28 @@ FeatureTable::FeatureTable(const Json::Value& json, const char* pos)
 
         summarizeColors();
     }
+
+    if (json.isMember("NORMAL"))
+    {
+        std::cout << "Found floating point normals" << std::endl;
+        m_normals.reserve(numPoints * 3);
+
+        const std::size_t normalDataOffset(
+                json["NORMAL"]["byteOffset"].asUInt64());
+
+        const char* normalPos(pos + normalDataOffset);
+        const char* normalEnd(normalPos + numPoints * 3 * sizeof(float));
+
+        for ( ; normalPos < normalEnd; normalPos += 3 * sizeof(float))
+        {
+            m_normals.emplace_back(
+                    *reinterpret_cast<const float*>(normalPos + 0),
+                    *reinterpret_cast<const float*>(normalPos + 4),
+                    *reinterpret_cast<const float*>(normalPos + 8));
+        }
+
+        summarizeNormals();
+    }
 }
 
 void FeatureTable::summarizePoints() const
@@ -188,6 +227,21 @@ void FeatureTable::summarizeColors() const
 
     std::cout << "Color min: " << min << std::endl;
     std::cout << "Color max: " << max << std::endl;
+}
+
+void FeatureTable::summarizeNormals() const
+{
+    Point min(dmax, dmax, dmax);
+    Point max(dmin, dmin, dmin);
+
+    for (const Point& p : m_normals)
+    {
+        min = Point::min(min, p);
+        max = Point::max(max, p);
+    }
+
+    std::cout << "Normal min: " << min << std::endl;
+    std::cout << "Normal max: " << max << std::endl;
 }
 
 } // namespace cesium

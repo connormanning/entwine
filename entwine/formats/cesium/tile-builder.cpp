@@ -27,6 +27,7 @@ TileBuilder::TileBuilder(const Metadata& metadata, const TileInfo& info)
     , m_info(info)
     , m_divisor(divisor())
     , m_hasColor(false)
+    , m_hasNormals(false)
     , m_table(m_schema)
     , m_pr(m_table, 0)
 {
@@ -36,12 +37,17 @@ TileBuilder::TileBuilder(const Metadata& metadata, const TileInfo& info)
         m_schema.contains("Green") ||
         m_schema.contains("Blue");
 
+    m_hasNormals =
+        m_schema.contains("NormalX") &&
+        m_schema.contains("NormalY") &&
+        m_schema.contains("NormalZ");
+
     for (const auto& p : info.ticks())
     {
         m_data.emplace(
                 std::piecewise_construct,
                 std::forward_as_tuple(p.first),
-                std::forward_as_tuple(p.second, m_hasColor));
+                std::forward_as_tuple(p.second, m_hasColor, m_hasNormals));
     }
 
     if (m_settings.coloring() == "tile")
@@ -101,6 +107,20 @@ void TileBuilder::push(std::size_t rawTick, const Cell& cell)
             {
                 selected.colors.emplace_back(m_tileColors.at(tick));
             }
+        }
+
+        if (m_hasNormals)
+        {
+            pdal::PointLayout *pl = m_table.layout();
+
+            pdal::Dimension::Id normalXDim = pl->findDim("NormalX");
+            pdal::Dimension::Id normalYDim = pl->findDim("NormalY");
+            pdal::Dimension::Id normalZDim = pl->findDim("NormalZ");
+
+            selected.normals.emplace_back(
+                m_pr.getFieldAs<double>(normalXDim),
+                m_pr.getFieldAs<double>(normalYDim),
+                m_pr.getFieldAs<double>(normalZDim));
         }
     }
 }

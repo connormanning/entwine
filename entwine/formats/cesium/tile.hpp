@@ -34,8 +34,9 @@ public:
 
     Tile(
             const std::vector<Point>& points,
-            const std::vector<Color>& colors)
-        : m_featureTable(points, colors)
+            const std::vector<Color>& colors,
+            const std::vector<Point>& normals)
+        : m_featureTable(points, colors, normals)
     { }
 
     std::vector<char> asBinary() const;
@@ -64,14 +65,16 @@ private:
 class TileData
 {
 public:
-    TileData(std::size_t numPoints, bool hasColor)
+    TileData(std::size_t numPoints, bool hasColor, bool hasNormals)
     {
         points.reserve(numPoints);
         if (hasColor) colors.reserve(numPoints);
+        if (hasNormals) normals.reserve(numPoints);
     }
 
     std::vector<Point> points;
     std::vector<Color> colors;
+    std::vector<Point> normals;
 };
 
 } // namespace cesium
