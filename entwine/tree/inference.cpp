@@ -232,10 +232,15 @@ void Inference::go()
         m_bounds = makeUnique<Bounds>(Bounds::expander());
         for (auto& f : m_fileInfo)
         {
-            if (!f.bounds()) throw std::runtime_error("No bounds present");
-            f.bounds(Executor::get().transform(*f.bounds(), *m_transformation));
+            if (f.bounds() && f.numPoints())
+            {
+                f.bounds(
+                        Executor::get().transform(
+                            *f.bounds(),
+                            *m_transformation));
 
-            m_bounds->grow(*f.bounds());
+                m_bounds->grow(*f.bounds());
+            }
         }
     }
 
@@ -418,9 +423,12 @@ void Inference::aggregate()
     {
         *m_numPoints += f.numPoints();
 
-        if (const Bounds* current = f.bounds())
+        if (f.numPoints())
         {
-            m_bounds->grow(*current);
+            if (const Bounds* current = f.bounds())
+            {
+                m_bounds->grow(*current);
+            }
         }
 
         if (!f.srs().empty())
