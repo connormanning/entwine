@@ -60,7 +60,6 @@ void TileBuilder::push(std::size_t rawTick, const Cell& cell)
 {
     const std::size_t tick(rawTick / m_divisor);
     auto& selected(m_data.at(tick));
-    uint8_t in(0);
 
     for (const auto& single : cell)
     {
@@ -85,7 +84,9 @@ void TileBuilder::push(std::size_t rawTick, const Cell& cell)
             }
             else if (m_settings.coloring() == "intensity")
             {
-                in = m_pr.getFieldAs<uint8_t>(pdal::Dimension::Id::Intensity);
+                const uint8_t in(
+                        m_pr.getFieldAs<uint8_t>(
+                            pdal::Dimension::Id::Intensity));
                 selected.colors.emplace_back(in, in, in);
             }
         }

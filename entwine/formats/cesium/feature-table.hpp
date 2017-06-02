@@ -35,7 +35,14 @@ public:
 
     Json::Value getJson() const;
 
-    std::vector<char> getBinary() const;
+    void appendBinary(std::vector<char>& data) const;
+
+    std::size_t bytes() const
+    {
+        return
+            m_points.size() * 3 * sizeof(float) +
+            m_colors.size() * 3 * sizeof(uint8_t);
+    }
 
 private:
     void summarizePoints() const;

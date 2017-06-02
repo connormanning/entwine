@@ -10,6 +10,7 @@
 
 #include <entwine/formats/cesium/tile.hpp>
 
+#include <cassert>
 #include <iostream>
 
 namespace entwine
@@ -20,12 +21,6 @@ namespace cesium
 std::vector<char> Tile::asBinary() const
 {
     std::vector<char> data;
-
-    const std::string magic("pnts");
-    data.insert(data.end(), magic.begin(), magic.end());
-
-    const int version(1);
-    append(data, version);
 
     const Json::Value featureTableJson(m_featureTable.getJson());
     Json::FastWriter writer;
@@ -39,16 +34,24 @@ std::vector<char> Tile::asBinary() const
                 ' ');
     }
 
-    const std::vector<char> featureTableBinary(m_featureTable.getBinary());
+    static const std::size_t headerSize(28);
 
     const std::size_t byteLength(
-            28 +
+            headerSize +
             featureTableString.size() +
-            featureTableBinary.size());
+            m_featureTable.bytes());
+
+    data.reserve(byteLength);
+
+    const std::string magic("pnts");
+    data.insert(data.end(), magic.begin(), magic.end());
+
+    const int version(1);
+    append(data, version);
 
     append(data, byteLength);
     append(data, featureTableString.size());
-    append(data, featureTableBinary.size());
+    append(data, m_featureTable.bytes());
     append(data, 0);    // batchTableJsonByteLength.
     append(data, 0);    // batchTableBinaryByteLength.
 
@@ -57,10 +60,9 @@ std::vector<char> Tile::asBinary() const
             featureTableString.begin(),
             featureTableString.end());
 
-    data.insert(
-            data.end(),
-            featureTableBinary.begin(),
-            featureTableBinary.end());
+    m_featureTable.appendBinary(data);
+
+    assert(data.size() == byteLength);
 
     return data;
 }

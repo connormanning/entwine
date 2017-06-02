@@ -58,33 +58,22 @@ Json::Value FeatureTable::getJson() const
     return json;
 }
 
-std::vector<char> FeatureTable::getBinary() const
+void FeatureTable::appendBinary(std::vector<char>& data) const
 {
-    std::vector<char> data;
-    data.reserve(
-            m_points.size() * 3 * sizeof(float) +
-            m_colors.size() * 3 * sizeof(uint8_t));
-
     float f;
+    const char* pos(reinterpret_cast<const char*>(&f));
+    const char* end(reinterpret_cast<const char*>(&f + 1));
+
     for (const Point& p : m_points)
     {
         f = p.x;
-        data.insert(
-                data.end(),
-                reinterpret_cast<const char*>(&f),
-                reinterpret_cast<const char*>(&f + 1));
+        data.insert(data.end(), pos, end);
 
         f = p.y;
-        data.insert(
-                data.end(),
-                reinterpret_cast<const char*>(&f),
-                reinterpret_cast<const char*>(&f + 1));
+        data.insert(data.end(), pos, end);
 
         f = p.z;
-        data.insert(
-                data.end(),
-                reinterpret_cast<const char*>(&f),
-                reinterpret_cast<const char*>(&f + 1));
+        data.insert(data.end(), pos, end);
     }
 
     for (const Color& c : m_colors)
@@ -93,8 +82,6 @@ std::vector<char> FeatureTable::getBinary() const
         data.push_back(c.g);
         data.push_back(c.b);
     }
-
-    return data;
 }
 
 FeatureTable::FeatureTable(const Json::Value& json, const char* pos)
