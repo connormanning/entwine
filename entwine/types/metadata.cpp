@@ -74,7 +74,9 @@ Metadata::Metadata(const arbiter::Endpoint& ep, const std::size_t* subsetId)
         // Note that we are not fully-constructed yet so we can't call our
         // Metadata::postfix() yet, as we would like to.
         const std::string path("entwine" + Subset::postfix(subsetId));
-        Json::Value json(parse(io::ensureGetString(ep, path)));
+        Json::Value json = subsetId ?
+            parse(io::ensureGetString(ep, path)) :
+            parse(ep.get(path));
 
         // Pre-1.0: nested keys have since been flattened.
         if (json.isMember("format"))
