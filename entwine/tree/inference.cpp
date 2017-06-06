@@ -224,11 +224,14 @@ void Inference::go()
         throw std::runtime_error("No bounds found");
     }
 
-    if (m_cesiumify)
+    if (m_cesiumify && !m_transformation)
+    {
+        m_transformation = makeUnique<Transformation>(calcTransformation());
+    }
+
+    if (m_transformation)
     {
         std::cout << "Transforming inference" << std::endl;
-        m_transformation = makeUnique<Transformation>(calcTransformation());
-
         m_bounds = makeUnique<Bounds>(Bounds::expander());
         for (auto& f : m_fileInfo)
         {

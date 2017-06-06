@@ -172,6 +172,12 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     auto boundsConforming(maybeCreate<Bounds>(json["bounds"]));
     auto schema(maybeCreate<Schema>(json["schema"]));
 
+    if (json.isMember("transformation"))
+    {
+        transformation = makeUnique<std::vector<double>>(
+                extract<double>(json["transformation"]));
+    }
+
     const bool needsInference(!boundsConforming || !schema || !numPointsHint);
 
     if (needsInference)
@@ -191,6 +197,11 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                 verbose,
                 !!cesiumSettings,
                 arbiter.get());
+
+        if (transformation)
+        {
+            inference.transformation(*transformation);
+        }
 
         inference.go();
 
@@ -281,9 +292,12 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
         if (!numPointsHint) numPointsHint = inference.numPoints();
 
-        if (const std::vector<double>* t = inference.transformation())
+        if (!transformation)
         {
-            transformation = makeUnique<std::vector<double>>(*t);
+            if (const std::vector<double>* t = inference.transformation())
+            {
+                transformation = makeUnique<std::vector<double>>(*t);
+            }
         }
     }
 

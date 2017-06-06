@@ -14,6 +14,7 @@
 #include <memory>
 #include <mutex>
 #include <set>
+#include <string>
 
 #include <pdal/SpatialReference.hpp>
 
@@ -23,6 +24,7 @@
 #include <entwine/types/file-info.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/util/json.hpp>
 #include <entwine/util/pool.hpp>
 
 namespace entwine
@@ -91,6 +93,11 @@ public:
     const std::vector<double>* transformation() const
     {
         return m_transformation.get();
+    }
+
+    void transformation(std::vector<double> t)
+    {
+        m_transformation = makeUnique<std::vector<double>>(t);
     }
 
     Json::Value toJson() const;

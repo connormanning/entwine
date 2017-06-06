@@ -15,6 +15,7 @@
 
 #include <entwine/tree/inference.hpp>
 #include <entwine/types/reprojection.hpp>
+#include <entwine/util/matrix.hpp>
 
 using namespace entwine;
 
@@ -64,7 +65,10 @@ namespace
 
             "\t-x\n"
             "\t\tDo not trust file headers when determining bounds.  By\n"
-            "\t\tdefault, the headers are considered to be good.\n\n";
+            "\t\tdefault, the headers are considered to be good.\n\n"
+
+            "\t-m <JSON-array>\n"
+            "\t\tTransformation matrix.\n\n";
     }
 
     std::string getReprojString(const Reprojection* reprojection)
@@ -128,6 +132,7 @@ void Kernel::infer(std::vector<std::string> args)
     std::string tmpPath("tmp");
     bool trustHeaders(true);
     Json::Value arbiterConfig;
+    std::unique_ptr<std::vector<double>> transformation;
 
     std::string output;
 
@@ -232,6 +237,18 @@ void Kernel::infer(std::vector<std::string> args)
         {
             arbiterConfig["verbose"] = true;
         }
+        else if (arg == "-m")
+        {
+            if (++a < args.size())
+            {
+                transformation = makeUnique<std::vector<double>>(
+                        extract<double>(parse(args[a])));
+                if (transformation->size() != 16)
+                {
+                    throw std::runtime_error("Invalid transformation matrix");
+                }
+            }
+        }
 
         ++a;
     }
@@ -273,6 +290,8 @@ void Kernel::infer(std::vector<std::string> args)
             cesiumify,
             arbiter.get());
 
+    if (transformation) inference.transformation(*transformation);
+
     inference.go();
 
     if (output.size())
@@ -295,6 +314,12 @@ void Kernel::infer(std::vector<std::string> args)
     {
         std::cout << "Scale:  " << delta->scale() << std::endl;
         std::cout << "Offset: " << delta->offset() << std::endl;
+    }
+
+    if (const auto t = inference.transformation())
+    {
+        std::cout << "Transformation: ";
+        matrix::print(*t);
     }
 }
 

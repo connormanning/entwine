@@ -133,7 +133,10 @@ namespace
             "\t\tsubset-number - One-based subset ID in range\n"
             "\t\t[1, subset-total].\n\n"
             "\t\tsubset-total - Total number of subsets that will be built.\n"
-            "\t\tMust be a binary power.\n\n";
+            "\t\tMust be a binary power.\n\n"
+
+            "\t-m <JSON-array>\n"
+            "\t\tTransformation matrix.\n\n";
     }
 
     std::string getDimensionString(const Schema& schema)
@@ -189,26 +192,6 @@ namespace
         {
             return "(none)";
         }
-    }
-
-    void printMatrix(const std::vector<double>& v)
-    {
-        const std::size_t precision(8);
-
-        std::size_t i(0);
-        const std::size_t n(std::sqrt(v.size()));
-
-        std::cout << std::setprecision(precision);
-
-        std::cout << "[\n\t\t";
-        for (const auto d : v)
-        {
-            std::cout << d;
-            if (i < v.size() - 1) std::cout << ", ";
-            if (++i % n == 0) std::cout << "\n";
-            if (i != v.size()) std::cout << "\t\t";
-        }
-        std::cout << "\t]" << std::endl;
     }
 }
 
@@ -410,6 +393,17 @@ void Kernel::build(std::vector<std::string> args)
                 error("Invalid thread count specification");
             }
         }
+        else if (arg == "-m")
+        {
+            if (++a < args.size())
+            {
+                json["transformation"] = parse(args[a]);
+                if (json["transformation"].size() != 16)
+                {
+                    throw std::runtime_error("Invalid transformation matrix");
+                }
+            }
+        }
         else
         {
             error("Invalid argument: " + args[a]);
@@ -529,7 +523,7 @@ void Kernel::build(std::vector<std::string> args)
     if (metadata.transformation())
     {
         std::cout << "\tTransformation: ";
-        printMatrix(*metadata.transformation());
+        matrix::print(*metadata.transformation());
     }
 
     if (const auto c = metadata.cesiumSettings())
