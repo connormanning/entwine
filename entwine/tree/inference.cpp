@@ -211,6 +211,37 @@ void Inference::go()
     aggregate();
     makeSchema();
 
+    if (m_cesiumify && !m_transformation)
+    {
+        m_transformation = makeUnique<Transformation>(calcTransformation());
+    }
+
+    if (m_transformation)
+    {
+        std::cout << "Transforming inference" << std::endl;
+        for (auto& f : m_fileInfo)
+        {
+            if (f.bounds() && f.numPoints())
+            {
+                f.bounds(
+                        Executor::get().transform(
+                            *f.bounds(),
+                            *m_transformation));
+            }
+        }
+
+        // We've changed all our file bounds, so rebuild our derivative values.
+        aggregate();
+        makeSchema();
+    }
+
+    check();
+
+    m_done = true;
+}
+
+void Inference::check() const
+{
     if (!numPoints())
     {
         throw std::runtime_error("Zero points found");
@@ -223,31 +254,6 @@ void Inference::go()
     {
         throw std::runtime_error("No bounds found");
     }
-
-    if (m_cesiumify && !m_transformation)
-    {
-        m_transformation = makeUnique<Transformation>(calcTransformation());
-    }
-
-    if (m_transformation)
-    {
-        std::cout << "Transforming inference" << std::endl;
-        m_bounds = makeUnique<Bounds>(Bounds::expander());
-        for (auto& f : m_fileInfo)
-        {
-            if (f.bounds() && f.numPoints())
-            {
-                f.bounds(
-                        Executor::get().transform(
-                            *f.bounds(),
-                            *m_transformation));
-
-                m_bounds->grow(*f.bounds());
-            }
-        }
-    }
-
-    m_done = true;
 }
 
 Transformation Inference::calcTransformation()

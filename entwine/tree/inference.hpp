@@ -105,6 +105,7 @@ public:
 private:
     void aggregate();   // Aggregate bounds and numPoints.
     void makeSchema();  // Figure out schema and delta.
+    void check() const; // Verify that our inference is valid - otherwise throw.
 
     void add(std::string localPath, FileInfo& fileInfo);
     Transformation calcTransformation();

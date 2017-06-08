@@ -523,7 +523,7 @@ void Kernel::build(std::vector<std::string> args)
     if (metadata.transformation())
     {
         std::cout << "\tTransformation: ";
-        matrix::print(*metadata.transformation());
+        matrix::print(*metadata.transformation(), 0, "\t");
     }
 
     if (const auto c = metadata.cesiumSettings())

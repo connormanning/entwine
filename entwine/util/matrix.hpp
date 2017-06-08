@@ -130,7 +130,8 @@ inline std::vector<double> multiply(
 
 inline void print(
         const std::vector<double>& v,
-        const std::size_t precision = 0)
+        const std::size_t precision = 0,
+        const std::string prefix = "")
 {
     std::size_t i(0);
     const std::size_t n(std::sqrt(v.size()));
@@ -140,15 +141,15 @@ inline void print(
         std::cout << std::setprecision(precision);
     }
 
-    std::cout << "[\n\t";
+    std::cout << "[\n" << prefix << "\t";
     for (const auto d : v)
     {
         std::cout << d;
         if (i < v.size() - 1) std::cout << ", ";
         if (++i % n == 0) std::cout << "\n";
-        if (i != v.size()) std::cout << "\t";
+        if (i != v.size()) std::cout << prefix << "\t";
     }
-    std::cout << "]" << std::endl;
+    std::cout << prefix << "]" << std::endl;
 }
 
 inline std::vector<double> flip(const std::vector<double>& v)
