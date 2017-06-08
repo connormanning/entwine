@@ -163,7 +163,8 @@ Structure::Structure(const Json::Value& json)
                 json["mappedDepth"].asUInt64() : json["sparseDepth"].asUInt64(),
             json["startDepth"].asUInt64(),
             json["sparseDepth"].asUInt64(),
-            json["bumpDepth"].asUInt64())
+            json["bumpDepth"].asUInt64(),
+            json["density"].asDouble())
 { }
 
 Structure::Structure(
@@ -179,7 +180,8 @@ Structure::Structure(
         const std::size_t mappedDepth,
         const std::size_t startDepth,
         const std::size_t sparseDepth,
-        const std::size_t bumpDepth)
+        const std::size_t bumpDepth,
+        const double density)
     // Various.
     : m_tubular(tubular)
     , m_dynamicChunks(dynamicChunks)
@@ -221,6 +223,7 @@ Structure::Structure(
             ChunkInfo::calcLevelIndex(dimensions, m_sparseDepthBegin))
     , m_mappedIndexBegin(
             ChunkInfo::calcLevelIndex(dimensions, m_mappedDepthBegin))
+    , m_density(density)
 {
     if (m_baseDepthEnd < 4)
     {
@@ -240,12 +243,28 @@ Structure::Structure(
                 "must be of the form 4^n for quadtree, or 8^n for octree");
     }
 
+    applyNumPointsHint(m_numPointsHint);
+}
+
+void Structure::applyDensity(const Bounds& cube)
+{
+    const double squareUnits(cube.width() * cube.depth());
+    const std::size_t n(m_density * squareUnits);
+    if (n > m_numPointsHint)
+    {
+        m_mappedDepthBegin = 0;
+        m_sparseDepthBegin = 0;
+        applyNumPointsHint(m_density * squareUnits);
+    }
+}
+
+void Structure::applyNumPointsHint(const std::size_t n)
+{
     const std::size_t activeMinDepth(std::max(m_bumpDepth, m_coldDepthBegin));
 
-    const std::size_t activeNumPointsHint(
-            std::max<std::size_t>(m_numPointsHint, 10000000));
+    std::size_t activeNumPointsHint(std::max<std::size_t>(n, 10000000));
 
-    if (!mappedDepth)
+    if (!m_mappedDepthBegin)
     {
         m_mappedDepthBegin =
             std::ceil(std::log2(activeNumPointsHint) / std::log2(m_factor));
@@ -253,7 +272,7 @@ Structure::Structure(
 
     m_mappedDepthBegin = std::max(m_mappedDepthBegin, activeMinDepth);
 
-    if (!sparseDepth)
+    if (!m_sparseDepthBegin)
     {
         m_sparseDepthBegin = m_mappedDepthBegin;
     }

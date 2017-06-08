@@ -239,7 +239,7 @@ public:
 
     // Bloat all coordinates necessary to form a cube and also to the nearest
     // integer.
-    Bounds cubeify(const Delta* delta) const;
+    Bounds cubeify(const Delta* delta = nullptr) const;
     Bounds cubeify(const Delta& delta) const;
 
     Bounds deltify(const Delta* delta) const;

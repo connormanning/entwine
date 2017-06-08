@@ -136,7 +136,10 @@ namespace
             "\t\tMust be a binary power.\n\n"
 
             "\t-m <JSON-array>\n"
-            "\t\tTransformation matrix.\n\n";
+            "\t\tTransformation matrix.\n\n"
+
+            "\t-d <density>\n"
+            "\t\tDensity estimate, in points per square unit\n\n";
     }
 
     std::string getDimensionString(const Schema& schema)
@@ -403,6 +406,15 @@ void Kernel::build(std::vector<std::string> args)
                     throw std::runtime_error("Invalid transformation matrix");
                 }
             }
+            else error("Invalid transformation matrix");
+        }
+        else if (arg == "-d")
+        {
+            if (++a < args.size())
+            {
+                json["density"] = parse(args[a]);
+            }
+            else error("Invalid density specification");
         }
         else
         {
@@ -482,6 +494,11 @@ void Kernel::build(std::vector<std::string> args)
         "\tPoint count hint: " << commify(structure.numPointsHint()) <<
             " points\n";
 
+    if (structure.density())
+    {
+        std::cout << "\tDensity: " << structure.density() << std::endl;
+    }
+
     if (!metadata.trustHeaders())
     {
         std::cout << "\tTrust file headers? " << yesNo(false) << "\n";
@@ -516,6 +533,7 @@ void Kernel::build(std::vector<std::string> args)
     std::cout <<
         "Metadata:\n" <<
         "\tNative bounds: " << metadata.boundsNativeConforming() << "\n" <<
+        "\tCubic bounds: " << metadata.boundsNativeCubic() << "\n" <<
         "\tReprojection: " << getReprojString(reprojection) << "\n" <<
         "\tStoring dimensions: " << getDimensionString(schema) <<
         std::endl;

@@ -303,7 +303,14 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
     auto subset(maybeAccommodateSubset(json, *boundsConforming, delta.get()));
     json["numPointsHint"] = static_cast<Json::UInt64>(numPointsHint);
+
     Structure structure(json);
+    if (structure.density())
+    {
+        std::cout << "Applying density" << std::endl;
+        structure.applyDensity(boundsConforming->cubeify());
+    }
+
     Structure hierarchyStructure(Hierarchy::structure(structure, subset.get()));
     const HierarchyCompression hierarchyCompression(HierarchyCompression::Lzma);
 

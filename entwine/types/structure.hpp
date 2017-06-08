@@ -90,21 +90,6 @@ class Structure
     friend class Subset;
 
 public:
-    Structure(
-            std::size_t nullDepth,
-            std::size_t baseDepth,
-            std::size_t coldDepth,
-            std::size_t pointsPerChunk,
-            std::size_t dimensions,
-            std::size_t numPointsHint,
-            bool tubular,
-            bool dynamicChunks,
-            bool prefixIds,
-            std::size_t mappedDepth = 0,
-            std::size_t startDepth = 0,
-            std::size_t sparseDepth = 0,
-            std::size_t bumpDepth = 0);
-
     Structure(const Json::Value& json);
 
     Json::Value toJson() const;
@@ -226,7 +211,30 @@ public:
         m_startDepth = 0;
     }
 
+    double density() const { return m_density; }
+    void applyDensity(const Bounds& cubicBounds);
+
 private:
+    void applyNumPointsHint(std::size_t hint);
+
+    friend class Hierarchy;
+
+    Structure(
+            std::size_t nullDepth,
+            std::size_t baseDepth,
+            std::size_t coldDepth,
+            std::size_t pointsPerChunk,
+            std::size_t dimensions,
+            std::size_t numPointsHint,
+            bool tubular,
+            bool dynamicChunks,
+            bool prefixIds,
+            std::size_t mappedDepth = 0,
+            std::size_t startDepth = 0,
+            std::size_t sparseDepth = 0,
+            std::size_t bumpDepth = 0,
+            double density = 0);
+
     bool m_tubular;
     bool m_dynamicChunks;
     bool m_discardDuplicates;
@@ -267,6 +275,8 @@ private:
     Id m_coldIndexEnd;
     Id m_sparseIndexBegin;
     Id m_mappedIndexBegin;
+
+    double m_density;
 };
 
 } // namespace entwine
