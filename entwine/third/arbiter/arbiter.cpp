@@ -1449,7 +1449,7 @@ namespace
 
     // See:
     // https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/iam-roles-for-amazon-ec2.html
-    const std::string credIp("http://169.254.169.254/");
+    const std::string credIp("169.254.169.254/");
     const std::string credBase(
             credIp + "latest/meta-data/iam/security-credentials/");
 

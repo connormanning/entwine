@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: dd016e14f6cbc8b1912b738d4ea8198ec51ecd19
+// Git SHA: f4a7d096fcf395f9e808971054196f13d55319a6
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -346,13 +346,13 @@ namespace http
 /** Perform URI percent-encoding, without encoding characters included in
  * @p exclusions.
  */
-std::string sanitize(std::string path, std::string exclusions = "/");
+ARBITER_DLL std::string sanitize(std::string path, std::string exclusions = "/");
 
 /** Build a query string from key-value pairs.  If @p query is empty, the
  * result is an empty string.  Otherwise, the result will start with the
  * '?' character.
  */
-std::string buildQueryString(const http::Query& query);
+ARBITER_DLL std::string buildQueryString(const http::Query& query);
 
 /** @cond arbiter_internal */
 
@@ -876,7 +876,7 @@ namespace drivers
  *
  * Internal methods for derivers are provided as protected methods.
  */
-class Http : public Driver
+class ARBITER_DLL Http : public Driver
 {
 public:
     Http(http::Pool& pool);
