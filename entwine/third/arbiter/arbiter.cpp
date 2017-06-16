@@ -2516,7 +2516,7 @@ void Google::Auth::maybeRefresh() const
 {
     using namespace crypto;
 
-    const auto now(Time().unix());
+    const auto now(Time().asUnix());
     if (m_expiration - now > 120) return;   // Refresh when under 2 mins left.
 
     // https://developers.google.com/identity/protocols/OAuth2ServiceAccount
@@ -4448,7 +4448,7 @@ int64_t Time::operator-(const Time& other) const
     return std::difftime(m_time, other.m_time);
 }
 
-int64_t Time::unix() const
+int64_t Time::asUnix() const
 {
     static const Time epoch("1970-01-01T00:00:00Z");
     return *this - epoch;

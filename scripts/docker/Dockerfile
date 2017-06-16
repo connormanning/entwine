@@ -7,7 +7,8 @@ RUN apt-get update && apt-get install -y \
     cmake \
     liblzma-dev \
     libjsoncpp-dev \
-    libcurl4-openssl-dev
+    libcurl4-openssl-dev \
+    libssl-dev
 
 ENV CC gcc
 ENV CXX g++

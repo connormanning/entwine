@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: cf9d2495ec2f75bd7ab7df971f2f7ffe6e21fbd0
+// Git SHA: 7087701046f2ab0d0965354f5ce9dc7cb181a4f3
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -527,7 +527,7 @@ public:
 
     // Return value is in seconds.
     int64_t operator-(const Time& other) const;
-    int64_t unix() const;
+    int64_t asUnix() const;
 
 private:
     std::time_t m_time;
