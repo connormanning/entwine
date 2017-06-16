@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: f4a7d096fcf395f9e808971054196f13d55319a6
+// Git SHA: d62b498fd1b00d13cda9e5d96be9eca20218fdc1
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -153,6 +153,10 @@ public:
 
     std::vector<char> data() const { return m_data; }
     const Headers& headers() const { return m_headers; }
+    std::string str() const
+    {
+        return std::string(data().data(), data().size());
+    }
 
 private:
     int m_code;
@@ -523,6 +527,7 @@ public:
 
     // Return value is in seconds.
     int64_t operator-(const Time& other) const;
+    int64_t unix() const;
 
 private:
     std::time_t m_time;
@@ -950,13 +955,14 @@ public:
             http::Headers headers,
             http::Query query) const;
 
-protected:
-    /** HTTP-derived Drivers should override this version of GET to allow for
-     * custom headers and query parameters.
-     */
-    virtual bool get(
+    void post(
             std::string path,
-            std::vector<char>& data,
+            const std::string& data,
+            http::Headers headers,
+            http::Query query) const;
+    void post(
+            std::string path,
+            const std::vector<char>& data,
             http::Headers headers,
             http::Query query) const;
 
@@ -986,6 +992,18 @@ protected:
             http::Headers headers = http::Headers(),
             http::Query query = http::Query()) const;
 
+protected:
+    /** HTTP-derived Drivers should override this version of GET to allow for
+     * custom headers and query parameters.
+     */
+    virtual bool get(
+            std::string path,
+            std::vector<char>& data,
+            http::Headers headers,
+            http::Query query) const;
+
+    http::Pool& m_pool;
+
 private:
     virtual bool get(
             std::string path,
@@ -998,8 +1016,6 @@ private:
     {
         return type() + "://" + p;
     }
-
-    http::Pool& m_pool;
 };
 
 /** @brief HTTPS driver.  Identical to the HTTP driver except for its type
@@ -3850,8 +3866,8 @@ namespace arbiter
 namespace crypto
 {
 
-std::string encodeBase64(const std::vector<char>& data);
-std::string encodeBase64(const std::string& data);
+std::string encodeBase64(const std::vector<char>& data, bool pad = true);
+std::string encodeBase64(const std::string& data, bool pad = true);
 
 std::string encodeAsHex(const std::vector<char>& data);
 std::string encodeAsHex(const std::string& data);
@@ -4328,6 +4344,103 @@ private:
 
 
 // //////////////////////////////////////////////////////////////////////
+// Beginning of content of file: arbiter/drivers/google.hpp
+// //////////////////////////////////////////////////////////////////////
+
+#pragma once
+
+#ifndef ARBITER_IS_AMALGAMATION
+#include <arbiter/drivers/http.hpp>
+#endif
+
+#include <mutex>
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+namespace ARBITER_CUSTOM_NAMESPACE
+{
+#endif
+
+namespace arbiter
+{
+
+namespace drivers
+{
+
+class Google : public Https
+{
+    class Auth;
+public:
+    Google(http::Pool& pool, std::unique_ptr<Auth> auth);
+
+    static std::unique_ptr<Google> create(
+            http::Pool& pool,
+            const Json::Value& json);
+
+    // Overrides.
+    virtual std::string type() const override { return "google"; }
+
+    virtual std::unique_ptr<std::size_t> tryGetSize(
+            std::string path) const override;
+
+    /** Inherited from Drivers::Http. */
+    virtual void put(
+            std::string path,
+            const std::vector<char>& data,
+            http::Headers headers,
+            http::Query query) const override;
+
+private:
+    /** Inherited from Drivers::Http. */
+    virtual bool get(
+            std::string path,
+            std::vector<char>& data,
+            http::Headers headers,
+            http::Query query) const override;
+
+    virtual std::vector<std::string> glob(
+            std::string path,
+            bool verbose) const override;
+
+    std::unique_ptr<Auth> m_auth;
+};
+
+class Google::Auth
+{
+public:
+    Auth(const Json::Value& creds);
+    static std::unique_ptr<Auth> create(const Json::Value& json);
+
+    http::Headers headers() const;
+
+private:
+    void maybeRefresh() const;
+    std::string sign(std::string data, std::string privateKey) const;
+
+    const Json::Value m_creds;
+    mutable int64_t m_expiration = 0;   // Unix time.
+    mutable http::Headers m_headers;
+
+    mutable std::mutex m_mutex;
+};
+
+} // namespace drivers
+} // namespace arbiter
+
+#ifdef ARBITER_CUSTOM_NAMESPACE
+}
+#endif
+
+
+// //////////////////////////////////////////////////////////////////////
+// End of content of file: arbiter/drivers/google.hpp
+// //////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+// //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: arbiter/drivers/dropbox.hpp
 // //////////////////////////////////////////////////////////////////////
 
@@ -4699,11 +4812,12 @@ private:
 #include <arbiter/util/exports.hpp>
 #include <arbiter/driver.hpp>
 #include <arbiter/endpoint.hpp>
+#include <arbiter/drivers/dropbox.hpp>
 #include <arbiter/drivers/fs.hpp>
-#include <arbiter/drivers/test.hpp>
+#include <arbiter/drivers/google.hpp>
 #include <arbiter/drivers/http.hpp>
 #include <arbiter/drivers/s3.hpp>
-#include <arbiter/drivers/dropbox.hpp>
+#include <arbiter/drivers/test.hpp>
 #include <arbiter/util/types.hpp>
 
 #ifndef ARBITER_EXTERNAL_JSON
