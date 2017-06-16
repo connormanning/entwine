@@ -2528,8 +2528,8 @@ void Google::Auth::maybeRefresh() const
     c["iss"] = m_creds["client_email"].asString();
     c["scope"] = "https://www.googleapis.com/auth/devstorage.read_write";
     c["aud"] = "https://www.googleapis.com/oauth2/v4/token";
-    c["iat"] = now;
-    c["exp"] = now + 3600;
+    c["iat"] = Json::Int64(now);
+    c["exp"] = Json::Int64(now + 3600);
 
     const std::string header(encodeBase64(toFastString(h)));
     const std::string claims(encodeBase64(toFastString(c)));
