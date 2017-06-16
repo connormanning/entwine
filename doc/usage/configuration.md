@@ -366,7 +366,9 @@ The standard operation of `infer` logs information to STDOUT.  If the `-o` flag 
 ## S3
 Entwine can read and write S3 backends directly using the REST API from AWS.  The simplest way to make use of this functionality is to install [awscli](https://aws.amazon.com/cli/) and run `aws configure`, which will write your credentials and configuration information to `~/.aws`, which will be picked up by Entwine.  Don't forget to set your region if you are not in AWS's default of `us-east-1`.
 
-If you're using Docker, you'll need to map that directory as a volume.  Entwine's docker container runs as user `root`, so that mapping is as simple as adding `-v ~/.aws:/root/.aws` to your `docker run` invocation.
+If you're using Docker, you'll need to map that directory as a volume.  Entwine's Docker container runs as user `root`, so that mapping is as simple as adding `-v ~/.aws:/root/.aws` to your `docker run` invocation.
+
+To use an IAM role that is applied to an EC2 instance profile, set environment variable `AWS_ALLOW_INSTANCE_PROFILE` to `1`.  With Docker, this looks like `-e AWS_ALLOW_INSTANCE_PROFILE=1`.
 
 ## Issues for HTTP backends
 If failures are occurring when using an HTTP-based backend (which includes S3), verbose output from [Curl](https://curl.haxx.se/) can be useful to see the HTTP error messages.  Verbose Curl output can be enabled by setting environment variable `CURL_VERBOSE` to `1`.  For Docker, add `-e "CURL_VERBOSE=1"` to your `docker run` invocation.
