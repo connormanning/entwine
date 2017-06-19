@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 7087701046f2ab0d0965354f5ce9dc7cb181a4f3
+// Git SHA: dab58204bb298692563e270a053ccdc25652380a
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -1012,10 +1012,7 @@ private:
         return get(path, data, http::Headers(), http::Query());
     }
 
-    std::string typedPath(const std::string& p) const
-    {
-        return type() + "://" + p;
-    }
+    std::string typedPath(const std::string& p) const;
 };
 
 /** @brief HTTPS driver.  Identical to the HTTP driver except for its type
