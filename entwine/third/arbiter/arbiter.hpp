@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: dab58204bb298692563e270a053ccdc25652380a
+// Git SHA: db816f950c5257eccca94571b37ea1102515b775
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -807,6 +807,8 @@ class ARBITER_DLL Fs : public Driver
 {
 public:
     Fs() { }
+
+    using Driver::get;
 
     static std::unique_ptr<Fs> create(const Json::Value& json);
 
@@ -3900,6 +3902,11 @@ std::string encodeAsHex(const std::string& data);
 
 #ifndef ARBITER_IS_AMALGAMATION
 #include <arbiter/util/exports.hpp>
+
+#ifndef ARBITER_EXTERNAL_JSON
+#include <arbiter/third/json/json.hpp>
+#endif
+
 #endif
 
 
@@ -4069,6 +4076,26 @@ namespace util
         if (t) return makeUnique<T>(*t);
         else return std::unique_ptr<T>();
     }
+
+    inline Json::Value parse(const std::string& s)
+    {
+        Json::Reader reader;
+        Json::Value json;
+        if (!reader.parse(s, json))
+        {
+            throw std::runtime_error(
+                    "Parse failure: " + reader.getFormattedErrorMessages());
+        }
+        return json;
+    }
+
+    inline std::string toFastString(const Json::Value& json)
+    {
+        std::string s = Json::FastWriter().write(json);
+        s.pop_back();   // Strip trailing newline.
+        return s;
+    }
+
 } // namespace util
 
 } // namespace arbiter
@@ -4374,7 +4401,7 @@ public:
             const Json::Value& json);
 
     // Overrides.
-    virtual std::string type() const override { return "google"; }
+    virtual std::string type() const override { return "gs"; }  // Match gsutil.
 
     virtual std::unique_ptr<std::size_t> tryGetSize(
             std::string path) const override;
@@ -4806,16 +4833,17 @@ private:
 #endif
 
 #ifndef ARBITER_IS_AMALGAMATION
-#include <arbiter/util/exports.hpp>
-#include <arbiter/driver.hpp>
 #include <arbiter/endpoint.hpp>
+#include <arbiter/driver.hpp>
 #include <arbiter/drivers/dropbox.hpp>
 #include <arbiter/drivers/fs.hpp>
 #include <arbiter/drivers/google.hpp>
 #include <arbiter/drivers/http.hpp>
 #include <arbiter/drivers/s3.hpp>
 #include <arbiter/drivers/test.hpp>
+#include <arbiter/util/exports.hpp>
 #include <arbiter/util/types.hpp>
+#include <arbiter/util/util.hpp>
 
 #ifndef ARBITER_EXTERNAL_JSON
 #include <arbiter/third/json/json.hpp>

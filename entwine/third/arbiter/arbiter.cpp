@@ -86,13 +86,22 @@ namespace
 
         if (!b.isNull())
         {
-            for (const auto& key : b.getMemberNames())
+            if (b.isObject())
             {
-                // If A doesn't have this key, then set it to B's value.
-                // If A has the key but it's an object, then recursively merge.
-                // Otherwise A already has a value here that we won't overwrite.
-                if (!out.isMember(key)) out[key] = b[key];
-                else if (out[key].isObject()) merge(out[key], b[key]);
+                for (const auto& key : b.getMemberNames())
+                {
+                    // If A doesn't have this key, then set it to B's value.
+                    // If A has the key but it's an object, then recursively
+                    // merge.
+                    // Otherwise A already has a value here that we won't
+                    // overwrite.
+                    if (!out.isMember(key)) out[key] = b[key];
+                    else if (out[key].isObject()) merge(out[key], b[key]);
+                }
+            }
+            else
+            {
+                out = b;
             }
         }
 
@@ -2291,26 +2300,7 @@ namespace
 {
     std::mutex sslMutex;
 
-    Json::Value parse(const std::string& s)
-    {
-        Json::Reader reader;
-        Json::Value json;
-        if (!reader.parse(s, json))
-        {
-            throw std::runtime_error(
-                    "Parse failure: " + reader.getFormattedErrorMessages());
-        }
-        return json;
-    }
-
-    std::string toFastString(const Json::Value& json)
-    {
-        std::string s = Json::FastWriter().write(json);
-        s.pop_back();   // Strip trailing newline.
-        return s;
-    }
-
-    const std::string baseUrl("www.googleapis.com/storage/v1/");
+    const std::string baseGoogleUrl("www.googleapis.com/storage/v1/");
     const std::string uploadUrl("www.googleapis.com/upload/storage/v1/");
     const http::Query altMediaQuery{ { "alt", "media" } };
 
@@ -2333,7 +2323,7 @@ namespace
 
             // https://cloud.google.com/storage/docs/json_api/v1/
             return
-                baseUrl + "b/" + bucket() +
+                baseGoogleUrl + "b/" + bucket() +
                 "o/" + http::sanitize(object(), exclusions);
         }
 
@@ -2344,7 +2334,7 @@ namespace
 
         std::string listEndpoint() const
         {
-            return baseUrl + "b/" + bucket() + "o";
+            return baseGoogleUrl + "b/" + bucket() + "o";
         }
 
     private:
@@ -2472,7 +2462,7 @@ std::vector<std::string> Google::glob(std::string path, bool verbose) const
             throw ArbiterError(std::to_string(res.code()) + ": " + res.str());
         }
 
-        const Json::Value json(parse(res.str()));
+        const Json::Value json(util::parse(res.str()));
         for (const auto& item : json["items"])
         {
             results.push_back(
@@ -2493,7 +2483,7 @@ std::unique_ptr<Google::Auth> Google::Auth::create(const Json::Value& json)
     {
         if (const auto file = drivers::Fs().tryGet(*path))
         {
-            return util::makeUnique<Auth>(parse(*file));
+            return util::makeUnique<Auth>(util::parse(*file));
         }
     }
     else if (json.isString())
@@ -2501,7 +2491,7 @@ std::unique_ptr<Google::Auth> Google::Auth::create(const Json::Value& json)
         const auto path = json.asString();
         if (const auto file = drivers::Fs().tryGet(path))
         {
-            return util::makeUnique<Auth>(parse(*file));
+            return util::makeUnique<Auth>(util::parse(*file));
         }
     }
 
@@ -2540,8 +2530,8 @@ void Google::Auth::maybeRefresh() const
     c["iat"] = Json::Int64(now);
     c["exp"] = Json::Int64(now + 3600);
 
-    const std::string header(encodeBase64(toFastString(h)));
-    const std::string claims(encodeBase64(toFastString(c)));
+    const std::string header(encodeBase64(util::toFastString(h)));
+    const std::string claims(encodeBase64(util::toFastString(c)));
 
     const std::string key(m_creds["private_key"].asString());
     const std::string signature(
@@ -2562,7 +2552,7 @@ void Google::Auth::maybeRefresh() const
 
     if (!res.ok()) throw ArbiterError("Failed to get token: " + res.str());
 
-    const Json::Value token(parse(res.str()));
+    const Json::Value token(util::parse(res.str()));
     m_headers["Authorization"] = "Bearer " + token["access_token"].asString();
     m_expiration = now + token["expires_in"].asInt64();
 }
@@ -2690,8 +2680,9 @@ namespace arbiter
 
 namespace
 {
-    const std::string baseGetUrl("https://content.dropboxapi.com/");
-    const std::string getUrl(baseGetUrl + "2/files/download");
+    const std::string baseDropboxUrl("https://content.dropboxapi.com/");
+    const std::string getUrl(baseDropboxUrl + "2/files/download");
+    const std::string putUrl(baseDropboxUrl + "2/files/upload");
 
     const std::string listUrl("https://api.dropboxapi.com/2/files/list_folder");
     const std::string metaUrl("https://api.dropboxapi.com/2/files/get_metadata");
@@ -2718,6 +2709,7 @@ namespace drivers
 {
 
 using namespace http;
+using namespace util;
 
 Dropbox::Dropbox(Pool& pool, const Dropbox::Auth& auth)
     : Http(pool)
@@ -2726,14 +2718,19 @@ Dropbox::Dropbox(Pool& pool, const Dropbox::Auth& auth)
 
 std::unique_ptr<Dropbox> Dropbox::create(Pool& pool, const Json::Value& json)
 {
-    std::unique_ptr<Dropbox> dropbox;
-
-    if (!json.isNull() && json.isMember("token"))
+    if (!json.isNull())
     {
-        dropbox.reset(new Dropbox(pool, Auth(json["token"].asString())));
+        if (json.isObject() && json.isMember("token"))
+        {
+            return makeUnique<Dropbox>(pool, Auth(json["token"].asString()));
+        }
+        else if (json.isString())
+        {
+            return makeUnique<Dropbox>(pool, Auth(json.asString()));
+        }
     }
 
-    return dropbox;
+    return std::unique_ptr<Dropbox>();
 }
 
 Headers Dropbox::httpGetHeaders() const
@@ -2869,10 +2866,23 @@ bool Dropbox::get(
 void Dropbox::put(
         const std::string rawPath,
         const std::vector<char>& data,
-        const Headers headers,
+        const Headers userHeaders,
         const Query query) const
 {
-    throw ArbiterError("PUT not yet supported for " + type());
+    const std::string path(sanitize(rawPath));
+
+    Headers headers(httpGetHeaders());
+
+    Json::Value json;
+    json["path"] = std::string("/" + path);
+    headers["Dropbox-API-Arg"] = toSanitizedString(json);
+    headers["Content-Type"] = "application/octet-stream";
+
+    headers.insert(userHeaders.begin(), userHeaders.end());
+
+    const Response res(Http::internalPost(putUrl, data, headers, query));
+
+    if (!res.ok()) throw ArbiterError(res.str());
 }
 
 std::string Dropbox::continueFileInfo(std::string cursor) const
