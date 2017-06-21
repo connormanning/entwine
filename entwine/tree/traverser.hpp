@@ -18,6 +18,7 @@
 #include <pdal/PointTable.hpp>
 #include <pdal/PointView.hpp>
 
+#include <entwine/tree/builder.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/metadata.hpp>
@@ -74,6 +75,16 @@ public:
     const std::map<Id, BranchNode>& children() const { return m_children; }
     const Id& id() const { return m_id; }
     std::size_t depth() const { return m_depth; }
+
+    Json::Value toJson() const
+    {
+        Json::Value json = Json::objectValue;
+        for (const auto& c : m_children)
+        {
+            json[c.first.str()] = c.second.toJson();
+        }
+        return json;
+    }
 
 private:
     const Id m_id;
@@ -159,6 +170,7 @@ public:
     }
 
     const Id& id() const { return m_node.id(); }
+    const BranchNode& node() const { return m_node; }
 
 private:
     BranchNode& node() { return m_node; }
@@ -174,6 +186,30 @@ public:
         , m_structure(m_metadata.structure())
         , m_ids(ids)
     { }
+
+    Json::Value chunkTree()
+    {
+        Json::Value json;
+        Json::Value* node(&json);
+
+        if (m_structure.hasBase())
+        {
+            for (
+                    std::size_t d(m_structure.baseDepthBegin());
+                    d < m_structure.baseDepthEnd();
+                    ++d)
+            {
+                node = &((*node)[ChunkInfo::calcLevelIndex(2, d).str()]);
+            }
+        }
+
+        tree([node](const Branch& b)
+        {
+            (*node)[b.id().str()] = b.node().toJson();
+        });
+
+        return json;
+    }
 
     template<typename F> void go(const F& f)
     {
