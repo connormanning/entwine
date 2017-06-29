@@ -52,6 +52,12 @@ private:
         return d;
     }
 
+    uint8_t getByte(pdal::Dimension::Id id) const
+    {
+        if (!m_settings.truncate()) return m_pr.getFieldAs<uint8_t>(id);
+        else return m_pr.getFieldAs<uint16_t>(id) >> 8;
+    }
+
     const Metadata& m_metadata;
     const Schema& m_schema;
     const Settings& m_settings;

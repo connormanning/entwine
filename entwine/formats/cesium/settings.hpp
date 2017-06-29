@@ -25,7 +25,8 @@ public:
     Settings(
             std::size_t tilesetSplit,
             double geometricErrorDivisor,
-            std::string coloring);
+            std::string coloring,
+            bool truncate);
 
     Settings(const Json::Value& json);
 
@@ -34,11 +35,13 @@ public:
     std::size_t tilesetSplit() const { return m_tilesetSplit; }
     double geometricErrorDivisor() const { return m_geometricErrorDivisor; }
     const std::string& coloring() const { return m_coloring; }
+    bool truncate() const { return m_truncate; }
 
 private:
     std::size_t m_tilesetSplit;
     double m_geometricErrorDivisor;
     std::string m_coloring;
+    bool m_truncate;    // If true, color/intensity should be scaled to 8 bits.
 };
 
 } // namespace cesium

@@ -74,20 +74,18 @@ void TileBuilder::push(std::size_t rawTick, const Cell& cell)
             if (m_settings.coloring().empty())
             {
                 selected.colors.emplace_back(
-                        m_pr.getFieldAs<uint8_t>(pdal::Dimension::Id::Red),
-                        m_pr.getFieldAs<uint8_t>(pdal::Dimension::Id::Green),
-                        m_pr.getFieldAs<uint8_t>(pdal::Dimension::Id::Blue));
+                        getByte(pdal::Dimension::Id::Red),
+                        getByte(pdal::Dimension::Id::Green),
+                        getByte(pdal::Dimension::Id::Blue));
+            }
+            else if (m_settings.coloring() == "intensity")
+            {
+                const uint8_t in(getByte(pdal::Dimension::Id::Intensity));
+                selected.colors.emplace_back(in, in, in);
             }
             else if (m_settings.coloring() == "tile")
             {
                 selected.colors.emplace_back(m_tileColors.at(tick));
-            }
-            else if (m_settings.coloring() == "intensity")
-            {
-                const uint8_t in(
-                        m_pr.getFieldAs<uint8_t>(
-                            pdal::Dimension::Id::Intensity));
-                selected.colors.emplace_back(in, in, in);
             }
         }
     }

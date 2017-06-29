@@ -549,7 +549,9 @@ void Kernel::build(std::vector<std::string> args)
         std::cout <<
             "Cesium:\n" <<
             "\tTileset split depth: " << c->tilesetSplit() << "\n" <<
-            "\tGeometric error divisor: " << c->geometricErrorDivisor() <<
+            "\tGeometric error divisor: " <<
+                c->geometricErrorDivisor() << "\n" <<
+            "\tTruncating colors: " << yesNo(c->truncate()) <<
             std::endl;
 
         if (c->coloring().size())

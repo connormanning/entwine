@@ -138,7 +138,6 @@ public:
     const BaseChunkReader* base() const { return m_base.get(); }
     const arbiter::Endpoint& endpoint() const { return m_endpoint; }
     bool exists(const Id& id) const { return m_ids.count(id); }
-    const std::set<Id>& ids() const { return m_ids; }
 
 private:
     void init();

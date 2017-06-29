@@ -70,12 +70,12 @@ void PooledPointTable::reset()
 
 void PooledPointTable::allocate()
 {
-    assert(m_dataNodes.size() == m_cellNodes.size());
-    const std::size_t needs(capacity() - m_dataNodes.size());
-    if (!needs) return;
+    const std::size_t d(capacity() - m_dataNodes.size());
+    const std::size_t c(capacity() - m_cellNodes.size());
+    if (!d && !c) return;
 
-    m_dataNodes.push(m_pointPool.dataPool().acquire(needs));
-    m_cellNodes.push(m_pointPool.cellPool().acquire(needs));
+    m_dataNodes.push(m_pointPool.dataPool().acquire(d));
+    m_cellNodes.push(m_pointPool.cellPool().acquire(c));
 
     m_refs.clear();
     for (char*& d : m_dataNodes) m_refs.push_back(d);
