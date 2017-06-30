@@ -132,6 +132,7 @@ public:
     bool slicedBase() const { return m_slicedBase; }
 
     std::string basename(const Id& chunkId) const;
+    std::string filename(const Id& chunkId) const;
     std::string postfix(bool isColdChunk = false) const;
     void unbump();
     void makeWhole();

@@ -101,7 +101,7 @@ void Query::getFetches(const QueryChunkState& chunkState)
     if (
             chunkState.depth() >= m_depthBegin &&
             chunkState.depth() >= m_structure.coldDepthBegin() &&
-            m_reader.exists(chunkState.chunkId()))
+            m_reader.exists(chunkState))
     {
         m_chunks.emplace(
                 m_reader,
@@ -111,7 +111,7 @@ void Query::getFetches(const QueryChunkState& chunkState)
     }
     else if (
             chunkState.depth() >= m_structure.coldDepthBegin() &&
-            !m_reader.exists(chunkState.chunkId()))
+            !m_reader.exists(chunkState))
     {
         return;
     }

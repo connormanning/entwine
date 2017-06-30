@@ -12,7 +12,6 @@
 
 #include <cstddef>
 #include <list>
-#include <map>
 #include <memory>
 #include <mutex>
 #include <set>
@@ -137,7 +136,7 @@ public:
 
     const BaseChunkReader* base() const { return m_base.get(); }
     const arbiter::Endpoint& endpoint() const { return m_endpoint; }
-    bool exists(const Id& id) const { return m_ids.count(id); }
+    bool exists(const QueryChunkState& state) const;
 
 private:
     void init();
@@ -157,7 +156,14 @@ private:
     std::unique_ptr<HierarchyReader> m_hierarchy;
     std::unique_ptr<BaseChunkReader> m_base;
 
-    std::set<Id> m_ids;
+    // Outer vector is organized by depth.
+    std::vector<std::vector<Id>> m_ids;
+
+    Pool m_threadPool;
+    bool m_ready = false;
+
+    mutable std::mutex m_mutex;
+    mutable std::map<Id, bool> m_pre;
 };
 
 } // namespace entwine

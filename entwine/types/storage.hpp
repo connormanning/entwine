@@ -62,6 +62,7 @@ public:
 
     const Metadata& metadata() const;
     const Schema& schema() const;
+    std::string filename(const Id& id) const;
 
 private:
     const Metadata& m_metadata;

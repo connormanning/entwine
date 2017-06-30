@@ -86,6 +86,10 @@ Cell::PooledStack Storage::deserialize(
 
 const Metadata& Storage::metadata() const { return m_metadata; }
 const Schema& Storage::schema() const { return m_metadata.schema(); }
+std::string Storage::filename(const Id& id) const
+{
+    return m_storage->filename(id);
+}
 
 } // namespace entwine
 

@@ -10,6 +10,7 @@
 
 #include <entwine/reader/reader.hpp>
 
+#include <algorithm>
 #include <numeric>
 
 #include <entwine/reader/cache.hpp>
@@ -78,6 +79,7 @@ Reader::Reader(const std::string path, Cache& cache)
                 m_metadata,
                 m_endpoint,
                 m_cache))
+    , m_threadPool(2)
 {
     init();
 }
@@ -93,6 +95,7 @@ Reader::Reader(const arbiter::Endpoint& endpoint, Cache& cache)
                 m_metadata,
                 m_endpoint,
                 m_cache))
+    , m_threadPool(2)
 {
     init();
 }
@@ -121,9 +124,58 @@ void Reader::init()
 
     if (structure.hasCold())
     {
-        auto ids(extractIds(m_endpoint.get("entwine-ids")));
-        m_ids.insert(ids.begin(), ids.end());
-        // std::cout << "Found " << m_ids.size() << " chunks" << std::endl;
+        m_threadPool.add([&]()
+        {
+            const auto ids(extractIds(m_endpoint.get("entwine-ids")));
+            if (ids.empty()) return;
+
+            std::size_t depth(ChunkInfo::calcDepth(4, ids.front()));
+            Id nextDepthIndex(ChunkInfo::calcLevelIndex(2, depth + 1));
+
+            m_ids.resize(ChunkInfo::calcDepth(4, ids.back()) + 1);
+
+            for (const auto& id : ids)
+            {
+                if (id >= nextDepthIndex)
+                {
+                    ++depth;
+                    nextDepthIndex <<= structure.dimensions();
+                    ++nextDepthIndex;
+                }
+
+                if (ChunkInfo::calcDepth(4, id) != depth)
+                {
+                    throw std::runtime_error("Invalid depth");
+                }
+
+                m_ids.at(depth).push_back(id);
+            }
+
+            std::cout << m_endpoint.prefixedRoot() << " ready" << std::endl;
+            m_ready = true;
+        });
+    }
+}
+
+bool Reader::exists(const QueryChunkState& c) const
+{
+    if (m_ready)
+    {
+        if (c.depth() >= m_ids.size()) return false;
+        const auto& slice(m_ids[c.depth()]);
+        return std::binary_search(slice.begin(), slice.end(), c.chunkId());
+    }
+    else
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_pre.count(c.chunkId())) return m_pre[c.chunkId()];
+        auto& val(m_pre[c.chunkId()]);
+        val = false;
+
+        const auto f(m_metadata.filename(c.chunkId()));
+        if (const auto size = m_endpoint.tryGetSize(f)) val = *size;
+        std::cout << m_endpoint.prefixedRoot() << f << ": " << val << std::endl;
+        return val;
     }
 }
 

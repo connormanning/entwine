@@ -28,6 +28,11 @@ public:
             const arbiter::Endpoint& endpoint,
             PointPool& pool,
             const Id& id) const override;
+
+    virtual std::string filename(const Id& id) const override
+    {
+        return m_metadata.basename(id) + ".laz";
+    }
 };
 
 } // namespace entwine

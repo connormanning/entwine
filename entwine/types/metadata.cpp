@@ -226,6 +226,11 @@ std::string Metadata::basename(const Id& chunkId) const
         postfix(chunkId >= m_structure->coldIndexBegin());
 }
 
+std::string Metadata::filename(const Id& chunkId) const
+{
+    return m_storage->filename(chunkId);
+}
+
 std::string Metadata::postfix(const bool isColdChunk) const
 {
     // Things we save, and their postfixing.

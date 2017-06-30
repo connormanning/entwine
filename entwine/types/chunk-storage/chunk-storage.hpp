@@ -39,6 +39,10 @@ public:
             const Id& id) const = 0;
 
     virtual Json::Value toJson() const { return Json::nullValue; }
+    virtual std::string filename(const Id& id) const
+    {
+        return m_metadata.basename(id);
+    }
 
 protected:
     void ensurePut(
