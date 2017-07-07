@@ -276,7 +276,7 @@ private:
     Id m_sparseIndexBegin;
     Id m_mappedIndexBegin;
 
-    double m_density;
+    double m_density = 0;
 };
 
 } // namespace entwine

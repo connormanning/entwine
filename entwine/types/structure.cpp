@@ -307,6 +307,7 @@ Json::Value Structure::toJson() const
     json["tubular"] = m_tubular;
     json["dynamicChunks"] = m_dynamicChunks;
     json["prefixIds"] = m_prefixIds;
+    if (m_density) json["density"] = m_density;
 
     if (m_startDepth)
     {
