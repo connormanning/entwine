@@ -69,10 +69,7 @@ Metadata::Metadata(
     , m_density(density)
     , m_trustHeaders(trustHeaders)
 {
-    if (!m_density)
-    {
-        m_density = densityLowerBound(m_manifest->fileInfo());
-    }
+    if (!m_density) m_density = densityLowerBound(*m_manifest);
 }
 
 Metadata::Metadata(const arbiter::Endpoint& ep, const std::size_t* subsetId)
@@ -114,10 +111,7 @@ Metadata::Metadata(const arbiter::Endpoint& ep, const std::size_t* subsetId)
     const std::string path("entwine-manifest" + postfix());
     const Json::Value json(parse(io::ensureGetString(ep, path)));
     m_manifest = makeUnique<Manifest>(json, ep);
-    if (!m_density)
-    {
-        m_density = densityLowerBound(m_manifest->fileInfo());
-    }
+    if (!m_density) m_density = densityLowerBound(*m_manifest);
 }
 
 Metadata::Metadata(const Json::Value& json)

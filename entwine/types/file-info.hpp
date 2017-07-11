@@ -109,7 +109,11 @@ inline FileInfoList toFileInfo(const Json::Value& json)
     return f;
 }
 
+class Manifest;
+
 double densityLowerBound(const FileInfoList& files);
+double densityLowerBound(const Manifest& manifest);
+double areaUpperBound(const FileInfoList& files);
 
 } // namespace entwine
 

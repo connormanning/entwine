@@ -9,6 +9,7 @@
 ******************************************************************************/
 
 #include <entwine/types/file-info.hpp>
+#include <entwine/types/manifest.hpp>
 
 namespace entwine
 {
@@ -99,7 +100,6 @@ Json::Value FileInfo::toJson(const bool everything) const
 double densityLowerBound(const FileInfoList& files)
 {
     double points(0);
-    double area(0);
 
     for (const auto& f : files)
     {
@@ -108,12 +108,32 @@ double densityLowerBound(const FileInfoList& files)
             if (b->area() > 0 && f.numPoints())
             {
                 points += f.numPoints();
-                area += b->area();
             }
         }
     }
 
-    return points / area;
+    return points / areaUpperBound(files);
+}
+
+double densityLowerBound(const Manifest& manifest)
+{
+    return
+        manifest.pointStats().inserts() / areaUpperBound(manifest.fileInfo());
+}
+
+double areaUpperBound(const FileInfoList& files)
+{
+    double area(0);
+
+    for (const auto& f : files)
+    {
+        if (const auto b = f.bounds())
+        {
+            if (b->area() > 0) area += b->area();
+        }
+    }
+
+    return area;
 }
 
 } // namespace entwine
