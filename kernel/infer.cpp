@@ -321,5 +321,8 @@ void Kernel::infer(std::vector<std::string> args)
         std::cout << "Transformation: ";
         matrix::print(*t);
     }
+
+    const double density(densityLowerBound(inference.fileInfo()));
+    std::cout << "Density estimate (per square unit): " << density << std::endl;
 }
 

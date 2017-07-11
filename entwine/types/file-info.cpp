@@ -96,5 +96,25 @@ Json::Value FileInfo::toJson(const bool everything) const
     return json;
 }
 
+double densityLowerBound(const FileInfoList& files)
+{
+    double points(0);
+    double area(0);
+
+    for (const auto& f : files)
+    {
+        if (const auto b = f.bounds())
+        {
+            if (b->area() > 0 && f.numPoints())
+            {
+                points += f.numPoints();
+                area += b->area();
+            }
+        }
+    }
+
+    return points / area;
+}
+
 } // namespace entwine
 

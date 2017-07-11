@@ -109,5 +109,7 @@ inline FileInfoList toFileInfo(const Json::Value& json)
     return f;
 }
 
+double densityLowerBound(const FileInfoList& files);
+
 } // namespace entwine
 

@@ -114,6 +114,8 @@ public:
 
     void awakenAll(Pool& pool) const;
 
+    const std::vector<FileInfo>& fileInfo() const { return m_fileInfo; }
+
 private:
     void awaken(Origin origin) const;
 

@@ -75,7 +75,7 @@ Inference::Inference(Builder& builder, const FileInfoList& fileInfo)
             builder.tmpEndpoint().prefixedRoot(),
             builder.threadPools().size(),
             builder.verbose(),
-            false,  // Adding to existing index isn't allows for Cesium.
+            false,  // Adding to existing index isn't allowed for Cesium.
             &builder.arbiter())
 { }
 

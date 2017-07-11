@@ -304,11 +304,19 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     auto subset(maybeAccommodateSubset(json, *boundsConforming, delta.get()));
     json["numPointsHint"] = static_cast<Json::UInt64>(numPointsHint);
 
+    const double density(densityLowerBound(fileInfo));
+    if (!json.isMember("density")) json["density"] = density;
+
     Structure structure(json);
-    if (structure.density())
+    const auto pre(structure.sparseDepthBegin());
+    if (structure.applyDensity(density, boundsConforming->cubeify()))
     {
-        std::cout << "Applying density" << std::endl;
-        structure.applyDensity(boundsConforming->cubeify());
+        const auto post(structure.sparseDepthBegin());
+        if (post > pre)
+        {
+            std::cout << "Applied density " <<
+                "(+" << (post - pre) << ")" << std::endl;
+        }
     }
 
     Structure hierarchyStructure(Hierarchy::structure(structure, subset.get()));
@@ -326,6 +334,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
             trustHeaders,
             storage,
             hierarchyCompression,
+            density,
             reprojection.get(),
             subset.get(),
             delta.get(),

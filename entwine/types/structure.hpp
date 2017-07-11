@@ -211,8 +211,7 @@ public:
         m_startDepth = 0;
     }
 
-    double density() const { return m_density; }
-    void applyDensity(const Bounds& cubicBounds);
+    bool applyDensity(double density, const Bounds& cubicBounds);
 
 private:
     void applyNumPointsHint(std::size_t hint);
@@ -232,8 +231,7 @@ private:
             std::size_t mappedDepth = 0,
             std::size_t startDepth = 0,
             std::size_t sparseDepth = 0,
-            std::size_t bumpDepth = 0,
-            double density = 0);
+            std::size_t bumpDepth = 0);
 
     bool m_tubular;
     bool m_dynamicChunks;
@@ -275,8 +273,6 @@ private:
     Id m_coldIndexEnd;
     Id m_sparseIndexBegin;
     Id m_mappedIndexBegin;
-
-    double m_density = 0;
 };
 
 } // namespace entwine

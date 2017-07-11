@@ -149,11 +149,13 @@ void Builder::go(std::size_t max)
         if (verbose())
         {
             std::cout << "Adding " << origin << " - " << path << std::endl;
+            /*
             std::cout <<
                 " A: " << m_pointPool->cellPool().allocated() <<
                 " C: " << Chunk::count() <<
                 " H: " << HierarchyBlock::count() <<
                 std::endl;
+            */
         }
 
         m_threadPools->workPool().add([this, origin, &info, path]()

@@ -163,8 +163,7 @@ Structure::Structure(const Json::Value& json)
                 json["mappedDepth"].asUInt64() : json["sparseDepth"].asUInt64(),
             json["startDepth"].asUInt64(),
             json["sparseDepth"].asUInt64(),
-            json["bumpDepth"].asUInt64(),
-            json["density"].asDouble())
+            json["bumpDepth"].asUInt64())
 { }
 
 Structure::Structure(
@@ -180,8 +179,7 @@ Structure::Structure(
         const std::size_t mappedDepth,
         const std::size_t startDepth,
         const std::size_t sparseDepth,
-        const std::size_t bumpDepth,
-        const double density)
+        const std::size_t bumpDepth)
     // Various.
     : m_tubular(tubular)
     , m_dynamicChunks(dynamicChunks)
@@ -223,7 +221,6 @@ Structure::Structure(
             ChunkInfo::calcLevelIndex(dimensions, m_sparseDepthBegin))
     , m_mappedIndexBegin(
             ChunkInfo::calcLevelIndex(dimensions, m_mappedDepthBegin))
-    , m_density(density)
 {
     if (m_baseDepthEnd < 4)
     {
@@ -246,16 +243,18 @@ Structure::Structure(
     applyNumPointsHint(m_numPointsHint);
 }
 
-void Structure::applyDensity(const Bounds& cube)
+bool Structure::applyDensity(const double density, const Bounds& cube)
 {
-    const double squareUnits(cube.width() * cube.depth());
-    const std::size_t n(m_density * squareUnits);
+    const double squareUnits(cube.area());
+    const std::size_t n(density * squareUnits * 1.2);
     if (n > m_numPointsHint)
     {
         m_mappedDepthBegin = 0;
         m_sparseDepthBegin = 0;
-        applyNumPointsHint(m_density * squareUnits);
+        applyNumPointsHint(density * squareUnits);
+        return true;
     }
+    else return false;
 }
 
 void Structure::applyNumPointsHint(const std::size_t n)
@@ -307,7 +306,6 @@ Json::Value Structure::toJson() const
     json["tubular"] = m_tubular;
     json["dynamicChunks"] = m_dynamicChunks;
     json["prefixIds"] = m_prefixIds;
-    if (m_density) json["density"] = m_density;
 
     if (m_startDepth)
     {

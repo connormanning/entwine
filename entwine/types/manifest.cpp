@@ -277,7 +277,7 @@ void Manifest::save(const bool primary, const std::string postfix) const
         for (Json::ArrayIndex i(0); i < n; ++i)
         {
             // We're storing the file info separately, so the "fileInfo" key
-            // will just contain string paths instead of the full info object.
+            // will just contain path/bounds instead of the full info object.
             json["remote"] = true;
             json["chunkSize"] = static_cast<Json::UInt64>(chunkSize);
             fileInfo[i]["path"] = m_fileInfo[i].path();

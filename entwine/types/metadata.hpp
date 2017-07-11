@@ -50,6 +50,7 @@ public:
             bool trustHeaders,
             ChunkStorageType chunkStorage,
             HierarchyCompression hierarchyCompress,
+            double density,
             const Reprojection* reprojection = nullptr,
             const Subset* subset = nullptr,
             const Delta* delta = nullptr,
@@ -128,6 +129,7 @@ public:
 
     const Version& version() const { return *m_version; }
     const std::string& srs() const { return m_srs; }
+    double density() const { return m_density; }
     bool trustHeaders() const { return m_trustHeaders; }
     bool slicedBase() const { return m_slicedBase; }
 
@@ -167,6 +169,7 @@ private:
     std::unique_ptr<cesium::Settings> m_cesiumSettings;
     std::unique_ptr<Version> m_version;
     std::string m_srs;
+    double m_density = 0;
     bool m_trustHeaders = true;
     bool m_slicedBase = true;
 };

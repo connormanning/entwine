@@ -494,10 +494,10 @@ void Kernel::build(std::vector<std::string> args)
         "\tPoint count hint: " << commify(structure.numPointsHint()) <<
             " points\n";
 
-    if (structure.density())
-    {
-        std::cout << "\tDensity: " << structure.density() << std::endl;
-    }
+    std::cout << "\tDensity estimate (per square unit): ";
+    if (metadata.density()) std::cout << metadata.density() << std::endl;
+    else std::cout << densityLowerBound(metadata.manifest().fileInfo()) <<
+        std::endl;
 
     if (!metadata.trustHeaders())
     {

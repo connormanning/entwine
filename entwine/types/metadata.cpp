@@ -40,6 +40,7 @@ Metadata::Metadata(
         const bool trustHeaders,
         const ChunkStorageType chunkStorage,
         const HierarchyCompression hierarchyCompress,
+        const double density,
         const Reprojection* reprojection,
         const Subset* subset,
         const Delta* delta,
@@ -65,8 +66,14 @@ Metadata::Metadata(
     , m_cesiumSettings(maybeClone(cesiumSettings))
     , m_version(makeUnique<Version>(currentVersion()))
     , m_srs(m_reprojection ? m_reprojection->out() : "")
+    , m_density(density)
     , m_trustHeaders(trustHeaders)
-{ }
+{
+    if (!m_density)
+    {
+        m_density = densityLowerBound(m_manifest->fileInfo());
+    }
+}
 
 Metadata::Metadata(const arbiter::Endpoint& ep, const std::size_t* subsetId)
     : Metadata(([&ep, subsetId]()
@@ -107,6 +114,10 @@ Metadata::Metadata(const arbiter::Endpoint& ep, const std::size_t* subsetId)
     const std::string path("entwine-manifest" + postfix());
     const Json::Value json(parse(io::ensureGetString(ep, path)));
     m_manifest = makeUnique<Manifest>(json, ep);
+    if (!m_density)
+    {
+        m_density = densityLowerBound(m_manifest->fileInfo());
+    }
 }
 
 Metadata::Metadata(const Json::Value& json)
@@ -137,6 +148,7 @@ Metadata::Metadata(const Json::Value& json)
                 nullptr)
     , m_version(makeUnique<Version>(json["version"].asString()))
     , m_srs(json["srs"].asString())
+    , m_density(json["density"].asDouble())
     , m_trustHeaders(json["trustHeaders"].asBool())
     , m_slicedBase(json["baseType"].asString() == "sliced")
 { }
@@ -159,6 +171,7 @@ Metadata::Metadata(const Metadata& other)
     , m_cesiumSettings(maybeClone(other.cesiumSettings()))
     , m_version(makeUnique<Version>(other.version()))
     , m_srs(other.srs())
+    , m_density(other.density())
     , m_trustHeaders(other.trustHeaders())
     , m_slicedBase(other.slicedBase())
 { }
@@ -193,6 +206,8 @@ Json::Value Metadata::toJson() const
             json["transformation"].append(v);
         }
     }
+
+    if (m_density) json["density"] = m_density;
 
     if (m_cesiumSettings)
     {

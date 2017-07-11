@@ -62,9 +62,14 @@ public:
     bool overlaps(const Bounds& other, bool force2d = false) const
     {
         return
+            width() > 0 && depth() > 0 &&
+            other.width() > 0 && other.depth() > 0 &&
             max().x > other.min().x && min().x < other.max().x &&
             max().y > other.min().y && min().y < other.max().y &&
-            (force2d || (max().z > other.min().z && min().z < other.max().z));
+            (force2d || (
+                (!height() && !other.height()) || (
+                    height() > 0 && other.height() > 0 &&
+                    max().z > other.min().z && min().z < other.max().z)));
     }
 
     // Returns true if the requested Bounds are contained within these Bounds.
@@ -259,6 +264,7 @@ public:
 
     Bounds intersection(const Bounds& b) const
     {
+        if (!this->overlaps(b)) return Bounds();
         return Bounds(Point::max(min(), b.min()), Point::min(max(), b.max()));
     }
 
@@ -297,6 +303,11 @@ public:
     double operator[](std::size_t i) const
     {
         return i < 3 ? min()[i] : max()[i - 3];
+    }
+
+    Bounds make2d() const
+    {
+        return Bounds(min().x, min().y, max().x, max().y);
     }
 
 private:
