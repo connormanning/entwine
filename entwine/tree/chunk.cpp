@@ -171,7 +171,13 @@ cesium::TileInfo SparseChunk::info() const
         }
     }
 
-    return cesium::TileInfo(m_id, ticks, m_depth, m_bounds);
+    Bounds b(m_bounds);
+    if (const auto d = m_metadata.delta())
+    {
+        b = m_bounds.unscale(d->scale(), d->offset());
+    }
+
+    return cesium::TileInfo(m_id, ticks, m_depth, b);
 }
 
 void SparseChunk::tile() const
@@ -249,7 +255,13 @@ cesium::TileInfo ContiguousChunk::info() const
         }
     }
 
-    return cesium::TileInfo(m_id, ticks, m_depth, m_bounds);
+    Bounds b(m_bounds);
+    if (const auto d = m_metadata.delta())
+    {
+        b = m_bounds.unscale(d->scale(), d->offset());
+    }
+
+    return cesium::TileInfo(m_id, ticks, m_depth, b);
 }
 
 void ContiguousChunk::tile() const
@@ -304,7 +316,13 @@ std::vector<cesium::TileInfo> BaseChunk::baseInfo() const
             for (std::size_t t(0); t < tickMax; ++t) ticks[t] = 1;
         }
 
-        result.emplace_back(m_chunks.at(d).id(), ticks, d, m_bounds);
+        Bounds b(m_bounds);
+        if (const auto d = m_metadata.delta())
+        {
+            b = m_bounds.unscale(d->scale(), d->offset());
+        }
+
+        result.emplace_back(m_chunks.at(d).id(), ticks, d, b);
     }
 
     return result;
