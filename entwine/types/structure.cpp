@@ -260,21 +260,15 @@ bool Structure::applyDensity(const double density, const Bounds& cube)
 void Structure::applyNumPointsHint(const std::size_t n)
 {
     const std::size_t activeMinDepth(std::max(m_bumpDepth, m_coldDepthBegin));
+    const std::size_t activeNumPointsHint(std::max<std::size_t>(n, 10000000));
+    const std::size_t sparse(
+            std::max<std::size_t>(
+                activeMinDepth,
+                1 + std::ceil(
+                    std::log2(activeNumPointsHint) / std::log2(m_factor))));
 
-    std::size_t activeNumPointsHint(std::max<std::size_t>(n, 10000000));
-
-    if (!m_mappedDepthBegin)
-    {
-        m_mappedDepthBegin =
-            std::ceil(std::log2(activeNumPointsHint) / std::log2(m_factor));
-    }
-
-    m_mappedDepthBegin = std::max(m_mappedDepthBegin, activeMinDepth);
-
-    if (!m_sparseDepthBegin)
-    {
-        m_sparseDepthBegin = m_mappedDepthBegin;
-    }
+    if (!m_mappedDepthBegin) m_mappedDepthBegin = sparse;
+    if (!m_sparseDepthBegin) m_sparseDepthBegin = sparse;
 
     m_sparseDepthBegin = std::max(m_sparseDepthBegin, m_mappedDepthBegin);
 

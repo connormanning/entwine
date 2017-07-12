@@ -49,7 +49,7 @@ public:
         go();
     }
 
-    const double ratio() const { return m_ratio; }
+    double ratio() const { return m_ratio; }
 
 private:
     Pool m_workPool;

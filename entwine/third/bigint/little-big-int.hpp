@@ -131,7 +131,7 @@ private:
         return p >= m_buf && p <= end();
     }
 
-    const char* const end() const noexcept
+    const char* end() const noexcept
     {
         return m_buf + N;
     }
