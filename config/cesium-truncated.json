@@ -1,5 +1,4 @@
 {
-    "absolute": true,
     "reprojection": {
         "out": "EPSG:4978"
     },

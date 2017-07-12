@@ -153,7 +153,6 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
     if (cesiumSettings)
     {
-        absolute = true;
         json["reprojection"]["out"] = "EPSG:4978";
     }
 

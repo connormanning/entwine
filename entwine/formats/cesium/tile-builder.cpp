@@ -61,13 +61,27 @@ void TileBuilder::push(std::size_t rawTick, const Cell& cell)
     const std::size_t tick(rawTick / m_divisor);
     auto& selected(m_data.at(tick));
 
+    const auto delta(m_metadata.delta());
+
     for (const auto& single : cell)
     {
         m_table.setPoint(single);
-        selected.points.emplace_back(
-                cell.point().x,
-                cell.point().y,
-                cell.point().z);
+        if (delta)
+
+        {
+            selected.points.emplace_back(
+                    Point::unscale(
+                        cell.point(),
+                        delta->scale(),
+                        delta->offset()));
+        }
+        else
+        {
+            selected.points.emplace_back(
+                    cell.point().x,
+                    cell.point().y,
+                    cell.point().z);
+        }
 
         if (m_hasColor)
         {
