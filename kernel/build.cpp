@@ -106,10 +106,6 @@ namespace
             "\t-e\n"
             "\t\tEnable AWS server-side-encryption.\n\n"
 
-            "\t-p\n"
-            "\t\tPrefix stored IDs with a SHA (may be useful for\n"
-            "\t\tfilename-based distributed filesystems).\n\n"
-
             "\t-x\n"
             "\t\tDo not trust file headers when determining bounds.  By\n"
             "\t\tdefault, the headers are considered to be good.\n\n"
@@ -300,7 +296,6 @@ void Kernel::build(std::vector<std::string> args)
         }
         else if (arg == "-f") { json["force"] = true; }
         else if (arg == "-x") { json["trustHeaders"] = false; }
-        else if (arg == "-p") { json["prefixIds"] = true; }
         else if (arg == "-n") { json["absolute"] = true; }
         else if (arg == "-e") { json["arbiter"]["s3"]["sse"] = true; }
         else if (arg == "-h")

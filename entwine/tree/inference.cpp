@@ -543,6 +543,7 @@ Json::Value Inference::toJson() const
     json["schema"] = schema().toJson();
     json["bounds"] = bounds().toJson();
     json["numPoints"] = Json::UInt64(numPoints());
+    json["density"] = densityLowerBound(m_fileInfo);
     if (m_reproj) json["reprojection"] = m_reproj->toJson();
     if (m_delta) m_delta->insertInto(json);
     if (m_transformation)

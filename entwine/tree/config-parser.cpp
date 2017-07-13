@@ -103,6 +103,9 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     const std::string tmp(json["tmp"].asString());
     const std::size_t threads(json["threads"].asUInt64());
 
+    const auto outType(arbiter::Arbiter::getType(out));
+    if (outType == "s3" || outType == "gs") json["prefixIds"] = true;
+
     normalizeInput(json, *arbiter);
     auto fileInfo(extract<FileInfo>(json["input"]));
 
