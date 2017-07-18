@@ -29,8 +29,8 @@ FeatureTable::FeatureTable(
         const std::vector<Color>& colors,
         const std::vector<Point>& normals)
     : m_points(points)
-    , m_colors(colors)
     , m_normals(normals)
+    , m_colors(colors)
 {
     if (colors.size() && colors.size() != points.size())
     {
