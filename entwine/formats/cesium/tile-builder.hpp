@@ -65,6 +65,7 @@ private:
 
     std::size_t m_divisor;
     bool m_hasColor;
+    bool m_hasNormals;
     std::map<std::size_t, Color> m_tileColors;
     std::map<std::size_t, TileData> m_data;
 
