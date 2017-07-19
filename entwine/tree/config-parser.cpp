@@ -180,7 +180,11 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                 extract<double>(json["transformation"]));
     }
 
-    const bool needsInference(!boundsConforming || !schema || !numPointsHint);
+    const bool needsInference(
+            !boundsConforming ||
+            !schema ||
+            !numPointsHint ||
+            (!absolute && !delta));
 
     if (needsInference)
     {
