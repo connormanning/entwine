@@ -49,7 +49,8 @@ void LasZipStorage::write(Chunk& chunk) const
     const auto offset = Point::unscale(
             chunk.bounds().mid(),
             delta.scale(),
-            delta.offset());
+            delta.offset())
+        .apply([](double d) { return std::floor(d); });
 
     // See https://www.pdal.io/stages/writers.las.html
     uint64_t timeMask(schema.hasTime() ? 1 : 0);
