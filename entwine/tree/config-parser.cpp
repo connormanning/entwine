@@ -310,8 +310,9 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     auto subset(maybeAccommodateSubset(json, *boundsConforming, delta.get()));
     json["numPointsHint"] = static_cast<Json::UInt64>(numPointsHint);
 
-    const double density(densityLowerBound(fileInfo));
-    if (!json.isMember("density")) json["density"] = density;
+    const double density(
+            json.isMember("density") ?
+                json["density"].asDouble() : densityLowerBound(fileInfo));
 
     Structure structure(json);
     const auto pre(structure.sparseDepthBegin());
@@ -449,6 +450,7 @@ void ConfigParser::normalizeInput(
 
         if (!json.isMember("schema")) json["schema"] = inference["schema"];
         if (!json.isMember("bounds")) json["bounds"] = inference["bounds"];
+        if (!json.isMember("density")) json["density"] = inference["density"];
         if (!json.isMember("numPointsHint"))
         {
             json["numPointsHint"] = inference["numPoints"];
