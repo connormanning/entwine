@@ -15,6 +15,7 @@
 
 #include <json/json.h>
 
+#include <entwine/formats/cesium/batch-table.hpp>
 #include <entwine/formats/cesium/feature-table.hpp>
 #include <entwine/formats/cesium/tile-info.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
@@ -25,42 +26,6 @@ namespace entwine
 
 namespace cesium
 {
-
-class Tile
-{
-public:
-    // Unused but maybe helpful for verification.
-    Tile(const std::string& dataPath);
-
-    Tile(
-            const std::vector<Point>& points,
-            const std::vector<Color>& colors,
-            const std::vector<Point>& normals)
-        : m_featureTable(points, colors, normals)
-    { }
-
-    std::vector<char> asBinary() const;
-
-    const FeatureTable& featureTable() const { return m_featureTable; }
-
-private:
-    uint32_t extract(char*& pos)
-    {
-        uint32_t result(*reinterpret_cast<const uint32_t*>(pos));
-        pos += 4;
-        return result;
-    }
-
-    void append(std::vector<char>& data, uint32_t v) const
-    {
-        data.insert(
-                data.end(),
-                reinterpret_cast<const char*>(&v),
-                reinterpret_cast<const char*>(&v + 1));
-    }
-
-    FeatureTable m_featureTable;
-};
 
 class TileData
 {
@@ -75,6 +40,32 @@ public:
     std::vector<Point> points;
     std::vector<Color> colors;
     std::vector<Point> normals;
+};
+
+class Tile
+{
+public:
+    Tile(const TileData& tileData)
+        : m_featureTable(tileData)
+        , m_batchTable(tileData)
+    { }
+
+    std::vector<char> asBinary() const;
+
+    const FeatureTable& featureTable() const { return m_featureTable; }
+    const BatchTable& batchTable() const { return m_batchTable; }
+
+private:
+    void append(std::vector<char>& data, uint32_t v) const
+    {
+        data.insert(
+                data.end(),
+                reinterpret_cast<const char*>(&v),
+                reinterpret_cast<const char*>(&v + 1));
+    }
+
+    FeatureTable m_featureTable;
+    BatchTable m_batchTable;
 };
 
 } // namespace cesium

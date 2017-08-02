@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2016, Connor Manning (connor@hobu.co)
+* Copyright (c) 2017, Connor Manning (connor@hobu.co)
 *
 * Entwine -- Point cloud indexing
 *
@@ -23,10 +23,10 @@ namespace cesium
 
 class TileData;
 
-class FeatureTable
+class BatchTable
 {
 public:
-    FeatureTable(const TileData& tileData);
+    BatchTable(const TileData& tileData);
 
     Json::Value getJson() const;
     void appendBinary(std::vector<char>& data) const;
