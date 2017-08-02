@@ -103,6 +103,8 @@ public:
             const Point* scale = nullptr,
             const Point* offset = nullptr);
 
+    std::unique_ptr<Query> getQuery(const Json::Value& json);
+
     // Hierarchy query.
     Json::Value hierarchy(
             const Bounds& qbox,
@@ -111,6 +113,8 @@ public:
             bool vertical = false,
             const Point* scale = nullptr,
             const Point* offset = nullptr);
+
+    Json::Value hierarchy(const Json::Value& json);
 
     // File metadata queries.
     FileInfo files(Origin origin) const;

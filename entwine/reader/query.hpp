@@ -167,7 +167,7 @@ protected:
     bool m_base;
     bool m_done;
 
-    const Schema& m_outSchema;
+    const Schema m_outSchema;
 
     BinaryPointTable m_table;
     pdal::PointRef m_pointRef;

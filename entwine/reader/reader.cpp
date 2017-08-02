@@ -194,7 +194,9 @@ Json::Value Reader::hierarchy(
 {
     checkQuery(depthBegin, depthEnd);
 
-    const Bounds queryBounds(inBounds.undeltify(Delta(scale, offset)));
+    const Bounds queryBounds(
+            inBounds == Bounds::everything() ?
+                inBounds : inBounds.undeltify(Delta(scale, offset)));
     return vertical ?
         m_hierarchy->queryVertical(queryBounds, depthBegin, depthEnd) :
         m_hierarchy->query(queryBounds, depthBegin, depthEnd);
@@ -293,6 +295,68 @@ std::unique_ptr<Query> Reader::getQuery(
             depthEnd,
             localDelta.exists() ? &localDelta.scale() : nullptr,
             localDelta.exists() ? &localDelta.offset() : nullptr);
+}
+
+std::unique_ptr<Query> Reader::getQuery(const Json::Value& q)
+{
+    std::unique_ptr<Schema> schema;
+    if (q.isMember("schema")) schema = makeUnique<Schema>(q["schema"]);
+
+    const Json::Value filter(q["filter"]);
+
+    const Bounds bounds = q.isMember("bounds") ?
+        Bounds(q["bounds"]) : Bounds::everything();
+
+    if (q.isMember("depth"))
+    {
+        if (q.isMember("depthBegin") || q.isMember("depthEnd"))
+        {
+            throw std::runtime_error("Invalid depth specification");
+        }
+    }
+
+    const std::size_t depthBegin = q.isMember("depth") ?
+        q["depth"].asUInt64() : q["depthBegin"].asUInt64();
+
+    const std::size_t depthEnd = q.isMember("depth") ?
+        q["depth"].asUInt64() + 1 : q["depthEnd"].asUInt64();
+
+    auto scale(entwine::maybeCreate<entwine::Scale>(q["scale"]));
+    auto offset(entwine::maybeCreate<entwine::Offset>(q["offset"]));
+
+    return getQuery(
+            schema ? *schema : metadata().schema(),
+            filter,
+            bounds,
+            depthBegin,
+            depthEnd,
+            scale.get(),
+            offset.get());
+}
+
+Json::Value Reader::hierarchy(const Json::Value& q)
+{
+    const Bounds bounds = q.isMember("bounds") ?
+        Bounds(q["bounds"]) : Bounds::everything();
+
+    const std::size_t depthBegin = q.isMember("depth") ?
+        q["depth"].asUInt64() : q["depthBegin"].asUInt64();
+
+    const std::size_t depthEnd = q.isMember("depth") ?
+        q["depth"].asUInt64() + 1 : q["depthEnd"].asUInt64();
+
+    const bool vertical(q["vertical"].asBool());
+
+    auto scale(entwine::maybeCreate<entwine::Scale>(q["scale"]));
+    auto offset(entwine::maybeCreate<entwine::Offset>(q["offset"]));
+
+    return hierarchy(
+            bounds,
+            depthBegin,
+            depthEnd,
+            vertical,
+            scale.get(),
+            offset.get());
 }
 
 FileInfo Reader::files(const Origin origin) const

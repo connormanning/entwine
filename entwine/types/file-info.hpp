@@ -109,6 +109,13 @@ inline FileInfoList toFileInfo(const Json::Value& json)
     return f;
 }
 
+inline Json::Value toJson(const FileInfoList& fileInfo)
+{
+    Json::Value json;
+    for (const auto& f : fileInfo) json.append(f.toJson());
+    return json;
+}
+
 class Manifest;
 
 double densityLowerBound(const FileInfoList& files);
