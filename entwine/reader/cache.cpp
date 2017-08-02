@@ -74,7 +74,7 @@ DataChunkState::~DataChunkState() { }
 
 
 Cache::Cache(const std::size_t maxBytes)
-    : m_maxBytes(std::max<std::size_t>(maxBytes, 1024 * 1024 * 256))
+    : m_maxBytes(std::max<std::size_t>(maxBytes, 1024 * 1024 * 16))
     , m_maxHierarchyBytes(m_maxBytes / 8)
 { }
 

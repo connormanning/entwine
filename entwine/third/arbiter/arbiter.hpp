@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: d32adba444e03a66d4cdf1916e7647f964132f13
+// Git SHA: 9c06e089239013aa99b80d1d18802666e18e408a
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -4788,6 +4788,29 @@ public:
 
     /** Get a further nested subpath relative to this Endpoint's root. */
     Endpoint getSubEndpoint(std::string subpath) const;
+
+    http::Response httpGet(
+            std::string path,
+            http::Headers headers = http::Headers(),
+            http::Query query = http::Query(),
+            std::size_t reserve = 0) const;
+
+    http::Response httpPut(
+            std::string path,
+            const std::vector<char>& data,
+            http::Headers headers = http::Headers(),
+            http::Query query = http::Query()) const;
+
+    http::Response httpHead(
+            std::string path,
+            http::Headers headers = http::Headers(),
+            http::Query query = http::Query()) const;
+
+    http::Response httpPost(
+            std::string path,
+            const std::vector<char>& data,
+            http::Headers headers = http::Headers(),
+            http::Query query = http::Query()) const;
 
 private:
     Endpoint(const Driver& driver, std::string root);

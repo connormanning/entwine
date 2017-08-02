@@ -29,7 +29,7 @@ class Schema;
 class CompressionStream
 {
 public:
-    CompressionStream(std::size_t fullBytes)
+    CompressionStream(std::size_t fullBytes = 0)
         : m_data(new std::vector<char>())
     {
         m_data->reserve(static_cast<float>(fullBytes) * 0.4);

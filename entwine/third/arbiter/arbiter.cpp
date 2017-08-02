@@ -790,6 +790,41 @@ void Endpoint::put(
     getHttpDriver().put(path, data, headers, query);
 }
 
+http::Response Endpoint::httpGet(
+        std::string path,
+        http::Headers headers,
+        http::Query query,
+        const std::size_t reserve) const
+{
+    return getHttpDriver().internalGet(fullPath(path), headers, query, reserve);
+}
+
+http::Response Endpoint::httpPut(
+        std::string path,
+        const std::vector<char>& data,
+        http::Headers headers,
+        http::Query query) const
+{
+    return getHttpDriver().internalPut(fullPath(path), data, headers, query);
+}
+
+http::Response Endpoint::httpHead(
+        std::string path,
+        http::Headers headers,
+        http::Query query) const
+{
+    return getHttpDriver().internalHead(fullPath(path), headers, query);
+}
+
+http::Response Endpoint::httpPost(
+        std::string path,
+        const std::vector<char>& data,
+        http::Headers headers,
+        http::Query query) const
+{
+    return getHttpDriver().internalPost(fullPath(path), data, headers, query);
+}
+
 std::string Endpoint::fullPath(const std::string& subpath) const
 {
     return m_root + subpath;
@@ -2913,19 +2948,22 @@ std::string Dropbox::continueFileInfo(std::string cursor) const
     return std::string("");
 }
 
-std::vector<std::string> Dropbox::glob(std::string rawPath, bool verbose) const
+std::vector<std::string> Dropbox::glob(std::string path, bool verbose) const
 {
     std::vector<std::string> results;
 
-    const std::string path(sanitize(rawPath.substr(0, rawPath.size() - 2)));
+    path.pop_back();
+    const bool recursive(path.back() = '*');
+    if (recursive) path.pop_back();
+    if (path.back() == '/') path.pop_back();
 
-    auto listPath = [this](std::string path)->std::string
+    auto listPath = [this, recursive](std::string path)->std::string
     {
         Headers headers(httpPostHeaders());
 
         Json::Value request;
         request["path"] = std::string("/" + path);
-        request["recursive"] = false;
+        request["recursive"] = recursive;
         request["include_media_info"] = false;
         request["include_deleted"] = false;
 
