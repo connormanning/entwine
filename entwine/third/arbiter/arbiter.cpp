@@ -2953,7 +2953,7 @@ std::vector<std::string> Dropbox::glob(std::string path, bool verbose) const
     std::vector<std::string> results;
 
     path.pop_back();
-    const bool recursive(path.back() = '*');
+    const bool recursive(path.back() == '*');
     if (recursive) path.pop_back();
     if (path.back() == '/') path.pop_back();
 
