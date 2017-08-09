@@ -82,7 +82,6 @@ public:
     {
         if (m_ep.tryGetSize(filename()))
         {
-            std::cout << "Awakening existing extra " << m_id << std::endl;
             m_table.data() = m_ep.getBinary(filename());
         }
 
