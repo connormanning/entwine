@@ -90,7 +90,13 @@ public:
     }
 
     // Returns true if the requested point is contained within these Bounds.
-    bool contains(const Point& p) const { return p >= m_min && p < m_max; }
+    bool contains(const Point& p) const
+    {
+        if (is3d()) return p >= m_min && p < m_max;
+        else return
+            p.x >= m_min.x && p.x < m_max.x &&
+            p.y >= m_min.y && p.y < m_max.y;
+    }
 
     double width()  const { return m_max.x - m_min.x; } // Length in X.
     double depth()  const { return m_max.y - m_min.y; } // Length in Y.
@@ -189,6 +195,11 @@ public:
     Bounds getSwu() const { Bounds b(*this); b.goSwu(); return b; }
     Bounds getSeu() const { Bounds b(*this); b.goSeu(); return b; }
 
+    Bounds getNw() const { return getNwd(true); }
+    Bounds getNe() const { return getNed(true); }
+    Bounds getSw() const { return getSwd(true); }
+    Bounds getSe() const { return getSed(true); }
+
     void go(Dir dir, bool force2d = false)
     {
         if (force2d) dir = toDir(toIntegral(dir, true));
@@ -232,6 +243,7 @@ public:
     bool is3d() const { return m_min.z != m_max.z; }
 
     Json::Value toJson() const;
+    Bounds to2d() const { return Bounds(min().x, min().y, max().x, max().y); }
 
     void grow(const Bounds& bounds);
     void grow(const Point& p);

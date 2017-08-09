@@ -14,13 +14,11 @@
 #include <string>
 #include <vector>
 
-namespace arbiter
-{
-    class Endpoint;
-}
-
 namespace entwine
 {
+
+namespace arbiter { class Endpoint; }
+
 namespace io
 {
 

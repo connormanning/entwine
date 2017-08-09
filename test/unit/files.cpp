@@ -4,6 +4,7 @@
 #include <pdal/util/FileUtils.hpp>
 
 #include <entwine/reader/reader.hpp>
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
 #include <entwine/tree/config-parser.hpp>
 

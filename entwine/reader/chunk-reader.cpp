@@ -12,7 +12,6 @@
 
 #include <pdal/PointRef.hpp>
 
-#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/types/binary-point-table.hpp>
 #include <entwine/types/metadata.hpp>
@@ -30,7 +29,8 @@ ChunkReader::ChunkReader(
         PointPool& pool,
         const Id& id,
         const std::size_t depth)
-    : m_metadata(metadata)
+    : m_endpoint(endpoint)
+    , m_metadata(metadata)
     , m_pool(pool)
     , m_bounds(bounds)
     , m_schema(metadata.schema())
@@ -43,12 +43,15 @@ ChunkReader::ChunkReader(
 
     const auto& globalBounds(m_metadata.boundsScaledCubic());
 
+    std::size_t offset(0);
     for (const auto& cell : m_cells)
     {
         m_points.emplace_back(
+                offset,
                 cell.point(),
                 cell.uniqueData(),
                 Tube::calcTick(cell.point(), globalBounds, m_depth));
+        ++offset;
     }
 
     std::sort(m_points.begin(), m_points.end());
@@ -57,6 +60,7 @@ ChunkReader::ChunkReader(
 ChunkReader::~ChunkReader()
 {
     m_pool.release(std::move(m_cells));
+    for (const auto& p : m_extras) p.second.write();
 }
 
 ChunkReader::QueryRange ChunkReader::candidates(const Bounds& queryBounds) const
@@ -76,46 +80,62 @@ ChunkReader::QueryRange ChunkReader::candidates(const Bounds& queryBounds) const
     return QueryRange(begin, end);
 }
 
-BaseChunkReader::BaseChunkReader(const Metadata& m, PointPool& pool)
-    : m_id(m.structure().baseIndexBegin())
+BaseChunkReader::BaseChunkReader(
+        const Metadata& m,
+        const arbiter::Endpoint& ep,
+        PointPool& pool)
+    : m_ep(ep)
+    , m_id(m.structure().baseIndexBegin())
     , m_pool(pool)
     , m_cells(m_pool.cellPool())
     , m_points(m.structure().baseIndexSpan())
 { }
 
-BaseChunkReader::~BaseChunkReader() { m_pool.release(std::move(m_cells)); }
+BaseChunkReader::~BaseChunkReader()
+{
+    m_pool.release(std::move(m_cells));
+    for (auto& e : m_extras) e.second.write();
+}
 
 SlicedBaseChunkReader::SlicedBaseChunkReader(
         const Metadata& m,
         PointPool& pool,
         const arbiter::Endpoint& endpoint)
-    : BaseChunkReader(m, pool)
+    : BaseChunkReader(m, endpoint, pool)
 {
     const Structure& s(m.structure());
     Pool t(s.baseDepthEnd() - s.baseDepthBegin());
     std::mutex mutex;
 
+    m_slices.resize(s.baseDepthEnd() - s.baseDepthBegin());
+    m_baseDepthBegin = s.baseDepthBegin();
+
     for (std::size_t d(s.baseDepthBegin()); d < s.baseDepthEnd(); ++d)
     {
-        t.add([this, &mutex, &m, &endpoint, d]()
-        {
+        // t.add([this, &s, &mutex, &m, &endpoint, d]()
+        // {
             const auto id(ChunkInfo::calcLevelIndex(2, d));
             auto cells(m.storage().deserialize(endpoint, m_pool, id));
             Climber climber(m);
 
+            m_slices.at(d - s.baseDepthBegin()) = cells.size();
+
             std::lock_guard<std::mutex> lock(mutex);
 
+            std::size_t offset(0);
             for (const auto& cell : cells)
             {
                 climber.reset();
                 climber.magnifyTo(cell.point(), d);
                 m_points.at(normalize(climber.index())).emplace_back(
+                        offset,
                         cell.point(),
                         cell.uniqueData());
+                ++offset;
             }
 
             m_cells.push(std::move(cells));
-        });
+        // });
     }
 
     t.join();
@@ -125,7 +145,7 @@ CelledBaseChunkReader::CelledBaseChunkReader(
         const Metadata& m,
         PointPool& pool,
         const arbiter::Endpoint& endpoint)
-    : BaseChunkReader(m, pool)
+    : BaseChunkReader(m, endpoint, pool)
 {
     DimList dims;
     dims.push_back(DimInfo("TubeId", "unsigned", 8));
@@ -147,6 +167,7 @@ CelledBaseChunkReader::CelledBaseChunkReader(
     BinaryPointTable table(m.schema());
     pdal::PointRef pointRef(table, 0);
 
+    std::size_t offset(0);
     for (auto& cell : m_cells)
     {
         auto tubedCell(tubedCells.popOne());
@@ -160,7 +181,8 @@ CelledBaseChunkReader::CelledBaseChunkReader(
         table.setPoint(*data);
         cell.set(pointRef, std::move(data));
 
-        m_points.at(tube).emplace_back(cell.point(), cell.uniqueData());
+        m_points.at(tube).emplace_back(offset, cell.point(), cell.uniqueData());
+        ++offset;
 
         tubedData.push(tubedCell->acquire());
     }

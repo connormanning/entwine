@@ -10,11 +10,13 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <deque>
 
 #include <entwine/reader/cache.hpp>
+#include <entwine/reader/chunk-reader.hpp>
 #include <entwine/reader/comparison.hpp>
 #include <entwine/reader/filter.hpp>
 #include <entwine/types/binary-point-table.hpp>
@@ -129,25 +131,29 @@ public:
     // then the query is complete and next() should not be called anymore.
     bool next(std::vector<char>& buffer);
 
+    void write(std::string name, const std::vector<char>& data);
+
     bool done() const { return m_done; }
     std::size_t numPoints() const { return m_numPoints; }
 
     const Schema& schema() const { return m_outSchema; }
 
 protected:
-    bool getBase(std::vector<char>& buffer); // True if base data existed.
-    void getChunked(std::vector<char>& buffer);
-
     void getFetches(const QueryChunkState& chunkState);
-    void getBase(std::vector<char>& buffer, const PointState& pointState);
 
-    template<typename T> void setSpatial(char* pos, double d)
+    void getBase(std::vector<char>& buffer, const PointState& pointState);
+    void getChunked(std::vector<char>& buffer);
+    bool processPoint(
+            std::vector<char>& buffer,
+            const PointInfo& info,
+            std::size_t baseDepth = 0);
+
+    template<typename T> void setAs(char* dst, double d)
     {
         const T v(d);
-        std::memcpy(pos, &v, sizeof(T));
+        auto src(reinterpret_cast<const char*>(&v));
+        std::copy(src, src + sizeof(T), dst);
     }
-
-    bool processPoint(std::vector<char>& buffer, const PointInfo& info);
 
     const Reader& m_reader;
     const Structure& m_structure;
@@ -173,6 +179,27 @@ protected:
     pdal::PointRef m_pointRef;
 
     Filter m_filter;
+
+    // Write-side stuff.
+
+    void writeBase(const PointState& pointState);
+    void writeChunked();
+
+    std::string m_name;
+    const std::vector<char>* m_data = nullptr;
+    const char* m_pos = nullptr;
+    BaseExtra* m_baseExtra = nullptr;
+    std::unique_ptr<pdal::Dimension::Id> m_maskId;
+
+    std::unique_ptr<BinaryPointTable> m_writeTable;
+    std::unique_ptr<pdal::PointRef> m_writeRef;
+
+    // Read-side 'extra' stuff.
+
+    // Dim-name -> Appended set name.
+    std::map<std::string, std::string> m_extraNames;
+    std::map<std::string, Extra*> m_extras;
+    std::map<std::string, BaseExtra*> m_baseExtras;
 };
 
 } // namespace entwine

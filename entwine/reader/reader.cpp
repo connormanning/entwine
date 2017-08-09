@@ -155,6 +155,59 @@ void Reader::init()
             m_ready = true;
         });
     }
+
+    m_additional = makeUnique<Schema>(DimList());
+
+    if (m_endpoint.tryGetSize("d/dimensions.json"))
+    {
+        const Json::Value extra(parse(m_endpoint.get("d/dimensions.json")));
+        for (const auto name : extra.getMemberNames())
+        {
+            addExtra(name, Schema(extra[name]));
+        }
+    }
+    m_extrasChanged = false;
+}
+
+void Reader::addExtra(std::string name, const Schema& schema)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_extras.count(name)) return;
+
+    std::cout << "Adding extra: " << name << std::endl;
+    m_extrasChanged = true;
+
+    DimList dims(m_additional->dims());
+    m_extras.emplace(
+                    std::piecewise_construct,
+                    std::forward_as_tuple(name),
+                    std::forward_as_tuple(schema.toJson()));
+
+    for (const auto& json : schema.toJson())
+    {
+        m_dimMap[json["name"].asString()] = name;
+        dims.emplace_back(json);
+    }
+
+    std::sort(dims.begin(), dims.end(), [](DimInfo& a, DimInfo& b)
+    {
+        return a.name() < b.name();
+    });
+
+    m_additional = makeUnique<Schema>(dims);
+}
+
+Reader::~Reader()
+{
+    if (m_extrasChanged)
+    {
+        Json::Value json;
+        for (const auto& p : m_extras) json[p.first] = p.second.toJson();
+        std::cout << "Writing dimensions.json: " << json << std::endl;
+        m_endpoint.put("d/dimensions.json", json.toStyledString());
+    }
+
+    m_cache.release(*this);
 }
 
 bool Reader::exists(const QueryChunkState& c) const
@@ -177,11 +230,6 @@ bool Reader::exists(const QueryChunkState& c) const
         std::cout << m_endpoint.prefixedRoot() << f << ": " << val << std::endl;
         return val;
     }
-}
-
-Reader::~Reader()
-{
-    m_cache.release(*this);
 }
 
 Json::Value Reader::hierarchy(
@@ -332,6 +380,15 @@ std::unique_ptr<Query> Reader::getQuery(const Json::Value& q)
             depthEnd,
             scale.get(),
             offset.get());
+}
+
+void Reader::write(
+        const std::string name,
+        const std::vector<char>& data,
+        const Json::Value& q)
+{
+    auto query(getQuery(q));
+    query->write(name, data);
 }
 
 Json::Value Reader::hierarchy(const Json::Value& q)

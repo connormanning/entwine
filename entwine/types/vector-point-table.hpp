@@ -8,6 +8,8 @@
 *
 ******************************************************************************/
 
+#pragma once
+
 #include <cstddef>
 #include <stdexcept>
 #include <vector>
@@ -25,10 +27,12 @@ class VectorPointTable : public pdal::StreamPointTable
 public:
     // Constructible with either an entwine::Schema or a pdal::PointLayout.
     // The constructors which take a Schema defer to their PointLayout versions.
-    VectorPointTable(
-            const Schema& schema,
-            std::size_t initialPointCapacity = 0)
-        : VectorPointTable(schema.pdalLayout(), initialPointCapacity)
+    VectorPointTable(const Schema& schema)
+        : VectorPointTable(schema.pdalLayout())
+    { }
+
+    VectorPointTable(const Schema& schema, std::size_t initialSize)
+        : VectorPointTable(schema.pdalLayout(), initialSize)
     { }
 
     VectorPointTable(const Schema& schema, const std::vector<char>& data)
@@ -39,13 +43,16 @@ public:
         : VectorPointTable(schema.pdalLayout(), std::move(data))
     { }
 
-    VectorPointTable(
-            pdal::PointLayout layout,
-            std::size_t initialPointCapacity = 0)
+    VectorPointTable(pdal::PointLayout layout)
+        : StreamPointTable(m_layout)
+        , m_layout(layout)
+    { }
+
+    VectorPointTable(pdal::PointLayout layout, std::size_t initialPointSize)
         : StreamPointTable(m_layout)
         , m_layout(layout)
     {
-        m_data.reserve(initialPointCapacity * layout.pointSize());
+        resize(initialPointSize);
     }
 
     VectorPointTable(pdal::PointLayout layout, const std::vector<char>& data)
@@ -75,6 +82,12 @@ public:
         return pdal::PointRef(*this, index);
     }
 
+    void assign(std::vector<char>&& data)
+    {
+        m_data = std::move(data);
+        m_size = m_data.size() / m_layout.pointSize();
+    }
+
     pdal::PointRef append()
     {
         return pdal::PointRef(*this, addPoint());
@@ -89,6 +102,12 @@ public:
     const std::vector<char>& data() const { return m_data; }
 
     std::vector<char>&& acquire() { return std::move(m_data); }
+
+    void resize(std::size_t numPoints)
+    {
+        m_data.resize(pointsToBytes(numPoints), 0);
+        m_size = numPoints;
+    }
 
     class Iterator
     {
@@ -125,12 +144,17 @@ public:
     Iterator begin() { return Iterator(*this); }
     Iterator end() { return Iterator(*this, capacity()); }
 
+    std::size_t pointSize() const { return m_layout.pointSize(); }
+
 private:
     virtual pdal::PointId addPoint() override
     {
         m_data.insert(m_data.end(), m_layout.pointSize(), 0);
         return m_size++;
     }
+
+    VectorPointTable(const VectorPointTable&);
+    VectorPointTable& operator=(const VectorPointTable&);
 
     pdal::PointLayout m_layout;
     std::vector<char> m_data;

@@ -99,6 +99,17 @@ public:
         return it != m_dims.end();
     }
 
+    bool contains(pdal::Dimension::Id id) const
+    {
+        const auto it(
+                std::find_if(
+                    m_dims.begin(),
+                    m_dims.end(),
+                    [&id](const DimInfo& d) { return d.id() == id; }));
+
+        return it != m_dims.end();
+    }
+
     bool hasColor() const
     {
         return contains("Red") || contains("Green") || contains("Blue");
@@ -119,6 +130,16 @@ public:
 
         if (it != m_dims.end()) return *it;
         else throw std::runtime_error("Dimension not found: " + name);
+    }
+
+    const Schema filter(const std::string& name) const
+    {
+        DimList res;
+        for (const auto& d : dims())
+        {
+            if (d.name() != name) res.push_back(d);
+        }
+        return Schema(res);
     }
 
     const DimInfo& find(pdal::Dimension::Id id) const
@@ -249,6 +270,13 @@ public:
         }
 
         return Schema(dims);
+    }
+
+    std::vector<pdal::Dimension::Id> ids() const
+    {
+        std::vector<pdal::Dimension::Id> v;
+        for (const auto& d : m_dims) v.push_back(d.id());
+        return v;
     }
 
 private:

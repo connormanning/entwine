@@ -16,7 +16,6 @@
 #include <pdal/util/Utils.hpp>
 
 #include <entwine/reader/cache.hpp>
-#include <entwine/reader/chunk-reader.hpp>
 #include <entwine/reader/reader.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
@@ -92,6 +91,30 @@ Query::Query(
                 m_reader.metadata().boundsScaledCubic());
         getFetches(chunkState);
     }
+
+    const Schema& s(m_reader.metadata().schema());
+    for (const auto& dim : m_outSchema.dims())
+    {
+        if (!s.contains(dim.name()))
+        {
+            if (m_reader.dimMap().count(dim.name()))
+            {
+                const std::string name(m_reader.dimMap().at(dim.name()));
+                m_extraNames[dim.name()] = name;
+
+                m_baseExtra = &m_reader.base()->extra(
+                        name,
+                        m_reader.extras().at(name));
+            }
+        }
+    }
+
+    if (m_outSchema.contains("Mask"))
+    {
+        m_maskId = makeUnique<pdal::Dimension::Id>(
+                m_outSchema.find("Mask").id());
+        std::cout << "Found mask " << (int)*m_maskId << std::endl;
+    }
 }
 
 void Query::getFetches(const QueryChunkState& chunkState)
@@ -142,6 +165,16 @@ bool Query::next(std::vector<char>& buffer)
     {
         if (m_base)
         {
+            for (const auto& p : m_extraNames)
+            {
+                const std::string& dimName(p.first);
+                const std::string& setName(p.second);
+                m_baseExtras[dimName] = &m_reader.base()->extra(
+                        setName,
+                        m_reader.extras().at(setName));
+            }
+
+
             m_base = false;
 
             if (m_reader.base())
@@ -176,7 +209,10 @@ void Query::getBase(std::vector<char>& buffer, const PointState& pointState)
         {
             for (const PointInfo& pointInfo : cell)
             {
-                if (processPoint(buffer, pointInfo)) ++m_numPoints;
+                if (processPoint(buffer, pointInfo, pointState.depth()))
+                {
+                    ++m_numPoints;
+                }
             }
         }
     }
@@ -214,6 +250,16 @@ void Query::getChunked(std::vector<char>& buffer)
     {
         if (const ChunkReader* cr = m_chunkReaderIt->second)
         {
+            m_extras.clear();
+            for (const auto& p : m_extraNames)
+            {
+                const std::string& dimName(p.first);
+                const std::string& setName(p.second);
+                m_extras[dimName] = &cr->extra(
+                        setName,
+                        m_reader.extras().at(setName));
+            }
+
             ChunkReader::QueryRange range(cr->candidates(m_queryBounds));
             auto it(range.begin);
 
@@ -237,92 +283,260 @@ void Query::getChunked(std::vector<char>& buffer)
     m_done = !m_block && m_chunks.empty();
 }
 
-bool Query::processPoint(std::vector<char>& buffer, const PointInfo& info)
+void Query::write(const std::string name, const std::vector<char>& data)
 {
-    if (m_queryBounds.contains(info.point()))
+    if (m_done) throw std::runtime_error("Called next after query completed");
+
+    m_name = name;
+    m_data = &data;
+    m_pos = data.data();
+
+    m_writeTable = makeUnique<BinaryPointTable>(m_outSchema);
+    m_writeRef = makeUnique<pdal::PointRef>(*m_writeTable, 0);
+
+    while (!m_done)
     {
-        m_table.setPoint(info.data());
-
-        if (!m_filter.check(m_pointRef)) return false;
-
-        buffer.resize(buffer.size() + m_outSchema.pointSize(), 0);
-        char* pos(buffer.data() + buffer.size() - m_outSchema.pointSize());
-
-        std::size_t dimNum(0);
-        const auto& mid(m_reader.metadata().boundsScaledCubic().mid());
-
-        for (const auto& dim : m_outSchema.dims())
+        if (m_base)
         {
-            // Subtract one to ignore Dimension::Id::Unknown.
-            dimNum = pdal::Utils::toNative(dim.id()) - 1;
+            m_base = false;
 
-            // Up to this point, everything has been in our local coordinate
-            // system.  Query bounds were transformed to match our local view
-            // of the world, as well as spatial attributes in the filter.  Now
-            // that we've selected a point in our own local space, finally we
-            // will transform that selection into user-requested space.
-            if (m_delta && dimNum < 3)
+            if (m_reader.base())
             {
-                double d(m_pointRef.getFieldAs<double>(dim.id()));
+                // TODO Very temporary.
+                const_cast<Reader&>(m_reader).addExtra(
+                        m_name,
+                        m_outSchema.filter("Mask"));
+                m_baseExtra = &m_reader.base()->extra(
+                        m_name,
+                        m_outSchema.filter("Mask"));
+                PointState pointState(
+                        m_structure,
+                        m_reader.metadata().boundsScaledCubic());
+                writeBase(pointState);
 
-                // Center the point around the origin, scale it, then un-center
-                // it and apply the user's offset from the origin bounds center.
-                d = Point::scale(
-                        d,
-                        mid[dimNum],
-                        m_delta->scale()[dimNum],
-                        m_delta->offset()[dimNum]);
+                if (m_chunks.empty()) m_done = true;
+            }
+        }
+        else
+        {
+            writeChunked();
+        }
+    }
 
-                switch (dim.type())
+    std::cout << "Wrote points " <<
+        (m_pos - m_data->data()) / m_outSchema.pointSize() << std::endl;
+}
+
+void Query::writeBase(const PointState& pointState)
+{
+    if (!m_queryBounds.overlaps(pointState.bounds(), true)) return;
+
+    if (pointState.depth() >= m_structure.baseDepthBegin())
+    {
+        const auto& cell(m_reader.base()->tubeData(pointState.index()));
+        if (cell.empty()) return;
+
+        if (pointState.depth() >= m_depthBegin)
+        {
+            for (const PointInfo& info : cell)
+            {
+                if (m_queryBounds.contains(info.point()))
                 {
-                    case pdal::Dimension::Type::Double:
-                        std::memcpy(pos, &d, 8);
-                        break;
-                    case pdal::Dimension::Type::Float:
-                        setSpatial<float>(pos, d);
-                        break;
-                    case pdal::Dimension::Type::Unsigned8:
-                        setSpatial<uint8_t>(pos, d);
-                        break;
-                    case pdal::Dimension::Type::Signed8:
-                        setSpatial<int8_t>(pos, d);
-                        break;
-                    case pdal::Dimension::Type::Unsigned16:
-                        setSpatial<uint16_t>(pos, d);
-                        break;
-                    case pdal::Dimension::Type::Signed16:
-                        setSpatial<int16_t>(pos, d);
-                        break;
-                    case pdal::Dimension::Type::Unsigned32:
-                        setSpatial<uint32_t>(pos, d);
-                        break;
-                    case pdal::Dimension::Type::Signed32:
-                        setSpatial<int32_t>(pos, d);
-                        break;
-                    case pdal::Dimension::Type::Unsigned64:
-                        setSpatial<uint64_t>(pos, d);
-                        break;
-                    case pdal::Dimension::Type::Signed64:
-                        setSpatial<int64_t>(pos, d);
-                        break;
-                    default:
-                        break;
+                    m_table.setPoint(info.data());
+                    m_writeTable->setPoint(m_pos);
+                    if (m_filter.check(m_pointRef))
+                    {
+                        if (!m_maskId || m_writeRef->getFieldAs<bool>(*m_maskId))
+                        {
+                            m_writeRef->getPackedData(
+                                    m_baseExtra->dimTypeList(),
+                                    m_baseExtra->get(
+                                        pointState.depth(),
+                                        info.offset()));
+                        }
+                        m_pos += m_outSchema.pointSize();
+                        // ++m_numPoints;
+                    }
                 }
             }
-            else
+        }
+    }
+
+    if (
+            pointState.depth() + 1 < m_structure.baseDepthEnd() &&
+            pointState.depth() + 1 < m_depthEnd)
+    {
+        for (std::size_t i(0); i < dirHalfEnd(); ++i)
+        {
+            writeBase(pointState.getClimb(toDir(i)));
+        }
+    }
+}
+
+void Query::writeChunked()
+{
+    if (!m_block)
+    {
+        if (m_chunks.size())
+        {
+            const auto begin(m_chunks.begin());
+            auto end(m_chunks.begin());
+            std::advance(end, std::min(fetchesPerIteration, m_chunks.size()));
+
+            FetchInfoSet subset(begin, end);
+            m_block = m_cache.acquire(m_reader.path(), subset);
+            m_chunks.erase(begin, end);
+
+            if (m_block) m_chunkReaderIt = m_block->chunkMap().begin();
+        }
+    }
+
+    if (m_block)
+    {
+        if (const ChunkReader* cr = m_chunkReaderIt->second)
+        {
+            ChunkReader::QueryRange range(cr->candidates(m_queryBounds));
+            auto it(range.begin);
+
+            auto& extra(cr->extra(m_name, m_outSchema.filter("Mask")));
+
+            while (it != range.end)
             {
-                m_pointRef.getField(pos, dim.id(), dim.type());
+                const PointInfo& info(*it);
+                if (m_queryBounds.contains(info.point()))
+                {
+                    m_table.setPoint(info.data());
+                    m_writeTable->setPoint(m_pos);
+                    if (m_filter.check(m_pointRef))
+                    {
+                        if (!m_maskId || m_writeRef->getFieldAs<bool>(*m_maskId))
+                        {
+                            m_writeRef->getPackedData(
+                                    extra.dimTypeList(),
+                                    extra.get(info.offset()));
+                        }
+                        // extra.insert(m_pos, info.offset());
+                        m_pos += m_outSchema.pointSize();
+                    }
+                }
+                ++it;
             }
 
-            pos += dim.size();
+            // extra.write();
+
+            if (++m_chunkReaderIt == m_block->chunkMap().end())
+            {
+                m_block.reset();
+            }
+        }
+        else
+        {
+            throw std::runtime_error("Reservation failure");
+        }
+    }
+
+    m_done = !m_block && m_chunks.empty();
+}
+
+bool Query::processPoint(
+        std::vector<char>& buffer,
+        const PointInfo& info,
+        const std::size_t baseDepth)
+{
+    if (!m_queryBounds.contains(info.point())) return false;
+    m_table.setPoint(info.data());
+    if (!m_filter.check(m_pointRef)) return false;
+
+    buffer.resize(buffer.size() + m_outSchema.pointSize(), 0);
+    char* pos(buffer.data() + buffer.size() - m_outSchema.pointSize());
+
+    std::size_t dimNum(0);
+    const auto& mid(m_reader.metadata().boundsScaledCubic().mid());
+
+    for (const auto& dim : m_outSchema.dims())
+    {
+        // Subtract one to ignore Dimension::Id::Unknown.
+        dimNum = pdal::Utils::toNative(dim.id()) - 1;
+
+        // Up to this point, everything has been in our local coordinate
+        // system.  Query bounds were transformed to match our local view
+        // of the world, as well as spatial attributes in the filter.  Now
+        // that we've selected a point in our own local space, finally we
+        // will transform that selection into user-requested space.
+        if (m_delta && dimNum < 3)
+        {
+            double d(m_pointRef.getFieldAs<double>(dim.id()));
+
+            // Center the point around the origin, scale it, then un-center
+            // it and apply the user's offset from the origin bounds center.
+            d = Point::scale(
+                    d,
+                    mid[dimNum],
+                    m_delta->scale()[dimNum],
+                    m_delta->offset()[dimNum]);
+
+            switch (dim.type())
+            {
+                case pdal::Dimension::Type::Double:
+                    setAs<double>(pos, d);
+                    break;
+                case pdal::Dimension::Type::Float:
+                    setAs<float>(pos, d);
+                    break;
+                case pdal::Dimension::Type::Unsigned8:
+                    setAs<uint8_t>(pos, d);
+                    break;
+                case pdal::Dimension::Type::Signed8:
+                    setAs<int8_t>(pos, d);
+                    break;
+                case pdal::Dimension::Type::Unsigned16:
+                    setAs<uint16_t>(pos, d);
+                    break;
+                case pdal::Dimension::Type::Signed16:
+                    setAs<int16_t>(pos, d);
+                    break;
+                case pdal::Dimension::Type::Unsigned32:
+                    setAs<uint32_t>(pos, d);
+                    break;
+                case pdal::Dimension::Type::Signed32:
+                    setAs<int32_t>(pos, d);
+                    break;
+                case pdal::Dimension::Type::Unsigned64:
+                    setAs<uint64_t>(pos, d);
+                    break;
+                case pdal::Dimension::Type::Signed64:
+                    setAs<int64_t>(pos, d);
+                    break;
+                default:
+                    break;
+            }
+        }
+        else if (m_reader.metadata().schema().contains(dim.name()))
+        {
+            m_pointRef.getField(pos, dim.id(), dim.type());
+        }
+        else if (baseDepth)
+        {
+            if (m_baseExtras.count(dim.name()))
+            {
+                static std::mutex m;
+                std::lock_guard<std::mutex> lock(m);
+                auto pr(m_baseExtra->table(baseDepth).at(info.offset()));
+                pr.getField(pos, dim.id(), dim.type());
+            }
+        }
+        else if (m_extras.count(dim.name()))
+        {
+            auto& extra(*m_extras.at(dim.name()));
+            auto& table(extra.table());
+            auto pr(table.at(info.offset()));
+            pr.getField(pos, dim.id(), dim.type());
         }
 
-        return true;
+        pos += dim.size();
     }
-    else
-    {
-        return false;
-    }
+
+    return true;
 }
 
 } // namespace entwine
