@@ -113,7 +113,6 @@ Query::Query(
     {
         m_maskId = makeUnique<pdal::Dimension::Id>(
                 m_outSchema.find("Mask").id());
-        std::cout << "Found mask " << (int)*m_maskId << std::endl;
     }
 }
 
@@ -322,9 +321,6 @@ void Query::write(const std::string name, const std::vector<char>& data)
             writeChunked();
         }
     }
-
-    std::cout << "Wrote points " <<
-        (m_pos - m_data->data()) / m_outSchema.pointSize() << std::endl;
 }
 
 void Query::writeBase(const PointState& pointState)
@@ -355,7 +351,7 @@ void Query::writeBase(const PointState& pointState)
                                         info.offset()));
                         }
                         m_pos += m_outSchema.pointSize();
-                        // ++m_numPoints;
+                        ++m_numPoints;
                     }
                 }
             }
@@ -415,14 +411,12 @@ void Query::writeChunked()
                                     extra.dimTypeList(),
                                     extra.get(info.offset()));
                         }
-                        // extra.insert(m_pos, info.offset());
                         m_pos += m_outSchema.pointSize();
+                        ++m_numPoints;
                     }
                 }
                 ++it;
             }
-
-            // extra.write();
 
             if (++m_chunkReaderIt == m_block->chunkMap().end())
             {

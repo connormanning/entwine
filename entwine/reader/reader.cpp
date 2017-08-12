@@ -382,13 +382,14 @@ std::unique_ptr<Query> Reader::getQuery(const Json::Value& q)
             offset.get());
 }
 
-void Reader::write(
+std::size_t Reader::write(
         const std::string name,
         const std::vector<char>& data,
         const Json::Value& q)
 {
     auto query(getQuery(q));
     query->write(name, data);
+    return query->numPoints();
 }
 
 Json::Value Reader::hierarchy(const Json::Value& q)

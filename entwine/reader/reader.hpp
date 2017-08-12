@@ -105,7 +105,7 @@ public:
 
     std::unique_ptr<Query> getQuery(const Json::Value& json);
 
-    void write(
+    std::size_t write(
             std::string name,
             const std::vector<char>& data,
             const Json::Value& query);
