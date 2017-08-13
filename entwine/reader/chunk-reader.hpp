@@ -96,11 +96,12 @@ public:
 
     std::string filename() const
     {
-        return std::string("d/") + m_name + "-" + m_id.str();
+        return std::string("d/") + m_name + "/" + m_id.str();
     }
 
     bool touched() const { return m_touched; }
     VectorPointTable& table() { return m_table; }
+    const Schema& schema() const { return m_schema; }
 
     void write() const
     {
@@ -216,10 +217,9 @@ public:
 
             if (m_ep.tryGetSize(filename(d)))
             {
-                std::cout << "Awakening base extra " << d << std::endl;
                 t.data() = m_ep.getBinary(filename(d));
 
-                if (t.data().size() != s)
+                if (t.data().size() / m_schema.pointSize() != s)
                 {
                     throw std::runtime_error("Invalid base extra size");
                 }
@@ -232,7 +232,7 @@ public:
 
     std::string filename(std::size_t d) const
     {
-        return std::string("d/") + m_name + "-" +
+        return std::string("d/") + m_name + "/" +
             ChunkInfo::calcLevelIndex(2, d).str();
     }
 

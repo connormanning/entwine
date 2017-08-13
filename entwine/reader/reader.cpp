@@ -177,6 +177,11 @@ void Reader::addExtra(std::string name, const Schema& schema)
     std::cout << "Adding extra: " << name << std::endl;
     m_extrasChanged = true;
 
+    if (m_endpoint.isLocal())
+    {
+        arbiter::fs::mkdirp(m_endpoint.root() + "d/" + name);
+    }
+
     DimList dims(m_additional->dims());
     m_extras.emplace(
                     std::piecewise_construct,

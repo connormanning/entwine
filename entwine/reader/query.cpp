@@ -93,7 +93,7 @@ Query::Query(
     }
 
     const Schema& s(m_reader.metadata().schema());
-    for (const auto& dim : m_outSchema.dims())
+    for (auto& dim : m_outSchema.dims())
     {
         if (!s.contains(dim.name()))
         {
@@ -105,6 +105,8 @@ Query::Query(
                 m_baseExtra = &m_reader.base()->extra(
                         name,
                         m_reader.extras().at(name));
+
+                dim.setId(m_baseExtra->schema().find(dim.name()).id());
             }
         }
     }

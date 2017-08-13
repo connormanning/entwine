@@ -97,14 +97,14 @@ public:
             id == pdal::Dimension::Id::Z;
     }
 
+    // May be unknown until PDAL registration.
+    void setId(pdal::Dimension::Id id) const { m_id = id; }
+
 private:
     std::string m_name;
-    pdal::Dimension::Id m_id;
+    mutable pdal::Dimension::Id m_id;
     pdal::Dimension::Type m_type;
     std::string m_typeString;
-
-    // May be unknown until PDAL registration.
-    void setId(pdal::Dimension::Id id) { m_id = id; }
 
     pdal::Dimension::Type getType(
             const std::string& type,
