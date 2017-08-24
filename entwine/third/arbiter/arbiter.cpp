@@ -171,7 +171,7 @@ Arbiter::Arbiter(const Json::Value& in)
     if (dropbox) m_drivers[dropbox->type()] = std::move(dropbox);
 
 #ifdef ARBITER_OPENSSL
-    auto google(Google::create(*m_pool, json["google"]));
+    auto google(Google::create(*m_pool, json["gs"]));
     if (google) m_drivers[google->type()] = std::move(google);
 #endif
 
