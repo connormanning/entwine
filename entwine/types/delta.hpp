@@ -77,6 +77,12 @@ public:
         else return std::unique_ptr<Delta>();
     }
 
+    static std::unique_ptr<Delta> maybeCreate(const Delta& delta)
+    {
+        if (delta.exists()) return makeUnique<Delta>(delta);
+        else return std::unique_ptr<Delta>();
+    }
+
     static std::unique_ptr<Delta> maybeCreate(const Json::Value& json)
     {
         return existsIn(json) ? makeUnique<Delta>(json) : nullptr;

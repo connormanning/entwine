@@ -19,6 +19,7 @@
 #include <entwine/reader/chunk-reader.hpp>
 #include <entwine/reader/comparison.hpp>
 #include <entwine/reader/filter.hpp>
+#include <entwine/reader/query-chunk-state.hpp>
 #include <entwine/types/binary-point-table.hpp>
 #include <entwine/types/delta.hpp>
 #include <entwine/types/dir.hpp>
@@ -34,68 +35,146 @@ class PointState;
 class Reader;
 class Schema;
 
-class QueryChunkState
+class Query
 {
 public:
-    QueryChunkState(const Structure& structure, const Bounds& bounds)
-        : m_structure(structure)
-        , m_bounds(bounds)
-        , m_depth(m_structure.nominalChunkDepth())
-        , m_chunkId(m_structure.nominalChunkIndex())
-        , m_pointsPerChunk(m_structure.basePointsPerChunk())
-    { }
+    Query(
+            const Reader& reader,
+            const Bounds& bounds = Bounds::everything(),
+            const Delta& delta = Delta(),
+            std::size_t depthBegin = 0,
+            std::size_t depthEnd = 0,
+            const Json::Value& filter = Json::Value());
 
-    bool allDirections() const
-    {
-        return
-                m_depth + 1 <= m_structure.sparseDepthBegin() ||
-                !m_structure.sparseDepthBegin();
-    }
+    virtual ~Query() { }
 
-    // Call this if allDirections() == true.
-    QueryChunkState getClimb(Dir dir) const
-    {
-        QueryChunkState result(*this);
-        ++result.m_depth;
-        result.m_bounds.go(dir, m_structure.tubular());
+    bool next();
+    void run() { while (!done()) next(); }
 
-        assert(result.m_depth <= m_structure.sparseDepthBegin());
+    bool done() const { return m_done; }
+    std::size_t numPoints() const { return m_numPoints; }
 
-        result.m_chunkId <<= m_structure.dimensions();
-        ++result.m_chunkId.data().front();
-        result.m_chunkId += toIntegral(dir) * m_pointsPerChunk;
+protected:
+    virtual void process(const PointInfo& info) = 0;
 
-        return result;
-    }
+    void getFetches(const QueryChunkState& c);
+    void getBase(const PointState& pointState);
+    void getChunked();
+    void maybeAcquire();
+    void processPoint(const PointInfo& info);
 
-    // Else call this.
-    QueryChunkState getClimb() const
-    {
-        QueryChunkState result(*this);
-        ++result.m_depth;
-        result.m_chunkId <<= m_structure.dimensions();
-        ++result.m_chunkId.data().front();
-        result.m_pointsPerChunk *= m_structure.factor();
+    const Reader& m_reader;
+    const Metadata& m_metadata;
+    const Structure& m_structure;
+    const Delta m_delta;
+    const Bounds m_bounds;
+    const std::size_t m_depthBegin;
+    const std::size_t m_depthEnd;
+    const Filter m_filter;
 
-        return result;
-    }
-
-    const Bounds& bounds() const { return m_bounds; }
-    std::size_t depth() const { return m_depth; }
-    const Id& chunkId() const { return m_chunkId; }
-    const Id& pointsPerChunk() const { return m_pointsPerChunk; }
+    BinaryPointTable m_table;
+    pdal::PointRef m_pointRef;
 
 private:
-    QueryChunkState(const QueryChunkState& other) = default;
+    Delta localize(const Delta& out) const;
+    Bounds localize(const Bounds& bounds, const Delta& localDelta) const;
 
-    const Structure& m_structure;
-    Bounds m_bounds;
-    std::size_t m_depth;
+    FetchInfoSet m_chunks;
+    std::unique_ptr<Block> m_block;
+    ChunkMap::const_iterator m_chunkReaderIt;
 
-    Id m_chunkId;
-    Id m_pointsPerChunk;
+    std::size_t m_numPoints = 0;
+    bool m_base = true;
+    bool m_done = false;
 };
 
+class CountQuery : public Query
+{
+public:
+    template<typename... Args>
+    CountQuery(Args&&... args)
+        : Query(std::forward<Args>(args)...)
+    { }
+
+protected:
+    virtual void process(const PointInfo& info) override { }
+};
+
+class ReadQuery : public Query
+{
+public:
+    template<typename... Args>
+    ReadQuery(
+            const Reader& reader,
+            const Bounds& bounds = Bounds::everything(),
+            const Delta& delta = Delta(),
+            std::size_t depthBegin = 0,
+            std::size_t depthEnd = 0,
+            const Json::Value& filter = Json::Value(),
+            const Schema& schema = Schema())
+        : Query(reader, bounds, delta, depthBegin, depthEnd, filter)
+        , m_schema(schema.empty() ? m_metadata.schema() : schema)
+        , m_mid(m_metadata.boundsScaledCubic().mid())
+    { }
+
+    const std::vector<char>& data() const { return m_data; }
+    std::vector<char>& data() { return m_data; }
+
+    const Schema& schema() const { return m_schema; }
+
+protected:
+    virtual void process(const PointInfo& info) override;
+
+private:
+    void setScaled(const DimInfo& dim, std::size_t dimNum, char* pos)
+    {
+        const double d = Point::scale(
+                m_pointRef.getFieldAs<double>(dim.id()),
+                m_mid[dimNum],
+                m_delta.scale()[dimNum],
+                m_delta.offset()[dimNum]);
+
+        switch (dim.type())
+        {
+            case pdal::Dimension::Type::Double:     setAs<double>(pos, d);
+                break;
+            case pdal::Dimension::Type::Float:      setAs<float>(pos, d);
+                break;
+            case pdal::Dimension::Type::Unsigned8:  setAs<uint8_t>(pos, d);
+                break;
+            case pdal::Dimension::Type::Signed8:    setAs<int8_t>(pos, d);
+                break;
+            case pdal::Dimension::Type::Unsigned16: setAs<uint16_t>(pos, d);
+                break;
+            case pdal::Dimension::Type::Signed16:   setAs<int16_t>(pos, d);
+                break;
+            case pdal::Dimension::Type::Unsigned32: setAs<uint32_t>(pos, d);
+                break;
+            case pdal::Dimension::Type::Signed32:   setAs<int32_t>(pos, d);
+                break;
+            case pdal::Dimension::Type::Unsigned64: setAs<uint64_t>(pos, d);
+                break;
+            case pdal::Dimension::Type::Signed64:   setAs<int64_t>(pos, d);
+                break;
+            default:
+                break;
+        }
+    }
+
+    template<typename T> void setAs(char* dst, double d)
+    {
+        const T v(d);
+        auto src(reinterpret_cast<const char*>(&v));
+        std::copy(src, src + sizeof(T), dst);
+    }
+
+    const Schema m_schema;
+    const Point m_mid;
+
+    std::vector<char> m_data;
+};
+
+/*
 class Query
 {
 public:
@@ -160,7 +239,7 @@ protected:
     Cache& m_cache;
 
     std::unique_ptr<Delta> m_delta;
-    Bounds m_queryBounds;
+    const Bounds m_queryBounds;
     const std::size_t m_depthBegin;
     const std::size_t m_depthEnd;
 
@@ -201,6 +280,7 @@ protected:
     std::map<std::string, Extra*> m_extras;
     std::map<std::string, BaseExtra*> m_baseExtras;
 };
+*/
 
 } // namespace entwine
 

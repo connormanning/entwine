@@ -22,6 +22,7 @@ set(
     "${BASE}/hierarchy-reader.hpp"
     "${BASE}/logic-gate.hpp"
     "${BASE}/query.hpp"
+    "${BASE}/query-chunk-state.hpp"
     "${BASE}/reader.hpp"
 )
 

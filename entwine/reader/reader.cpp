@@ -255,110 +255,32 @@ Json::Value Reader::hierarchy(
         m_hierarchy->query(queryBounds, depthBegin, depthEnd);
 }
 
-std::unique_ptr<Query> Reader::getQuery(
-        std::size_t depth,
-        const Point* scale,
-        const Point* offset)
-{
-    return getQuery(depth, depth + 1, scale, offset);
-}
-
-std::unique_ptr<Query> Reader::getQuery(
-        const Bounds& qbox,
-        std::size_t depth,
-        const Point* scale,
-        const Point* offset)
-{
-    return getQuery(qbox, depth, depth + 1, scale, offset);
-}
-
-std::unique_ptr<Query> Reader::getQuery(
-        std::size_t depthBegin,
-        std::size_t depthEnd,
-        const Point* scale,
-        const Point* offset)
-{
-    return getQuery(
-            m_metadata.schema(),
-            Json::Value(),
-            depthBegin,
-            depthEnd,
-            scale,
-            offset);
-}
-
-std::unique_ptr<Query> Reader::getQuery(
-        const Bounds& qbox,
-        std::size_t depthBegin,
-        std::size_t depthEnd,
-        const Point* scale,
-        const Point* offset)
-{
-    return getQuery(
-            m_metadata.schema(),
-            Json::Value(),
-            qbox,
-            depthBegin,
-            depthEnd,
-            scale,
-            offset);
-}
-
-std::unique_ptr<Query> Reader::getQuery(
-        const Schema& schema,
-        const Json::Value& filter,
+std::unique_ptr<ReadQuery> Reader::getQuery(
+        const Bounds& bounds,
+        const Delta& delta,
         const std::size_t depthBegin,
         const std::size_t depthEnd,
-        const Point* scale,
-        const Point* offset)
-{
-    return getQuery(
-            schema,
-            filter,
-            Bounds::everything(),
-            depthBegin,
-            depthEnd,
-            scale,
-            offset);
-}
-
-// All other getQuery operations fall through to this one.
-std::unique_ptr<Query> Reader::getQuery(
-        const Schema& schema,
         const Json::Value& filter,
-        const Bounds& queryBounds,
-        const std::size_t depthBegin,
-        std::size_t depthEnd,
-        const Point* scale,
-        const Point* offset)
+        const Schema& schema)
 {
-    if (!depthEnd) depthEnd = std::numeric_limits<uint32_t>::max();
-    checkQuery(depthBegin, depthEnd);
-
-    const Delta localDelta(localizeDelta(scale, offset));
-    const Bounds localQueryCube(localize(ensure3d(queryBounds), localDelta));
-
-    return makeUnique<Query>(
+    return makeUnique<ReadQuery>(
             *this,
-            schema,
-            filter,
-            m_cache,
-            localQueryCube,
+            bounds,
+            delta,
             depthBegin,
             depthEnd,
-            localDelta.exists() ? &localDelta.scale() : nullptr,
-            localDelta.exists() ? &localDelta.offset() : nullptr);
+            filter,
+            schema);
 }
 
-std::unique_ptr<Query> Reader::getQuery(const Json::Value& q)
+std::unique_ptr<ReadQuery> Reader::getQuery(const Json::Value& q)
 {
-    std::unique_ptr<Schema> schema;
-    if (q.isMember("schema")) schema = makeUnique<Schema>(q["schema"]);
-
-    const Json::Value filter(q["filter"]);
-
     const Bounds bounds = q.isMember("bounds") ?
         Bounds(q["bounds"]) : Bounds::everything();
+
+    auto scale(entwine::maybeCreate<entwine::Scale>(q["scale"]));
+    auto offset(entwine::maybeCreate<entwine::Offset>(q["offset"]));
+    const Delta delta(scale.get(), offset.get());
 
     if (q.isMember("depth"))
     {
@@ -374,27 +296,11 @@ std::unique_ptr<Query> Reader::getQuery(const Json::Value& q)
     const std::size_t depthEnd = q.isMember("depth") ?
         q["depth"].asUInt64() + 1 : q["depthEnd"].asUInt64();
 
-    auto scale(entwine::maybeCreate<entwine::Scale>(q["scale"]));
-    auto offset(entwine::maybeCreate<entwine::Offset>(q["offset"]));
+    const Json::Value filter(q["filter"]);
 
-    return getQuery(
-            schema ? *schema : metadata().schema(),
-            filter,
-            bounds,
-            depthBegin,
-            depthEnd,
-            scale.get(),
-            offset.get());
-}
+    Schema schema(q["schema"]);
 
-std::size_t Reader::write(
-        const std::string name,
-        const std::vector<char>& data,
-        const Json::Value& q)
-{
-    auto query(getQuery(q));
-    query->write(name, data);
-    return query->numPoints();
+    return getQuery(bounds, delta, depthBegin, depthEnd, filter, schema);
 }
 
 Json::Value Reader::hierarchy(const Json::Value& q)

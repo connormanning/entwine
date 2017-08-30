@@ -54,61 +54,79 @@ public:
     Reader(std::string path, Cache& cache);
     ~Reader();
 
+    std::unique_ptr<ReadQuery> getQuery(const Json::Value& json);
+
+    std::unique_ptr<ReadQuery> getQuery(
+            std::size_t depth,
+            const Json::Value& filter = Json::Value(),
+            const Schema& schema = Schema())
+    {
+        return getQuery(
+                Bounds::everything(),
+                Delta(),
+                depth,
+                depth + 1,
+                filter,
+                schema);
+    }
+
+    std::unique_ptr<ReadQuery> getQuery(
+            std::size_t depthBegin,
+            std::size_t depthEnd,
+            const Json::Value& filter = Json::Value(),
+            const Schema& schema = Schema())
+    {
+        return getQuery(
+                Bounds::everything(),
+                Delta(),
+                depthBegin,
+                depthEnd,
+                filter,
+                schema);
+    }
+
+    std::unique_ptr<ReadQuery> getQuery(
+            const Bounds& bounds,
+            std::size_t depth,
+            const Json::Value& filter = Json::Value(),
+            const Schema& schema = Schema())
+    {
+        return getQuery(bounds, Delta(), depth, depth + 1, filter, schema);
+    }
+
+    std::unique_ptr<ReadQuery> getQuery(
+            const Bounds& bounds,
+            std::size_t depthBegin,
+            std::size_t depthEnd,
+            const Json::Value& filter = Json::Value(),
+            const Schema& schema = Schema())
+    {
+        return getQuery(bounds, Delta(), depthBegin, depthEnd, filter, schema);
+    }
+
+    std::unique_ptr<ReadQuery> getQuery(
+            const Bounds& bounds = Bounds::everything(),
+            const Delta& delta = Delta(),
+            std::size_t depthBegin = 0,
+            std::size_t depthEnd = 0,
+            const Json::Value& filter = Json::Value(),
+            const Schema& schema = Schema());
+
     // Data queries.
     template<typename... Args>
     std::vector<char> query(Args&&... args)
     {
         auto q(getQuery(std::forward<Args>(args)...));
-        return q->run();
+        q->run();
+        return q->data();
     }
 
-    std::unique_ptr<Query> getQuery(
-            std::size_t depth,
-            const Point* scale = nullptr,
-            const Point* offset = nullptr);
-
-    std::unique_ptr<Query> getQuery(
-            const Bounds& qbox,
-            std::size_t depth,
-            const Point* scale = nullptr,
-            const Point* offset = nullptr);
-
-    std::unique_ptr<Query> getQuery(
-            std::size_t depthBegin,
-            std::size_t depthEnd,
-            const Point* scale = nullptr,
-            const Point* offset = nullptr);
-
-    std::unique_ptr<Query> getQuery(
-            const Bounds& qbox,
-            std::size_t depthBegin,
-            std::size_t depthEnd,
-            const Point* scale = nullptr,
-            const Point* offset = nullptr);
-
-    std::unique_ptr<Query> getQuery(
-            const Schema& schema,
-            const Json::Value& filter,
-            std::size_t depthBegin,
-            std::size_t depthEnd,
-            const Point* scale = nullptr,
-            const Point* offset = nullptr);
-
-    std::unique_ptr<Query> getQuery(
-            const Schema& schema,
-            const Json::Value& filter,
-            const Bounds& qbox,
-            std::size_t depthBegin,
-            std::size_t depthEnd,
-            const Point* scale = nullptr,
-            const Point* offset = nullptr);
-
-    std::unique_ptr<Query> getQuery(const Json::Value& json);
-
+    /*
     std::size_t write(
             std::string name,
             const std::vector<char>& data,
             const Json::Value& query);
+    */
 
     // Hierarchy query.
     Json::Value hierarchy(
@@ -140,6 +158,7 @@ public:
 
     // Miscellaneous.
     const Metadata& metadata() const { return m_metadata; }
+    Cache& cache() const { return m_cache; }
     PointPool& pool() const { return m_pool; }
     std::string path() const { return m_endpoint.root(); }
 

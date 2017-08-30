@@ -31,6 +31,8 @@ namespace entwine
 class Schema
 {
 public:
+    Schema() : Schema(DimList()) { }
+
     explicit Schema(DimList dims)
     {
         auto push([this, &dims](std::string name)
@@ -78,15 +80,9 @@ public:
         return *this;
     }
 
-    std::size_t pointSize() const
-    {
-        return m_layout->pointSize();
-    }
-
-    const DimList& dims() const
-    {
-        return m_dims;
-    }
+    bool empty() const { return pointSize() == 0; }
+    std::size_t pointSize() const { return m_layout->pointSize(); }
+    const DimList& dims() const { return m_dims; }
 
     bool contains(const std::string& name) const
     {
