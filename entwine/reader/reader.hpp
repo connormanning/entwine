@@ -54,65 +54,32 @@ public:
     Reader(std::string path, Cache& cache);
     ~Reader();
 
-    std::unique_ptr<ReadQuery> getQuery(const Json::Value& json);
-
-    std::unique_ptr<ReadQuery> getQuery(
-            std::size_t depth,
-            const Json::Value& filter = Json::Value(),
-            const Schema& schema = Schema())
+    // Read query.
+    std::unique_ptr<ReadQuery> getQuery(const Json::Value& q)
     {
-        return getQuery(
-                Bounds::everything(),
-                Delta(),
-                depth,
-                depth + 1,
-                filter,
+        return makeUnique<ReadQuery>(
+                *this,
+                QueryParams(q),
+                Schema(q["schema"]));
+    }
+
+    template<typename... Args>
+    std::unique_ptr<ReadQuery> getQuery(Args&&... args)
+    {
+        return makeUnique<ReadQuery>(
+                *this,
+                QueryParams(std::forward<Args>(args)...));
+    }
+
+    template<typename... Args>
+    std::unique_ptr<ReadQuery> getQuery(Args&&... args, const Schema& schema)
+    {
+        return makeUnique<ReadQuery>(
+                *this,
+                QueryParams(std::forward<Args>(args)...),
                 schema);
     }
 
-    std::unique_ptr<ReadQuery> getQuery(
-            std::size_t depthBegin,
-            std::size_t depthEnd,
-            const Json::Value& filter = Json::Value(),
-            const Schema& schema = Schema())
-    {
-        return getQuery(
-                Bounds::everything(),
-                Delta(),
-                depthBegin,
-                depthEnd,
-                filter,
-                schema);
-    }
-
-    std::unique_ptr<ReadQuery> getQuery(
-            const Bounds& bounds,
-            std::size_t depth,
-            const Json::Value& filter = Json::Value(),
-            const Schema& schema = Schema())
-    {
-        return getQuery(bounds, Delta(), depth, depth + 1, filter, schema);
-    }
-
-    std::unique_ptr<ReadQuery> getQuery(
-            const Bounds& bounds,
-            std::size_t depthBegin,
-            std::size_t depthEnd,
-            const Json::Value& filter = Json::Value(),
-            const Schema& schema = Schema())
-    {
-        return getQuery(bounds, Delta(), depthBegin, depthEnd, filter, schema);
-    }
-
-    std::unique_ptr<ReadQuery> getQuery(
-            const Bounds& bounds = Bounds::everything(),
-            const Delta& delta = Delta(),
-            std::size_t depthBegin = 0,
-            std::size_t depthEnd = 0,
-            const Json::Value& filter = Json::Value(),
-            const Schema& schema = Schema());
-
-    // Data queries.
     template<typename... Args>
     std::vector<char> query(Args&&... args)
     {

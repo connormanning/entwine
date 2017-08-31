@@ -79,21 +79,15 @@ Bounds Query::localize(const Bounds& q, const Delta& localDelta) const
     return queryCube;
 }
 
-Query::Query(
-        const Reader& reader,
-        const Bounds& bounds,
-        const Delta& delta,
-        const std::size_t depthBegin,
-        const std::size_t depthEnd,
-        const Json::Value& filter)
+Query::Query(const Reader& reader, const QueryParams& p)
     : m_reader(reader)
     , m_metadata(m_reader.metadata())
     , m_structure(m_metadata.structure())
-    , m_delta(localize(delta))
-    , m_bounds(localize(bounds, m_delta))
-    , m_depthBegin(depthBegin)
-    , m_depthEnd(depthEnd ? depthEnd : std::numeric_limits<uint32_t>::max())
-    , m_filter(m_reader.metadata(), m_bounds, filter, &m_delta)
+    , m_delta(localize(p.delta()))
+    , m_bounds(localize(p.bounds(), m_delta))
+    , m_depthBegin(p.db())
+    , m_depthEnd(p.de() ? p.de() : std::numeric_limits<uint32_t>::max())
+    , m_filter(m_reader.metadata(), m_bounds, p.filter(), &m_delta)
     , m_table(m_reader.metadata().schema())
     , m_pointRef(m_table, 0)
 {

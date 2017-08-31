@@ -255,54 +255,6 @@ Json::Value Reader::hierarchy(
         m_hierarchy->query(queryBounds, depthBegin, depthEnd);
 }
 
-std::unique_ptr<ReadQuery> Reader::getQuery(
-        const Bounds& bounds,
-        const Delta& delta,
-        const std::size_t depthBegin,
-        const std::size_t depthEnd,
-        const Json::Value& filter,
-        const Schema& schema)
-{
-    return makeUnique<ReadQuery>(
-            *this,
-            bounds,
-            delta,
-            depthBegin,
-            depthEnd,
-            filter,
-            schema);
-}
-
-std::unique_ptr<ReadQuery> Reader::getQuery(const Json::Value& q)
-{
-    const Bounds bounds = q.isMember("bounds") ?
-        Bounds(q["bounds"]) : Bounds::everything();
-
-    auto scale(entwine::maybeCreate<entwine::Scale>(q["scale"]));
-    auto offset(entwine::maybeCreate<entwine::Offset>(q["offset"]));
-    const Delta delta(scale.get(), offset.get());
-
-    if (q.isMember("depth"))
-    {
-        if (q.isMember("depthBegin") || q.isMember("depthEnd"))
-        {
-            throw std::runtime_error("Invalid depth specification");
-        }
-    }
-
-    const std::size_t depthBegin = q.isMember("depth") ?
-        q["depth"].asUInt64() : q["depthBegin"].asUInt64();
-
-    const std::size_t depthEnd = q.isMember("depth") ?
-        q["depth"].asUInt64() + 1 : q["depthEnd"].asUInt64();
-
-    const Json::Value filter(q["filter"]);
-
-    Schema schema(q["schema"]);
-
-    return getQuery(bounds, delta, depthBegin, depthEnd, filter, schema);
-}
-
 Json::Value Reader::hierarchy(const Json::Value& q)
 {
     const Bounds bounds = q.isMember("bounds") ?
