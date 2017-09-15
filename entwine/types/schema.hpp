@@ -131,10 +131,7 @@ public:
     const Schema filter(const std::string& name) const
     {
         DimList res;
-        for (const auto& d : dims())
-        {
-            if (d.name() != name) res.push_back(d);
-        }
+        for (const auto& d : dims()) if (d.name() != name) res.push_back(d);
         return Schema(res);
     }
 
@@ -273,6 +270,13 @@ public:
         std::vector<pdal::Dimension::Id> v;
         for (const auto& d : m_dims) v.push_back(d.id());
         return v;
+    }
+
+    Schema append(const Schema& other) const
+    {
+        DimList d(dims());
+        d.insert(d.end(), other.dims().begin(), other.dims().end());
+        return Schema(d);
     }
 
 private:

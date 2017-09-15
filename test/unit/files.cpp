@@ -20,7 +20,7 @@ namespace
         return arbiter::util::getBasename(path);
     }
 
-    const Point nycCenter(-8242596.036, 4966606.257);
+    const Point nycCenter(-8242596.04, 4966606.26);
 
     class Matches
     {

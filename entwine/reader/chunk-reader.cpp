@@ -37,47 +37,142 @@ ChunkReader::ChunkReader(
     , m_id(id)
     , m_depth(depth)
     , m_cells(metadata.storage().deserialize(endpoint, pool, m_id))
+{ }
+
+ChunkReader::ChunkReader(
+        const Metadata& m,
+        const arbiter::Endpoint& ep,
+        PointPool& pool)
+    : ChunkReader(
+            m,
+            ep,
+            m.boundsScaledCubic(),
+            pool,
+            m.structure().baseIndexBegin(),
+            m.structure().baseDepthBegin())
 {
-    const std::size_t numPoints(m_cells.size());
-    m_points.reserve(numPoints);
+    m_offsets.push_back(m_cells.size());
 
-    const auto& globalBounds(m_metadata.boundsScaledCubic());
+    const Structure& s(m.structure());
+    for (std::size_t d(s.baseDepthBegin() + 1); d < s.baseDepthEnd(); ++d)
+    {
+        const auto id(ChunkInfo::calcLevelIndex(2, d));
+        m_cells.push(m.storage().deserialize(ep, pool, id));
+        m_offsets.push_back(m_cells.size());
+    }
+}
 
+ChunkReader::~ChunkReader()
+{
+    m_pool.release(std::move(m_cells));
+    for (const auto& p : m_appends) p.second.write();
+}
+
+ColdChunkReader::ColdChunkReader(
+        const Metadata& m,
+        const arbiter::Endpoint& ep,
+        const Bounds& bounds,
+        PointPool& pool,
+        const Id& id,
+        std::size_t depth)
+    : m_chunk(m, ep, bounds, pool, id, depth)
+{
+    m_points.reserve(m_chunk.cells().size());
+
+    const auto& globalBounds(m.boundsScaledCubic());
     std::size_t offset(0);
-    for (const auto& cell : m_cells)
+
+    for (const auto& cell : m_chunk.cells())
     {
         m_points.emplace_back(
                 offset,
                 cell.point(),
                 cell.uniqueData(),
-                Tube::calcTick(cell.point(), globalBounds, m_depth));
+                Tube::calcTick(cell.point(), globalBounds, depth));
         ++offset;
     }
 
     std::sort(m_points.begin(), m_points.end());
 }
 
-ChunkReader::~ChunkReader()
+ColdChunkReader::QueryRange ColdChunkReader::candidates(const Bounds& qb) const
 {
-    m_pool.release(std::move(m_cells));
-    for (const auto& p : m_extras) p.second.write();
-}
-
-ChunkReader::QueryRange ChunkReader::candidates(const Bounds& queryBounds) const
-{
-    if (queryBounds.contains(m_bounds))
+    if (qb.contains(m_chunk.bounds()))
     {
         return QueryRange(m_points.begin(), m_points.end());
     }
 
-    const auto& gb(m_metadata.boundsScaledCubic());
-    const PointInfo min(Tube::calcTick(queryBounds.min(), gb, m_depth));
-    const PointInfo max(Tube::calcTick(queryBounds.max(), gb, m_depth));
+    const auto& gb(m_chunk.metadata().boundsScaledCubic());
+    const PointInfo min(Tube::calcTick(qb.min(), gb, m_chunk.depth()));
+    const PointInfo max(Tube::calcTick(qb.max(), gb, m_chunk.depth()));
 
     It begin(std::lower_bound(m_points.begin(), m_points.end(), min));
     It end(std::upper_bound(m_points.begin(), m_points.end(), max));
 
     return QueryRange(begin, end);
+}
+
+BaseChunkReader::BaseChunkReader(
+        const Metadata& m,
+        const arbiter::Endpoint& ep,
+        PointPool& pool)
+    : m_chunk(m, ep, pool)
+{
+    const Structure& s(m.structure());
+    const auto& globalBounds(m.boundsScaledCubic());
+    Climber climber(m);
+
+    std::size_t depth(s.baseDepthBegin());
+    std::size_t offset(0);
+    std::size_t slice(0);
+
+    for (const auto& cell : m_chunk.cells())
+    {
+        climber.reset();
+        climber.magnifyTo(cell.point(), depth);
+        m_points[climber.index().getSimple()].emplace_back(
+                offset,
+                cell.point(),
+                cell.uniqueData(),
+                Tube::calcTick(cell.point(), globalBounds, depth));
+        ++offset;
+
+        if (offset == m_chunk.offsets().at(slice))
+        {
+            std::cout << "Slicing to " << m_chunk.offsets().at(slice) << std::endl;
+            ++slice;
+            ++depth;
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+BetterBaseChunkReader::BetterBaseChunkReader(
+        const Metadata& m,
+        const arbiter::Endpoint& ep,
+        PointPool& pool)
+    : m_ep(ep)
+    , m_id(m.structure().baseIndexBegin())
+{
+    const Structure& s(m.structure());
+    const auto b(m.boundsScaledCubic());
+    for (std::size_t d(s.baseDepthBegin()); d < s.baseDepthEnd(); ++d)
+    {
+        const auto id(ChunkInfo::calcLevelIndex(2, d));
+        m_slices.push_back(makeUnique<BChunkReader>(m, m_ep, b, pool, id, d));
+    }
 }
 
 BaseChunkReader::BaseChunkReader(
@@ -94,7 +189,7 @@ BaseChunkReader::BaseChunkReader(
 BaseChunkReader::~BaseChunkReader()
 {
     m_pool.release(std::move(m_cells));
-    for (auto& e : m_extras) e.second.write();
+    // for (auto& e : m_extras) e.second.write();
 }
 
 SlicedBaseChunkReader::SlicedBaseChunkReader(
@@ -187,6 +282,7 @@ CelledBaseChunkReader::CelledBaseChunkReader(
         tubedData.push(tubedCell->acquire());
     }
 }
+*/
 
 } // namespace entwine
 

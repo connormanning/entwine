@@ -88,12 +88,11 @@ public:
         return q->data();
     }
 
-    /*
+    void registerAppend(std::string name, const Schema& schema);
     std::size_t write(
             std::string name,
             const std::vector<char>& data,
             const Json::Value& query);
-    */
 
     // Hierarchy query.
     Json::Value hierarchy(
@@ -133,10 +132,43 @@ public:
     const arbiter::Endpoint& endpoint() const { return m_endpoint; }
     bool exists(const QueryChunkState& state) const;
 
+    /*
+    Schema appendedSchema() const
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        Schema s;
+        for (const auto p : m_appends) s = s.append(p.second);
+        return s;
+    }
+    */
+
+    std::map<std::string, Schema> appends() const
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_appends;
+    }
+
+    std::string findAppendName(const std::string& dim) const
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        for (const auto& p : m_appends)
+        {
+            if (p.second.contains(dim)) return p.first;
+        }
+        return "";
+    }
+
+    const Schema& appendAt(const std::string name) const
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_appends.at(name);
+    }
+    /*
     const Schema* additional() const { return m_additional.get(); }
     const std::map<std::string, Schema>& extras() const { return m_extras; }
     const std::map<std::string, std::string>& dimMap() const { return m_dimMap; }
     void addExtra(std::string, const Schema& schema);
+    */
 
 private:
     void init();
@@ -165,6 +197,8 @@ private:
     mutable std::mutex m_mutex;
     mutable std::map<Id, bool> m_pre;
 
+    std::map<std::string, Schema> m_appends;
+    /*
     std::unique_ptr<Schema> m_additional;
 
     // Maps extra-name to schema.
@@ -174,6 +208,7 @@ private:
     std::map<std::string, std::string> m_dimMap;
 
     bool m_extrasChanged = false;
+    */
 };
 
 } // namespace entwine

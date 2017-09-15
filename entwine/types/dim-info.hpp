@@ -65,12 +65,14 @@ public:
         : m_name(name)
         , m_id(id)
         , m_type(type)
-        , m_typeString(pdal::Dimension::toName(pdal::Dimension::base(m_type)))
     { }
 
     std::string name() const { return m_name; }
     std::size_t size() const { return pdal::Dimension::size(type()); }
-    std::string typeString() const { return m_typeString; }
+    std::string typeString() const
+    {
+        return pdal::Dimension::toName(pdal::Dimension::base(m_type));
+    }
 
     pdal::Dimension::Id id() const { return m_id; }
     pdal::Dimension::Type type() const { return m_type; }

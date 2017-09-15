@@ -16,6 +16,7 @@
 #include <memory>
 #include <vector>
 
+#include <entwine/reader/append.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/structure.hpp>
@@ -62,8 +63,7 @@ private:
     uint64_t m_tick = 0;
 };
 
-using TubeData = std::vector<PointInfo>;
-
+/*
 class Extra
 {
 public:
@@ -121,11 +121,12 @@ private:
     VectorPointTable m_table;
     bool m_touched = false;
 };
+*/
 
-// Ordered by Z-tick to perform the tubular-quadtree-as-octree query.
 class ChunkReader
 {
 public:
+    // Cold chunks.
     ChunkReader(
             const Metadata& metadata,
             const arbiter::Endpoint& endpoint,
@@ -134,51 +135,47 @@ public:
             const Id& id,
             std::size_t depth);
 
+    // Base chunks.
+    ChunkReader(
+            const Metadata& metadata,
+            const arbiter::Endpoint& endpoint,
+            PointPool& pool);
+
     ~ChunkReader();
 
-    using It = TubeData::const_iterator;
-    struct QueryRange
-    {
-        QueryRange(It begin, It end) : begin(begin), end(end) { }
-
-        It begin;
-        It end;
-    };
-
-    QueryRange candidates(const Bounds& queryBounds) const;
-    std::size_t size() const
-    {
-        return m_cells.size() * m_schema.pointSize();
-    }
-
+    const Metadata& metadata() const { return m_metadata; }
+    const Schema& schema() const { return m_schema; }
     const Id& id() const { return m_id; }
+    std::size_t depth() const { return m_depth; }
+    const Bounds& bounds() const { return m_bounds; }
+    const Cell::PooledStack& cells() const { return m_cells; }
+    const std::vector<std::size_t> offsets() const { return m_offsets; }
 
-    Extra& extra(std::string name, const Schema& s) const
+    Append& getAppend(std::string name, const Schema& s) const
     {
         std::lock_guard<std::mutex> lock(m);
-        if (!m_extras.count(name))
+        if (!m_appends.count(name))
         {
-            m_extras.emplace(
+            m_appends.emplace(
                     std::piecewise_construct,
                     std::forward_as_tuple(name),
                     std::forward_as_tuple(
                         m_endpoint,
-                        m_id,
                         name,
                         s,
+                        m_id,
                         m_cells.size()));
         }
-        return m_extras.at(name);
+        return m_appends.at(name);
     }
 
-private:
-    const Schema& schema() const { return m_schema; }
-
-    std::size_t normalize(const Id& rawIndex) const
+    Append& appendAt(const std::string name) const
     {
-        return (rawIndex - m_id).getSimple();
+        std::lock_guard<std::mutex> lock(m);
+        return m_appends.at(name);
     }
 
+protected:
     const arbiter::Endpoint m_endpoint;
     const Metadata& m_metadata;
     PointPool& m_pool;
@@ -188,12 +185,70 @@ private:
     const std::size_t m_depth;
 
     Cell::PooledStack m_cells;
-    TubeData m_points;
+    std::vector<std::size_t> m_offsets;
 
     mutable std::mutex m;
-    mutable std::map<std::string, Extra> m_extras;
+    mutable std::map<std::string, Append> m_appends;
 };
 
+using TubeData = std::vector<PointInfo>;
+
+class ColdChunkReader
+{
+public:
+    ColdChunkReader(
+            const Metadata& m,
+            const arbiter::Endpoint& ep,
+            const Bounds& bounds,
+            PointPool& pool,
+            const Id& id,
+            std::size_t depth);
+
+    using It = TubeData::const_iterator;
+    struct QueryRange
+    {
+        QueryRange(It begin, It end) : begin(begin), end(end) { }
+        It begin, end;
+    };
+
+    QueryRange candidates(const Bounds& queryBounds) const;
+    std::size_t size() const
+    {
+        return m_chunk.cells().size() * m_chunk.schema().pointSize();
+    }
+
+    ChunkReader& chunk() { return m_chunk; }
+    ChunkReader& chunk() const { return m_chunk; }
+
+private:
+    mutable ChunkReader m_chunk;
+    TubeData m_points;
+};
+
+class BaseChunkReader
+{
+public:
+    BaseChunkReader(
+            const Metadata& m,
+            const arbiter::Endpoint& ep,
+            PointPool& pool);
+
+    const TubeData& tubeData(const Id& id) const
+    {
+        if (m_points.count(id)) return m_points.at(id);
+        else return m_empty;
+    }
+
+    ChunkReader& chunk() { return m_chunk; }
+    ChunkReader& chunk() const { return m_chunk; }
+
+private:
+    mutable ChunkReader m_chunk;
+    std::map<Id, TubeData> m_points;
+    const TubeData m_empty;
+};
+
+/*
 class BaseExtra
 {
 public:
@@ -274,6 +329,21 @@ private:
     bool m_touched = false;
 };
 
+class BetterBaseChunkReader
+{
+public:
+    BetterBaseChunkReader(
+            const Metadata& m,
+            const arbiter::Endpoint& ep,
+            PointPool& pool);
+
+protected:
+    const arbiter::Endpoint& m_ep;
+    const Id m_id;
+
+    std::vector<std::unique_ptr<BChunkReader>> m_slices;
+};
+
 // Ordered by normal BaseChunk ordering for traversal.
 class BaseChunkReader
 {
@@ -341,6 +411,7 @@ public:
             PointPool& pool,
             const arbiter::Endpoint& ep);
 };
+*/
 
 } // namespace entwine
 

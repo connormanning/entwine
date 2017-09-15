@@ -28,7 +28,7 @@ namespace entwine
 {
 
 class Cache;
-class ChunkReader;
+class ColdChunkReader;
 class Reader;
 class Schema;
 
@@ -72,7 +72,7 @@ struct DataChunkState
     DataChunkState();
     ~DataChunkState();
 
-    std::unique_ptr<ChunkReader> chunkReader;
+    std::unique_ptr<ColdChunkReader> chunkReader;
     std::unique_ptr<InactiveList::iterator> inactiveIt;
     std::atomic_size_t refs;
 
@@ -94,7 +94,7 @@ struct HierarchyCache
 
 typedef std::map<Id, std::unique_ptr<DataChunkState>> LocalManager;
 typedef std::map<std::string, LocalManager> GlobalManager;
-typedef std::map<Id, const ChunkReader*> ChunkMap;
+typedef std::map<Id, const ColdChunkReader*> ChunkMap;
 
 class Block
 {
@@ -111,7 +111,7 @@ private:
             const std::string& readerPath,
             const FetchInfoSet& fetches);
 
-    void set(const Id& id, const ChunkReader* chunkReader);
+    void set(const Id& id, const ColdChunkReader* chunkReader);
 
     Cache& m_cache;
     std::string m_readerPath;
@@ -149,7 +149,7 @@ private:
             const std::string& readerPath,
             const FetchInfoSet& fetches);
 
-    const ChunkReader* fetch(
+    const ColdChunkReader* fetch(
             const std::string& readerPath,
             const FetchInfo& fetchInfo);
 

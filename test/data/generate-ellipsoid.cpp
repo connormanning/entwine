@@ -168,7 +168,7 @@ int main()
     std::vector<std::shared_ptr<pdal::PointView>> nycViews;
     {
         // From coordinates 40.6892° N, 74.0445° W
-        const Point center(-8242596.036, 4966606.257);
+        const Point center(-8242596.04, 4966606.26);
 
         const auto dmin(std::numeric_limits<double>::lowest());
         const auto dmax(std::numeric_limits<double>::max());

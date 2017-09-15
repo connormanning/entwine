@@ -20,6 +20,7 @@
 #include <entwine/reader/comparison.hpp>
 #include <entwine/reader/filter.hpp>
 #include <entwine/reader/query-chunk-state.hpp>
+#include <entwine/reader/query-params.hpp>
 #include <entwine/types/binary-point-table.hpp>
 #include <entwine/types/delta.hpp>
 #include <entwine/types/dir.hpp>
@@ -34,91 +35,6 @@ class PointInfo;
 class PointState;
 class Reader;
 class Schema;
-
-class QueryParams
-{
-public:
-    QueryParams(
-            std::size_t depth,
-            const Json::Value& filter = Json::Value())
-        : QueryParams(depth, depth ? depth + 1 : 0, filter)
-    { }
-
-    QueryParams(
-            std::size_t depthBegin,
-            std::size_t depthEnd,
-            const Json::Value& filter = Json::Value())
-        : QueryParams(Bounds::everything(), depthBegin, depthEnd, filter)
-    { }
-
-    QueryParams(
-            const Bounds& bounds,
-            std::size_t depth,
-            const Json::Value& filter = Json::Value())
-        : QueryParams(bounds, depth, depth ? depth + 1 : 0, filter)
-    { }
-
-    QueryParams(
-            const Bounds& bounds,
-            std::size_t depthBegin,
-            std::size_t depthEnd,
-            const Json::Value& filter = Json::Value())
-        : QueryParams(bounds, Delta(), depthBegin, depthEnd, filter)
-    { }
-
-    QueryParams(
-            const Bounds& bounds,
-            const Delta& delta,
-            std::size_t depth,
-            const Json::Value& filter = Json::Value())
-        : QueryParams(bounds, delta, depth, depth ? depth + 1 : 0, filter)
-    { }
-
-    QueryParams(
-            const Bounds& bounds = Bounds::everything(),
-            const Delta& delta = Delta(),
-            std::size_t depthBegin = 0,
-            std::size_t depthEnd = 0,
-            const Json::Value& filter = Json::Value())
-        : m_bounds(bounds)
-        , m_delta(delta)
-        , m_depthBegin(depthBegin)
-        , m_depthEnd(depthEnd)
-        , m_filter(filter)
-    { }
-
-    QueryParams(const Json::Value& q)
-        : QueryParams(
-            q.isMember("bounds") ?  Bounds(q["bounds"]) : Bounds::everything(),
-            Delta(q["delta"]),
-            q.isMember("depth") ?
-                q["depth"].asUInt64() : q["depthBegin"].asUInt64(),
-            q.isMember("depth") ?
-                q["depth"].asUInt64() + 1 : q["depthEnd"].asUInt64(),
-            q["filter"])
-    {
-        if (q.isMember("depth"))
-        {
-            if (q.isMember("depthBegin") || q.isMember("depthEnd"))
-            {
-                throw std::runtime_error("Invalid depth specification");
-            }
-        }
-    }
-
-    const Bounds& bounds() const { return m_bounds; }
-    const Delta& delta() const { return m_delta; }
-    std::size_t db() const { return m_depthBegin; }
-    std::size_t de() const { return m_depthEnd; }
-    const Json::Value& filter() const { return m_filter; }
-
-private:
-    const Bounds m_bounds;
-    const Delta m_delta;
-    const std::size_t m_depthBegin;
-    const std::size_t m_depthEnd;
-    const Json::Value m_filter;
-};
 
 class Query
 {
@@ -135,6 +51,7 @@ public:
 
 protected:
     virtual void process(const PointInfo& info) = 0;
+    virtual void chunk(const ChunkReader& cr) { }
 
     void getFetches(const QueryChunkState& c);
     void getBase(const PointState& pointState);
@@ -178,17 +95,63 @@ protected:
     virtual void process(const PointInfo& info) override { }
 };
 
+class RegisteredDim
+{
+public:
+    RegisteredDim(const Schema& s, const DimInfo& d, std::string name = "")
+        : m_schema(s)
+        , m_dim(d)
+        , m_name(name)
+        /*
+        , m_table(m_schema)
+        , m_pr(m_table, 0)
+        */
+    {
+        // The DimInfo parameter comes from a user-defined Schema, which may
+        // contain dimensions from various layouts, e.g. the default Reader's
+        // Schema and various Append Schemas.  Correlate the dimenion to its
+        // corresponding layout here.
+        m_dim.setId(m_schema.find(m_dim.name()).id());
+    }
+
+    const DimInfo& info() const { return m_dim; }
+
+    const std::string& name() const { return m_name; }
+    /*
+    BinaryPointTable& table() { return m_table; }
+    pdal::PointRef& pr() { return m_pr; }
+    */
+
+private:
+    const Schema& m_schema;
+    const DimInfo m_dim;
+    const std::string m_name;
+    /*
+    BinaryPointTable m_table;
+    pdal::PointRef m_pr;
+    */
+};
+
+class RegisteredSchema
+{
+public:
+    RegisteredSchema(const Reader& r, const Schema& out);
+
+    const Schema& original() const { return m_original; }
+    const std::vector<RegisteredDim>& dims() const { return m_dims; }
+
+private:
+    const Schema& m_original;
+    std::vector<RegisteredDim> m_dims;
+};
+
 class ReadQuery : public Query
 {
 public:
     ReadQuery(
             const Reader& reader,
             const QueryParams& params,
-            const Schema& schema = Schema())
-        : Query(reader, params)
-        , m_schema(schema.empty() ? m_metadata.schema() : schema)
-        , m_mid(m_metadata.boundsScaledCubic().mid())
-    { }
+            const Schema& schema = Schema());
 
     const std::vector<char>& data() const { return m_data; }
     std::vector<char>& data() { return m_data; }
@@ -197,6 +160,7 @@ public:
 
 protected:
     virtual void process(const PointInfo& info) override;
+    virtual void chunk(const ChunkReader& cr) override;
 
 private:
     void setScaled(const DimInfo& dim, std::size_t dimNum, char* pos)
@@ -242,9 +206,59 @@ private:
     }
 
     const Schema m_schema;
+    const RegisteredSchema m_reg;
+    const ChunkReader* m_cr;
     const Point m_mid;
 
     std::vector<char> m_data;
+};
+
+class WriteQuery : public Query
+{
+public:
+    WriteQuery(
+            const Reader& reader,
+            const QueryParams& params,
+            std::string name,
+            const Schema& schema,
+            const std::vector<char>& data)
+        : Query(reader, params)
+        , m_name(name)
+        , m_schema(schema)
+        , m_table(m_schema)
+        , m_pr(m_table, 0)
+        , m_pos(data.data())
+        , m_end(m_pos + data.size())
+        , m_skipId(
+                m_schema.contains("Skip") ?
+                    m_schema.find("Skip").id() : pdal::Dimension::Id::Unknown)
+    {
+        if (m_schema.empty())
+        {
+            throw std::runtime_error("Cannot write empty schema");
+        }
+
+        if (data.size() % m_schema.pointSize())
+        {
+            throw std::runtime_error("Invalid buffer size for this schema");
+        }
+    }
+
+protected:
+    virtual void process(const PointInfo& info) override;
+    virtual void chunk(const ChunkReader& cr) override;
+
+private:
+    const std::string m_name;
+    const Schema m_schema;
+    BinaryPointTable m_table;
+    pdal::PointRef m_pr;
+
+    Append* m_append = nullptr;
+
+    const char* m_pos;
+    const char* m_end;
+    const pdal::Dimension::Id m_skipId;
 };
 
 /*

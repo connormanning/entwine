@@ -61,7 +61,7 @@ Block::~Block()
     m_cache.release(*this);
 }
 
-void Block::set(const Id& id, const ChunkReader* chunkReader)
+void Block::set(const Id& id, const ColdChunkReader* chunkReader)
 {
     m_chunkMap.at(id) = chunkReader;
 }
@@ -121,7 +121,7 @@ std::unique_ptr<Block> Cache::acquire(
     {
         pool.add([this, &readerPath, &f, &block, &mutex, &success]()->void
         {
-            if (const ChunkReader* chunkReader = fetch(readerPath, f))
+            if (const ColdChunkReader* chunkReader = fetch(readerPath, f))
             {
                 std::lock_guard<std::mutex> lock(mutex);
                 block->set(f.id, chunkReader);
@@ -246,7 +246,7 @@ std::unique_ptr<Block> Cache::reserve(
     return block;
 }
 
-const ChunkReader* Cache::fetch(
+const ColdChunkReader* Cache::fetch(
         const std::string& readerPath,
         const FetchInfo& fetchInfo)
 {
@@ -262,7 +262,7 @@ const ChunkReader* Cache::fetch(
         const Metadata& metadata(reader.metadata());
         const std::string path(metadata.basename(fetchInfo.id));
 
-        chunkState.chunkReader = makeUnique<ChunkReader>(
+        chunkState.chunkReader = makeUnique<ColdChunkReader>(
                 metadata,
                 reader.endpoint(),
                 fetchInfo.bounds,

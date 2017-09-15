@@ -31,8 +31,8 @@ public:
         : VectorPointTable(schema.pdalLayout())
     { }
 
-    VectorPointTable(const Schema& schema, std::size_t initialSize)
-        : VectorPointTable(schema.pdalLayout(), initialSize)
+    VectorPointTable(const Schema& schema, std::size_t initialNumPoints)
+        : VectorPointTable(schema.pdalLayout(), initialNumPoints)
     { }
 
     VectorPointTable(const Schema& schema, const std::vector<char>& data)
@@ -48,11 +48,11 @@ public:
         , m_layout(layout)
     { }
 
-    VectorPointTable(pdal::PointLayout layout, std::size_t initialPointSize)
+    VectorPointTable(pdal::PointLayout layout, std::size_t initialNumPoints)
         : StreamPointTable(m_layout)
         , m_layout(layout)
     {
-        resize(initialPointSize);
+        resize(initialNumPoints);
     }
 
     VectorPointTable(pdal::PointLayout layout, const std::vector<char>& data)

@@ -222,13 +222,13 @@ TEST_P(BuildTest, Verify)
     };
 
     // Check that each depth has the same point count.
-    std::size_t depth(0);
+    std::size_t depth(1);
     bool pointsFound(false), pointsEnded(false);
     while (!pointsEnded)
     {
         const auto data(r.query(depth));
         const std::size_t np(data.size() / schema.pointSize());
-        ASSERT_EQ(np, o.query(depth).size());
+        ASSERT_EQ(np, o.query(depth).size()) << "At depth: " << depth;
 
         VectorPointTable table(schema, data);
         pdal::PointRef pr(table, 0);

@@ -14,6 +14,7 @@ set(
 
 set(
     HEADERS
+    "${BASE}/append.hpp"
     "${BASE}/cache.hpp"
     "${BASE}/chunk-reader.hpp"
     "${BASE}/comparison.hpp"
@@ -23,6 +24,7 @@ set(
     "${BASE}/logic-gate.hpp"
     "${BASE}/query.hpp"
     "${BASE}/query-chunk-state.hpp"
+    "${BASE}/query-params.hpp"
     "${BASE}/reader.hpp"
 )
 

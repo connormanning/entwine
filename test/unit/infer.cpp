@@ -10,7 +10,7 @@ namespace
 {
 
 const Bounds nominalBounds(-150, -100, -50, 150, 100, 50);
-const Point nycCenter(-8242596.036, 4966606.257);
+const Point nycCenter(-8242596.04, 4966606.26);
 const Bounds nycBounds(
         nycCenter + nominalBounds.min(),
         nycCenter + nominalBounds.max());
@@ -124,8 +124,8 @@ TEST(Infer, Reprojection)
     const std::string badPath(path + "-wrong-srs");
 
     const Bounds utmBounds(
-            Point(580621.19214, 4504618.31537, -50),
-            Point(580850.55166, 4504772.01557, 50));
+            Point(580621.18908, 4504618.31761, -50),
+            Point(580850.54860, 4504772.01780, 50));
 
     {
         Inference inference(path);

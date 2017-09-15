@@ -106,6 +106,8 @@ void Reader::init()
 
     if (structure.hasBase())
     {
+        m_base = makeUnique<BaseChunkReader>(m_metadata, m_endpoint, m_pool);
+        /*
         if (m_metadata.slicedBase())
         {
             m_base = makeUnique<SlicedBaseChunkReader>(
@@ -120,6 +122,7 @@ void Reader::init()
                     m_pool,
                     m_endpoint);
         }
+        */
     }
 
     if (structure.hasCold())
@@ -156,19 +159,58 @@ void Reader::init()
         });
     }
 
-    m_additional = makeUnique<Schema>(DimList());
-
     if (m_endpoint.tryGetSize("d/dimensions.json"))
     {
-        const Json::Value extra(parse(m_endpoint.get("d/dimensions.json")));
-        for (const auto name : extra.getMemberNames())
+        const Json::Value json(parse(m_endpoint.get("d/dimensions.json")));
+        for (const auto name : json.getMemberNames())
         {
-            addExtra(name, Schema(extra[name]));
+            registerAppend(name, Schema(json[name]));
         }
     }
-    m_extrasChanged = false;
 }
 
+void Reader::registerAppend(std::string name, const Schema& schema)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_appends.count(name)) return;
+
+    // TODO Check existing appends/top-level schema for conflicting dim-names?
+
+    std::cout << "Registering append: " << name << std::endl;
+
+    if (m_endpoint.isLocal())
+    {
+        arbiter::fs::mkdirp(m_endpoint.root() + "d/" + name);
+    }
+
+    m_appends[name] = schema.filter("Skip");
+
+    Json::Value json;
+    for (const auto& p : m_appends) json[p.first] = p.second.toJson();
+    std::cout << "Writing dimensions.json: " << json << std::endl;
+    m_endpoint.put("d/dimensions.json", json.toStyledString());
+}
+
+std::size_t Reader::write(
+        std::string name,
+        const std::vector<char>& data,
+        const Json::Value& q)
+{
+    if (data.empty()) return 0;
+    std::unique_lock<std::mutex> lock(m_mutex);
+    WriteQuery writeQuery(
+            *this,
+            QueryParams(q),
+            name,
+            m_appends.at(name),
+            data);
+    lock.unlock();
+
+    writeQuery.run();
+    return writeQuery.numPoints();
+}
+
+/*
 void Reader::addExtra(std::string name, const Schema& schema)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -201,19 +243,9 @@ void Reader::addExtra(std::string name, const Schema& schema)
 
     m_additional = makeUnique<Schema>(dims);
 }
+*/
 
-Reader::~Reader()
-{
-    if (m_extrasChanged)
-    {
-        Json::Value json;
-        for (const auto& p : m_extras) json[p.first] = p.second.toJson();
-        std::cout << "Writing dimensions.json: " << json << std::endl;
-        m_endpoint.put("d/dimensions.json", json.toStyledString());
-    }
-
-    m_cache.release(*this);
-}
+Reader::~Reader() { m_cache.release(*this); }
 
 bool Reader::exists(const QueryChunkState& c) const
 {
