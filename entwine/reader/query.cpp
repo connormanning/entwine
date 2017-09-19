@@ -157,12 +157,12 @@ void Query::getBase(const PointState& pointState)
 
     if (pointState.depth() >= m_structure.baseDepthBegin())
     {
-        const auto& cell(m_reader.base()->tubeData(pointState.index()));
-        if (cell.empty()) return;
+        const auto& tube(m_reader.base()->tubeData(pointState.index()));
+        if (tube.empty()) return;
 
         if (pointState.depth() >= m_depthBegin)
         {
-            for (const PointInfo& pointInfo : cell) processPoint(pointInfo);
+            for (const PointInfo& pointInfo : tube) processPoint(pointInfo);
         }
     }
 
@@ -247,7 +247,7 @@ RegisteredSchema::RegisteredSchema(const Reader& r, const Schema& output)
         else
         {
             const std::string name(r.findAppendName(d.name()));
-            if (name.size()) m_dims.emplace_back(r.appendAt(name), d, name);
+            if (name.size()) m_dims.emplace_back(r.appendAt(name), d, false);
             else m_dims.emplace_back(native, d);
         }
     }
@@ -266,6 +266,15 @@ ReadQuery::ReadQuery(
 void ReadQuery::chunk(const ChunkReader& cr)
 {
     m_cr = &cr;
+    for (auto& d : m_reg.dims())
+    {
+        if (!d.native())
+        {
+            const auto appendName(m_reader.findAppendName(d.info().name()));
+            const Schema& appendSchema(m_reader.appendAt(appendName));
+            d.setAppend(cr.findAppend(appendName, appendSchema));
+        }
+    }
 }
 
 void ReadQuery::process(const PointInfo& info)
@@ -275,67 +284,31 @@ void ReadQuery::process(const PointInfo& info)
 
     std::size_t dimNum(0);
 
-    /*
     for (const auto& dim : m_reg.dims())
     {
-        dimNum = pdal::Utils::toNative(dim.info().id()) - 1;
+        const DimInfo& dimInfo(dim.info());
+        dimNum = pdal::Utils::toNative(dimInfo.id()) - 1;
         if (m_delta.exists() && dimNum < 3)
         {
-            setScaled(dim.info(), dimNum, pos);
+            setScaled(dimInfo, dimNum, pos);
         }
-        else if (dim.name().empty())
+        else if (dim.native())
         {
-            m_pointRef.getField(pos, dim.info().id(), dim.info().type());
+            m_pointRef.getField(pos, dimInfo.id(), dimInfo.type());
         }
-        else
+        else if (Append* append = dim.append())
         {
-            std::cout << "APP" << std::endl;
-            auto pr(m_cr->appendAt(dim.name()).table().at(info.offset()));
-            pr.getField(pos, dim.info().id(), dim.info().type());
+            auto pr(append->table().at(info.offset()));
+            pr.getField(pos, dimInfo.id(), dimInfo.type());
         }
 
-        pos += dim.info().size();
-    }
-    */
-
-    for (const auto& dim : m_schema.dims())
-    {
-        dimNum = pdal::Utils::toNative(dim.id()) - 1;
-        if (m_delta.exists() && dimNum < 3)
-        {
-            setScaled(dim, dimNum, pos);
-        }
-        else // if (m_reader.metadata().schema().contains(dim.name()))
-        {
-            m_pointRef.getField(pos, dim.id(), dim.type());
-        }
-    /*
-        else if (baseDepth)
-        {
-            if (m_baseExtras.count(dim.name()))
-            {
-                static std::mutex m;
-                std::lock_guard<std::mutex> lock(m);
-                auto pr(m_baseExtra->table(baseDepth).at(info.offset()));
-                pr.getField(pos, dim.id(), dim.type());
-            }
-        }
-        else if (m_extras.count(dim.name()))
-        {
-            auto& extra(*m_extras.at(dim.name()));
-            auto& table(extra.table());
-            auto pr(table.at(info.offset()));
-            pr.getField(pos, dim.id(), dim.type());
-        }
-    */
-
-        pos += dim.size();
+        pos += dimInfo.size();
     }
 }
 
 void WriteQuery::chunk(const ChunkReader& cr)
 {
-    m_append = &cr.getAppend(m_name, m_schema);
+    m_append = &cr.getOrCreateAppend(m_name, m_schema);
 }
 
 void WriteQuery::process(const PointInfo& info)

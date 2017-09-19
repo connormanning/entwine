@@ -43,6 +43,18 @@ public:
         }
     }
 
+    static std::unique_ptr<Append> maybeCreate(
+            const arbiter::Endpoint& ep,
+            std::string name,
+            const Schema& schema,
+            const Id& id,
+            std::size_t numPoints)
+    {
+        auto a(makeUnique<Append>(ep, name, schema, id, numPoints));
+        if (a->table().data().size()) return a;
+        else return nullptr;
+    }
+
     void insert(const pdal::PointRef& pr, std::size_t offset)
     {
         m_touched = true;
@@ -60,6 +72,7 @@ public:
 
     const Schema& schema() const { return m_schema; }
     VectorPointTable& table() { return m_table; }
+    const VectorPointTable& table() const { return m_table; }
 
 private:
     const arbiter::Endpoint m_ep;
@@ -68,7 +81,7 @@ private:
     const Schema m_schema;
     const pdal::DimTypeList m_dimTypeList;
 
-    VectorPointTable m_table;
+    mutable VectorPointTable m_table;
     bool m_touched = false;
 };
 

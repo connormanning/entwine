@@ -43,21 +43,20 @@ ChunkReader::ChunkReader(
         const Metadata& m,
         const arbiter::Endpoint& ep,
         PointPool& pool)
-    : ChunkReader(
-            m,
-            ep,
-            m.boundsScaledCubic(),
-            pool,
-            m.structure().baseIndexBegin(),
-            m.structure().baseDepthBegin())
+    : m_endpoint(ep)
+    , m_metadata(m)
+    , m_pool(pool)
+    , m_bounds(m.boundsScaledCubic())
+    , m_schema(m.schema())
+    , m_id(m.structure().baseIndexBegin())
+    , m_depth(m.structure().baseDepthBegin())
+    , m_cells(m_pool.cellPool())
 {
-    m_offsets.push_back(m_cells.size());
-
     const Structure& s(m.structure());
-    for (std::size_t d(s.baseDepthBegin() + 1); d < s.baseDepthEnd(); ++d)
+    for (std::size_t d(s.baseDepthBegin()); d < s.baseDepthBegin() + 3; ++d)
     {
         const auto id(ChunkInfo::calcLevelIndex(2, d));
-        m_cells.push(m.storage().deserialize(ep, pool, id));
+        m_cells.pushBack(m.storage().deserialize(ep, pool, id));
         m_offsets.push_back(m_cells.size());
     }
 }
@@ -65,7 +64,7 @@ ChunkReader::ChunkReader(
 ChunkReader::~ChunkReader()
 {
     m_pool.release(std::move(m_cells));
-    for (const auto& p : m_appends) p.second.write();
+    for (const auto& p : m_appends) p.second->write();
 }
 
 ColdChunkReader::ColdChunkReader(
@@ -122,26 +121,22 @@ BaseChunkReader::BaseChunkReader(
     const auto& globalBounds(m.boundsScaledCubic());
     Climber climber(m);
 
-    std::size_t depth(s.baseDepthBegin());
     std::size_t offset(0);
     std::size_t slice(0);
 
     for (const auto& cell : m_chunk.cells())
     {
+        const std::size_t depth(slice + s.baseDepthBegin());
         climber.reset();
         climber.magnifyTo(cell.point(), depth);
-        m_points[climber.index().getSimple()].emplace_back(
+        m_points[climber.index()].emplace_back(
                 offset,
                 cell.point(),
                 cell.uniqueData(),
                 Tube::calcTick(cell.point(), globalBounds, depth));
-        ++offset;
-
-        if (offset == m_chunk.offsets().at(slice))
+        if (++offset == m_chunk.offsets().at(slice))
         {
-            std::cout << "Slicing to " << m_chunk.offsets().at(slice) << std::endl;
             ++slice;
-            ++depth;
         }
     }
 }

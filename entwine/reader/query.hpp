@@ -98,14 +98,10 @@ protected:
 class RegisteredDim
 {
 public:
-    RegisteredDim(const Schema& s, const DimInfo& d, std::string name = "")
+    RegisteredDim(const Schema& s, const DimInfo& d, bool native = true)
         : m_schema(s)
         , m_dim(d)
-        , m_name(name)
-        /*
-        , m_table(m_schema)
-        , m_pr(m_table, 0)
-        */
+        , m_native(native)
     {
         // The DimInfo parameter comes from a user-defined Schema, which may
         // contain dimensions from various layouts, e.g. the default Reader's
@@ -116,20 +112,15 @@ public:
 
     const DimInfo& info() const { return m_dim; }
 
-    const std::string& name() const { return m_name; }
-    /*
-    BinaryPointTable& table() { return m_table; }
-    pdal::PointRef& pr() { return m_pr; }
-    */
+    bool native() const { return m_native; }
+    void setAppend(Append* a) { m_append = a; }
+    Append* append() const { return m_append; }
 
 private:
     const Schema& m_schema;
     const DimInfo m_dim;
-    const std::string m_name;
-    /*
-    BinaryPointTable m_table;
-    pdal::PointRef m_pr;
-    */
+    const bool m_native;
+    mutable Append* m_append = nullptr;
 };
 
 class RegisteredSchema
@@ -139,6 +130,7 @@ public:
 
     const Schema& original() const { return m_original; }
     const std::vector<RegisteredDim>& dims() const { return m_dims; }
+    std::vector<RegisteredDim>& dims() { return m_dims; }
 
 private:
     const Schema& m_original;
@@ -206,7 +198,7 @@ private:
     }
 
     const Schema m_schema;
-    const RegisteredSchema m_reg;
+    RegisteredSchema m_reg;
     const ChunkReader* m_cr;
     const Point m_mid;
 

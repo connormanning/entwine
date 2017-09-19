@@ -155,6 +155,7 @@ public:
         if (!empty())
         {
             m_tail->setNext(other.head());
+            m_tail = other.tail();
             m_size += other.size();
             other.clear();
         }

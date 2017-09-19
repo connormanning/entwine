@@ -30,39 +30,6 @@ class Bounds;
 class Metadata;
 class Schema;
 
-class PointInfo
-{
-public:
-    PointInfo(
-            std::size_t offset,
-            const Point& point,
-            const char* data,
-            uint64_t tick = 0)
-        : m_offset(offset)
-        , m_point(point)
-        , m_data(data)
-        , m_tick(tick)
-    { }
-
-    PointInfo(uint64_t tick) : m_tick(tick) { }
-
-    const Point& point() const { return m_point; }
-    const char* data() const { return m_data; }
-    uint64_t tick() const { return m_tick; }
-    std::size_t offset() const { return m_offset; }
-
-    bool operator<(const PointInfo& other) const
-    {
-        return m_tick < other.m_tick;
-    }
-
-private:
-    std::size_t m_offset = 0;
-    Point m_point;
-    const char* m_data = nullptr;
-    uint64_t m_tick = 0;
-};
-
 /*
 class Extra
 {
@@ -151,28 +118,34 @@ public:
     const Cell::PooledStack& cells() const { return m_cells; }
     const std::vector<std::size_t> offsets() const { return m_offsets; }
 
-    Append& getAppend(std::string name, const Schema& s) const
+    Append& getOrCreateAppend(std::string name, const Schema& s) const
     {
         std::lock_guard<std::mutex> lock(m);
         if (!m_appends.count(name))
         {
-            m_appends.emplace(
-                    std::piecewise_construct,
-                    std::forward_as_tuple(name),
-                    std::forward_as_tuple(
-                        m_endpoint,
-                        name,
-                        s,
-                        m_id,
-                        m_cells.size()));
+            auto append = makeUnique<Append>(
+                    m_endpoint,
+                    name,
+                    s,
+                    m_id,
+                    m_cells.size());
+            m_appends[name] = std::move(append);
         }
-        return m_appends.at(name);
+        return *m_appends.at(name);
     }
 
-    Append& appendAt(const std::string name) const
+    Append* findAppend(const std::string name, const Schema& s) const
     {
         std::lock_guard<std::mutex> lock(m);
-        return m_appends.at(name);
+        if (m_appends.count(name)) return m_appends.at(name).get();
+
+        const auto np(m_cells.size());
+        if (auto a = Append::maybeCreate(m_endpoint, name, s, m_id, np))
+        {
+            m_appends[name] = std::move(a);
+            return m_appends.at(name).get();
+        }
+        else return nullptr;
     }
 
 protected:
@@ -188,7 +161,40 @@ protected:
     std::vector<std::size_t> m_offsets;
 
     mutable std::mutex m;
-    mutable std::map<std::string, Append> m_appends;
+    mutable std::map<std::string, std::unique_ptr<Append>> m_appends;
+};
+
+class PointInfo
+{
+public:
+    PointInfo(
+            std::size_t offset,
+            const Point& point,
+            const char* data,
+            uint64_t tick = 0)
+        : m_offset(offset)
+        , m_point(point)
+        , m_data(data)
+        , m_tick(tick)
+    { }
+
+    PointInfo(uint64_t tick) : m_tick(tick) { }
+
+    const Point& point() const { return m_point; }
+    const char* data() const { return m_data; }
+    uint64_t tick() const { return m_tick; }
+    std::size_t offset() const { return m_offset; }
+
+    bool operator<(const PointInfo& other) const
+    {
+        return m_tick < other.m_tick;
+    }
+
+private:
+    std::size_t m_offset = 0;
+    Point m_point;
+    const char* m_data = nullptr;
+    uint64_t m_tick = 0;
 };
 
 using TubeData = std::vector<PointInfo>;
