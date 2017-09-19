@@ -88,6 +88,14 @@ public:
         return q->data();
     }
 
+    template<typename... Args>
+    std::unique_ptr<CountQuery> getCountQuery(Args&&... args)
+    {
+        return makeUnique<CountQuery>(
+                *this,
+                QueryParams(std::forward<Args>(args)...));
+    }
+
     void registerAppend(std::string name, const Schema& schema);
     std::size_t write(
             std::string name,

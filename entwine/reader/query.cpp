@@ -138,7 +138,10 @@ bool Query::next()
 
             if (m_reader.base())
             {
-                chunk(m_reader.base()->chunk());
+                if (m_depthBegin < m_structure.baseDepthEnd())
+                {
+                    chunk(m_reader.base()->chunk());
+                }
 
                 PointState ps(m_structure, m_metadata.boundsScaledCubic());
                 getBase(ps);

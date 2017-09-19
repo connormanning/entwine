@@ -91,8 +91,14 @@ public:
         : Query(reader, params)
     { }
 
+    std::size_t chunks() const { return m_chunks; }
+
 protected:
     virtual void process(const PointInfo& info) override { }
+    virtual void chunk(const ChunkReader&) override { ++m_chunks; }
+
+private:
+    std::size_t m_chunks = 0;
 };
 
 class RegisteredDim
