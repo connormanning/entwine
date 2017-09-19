@@ -132,16 +132,6 @@ public:
     const arbiter::Endpoint& endpoint() const { return m_endpoint; }
     bool exists(const QueryChunkState& state) const;
 
-    /*
-    Schema appendedSchema() const
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        Schema s;
-        for (const auto p : m_appends) s = s.append(p.second);
-        return s;
-    }
-    */
-
     std::map<std::string, Schema> appends() const
     {
         std::lock_guard<std::mutex> lock(m_mutex);
@@ -163,12 +153,6 @@ public:
         std::lock_guard<std::mutex> lock(m_mutex);
         return m_appends.at(name);
     }
-    /*
-    const Schema* additional() const { return m_additional.get(); }
-    const std::map<std::string, Schema>& extras() const { return m_extras; }
-    const std::map<std::string, std::string>& dimMap() const { return m_dimMap; }
-    void addExtra(std::string, const Schema& schema);
-    */
 
 private:
     void init();
@@ -198,17 +182,6 @@ private:
     mutable std::map<Id, bool> m_pre;
 
     std::map<std::string, Schema> m_appends;
-    /*
-    std::unique_ptr<Schema> m_additional;
-
-    // Maps extra-name to schema.
-    std::map<std::string, Schema> m_extras;
-
-    // Maps dim-name to extra-name.
-    std::map<std::string, std::string> m_dimMap;
-
-    bool m_extrasChanged = false;
-    */
 };
 
 } // namespace entwine

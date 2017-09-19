@@ -107,22 +107,6 @@ void Reader::init()
     if (structure.hasBase())
     {
         m_base = makeUnique<BaseChunkReader>(m_metadata, m_endpoint, m_pool);
-        /*
-        if (m_metadata.slicedBase())
-        {
-            m_base = makeUnique<SlicedBaseChunkReader>(
-                    m_metadata,
-                    m_pool,
-                    m_endpoint);
-        }
-        else
-        {
-            m_base = makeUnique<CelledBaseChunkReader>(
-                    m_metadata,
-                    m_pool,
-                    m_endpoint);
-        }
-        */
     }
 
     if (structure.hasCold())
@@ -209,41 +193,6 @@ std::size_t Reader::write(
     writeQuery.run();
     return writeQuery.numPoints();
 }
-
-/*
-void Reader::addExtra(std::string name, const Schema& schema)
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-    if (m_extras.count(name)) return;
-
-    std::cout << "Adding extra: " << name << std::endl;
-    m_extrasChanged = true;
-
-    if (m_endpoint.isLocal())
-    {
-        arbiter::fs::mkdirp(m_endpoint.root() + "d/" + name);
-    }
-
-    DimList dims(m_additional->dims());
-    m_extras.emplace(
-                    std::piecewise_construct,
-                    std::forward_as_tuple(name),
-                    std::forward_as_tuple(schema.toJson()));
-
-    for (const auto& json : schema.toJson())
-    {
-        m_dimMap[json["name"].asString()] = name;
-        dims.emplace_back(json);
-    }
-
-    std::sort(dims.begin(), dims.end(), [](DimInfo& a, DimInfo& b)
-    {
-        return a.name() < b.name();
-    });
-
-    m_additional = makeUnique<Schema>(dims);
-}
-*/
 
 Reader::~Reader() { m_cache.release(*this); }
 

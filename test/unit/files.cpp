@@ -183,14 +183,14 @@ TEST_F(FilesTest, MultiSearch)
 TEST_F(FilesTest, Bounds)
 {
     {
-        const Bounds up(-5, -5, 0, 5, 5, 5);
+        const Bounds up(-5, -5, 1, 5, 5, 5);
         const auto files(reader->files(up));
         Matches matches(Paths{ "neu.laz", "nwu.laz", "seu.laz", "swu.laz" });
         EXPECT_TRUE(matches.good(files)) << matches.message();
     }
 
     {
-        const Bounds southwest(-5, -5, 0, 0);
+        const Bounds southwest(-5, -5, -1, -1);
         const auto files(reader->files(southwest));
         Matches matches(Paths{ "swu.laz", "swd.laz" });
         EXPECT_TRUE(matches.good(files)) << matches.message();
@@ -203,7 +203,7 @@ TEST_F(FilesTest, BoundsScaled)
     const Offset offset(314159, 271828, 42);
 
     {
-        const Bounds b(-5, -5, 0, 5, 5, 5);
+        const Bounds b(-5, -5, 1, 5, 5, 5);
         const Bounds up = (b + nycCenter).scale(scale, offset);
         const auto files(nycReader->files(up, &scale, &offset));
         Matches matches(Paths{ "neu.laz", "nwu.laz", "seu.laz", "swu.laz" });
@@ -211,7 +211,7 @@ TEST_F(FilesTest, BoundsScaled)
     }
 
     {
-        const Bounds b(-5, -5, 0, 0);
+        const Bounds b(-5, -5, -1, -1);
         const Bounds southwest = (b + nycCenter).scale(scale, offset);
         const auto files(nycReader->files(southwest, &scale, &offset));
         Matches matches(Paths{ "swu.laz", "swd.laz" });
