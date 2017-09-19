@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 745d2284409bde92523904bb2d2e0b0c5a3b9485
+// Git SHA: 4abf1351f16b2645ee56b3588903f4d37c060f06
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -4292,8 +4292,8 @@ public:
 
     std::string url() const;
     std::string host() const;
-    std::string baseUrl() const { return m_baseUrl; }
-    std::string bucket() const { return m_bucket; }
+    std::string baseUrl() const;
+    std::string bucket() const;
     std::string object() const;
 
 private:
@@ -5011,8 +5011,8 @@ public:
 
     /** Copy the single file @p file to the destination @p to.  If @p to ends
      * with a `/` or '\' character, then @p file will be copied into the
-     * directory @p to with the basename of @p file.  If @p does not end with a
-     * slash character, then @p to will be interpreted as a file path.
+     * directory @p to with the basename of @p file.  If @p to does not end
+     * with a slash character, then @p to will be interpreted as a file path.
      *
      * If @p to is a local filesystem path, then `fs::mkdirp` will be called
      * prior to copying.

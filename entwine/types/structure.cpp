@@ -264,7 +264,7 @@ void Structure::applyNumPointsHint(const std::size_t n)
     const std::size_t sparse(
             std::max<std::size_t>(
                 activeMinDepth,
-                1 + std::ceil(
+                std::ceil(
                     std::log2(activeNumPointsHint) / std::log2(m_factor))));
 
     if (!m_mappedDepthBegin) m_mappedDepthBegin = sparse;

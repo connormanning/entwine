@@ -171,7 +171,7 @@ Arbiter::Arbiter(const Json::Value& in)
     if (dropbox) m_drivers[dropbox->type()] = std::move(dropbox);
 
 #ifdef ARBITER_OPENSSL
-    auto google(Google::create(*m_pool, json["google"]));
+    auto google(Google::create(*m_pool, json["gs"]));
     if (google) m_drivers[google->type()] = std::move(google);
 #endif
 
@@ -2237,8 +2237,8 @@ std::string S3::ApiV4::getAuthHeader(
         "Signature=" + signature;
 }
 
-S3::Resource::Resource(std::string baseUrl, std::string fullPath)
-    : m_baseUrl(baseUrl)
+S3::Resource::Resource(std::string base, std::string fullPath)
+    : m_baseUrl(base)
     , m_bucket()
     , m_object()
     , m_virtualHosted(true)
@@ -2249,15 +2249,29 @@ S3::Resource::Resource(std::string baseUrl, std::string fullPath)
     m_bucket = fullPath.substr(0, split);
     if (split != std::string::npos) m_object = fullPath.substr(split + 1);
 
-    m_virtualHosted = m_bucket.find_first_of('.') == std::string::npos;
+    // Always use virtual-host style paths.  We'll use HTTP for our back-end
+    // calls to allow this.  If we were to use HTTPS on the back-end, then we
+    // would have to use non-virtual-hosted paths if the bucket name contained
+    // '.' characters.
+    //
+    // m_virtualHosted = m_bucket.find_first_of('.') == std::string::npos;
+}
+
+std::string S3::Resource::baseUrl() const
+{
+    return m_baseUrl;
+}
+
+std::string S3::Resource::bucket() const
+{
+    return m_virtualHosted ? m_bucket : "";
 }
 
 std::string S3::Resource::url() const
 {
-    // We can't use virtual-host style paths if the bucket contains dots.
     if (m_virtualHosted)
     {
-        return "https://" + m_bucket + "." + m_baseUrl + m_object;
+        return "http://" + m_bucket + "." + m_baseUrl + m_object;
     }
     else
     {
