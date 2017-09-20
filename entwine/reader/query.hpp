@@ -113,7 +113,11 @@ public:
         // contain dimensions from various layouts, e.g. the default Reader's
         // Schema and various Append Schemas.  Correlate the dimenion to its
         // corresponding layout here.
-        m_dim.setId(m_schema.find(m_dim.name()).id());
+        if (m_schema.contains(m_dim.name()))
+        {
+            m_dim.setId(m_schema.find(m_dim.name()).id());
+        }
+        else m_dim.setId(pdal::Dimension::Id::Unknown);
     }
 
     const DimInfo& info() const { return m_dim; }
