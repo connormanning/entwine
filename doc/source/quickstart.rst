@@ -21,11 +21,11 @@ Now we have Entwine data at ``~/entwine/abc``.  We could have also passed a wild
 
 ::
 
-    docker run -it -v $HOME/entwine:/opt/data -p 8080:80 connormanning/greyhound
+    docker run -it -v $HOME/entwine:/opt/data -p 8080:8080 connormanning/greyhound
 
 |
 
-You may need to forward port 8080 from your docker virtual machine to your host OS; `this post <https://jlordiales.me/2015/04/02/boot2docker-port-forward/>`_ describes one way to do this.
+You may need to forward port 8080 from your docker virtual machine to your host OS; `this post <https://jlordiales.me/2015/04/02/boot2docker-port-forward/>`_ describes one way to do this on macOS.
 For the impatient, use this one-liner:
 
 ::
