@@ -165,8 +165,6 @@ void Inference::go()
 
         if (Executor::get().good(f.path()))
         {
-            m_valid = true;
-
             if (m_arbiter->isHttpDerived(f.path()))
             {
                 m_pool->add([this, &f]()
@@ -329,11 +327,13 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
     std::unique_ptr<Preview> preview(
             Executor::get().preview(localPath, m_reproj.get()));
 
-    auto update([&fileInfo](
+    auto update([this, &fileInfo](
                 std::size_t numPoints,
                 const Bounds& bounds,
                 const Json::Value* metadata)
     {
+        m_valid = true;
+
         fileInfo.numPoints(numPoints);
         fileInfo.bounds(bounds);
         if (metadata) fileInfo.metadata(*metadata);

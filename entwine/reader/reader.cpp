@@ -148,17 +148,59 @@ void Reader::init()
         const Json::Value json(parse(m_endpoint.get("d/dimensions.json")));
         for (const auto name : json.getMemberNames())
         {
-            registerAppend(name, Schema(json[name]));
+            try
+            {
+                registerAppend(name, Schema(json[name]));
+            }
+            catch (std::exception& e)
+            {
+                std::cout << e.what() << std::endl;
+            }
         }
     }
 }
 
 void Reader::registerAppend(std::string name, const Schema& schema)
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    if (m_appends.count(name)) return;
+    if (name.empty())
+    {
+        throw std::runtime_error("Appended-dimension set name cannot be empty");
+    }
 
-    // TODO Check existing appends/top-level schema for conflicting dim-names?
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_appends.count(name))
+    {
+        if (schema != appendAt(name, false))
+        {
+            throw std::runtime_error(
+                    "Cannot change the schema of an existing append set");
+        }
+    }
+
+    for (const auto& dim : schema.dims())
+    {
+        if (m_metadata.schema().contains(dim.name()))
+        {
+            throw std::runtime_error(
+                    "Cannot re-register native dimension: " + dim.name());
+        }
+
+        const std::string existing(findAppendName(dim.name(), false));
+        if (existing.size())
+        {
+            if (name != existing)
+            {
+                throw std::runtime_error(
+                    "Dimension was already appended: " + dim.name());
+            }
+
+            if (schema != appendAt(existing, false))
+            {
+                throw std::runtime_error(
+                        "Cannot re-register this name with a new schema");
+            }
+        }
+    }
 
     std::cout << "Registering append: " << name << std::endl;
 

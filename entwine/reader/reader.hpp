@@ -142,13 +142,31 @@ public:
 
     std::map<std::string, Schema> appends() const
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        return m_appends;
+        return appends(true);
     }
 
     std::string findAppendName(const std::string& dim) const
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        return findAppendName(dim, true);
+    }
+
+    const Schema& appendAt(const std::string name) const
+    {
+        return appendAt(name, true);
+    }
+
+private:
+    std::map<std::string, Schema> appends(bool doLock) const
+    {
+        std::unique_lock<std::mutex> lock;
+        if (doLock) lock = std::unique_lock<std::mutex>(m_mutex);
+        return m_appends;
+    }
+
+    std::string findAppendName(const std::string& dim, bool doLock) const
+    {
+        std::unique_lock<std::mutex> lock;
+        if (doLock) lock = std::unique_lock<std::mutex>(m_mutex);
         for (const auto& p : m_appends)
         {
             if (p.second.contains(dim)) return p.first;
@@ -156,13 +174,13 @@ public:
         return "";
     }
 
-    const Schema& appendAt(const std::string name) const
+    const Schema& appendAt(const std::string name, bool doLock) const
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::unique_lock<std::mutex> lock;
+        if (doLock) lock = std::unique_lock<std::mutex>(m_mutex);
         return m_appends.at(name);
     }
 
-private:
     void init();
 
     Delta localizeDelta(const Point* scale, const Point* offset) const;
