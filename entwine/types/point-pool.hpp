@@ -117,6 +117,13 @@ public:
         , m_cellPool(heuristics::poolBlockSize)
     { }
 
+    PointPool(const Schema& schema, const Delta* delta, std::size_t blockSize)
+        : m_schema(schema)
+        , m_delta(delta)
+        , m_dataPool(schema.pointSize(), blockSize)
+        , m_cellPool(blockSize)
+    { }
+
     const Schema& schema() const { return m_schema; }
     const Delta* delta() const { return m_delta; }
     Data::Pool& dataPool() { return m_dataPool; }

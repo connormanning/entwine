@@ -65,13 +65,15 @@ namespace
     }
 
     HierarchyCell::Pool hierarchyPool(4096);
+
+    const std::size_t basePoolBlockSize(65536);
 }
 
 Reader::Reader(const std::string path, Cache& cache)
     : m_ownedArbiter(makeUnique<arbiter::Arbiter>())
     , m_endpoint(m_ownedArbiter->getEndpoint(path))
     , m_metadata(m_endpoint)
-    , m_pool(m_metadata.schema(), m_metadata.delta())
+    , m_pool(m_metadata.schema(), m_metadata.delta(), basePoolBlockSize)
     , m_cache(cache)
     , m_hierarchy(
             makeUnique<HierarchyReader>(
@@ -87,7 +89,7 @@ Reader::Reader(const std::string path, Cache& cache)
 Reader::Reader(const arbiter::Endpoint& endpoint, Cache& cache)
     : m_endpoint(endpoint)
     , m_metadata(m_endpoint)
-    , m_pool(m_metadata.schema(), m_metadata.delta())
+    , m_pool(m_metadata.schema(), m_metadata.delta(), basePoolBlockSize)
     , m_cache(cache)
     , m_hierarchy(
             makeUnique<HierarchyReader>(

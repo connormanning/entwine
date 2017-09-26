@@ -91,7 +91,7 @@ public:
 protected:
     const arbiter::Endpoint m_endpoint;
     const Metadata& m_metadata;
-    PointPool& m_pool;
+    PointPool m_pool;
     const Bounds m_bounds;
     const Schema& m_schema;
     const Id m_id;

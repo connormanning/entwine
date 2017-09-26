@@ -22,6 +22,11 @@
 namespace entwine
 {
 
+namespace
+{
+    const std::size_t poolBlockSize(1024);
+}
+
 ChunkReader::ChunkReader(
         const Metadata& metadata,
         const arbiter::Endpoint& endpoint,
@@ -31,7 +36,7 @@ ChunkReader::ChunkReader(
         const std::size_t depth)
     : m_endpoint(endpoint)
     , m_metadata(metadata)
-    , m_pool(pool)
+    , m_pool(pool.schema(), pool.delta(), poolBlockSize)
     , m_bounds(bounds)
     , m_schema(metadata.schema())
     , m_id(id)
@@ -45,7 +50,7 @@ ChunkReader::ChunkReader(
         PointPool& pool)
     : m_endpoint(ep)
     , m_metadata(m)
-    , m_pool(pool)
+    , m_pool(pool.schema(), pool.delta(), poolBlockSize)
     , m_bounds(m.boundsScaledCubic())
     , m_schema(m.schema())
     , m_id(m.structure().baseIndexBegin())
@@ -56,7 +61,7 @@ ChunkReader::ChunkReader(
     for (std::size_t d(s.baseDepthBegin()); d < s.baseDepthBegin() + 3; ++d)
     {
         const auto id(ChunkInfo::calcLevelIndex(2, d));
-        m_cells.pushBack(m.storage().deserialize(ep, pool, id));
+        m_cells.pushBack(m.storage().deserialize(ep, m_pool, id));
         m_offsets.push_back(m_cells.size());
     }
 }
