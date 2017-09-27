@@ -58,12 +58,73 @@ ChunkReader::ChunkReader(
     , m_cells(m_pool.cellPool())
 {
     const Structure& s(m.structure());
-    for (std::size_t d(s.baseDepthBegin()); d < s.baseDepthBegin() + 3; ++d)
+    if (m.slicedBase())
     {
-        const auto id(ChunkInfo::calcLevelIndex(2, d));
-        m_cells.pushBack(m.storage().deserialize(ep, m_pool, id));
-        m_offsets.push_back(m_cells.size());
+        for (std::size_t d(s.baseDepthBegin()); d < s.baseDepthBegin() + 3; ++d)
+        {
+            const auto id(ChunkInfo::calcLevelIndex(2, d));
+            m_cells.pushBack(m.storage().deserialize(ep, m_pool, id));
+            m_offsets.push_back(m_cells.size());
+        }
     }
+    else initLegacyBase();
+}
+
+void ChunkReader::initLegacyBase()
+{
+    const auto& m(m_metadata);
+
+    const Schema tubeDim({ { "TubeId", "unsigned", 8 } });
+    const Schema celledSchema(tubeDim.append(m.schema()));
+    PointPool celledPool(celledSchema, m.delta());
+    auto tubedCells(m.storage().deserialize(m_endpoint, celledPool, m_id));
+
+    const std::size_t numPoints(tubedCells.size());
+
+    auto dataNodes(m_pool.dataPool().acquire(numPoints));
+    m_cells = m_pool.cellPool().acquire(numPoints);
+
+    const std::size_t celledPointSize(celledSchema.pointSize());
+    const std::size_t tubeIdSize(sizeof(uint64_t));
+    uint64_t tube(0);
+    char* tPos(reinterpret_cast<char*>(&tube));
+
+    BinaryPointTable table(m.schema());
+    pdal::PointRef pointRef(table, 0);
+
+    std::size_t slice(m.structure().baseDepthBegin());
+
+    Cell::RawNode* cell(m_cells.head());
+    Cell::RawNode* tubedCell(tubedCells.head());
+
+    for (std::size_t i(0); i < numPoints; ++i)
+    {
+        const char* src((*tubedCell)->uniqueData());
+
+        Data::PooledNode data(dataNodes.popOne());
+
+        std::copy(src, src + tubeIdSize, tPos);
+        std::copy(src + tubeIdSize, src + celledPointSize, *data);
+
+        table.setPoint(*data);
+        (*cell)->set(pointRef, std::move(data));
+
+        tube += m_id.getSimple();
+
+        if (ChunkInfo::calcDepth(tube) > slice)
+        {
+            m_offsets.push_back(i);
+            ++slice;
+            if (ChunkInfo::calcDepth(tube) != slice)
+            {
+                throw std::runtime_error("Invalid legacy base");
+            }
+        }
+
+        cell = cell->next();
+        tubedCell = tubedCell->next();
+    }
+    m_offsets.push_back(numPoints);
 }
 
 ChunkReader::~ChunkReader()

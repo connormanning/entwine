@@ -102,7 +102,7 @@ Cell::PooledStack LasZipStorage::read(
     const std::string basename(m_metadata.basename(id) + ".laz");
     std::string localFile(endpoint.prefixedRoot() + basename);
 
-    if (!endpoint.isLocal())
+    if (!endpoint.isLocal() && endpoint.tryGetSize(basename))
     {
         const std::string tmp(arbiter::fs::getTempPath());
         localFile = tmp + basename;

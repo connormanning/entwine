@@ -279,6 +279,13 @@ public:
         return Schema(d);
     }
 
+    Schema append(const DimInfo& add) const
+    {
+        DimList d(dims());
+        d.push_back(add);
+        return Schema(d);
+    }
+
 private:
     std::unique_ptr<pdal::PointLayout> makePointLayout(DimList& dims)
     {

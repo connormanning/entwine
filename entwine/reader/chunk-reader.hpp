@@ -89,6 +89,8 @@ public:
     }
 
 protected:
+    void initLegacyBase();
+
     const arbiter::Endpoint m_endpoint;
     const Metadata& m_metadata;
     PointPool m_pool;
