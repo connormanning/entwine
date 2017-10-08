@@ -45,7 +45,8 @@ Metadata::Metadata(
         const Subset* subset,
         const Delta* delta,
         const Transformation* transformation,
-        const cesium::Settings* cesiumSettings)
+        const cesium::Settings* cesiumSettings,
+        const std::vector<std::string> preserveSpatial)
     : m_delta(maybeClone(delta))
     , m_boundsNativeConforming(clone(boundsNativeConforming))
     , m_boundsNativeCubic(clone(makeNativeCube(boundsNativeConforming, delta)))
@@ -68,6 +69,7 @@ Metadata::Metadata(
     , m_srs(m_reprojection ? m_reprojection->out() : "")
     , m_density(density)
     , m_trustHeaders(trustHeaders)
+    , m_preserveSpatial(preserveSpatial)
 {
     if (!m_density) m_density = densityLowerBound(*m_manifest);
 }
@@ -145,6 +147,7 @@ Metadata::Metadata(const Json::Value& json)
     , m_density(json["density"].asDouble())
     , m_trustHeaders(json["trustHeaders"].asBool())
     , m_slicedBase(json["baseType"].asString() == "sliced")
+    , m_preserveSpatial(extract<std::string>(json["preserveSpatial"]))
 { }
 
 Metadata::Metadata(const Metadata& other)
@@ -168,6 +171,7 @@ Metadata::Metadata(const Metadata& other)
     , m_density(other.density())
     , m_trustHeaders(other.trustHeaders())
     , m_slicedBase(other.slicedBase())
+    , m_preserveSpatial(other.preserveSpatial())
 { }
 
 Metadata::~Metadata() { }
@@ -209,6 +213,8 @@ Json::Value Metadata::toJson() const
     }
 
     json["version"] = m_version->toString();
+
+    for (const auto s : m_preserveSpatial) json["preserveSpatial"].append(s);
 
     return json;
 }

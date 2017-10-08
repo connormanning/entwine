@@ -2545,6 +2545,10 @@ std::unique_ptr<Google::Auth> Google::Auth::create(const Json::Value& json)
             return util::makeUnique<Auth>(util::parse(*file));
         }
     }
+    else if (json.isObject())
+    {
+        return util::makeUnique<Auth>(json);
+    }
 
     return std::unique_ptr<Auth>();
 }

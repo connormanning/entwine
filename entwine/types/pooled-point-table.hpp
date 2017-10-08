@@ -33,7 +33,10 @@ public:
     // can return any that do not need to be kept for reuse.
     using Process = std::function<Cell::PooledStack(Cell::PooledStack)>;
 
-    PooledPointTable(PointPool& pointPool, Process process, Origin origin)
+    PooledPointTable(
+            PointPool& pointPool,
+            Process process,
+            Origin origin = invalidOrigin)
         : PooledPointTable(pointPool, process, origin, pointPool.schema())
     { }
 

@@ -106,7 +106,8 @@ public:
             T& table,
             std::string path,
             const Reprojection* reprojection = nullptr,
-            const std::vector<double>* transform = nullptr);
+            const std::vector<double>* transform = nullptr,
+            std::vector<std::string> preserve = std::vector<std::string>());
 
     // If available, return the bounds specified in the file header without
     // reading the whole file.
@@ -140,6 +141,7 @@ private:
             const Reprojection& given);
 
     UniqueStage createReader(std::string path) const;
+    UniqueStage createFerryFilter(const std::vector<std::string>& s) const;
     UniqueStage createReprojectionFilter(const Reprojection& r) const;
     UniqueStage createTransformationFilter(const std::vector<double>& m) const;
 
@@ -152,7 +154,8 @@ bool Executor::run(
         T& table,
         const std::string path,
         const Reprojection* reprojection,
-        const std::vector<double>* transform)
+        const std::vector<double>* transform,
+        const std::vector<std::string> preserve)
 {
     UniqueStage scopedReader(createReader(path));
     if (!scopedReader) return false;
@@ -162,6 +165,19 @@ bool Executor::run(
 
     // Needed so that the SRS has been initialized.
     { auto lock(getLock()); reader->prepare(table); }
+
+    UniqueStage scopedFerry;
+
+    if (preserve.size())
+    {
+        scopedFerry = createFerryFilter(preserve);
+        if (!scopedFerry) return false;
+
+        pdal::Filter* filter(scopedFerry->getAs<pdal::Filter*>());
+
+        filter->setInput(*executor);
+        executor = filter;
+    }
 
     UniqueStage scopedReproj;
 

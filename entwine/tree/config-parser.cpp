@@ -102,6 +102,8 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     const std::string out(json["output"].asString());
     const std::string tmp(json["tmp"].asString());
     const std::size_t threads(json["threads"].asUInt64());
+    const std::vector<std::string> preserveSpatial(
+            extract<std::string>(json["preserveSpatial"]));
 
     const auto outType(arbiter::Arbiter::getType(out));
     if (outType == "s3" || outType == "gs") json["prefixIds"] = true;
@@ -286,6 +288,17 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                     return 8;
             }());
 
+            for (const auto s : preserveSpatial)
+            {
+                if (std::none_of(
+                            dims.begin(),
+                            dims.end(),
+                            [s](const DimInfo& d) { return d.name() == s; }))
+                {
+                    dims.emplace_back(s, "floating", 8);
+                }
+            }
+
             dims.emplace_back("OriginId", "unsigned", originSize);
 
             if (storePointId)
@@ -346,7 +359,8 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
             subset.get(),
             delta.get(),
             transformation.get(),
-            cesiumSettings.get());
+            cesiumSettings.get(),
+            preserveSpatial);
 
     OuterScope outerScope;
     outerScope.setArbiter(arbiter);

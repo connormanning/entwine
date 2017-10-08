@@ -164,7 +164,7 @@ std::unique_ptr<Preview> Executor::preview(
             return stack;
         });
 
-        PooledPointTable table(pointPool, counter, invalidOrigin);
+        PooledPointTable table(pointPool, counter);
 
         if (Executor::get().run(table, path))
         {
@@ -278,6 +278,40 @@ UniqueStage Executor::createReader(const std::string path) const
         lock.unlock();
 
         result.reset(new ScopedStage(reader, *m_stageFactory, mutex()));
+    }
+
+    return result;
+}
+
+UniqueStage Executor::createFerryFilter(const std::vector<std::string>& p) const
+{
+    UniqueStage result;
+
+    if (p.empty()) throw std::runtime_error("No preservation option supplied");
+    if (p.size() > 3) throw std::runtime_error("Too many preservation options");
+
+    auto lock(getLock());
+
+    if (pdal::Filter* filter =
+            static_cast<pdal::Filter*>(
+                m_stageFactory->createStage("filters.ferry")))
+    {
+        std::size_t d(1);
+        pdal::Options options;
+        std::string s;
+        for (const auto name : p)
+        {
+            s += (s.size() ? "," : "") +
+                    pdal::Dimension::name(static_cast<pdal::Dimension::Id>(d)) +
+                    "=" + name;
+            ++d;
+        }
+        options.add("dimensions", s);
+        filter->setOptions(options);
+
+        lock.unlock();
+
+        result.reset(new ScopedStage(filter, *m_stageFactory, mutex()));
     }
 
     return result;

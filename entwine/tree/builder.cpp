@@ -275,7 +275,12 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
                 m_metadata->delta(),
                 origin));
 
-    return Executor::get().run(*table, localPath, reprojection, transformation);
+    return Executor::get().run(
+            *table,
+            localPath,
+            reprojection,
+            transformation,
+            m_metadata->preserveSpatial());
 }
 
 Cell::PooledStack Builder::insertData(

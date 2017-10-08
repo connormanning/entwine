@@ -411,6 +411,14 @@ void Kernel::build(std::vector<std::string> args)
             }
             else error("Invalid density specification");
         }
+        else if (arg == "-p")
+        {
+            if (++a < args.size())
+            {
+                json["preserveSpatial"] = parse(args[a]);
+            }
+            else error("Invalid preserveSpatial specification");
+        }
         else
         {
             error("Invalid argument: " + args[a]);

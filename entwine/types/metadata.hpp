@@ -14,6 +14,8 @@
 #include <string>
 #include <vector>
 
+#include <pdal/Dimension.hpp>
+
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/storage-types.hpp>
 
@@ -55,7 +57,9 @@ public:
             const Subset* subset = nullptr,
             const Delta* delta = nullptr,
             const std::vector<double>* transformation = nullptr,
-            const cesium::Settings* cesiumSettings = nullptr);
+            const cesium::Settings* cesiumSettings = nullptr,
+            std::vector<std::string> preserveSpatial =
+                std::vector<std::string>());
 
     Metadata(
             const arbiter::Endpoint& endpoint,
@@ -126,6 +130,10 @@ public:
     {
         return m_cesiumSettings.get();
     }
+    const std::vector<std::string>& preserveSpatial() const
+    {
+        return m_preserveSpatial;
+    }
 
     const Version& version() const { return *m_version; }
     const std::string& srs() const { return m_srs; }
@@ -172,6 +180,7 @@ private:
     double m_density = 0;
     bool m_trustHeaders = true;
     bool m_slicedBase = true;
+    std::vector<std::string> m_preserveSpatial;
 };
 
 } // namespace entwine
