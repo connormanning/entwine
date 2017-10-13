@@ -53,12 +53,13 @@ Builder::Builder(
         const Metadata& metadata,
         const std::string outPath,
         const std::string tmpPath,
-        const std::size_t totalThreads,
+        const std::size_t workThreads,
+        const std::size_t clipThreads,
         const OuterScope outerScope)
     : m_arbiter(outerScope.getArbiter())
     , m_outEndpoint(makeUnique<Endpoint>(m_arbiter->getEndpoint(outPath)))
     , m_tmpEndpoint(makeUnique<Endpoint>(m_arbiter->getEndpoint(tmpPath)))
-    , m_threadPools(makeUnique<ThreadPools>(totalThreads))
+    , m_threadPools(makeUnique<ThreadPools>(workThreads, clipThreads))
     , m_metadata(([this, &metadata]()
     {
         auto m(clone(metadata));
@@ -84,13 +85,14 @@ Builder::Builder(
 Builder::Builder(
         const std::string outPath,
         const std::string tmpPath,
-        const std::size_t totalThreads,
+        const std::size_t workThreads,
+        const std::size_t clipThreads,
         const std::size_t* subsetId,
         const OuterScope outerScope)
     : m_arbiter(outerScope.getArbiter())
     , m_outEndpoint(makeUnique<Endpoint>(m_arbiter->getEndpoint(outPath)))
     , m_tmpEndpoint(makeUnique<Endpoint>(m_arbiter->getEndpoint(tmpPath)))
-    , m_threadPools(makeUnique<ThreadPools>(totalThreads))
+    , m_threadPools(makeUnique<ThreadPools>(workThreads, clipThreads))
     , m_metadata(([this, subsetId]()
     {
         auto m(makeUnique<Metadata>(*m_outEndpoint, subsetId));
@@ -116,7 +118,8 @@ Builder::Builder(
 std::unique_ptr<Builder> Builder::tryCreateExisting(
         const std::string out,
         const std::string tmp,
-        const std::size_t threads,
+        const std::size_t works,
+        const std::size_t clips,
         const std::size_t* subsetId,
         OuterScope os)
 {
@@ -124,7 +127,7 @@ std::unique_ptr<Builder> Builder::tryCreateExisting(
 
     if (os.getArbiter()->getEndpoint(out).tryGetSize("entwine" + postfix))
     {
-        return makeUnique<Builder>(out, tmp, threads, subsetId, os);
+        return makeUnique<Builder>(out, tmp, works, clips, subsetId, os);
     }
 
     return std::unique_ptr<Builder>();

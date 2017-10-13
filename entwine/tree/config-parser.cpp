@@ -18,6 +18,7 @@
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
 #include <entwine/tree/inference.hpp>
+#include <entwine/tree/thread-pools.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/storage.hpp>
 #include <entwine/types/manifest.hpp>
@@ -101,9 +102,26 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
     const std::string out(json["output"].asString());
     const std::string tmp(json["tmp"].asString());
-    const std::size_t threads(json["threads"].asUInt64());
     const std::vector<std::string> preserveSpatial(
             extract<std::string>(json["preserveSpatial"]));
+
+    std::size_t workThreads(0);
+    std::size_t clipThreads(0);
+
+    if (json.isMember("threads"))
+    {
+        if (json["threads"].isNumeric())
+        {
+            const std::size_t threads(json["threads"].asUInt64());
+            workThreads = ThreadPools::getWorkThreads(threads);
+            clipThreads = ThreadPools::getClipThreads(threads);
+        }
+        else if (json["threads"].isArray())
+        {
+            workThreads = json["threads"][0].asUInt64();
+            clipThreads = json["threads"][1].asUInt64();
+        }
+    }
 
     const auto outType(arbiter::Arbiter::getType(out));
     if (outType == "s3" || outType == "gs") json["prefixIds"] = true;
@@ -113,7 +131,13 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
 
     if (!json["force"].asBool())
     {
-        if (auto builder = tryGetExisting(json, arbiter, out, tmp, threads))
+        if (auto builder = tryGetExisting(
+                    json,
+                    arbiter,
+                    out,
+                    tmp,
+                    workThreads,
+                    clipThreads))
         {
             if (verbose)
             {
@@ -201,7 +225,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
                 trustHeaders,
                 !absolute,
                 tmp,
-                threads,
+                workThreads + clipThreads,
                 verbose,
                 !!cesiumSettings,
                 arbiter.get());
@@ -365,7 +389,13 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
     OuterScope outerScope;
     outerScope.setArbiter(arbiter);
 
-    auto builder = makeUnique<Builder>(metadata, out, tmp, threads, outerScope);
+    auto builder = makeUnique<Builder>(
+            metadata,
+            out,
+            tmp,
+            workThreads,
+            clipThreads,
+            outerScope);
 
     if (verbose) builder->verbose(true);
     return builder;
@@ -376,7 +406,8 @@ std::unique_ptr<Builder> ConfigParser::tryGetExisting(
         std::shared_ptr<arbiter::Arbiter> arbiter,
         const std::string& outPath,
         const std::string& tmpPath,
-        const std::size_t numThreads)
+        const std::size_t workThreads,
+        const std::size_t clipThreads)
 {
     std::unique_ptr<Builder> builder;
     std::unique_ptr<std::size_t> subsetId;
@@ -392,7 +423,8 @@ std::unique_ptr<Builder> ConfigParser::tryGetExisting(
     return Builder::tryCreateExisting(
             outPath,
             tmpPath,
-            numThreads,
+            workThreads,
+            clipThreads,
             subsetId.get(),
             os);
 }

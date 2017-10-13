@@ -65,14 +65,16 @@ public:
             const Metadata& metadata,
             std::string outPath,
             std::string tmpPath,
-            std::size_t numThreads,
+            std::size_t workThreads,
+            std::size_t clipThreads,
             OuterScope outerScope = OuterScope());
 
     // Continue an existing build.
     Builder(
             std::string outPath,
             std::string tmpPath,
-            std::size_t numThreads,
+            std::size_t workThreads,
+            std::size_t clipThreads,
             const std::size_t* subsetId = nullptr,
             OuterScope outerScope = OuterScope());
 
@@ -116,7 +118,8 @@ public:
     static std::unique_ptr<Builder> tryCreateExisting(
             std::string path,
             std::string tmp,
-            std::size_t threads,
+            std::size_t workThreads,
+            std::size_t clipThreads,
             const std::size_t* subsetId = nullptr,
             OuterScope outerScope = OuterScope());
 

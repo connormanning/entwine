@@ -47,7 +47,8 @@ private:
             std::shared_ptr<arbiter::Arbiter> arbiter,
             const std::string& outPath,
             const std::string& tmpPath,
-            std::size_t numThreads);
+            std::size_t workThreads,
+            std::size_t clipThreads);
 
     static std::unique_ptr<Subset> maybeAccommodateSubset(
             Json::Value& json,

@@ -384,7 +384,7 @@ void Kernel::build(std::vector<std::string> args)
         {
             if (++a < args.size())
             {
-                json["threads"] = Json::UInt64(std::stoul(args[a]));
+                json["threads"] = parse(args[a]);
             }
             else
             {

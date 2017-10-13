@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <entwine/tree/heuristics.hpp>
 #include <entwine/util/pool.hpp>
 
 namespace entwine
@@ -18,7 +19,7 @@ namespace entwine
 class ThreadPools
 {
 public:
-    ThreadPools(std::size_t totalThreads);
+    ThreadPools(std::size_t workThreads, std::size_t clipThreads);
 
     Pool& workPool() { return m_workPool; }
     Pool& clipPool() { return m_clipPool; }
@@ -49,12 +50,17 @@ public:
         go();
     }
 
-    double ratio() const { return m_ratio; }
+    static std::size_t getWorkThreads(
+            const std::size_t total,
+            double workToClipRatio = heuristics::defaultWorkToClipRatio);
+
+    static std::size_t getClipThreads(
+            const std::size_t total,
+            double workToClipRatio = heuristics::defaultWorkToClipRatio);
 
 private:
     Pool m_workPool;
     Pool m_clipPool;
-    double m_ratio;
 };
 
 } // namespace entwine

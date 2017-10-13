@@ -37,7 +37,8 @@ Merger::Merger(
     m_builder = Builder::tryCreateExisting(
             m_path,
             ".",
-            threads,
+            ThreadPools::getWorkThreads(threads),
+            ThreadPools::getClipThreads(threads),
             &zero,
             *m_outerScope);
 
@@ -98,7 +99,8 @@ void Merger::go()
                 b = Builder::tryCreateExisting(
                         m_path,
                         ".",
-                        m_threads,
+                        ThreadPools::getWorkThreads(m_threads),
+                        ThreadPools::getClipThreads(m_threads),
                         &id,
                         *m_outerScope);
 
