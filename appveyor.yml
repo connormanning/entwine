@@ -33,10 +33,7 @@ install:
   - ps: mkdir C:\pdalbin | out-null
   
   - ps: mkdir C:\temp | out-null
-  
-  # make an install directory for packacing
-  - ps: mkdir C:\pdalbin | out-null
-  
+    
   # get the OSGeo installer
   - ps: (new-object net.webclient).DownloadFile("http://download.osgeo.org/osgeo4w/osgeo4w-setup-x86_64.exe", "C:\temp\osgeo4w-setup.exe")
   # and install our dependencies
