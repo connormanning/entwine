@@ -34,8 +34,6 @@ install:
   
   - ps: mkdir C:\temp | out-null
   
-  - ps: mkdir $env:OSGEO4W_ROOT | out-null
-  
   # make an install directory for packacing
   - ps: mkdir C:\pdalbin | out-null
   
