@@ -37,7 +37,7 @@ install:
   # get the OSGeo installer
   - ps: (new-object net.webclient).DownloadFile("http://download.osgeo.org/osgeo4w/osgeo4w-setup-x86_64.exe", "C:\temp\osgeo4w-setup.exe")
   # and install our dependencies
-  - C:\temp\osgeo4w-setup.exe -q -k -r -A -s http://download.osgeo.org/osgeo4w/ -a x86_64 -Ppdal,xz-devel,openssl-devel,jsoncpp -R %OSGEO4W_ROOT% > NUL
+  - C:\temp\osgeo4w-setup.exe -q -k -r -A -s http://download.osgeo.org/osgeo4w/ -a x86_64 -P pdal,xz-devel,openssl-devel,jsoncpp -R %OSGEO4W_ROOT% > NUL
 
   - call %OSGEO4W_ROOT%\bin\o4w_env.bat
   - call %OSGEO4W_ROOT%\bin\py3_env.bat
