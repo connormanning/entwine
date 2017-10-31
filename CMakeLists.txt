@@ -148,6 +148,8 @@ target_include_directories(entwine PRIVATE "${CURL_INCLUDE_DIR}")
 target_link_libraries(entwine PRIVATE ${OPENSSL_LIBRARIES})
 target_include_directories(entwine PRIVATE "${OPENSSL_INCLUDE_DIR}")
 
+include_directories(entwine test/gtest-1.8.0/include test/gtest-1.8.0)
+
 set_target_properties(
     entwine
     PROPERTIES
@@ -175,9 +177,7 @@ install(
     DESTINATION lib/cmake/entwine)
 
 add_subdirectory(test/data)
-
 add_subdirectory(test/gtest-1.8.0)
-include_directories(entwine test/gtest-1.8.0/include test/gtest-1.8.0)
 
 add_subdirectory(test)
 
