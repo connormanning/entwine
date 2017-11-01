@@ -18,8 +18,8 @@ if ("${CMAKE_BUILD_TYPE}" STREQUAL "")
     set(CMAKE_BUILD_TYPE "Release")
 endif()
 
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR
-    "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+if (${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU" OR
+    ${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
     add_definitions(${CMAKE_CXX_FLAGS} "-std=c++11")
     add_definitions(${CMAKE_CXX_FLAGS} "-Wno-deprecated-declarations")
     add_definitions(${CMAKE_CXX_FLAGS} "-Wall")
@@ -30,7 +30,7 @@ endif()
 
 if (MSVC)
     # prevents clashes between macros min\max and std::min\std::max
-    add_definitions(${CMAKE_CXX_FLAGS} "/DNOMINMAX")
+    add_definitions(${CMAKE_CXX_FLAGS} "/DNOMINMAX" "/DJSON_DLL")
 endif(MSVC)
 
 set(entwine_defs_hpp_in
@@ -58,6 +58,7 @@ find_package(PDAL ${PDAL_FIND_VERSION} REQUIRED CONFIG NO_POLICY_SCOPE)
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 find_package(Threads REQUIRED)
 find_package(LazPerf REQUIRED)
+find_package(LibLZMA )
 find_package(Curl)
 find_package(OpenSSL)
 
@@ -130,38 +131,22 @@ endif()
 
 if (MSVC)
     find_library(LZMA_LIBRARY liblzma PATHS "${CMAKE_INSTALL_PREFIX}/lib")
-    target_link_libraries(entwine pdalcpp pdal_util ${LZMA_LIBRARY})
-else()
-    target_link_libraries(entwine pdalcpp lzma dl)
 endif()
 
-if (ENTWINE_JSONCPP_INCLUDE_DIR)
-    MESSAGE("Linking system JsonCpp")
-    if (MSVC)
-        find_library(JSONCPP_LIBRARY jsoncpp PATHS "${CMAKE_INSTALL_PREFIX}/lib")
-        target_link_libraries(entwine ${JSONCPP_LIBRARY})
-    else()
-        target_link_libraries(entwine jsoncpp)
-    endif()
-endif()
+target_link_libraries(entwine PUBLIC pdalcpp pdal_util ${LZMA_LIBRARY} ${CMAKE_DL_LIBS})
 
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+target_link_libraries(entwine ${JSON_CPP_LINK_TYPE}  ${ENTWINE_JSONCPP_LIB_NAME})
+
+if (${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
     target_link_libraries(entwine atomic)
 endif()
 
-if (WIN32)
-    target_link_libraries(entwine)
-else ()
-    if (${ENTWINE_CURL})
-        target_link_libraries(entwine ${CURL_LIBRARIES})
-        target_include_directories(entwine PRIVATE "${CURL_INCLUDE_DIR}")
-    endif()
 
-    if (${ENTWINE_OPENSSL})
-        target_link_libraries(entwine ${OPENSSL_LIBRARIES})
-        target_include_directories(entwine PRIVATE "${OPENSSL_INCLUDE_DIR}")
-    endif()
-endif()
+target_link_libraries(entwine PRIVATE ${CURL_LIBRARIES})
+target_include_directories(entwine PRIVATE "${CURL_INCLUDE_DIR}")
+
+target_link_libraries(entwine PRIVATE ${OPENSSL_LIBRARIES})
+target_include_directories(entwine PRIVATE "${OPENSSL_INCLUDE_DIR}")
 
 set_target_properties(
     entwine
@@ -189,11 +174,14 @@ install(
     FILES "${PROJECT_BINARY_DIR}/entwine-config.cmake"
     DESTINATION lib/cmake/entwine)
 
-if (NOT MSVC)
-    add_subdirectory(test/gtest-1.8.0)
-    include_directories(entwine test/gtest-1.8.0/include test/gtest-1.8.0)
-    add_subdirectory(test)
-endif()
+add_subdirectory(test/data)
+
+add_subdirectory(test/gtest-1.8.0)
+include_directories(entwine test/gtest-1.8.0/include test/gtest-1.8.0)
+
+add_subdirectory(test)
+
+
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/cpack.cmake")
 add_custom_target(dist COMMAND ${CMAKE_MAKE_PROGRAM} package_source)

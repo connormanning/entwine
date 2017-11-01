@@ -2624,7 +2624,7 @@ std::string Google::Auth::sign(
     auto loadKey([](std::string s, bool isPublic)->EVP_PKEY*
     {
         EVP_PKEY* key(nullptr);
-        if (BIO* bio = BIO_new_mem_buf(s.data(), -1))
+        if (BIO* bio = BIO_new_mem_buf((void*)s.data(), -1))
         {
             if (isPublic)
             {

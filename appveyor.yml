@@ -25,26 +25,38 @@ init:
   - set PYTHONPATH=%PYTHONHOME%\Lib;%OSGEO4W_ROOT%\apps\Python27\lib\site-packages
   - set PATH=C:\Program Files (x86)\MSBuild\14.0\Bin;%PATH%
   - set PATH=%PYTHONHOME%;%PATH%
-  - ps: iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
+#  - ps: iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
 
 install:
   - ps: mkdir $env:OSGEO4W_ROOT | out-null
   # make an install directory for packacing
   - ps: mkdir C:\pdalbin | out-null
+
+  - ps: mkdir C:\temp | out-null
+
+  # get the OSGeo installer
+  - ps: (new-object net.webclient).DownloadFile("http://download.osgeo.org/osgeo4w/osgeo4w-setup-x86_64.exe", "C:\temp\osgeo4w-setup.exe")
+  # and install our dependencies
+  - C:\temp\osgeo4w-setup.exe -q -k -r -A -s http://download.osgeo.org/osgeo4w/ -a x86_64 -P pdal,xz-devel,openssl-devel,jsoncpp -R %OSGEO4W_ROOT% > NUL
+
+  - call %OSGEO4W_ROOT%\bin\o4w_env.bat
+  - call %OSGEO4W_ROOT%\bin\py3_env.bat
+  - call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64
+  - set PATH=%PATH%;C:\Program Files (x86)\MSBuild\14.0\Bin;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Program Files\7-Zip;C:\Program Files\Microsoft Windows Performance Toolkit\;C:\Program Files (x86)\Windows Kits\8.1\Windows Performance Toolkit\;C:\Tools\GitVersion;C:\Program Files (x86)\CMake\bin;C:\Program Files\Git\cmd;C:\Program Files\Git\usr\bin;C:\Program Files\AppVeyor\BuildAgent\
+
+
   # call our Entwine install script
   - call .\\scripts\\appveyor\\config.cmd
 
-build:
-  parallel: true
-  project: entwine.sln
-  verbosity: minimal
+build_script:
+  - call .\\scripts\\appveyor\\build.cmd
 
-after_build:
-  - 7z a entwine.zip %APPVEYOR_BUILD_FOLDER%\bin\*.*
+    # after_build:
+    #  - 7z a entwine.zip %APPVEYOR_BUILD_FOLDER%\bin\*.*
 
-artifacts:
-  - path: entwine.zip
-    name: entwinemaster
+    #artifacts:
+    #  - path: entwine.zip
+    #    name: entwinemaster
 
 notifications:
   - provider: Email

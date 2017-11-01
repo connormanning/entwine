@@ -8,6 +8,7 @@ dev/*
 
 test/data/*
 !test/data/generate
+!test/data/CMakeLists.txt
 !test/data/generate-ellipsoid.cpp
 
 *.vcxproj
