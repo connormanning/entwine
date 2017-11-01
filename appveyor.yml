@@ -51,12 +51,12 @@ install:
 build_script:
   - call .\\scripts\\appveyor\\build.cmd
 
-after_build:
-  - 7z a entwine.zip %APPVEYOR_BUILD_FOLDER%\bin\*.*
+    # after_build:
+    #  - 7z a entwine.zip %APPVEYOR_BUILD_FOLDER%\bin\*.*
 
-artifacts:
-  - path: entwine.zip
-    name: entwinemaster
+    #artifacts:
+    #  - path: entwine.zip
+    #    name: entwinemaster
 
 notifications:
   - provider: Email
