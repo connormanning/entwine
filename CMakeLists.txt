@@ -133,8 +133,8 @@ if (MSVC)
     find_library(LZMA_LIBRARY liblzma PATHS "${CMAKE_INSTALL_PREFIX}/lib")
 endif()
 
-target_link_libraries(entwine PUBLIC pdalcpp pdal_util ${LZMA_LIBRARY} ${CMAKE_THREAD_LIBS_INIT})
-    
+target_link_libraries(entwine PUBLIC pdalcpp pdal_util ${LZMA_LIBRARY} ${CMAKE_DL_LIBS})
+
 target_link_libraries(entwine ${JSON_CPP_LINK_TYPE}  ${ENTWINE_JSONCPP_LIB_NAME})
 
 if (${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
