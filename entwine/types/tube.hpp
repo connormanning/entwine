@@ -15,7 +15,6 @@
 #include <limits>
 #include <map>
 #include <mutex>
-#include <unordered_map>
 #include <vector>
 
 #include <entwine/types/bounds.hpp>
@@ -32,8 +31,6 @@ class Climber;
 class Tube
 {
 public:
-    void swap(Tube&& other) { std::swap(m_cells, other.m_cells); }
-
     class Insertion
     {
     public:
