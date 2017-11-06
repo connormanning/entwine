@@ -414,7 +414,8 @@ std::unique_ptr<Builder> ConfigParser::tryGetExisting(
 
     if (config.isMember("subset"))
     {
-        subsetId = makeUnique<std::size_t>(config["subset"]["id"].asUInt64());
+        subsetId = makeUnique<std::size_t>(
+                config["subset"]["id"].asUInt64() - 1);
     }
 
     OuterScope os;

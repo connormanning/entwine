@@ -18,6 +18,7 @@
 #include <entwine/formats/cesium/settings.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
+#include <entwine/tree/chunk.hpp>
 #include <entwine/tree/config-parser.hpp>
 #include <entwine/tree/thread-pools.hpp>
 #include <entwine/types/bounds.hpp>
@@ -37,17 +38,6 @@ namespace
     std::string yesNo(const bool val)
     {
         return (val ? "yes" : "no");
-    }
-
-    std::chrono::high_resolution_clock::time_point now()
-    {
-        return std::chrono::high_resolution_clock::now();
-    }
-
-    int secondsSince(const std::chrono::high_resolution_clock::time_point start)
-    {
-        std::chrono::duration<double> d(now() - start);
-        return std::chrono::duration_cast<std::chrono::seconds>(d).count();
     }
 
     std::string getUsageString()
@@ -567,9 +557,12 @@ void Kernel::build(std::vector<std::string> args)
 
     auto start = now();
     const std::size_t alreadyInserted(manifest.pointStats().inserts());
+
     builder->go(runCount);
-    std::cout << "\nIndex completed in " << commify(secondsSince(start)) <<
-        " seconds." << std::endl;
+
+    std::cout << "\nIndex completed in " <<
+        commify(since<std::chrono::seconds>(start)) << " seconds." <<
+        std::endl;
 
     std::cout << "Save complete.  Indexing stats:\n";
 

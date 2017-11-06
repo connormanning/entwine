@@ -21,7 +21,7 @@ namespace heuristics
 const std::size_t sleepCount(65536 * 32);
 
 // A per-thread count of the minimum chunk-cache size to keep during clipping.
-const std::size_t clipCacheSize(32);
+const std::size_t clipCacheSize(64);
 
 // When building, we are given a total thread count.  Because serialization is
 // more expensive than actually doing tree work, we'll allocate more threads to

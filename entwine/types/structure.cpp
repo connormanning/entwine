@@ -184,6 +184,8 @@ Structure::Structure(
     : m_tubular(tubular)
     , m_dynamicChunks(dynamicChunks)
     , m_prefixIds(prefixIds)
+    , m_explicitSparse(sparseDepth)
+    , m_explicitMapped(mappedDepth)
     , m_dimensions(dimensions)
     , m_factor(1ULL << m_dimensions)
     , m_numPointsHint(numPointsHint)
@@ -249,8 +251,6 @@ bool Structure::applyDensity(const double density, const Bounds& cube)
     const std::size_t n(density * squareUnits * 1.2);
     if (n > m_numPointsHint)
     {
-        m_mappedDepthBegin = 0;
-        m_sparseDepthBegin = 0;
         applyNumPointsHint(density * squareUnits);
         return true;
     }
@@ -267,8 +267,8 @@ void Structure::applyNumPointsHint(const std::size_t n)
                 std::ceil(
                     std::log2(activeNumPointsHint) / std::log2(m_factor))));
 
-    if (!m_mappedDepthBegin) m_mappedDepthBegin = sparse;
-    if (!m_sparseDepthBegin) m_sparseDepthBegin = sparse;
+    if (!m_explicitSparse) m_sparseDepthBegin = sparse;
+    if (!m_explicitMapped) m_mappedDepthBegin = sparse;
 
     m_sparseDepthBegin = std::max(m_sparseDepthBegin, m_mappedDepthBegin);
 

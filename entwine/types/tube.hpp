@@ -15,6 +15,7 @@
 #include <limits>
 #include <map>
 #include <mutex>
+#include <unordered_map>
 #include <vector>
 
 #include <entwine/types/bounds.hpp>

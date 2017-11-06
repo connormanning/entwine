@@ -10,7 +10,9 @@
 
 #pragma once
 
+#include <chrono>
 #include <cstddef>
+#include <fstream>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -24,6 +26,7 @@
 #include <entwine/types/manifest.hpp>
 #include <entwine/types/outer-scope.hpp>
 #include <entwine/types/point-pool.hpp>
+#include <entwine/util/time.hpp>
 
 namespace Json
 {
@@ -124,6 +127,8 @@ public:
             OuterScope outerScope = OuterScope());
 
 private:
+    void doRun(std::size_t max);
+
     std::mutex& mutex();
 
     // Save the current state of the tree.  Files may no longer be inserted
@@ -177,6 +182,8 @@ private:
     std::unique_ptr<Registry> m_registry;
 
     bool m_verbose = false;
+
+    TimePoint m_start;
 
     Builder(const Builder&);
     Builder& operator=(const Builder&);

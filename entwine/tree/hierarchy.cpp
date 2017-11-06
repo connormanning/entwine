@@ -106,7 +106,7 @@ HierarchyCell& Hierarchy::count(const PointState& pointState, const int delta)
                         m_outpoint.get(),
                         pointState.pointsPerChunk(),
                         m_endpoint.getBinary(
-                            pointState.chunkId().str() + m_metadata.postfix()));
+                            pointState.chunkId().str() + m_metadata.postfix(true)));
             }
             else
             {
@@ -150,7 +150,7 @@ HierarchyCell& Hierarchy::count(
                         m_outpoint.get(),
                         chunkInfo.pointsPerChunk(),
                         m_endpoint.getBinary(
-                            chunkInfo.chunkId().str() + m_metadata.postfix()));
+                            chunkInfo.chunkId().str() + m_metadata.postfix(true)));
             }
             else
             {
@@ -220,7 +220,10 @@ void Hierarchy::save(Pool& pool) const
                 std::size_t num,
                 const Slot& slot)
     {
-        if (slot.t) slot.t->save(*m_outpoint, coldPostfix);
+        if (slot.t)
+        {
+            slot.t->save(*m_outpoint, coldPostfix);
+        }
     }, &pool);
 
     Json::Value json;

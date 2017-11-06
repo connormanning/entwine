@@ -8,7 +8,8 @@ RUN apt-get update && apt-get install -y \
     liblzma-dev \
     libjsoncpp-dev \
     libcurl4-openssl-dev \
-    libssl-dev
+    libssl-dev \
+    vim
 
 ENV CC gcc
 ENV CXX g++
