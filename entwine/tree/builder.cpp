@@ -36,6 +36,7 @@
 #include <entwine/types/subset.hpp>
 #include <entwine/util/compression.hpp>
 #include <entwine/util/executor.hpp>
+#include <entwine/util/json.hpp>
 #include <entwine/util/pool.hpp>
 #include <entwine/util/unique.hpp>
 
@@ -78,6 +79,7 @@ Builder::Builder(
                 false))
     , m_sequence(makeUnique<Sequence>(*this))
     , m_registry(makeUnique<Registry>(*this))
+    , m_start(now())
 {
     prepareEndpoints();
 }
@@ -111,6 +113,7 @@ Builder::Builder(
                 true))
     , m_sequence(makeUnique<Sequence>(*this))
     , m_registry(makeUnique<Registry>(*this, true))
+    , m_start(now())
 {
     prepareEndpoints();
 }
@@ -138,6 +141,58 @@ Builder::~Builder()
 
 void Builder::go(std::size_t max)
 {
+    bool done(false);
+    const auto& manifest(m_metadata->manifest());
+
+    const std::size_t alreadyInserted(manifest.pointStats().inserts());
+
+    Pool p(2);
+    p.add([this, max, &done]()
+    {
+        doRun(max);
+        done = true;
+    });
+
+    p.add([this, &done, &manifest, alreadyInserted]()
+    {
+        using ms = std::chrono::milliseconds;
+        const std::size_t interval(10);
+
+        while (!done)
+        {
+            const auto t(since<ms>(m_start));
+            std::this_thread::sleep_for(ms(1000 - t % 1000));
+            const auto s(since<std::chrono::seconds>(m_start));
+
+            if (s % interval == 0)
+            {
+                const double inserts(
+                        manifest.pointStats().inserts() - alreadyInserted);
+                std::cout <<
+                    " A: " << commify(pointPool().dataPool().allocated()) <<
+                    " V: " << commify(pointPool().dataPool().available()) <<
+                    " C: " << commify(Chunk::count()) <<
+                    " H: " << commify(HierarchyBlock::count()) <<
+                    " I: " << commify(inserts);
+
+                if (inserts)
+                {
+                    std::cout <<
+                        " T: " << commify(s) << "s" <<
+                        " P: " << commify(inserts * 3600.0 / s / 1000000.0) <<
+                        "M/h";
+                }
+
+                std::cout << std::endl;
+            }
+        }
+    });
+
+    p.join();
+}
+
+void Builder::doRun(const std::size_t max)
+{
     if (!m_tmpEndpoint)
     {
         throw std::runtime_error("Cannot add to read-only builder");
@@ -152,13 +207,6 @@ void Builder::go(std::size_t max)
         if (verbose())
         {
             std::cout << "Adding " << origin << " - " << path << std::endl;
-            /*
-            std::cout <<
-                " A: " << m_pointPool->cellPool().allocated() <<
-                " C: " << Chunk::count() <<
-                " H: " << HierarchyBlock::count() <<
-                std::endl;
-            */
         }
 
         m_threadPools->workPool().add([this, origin, &info, path]()
@@ -193,6 +241,7 @@ void Builder::go(std::size_t max)
             }
 
             m_metadata->manifest().set(origin, status, message);
+            if (verbose()) std::cout << "\tDone " << origin << std::endl;
         });
     }
 
@@ -265,7 +314,9 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
         if (inserted > heuristics::sleepCount)
         {
             inserted = 0;
-            clipper.clip();
+            const float available(m_pointPool->dataPool().available());
+            const float allocated(m_pointPool->dataPool().allocated());
+            if (available / allocated < 0.5) clipper.clip();
         }
 
         return insertData(std::move(cells), origin, clipper, climber);

@@ -48,7 +48,14 @@ public:
     using PooledStack = Pool::UniqueStackType;
 
     Cell() noexcept { }
-    ~Cell() { assert(empty()); }
+    ~Cell()
+    {
+        if (!empty())
+        {
+            std::cout << "DS: " << m_dataStack.size() << std::endl;
+            stackTrace();
+        }
+    }
 
     Point& point() { return m_point; }
     const Point& point() const { return m_point; }

@@ -22,6 +22,7 @@ set(
     "${BASE}/pool.hpp"
     "${BASE}/spin-lock.hpp"
     "${BASE}/stack-trace.hpp"
+    "${BASE}/time.hpp"
     "${BASE}/unique.hpp"
 )
 

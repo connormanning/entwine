@@ -238,6 +238,9 @@ private:
     bool m_discardDuplicates;
     bool m_prefixIds;
 
+    bool m_explicitSparse = false;
+    bool m_explicitMapped = false;
+
     std::size_t m_dimensions;
     std::size_t m_factor;
     std::size_t m_numPointsHint;
