@@ -1607,9 +1607,7 @@ std::unique_ptr<S3> S3::create(Pool& pool, const Json::Value& json)
     auto auth(Auth::create(json, profile));
     if (!auth) return std::unique_ptr<S3>();
 
-    auto config(Config::create(json, profile));
-    if (!config) return std::unique_ptr<S3>();
-
+    std::unique_ptr<Config> config(new Config(json, profile));
     return makeUnique<S3>(pool, profile, std::move(auth), std::move(config));
 }
 
@@ -1711,31 +1709,21 @@ std::unique_ptr<S3::Auth> S3::Auth::create(
 }
 
 S3::Config::Config(
-        const std::string region,
-        const std::string baseUrl,
-        const bool sse,
-        const bool precheck)
-    : m_region(region)
-    , m_baseUrl(baseUrl)
-    , m_precheck(precheck)
-{
-    if (sse)
-    {
-        // This could grow to support other SSE schemes, like KMS and customer-
-        // supplied keys.
-        m_baseHeaders["x-amz-server-side-encryption"] = "AES256";
-    }
-}
-
-std::unique_ptr<S3::Config> S3::Config::create(
         const Json::Value& json,
         const std::string profile)
+    : m_region(extractRegion(json, profile))
+    , m_baseUrl(extractBaseUrl(json, m_region))
+    , m_precheck(json["precheck"].asBool())
 {
-    const auto region(extractRegion(json, profile));
-    const auto baseUrl(extractBaseUrl(json, region));
-    const bool sse(json["sse"].asBool());
-    const bool precheck(json["precheck"].asBool());
-    return makeUnique<Config>(region, baseUrl, sse, precheck);
+    if (json["sse"].asBool())
+    {
+        m_baseHeaders["x-amz-server-side-encryption"] = "AES256";
+    }
+
+    if (json["requesterPays"].asBool())
+    {
+        m_baseHeaders["x-amz-request-payer"] = "requester";
+    }
 }
 
 std::string S3::Config::extractRegion(
@@ -1908,9 +1896,12 @@ std::unique_ptr<std::size_t> S3::tryGetSize(std::string rawPath) const
 bool S3::get(
         const std::string rawPath,
         std::vector<char>& data,
-        const Headers headers,
+        const Headers userHeaders,
         const Query query) const
 {
+    Headers headers(m_config->baseHeaders());
+    headers.insert(userHeaders.begin(), userHeaders.end());
+
     std::unique_ptr<std::size_t> size(
             m_config->precheck() && !headers.count("Range") ?
                 tryGetSize(rawPath) : nullptr);

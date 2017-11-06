@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 11e12d1fef7c41d13df640d1a11dd93dda3471b6
+// Git SHA: a99fb3dabf9884ac8fa2c45f1c126953f30e25b3
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -4257,11 +4257,7 @@ private:
 class S3::Config
 {
 public:
-    Config(std::string region, std::string baseUrl, bool sse, bool precheck);
-
-    static std::unique_ptr<Config> create(
-            const Json::Value& json,
-            std::string profile);
+    Config(const Json::Value& json, std::string profile);
 
     const std::string& region() const { return m_region; }
     const std::string& baseUrl() const { return m_baseUrl; }
