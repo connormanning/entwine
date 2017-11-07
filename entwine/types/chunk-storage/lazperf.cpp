@@ -26,11 +26,12 @@ void LazPerfStorage::write(Chunk& chunk) const
 }
 
 Cell::PooledStack LazPerfStorage::read(
-        const arbiter::Endpoint& endpoint,
+        const arbiter::Endpoint& out,
+        const arbiter::Endpoint& tmp,
         PointPool& pool,
         const Id& id) const
 {
-    auto compressed(io::ensureGet(endpoint, m_metadata.basename(id)));
+    auto compressed(io::ensureGet(out, m_metadata.basename(id)));
     const Tail tail(*compressed, m_tailFields);
 
     const Schema& schema(pool.schema());

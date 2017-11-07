@@ -95,20 +95,22 @@ void LasZipStorage::write(Chunk& chunk) const
 }
 
 Cell::PooledStack LasZipStorage::read(
-        const arbiter::Endpoint& endpoint,
+        const arbiter::Endpoint& out,
+        const arbiter::Endpoint& tmp,
         PointPool& pool,
         const Id& id) const
 {
     const std::string basename(m_metadata.basename(id) + ".laz");
-    std::string localFile(endpoint.prefixedRoot() + basename);
+    std::string localFile(out.prefixedRoot() + basename);
+    bool copied(false);
 
-    if (!endpoint.isLocal() && endpoint.tryGetSize(basename))
+    if (!out.isLocal() && out.tryGetSize(basename))
     {
-        const std::string tmp(arbiter::fs::getTempPath());
-        localFile = tmp + basename;
+        localFile = arbiter::util::join(tmp.prefixedRoot(), basename);
+        copied = true;
 
         static const arbiter::drivers::Fs fs;
-        fs.put(localFile, *io::ensureGet(endpoint, basename));
+        fs.put(localFile, *io::ensureGet(out, basename));
     }
 
     CellTable table(pool, makeUnique<Schema>(Schema::normalize(pool.schema())));
@@ -118,10 +120,9 @@ Cell::PooledStack LasZipStorage::read(
         table.resize(preview->numPoints);
     }
 
-    if (!Executor::get().run(table, localFile))
-    {
-        throw std::runtime_error("Could not execute laszip chunk " + localFile);
-    }
+    const bool good(Executor::get().run(table, localFile));
+    if (copied) arbiter::fs::remove(localFile);
+    if (!good) throw std::runtime_error("Laszip read failure: " + localFile);
 
     return table.acquire();
 }

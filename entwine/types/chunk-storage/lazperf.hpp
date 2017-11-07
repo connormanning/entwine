@@ -28,7 +28,8 @@ public:
     virtual void write(Chunk& chunk) const override;
 
     virtual Cell::PooledStack read(
-            const arbiter::Endpoint& endpoint,
+            const arbiter::Endpoint& out,
+            const arbiter::Endpoint& tmp,
             PointPool& pool,
             const Id& id) const override;
 };

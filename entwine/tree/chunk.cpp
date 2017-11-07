@@ -132,7 +132,11 @@ SparseChunk::SparseChunk(
 {
     if (exists)
     {
-        populate(storage().deserialize(builder.outEndpoint(), m_pointPool, id));
+        populate(storage().deserialize(
+                    builder.outEndpoint(),
+                    builder.tmpEndpoint(),
+                    m_pointPool,
+                    id));
     }
 }
 
@@ -222,7 +226,11 @@ ContiguousChunk::ContiguousChunk(
 {
     if (exists)
     {
-        populate(storage().deserialize(builder.outEndpoint(), m_pointPool, id));
+        populate(storage().deserialize(
+                    builder.outEndpoint(),
+                    builder.tmpEndpoint(),
+                    m_pointPool,
+                    id));
     }
 }
 

@@ -50,11 +50,12 @@ public:
     }
 
     virtual Cell::PooledStack read(
-            const arbiter::Endpoint& endpoint,
+            const arbiter::Endpoint& out,
+            const arbiter::Endpoint& tmp,
             PointPool& pool,
             const Id& id) const override
     {
-        auto data(io::ensureGet(endpoint, m_metadata.basename(id)));
+        auto data(io::ensureGet(out, m_metadata.basename(id)));
         const Tail tail(*data, m_tailFields);
         const char* pos(data->data());
 

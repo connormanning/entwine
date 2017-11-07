@@ -77,11 +77,12 @@ void Storage::serialize(Chunk& chunk) const
 }
 
 Cell::PooledStack Storage::deserialize(
-        const arbiter::Endpoint& endpoint,
+        const arbiter::Endpoint& out,
+        const arbiter::Endpoint& tmp,
         PointPool& pool,
         const Id& chunkId) const
 {
-    return m_storage->read(endpoint, pool, chunkId);
+    return m_storage->read(out, tmp, pool, chunkId);
 }
 
 const Metadata& Storage::metadata() const { return m_metadata; }

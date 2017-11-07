@@ -50,7 +50,8 @@ public:
 
     void serialize(Chunk& chunk) const;
     Cell::PooledStack deserialize(
-        const arbiter::Endpoint& endpoint,
+        const arbiter::Endpoint& out,
+        const arbiter::Endpoint& tmp,
         PointPool& pool,
         const Id& chunkId) const;
 

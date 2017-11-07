@@ -41,7 +41,11 @@ ChunkReader::ChunkReader(
     , m_schema(metadata.schema())
     , m_id(id)
     , m_depth(depth)
-    , m_cells(metadata.storage().deserialize(endpoint, pool, m_id))
+    , m_cells(metadata.storage().deserialize(
+                endpoint,
+                arbiter::Arbiter().getEndpoint(arbiter::fs::getTempPath()),
+                pool,
+                m_id))
 { }
 
 ChunkReader::ChunkReader(
@@ -57,13 +61,16 @@ ChunkReader::ChunkReader(
     , m_depth(m.structure().baseDepthBegin())
     , m_cells(m_pool.cellPool())
 {
+    arbiter::Arbiter a;
+    auto tmp(a.getEndpoint(arbiter::fs::getTempPath()));
+
     const Structure& s(m.structure());
     if (m.slicedBase())
     {
         for (std::size_t d(s.baseDepthBegin()); d < s.baseDepthBegin() + 3; ++d)
         {
             const auto id(ChunkInfo::calcLevelIndex(2, d));
-            m_cells.pushBack(m.storage().deserialize(ep, m_pool, id));
+            m_cells.pushBack(m.storage().deserialize(ep, tmp, m_pool, id));
             m_offsets.push_back(m_cells.size());
         }
     }
@@ -73,11 +80,13 @@ ChunkReader::ChunkReader(
 void ChunkReader::initLegacyBase()
 {
     const auto& m(m_metadata);
+    arbiter::Arbiter a;
+    auto tmp(a.getEndpoint(arbiter::fs::getTempPath()));
 
     const Schema tubeDim({ { "TubeId", "unsigned", 8 } });
     const Schema celledSchema(tubeDim.append(m.schema()));
     PointPool celledPool(celledSchema, m.delta());
-    auto tubedCells(m.storage().deserialize(m_endpoint, celledPool, m_id));
+    auto tubedCells(m.storage().deserialize(m_endpoint, tmp, celledPool, m_id));
 
     const std::size_t numPoints(tubedCells.size());
 

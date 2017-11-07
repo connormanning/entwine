@@ -21,7 +21,7 @@ RUN git clone https://github.com/connormanning/entwine.git /var/entwine && \
     cd build && \
     cmake -G "Unix Makefiles" \
         -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_BUILD_TYPE=Release .. && \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo .. && \
     make -j4 && \
     make install
 
