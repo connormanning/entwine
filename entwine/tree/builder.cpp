@@ -280,6 +280,8 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
     }
     while (!localHandle && ++tries < inputRetryLimit);
 
+    if (!localHandle) throw std::runtime_error("No local handle: " + rawPath);
+
     const std::string& localPath(localHandle->localPath());
 
     const Reprojection* reprojection(m_metadata->reprojection());
