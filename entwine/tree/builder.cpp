@@ -47,7 +47,7 @@ using namespace arbiter;
 
 namespace
 {
-    const std::size_t inputRetryLimit(8);
+    const std::size_t inputRetryLimit(16);
 }
 
 Builder::Builder(
@@ -168,22 +168,22 @@ void Builder::go(std::size_t max)
             {
                 const double inserts(
                         manifest.pointStats().inserts() - alreadyInserted);
+
+                const auto& d(pointPool().dataPool());
+
+                const std::size_t used(
+                        100.0 - 100.0 * d.available() / (double)d.allocated());
+
                 std::cout <<
-                    " A: " << commify(pointPool().dataPool().allocated()) <<
-                    " V: " << commify(pointPool().dataPool().available()) <<
+                    " T: " << commify(s) << "s" <<
+                    " P: " << commify(inserts * 3600.0 / s / 1000000.0) <<
+                        "M/h" <<
+                    " A: " << commify(d.allocated()) <<
+                    " U: " << used << "%"  <<
                     " C: " << commify(Chunk::count()) <<
                     " H: " << commify(HierarchyBlock::count()) <<
-                    " I: " << commify(inserts);
-
-                if (inserts)
-                {
-                    std::cout <<
-                        " T: " << commify(s) << "s" <<
-                        " P: " << commify(inserts * 3600.0 / s / 1000000.0) <<
-                        "M/h";
-                }
-
-                std::cout << std::endl;
+                    " I: " << commify(inserts) <<
+                    std::endl;
             }
         }
     });
@@ -253,29 +253,37 @@ void Builder::doRun(const std::size_t max)
     save();
 }
 
-bool Builder::insertPath(const Origin origin, FileInfo& info)
+void Builder::insertPath(const Origin origin, FileInfo& info)
 {
-    const auto rawPath(info.path());
+    const std::string rawPath(info.path());
     std::size_t tries(0);
     std::unique_ptr<arbiter::fs::LocalHandle> localHandle;
 
     do
     {
+        if (tries) std::this_thread::sleep_for(std::chrono::seconds(tries));
+
         try
         {
             localHandle = m_arbiter->getLocalHandle(rawPath, *m_tmpEndpoint);
         }
-        catch (const ArbiterError& e)
+        catch (const std::exception& e)
         {
             if (verbose())
             {
                 std::cout <<
-                    "Failed GET attempt of " << rawPath << ": " << e.what() <<
-                    std::endl;
+                    "Failed GET " << tries << " of " << rawPath << ": " <<
+                    e.what() << std::endl;
             }
-
-            localHandle.reset();
-            std::this_thread::sleep_for(std::chrono::seconds(tries));
+        }
+        catch (...)
+        {
+            if (verbose())
+            {
+                std::cout <<
+                    "Failed GET " << tries << " of " << rawPath << ": " <<
+                    "unknown error" << std::endl;
+            }
         }
     }
     while (!localHandle && ++tries < inputRetryLimit);
@@ -331,12 +339,15 @@ bool Builder::insertPath(const Origin origin, FileInfo& info)
                 m_metadata->delta(),
                 origin));
 
-    return Executor::get().run(
-            *table,
-            localPath,
-            reprojection,
-            transformation,
-            m_metadata->preserveSpatial());
+    if (!Executor::get().run(
+                *table,
+                localPath,
+                reprojection,
+                transformation,
+                m_metadata->preserveSpatial()))
+    {
+        throw std::runtime_error("Failed to execute: " + rawPath);
+    }
 }
 
 Cell::PooledStack Builder::insertData(

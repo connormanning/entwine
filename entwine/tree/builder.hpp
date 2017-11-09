@@ -137,9 +137,9 @@ private:
     void save(std::string to);
     void save(const arbiter::Endpoint& to);
 
-    // Insert points from a file.  Return true if successful.  Sets any
-    // previously unset FileInfo fields based on file contents.
-    bool insertPath(Origin origin, FileInfo& info);
+    // Insert points from a file.  Sets any previously unset FileInfo fields
+    // based on file contents.
+    void insertPath(Origin origin, FileInfo& info);
 
     // Returns a stack of rejected info nodes so that they may be reused.
     Cell::PooledStack insertData(

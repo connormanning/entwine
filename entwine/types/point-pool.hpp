@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <cstddef>
 #include <cstring>
 
@@ -48,14 +49,7 @@ public:
     using PooledStack = Pool::UniqueStackType;
 
     Cell() noexcept { }
-    ~Cell()
-    {
-        if (!empty())
-        {
-            std::cout << "DS: " << m_dataStack.size() << std::endl;
-            stackTrace();
-        }
-    }
+    ~Cell() { assert(empty()); }
 
     Point& point() { return m_point; }
     const Point& point() const { return m_point; }
