@@ -50,8 +50,11 @@ class Reader
 {
 public:
     // Will throw if entwine's meta files cannot be fetched from this endpoint.
-    Reader(const arbiter::Endpoint& endpoint, Cache& cache);
-    Reader(std::string path, Cache& cache);
+    Reader(
+            const arbiter::Endpoint& endpoint,
+            const arbiter::Endpoint& tmp,
+            Cache& cache);
+    Reader(std::string path, std::string tmp, Cache& cache);
     ~Reader();
 
     // Read query.
@@ -138,6 +141,7 @@ public:
 
     const BaseChunkReader* base() const { return m_base.get(); }
     const arbiter::Endpoint& endpoint() const { return m_endpoint; }
+    const arbiter::Endpoint& tmp() const { return m_tmp; }
     bool exists(const QueryChunkState& state) const;
 
     std::map<std::string, Schema> appends() const
@@ -190,6 +194,7 @@ private:
 
     std::unique_ptr<arbiter::Arbiter> m_ownedArbiter;
     arbiter::Endpoint m_endpoint;
+    arbiter::Endpoint m_tmp;
 
     const Metadata m_metadata;
     mutable PointPool m_pool;

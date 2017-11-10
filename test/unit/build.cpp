@@ -22,6 +22,7 @@ using namespace entwine;
 namespace
 {
     const std::string outPath(test::dataPath() + "out");
+    const std::string tmpPath(test::dataPath() + "tmp");
     const std::string binPath(test::binaryPath() + "entwine ");
 
     int run(std::string command)
@@ -191,7 +192,7 @@ TEST_P(BuildTest, Verify)
 
     // Verify results against a simple octree implementation.
     Cache cache(32);
-    Reader r(outPath, cache);
+    Reader r(outPath, tmpPath, cache);
 
     const Delta empty;
     test::Octree o(

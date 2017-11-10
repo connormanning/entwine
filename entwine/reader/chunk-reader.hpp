@@ -37,6 +37,7 @@ public:
     ChunkReader(
             const Metadata& metadata,
             const arbiter::Endpoint& endpoint,
+            const arbiter::Endpoint& tmp,
             const Bounds& bounds,
             PointPool& pool,
             const Id& id,
@@ -46,6 +47,7 @@ public:
     ChunkReader(
             const Metadata& metadata,
             const arbiter::Endpoint& endpoint,
+            const arbiter::Endpoint& tmp,
             PointPool& pool);
 
     ~ChunkReader();
@@ -89,7 +91,7 @@ public:
     }
 
 protected:
-    void initLegacyBase();
+    void initLegacyBase(const arbiter::Endpoint& tmp);
 
     const arbiter::Endpoint m_endpoint;
     const Metadata& m_metadata;
@@ -147,6 +149,7 @@ public:
     ColdChunkReader(
             const Metadata& m,
             const arbiter::Endpoint& ep,
+            const arbiter::Endpoint& tmp,
             const Bounds& bounds,
             PointPool& pool,
             const Id& id,
@@ -179,6 +182,7 @@ public:
     BaseChunkReader(
             const Metadata& m,
             const arbiter::Endpoint& ep,
+            const arbiter::Endpoint& tmp,
             PointPool& pool);
 
     const TubeData& tubeData(const Id& id) const

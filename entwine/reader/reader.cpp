@@ -69,9 +69,10 @@ namespace
     const std::size_t basePoolBlockSize(65536);
 }
 
-Reader::Reader(const std::string path, Cache& cache)
+Reader::Reader(const std::string path, const std::string tmp, Cache& cache)
     : m_ownedArbiter(makeUnique<arbiter::Arbiter>())
     , m_endpoint(m_ownedArbiter->getEndpoint(path))
+    , m_tmp(m_ownedArbiter->getEndpoint(tmp))
     , m_metadata(m_endpoint)
     , m_pool(m_metadata.schema(), m_metadata.delta(), basePoolBlockSize)
     , m_cache(cache)
@@ -86,8 +87,12 @@ Reader::Reader(const std::string path, Cache& cache)
     init();
 }
 
-Reader::Reader(const arbiter::Endpoint& endpoint, Cache& cache)
+Reader::Reader(
+        const arbiter::Endpoint& endpoint,
+        const arbiter::Endpoint& tmp,
+        Cache& cache)
     : m_endpoint(endpoint)
+    , m_tmp(tmp)
     , m_metadata(m_endpoint)
     , m_pool(m_metadata.schema(), m_metadata.delta(), basePoolBlockSize)
     , m_cache(cache)
@@ -108,7 +113,11 @@ void Reader::init()
 
     if (structure.hasBase())
     {
-        m_base = makeUnique<BaseChunkReader>(m_metadata, m_endpoint, m_pool);
+        m_base = makeUnique<BaseChunkReader>(
+                m_metadata,
+                m_endpoint,
+                m_tmp,
+                m_pool);
     }
 
     if (structure.hasCold())

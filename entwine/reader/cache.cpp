@@ -265,6 +265,7 @@ const ColdChunkReader* Cache::fetch(
         chunkState.chunkReader = makeUnique<ColdChunkReader>(
                 metadata,
                 reader.endpoint(),
+                reader.tmp(),
                 fetchInfo.bounds,
                 reader.pool(),
                 fetchInfo.id,

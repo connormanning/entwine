@@ -30,6 +30,7 @@ namespace
 ChunkReader::ChunkReader(
         const Metadata& metadata,
         const arbiter::Endpoint& endpoint,
+        const arbiter::Endpoint& tmp,
         const Bounds& bounds,
         PointPool& pool,
         const Id& id,
@@ -41,16 +42,13 @@ ChunkReader::ChunkReader(
     , m_schema(metadata.schema())
     , m_id(id)
     , m_depth(depth)
-    , m_cells(metadata.storage().deserialize(
-                endpoint,
-                arbiter::Arbiter().getEndpoint(arbiter::fs::getTempPath()),
-                pool,
-                m_id))
+    , m_cells(metadata.storage().deserialize(endpoint, tmp, pool, m_id))
 { }
 
 ChunkReader::ChunkReader(
         const Metadata& m,
         const arbiter::Endpoint& ep,
+        const arbiter::Endpoint& tmp,
         PointPool& pool)
     : m_endpoint(ep)
     , m_metadata(m)
@@ -61,9 +59,6 @@ ChunkReader::ChunkReader(
     , m_depth(m.structure().baseDepthBegin())
     , m_cells(m_pool.cellPool())
 {
-    arbiter::Arbiter a;
-    auto tmp(a.getEndpoint(arbiter::fs::getTempPath()));
-
     const Structure& s(m.structure());
     if (m.slicedBase())
     {
@@ -74,14 +69,12 @@ ChunkReader::ChunkReader(
             m_offsets.push_back(m_cells.size());
         }
     }
-    else initLegacyBase();
+    else initLegacyBase(tmp);
 }
 
-void ChunkReader::initLegacyBase()
+void ChunkReader::initLegacyBase(const arbiter::Endpoint& tmp)
 {
     const auto& m(m_metadata);
-    arbiter::Arbiter a;
-    auto tmp(a.getEndpoint(arbiter::fs::getTempPath()));
 
     const Schema tubeDim({ { "TubeId", "unsigned", 8 } });
     const Schema celledSchema(tubeDim.append(m.schema()));
@@ -145,11 +138,12 @@ ChunkReader::~ChunkReader()
 ColdChunkReader::ColdChunkReader(
         const Metadata& m,
         const arbiter::Endpoint& ep,
+        const arbiter::Endpoint& tmp,
         const Bounds& bounds,
         PointPool& pool,
         const Id& id,
         std::size_t depth)
-    : m_chunk(m, ep, bounds, pool, id, depth)
+    : m_chunk(m, ep, tmp, bounds, pool, id, depth)
 {
     m_points.reserve(m_chunk.cells().size());
 
@@ -189,8 +183,9 @@ ColdChunkReader::QueryRange ColdChunkReader::candidates(const Bounds& qb) const
 BaseChunkReader::BaseChunkReader(
         const Metadata& m,
         const arbiter::Endpoint& ep,
+        const arbiter::Endpoint& tmp,
         PointPool& pool)
-    : m_chunk(m, ep, pool)
+    : m_chunk(m, ep, tmp, pool)
 {
     const Structure& s(m.structure());
     const auto& globalBounds(m.boundsScaledCubic());

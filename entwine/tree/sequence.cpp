@@ -45,7 +45,10 @@ Sequence::Sequence(Builder& builder)
         }
     }
 
-    std::cout << "Overlaps: " << m_overlaps.size() << std::endl;
+    if (m_metadata.subset())
+    {
+        std::cout << "Overlaps: " << m_overlaps.size() << std::endl;
+    }
 
     m_origin = m_overlaps.empty() ? m_end : m_overlaps.front();
 }

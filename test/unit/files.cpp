@@ -13,6 +13,7 @@ using namespace entwine;
 namespace
 {
     const std::string outPath(test::dataPath() + "out/");
+    const std::string tmpPath(test::dataPath() + "tmp/");
     arbiter::Arbiter a;
 
     std::string basename(std::string path)
@@ -91,8 +92,8 @@ protected:
         }
 
         cache = makeUnique<Cache>(5000);
-        reader = makeUnique<Reader>(outPath + "f", *cache);
-        nycReader = makeUnique<Reader>(outPath + "n", *cache);
+        reader = makeUnique<Reader>(outPath + "f", tmpPath, *cache);
+        nycReader = makeUnique<Reader>(outPath + "n", tmpPath, *cache);
     }
 
     static void TearDownTestCase()
