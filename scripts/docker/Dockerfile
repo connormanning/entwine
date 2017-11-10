@@ -1,4 +1,4 @@
-FROM pdal/pdal:1.5
+FROM pdal/pdal:1.6
 MAINTAINER Connor Manning <connor@hobu.co>
 
 RUN apt-get update && apt-get install -y \

@@ -106,7 +106,10 @@ Cell::PooledStack LasZipStorage::read(
 
     if (!out.isLocal() && out.tryGetSize(basename))
     {
-        localFile = arbiter::util::join(tmp.prefixedRoot(), basename);
+        localFile = arbiter::util::join(
+                tmp.prefixedRoot(),
+                arbiter::crypto::encodeAsHex(
+                    out.prefixedRoot()) + "-" + basename);
         copied = true;
 
         static const arbiter::drivers::Fs fs;
