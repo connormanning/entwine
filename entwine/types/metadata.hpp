@@ -61,13 +61,15 @@ public:
             std::vector<std::string> preserveSpatial =
                 std::vector<std::string>());
 
-    Metadata(
-            const arbiter::Endpoint& endpoint,
-            const std::size_t* subsetId = nullptr);
+    Metadata(const arbiter::Endpoint& endpoint);
 
     explicit Metadata(const Json::Value& json);
     Metadata(const Metadata& other);
     ~Metadata();
+
+    static std::unique_ptr<Metadata> create(
+            const arbiter::Endpoint& endpoint,
+            const std::size_t* subsetId = nullptr);
 
     void merge(const Metadata& other);
 
@@ -117,6 +119,7 @@ public:
     {
         return *m_hierarchyStructure;
     }
+    const Manifest* manifestPtr() const { return m_manifest.get(); }
     const Manifest& manifest() const { return *m_manifest; }
     const Storage& storage() const { return *m_storage; }
     const Reprojection* reprojection() const { return m_reprojection.get(); }
@@ -150,10 +153,12 @@ public:
     Json::Value toJson() const;
 
 private:
+    void awakenManifest(const arbiter::Endpoint& ep);
     Metadata& operator=(const Metadata& other);
 
     // These are aggregated as the Builder runs.
     Manifest& manifest() { return *m_manifest; }
+    Manifest* manifestPtr() { return m_manifest.get(); }
     // Storage& storage() { return *m_storage; }
     std::string& srs() { return m_srs; }
 

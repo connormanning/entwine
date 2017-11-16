@@ -128,6 +128,7 @@ public:
 
 private:
     void doRun(std::size_t max);
+    bool exists() const { return !!m_metadata->manifestPtr(); }
 
     std::mutex& mutex();
 

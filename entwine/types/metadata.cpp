@@ -74,42 +74,74 @@ Metadata::Metadata(
     if (!m_density) m_density = densityLowerBound(*m_manifest);
 }
 
-Metadata::Metadata(const arbiter::Endpoint& ep, const std::size_t* subsetId)
-    : Metadata(([&ep, subsetId]()
-    {
-        // Note that we are not fully-constructed yet so we can't call our
-        // Metadata::postfix() yet, as we would like to.
-        const std::string path("entwine" + Subset::postfix(subsetId));
-        Json::Value json = subsetId ?
-            parse(io::ensureGetString(ep, path)) :
-            parse(ep.get(path));
-
-        // Pre-1.0: nested keys have since been flattened.
-        if (json.isMember("format"))
-        {
-            for (const auto& k : json["format"].getMemberNames())
-            {
-                json[k] = json["format"][k];
-            }
-        }
-
-        // Pre-1.0: casing was inconsistent with other keys.
-        if (json.isMember("compress-hierarchy"))
-        {
-            json["compressHierarchy"] = json["compress-hierarchy"];
-        }
-
-        // 1.0: storage was a boolean named "compress", and only lazperf and
-        // uncompressed-binary was supported.
-        if (json.isMember("compress"))
-        {
-            json["storage"] = json["compress"].asBool() ? "lazperf" : "binary";
-        }
-
-        return json;
-    })())
+std::unique_ptr<Metadata> Metadata::create(
+        const arbiter::Endpoint& ep,
+        const std::size_t* subsetId)
 {
-    assert(!subsetId || *subsetId == m_subset->id());
+    const std::string path("entwine" + Subset::postfix(subsetId));
+    Json::Value json = subsetId ?
+        parse(io::ensureGetString(ep, path)) :
+        parse(ep.get(path));
+
+    bool exists = true;
+
+    if (json.isNull())
+    {
+        if (!subsetId) throw std::runtime_error("Invalid metadata");
+
+        exists = false;
+        json = parse(ep.get("entwine-0"));
+        json["subset"]["id"] = static_cast<Json::UInt64>(*subsetId + 1);
+    }
+
+    // Pre-1.0: nested keys have since been flattened.
+    if (json.isMember("format"))
+    {
+        for (const auto& k : json["format"].getMemberNames())
+        {
+            json[k] = json["format"][k];
+        }
+    }
+
+    // Pre-1.0: casing was inconsistent with other keys.
+    if (json.isMember("compress-hierarchy"))
+    {
+        json["compressHierarchy"] = json["compress-hierarchy"];
+    }
+
+    // 1.0: storage was a boolean named "compress", and only lazperf and
+    // uncompressed-binary was supported.
+    if (json.isMember("compress"))
+    {
+        json["storage"] = json["compress"].asBool() ? "lazperf" : "binary";
+    }
+
+    auto m(makeUnique<Metadata>(json));
+
+    if (exists)
+    {
+        m->awakenManifest(ep);
+
+        /*
+        // assert(!subsetId || *subsetId == m_subset->id());
+        const std::string mpath("entwine-manifest" + m->postfix());
+        const Json::Value mjson(parse(io::ensureGetString(ep, mpath)));
+        m->m_manifest = makeUnique<Manifest>(mjson, ep);
+        if (!m->density()) m->m_density = densityLowerBound(m->manifest());
+        */
+    }
+
+    return m;
+}
+
+Metadata::Metadata(const arbiter::Endpoint& ep)
+    : Metadata(parse(ep.get("entwine")))
+{
+    awakenManifest(ep);
+}
+
+void Metadata::awakenManifest(const arbiter::Endpoint& ep)
+{
     const std::string path("entwine-manifest" + postfix());
     const Json::Value json(parse(io::ensureGetString(ep, path)));
     m_manifest = makeUnique<Manifest>(json, ep);

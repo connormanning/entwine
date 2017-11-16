@@ -95,26 +95,26 @@ Builder::Builder(
     , m_outEndpoint(makeUnique<Endpoint>(m_arbiter->getEndpoint(outPath)))
     , m_tmpEndpoint(makeUnique<Endpoint>(m_arbiter->getEndpoint(tmpPath)))
     , m_threadPools(makeUnique<ThreadPools>(workThreads, clipThreads))
-    , m_metadata(([this, subsetId]()
-    {
-        auto m(makeUnique<Metadata>(*m_outEndpoint, subsetId));
-        m->manifest().awakenAll(m_threadPools->clipPool());
-        return m;
-    })())
+    , m_metadata(Metadata::create(*m_outEndpoint, subsetId))
     , m_isContinuation(true)
     , m_pointPool(
             outerScope.getPointPool(m_metadata->schema(), m_metadata->delta()))
     , m_hierarchyPool(outerScope.getHierarchyPool(heuristics::poolBlockSize))
-    , m_hierarchy(makeUnique<Hierarchy>(
+    , m_hierarchy(
+            makeUnique<Hierarchy>(
                 *m_hierarchyPool,
                 *m_metadata,
                 *m_outEndpoint,
                 m_outEndpoint.get(),
-                true))
+                exists()))
     , m_sequence(makeUnique<Sequence>(*this))
-    , m_registry(makeUnique<Registry>(*this, true))
+    , m_registry(makeUnique<Registry>(*this, exists()))
     , m_start(now())
 {
+    if (m_metadata->manifestPtr())
+    {
+        m_metadata->manifest().awakenAll(m_threadPools->clipPool());
+    }
     prepareEndpoints();
 }
 
@@ -169,6 +169,10 @@ void Builder::go(std::size_t max)
                 const double inserts(
                         manifest.pointStats().inserts() - alreadyInserted);
 
+                const double progress(
+                        (manifest.pointStats().inserts() + alreadyInserted) /
+                        (double)(m_metadata->structure().numPointsHint()));
+
                 const auto& d(pointPool().dataPool());
 
                 const std::size_t used(
@@ -183,6 +187,7 @@ void Builder::go(std::size_t max)
                     " C: " << commify(Chunk::count()) <<
                     " H: " << commify(HierarchyBlock::count()) <<
                     " I: " << commify(inserts) <<
+                    " P: " << std::round(progress * 100.0) << "%" <<
                     std::endl;
             }
         }
@@ -444,8 +449,11 @@ void Builder::merge(Builder& other)
     }
 
     m_registry->merge(*other.m_registry);
-    m_metadata->merge(*other.m_metadata);
     m_hierarchy->merge(*other.m_hierarchy, m_threadPools->workPool());
+    if (other.exists())
+    {
+        m_metadata->merge(*other.m_metadata);
+    }
 }
 
 void Builder::prepareEndpoints()

@@ -56,7 +56,7 @@ private:
             std::size_t numPoints);
 
     Metadata& m_metadata;
-    Manifest& m_manifest;
+    Manifest* m_manifest;
     std::mutex& m_mutex;
 
     Origin m_origin;
