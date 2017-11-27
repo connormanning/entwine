@@ -286,6 +286,16 @@ public:
         return Schema(d);
     }
 
+    Schema merge(const Schema& other) const
+    {
+        Schema s(*this);
+        for (const auto& d : other.dims())
+        {
+            if (!s.contains(d.name())) s.append(d);
+        }
+        return s;
+    }
+
 private:
     std::unique_ptr<pdal::PointLayout> makePointLayout(DimList& dims)
     {

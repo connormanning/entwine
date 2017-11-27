@@ -46,6 +46,16 @@ public:
         , m_slowMutex()
     { }
 
+    Splitter(const Structure& structure, std::size_t maxFastTrackers)
+        : m_structure(structure)
+        , m_base()
+        , m_fast(std::min(maxFastTrackers, getNumFastTrackers(structure)))
+        , m_slow()
+        , m_faux()
+        , m_slowMutex()
+    { }
+
+
     virtual ~Splitter() { }
 
     void mark(const Id& chunkId, std::size_t chunkNum)

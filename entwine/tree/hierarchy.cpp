@@ -35,7 +35,7 @@ Hierarchy::Hierarchy(
         const arbiter::Endpoint* out,
         const bool exists,
         const bool readOnly)
-    : Splitter(metadata.hierarchyStructure())
+    : Splitter(metadata.hierarchyStructure(), 64)
     , m_pool(pool)
     , m_metadata(metadata)
     , m_bounds(metadata.boundsNativeCubic())
@@ -65,7 +65,8 @@ Hierarchy::Hierarchy(
                 0,
                 m_outpoint.get(),
                 m_structure.baseIndexSpan(),
-                m_endpoint.getBinary("0" + metadata.postfix()));
+                m_endpoint.getBinary("0" + metadata.postfix()),
+                m_readOnly);
     }
 
     if (exists)
