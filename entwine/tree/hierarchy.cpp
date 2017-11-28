@@ -107,7 +107,8 @@ HierarchyCell& Hierarchy::count(const PointState& pointState, const int delta)
                         m_outpoint.get(),
                         pointState.pointsPerChunk(),
                         m_endpoint.getBinary(
-                            pointState.chunkId().str() + m_metadata.postfix(true)));
+                            pointState.chunkId().str() +
+                            m_metadata.postfix(true)));
             }
             else
             {

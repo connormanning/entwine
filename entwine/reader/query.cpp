@@ -69,12 +69,14 @@ Bounds Query::localize(const Bounds& q, const Delta& localDelta) const
             queryTransformed.max() + indexedBounds.mid());
 
     // If the query bounds were 2d, make sure we maintain maximal extents.
-    if (q.min().z == e.min().z && q.max().z == e.max().z)
+    if (!q.is3d())
     {
         queryCube = Bounds(
                 Point(queryCube.min().x, queryCube.min().y, e.min().z),
                 Point(queryCube.max().x, queryCube.max().y, e.max().z));
     }
+
+    queryCube.shrink(indexedBounds);
 
     return queryCube;
 }
