@@ -153,6 +153,8 @@ public:
     Json::Value toJson() const;
 
 private:
+    static Json::Value unify(Json::Value json);
+
     void awakenManifest(const arbiter::Endpoint& ep);
     Metadata& operator=(const Metadata& other);
 

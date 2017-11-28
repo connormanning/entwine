@@ -94,6 +94,26 @@ std::unique_ptr<Metadata> Metadata::create(
         json["subset"]["id"] = static_cast<Json::UInt64>(*subsetId + 1);
     }
 
+    auto m(makeUnique<Metadata>(unify(json)));
+
+    if (exists)
+    {
+        m->awakenManifest(ep);
+
+        /*
+        // assert(!subsetId || *subsetId == m_subset->id());
+        const std::string mpath("entwine-manifest" + m->postfix());
+        const Json::Value mjson(parse(io::ensureGetString(ep, mpath)));
+        m->m_manifest = makeUnique<Manifest>(mjson, ep);
+        if (!m->density()) m->m_density = densityLowerBound(m->manifest());
+        */
+    }
+
+    return m;
+}
+
+Json::Value Metadata::unify(Json::Value json)
+{
     // Pre-1.0: nested keys have since been flattened.
     if (json.isMember("format"))
     {
@@ -116,26 +136,11 @@ std::unique_ptr<Metadata> Metadata::create(
         json["storage"] = json["compress"].asBool() ? "lazperf" : "binary";
     }
 
-    auto m(makeUnique<Metadata>(json));
-
-    if (exists)
-    {
-        m->awakenManifest(ep);
-
-        /*
-        // assert(!subsetId || *subsetId == m_subset->id());
-        const std::string mpath("entwine-manifest" + m->postfix());
-        const Json::Value mjson(parse(io::ensureGetString(ep, mpath)));
-        m->m_manifest = makeUnique<Manifest>(mjson, ep);
-        if (!m->density()) m->m_density = densityLowerBound(m->manifest());
-        */
-    }
-
-    return m;
+    return json;
 }
 
 Metadata::Metadata(const arbiter::Endpoint& ep)
-    : Metadata(parse(ep.get("entwine")))
+    : Metadata(unify(parse(ep.get("entwine"))))
 {
     awakenManifest(ep);
 }
