@@ -11,11 +11,13 @@
 #pragma once
 
 #include <cstddef>
+#include <memory>
 
 #include <json/json.h>
 
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/delta.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
@@ -89,6 +91,16 @@ public:
                 throw std::runtime_error("Invalid depth specification");
             }
         }
+
+        if (q.isMember("nativeBounds"))
+        {
+            if (q.isMember("bounds"))
+            {
+                throw std::runtime_error("Cannot specify multiple bounds");
+            }
+
+            m_nativeBounds = std::make_shared<Bounds>(q["nativeBounds"]);
+        }
     }
 
     const Bounds& bounds() const { return m_bounds; }
@@ -97,12 +109,16 @@ public:
     std::size_t de() const { return m_depthEnd; }
     const Json::Value& filter() const { return m_filter; }
 
+    const Bounds* nativeBounds() const { return m_nativeBounds.get(); }
+
 private:
     const Bounds m_bounds;
     const Delta m_delta;
     const std::size_t m_depthBegin;
     const std::size_t m_depthEnd;
     const Json::Value m_filter;
+
+    std::shared_ptr<Bounds> m_nativeBounds;
 };
 
 } // namespace entwine

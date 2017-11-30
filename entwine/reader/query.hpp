@@ -60,6 +60,7 @@ protected:
     void processPoint(const PointInfo& info);
 
     const Reader& m_reader;
+    const QueryParams m_params;
     const Metadata& m_metadata;
     const Structure& m_structure;
     const Delta m_delta;
@@ -167,11 +168,27 @@ protected:
 private:
     void setScaled(const DimInfo& dim, std::size_t dimNum, char* pos)
     {
-        const double d = Point::scale(
-                m_pointRef.getFieldAs<double>(dim.id()),
-                m_mid[dimNum],
-                m_delta.scale()[dimNum],
-                m_delta.offset()[dimNum]);
+        double d(0);
+        if (m_params.nativeBounds())
+        {
+            d = Point::unscale(
+                    m_pointRef.getFieldAs<double>(dim.id()),
+                    m_metadata.delta()->scale()[dimNum],
+                    m_metadata.delta()->offset()[dimNum]);
+
+            d = Point::scale(
+                    d,
+                    m_delta.scale()[dimNum],
+                    m_delta.offset()[dimNum]);
+        }
+        else
+        {
+            d = Point::scale(
+                    m_pointRef.getFieldAs<double>(dim.id()),
+                    m_mid[dimNum],
+                    m_delta.scale()[dimNum],
+                    m_delta.offset()[dimNum]);
+        }
 
         switch (dim.type())
         {

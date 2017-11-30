@@ -83,10 +83,17 @@ Bounds Query::localize(const Bounds& q, const Delta& localDelta) const
 
 Query::Query(const Reader& reader, const QueryParams& p)
     : m_reader(reader)
+    , m_params(p)
     , m_metadata(m_reader.metadata())
     , m_structure(m_metadata.structure())
-    , m_delta(localize(p.delta()))
-    , m_bounds(localize(p.bounds(), m_delta))
+    , m_delta(
+            p.nativeBounds() ?
+                p.delta() :
+                localize(p.delta()))
+    , m_bounds(
+            p.nativeBounds() ?
+                localize(*p.nativeBounds(), m_metadata.delta()->inverse()) :
+                localize(p.bounds(), m_delta))
     , m_depthBegin(p.db())
     , m_depthEnd(p.de() ? p.de() : std::numeric_limits<uint32_t>::max())
     , m_filter(m_reader.metadata(), m_bounds, p.filter(), &m_delta)
@@ -265,7 +272,10 @@ ReadQuery::ReadQuery(
     : Query(reader, params)
     , m_schema(schema.empty() ? m_metadata.schema() : schema)
     , m_reg(reader, m_schema)
-    , m_mid(m_metadata.boundsScaledCubic().mid())
+    , m_mid(
+            params.nativeBounds() ?
+                m_delta.offset() :
+                m_metadata.boundsScaledCubic().mid())
 { }
 
 void ReadQuery::chunk(const ChunkReader& cr)
@@ -293,7 +303,7 @@ void ReadQuery::process(const PointInfo& info)
     {
         const DimInfo& dimInfo(dim.info());
         dimNum = pdal::Utils::toNative(dimInfo.id()) - 1;
-        if (m_delta.exists() && dimNum < 3)
+        if ((m_delta.exists() || m_params.nativeBounds()) && dimNum < 3)
         {
             setScaled(dimInfo, dimNum, pos);
         }
