@@ -151,19 +151,8 @@ Arbiter::Arbiter(const Json::Value& in)
     auto https(Https::create(*m_pool, json["http"]));
     if (https) m_drivers[https->type()] = std::move(https);
 
-    if (json["s3"].isArray())
-    {
-        for (const auto& sub : json["s3"])
-        {
-            auto s3(S3::create(*m_pool, sub));
-            m_drivers[s3->type()] = std::move(s3);
-        }
-    }
-    else
-    {
-        auto s3(S3::create(*m_pool, json["s3"]));
-        if (s3) m_drivers[s3->type()] = std::move(s3);
-    }
+    auto s3(S3::create(*m_pool, json["s3"]));
+    for (auto& s : s3) m_drivers[s->type()] = std::move(s);
 
     // Credential-based drivers should probably all do something similar to the
     // S3 driver to support multiple profiles.
@@ -1600,7 +1589,29 @@ S3::S3(
     , m_config(std::move(config))
 { }
 
-std::unique_ptr<S3> S3::create(Pool& pool, const Json::Value& json)
+std::vector<std::unique_ptr<S3>> S3::create(Pool& pool, const Json::Value& json)
+{
+    std::vector<std::unique_ptr<S3>> result;
+
+    if (json.isArray())
+    {
+        for (const auto& curr : json)
+        {
+            if (auto s = createOne(pool, curr))
+            {
+                result.push_back(std::move(s));
+            }
+        }
+    }
+    else if (auto s = createOne(pool, json))
+    {
+        result.push_back(std::move(s));
+    }
+
+    return result;
+}
+
+std::unique_ptr<S3> S3::createOne(Pool& pool, const Json::Value& json)
 {
     const std::string profile(extractProfile(json));
 
@@ -1613,15 +1624,16 @@ std::unique_ptr<S3> S3::create(Pool& pool, const Json::Value& json)
 
 std::string S3::extractProfile(const Json::Value& json)
 {
-    if (auto p = util::env("AWS_PROFILE")) return *p;
-    else if (auto p = util::env("AWS_DEFAULT_PROFILE")) return *p;
-    else if (
+    if (
             !json.isNull() &&
             json.isMember("profile") &&
             json["profile"].asString().size())
     {
         return json["profile"].asString();
     }
+
+    if (auto p = util::env("AWS_PROFILE")) return *p;
+    if (auto p = util::env("AWS_DEFAULT_PROFILE")) return *p;
     else return "default";
 }
 
@@ -1629,7 +1641,20 @@ std::unique_ptr<S3::Auth> S3::Auth::create(
         const Json::Value& json,
         const std::string profile)
 {
-    // Try environment settings first.
+    // Try explicit JSON configuration first.
+    if (
+            !json.isNull() &&
+            json.isMember("access") &&
+            (json.isMember("secret") || json.isMember("hidden")))
+    {
+        return makeUnique<Auth>(
+                json["access"].asString(),
+                json.isMember("secret") ?
+                    json["secret"].asString() :
+                    json["hidden"].asString());
+    }
+
+    // Try environment settings next.
     {
         auto access(util::env("AWS_ACCESS_KEY_ID"));
         auto hidden(util::env("AWS_SECRET_ACCESS_KEY"));
@@ -1646,19 +1671,6 @@ std::unique_ptr<S3::Auth> S3::Auth::create(
         {
             return makeUnique<Auth>(*access, *hidden);
         }
-    }
-
-    // Try explicit JSON configuration next.
-    if (
-            !json.isNull() &&
-            json.isMember("access") &&
-            (json.isMember("secret") || json.isMember("hidden")))
-    {
-        return makeUnique<Auth>(
-                json["access"].asString(),
-                json.isMember("secret") ?
-                    json["secret"].asString() :
-                    json["hidden"].asString());
     }
 
     const std::string credPath(
@@ -2315,6 +2327,8 @@ std::string S3::Resource::host() const
 #include <arbiter/drivers/google.hpp>
 #endif
 
+#include <vector>
+
 #ifdef ARBITER_OPENSSL
 #include <openssl/evp.h>
 #include <openssl/err.h>
@@ -2614,8 +2628,11 @@ std::string Google::Auth::sign(
 
     auto loadKey([](std::string s, bool isPublic)->EVP_PKEY*
     {
+        // BIO_new_mem_buf needs non-const char*, so use a vector.
+        std::vector<char> vec(s.data(), s.data() + s.size());
+
         EVP_PKEY* key(nullptr);
-        if (BIO* bio = BIO_new_mem_buf((void*)s.data(), -1))
+        if (BIO* bio = BIO_new_mem_buf(vec.data(), vec.size()))
         {
             if (isPublic)
             {

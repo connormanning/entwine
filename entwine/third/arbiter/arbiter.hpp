@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: a99fb3dabf9884ac8fa2c45f1c126953f30e25b3
+// Git SHA: f75461655ed71bf43551f3d8645c13ca7025c352
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -4164,7 +4164,11 @@ public:
      *          `~/.aws/credentials` or the file at AWS_CREDENTIAL_FILE.
      *      - EC2 instance profile.
      */
-    static std::unique_ptr<S3> create(
+    static std::vector<std::unique_ptr<S3>> create(
+            http::Pool& pool,
+            const Json::Value& json);
+
+    static std::unique_ptr<S3> createOne(
             http::Pool& pool,
             const Json::Value& json);
 

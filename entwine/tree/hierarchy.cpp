@@ -152,7 +152,8 @@ HierarchyCell& Hierarchy::count(
                         m_outpoint.get(),
                         chunkInfo.pointsPerChunk(),
                         m_endpoint.getBinary(
-                            chunkInfo.chunkId().str() + m_metadata.postfix(true)));
+                            chunkInfo.chunkId().str() +
+                            m_metadata.postfix(true)));
             }
             else
             {
