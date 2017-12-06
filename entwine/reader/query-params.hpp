@@ -74,7 +74,7 @@ public:
         , m_filter(filter)
     { }
 
-    QueryParams(const Json::Value& q)
+    QueryParams(Json::Value q)
         : QueryParams(
             q.isMember("bounds") ?  Bounds(q["bounds"]) : Bounds::everything(),
             Delta(q),
@@ -88,6 +88,7 @@ public:
         {
             if (q.isMember("depthBegin") || q.isMember("depthEnd"))
             {
+                std::cout << q << std::endl;
                 throw std::runtime_error("Invalid depth specification");
             }
         }
@@ -96,6 +97,7 @@ public:
         {
             if (q.isMember("bounds"))
             {
+                std::cout << q << std::endl;
                 throw std::runtime_error("Cannot specify multiple bounds");
             }
 

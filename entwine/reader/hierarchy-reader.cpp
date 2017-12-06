@@ -26,6 +26,14 @@ Json::Value HierarchyReader::query(
         const std::size_t depthBegin,
         const std::size_t depthEnd)
 {
+    const float available(m_pool.available());
+    const float allocated(m_pool.allocated());
+
+    std::cout << "HP: " <<
+        (int)(allocated - available) << " / " << (int)allocated << ": " <<
+        (allocated - available) / allocated * 100.0 << "%" <<
+        std::endl;
+
     if (depthEnd < depthBegin)
     {
         throw std::runtime_error("Invalid range");

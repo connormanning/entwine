@@ -67,7 +67,10 @@ void ensurePut(
         }
         catch (...)
         {
-            if (++tried < retries) sleep(tried, "PUT", path);
+            if (++tried < retries)
+            {
+                sleep(tried, "PUT", endpoint.prefixedRoot() + path);
+            }
             else suicide("PUT");
         }
     }
@@ -92,7 +95,10 @@ std::unique_ptr<std::vector<char>> ensureGet(
         }
         else
         {
-            if (++tried < retries) sleep(tried, "GET", path);
+            if (++tried < retries)
+            {
+                sleep(tried, "GET", endpoint.prefixedRoot() + path);
+            }
             else suicide("GET");
         }
     }

@@ -58,7 +58,7 @@ public:
     ~Reader();
 
     // Read query.
-    std::unique_ptr<ReadQuery> getQuery(const Json::Value& q)
+    std::unique_ptr<ReadQuery> getQuery(Json::Value q)
     {
         return makeUnique<ReadQuery>(
                 *this,

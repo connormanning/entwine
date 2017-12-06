@@ -259,12 +259,67 @@ void Hierarchy::merge(Hierarchy& other, Pool& pool)
     Splitter::merge(other.ids());
 }
 
+void Hierarchy::rebase(const arbiter::Endpoint& ep, const std::size_t depth)
+{
+    std::cout << "Rebasing to " << depth << std::endl;
+    if (depth >= m_metadata.hierarchyStructure().baseDepthEnd())
+    {
+        throw std::runtime_error(
+                "Invalid rebase depth: " + std::to_string(depth));
+    }
+
+    Json::Value m(m_metadata.toJson());
+    m["hierarchyStructure"]["baseDepth"] = Json::UInt64(depth);
+    Metadata outMeta(m);
+    Hierarchy outHier(
+            m_pool,
+            outMeta,
+            ep,
+            &ep,
+            false);
+
+    const BaseBlock& base(static_cast<const BaseBlock&>(*m_base.t));
+    std::size_t curDepth(0);
+    for (const auto& block : base.blocks())
+    {
+        const auto id(block.id());
+        for (std::size_t i(0); i < block.tubes().size(); ++i)
+        {
+            for (const auto& entry : block.tubes().at(i))
+            {
+                if (curDepth < outMeta.hierarchyStructure().coldDepthBegin())
+                {
+                    outHier.countBase(
+                            id.getSimple() + i,
+                            entry.first,
+                            entry.second->val());
+                }
+                else
+                {
+                    ChunkInfo c(outMeta.hierarchyStructure(), id + i);
+                    outHier.count(c, entry.first, entry.second->val());
+                }
+            }
+        }
+
+        ++curDepth;
+    }
+
+    Pool p(2);
+    std::cout << "Saving base and ids" << std::endl;
+    outHier.merge(ids());
+    outHier.save(p);
+
+    std::cout << "Saving metadata" << std::endl;
+    io::ensurePut(ep, "entwine", outMeta.toJson().toStyledString());
+}
+
 Structure Hierarchy::structure(
         const Structure& treeStructure,
         const Subset* subset)
 {
     const std::size_t minStartDepth(shallow ? 4 : 6);
-    const std::size_t minBaseDepth(shallow ? 6 : 12);
+    const std::size_t minBaseDepth(shallow ? 6 : 8);
     const std::size_t pointsPerChunk(treeStructure.basePointsPerChunk());
 
     const std::size_t startDepth(

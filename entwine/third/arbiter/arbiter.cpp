@@ -1616,7 +1616,6 @@ std::unique_ptr<S3> S3::createOne(Pool& pool, const Json::Value& json)
     const std::string profile(extractProfile(json));
 
     auto auth(Auth::create(json, profile));
-    if (!auth) return std::unique_ptr<S3>();
 
     std::unique_ptr<Config> config(new Config(json, profile));
     return makeUnique<S3>(pool, profile, std::move(auth), std::move(config));

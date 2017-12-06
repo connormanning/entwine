@@ -56,6 +56,9 @@ public:
     }
 
     using Splitter::tryGet;
+    using Splitter::merge;
+
+    void rebase(const arbiter::Endpoint& ep, std::size_t depth);
 
     void countBase(std::size_t index, std::size_t tick, int delta)
     {

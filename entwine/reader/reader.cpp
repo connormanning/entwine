@@ -40,7 +40,9 @@ namespace
     {
         if (depthBegin >= depthEnd)
         {
-            throw InvalidQuery("Invalid depths");
+            throw InvalidQuery(
+                    "Invalid depths " + std::to_string(depthBegin) +
+                    ", " + std::to_string(depthEnd));
         }
     }
 
