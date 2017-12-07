@@ -291,7 +291,7 @@ public:
         Schema s(*this);
         for (const auto& d : other.dims())
         {
-            if (!s.contains(d.name())) s.append(d);
+            if (!s.contains(d.name())) s = s.append(d);
         }
         return s;
     }
