@@ -259,14 +259,9 @@ void Hierarchy::merge(Hierarchy& other, Pool& pool)
     Splitter::merge(other.ids());
 }
 
-void Hierarchy::rebase(const arbiter::Endpoint& ep, const std::size_t depth)
+void Hierarchy::rebase(const arbiter::Endpoint& ep, std::size_t depth)
 {
     std::cout << "Rebasing to " << depth << std::endl;
-    if (depth >= m_metadata.hierarchyStructure().baseDepthEnd())
-    {
-        throw std::runtime_error(
-                "Invalid rebase depth: " + std::to_string(depth));
-    }
 
     Json::Value m(m_metadata.toJson());
     m["hierarchyStructure"]["baseDepth"] = Json::UInt64(depth);
@@ -277,6 +272,21 @@ void Hierarchy::rebase(const arbiter::Endpoint& ep, const std::size_t depth)
             ep,
             &ep,
             false);
+
+    if (outMeta.hierarchyStructure().baseDepthEnd() != depth)
+    {
+        depth = outMeta.hierarchyStructure().baseDepthEnd();
+        std::cout << "Using min depth: " << depth << std::endl;
+    }
+
+    std::cout << "Rebasing from " <<
+        m_metadata.hierarchyStructure().baseDepthEnd() << std::endl;
+
+    if (depth >= m_metadata.hierarchyStructure().baseDepthEnd())
+    {
+        throw std::runtime_error(
+                "Invalid rebase depth: " + std::to_string(depth));
+    }
 
     const BaseBlock& base(static_cast<const BaseBlock&>(*m_base.t));
     std::size_t curDepth(0);
