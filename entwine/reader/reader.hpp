@@ -114,7 +114,7 @@ public:
             const Point* scale = nullptr,
             const Point* offset = nullptr);
 
-    Json::Value hierarchy(const Json::Value& json);
+    Json::Value hierarchy(Json::Value json);
 
     // File metadata queries.
     FileInfo files(Origin origin) const;

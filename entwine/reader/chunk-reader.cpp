@@ -80,6 +80,7 @@ void ChunkReader::initLegacyBase(const arbiter::Endpoint& tmp)
     const Schema celledSchema(tubeDim.append(m.schema()));
     PointPool celledPool(celledSchema, m.delta());
     auto tubedCells(m.storage().deserialize(m_endpoint, tmp, celledPool, m_id));
+    Data::PooledStack tubedData(celledPool.dataPool());
 
     const std::size_t numPoints(tubedCells.size());
 
@@ -102,6 +103,7 @@ void ChunkReader::initLegacyBase(const arbiter::Endpoint& tmp)
     for (std::size_t i(0); i < numPoints; ++i)
     {
         const char* src((*tubedCell)->uniqueData());
+        tubedData.push((*tubedCell)->acquire());
 
         Data::PooledNode data(dataNodes.popOne());
 

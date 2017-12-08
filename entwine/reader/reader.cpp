@@ -291,7 +291,7 @@ Json::Value Reader::hierarchy(
         m_hierarchy->query(queryBounds, depthBegin, depthEnd);
 }
 
-Json::Value Reader::hierarchy(const Json::Value& q)
+Json::Value Reader::hierarchy(const Json::Value q)
 {
     const Bounds bounds = q.isMember("bounds") ?
         Bounds(q["bounds"]) : Bounds::everything();
@@ -306,6 +306,8 @@ Json::Value Reader::hierarchy(const Json::Value& q)
 
     auto scale(entwine::maybeCreate<entwine::Scale>(q["scale"]));
     auto offset(entwine::maybeCreate<entwine::Offset>(q["offset"]));
+
+    if (depthBegin == depthEnd) std::cout << q << std::endl;
 
     return hierarchy(
             bounds,
