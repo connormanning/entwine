@@ -14,6 +14,10 @@
 #include <cctype>
 #include <string>
 
+// Don't know where/which macro defines these things
+#undef major
+#undef minor
+
 namespace entwine
 {
 
