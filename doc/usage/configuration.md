@@ -47,7 +47,7 @@ entwine build \
 | `bounds`          | `-b`  | `[Number]`                | Inferred  | Indexing bounds [🔗](#bounds)
 | `schema`          |       | `Object`                  | Inferred  | Indexing dimensions [🔗](#schema)
 | `arbiter`         |       | `Object`                  | None      | Arbiter configuration settings [🔗](#arbiter)
-| `compress`        |       | `Boolean`                 | `true`    | True to compress output [🔗](#compress)
+| `storage`         |       | `String`                  | `laszip`  | Output storage/compression type [🔗](#storage)
 | `nullDepth`       |       | `Number`                  | `7`       | Tree depth to begin storing points [🔗](#tree-depths)
 | `baseDepth`       |       | `Number`                  | `10`      | Tree depth for contiguous point storage [🔗](#tree-depths)
 | `coldDepth`       |       | `Number`                  | None      | Maximum tree depth, or `null` for lossless [🔗](#tree-depths)
@@ -271,8 +271,8 @@ Entwine uses [Arbiter](http://arbitercpp.com) ([source repository](https://githu
 
 For S3, if AWSCLI has been installed, then the credentials will be picked up from there, making this field unnecessary.  See the [S3](#s3) section for more information.
 
-### Compress
-Determines whether point data is compressed via [LAZ-perf](https://github.com/hobu/laz-perf).  In general, turning off compression is not very useful except for special cases of debugging or validating output.
+### Storage
+Determines the type of output storage files for the indexed point cloud data.  Valid values are `laszip` for [LASzip](https://www.laszip.org) compression (the default) via LAZ files, `lazperf` for [LAZ-perf](https://github.com/hobu/laz-perf) compressed files, and `binary` for simple uncompressed data formatted according to the `schema`.
 
 ### Tree depths
 The three configurable depth settings correspond to depths of an octree.  Within this section, we will refer to LiDAR data, which tends to be a horizontal-ish "slice" of elevation across a somewhat consistent density across the X-Y bounds.  That means that even though the index is an octree, it tends to act as a quadtree.  This assumption will drive some of the heuristic values mentioned in this section.  For data that is as uniformly dense across Z as it is across X-Y, this behavior will be different - but here will we refer to quadtrees for conceptual simplicity.
