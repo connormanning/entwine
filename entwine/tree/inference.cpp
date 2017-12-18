@@ -165,7 +165,7 @@ void Inference::go()
 
         if (Executor::get().good(f.path()))
         {
-            if (m_arbiter->isHttpDerived(f.path()))
+            if (m_trustHeaders && m_arbiter->isHttpDerived(f.path()))
             {
                 m_pool->add([this, &f]()
                 {
@@ -353,6 +353,7 @@ void Inference::add(const std::string localPath, FileInfo& fileInfo)
 
                     if (!scale.x || !scale.y || !scale.z)
                     {
+                        std::cout << "Scale: " << scale << std::endl;
                         throw std::runtime_error(
                                 "Invalid scale at " + fileInfo.path());
                     }
