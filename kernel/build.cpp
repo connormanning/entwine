@@ -100,8 +100,8 @@ namespace
             "\t\tDo not trust file headers when determining bounds.  By\n"
             "\t\tdefault, the headers are considered to be good.\n\n"
 
-            "\t-c <compression-type>\n"
-            "\t\tSet data storage type.  Valid value: 'none', 'laszip',\n"
+            "\t-c <storage compression-type>\n"
+            "\t\tSet data storage type.  Valid value: 'binary', 'laszip',\n"
             "\t\tor 'lazperf'.\n\n"
 
             "\t-n\n"
@@ -262,7 +262,7 @@ void Kernel::build(std::vector<std::string> args)
         }
         else if (arg == "-c")
         {
-            if (++a < args.size()) json["compression"] = args[a];
+            if (++a < args.size()) json["storage"] = args[a];
             else error("Invalid compression specification");
         }
         else if (arg == "-a")
