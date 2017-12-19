@@ -61,6 +61,7 @@ Quickstart
    :maxdepth: 1
 
    quickstart
+   configuration
 
 Download
 --------------------------------------------------------------------------------

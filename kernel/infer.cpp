@@ -233,10 +233,8 @@ void Kernel::infer(std::vector<std::string> args)
                 throw std::runtime_error("Invalid AWS user argument");
             }
         }
-        else if (arg == "-v")
-        {
-            arbiterConfig["verbose"] = true;
-        }
+        else if (arg == "-e") { arbiterConfig["s3"]["sse"] = true; }
+        else if (arg == "-v") { arbiterConfig["verbose"] = true; }
         else if (arg == "-m")
         {
             if (++a < args.size())

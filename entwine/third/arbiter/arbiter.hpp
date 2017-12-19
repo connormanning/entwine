@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: f75461655ed71bf43551f3d8645c13ca7025c352
+// Git SHA: e3fead2f855dc2d3193cd3bb784f7d90b5d5daff
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -214,6 +214,8 @@ private:
 
 #ifdef ARBITER_CURL
 #include <curl/curl.h>
+#else
+typedef void CURL;
 #endif
 
 struct curl_slist;
@@ -272,7 +274,7 @@ private:
     Curl(const Curl&);
     Curl& operator=(const Curl&);
 
-    void* m_curl = nullptr;
+    CURL* m_curl = nullptr;
     curl_slist* m_headers = nullptr;
 
     bool m_verbose = false;
@@ -4233,9 +4235,10 @@ private:
 class S3::Auth
 {
 public:
-    Auth(std::string access, std::string hidden)
+    Auth(std::string access, std::string hidden, std::string token = "")
         : m_access(access)
         , m_hidden(hidden)
+        , m_token(token)
     { }
 
     Auth(std::string iamRole)

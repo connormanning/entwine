@@ -312,7 +312,7 @@ void Arbiter::copy(
             {
                 std::cout <<
                     ++i << " / " << paths.size() << ": " <<
-                    path << " -> " << dstEndpoint.fullPath(subpath) <<
+                    path << " -> " << dstEndpoint.prefixedFullPath(subpath) <<
                     std::endl;
             }
 
@@ -1616,6 +1616,7 @@ std::unique_ptr<S3> S3::createOne(Pool& pool, const Json::Value& json)
     const std::string profile(extractProfile(json));
 
     auto auth(Auth::create(json, profile));
+    if (!auth) return std::unique_ptr<S3>();
 
     std::unique_ptr<Config> config(new Config(json, profile));
     return makeUnique<S3>(pool, profile, std::move(auth), std::move(config));
@@ -1650,25 +1651,28 @@ std::unique_ptr<S3::Auth> S3::Auth::create(
                 json["access"].asString(),
                 json.isMember("secret") ?
                     json["secret"].asString() :
-                    json["hidden"].asString());
+                    json["hidden"].asString(),
+                json["token"].asString());
     }
 
     // Try environment settings next.
     {
         auto access(util::env("AWS_ACCESS_KEY_ID"));
         auto hidden(util::env("AWS_SECRET_ACCESS_KEY"));
+        auto token(util::env("AWS_SESSION_TOKEN"));
 
         if (access && hidden)
         {
-            return makeUnique<Auth>(*access, *hidden);
+            return makeUnique<Auth>(*access, *hidden, token ? *token : "");
         }
 
         access = util::env("AMAZON_ACCESS_KEY_ID");
         hidden = util::env("AMAZON_SECRET_ACCESS_KEY");
+        token = util::env("AMAZON_SESSION_TOKEN");
 
         if (access && hidden)
         {
-            return makeUnique<Auth>(*access, *hidden);
+            return makeUnique<Auth>(*access, *hidden, token ? *token : "");
         }
     }
 
@@ -1911,6 +1915,7 @@ bool S3::get(
         const Query query) const
 {
     Headers headers(m_config->baseHeaders());
+    headers.erase("x-amz-server-side-encryption");
     headers.insert(userHeaders.begin(), userHeaders.end());
 
     std::unique_ptr<std::size_t> size(
