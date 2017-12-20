@@ -12,7 +12,7 @@ set(
 add_executable(kernel ${SOURCES})
 add_dependencies(kernel entwine)
 
-target_link_libraries(kernel entwine)
+target_link_libraries(kernel entwine ${Backtrace_LIBRARIES})
 set_target_properties(kernel PROPERTIES OUTPUT_NAME entwine)
 
 install(TARGETS kernel DESTINATION bin)
