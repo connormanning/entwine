@@ -40,7 +40,6 @@ import time
 import os
 import datetime
 
-import recommonmark
 if os.environ.get('SOURCE_DATE_EPOCH'):
     year  = datetime.datetime.utcfromtimestamp(int(os.environ.get('SOURCE_DATE_EPOCH', time.gmtime()))).year
     today = datetime.datetime.utcfromtimestamp(int(os.environ.get('SOURCE_DATE_EPOCH', time.gmtime()))).strftime('%B %d, %Y')
@@ -54,12 +53,9 @@ templates_path = ['_templates']
 # You can specify multiple suffix as a list of string:
 #
 
-source_parsers = {
-   '.md': 'recommonmark.parser.CommonMarkParser',
-}
 
-source_suffix = ['.rst', '.md']
-#ksource_suffix = '.rst'
+#source_suffix = ['.rst', '.md']
+source_suffix = '.rst'
 
 # The encoding of source files.
 #
