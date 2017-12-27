@@ -30,4 +30,4 @@ Now that we have Greyhound running locally and ready to serve our data, we can v
 Going further
 --------------------------------------------------------------------------------
 
-For detailed information about how to configure your builds, check out the [configuration documentation](doc/usage/configuration.md).  Here, you can find information about reprojecting your data, using configuration files and templates, enabling S3 capabilities, producing [Cesium 3D Tiles](https://github.com/AnalyticalGraphicsInc/3d-tiles) output, and all sorts of other settings.
+For detailed information about how to configure your builds, check out the [configuration documentation](doc/source/configuration.rst).  Here, you can find information about reprojecting your data, using configuration files and templates, enabling S3 capabilities, producing [Cesium 3D Tiles](https://github.com/AnalyticalGraphicsInc/3d-tiles) output, and all sorts of other settings.
