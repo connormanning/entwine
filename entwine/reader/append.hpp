@@ -33,7 +33,7 @@ public:
             std::size_t numPoints)
         : m_ep(ep)
         , m_filename("d/" + name + "/" + id.str())
-        , m_schema(schema.filter("Skip"))
+        , m_schema(schema.filter("Omit"))
         , m_dimTypeList(m_schema.pdalLayout().dimTypes())
         , m_table(m_schema, numPoints)
     {

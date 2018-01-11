@@ -99,7 +99,7 @@ public:
                 QueryParams(std::forward<Args>(args)...));
     }
 
-    void registerAppend(std::string name, const Schema& schema);
+    void registerAppend(std::string name, Schema schema);
     std::size_t write(
             std::string name,
             const std::vector<char>& data,

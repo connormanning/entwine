@@ -10,8 +10,6 @@
 
 #pragma once
 
-#include <pdal/Compression.hpp>
-
 #include <entwine/types/chunk-storage/binary.hpp>
 #include <entwine/util/compression.hpp>
 

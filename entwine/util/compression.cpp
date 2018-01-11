@@ -10,19 +10,23 @@
 
 #include <entwine/util/compression.hpp>
 
+#include <cassert>
+
+#include <pdal/compression/LazPerfCompression.hpp>
 #include <pdal/PointLayout.hpp>
 
 #include <entwine/types/binary-point-table.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
 
 std::unique_ptr<std::vector<char>> Compression::compress(
-        const std::vector<char>& data,
+        const std::vector<char>& d,
         const Schema& schema)
 {
-    return compress(data.data(), data.size(), schema);
+    return Compression::compress(d.data(), d.size(), schema);
 }
 
 std::unique_ptr<std::vector<char>> Compression::compress(
@@ -30,15 +34,20 @@ std::unique_ptr<std::vector<char>> Compression::compress(
         const std::size_t size,
         const Schema& schema)
 {
-    CompressionStream compressionStream(size);
-    pdal::LazPerfCompressor<CompressionStream> compressor(
-            compressionStream,
-            schema.pdalLayout().dimTypes());
+    auto v(makeUnique<std::vector<char>>());
+    v->reserve(static_cast<std::size_t>(static_cast<double>(size) * 0.2));
 
-    compressor.compress(data, size);
-    compressor.done();
+    const auto dimTypes(schema.pdalLayout().dimTypes());
+    auto cb([&v](char* p, std::size_t s)
+    {
+        v->insert(v->end(), p, p + s);
+    });
 
-    return compressionStream.data();
+    auto compressor(makeUnique<pdal::LazPerfCompressor>(cb, dimTypes));
+    compressor->compress(data, size);
+    compressor->done();
+
+    return v;
 }
 
 std::unique_ptr<std::vector<char>> Compression::decompress(
@@ -48,59 +57,58 @@ std::unique_ptr<std::vector<char>> Compression::decompress(
 {
     const std::size_t decompressedSize(numPoints * schema.pointSize());
 
-    DecompressionStream decompressionStream(data);
-    pdal::LazPerfDecompressor<DecompressionStream> decompressor(
-            decompressionStream,
-            schema.pdalLayout().dimTypes());
+    auto v(makeUnique<std::vector<char>>());
+    v->reserve(decompressedSize);
 
-    std::unique_ptr<std::vector<char>> decompressed(
-            new std::vector<char>(decompressedSize));
+    auto cb([&v](char* p, std::size_t s) { v->insert(v->end(), p, p + s); });
+    const auto dimTypes(schema.pdalLayout().dimTypes());
 
-    decompressor.decompress(decompressed->data(), decompressed->size());
+    auto decompressor(
+            makeUnique<pdal::LazPerfDecompressor>(cb, dimTypes, numPoints));
+    decompressor->decompress(data.data(), data.size());
+    decompressor->done();
 
-    return decompressed;
+    return v;
 }
 
 std::unique_ptr<std::vector<char>> Compression::decompress(
         const std::vector<char>& data,
         const Schema& nativeSchema,
         const Schema* const wantedSchema,
-        const std::size_t numPoints)
+        const std::size_t np)
 {
     if (!wantedSchema || *wantedSchema == nativeSchema)
     {
-        return decompress(data, nativeSchema, numPoints);
+        return decompress(data, nativeSchema, np);
     }
 
-    // Get decompressor in the native schema.
-    DecompressionStream decompressionStream(data);
-    pdal::LazPerfDecompressor<DecompressionStream> decompressor(
-            decompressionStream,
-            nativeSchema.pdalLayout().dimTypes());
+    auto v(makeUnique<std::vector<char>>(np * wantedSchema->pointSize(), 0));
+    char* to(v->data());
 
-    // Allocate room for a single point in the native schema.
-    std::vector<char> nativePoint(nativeSchema.pointSize());
-    BinaryPointTable table(nativeSchema, nativePoint.data());
+    const auto wantedDims(wantedSchema->dims());
+
+    BinaryPointTable table(nativeSchema);
     pdal::PointRef pointRef(table, 0);
 
-    // Get our result space, in the desired schema, ready.
-    std::unique_ptr<std::vector<char>> decompressed(
-            new std::vector<char>(numPoints * wantedSchema->pointSize(), 0));
-    char* pos(decompressed->data());
-    const char* end(pos + decompressed->size());
-
-    while (pos < end)
+    auto cb([&to, &wantedDims, &table, &pointRef]
+            (const char* from, std::size_t s)
     {
-        decompressor.decompress(nativePoint.data(), nativePoint.size());
-
-        for (const auto& d : wantedSchema->dims())
+        table.setPoint(from);
+        for (const auto& d : wantedDims)
         {
-            pointRef.getField(pos, d.id(), d.type());
-            pos += d.size();
+            pointRef.getField(to, d.id(), d.type());
+            to += d.size();
         }
-    }
+    });
 
-    return decompressed;
+    const auto nativeDimTypes(nativeSchema.pdalLayout().dimTypes());
+
+    auto decompressor(
+            makeUnique<pdal::LazPerfDecompressor>(cb, nativeDimTypes, np));
+    decompressor->decompress(data.data(), data.size());
+    decompressor->done();
+
+    return v;
 }
 
 Cell::PooledStack Compression::decompress(
@@ -110,46 +118,34 @@ Cell::PooledStack Compression::decompress(
 {
     Data::PooledStack dataStack(pointPool.dataPool().acquire(numPoints));
     Cell::PooledStack cellStack(pointPool.cellPool().acquire(numPoints));
+    Cell::RawNode* current(cellStack.head());
 
-    BinaryPointTable table(pointPool.schema());
+    const auto& schema(pointPool.schema());
+    BinaryPointTable table(schema);
     pdal::PointRef pointRef(table, 0);
 
-    const std::size_t pointSize(pointPool.schema().pointSize());
+    const auto dimTypes(schema.pdalLayout().dimTypes());
 
-    DecompressionStream decompressionStream(data);
-    pdal::LazPerfDecompressor<DecompressionStream> decompressor(
-            decompressionStream,
-            pointPool.schema().pdalLayout().dimTypes());
-
-    for (Cell& cell : cellStack)
+    auto cb([&dataStack, &table, &pointRef, &current]
+            (const char* pos, std::size_t size)
     {
         Data::PooledNode dataNode(dataStack.popOne());
 
-        decompressor.decompress(*dataNode, pointSize);
-
+        std::copy(pos, pos + size, *dataNode);
         table.setPoint(*dataNode);
-        cell.set(pointRef, std::move(dataNode));
-    }
+
+        (*current)->set(pointRef, std::move(dataNode));
+        current = current->next();
+    });
+
+    auto decompressor(
+            makeUnique<pdal::LazPerfDecompressor>(cb, dimTypes, numPoints));
+    decompressor->decompress(data.data(), data.size());
+    decompressor->done();
+
+    assert(dataStack.empty());
 
     return cellStack;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-Compressor::Compressor(const Schema& schema, std::size_t numPoints)
-    : m_stream(schema.pointSize() * numPoints)
-    , m_compressor(m_stream, schema.pdalLayout().dimTypes())
-{ }
-
-void Compressor::push(const char* data, const std::size_t size)
-{
-    m_compressor.compress(data, size);
-}
-
-std::unique_ptr<std::vector<char>> Compressor::data()
-{
-    m_compressor.done();
-    return m_stream.data();
 }
 
 } // namespace entwine

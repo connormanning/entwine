@@ -248,9 +248,6 @@ public:
         , m_pr(m_table, 0)
         , m_pos(data.data())
         , m_end(m_pos + data.size())
-        , m_skipId(
-                m_schema.contains("Skip") ?
-                    m_schema.find("Skip").id() : pdal::Dimension::Id::Unknown)
     {
         if (m_schema.empty())
         {
@@ -277,7 +274,6 @@ private:
 
     const char* m_pos;
     const char* m_end;
-    const pdal::Dimension::Id m_skipId;
 };
 
 } // namespace entwine

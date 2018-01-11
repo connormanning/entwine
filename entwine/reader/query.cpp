@@ -329,7 +329,7 @@ void WriteQuery::chunk(const ChunkReader& cr)
 void WriteQuery::process(const PointInfo& info)
 {
     m_table.setPoint(m_pos);
-    if (m_pr.getFieldAs<bool>(m_skipId)) return;
+    if (m_pr.getFieldAs<bool>(pdal::Dimension::Id::Omit)) return;
     m_append->insert(m_pr, info.offset());
 }
 

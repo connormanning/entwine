@@ -173,12 +173,14 @@ void Reader::init()
     }
 }
 
-void Reader::registerAppend(std::string name, const Schema& schema)
+void Reader::registerAppend(std::string name, Schema schema)
 {
     if (name.empty())
     {
         throw std::runtime_error("Appended-dimension set name cannot be empty");
     }
+
+    schema = schema.filter("Omit");
 
     std::lock_guard<std::mutex> lock(m_mutex);
     if (m_appends.count(name))
@@ -222,7 +224,7 @@ void Reader::registerAppend(std::string name, const Schema& schema)
         arbiter::fs::mkdirp(m_endpoint.root() + "d/" + name);
     }
 
-    m_appends[name] = schema.filter("Skip");
+    m_appends[name] = schema;
 
     Json::Value json;
     for (const auto& p : m_appends) json[p.first] = p.second.toJson();

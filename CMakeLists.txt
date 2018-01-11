@@ -28,6 +28,8 @@ if (${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU" OR
     add_definitions(${CMAKE_CXX_FLAGS} "-fPIC")
 endif()
 
+add_definitions("-DPDAL_HAVE_LAZPERF")
+
 if (MSVC)
     # prevents clashes between macros min\max and std::min\std::max
     add_definitions(${CMAKE_CXX_FLAGS} "/DNOMINMAX" "/DJSON_DLL")
