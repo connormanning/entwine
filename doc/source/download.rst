@@ -17,17 +17,15 @@ Current Release
 * **2017-12-04** `entwine-1.2.0-src.tar.gz`_ `Release Notes`_ (`md5`_)
 
 .. _`Release Notes`: https://github.com/connormanning/entwine/releases/tag/1.2.0
-.. _`entwine-1.0.0-src.tar.gz`: https://entwine.io/releases/entwine-1.2.0-src.tar.gz
+.. _`entwine-1.2.0-src.tar.gz`: https://github.com/connormanning/entwine/archive/1.2.0.tar.gz
 .. _`md5`: https://entwine.io/releases/entwine-1.2.0-src.tar.gz.md5
 
 Previous Release(s)
 ------------------------------------------------------------------------------
 
-* **2017-03-01** `entwine-1.0.0-src.tar.gz`_ `Release Notes`_ (`md5`_)
+* **2017-03-01** `entwine-1.0.0-src.tar.gz`_
 
-.. _`Release Notes`: https://github.com/connormanning/entwine/releases/tag/1.0.0
-.. _`entwine-1.0.0-src.tar.gz`: https://entwine.io/releases/entwine-1.0.0-src.tar.gz
-.. _`md5`: https://entwine.io/releases/entwine-1.0.0-src.tar.gz.md5
+.. _`entwine-1.0.0-src.tar.gz`: https://github.com/connormanning/entwine/archive/1.0.0.tar.gz
 
 Development Source
 ------------------------------------------------------------------------------
