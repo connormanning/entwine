@@ -32,6 +32,25 @@ Entwine is available under the `LGPL License`_.
 News
 --------------------------------------------------------------------------------
 
+**12-04-2017**
+................................................................................
+
+Entwine 1.2.0 is now released. See :ref:`download` to obtain a copy of the source
+code.
+
+
+
+**12-01-2017**
+................................................................................
+
+See `Connor Manning`_ present "`Trillions of points - spatial indexing, organization, and exploitation of massive point clouds`_
+Infrastructure`_ at `FOSS4G 2016`_ in Boston, MA USA in August 2017.
+
+.. _`Trillions of points - spatial indexing, organization, and exploitation of massive point clouds`: https://vimeo.com/245073446
+.. _`FOSS4G 2016`: http://2016.foss4g.org/conference-programme.html
+.. _`Connor Manning`: https://github.com/connormanning
+
+
 **03-03-2017**
 ................................................................................
 
