@@ -329,6 +329,10 @@ void WriteQuery::chunk(const ChunkReader& cr)
 void WriteQuery::process(const PointInfo& info)
 {
     m_table.setPoint(m_pos);
+    m_pos += m_schema.pointSize();
+
+    if (m_pos > m_end) throw std::runtime_error("Invalid point count written");
+
     if (m_pr.getFieldAs<bool>(pdal::Dimension::Id::Omit)) return;
     m_append->insert(m_pr, info.offset());
 }

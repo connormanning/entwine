@@ -239,12 +239,23 @@ std::size_t Reader::write(
 {
     if (data.empty()) return 0;
     std::unique_lock<std::mutex> lock(m_mutex);
-    WriteQuery writeQuery(
-            *this,
-            QueryParams(q),
-            name,
-            m_appends.at(name),
-            data);
+
+    Schema schema(m_appends.at(name));
+    Schema requested(q["schema"]);
+
+    // The requested schema must match this addon's schema - with the exception
+    // that it may contain an "Omit" dimension for edge-effect buffering.
+    if (requested.pointSize())
+    {
+        if (requested.filter("Omit") != schema)
+        {
+            throw std::runtime_error("Invalid schema for addon: " + name);
+        }
+
+        schema = requested;
+    }
+
+    WriteQuery writeQuery(*this, QueryParams(q), name, schema, data);
     lock.unlock();
 
     writeQuery.run();
