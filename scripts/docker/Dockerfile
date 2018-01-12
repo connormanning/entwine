@@ -6,7 +6,6 @@ RUN \
     apk update; \
     apk add --no-cache --virtual .build-deps \
         xz-dev \
-        jsoncpp-dev \
         openssl-dev \
         alpine-sdk \
         git \
@@ -17,7 +16,6 @@ RUN \
     ; \
     apk add --no-cache \
         xz-libs \
-        jsoncpp \
         openssl-dev \
         openssl \
         cmake \
