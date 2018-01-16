@@ -11,11 +11,12 @@
 #pragma once
 
 #include <csignal>
+#include <iostream>
 #include <mutex>
 
 #include <pdal/util/Utils.hpp>
 
-#ifndef _WIN32
+#ifdef ENTWINE_HAVE_BACKTRACE
 #include <execinfo.h>
 #include <unistd.h>
 #include <dlfcn.h>
@@ -29,11 +30,11 @@ namespace
     std::mutex mutex;
 }
 
-#ifndef _WIN32
 inline void stackTrace()
 {
     std::lock_guard<std::mutex> lock(mutex);
 
+#ifdef ENTWINE_HAVE_BACKTRACE
     void* buffer[32];
     const std::size_t size(backtrace(buffer, 32));
     char** symbols(backtrace_symbols(buffer, size));
@@ -74,13 +75,14 @@ inline void stackTrace()
     for (const auto& l : lines) std::cout << l << std::endl;
 
     free(symbols);
-}
+#else
+    std::cout << "Backtrace functionality was not linked" << std::endl;
 #endif
+}
 
 template<typename Signal>
 inline void stackTraceOn(Signal s)
 {
-#ifndef _WIN32
     signal(s, [](int sig)
     {
         {
@@ -91,7 +93,6 @@ inline void stackTraceOn(Signal s)
         stackTrace();
         exit(1);
     });
-#endif
 }
 
 } // namespace entwine
