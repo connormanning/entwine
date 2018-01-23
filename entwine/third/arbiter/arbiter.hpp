@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: a99fb3dabf9884ac8fa2c45f1c126953f30e25b3
+// Git SHA: d937cefcdc4ac6425835c842e1edc9d4c10f2ef5
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -214,6 +214,8 @@ private:
 
 #ifdef ARBITER_CURL
 #include <curl/curl.h>
+#else
+typedef void CURL;
 #endif
 
 struct curl_slist;
@@ -272,7 +274,7 @@ private:
     Curl(const Curl&);
     Curl& operator=(const Curl&);
 
-    void* m_curl = nullptr;
+    CURL* m_curl = nullptr;
     curl_slist* m_headers = nullptr;
 
     bool m_verbose = false;
@@ -4164,7 +4166,11 @@ public:
      *          `~/.aws/credentials` or the file at AWS_CREDENTIAL_FILE.
      *      - EC2 instance profile.
      */
-    static std::unique_ptr<S3> create(
+    static std::vector<std::unique_ptr<S3>> create(
+            http::Pool& pool,
+            const Json::Value& json);
+
+    static std::unique_ptr<S3> createOne(
             http::Pool& pool,
             const Json::Value& json);
 
@@ -4229,9 +4235,10 @@ private:
 class S3::Auth
 {
 public:
-    Auth(std::string access, std::string hidden)
+    Auth(std::string access, std::string hidden, std::string token = "")
         : m_access(access)
         , m_hidden(hidden)
+        , m_token(token)
     { }
 
     Auth(std::string iamRole)
