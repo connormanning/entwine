@@ -2,7 +2,8 @@ FROM pdal/pdal:master
 MAINTAINER Connor Manning <connor@hobu.co>
 
 RUN \
-    echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories; \
+    echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing" >> \
+        /etc/apk/repositories; \
     apk update; \
     apk add --no-cache \
         xz-libs \
@@ -33,7 +34,6 @@ RUN \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo .. ; \
     make -j4; \
     make install; \
-    rm -rf /var/entwine; \
     apk del .build-deps
 
 ENTRYPOINT ["entwine"]
