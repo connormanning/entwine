@@ -1,9 +1,19 @@
-FROM pdal/pdal:1.6
+FROM pdal/pdal:master
 MAINTAINER Connor Manning <connor@hobu.co>
 
 RUN \
     echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories; \
     apk update; \
+    apk add --no-cache \
+        xz-libs \
+        openssl-dev \
+        openssl \
+        cmake \
+        libunwind \
+        libexecinfo \
+    ;
+
+RUN \
     apk add --no-cache --virtual .build-deps \
         xz-dev \
         openssl-dev \
@@ -14,14 +24,6 @@ RUN \
         libexecinfo-dev \
         libunwind-dev \
     ; \
-    apk add --no-cache \
-        xz-libs \
-        openssl-dev \
-        openssl \
-        cmake \
-        libunwind \
-        libexecinfo \
-    ;\
     git clone https://github.com/connormanning/entwine.git /var/entwine; \
     cd /var/entwine; \
     mkdir build; \
