@@ -12,6 +12,7 @@ RUN \
         cmake \
         libunwind \
         libexecinfo \
+        bash \
     ;
 
 RUN \
