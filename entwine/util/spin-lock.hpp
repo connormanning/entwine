@@ -11,10 +11,48 @@
 #pragma once
 
 #include <atomic>
+#include <mutex>
 
 namespace entwine
 {
 
+class SpinLock
+{
+    friend class SpinGuard;
+    friend class UniqueSpin;
+
+public:
+    SpinLock() = default;
+
+private:
+    std::mutex m_mutex;
+    std::mutex& mutex() { return m_mutex; }
+
+    SpinLock(const SpinLock& other) = delete;
+};
+
+class SpinGuard
+{
+public:
+    SpinGuard(SpinLock& m) : m_lock(m.mutex()) { }
+
+private:
+    std::lock_guard<std::mutex> m_lock;
+};
+
+class UniqueSpin
+{
+public:
+    UniqueSpin(SpinLock& m) : m_lock(m.mutex()) { }
+
+    void lock() { m_lock.lock(); }
+    void unlock() { m_lock.unlock(); }
+
+private:
+    std::unique_lock<std::mutex> m_lock;
+};
+
+/*
 class SpinLock
 {
     friend class SpinGuard;
@@ -61,6 +99,7 @@ private:
     SpinLock& m_spinner;
     bool m_locked;
 };
+*/
 
 } // namespace entwine
 
