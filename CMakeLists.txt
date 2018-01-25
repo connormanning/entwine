@@ -131,6 +131,7 @@ endif()
 
 if (MSVC)
     find_library(LZMA_LIBRARY liblzma PATHS "${CMAKE_INSTALL_PREFIX}/lib")
+    target_include_directories(util PRIVATE ${LIBLZMA_INCLUDE_DIR})
 else()
     target_link_libraries(entwine lzma)
 endif()
