@@ -15,9 +15,7 @@ cmake \
 # saturate Travis's available memory.
 NUMTHREADS=2
 make -j ${NUMTHREADS} && \
-    LD_LIBRARY_PATH=./lib && \
     make install && \
     (cd /entwine/test/data && ./generate) &&
-    ./test/entwine-test && \
-    /sbin/ldconfig
+    ./test/entwine-test
 
