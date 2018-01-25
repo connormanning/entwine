@@ -1,0 +1,17 @@
+FROM connormanning/entwine
+MAINTAINER Connor Manning <connor@hobu.co>
+
+RUN \
+    apk add --no-cache \
+        xz-dev \
+        openssl-dev \
+        alpine-sdk \
+        git \
+        laz-perf-dev \
+        curl-dev \
+        libexecinfo-dev \
+        libunwind-dev \
+        bash \
+        gdb \
+    ;
+

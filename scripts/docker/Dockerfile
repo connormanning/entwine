@@ -12,7 +12,6 @@ RUN \
         cmake \
         libunwind \
         libexecinfo \
-        bash \
     ;
 
 RUN \
@@ -28,6 +27,7 @@ RUN \
     ; \
     git clone https://github.com/connormanning/entwine.git /var/entwine; \
     cd /var/entwine; \
+    mkdir -p /usr/local/include; \
     mkdir build; \
     cd build; \
     cmake -G "Unix Makefiles" \
