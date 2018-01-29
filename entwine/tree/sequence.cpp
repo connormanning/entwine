@@ -40,8 +40,9 @@ Sequence::Sequence(Builder& builder)
     for (Origin i(m_origin); i < m_end; ++i)
     {
         const FileInfo& f(m_manifest->get(i));
+        const Bounds* b(f.boundsEpsilon());
 
-        if (!f.boundsEpsilon() || activeBounds.overlaps(*f.boundsEpsilon()))
+        if (!b || activeBounds.overlaps(*b, true))
         {
             m_overlaps.push_back(i);
         }
@@ -102,7 +103,7 @@ bool Sequence::checkBounds(
         const Bounds& bounds,
         const std::size_t numPoints)
 {
-    if (!m_metadata.boundsNativeCubic().overlaps(bounds))
+    if (!m_metadata.boundsNativeCubic().overlaps(bounds, true))
     {
         const Subset* subset(m_metadata.subset());
         const bool primary(!subset || subset->primary());
