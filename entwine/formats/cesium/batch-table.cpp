@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include <entwine/formats/cesium/feature-table.hpp>
+#include <entwine/formats/cesium/batch-table.hpp>
 
 #include <iostream>
 #include <stdexcept>
@@ -20,8 +20,9 @@ namespace entwine
 namespace cesium
 {
 
-BatchTable::BatchTable(const TileData& tileData)
-    : m_tileData(tileData)
+BatchTable::BatchTable(const Metadata& metadata, const TileData& tileData)
+    : m_metadata(metadata)
+    , m_tileData(tileData)
 {
 }
 

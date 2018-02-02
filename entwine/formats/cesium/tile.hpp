@@ -30,7 +30,7 @@ namespace cesium
 class TileData
 {
 public:
-    TileData(std::size_t numPoints, bool hasColor, bool hasNormals)
+    TileData(std::size_t numPoints, bool hasColor, bool hasNormals, bool hasBatchTableDimensions)
     {
         points.reserve(numPoints);
         if (hasColor) colors.reserve(numPoints);
@@ -45,9 +45,9 @@ public:
 class Tile
 {
 public:
-    Tile(const TileData& tileData)
+    Tile(const Metadata& metadata, const TileData& tileData)
         : m_featureTable(tileData)
-        , m_batchTable(tileData)
+        , m_batchTable(metadata, tileData)
     { }
 
     std::vector<char> asBinary() const;

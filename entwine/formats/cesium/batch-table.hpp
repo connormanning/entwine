@@ -14,6 +14,7 @@
 
 #include <json/json.h>
 
+#include <entwine/types/metadata.hpp>
 #include <entwine/types/point.hpp>
 
 namespace entwine
@@ -26,7 +27,7 @@ class TileData;
 class BatchTable
 {
 public:
-    BatchTable(const TileData& tileData);
+    BatchTable(const Metadata& metadata, const TileData& tileData);
 
     Json::Value getJson() const;
     void appendBinary(std::vector<char>& data) const;
@@ -38,6 +39,7 @@ private:
     const std::vector<Point>& normals() const;
 
     const TileData& m_tileData;
+    const Metadata& m_metadata;
 };
 
 } // namespace cesium
