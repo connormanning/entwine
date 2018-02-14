@@ -123,6 +123,9 @@ void TileBuilder::push(std::size_t rawTick, const Cell& cell)
                 m_pr.getFieldAs<double>(normalYDim),
                 m_pr.getFieldAs<double>(normalZDim));
         }
+
+        // If batch table dimensions were specified, we must store the point index from which to extract them when building the table.
+        if (m_hasBatchTableDimensions) selected.pointIndices.emplace_back(single);
     }
 }
 

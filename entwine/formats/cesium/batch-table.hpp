@@ -14,6 +14,8 @@
 
 #include <json/json.h>
 
+#include <entwine/formats/cesium/batch-reference.hpp>
+#include <entwine/types/binary-point-table.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/point.hpp>
 
@@ -40,6 +42,11 @@ private:
 
     const TileData& m_tileData;
     const Metadata& m_metadata;
+    std::vector<BatchReference> m_batchReferences;
+    std::vector<char> m_data;
+
+    BinaryPointTable m_table;
+    pdal::PointRef m_pointRef;
 };
 
 } // namespace cesium

@@ -46,11 +46,13 @@ public:
         Vec4,
     };
 
-    BatchReference(std::size_t byteOffset, const ComponentType componentType, const Type type = Type::Scalar)
-        : m_byteOffset(byteOffset)
+    BatchReference(std::string propertyName, std::size_t byteOffset, const ComponentType componentType, const Type type = Type::Scalar)
+        : m_propertyName(propertyName)
+        , m_byteOffset(byteOffset)
         , m_componentType(componentType)
         , m_type(type) { };
 
+    std::string name() const { return m_propertyName; };
     std::size_t byteOffset() const { return m_byteOffset; };
     Json::Value getJson() const;
     std::size_t bytes() const;
@@ -58,6 +60,7 @@ public:
     static const ComponentType findComponentType(pdal::Dimension::Type);
 
 private:
+    const std::string m_propertyName;
     const std::size_t m_byteOffset;
     const ComponentType m_componentType;
     const Type m_type;

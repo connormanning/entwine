@@ -35,11 +35,13 @@ public:
         points.reserve(numPoints);
         if (hasColor) colors.reserve(numPoints);
         if (hasNormals) normals.reserve(numPoints);
+        if (hasBatchTableDimensions) pointIndices.reserve(numPoints);
     }
 
     std::vector<Point> points;
     std::vector<Color> colors;
     std::vector<Point> normals;
+    std::vector<const char*> pointIndices;
 };
 
 class Tile
