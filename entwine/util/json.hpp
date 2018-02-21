@@ -67,6 +67,13 @@ inline void recMerge(Json::Value& dst, const Json::Value& add)
     }
 }
 
+inline Json::Value merge(const Json::Value& a, const Json::Value& b)
+{
+    Json::Value c(a);
+    recMerge(c, b);
+    return c;
+}
+
 // Assumptions here are that s contains a quotation-delimited number, possibly
 // with whitespace outside of the quotations.
 inline Id parseElement(const std::string& s)

@@ -15,7 +15,6 @@
 
 #include <entwine/reader/cache.hpp>
 #include <entwine/reader/chunk-reader.hpp>
-#include <entwine/reader/hierarchy-reader.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
@@ -66,8 +65,6 @@ namespace
         }
     }
 
-    HierarchyCell::Pool hierarchyPool(4096);
-
     const std::size_t basePoolBlockSize(65536);
 }
 
@@ -78,12 +75,6 @@ Reader::Reader(const std::string path, const std::string tmp, Cache& cache)
     , m_metadata(m_endpoint)
     , m_pool(m_metadata.schema(), m_metadata.delta(), basePoolBlockSize)
     , m_cache(cache)
-    , m_hierarchy(
-            makeUnique<HierarchyReader>(
-                hierarchyPool,
-                m_metadata,
-                m_endpoint,
-                m_cache))
     , m_threadPool(2)
 {
     init();
@@ -98,12 +89,6 @@ Reader::Reader(
     , m_metadata(m_endpoint)
     , m_pool(m_metadata.schema(), m_metadata.delta(), basePoolBlockSize)
     , m_cache(cache)
-    , m_hierarchy(
-            makeUnique<HierarchyReader>(
-                hierarchyPool,
-                m_metadata,
-                m_endpoint,
-                m_cache))
     , m_threadPool(2)
 {
     init();
@@ -296,12 +281,7 @@ Json::Value Reader::hierarchy(
 {
     checkQuery(depthBegin, depthEnd);
 
-    const Bounds queryBounds(
-            inBounds == Bounds::everything() ?
-                inBounds : inBounds.undeltify(Delta(scale, offset)));
-    return vertical ?
-        m_hierarchy->queryVertical(queryBounds, depthBegin, depthEnd) :
-        m_hierarchy->query(queryBounds, depthBegin, depthEnd);
+    return Json::nullValue;
 }
 
 Json::Value Reader::hierarchy(const Json::Value q)

@@ -125,8 +125,8 @@ add_subdirectory(entwine)
 add_subdirectory(kernel)
 
 set(OBJS
-    $<TARGET_OBJECTS:formats>
-    $<TARGET_OBJECTS:reader>
+    # $<TARGET_OBJECTS:formats>
+    # $<TARGET_OBJECTS:reader>
     $<TARGET_OBJECTS:chunk-storage>
     $<TARGET_OBJECTS:third>
     $<TARGET_OBJECTS:tree>
@@ -192,7 +192,7 @@ add_subdirectory(test/data)
 add_subdirectory(test/gtest-1.8.0)
 include_directories(entwine test/gtest-1.8.0/include test/gtest-1.8.0)
 
-add_subdirectory(test)
+# add_subdirectory(test)
 
 
 

@@ -8,6 +8,7 @@
 *
 ******************************************************************************/
 
+/*
 #pragma once
 
 #include <entwine/types/chunk-storage/binary.hpp>
@@ -33,4 +34,5 @@ public:
 };
 
 } // namespace entwine
+*/
 

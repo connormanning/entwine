@@ -106,6 +106,8 @@ private:
     Data::RawStack m_dataStack;
 };
 
+using Cells = Cell::PooledStack;
+
 class Delta;
 
 class PointPool

@@ -75,7 +75,6 @@ DataChunkState::~DataChunkState() { }
 
 Cache::Cache(const std::size_t maxBytes)
     : m_maxBytes(std::max<std::size_t>(maxBytes, 1024 * 1024 * 16))
-    , m_maxHierarchyBytes(m_maxBytes / 8)
 { }
 
 void Cache::release(const Reader& reader)
@@ -276,78 +275,6 @@ const ColdChunkReader* Cache::fetch(
     }
 
     return chunkState.chunkReader.get();
-}
-
-void Cache::refHierarchySlot(
-        const std::string& name,
-        const HierarchyReader::Slot* slot)
-{
-    std::lock_guard<std::mutex> topLock(m_hierarchyMutex);
-    HierarchyCache& selected(m_hierarchyCache[name]);
-    std::lock_guard<std::mutex> selectedLock(selected.mutex);
-
-    if (selected.refs.count(slot)) ++selected.refs[slot];
-    else selected.refs[slot] = 1;
-}
-
-void Cache::unrefHierarchy(
-        const std::string& name,
-        const HierarchyReader::Slots& touched)
-{
-    if (touched.empty()) return;
-
-    std::lock_guard<std::mutex> topLock(m_hierarchyMutex);
-    HierarchyCache& selected(m_hierarchyCache[name]);
-    std::lock_guard<std::mutex> selectedLock(selected.mutex);
-
-    auto& slots(selected.slots);
-    auto& order(selected.order);
-    auto& refs(selected.refs);
-
-    for (const HierarchyReader::Slot* s : touched)
-    {
-        assert(refs.at(s) >= 1);
-        --refs.at(s);
-
-        if (slots.count(s))
-        {
-            order.splice(order.begin(), order, slots.at(s));
-        }
-        else
-        {
-            auto it(slots.insert(std::make_pair(s, order.end())).first);
-            order.push_front(s);
-            it->second = order.begin();
-
-            m_hierarchyBytes += s->t->size();
-        }
-    }
-
-    const auto begin(m_hierarchyBytes);
-    while (
-            m_hierarchyBytes > m_maxHierarchyBytes &&
-            order.size() &&
-            !refs[order.back()])
-    {
-        const HierarchyReader::Slot* s(order.back());
-        order.pop_back();
-
-        SpinGuard spinLock(s->spinner);
-        m_hierarchyBytes -= s->t->size();
-        s->t.reset();
-        slots.erase(s);
-    }
-    const auto end(m_hierarchyBytes);
-
-    if (begin != end)
-    {
-        std::cout <<
-            "\tHB " << begin << " -> " << end <<
-            "\tHier: " << (m_hierarchyBytes / 1024 / 1024) << "MB" <<
-            "\tFetches: " << touched.size() << std::endl;
-    }
-
-    assert(order.size() == slots.size());
 }
 
 } // namespace entwine

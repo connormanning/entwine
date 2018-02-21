@@ -18,12 +18,13 @@
 #include <vector>
 
 #include <entwine/reader/query.hpp>
-#include <entwine/tree/hierarchy.hpp>
 #include <entwine/types/file-info.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/outer-scope.hpp>
+#include <entwine/types/point-pool.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
+#include <entwine/util/pool.hpp>
 
 namespace entwine
 {
@@ -43,7 +44,6 @@ public:
 class BaseChunkReader;
 class Bounds;
 class Cache;
-class Hierarchy;
 class Schema;
 
 class Reader
@@ -200,7 +200,6 @@ private:
     mutable PointPool m_pool;
     Cache& m_cache;
 
-    std::unique_ptr<HierarchyReader> m_hierarchy;
     std::unique_ptr<BaseChunkReader> m_base;
 
     // Outer vector is organized by depth.

@@ -8,6 +8,7 @@
 *
 ******************************************************************************/
 
+/*
 #include <entwine/types/chunk-storage/lazperf.hpp>
 
 namespace entwine
@@ -51,4 +52,5 @@ Cell::PooledStack LazPerfStorage::read(
 }
 
 } // namespace entwine
+*/
 

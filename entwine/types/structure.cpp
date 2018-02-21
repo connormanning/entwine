@@ -146,17 +146,9 @@ Structure::Structure(const Json::Value& json)
             json["baseDepth"].asUInt64(),
             json["coldDepth"].asUInt64(),
             json["pointsPerChunk"].asUInt64(),
-            2, /*
-            json.isMember("dimensions") ?
-                json["dimensions"].asUInt64() :
-                (json["type"].asString() == "octree" ? 3 : 2),
-            */
+            2,
             json["numPointsHint"].asUInt64(),
-            true, /*
-            json.isMember("tubular") ?
-                json["tubular"].asBool() :
-                json["type"].asString() == "hybrid",
-            */
+            true,
             true, // json["dynamicChunks"].asBool(),
             json["prefixIds"].asBool(),
             json.isMember("mappedDepth") ?

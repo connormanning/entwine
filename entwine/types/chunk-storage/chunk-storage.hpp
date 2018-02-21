@@ -27,25 +27,32 @@ public:
     ChunkStorage(const Metadata& metadata) : m_metadata(metadata) { }
     virtual ~ChunkStorage() { }
 
-    static std::unique_ptr<ChunkStorage> create(
-            const Metadata& metadata,
-            ChunkStorageType storageType,
-            const Json::Value& json = Json::nullValue);
+    static std::unique_ptr<ChunkStorage> create(const Metadata& metadata);
 
-    virtual void write(Chunk& chunk) const = 0;
+    virtual void write(
+            const arbiter::Endpoint& out,
+            const arbiter::Endpoint& tmp,
+            PointPool& pointPool,
+            const std::string& filename,
+            const Bounds& bounds,
+            Cell::PooledStack&& cells) const
+    {
+        throw std::runtime_error("ChunkStorage::write not implemented");
+    }
+
     virtual Cell::PooledStack read(
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
-            PointPool& pool,
-            const Id& id) const = 0;
-
-    virtual Json::Value toJson() const { return Json::nullValue; }
-    virtual std::string filename(const Id& id) const
+            PointPool& pointPool,
+            const std::string& filename) const
     {
-        return m_metadata.basename(id);
+        throw std::runtime_error("ChunkStorage::read not implemented");
     }
 
+    virtual Json::Value toJson() const { return Json::nullValue; }
+
 protected:
+    /*
     void ensurePut(
             const Chunk& chunk,
             const std::string& path,
@@ -60,6 +67,7 @@ protected:
     {
         return io::ensureGet(chunk.builder().outEndpoint(), path);
     }
+    */
 
     const Metadata& m_metadata;
 };

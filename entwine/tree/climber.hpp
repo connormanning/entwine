@@ -8,6 +8,7 @@
 *
 ******************************************************************************/
 
+/*
 #pragma once
 
 #include <cassert>
@@ -16,15 +17,71 @@
 #include <iostream>
 
 #include <entwine/tree/hierarchy.hpp>
+#include <entwine/tree/key.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/dir.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/structure.hpp>
-#include <entwine/types/tube.hpp>
 
 namespace entwine
 {
+
+class NewState
+{
+public:
+    NewState(const Metadata& metadata, Origin origin)
+        : m_metadata(metadata)
+        , m_structure(m_metadata.structure())
+        , m_origin(origin)
+        , m_point(m_metadata)
+        , m_chunk(m_metadata)
+    { }
+
+    void reset()
+    {
+        m_d = 0;
+        m_point.reset();
+        m_chunk.reset();
+    }
+
+    void init(const Point& p)
+    {
+        init(p, m_structure.head());
+    }
+
+    void init(const Point& p, uint64_t depth)
+    {
+        reset();
+        while (m_d < depth) step(p);
+    }
+
+    void step(const Point& p)
+    {
+        m_point.step(p);
+        if (m_d >= m_structure.body() && m_d < m_structure.tail())
+        {
+            m_chunk.step(p);
+        }
+
+        ++m_d;
+    }
+
+    Origin origin() const { return m_origin; }
+    uint64_t depth() const { return m_d; }
+    const Key& pointKey() const { return m_point; }
+    const Key& chunkKey() const { return m_chunk; }
+
+private:
+    const Metadata& m_metadata;
+    const Structure& m_structure;
+    const Origin m_origin;
+
+    uint64_t m_d = 0;
+
+    Key m_point;
+    Key m_chunk;
+};
 
 class PointState
 {
@@ -43,7 +100,15 @@ public:
         , m_chunkNum(0)
         , m_pointsPerChunk(m_structure.basePointsPerChunk())
         , m_chunkBounds(bounds)
-    { }
+    {
+        reset();
+    }
+
+    void init(const Point& p)
+    {
+        reset();
+        for (std::size_t d(0); d < m_structure.startDepth(); ++d) step(p);
+    }
 
     virtual ~PointState() { }
 
@@ -325,11 +390,13 @@ class Climber
 public:
     Climber(
             const Metadata& metadata,
+            const Origin origin = 0,
             Hierarchy* hierarchy = nullptr,
             bool cache = true)
         : m_metadata(metadata)
         , m_pointState(metadata.structure(), metadata.boundsScaledCubic())
         , m_hierarchyState(metadata, hierarchy, cache)
+        , m_state(metadata, origin)
     { }
 
     void reset()
@@ -337,6 +404,9 @@ public:
         m_pointState.reset();
         m_hierarchyState.reset();
     }
+
+    void init(const Point& point) { m_state.init(point); }
+    void step(const Point& point) { m_state.step(point); }
 
     void count(int delta = 1) { m_hierarchyState.count(delta); }
 
@@ -372,11 +442,16 @@ public:
 
     std::size_t pointSize() const { return m_metadata.schema().pointSize(); }
 
+    NewState& state() { return m_state; }
+    const NewState& state() const { return m_state; }
+
 private:
     const Metadata& m_metadata;
 
     PointState m_pointState;
     HierarchyState m_hierarchyState;
+
+    NewState m_state;
 };
 
 class CellState
@@ -403,3 +478,4 @@ private:
 
 } // namespace entwine
 
+*/

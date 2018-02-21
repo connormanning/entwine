@@ -21,8 +21,49 @@
 namespace entwine
 {
 
+class NewStructure
+{
+public:
+    NewStructure(const Json::Value& json)
+        : m_numPointsHint(json["numPointsHint"].asUInt64())
+        , m_head(json["head"].asInt64())
+        , m_body(json["body"].asInt64())
+        , m_tail(json["tail"].asInt64())
+    {
+        if (!m_tail)
+        {
+            const auto n(std::max<std::size_t>(m_numPointsHint, 10000000));
+            m_tail = std::ceil(std::log2(n) / std::log2(4));
+        }
+
+        m_head = std::max<uint64_t>(m_head, 0);
+        m_body = std::max<uint64_t>(m_body, m_head);
+        m_tail = std::max<uint64_t>(m_tail, m_body);
+    }
+
+    std::size_t numPointsHint() const { return m_numPointsHint; }
+    uint64_t head() const { return m_head; }
+    uint64_t body() const { return m_body; }
+    uint64_t tail() const { return m_tail; }
+
+    Json::Value toJson() const
+    {
+        Json::Value json;
+        json["head"] = head();
+        json["body"] = body();
+        json["tail"] = tail();
+        return json;
+    }
+
+private:
+    std::size_t m_numPointsHint;
+
+    uint64_t m_head = 7;
+    uint64_t m_body = 9;
+    uint64_t m_tail = 12;
+};
+
 class Structure;
-class Subset;
 
 class ChunkInfo
 {

@@ -20,9 +20,10 @@
 #include <entwine/third/splice-pool/splice-pool.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/climber.hpp>
+#include <entwine/tree/new-climber.hpp>
 #include <entwine/tree/clipper.hpp>
+#include <entwine/tree/new-clipper.hpp>
 #include <entwine/tree/heuristics.hpp>
-#include <entwine/tree/hierarchy-block.hpp>
 #include <entwine/tree/registry.hpp>
 #include <entwine/tree/sequence.hpp>
 #include <entwine/tree/thread-pools.hpp>
@@ -70,20 +71,18 @@ Builder::Builder(
     , m_isContinuation(false)
     , m_pointPool(
             outerScope.getPointPool(m_metadata->schema(), m_metadata->delta()))
-    , m_hierarchyPool(outerScope.getHierarchyPool(heuristics::poolBlockSize))
-    , m_hierarchy(makeUnique<Hierarchy>(
-                *m_hierarchyPool,
-                *m_metadata,
-                *m_outEndpoint,
-                m_outEndpoint.get(),
-                false))
     , m_sequence(makeUnique<Sequence>(*this))
-    , m_registry(makeUnique<Registry>(*this))
+    , m_registry(makeUnique<Registry>(
+                *m_metadata,
+                outEndpoint(),
+                tmpEndpoint(),
+                *m_pointPool))
     , m_start(now())
 {
     prepareEndpoints();
 }
 
+/*
 Builder::Builder(
         const std::string outPath,
         const std::string tmpPath,
@@ -99,16 +98,13 @@ Builder::Builder(
     , m_isContinuation(true)
     , m_pointPool(
             outerScope.getPointPool(m_metadata->schema(), m_metadata->delta()))
-    , m_hierarchyPool(outerScope.getHierarchyPool(heuristics::poolBlockSize))
-    , m_hierarchy(
-            makeUnique<Hierarchy>(
-                *m_hierarchyPool,
-                *m_metadata,
-                *m_outEndpoint,
-                m_outEndpoint.get(),
-                exists()))
     , m_sequence(makeUnique<Sequence>(*this))
-    , m_registry(makeUnique<Registry>(*this, exists()))
+    , m_registry(makeUnique<Registry>(
+                *m_metadata,
+                outEndpoint(),
+                tmpEndpoint(),
+                *m_pointPool,
+                exists()))
     , m_start(now())
 {
     if (m_metadata->manifestPtr())
@@ -117,6 +113,7 @@ Builder::Builder(
     }
     prepareEndpoints();
 }
+*/
 
 std::unique_ptr<Builder> Builder::tryCreateExisting(
         const std::string out,
@@ -126,12 +123,14 @@ std::unique_ptr<Builder> Builder::tryCreateExisting(
         const std::size_t* subsetId,
         OuterScope os)
 {
+    /*
     const std::string postfix(Subset::postfix(subsetId));
 
     if (os.getArbiter()->getEndpoint(out).tryGetSize("entwine" + postfix))
     {
         return makeUnique<Builder>(out, tmp, works, clips, subsetId, os);
     }
+    */
 
     return std::unique_ptr<Builder>();
 }
@@ -184,8 +183,6 @@ void Builder::go(std::size_t max)
                         "M/h" <<
                     " A: " << commify(d.allocated()) <<
                     " U: " << used << "%"  <<
-                    " C: " << commify(Chunk::count()) <<
-                    " H: " << commify(HierarchyBlock::count()) <<
                     " I: " << commify(inserts) <<
                     " P: " << std::round(progress * 100.0) << "%" <<
                     std::endl;
@@ -318,8 +315,8 @@ void Builder::insertPath(const Origin origin, FileInfo& info)
 
     std::size_t inserted(0);
 
-    Clipper clipper(*this, origin);
-    Climber climber(*m_metadata, m_hierarchy.get());
+    NewClipper clipper(*m_registry, origin);
+    NewClimber climber(*m_metadata, origin);
 
     auto inserter([this, origin, &clipper, &climber, &inserted]
     (Cell::PooledStack cells)
@@ -331,7 +328,8 @@ void Builder::insertPath(const Origin origin, FileInfo& info)
             inserted = 0;
             const float available(m_pointPool->dataPool().available());
             const float allocated(m_pointPool->dataPool().allocated());
-            if (available / allocated < 0.5) clipper.clip();
+            // TODO Enable clip.
+            // if (available / allocated < 0.5) clipper.clip();
         }
 
         return insertData(std::move(cells), origin, clipper, climber);
@@ -355,14 +353,14 @@ void Builder::insertPath(const Origin origin, FileInfo& info)
     }
 }
 
-Cell::PooledStack Builder::insertData(
-        Cell::PooledStack cells,
+Cells Builder::insertData(
+        Cells cells,
         const Origin origin,
-        Clipper& clipper,
-        Climber& climber)
+        NewClipper& clipper,
+        NewClimber& climber)
 {
     PointStats pointStats;
-    Cell::PooledStack rejected(m_pointPool->cellPool());
+    Cells rejected(m_pointPool->cellPool());
 
     auto reject([&rejected](Cell::PooledNode& cell)
     {
@@ -370,8 +368,7 @@ Cell::PooledStack Builder::insertData(
     });
 
     const Bounds& boundsConforming(m_metadata->boundsScaledEpsilon());
-    const auto boundsSubset(m_metadata->boundsScaledSubset());
-    const std::size_t baseDepthBegin(m_metadata->structure().baseDepthBegin());
+    const auto boundsSubset(nullptr); // m_metadata->boundsScaledSubset());
 
     while (!cells.empty())
     {
@@ -380,10 +377,9 @@ Cell::PooledStack Builder::insertData(
 
         if (boundsConforming.contains(point))
         {
-            if (!boundsSubset || boundsSubset->contains(point))
+            if (!boundsSubset) //  || boundsSubset->contains(point))
             {
-                climber.reset();
-                climber.magnifyTo(point, baseDepthBegin);
+                climber.init(point);
 
                 if (m_registry->addPoint(cell, climber, clipper))
                 {
@@ -425,9 +421,6 @@ void Builder::save(const arbiter::Endpoint& ep)
 {
     m_threadPools->cycle();
 
-    if (verbose()) std::cout << "Saving hierarchy..." << std::endl;
-    m_hierarchy->save(m_threadPools->clipPool());
-
     if (verbose()) std::cout << "Saving registry..." << std::endl;
     m_registry->save(*m_outEndpoint);
 
@@ -437,10 +430,12 @@ void Builder::save(const arbiter::Endpoint& ep)
 
 void Builder::merge(Builder& other)
 {
+    /*
     if (!m_metadata->subset())
     {
         throw std::runtime_error("Cannot merge non-subset build");
     }
+    */
 
     if (m_threadPools->clipPool().running())
     {
@@ -449,7 +444,6 @@ void Builder::merge(Builder& other)
     }
 
     m_registry->merge(*other.m_registry);
-    m_hierarchy->merge(*other.m_hierarchy, m_threadPools->workPool());
     if (other.exists())
     {
         m_metadata->merge(*other.m_metadata);
@@ -487,14 +481,6 @@ void Builder::prepareEndpoints()
             {
                 throw std::runtime_error("Couldn't create " + rootDir + "h");
             }
-
-            if (
-                    m_metadata->cesiumSettings() &&
-                    !arbiter::fs::mkdirp(rootDir + "cesium"))
-            {
-                throw std::runtime_error(
-                        "Couldn't create " + rootDir + "cesium");
-            }
         }
     }
 }
@@ -504,7 +490,6 @@ void Builder::makeWhole() { m_metadata->makeWhole(); }
 
 const Metadata& Builder::metadata() const           { return *m_metadata; }
 const Registry& Builder::registry() const           { return *m_registry; }
-const Hierarchy& Builder::hierarchy() const         { return *m_hierarchy; }
 const arbiter::Arbiter& Builder::arbiter() const    { return *m_arbiter; }
 arbiter::Arbiter& Builder::arbiter() { return *m_arbiter; }
 
@@ -517,11 +502,6 @@ PointPool& Builder::pointPool() const { return *m_pointPool; }
 std::shared_ptr<PointPool> Builder::sharedPointPool() const
 {
     return m_pointPool;
-}
-
-std::shared_ptr<HierarchyCell::Pool> Builder::sharedHierarchyPool() const
-{
-    return m_hierarchyPool;
 }
 
 const arbiter::Endpoint& Builder::outEndpoint() const { return *m_outEndpoint; }
@@ -541,7 +521,12 @@ void Builder::clip(
         const std::size_t id,
         const bool sync)
 {
-    m_registry->clip(index, chunkNum, id, sync);
+    // m_registry->clip(index, chunkNum, id, sync);
+}
+
+void Builder::clip(const uint64_t d, const uint64_t x, const uint64_t y)
+{
+    // m_registry->clip(d, x, y);
 }
 
 } // namespace entwine

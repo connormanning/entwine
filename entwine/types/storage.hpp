@@ -8,6 +8,7 @@
 *
 ******************************************************************************/
 
+/*
 #pragma once
 
 #include <cstdint>
@@ -37,6 +38,7 @@ class Metadata;
 class Storage
 {
 public:
+    Storage(const Metadata& metadata);
     Storage(
             const Metadata& metadata,
             ChunkStorageType compression = ChunkStorageType::LasZip,
@@ -48,22 +50,22 @@ public:
 
     Json::Value toJson() const;
 
-    void serialize(Chunk& chunk) const;
-    Cell::PooledStack deserialize(
-        const arbiter::Endpoint& out,
-        const arbiter::Endpoint& tmp,
-        PointPool& pool,
-        const Id& chunkId) const;
+    void write(
+            const arbiter::Endpoint& out,
+            const arbiter::Endpoint& tmp,
+            PointPool& pointPool,
+            const std::string& filename,
+            const Bounds& bounds,
+            Cell::PooledStack&& cells) const;
 
-    ChunkStorageType chunkStorageType() const { return m_chunkStorageType; }
-    HierarchyCompression hierarchyCompression() const
-    {
-        return m_hierarchyCompression;
-    }
+    Cell::PooledStack read(
+            const arbiter::Endpoint& out,
+            const arbiter::Endpoint& tmp,
+            PointPool& pointPool,
+            const std::string& filename) const;
 
     const Metadata& metadata() const;
     const Schema& schema() const;
-    std::string filename(const Id& id) const;
 
 private:
     const Metadata& m_metadata;
@@ -73,7 +75,9 @@ private:
     HierarchyCompression m_hierarchyCompression;
 
     std::unique_ptr<ChunkStorage> m_storage;
+    ChunkStorage m_storage
 };
 
 } // namespace entwine
+*/
 

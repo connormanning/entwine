@@ -15,6 +15,8 @@
 
 #include <json/json.h>
 
+#include <entwine/tree/config.hpp>
+
 namespace entwine
 {
 
@@ -34,6 +36,8 @@ public:
     static std::unique_ptr<Builder> getBuilder(
             Json::Value json,
             std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
+
+    static std::unique_ptr<Builder> getBuilder(const Config& config);
 
     static std::string directorify(std::string path);
 

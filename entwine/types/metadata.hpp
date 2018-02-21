@@ -17,7 +17,7 @@
 #include <pdal/Dimension.hpp>
 
 #include <entwine/types/bounds.hpp>
-#include <entwine/types/storage-types.hpp>
+#include <entwine/types/defs.hpp>
 
 namespace Json { class Value; }
 
@@ -25,15 +25,15 @@ namespace entwine
 {
 
 namespace arbiter { class Endpoint; }
-namespace cesium { class Settings; }
 
+class ChunkStorage;
 class Delta;
 class Manifest;
 class Point;
 class Reprojection;
 class Schema;
-class Storage;
 class Structure;
+class NewStructure;
 class Subset;
 class Version;
 
@@ -43,6 +43,7 @@ class Metadata
     friend class Sequence;
 
 public:
+    /*
     Metadata(
             const Bounds& nativeBounds,
             const Schema& schema,
@@ -60,6 +61,7 @@ public:
             const cesium::Settings* cesiumSettings = nullptr,
             std::vector<std::string> preserveSpatial =
                 std::vector<std::string>());
+    */
 
     Metadata(const arbiter::Endpoint& endpoint);
 
@@ -67,9 +69,11 @@ public:
     Metadata(const Metadata& other);
     ~Metadata();
 
+    /*
     static std::unique_ptr<Metadata> create(
             const arbiter::Endpoint& endpoint,
             const std::size_t* subsetId = nullptr);
+    */
 
     void merge(const Metadata& other);
 
@@ -114,24 +118,19 @@ public:
     std::unique_ptr<Bounds> boundsScaledSubset() const;
 
     const Schema& schema() const { return *m_schema; }
-    const Structure& structure() const { return *m_structure; }
-    const Structure& hierarchyStructure() const
-    {
-        return *m_hierarchyStructure;
-    }
+    const NewStructure& structure() const { return *m_structure; }
     const Manifest* manifestPtr() const { return m_manifest.get(); }
     const Manifest& manifest() const { return *m_manifest; }
-    const Storage& storage() const { return *m_storage; }
+
+    std::string chunkStorageType() const { return "laszip"; }   // TODO
+    const ChunkStorage& storage() const { return *m_chunkStorage; }
+
     const Reprojection* reprojection() const { return m_reprojection.get(); }
-    const Subset* subset() const { return m_subset.get(); }
+    // const Subset* subset() const { return m_subset.get(); }
     const Delta* delta() const { return m_delta.get(); }
     const Transformation* transformation() const
     {
         return m_transformation.get();
-    }
-    const cesium::Settings* cesiumSettings() const
-    {
-        return m_cesiumSettings.get();
     }
     const std::vector<std::string>& preserveSpatial() const
     {
@@ -142,10 +141,8 @@ public:
     const std::string& srs() const { return m_srs; }
     double density() const { return m_density; }
     bool trustHeaders() const { return m_trustHeaders; }
-    bool slicedBase() const { return m_slicedBase; }
 
-    std::string basename(const Id& chunkId) const;
-    std::string filename(const Id& chunkId) const;
+    // std::string basename(const Id& chunkId) const;
     std::string postfix(bool isColdChunk = false) const;
     void unbump();
     void makeWhole();
@@ -161,7 +158,7 @@ private:
     // These are aggregated as the Builder runs.
     Manifest& manifest() { return *m_manifest; }
     Manifest* manifestPtr() { return m_manifest.get(); }
-    // Storage& storage() { return *m_storage; }
+    ChunkStorage& storage() { return *m_chunkStorage; }
     std::string& srs() { return m_srs; }
 
     std::unique_ptr<Delta> m_delta;
@@ -174,19 +171,16 @@ private:
     std::unique_ptr<Bounds> m_boundsScaledEpsilon;
 
     std::unique_ptr<Schema> m_schema;
-    std::unique_ptr<Structure> m_structure;
-    std::unique_ptr<Structure> m_hierarchyStructure;
+    std::unique_ptr<NewStructure> m_structure;
     std::unique_ptr<Manifest> m_manifest;
-    std::unique_ptr<Storage> m_storage;
+    std::unique_ptr<ChunkStorage> m_chunkStorage;
     std::unique_ptr<Reprojection> m_reprojection;
-    std::unique_ptr<Subset> m_subset;
+    // std::unique_ptr<Subset> m_subset;
     std::unique_ptr<Transformation> m_transformation;
-    std::unique_ptr<cesium::Settings> m_cesiumSettings;
     std::unique_ptr<Version> m_version;
     std::string m_srs;
     double m_density = 0;
     bool m_trustHeaders = true;
-    bool m_slicedBase = true;
     std::vector<std::string> m_preserveSpatial;
 };
 

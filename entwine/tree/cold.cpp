@@ -8,6 +8,7 @@
 *
 ******************************************************************************/
 
+/*
 #include <entwine/tree/cold.hpp>
 
 #include <chrono>
@@ -288,4 +289,5 @@ void Cold::merge(const Cold& other)
 }
 
 } // namespace entwine
+*/
 

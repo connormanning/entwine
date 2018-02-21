@@ -16,6 +16,7 @@
 
 #include <entwine/types/bounds.hpp>
 
+/*
 namespace Json
 {
     class Value;
@@ -110,4 +111,5 @@ private:
 };
 
 } // namespace entwine
+*/
 

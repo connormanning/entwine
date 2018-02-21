@@ -21,12 +21,11 @@
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
-#include <entwine/util/spin-lock.hpp>
 
 namespace entwine
 {
 
-class Climber;
+class NewClimber;
 
 class Tube
 {
@@ -61,7 +60,7 @@ public:
     // If result.done() == false, the cell should be reinserted.  In this case,
     // it's possible that the cell was swapped with another - so cell values
     // should not be cached through calls to insert.
-    Insertion insert(const Climber& climber, Cell::PooledNode& cell);
+    Insertion insert(const NewClimber& climber, Cell::PooledNode& cell);
 
     using Cells = std::map<uint64_t, Cell::PooledNode>;
 
@@ -99,7 +98,7 @@ public:
 
 private:
     Cells m_cells;
-    SpinLock m_spinner;
+    std::mutex m_mutex;
 };
 
 } // namespace entwine

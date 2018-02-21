@@ -87,10 +87,6 @@ int main(int argc, char** argv)
         {
             Kernel::infer(args);
         }
-        else if (kernel == "rebase")
-        {
-            Kernel::rebase(args);
-        }
         else
         {
             if (kernel != "help" && kernel != "-h" && kernel != "--help")

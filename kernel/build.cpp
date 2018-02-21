@@ -15,7 +15,6 @@
 #include <iostream>
 #include <string>
 
-#include <entwine/formats/cesium/settings.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
 #include <entwine/tree/chunk.hpp>
@@ -436,7 +435,7 @@ void Kernel::build(std::vector<std::string> args)
     std::string tmpPath(tmpEndpoint.root());
 
     const Metadata& metadata(builder->metadata());
-    const Structure& structure(metadata.structure());
+    const NewStructure& structure(metadata.structure());
     const Manifest& manifest(metadata.manifest());
 
     const Reprojection* reprojection(metadata.reprojection());
@@ -457,6 +456,7 @@ void Kernel::build(std::vector<std::string> args)
         std::cout << "Files: " << manifest.size() << std::endl;
     }
 
+    /*
     if (const Subset* subset = metadata.subset())
     {
         std::cout <<
@@ -466,6 +466,7 @@ void Kernel::build(std::vector<std::string> args)
             "\tSubset bounds: " << subset->bounds() <<
             std::endl;
     }
+    */
 
     if (runCount)
     {
@@ -474,12 +475,7 @@ void Kernel::build(std::vector<std::string> args)
             (runCount > 1 ? "s" : "") << "\n";
     }
 
-    const Storage& storage(metadata.storage());
-
-    const std::string coldDepthString(
-            structure.lossless() ?
-                "lossless" :
-                std::to_string(structure.coldDepthEnd()));
+    // const Storage& storage(metadata.storage());
 
     const auto& threadPools(builder->threadPools());
 
@@ -504,7 +500,7 @@ void Kernel::build(std::vector<std::string> args)
     std::cout <<
         "Output:\n" <<
         "\tOutput path: " << outPath << "\n" <<
-        "\tData storage: " << toString(storage.chunkStorageType()) <<
+        // "\tData storage: " << toString(storage.chunkStorageType()) <<
         std::endl;
 
     if (const auto* delta = metadata.delta())
@@ -535,22 +531,6 @@ void Kernel::build(std::vector<std::string> args)
     {
         std::cout << "\tTransformation: ";
         matrix::print(*metadata.transformation(), 0, "\t");
-    }
-
-    if (const auto c = metadata.cesiumSettings())
-    {
-        std::cout <<
-            "Cesium:\n" <<
-            "\tTileset split depth: " << c->tilesetSplit() << "\n" <<
-            "\tGeometric error divisor: " <<
-                c->geometricErrorDivisor() << "\n" <<
-            "\tTruncating colors: " << yesNo(c->truncate()) <<
-            std::endl;
-
-        if (c->coloring().size())
-        {
-            std::cout << "\tColoring: " << c->coloring() << std::endl;
-        }
     }
 
     std::cout << std::endl;

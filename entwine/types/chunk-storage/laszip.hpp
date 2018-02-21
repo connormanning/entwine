@@ -18,22 +18,21 @@ namespace entwine
 class LasZipStorage : public ChunkStorage
 {
 public:
-    LasZipStorage(const Metadata& m, const Json::Value& json = Json::nullValue)
-        : ChunkStorage(m)
-    { }
+    LasZipStorage(const Metadata& m) : ChunkStorage(m) { }
 
-    virtual void write(Chunk& chunk) const override;
+    virtual void write(
+            const arbiter::Endpoint& out,
+            const arbiter::Endpoint& tmp,
+            PointPool& pointPool,
+            const std::string& filename,
+            const Bounds& bounds,
+            Cell::PooledStack&& cells) const override;
 
     virtual Cell::PooledStack read(
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
             PointPool& pool,
-            const Id& id) const override;
-
-    virtual std::string filename(const Id& id) const override
-    {
-        return m_metadata.basename(id) + ".laz";
-    }
+            const std::string& filename) const override;
 };
 
 } // namespace entwine

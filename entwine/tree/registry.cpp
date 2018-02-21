@@ -15,6 +15,7 @@
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/clipper.hpp>
+#include <entwine/tree/new-clipper.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
@@ -25,66 +26,71 @@
 namespace entwine
 {
 
-Registry::Registry(const Builder& builder, const bool exists)
-    : m_builder(builder)
-    , m_structure(m_builder.metadata().structure())
-    , m_cold(makeUnique<Cold>(m_builder, exists))
-{ }
+Registry::Registry(
+        const Metadata& metadata,
+        const arbiter::Endpoint& out,
+        const arbiter::Endpoint& tmp,
+        PointPool& pointPool,
+        const bool exists)
+    : m_metadata(metadata)
+    , m_out(out)
+    , m_tmp(tmp)
+{
+    std::size_t chunksAcross(1);
+    std::size_t pointsAcross(1);
+    const std::size_t maxDepth(64);
+    m_slices.reserve(maxDepth);
 
-Registry::~Registry()
-{ }
+    const auto& s(m_metadata.structure());
+
+    for (std::size_t d(0); d < maxDepth; ++d)
+    {
+        m_slices.emplace_back(
+                m_metadata,
+                m_out,
+                m_tmp,
+                pointPool,
+                d,
+                chunksAcross,
+                pointsAcross);
+
+        if (d >= s.body() && d < s.tail()) chunksAcross *= 2;
+        else pointsAcross *= 2;
+    }
+}
+
+Registry::~Registry() { }
 
 void Registry::save(const arbiter::Endpoint& endpoint) const
 {
-    if (m_cold) m_cold->save(endpoint);
+    // TODO
 }
 
 bool Registry::addPoint(
         Cell::PooledNode& cell,
-        Climber& climber,
-        Clipper& clipper,
+        NewClimber& climber,
+        NewClipper& clipper,
         const std::size_t maxDepth)
 {
     Tube::Insertion attempt;
 
     while (true)
     {
-        attempt = m_cold->insert(climber, clipper, cell);
+        auto& slice(m_slices.at(climber.depth()));
+        attempt = slice.insert(cell, climber, clipper);
 
-        if (attempt.delta()) climber.count(attempt.delta());
-
-        if (!attempt.done())
-        {
-            if (
-                    m_structure.inRange(climber.depth() + 1) &&
-                    (!maxDepth || climber.depth() + 1 < maxDepth))
-            {
-                climber.magnify(cell->point());
-            }
-            else
-            {
-                return false;
-            }
-        }
-        else
-        {
-            return true;
-        }
+        if (!attempt.done()) climber.step(cell->point());
+        else return true;
     }
 }
 
 void Registry::clip(
-        const Id& index,
-        const std::size_t chunkNum,
-        const std::size_t id,
-        const bool sync)
+        const uint64_t d,
+        const uint64_t x,
+        const uint64_t y,
+        const uint64_t o)
 {
-    m_cold->clip(index, chunkNum, id, sync);
-}
-
-void Registry::merge(const Registry& other)
-{
-    m_cold->merge(*other.m_cold);
+    m_slices.at(d).clip(x, y, o);
 }
 
 } // namespace entwine

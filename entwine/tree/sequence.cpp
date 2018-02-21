@@ -33,8 +33,8 @@ Sequence::Sequence(Builder& builder)
     if (!m_manifest) return;
 
     const Bounds activeBounds(
-            m_metadata.subset() ?
-                *m_metadata.boundsNativeSubset() :
+            // m_metadata.subset() ?
+                // *m_metadata.boundsNativeSubset() :
                 m_metadata.boundsNativeCubic());
 
     for (Origin i(m_origin); i < m_end; ++i)
@@ -48,10 +48,12 @@ Sequence::Sequence(Builder& builder)
         }
     }
 
+    /*
     if (builder.verbose() && m_metadata.subset())
     {
         std::cout << "Overlaps: " << m_overlaps.size() << std::endl;
     }
+    */
 
     m_origin = m_overlaps.empty() ? m_end : m_overlaps.front();
 }
@@ -103,6 +105,7 @@ bool Sequence::checkBounds(
         const Bounds& bounds,
         const std::size_t numPoints)
 {
+    /*
     if (!m_metadata.boundsNativeCubic().overlaps(bounds, true))
     {
         const Subset* subset(m_metadata.subset());
@@ -114,6 +117,7 @@ bool Sequence::checkBounds(
     {
         if (!boundsSubset->overlaps(bounds)) return false;
     }
+    */
 
     return true;
 }

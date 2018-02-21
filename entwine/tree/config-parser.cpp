@@ -14,7 +14,6 @@
 
 #include <entwine/tree/config-parser.hpp>
 
-#include <entwine/formats/cesium/settings.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
 #include <entwine/tree/inference.hpp>
@@ -37,23 +36,8 @@ namespace
     const bool shallow(
             env("TESTING_SHALLOW") &&
             *env("TESTING_SHALLOW") == "true");
-}
 
-namespace
-{
     Json::Reader reader;
-
-    std::unique_ptr<cesium::Settings> getCesiumSettings(const Json::Value& json)
-    {
-        std::unique_ptr<cesium::Settings> settings;
-
-        if (json.isMember("cesium"))
-        {
-            settings = makeUnique<cesium::Settings>(json["cesium"]);
-        }
-
-        return settings;
-    }
 }
 
 Json::Value ConfigParser::defaults()
@@ -65,6 +49,11 @@ Json::Value ConfigParser::defaults()
     json["tmp"] = arbiter::fs::getTempPath();
     json["threads"] = 8;
     json["trustHeaders"] = true;
+    json["head"] = 7;
+    json["body"] = 9;
+    json["dataStorage"] = "laszip";
+    json["hierStorage"] = "json";
+    /*
     json["prefixIds"] = false;
     json["storage"] = "laszip";
 
@@ -77,19 +66,27 @@ Json::Value ConfigParser::defaults()
     else
     {
         std::cout << "Using shallow test configuration" << std::endl;
-
         json["pointsPerChunk"] = std::pow(4, 5);
         json["nullDepth"] = 4;
         json["baseDepth"] = 6;
     }
+    */
 
     return json;
+}
+
+std::unique_ptr<Builder> ConfigParser::getBuilder(const Config& config)
+{
+    auto arbiter(std::make_shared<arbiter::Arbiter>(config["arbiter"]));
+
+    return std::unique_ptr<Builder>();
 }
 
 std::unique_ptr<Builder> ConfigParser::getBuilder(
         Json::Value json,
         std::shared_ptr<arbiter::Arbiter> arbiter)
 {
+    /*
     if (!arbiter) arbiter = std::make_shared<arbiter::Arbiter>();
 
     const bool verbose(json["verbose"].asBool());
@@ -363,7 +360,6 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
         }
     }
 
-    Structure hierarchyStructure(Hierarchy::structure(structure, subset.get()));
     const HierarchyCompression hierarchyCompression(HierarchyCompression::Lzma);
 
     const auto ep(arbiter->getEndpoint(json["output"].asString()));
@@ -398,7 +394,8 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(
             outerScope);
 
     if (verbose) builder->verbose(true);
-    return builder;
+    */
+    return std::unique_ptr<Builder>();
 }
 
 std::unique_ptr<Builder> ConfigParser::tryGetExisting(
@@ -537,6 +534,7 @@ std::string ConfigParser::directorify(const std::string rawPath)
     return s;
 }
 
+/*
 std::unique_ptr<Subset> ConfigParser::maybeAccommodateSubset(
         Json::Value& json,
         const Bounds& boundsConforming,
@@ -584,6 +582,7 @@ std::unique_ptr<Subset> ConfigParser::maybeAccommodateSubset(
 
     return subset;
 }
+*/
 
 } // namespace entwine
 

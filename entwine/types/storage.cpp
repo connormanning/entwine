@@ -8,6 +8,7 @@
 *
 ******************************************************************************/
 
+/*
 #include <entwine/types/storage.hpp>
 
 #include <numeric>
@@ -76,6 +77,26 @@ void Storage::serialize(Chunk& chunk) const
     m_storage->write(chunk);
 }
 
+void Storage::write(
+        const arbiter::Endpoint& out,
+        const arbiter::Endpoint& tmp,
+        PointPool& pointPool,
+        const std::string& filename,
+        const Bounds& bounds,
+        Cell::PooledStack&& cells) const
+{
+    m_storage->write(out, tmp, pointPool, filename, bounds, std::move(cells));
+}
+
+Cell::PooledStack Storage::read(
+        const arbiter::Endpoint& out,
+        const arbiter::Endpoint& tmp,
+        PointPool& pointPool,
+        const std::string& filename) const
+{
+    return m_storage->read(out, tmp, pointPool, filename);
+}
+
 Cell::PooledStack Storage::deserialize(
         const arbiter::Endpoint& out,
         const arbiter::Endpoint& tmp,
@@ -93,4 +114,5 @@ std::string Storage::filename(const Id& id) const
 }
 
 } // namespace entwine
+*/
 

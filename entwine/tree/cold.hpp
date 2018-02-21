@@ -9,6 +9,7 @@
 ******************************************************************************/
 
 #pragma once
+/*
 
 #include <atomic>
 #include <cstddef>
@@ -114,4 +115,5 @@ private:
 };
 
 } // namespace entwine
+*/
 

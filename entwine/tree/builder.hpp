@@ -20,8 +20,7 @@
 
 #include <pdal/Dimension.hpp>
 
-#include <entwine/tree/climber.hpp>
-#include <entwine/tree/hierarchy.hpp>
+#include <entwine/tree/new-climber.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/manifest.hpp>
 #include <entwine/types/outer-scope.hpp>
@@ -43,7 +42,7 @@ namespace arbiter
 }
 
 class Bounds;
-class Clipper;
+class NewClipper;
 class Executor;
 class FileInfo;
 class Metadata;
@@ -72,6 +71,7 @@ public:
             std::size_t clipThreads,
             OuterScope outerScope = OuterScope());
 
+    /*
     // Continue an existing build.
     Builder(
             std::string outPath,
@@ -80,6 +80,7 @@ public:
             std::size_t clipThreads,
             const std::size_t* subsetId = nullptr,
             OuterScope outerScope = OuterScope());
+    */
 
     ~Builder();
 
@@ -93,7 +94,6 @@ public:
     // Various getters.
     const Metadata& metadata() const;
     const Registry& registry() const;
-    const Hierarchy& hierarchy() const;
     ThreadPools& threadPools() const;
     arbiter::Arbiter& arbiter();
     const arbiter::Arbiter& arbiter() const;
@@ -102,7 +102,6 @@ public:
 
     PointPool& pointPool() const;
     std::shared_ptr<PointPool> sharedPointPool() const;
-    std::shared_ptr<HierarchyCell::Pool> sharedHierarchyPool() const;
 
     bool isContinuation() const { return m_isContinuation; }
 
@@ -143,11 +142,11 @@ private:
     void insertPath(Origin origin, FileInfo& info);
 
     // Returns a stack of rejected info nodes so that they may be reused.
-    Cell::PooledStack insertData(
-            Cell::PooledStack cells,
+    Cells insertData(
+            Cells cells,
             Origin origin,
-            Clipper& clipper,
-            Climber& climber);
+            NewClipper& clipper,
+            NewClimber& climber);
 
     // Remove resources that are no longer needed.
     void clip(
@@ -155,6 +154,8 @@ private:
             std::size_t chunkNum,
             std::size_t id,
             bool sync = false);
+
+    void clip(uint64_t d, uint64_t x, uint64_t y);
 
     // Validate sources.
     void prepareEndpoints();
@@ -176,9 +177,7 @@ private:
     bool m_isContinuation;
 
     mutable std::shared_ptr<PointPool> m_pointPool;
-    mutable std::shared_ptr<HierarchyCell::Pool> m_hierarchyPool;
 
-    std::unique_ptr<Hierarchy> m_hierarchy;
     std::unique_ptr<Sequence> m_sequence;
     std::unique_ptr<Registry> m_registry;
 

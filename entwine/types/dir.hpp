@@ -15,7 +15,7 @@
 namespace entwine
 {
 
-enum class Dir
+enum class Dir : int
 {
     swd = 0,
     sed = 1,
@@ -27,6 +27,10 @@ enum class Dir
     neu = 7
 };
 
+static constexpr unsigned int EwBit = 0x01;
+static constexpr unsigned int NsBit = 0x02;
+static constexpr unsigned int UdBit = 0x04;
+
 inline constexpr std::size_t dirHalfEnd() { return 4; }
 inline constexpr std::size_t dirEnd() { return 8; }
 
@@ -34,9 +38,9 @@ inline constexpr std::size_t dirEnd() { return 8; }
 inline Dir getDirection(const Point& o, const Point& p)
 {
     return static_cast<Dir>(
-            (p.y >= o.y ? 2 : 0) +  // North? +2.
-            (p.x >= o.x ? 1 : 0) +  // East? +1.
-            (p.z >= o.z ? 4 : 0));  // Up? +4.
+            (p.y >= o.y ? NsBit : 0) |
+            (p.x >= o.x ? EwBit : 0) |
+            (p.z >= o.z ? UdBit : 0));
 }
 
 inline Dir getDirection(const Point& o, const Point& p, bool force2d)
@@ -44,14 +48,22 @@ inline Dir getDirection(const Point& o, const Point& p, bool force2d)
     if (force2d)
     {
         return static_cast<Dir>(
-                (p.y >= o.y ? 2 : 0) +  // North? +2.
-                (p.x >= o.x ? 1 : 0));  // East? +1.
+                (p.y >= o.y ? NsBit : 0) |  // North? +2.
+                (p.x >= o.x ? EwBit : 0));  // East? +1.
     }
     else
     {
         return getDirection(o, p);
     }
 }
+
+inline bool isNorth(Dir dir) { return static_cast<int>(dir) & NsBit; }
+inline bool isEast (Dir dir) { return static_cast<int>(dir) & EwBit; }
+inline bool isUp   (Dir dir) { return static_cast<int>(dir) & UdBit; }
+
+inline bool isSouth(Dir dir) { return !isNorth(dir); }
+inline bool isWest(Dir dir) { return !isEast(dir); }
+inline bool isDown(Dir dir) { return !isUp(dir); }
 
 inline std::string dirToString(Dir dir)
 {
@@ -73,9 +85,9 @@ inline std::string dirToString(Dir dir)
 inline Dir stringToDir(const std::string& s)
 {
     return static_cast<Dir>(
-            (s[0] == 'n' ? 2 : 0) + // North? + 2.
-            (s[1] == 'e' ? 1 : 0) + // East? +1.
-            (s[2] == 'u' ? 4 : 0)); // Up? +4.
+            (s[0] == 'n' ? NsBit : 0) |
+            (s[1] == 'e' ? EwBit : 0) |
+            (s[2] == 'u' ? UdBit : 0));
 }
 
 inline std::size_t toIntegral(Dir dir, bool force2d = false)
@@ -89,15 +101,6 @@ inline Dir toDir(std::size_t val)
 {
     return static_cast<Dir>(val);
 }
-
-inline bool isSouth(Dir dir) { return toIntegral(dir) % 4 < 2; } // 0, 1, 4, 5
-inline bool isNorth(Dir dir) { return !isSouth(dir); }
-
-inline bool isWest(Dir dir) { return toIntegral(dir) % 2 == 0; } // 0, 2, 4, 6
-inline bool isEast(Dir dir) { return !isWest(dir); }
-
-inline bool isDown(Dir dir) { return toIntegral(dir) < 4; }      // 0, 1, 2, 3
-inline bool isUp(Dir dir) { return !isDown(dir); }
 
 inline std::ostream& operator<<(std::ostream& os, Dir dir)
 {

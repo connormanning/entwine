@@ -19,35 +19,46 @@
 namespace entwine
 {
 
-void LasZipStorage::write(Chunk& chunk) const
+void LasZipStorage::write(
+        const arbiter::Endpoint& out,
+        const arbiter::Endpoint& tmp,
+        PointPool& pointPool,
+        const std::string& filename,
+        const Bounds& bounds,
+        Cell::PooledStack&& cells) const
 {
-    Cell::PooledStack cellStack(chunk.acquire());
-    const Schema& schema(chunk.schema());
-
     if (!m_metadata.delta())
     {
         throw std::runtime_error("Laszip storage requires scaling.");
     }
 
+    const bool local(out.isLocal());
+    const std::string localDir(
+            local ? out.prefixedRoot() : tmp.prefixedRoot());
+    const std::string localFile(
+            (local ? filename : arbiter::crypto::encodeAsHex(filename)) +
+            ".laz");
+
+    /*
+    std::cout << "mkdirp " << localDir << std::endl;
+    if (local && !arbiter::fs::mkdirp(localDir + localFile))
+    {
+        throw std::runtime_error("Couldn't create " + localDir + localFile);
+    }
+    */
+
+    const Schema& schema(m_metadata.schema());
     const Delta& delta(*m_metadata.delta());
 
-    CellTable cellTable(
-            chunk.pool(),
-            std::move(cellStack),
+    CellTable table(
+            pointPool,
+            std::move(cells),
             makeUnique<Schema>(Schema::normalize(schema)));
 
-    StreamReader reader(cellTable);
-
-    const auto& outEndpoint(chunk.builder().outEndpoint());
-    const auto& tmpEndpoint(chunk.builder().tmpEndpoint());
-
-    const std::string localDir = outEndpoint.isLocal() ?
-        outEndpoint.prefixedRoot() : tmpEndpoint.prefixedRoot();
-
-    const std::string filename(m_metadata.basename(chunk.id()) + ".laz");
+    StreamReader reader(table);
 
     const auto offset = Point::unscale(
-            chunk.bounds().mid(),
+            bounds.mid(),
             delta.scale(),
             delta.offset())
         .apply([](double d) { return std::floor(d); });
@@ -57,7 +68,7 @@ void LasZipStorage::write(Chunk& chunk) const
     uint64_t colorMask(schema.hasColor() ? 2 : 0);
 
     pdal::Options options;
-    options.add("filename", localDir + filename);
+    options.add("filename", localDir + localFile);
     options.add("minor_version", 4);
     options.add("extra_dims", "all");
     options.add("software_id", "Entwine " + currentVersion().toString());
@@ -80,17 +91,16 @@ void LasZipStorage::write(Chunk& chunk) const
     pdal::LasWriter writer;
     writer.setOptions(options);
     writer.setInput(reader);
-    writer.prepare(cellTable);
+    writer.prepare(table);
 
     lock.unlock();
 
-    writer.execute(cellTable);
+    writer.execute(table);
 
-    if (!outEndpoint.isLocal())
+    if (!local)
     {
-        io::ensurePut(outEndpoint, filename, tmpEndpoint.getBinary(filename));
-
-        arbiter::fs::remove(tmpEndpoint.prefixedRoot() + filename);
+        io::ensurePut(out, filename, tmp.getBinary(localFile));
+        arbiter::fs::remove(tmp.prefixedRoot() + localFile);
     }
 }
 
@@ -98,9 +108,9 @@ Cell::PooledStack LasZipStorage::read(
         const arbiter::Endpoint& out,
         const arbiter::Endpoint& tmp,
         PointPool& pool,
-        const Id& id) const
+        const std::string& filename) const
 {
-    const std::string basename(m_metadata.basename(id) + ".laz");
+    const std::string basename(filename + ".laz");
     std::string localFile(out.prefixedRoot() + basename);
     bool copied(false);
 

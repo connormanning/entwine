@@ -8,10 +8,12 @@
 *
 ******************************************************************************/
 
+/*
 #include <entwine/types/subset.hpp>
 
+#include <set>
+
 #include <entwine/tree/climber.hpp>
-#include <entwine/tree/hierarchy.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/structure.hpp>
 
@@ -128,7 +130,7 @@ std::vector<Subset::Span> Subset::calcSpans(
     }
 
     const std::size_t depthEnd(structure.baseDepthEnd());
-    std::set<Span> spans;
+    std::set<Subset::Span> spans;
 
     for (const auto& b : m_boxes)
     {
@@ -196,3 +198,4 @@ std::vector<Subset::Span> Subset::calcSpans(
 
 } // namespace entwine
 
+*/

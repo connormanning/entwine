@@ -20,8 +20,10 @@
 
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/cold.hpp>
+#include <entwine/tree/slice.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/tube.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace arbiter
 {
@@ -31,9 +33,8 @@ namespace arbiter
 namespace entwine
 {
 
-class Builder;
-class Climber;
-class Clipper;
+class NewClimber;
+class NewClipper;
 class Structure;
 
 class Registry
@@ -41,31 +42,34 @@ class Registry
     friend class Builder;
 
 public:
-    Registry(const Builder& builder, bool exists = false);
+    Registry(
+            const Metadata& metadata,
+            const arbiter::Endpoint& out,
+            const arbiter::Endpoint& tmp,
+            PointPool& pointPool,
+            bool exists = false);
     ~Registry();
 
     void save(const arbiter::Endpoint& endpoint) const;
-    void merge(const Registry& other);
+    void merge(const Registry& other) { } // TODO
 
     bool addPoint(
             Cell::PooledNode& cell,
-            Climber& climber,
-            Clipper& clipper,
+            NewClimber& climber,
+            NewClipper& clipper,
             std::size_t maxDepth = 0);
 
-    void clip(const Id& index, std::size_t chunkNum, std::size_t id, bool sync);
+    void clip(uint64_t d, uint64_t x, uint64_t y, uint64_t o);
 
 private:
-    Cold& cold() { return *m_cold; }
-    const Cold& cold() const { return *m_cold; }
-
     void loadAsNew();
     void loadFromRemote();
 
-    const Builder& m_builder;
-    const Structure& m_structure;
+    const Metadata& m_metadata;
+    const arbiter::Endpoint& m_out;
+    const arbiter::Endpoint& m_tmp;
 
-    std::unique_ptr<Cold> m_cold;
+    std::vector<Slice> m_slices;
 };
 
 } // namespace entwine

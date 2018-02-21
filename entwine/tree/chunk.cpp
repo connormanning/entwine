@@ -8,6 +8,7 @@
 *
 ******************************************************************************/
 
+/*
 #include <entwine/tree/chunk.hpp>
 
 #include <atomic>
@@ -452,4 +453,5 @@ std::set<Id> BaseChunk::merge(BaseChunk& other)
 }
 
 } // namespace entwine
+*/
 

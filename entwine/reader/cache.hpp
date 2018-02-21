@@ -20,7 +20,6 @@
 #include <set>
 #include <string>
 
-#include <entwine/reader/hierarchy-reader.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 
@@ -79,19 +78,6 @@ struct DataChunkState
     std::mutex mutex;
 };
 
-using SlotOrder = std::list<const HierarchyReader::Slot*>;
-using SlotMap = std::map<const HierarchyReader::Slot*, SlotOrder::iterator>;
-
-struct HierarchyCache
-{
-    std::mutex mutex;
-    SlotMap slots;
-    SlotOrder order;
-    std::map<const HierarchyReader::Slot*, std::size_t> refs;
-};
-
-
-
 typedef std::map<Id, std::unique_ptr<DataChunkState>> LocalManager;
 typedef std::map<std::string, LocalManager> GlobalManager;
 typedef std::map<Id, const ColdChunkReader*> ChunkMap;
@@ -129,14 +115,6 @@ public:
             const std::string& readerPath,
             const FetchInfoSet& fetches);
 
-    void refHierarchySlot(
-            const std::string& name,
-            const HierarchyReader::Slot* slot);
-
-    void unrefHierarchy(
-            const std::string& name,
-            const HierarchyReader::Slots& slots);
-
     std::size_t maxBytes() const { return m_maxBytes; }
     std::size_t activeBytes() const { return m_activeBytes; }
 
@@ -154,15 +132,10 @@ private:
             const FetchInfo& fetchInfo);
 
     const std::size_t m_maxBytes;
-    const std::size_t m_maxHierarchyBytes;
     std::size_t m_activeBytes = 0;
-    std::size_t m_hierarchyBytes = 0;
 
     GlobalManager m_chunkManager;
     InactiveList m_inactiveList;
-
-    std::map<std::string, HierarchyCache> m_hierarchyCache;
-    std::mutex m_hierarchyMutex;
 
     std::mutex m_mutex;
     std::condition_variable m_cv;

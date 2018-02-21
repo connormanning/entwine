@@ -18,18 +18,15 @@
 namespace entwine
 {
 
-std::unique_ptr<ChunkStorage> ChunkStorage::create(
-        const Metadata& m,
-        const ChunkStorageType s,
-        const Json::Value& j)
+std::unique_ptr<ChunkStorage> ChunkStorage::create(const Metadata& m)
 {
-    switch (s)
-    {
-        case ChunkStorageType::LazPerf: return makeUnique<LazPerfStorage>(m, j);
-        case ChunkStorageType::LasZip: return makeUnique<LasZipStorage>(m, j);
-        case ChunkStorageType::Binary: return makeUnique<BinaryStorage>(m, j);
-        default: throw std::runtime_error("Invalid chunk compression type");
-    }
+    const auto s(m.chunkStorageType());
+    if (s == "laszip")  return makeUnique<LasZipStorage>(m);
+    /*
+    if (s == "lazperf") return makeUnique<LazPerfStorage>(m);
+    if (s == "binary")  return makeUnique<BinaryStorage>(m);
+    */
+    throw std::runtime_error("Invalid chunk compression type");
 }
 
 } // namespace entwine

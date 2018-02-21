@@ -8,19 +8,21 @@
 *
 ******************************************************************************/
 
-#include <entwine/tree/climber.hpp>
+#include <entwine/tree/new-climber.hpp>
 #include <entwine/types/tube.hpp>
 
 namespace entwine
 {
 
-Tube::Insertion Tube::insert(const Climber& climber, Cell::PooledNode& cell)
+Tube::Insertion Tube::insert(const NewClimber& climber, Cell::PooledNode& cell)
 {
     Insertion result;
 
-    SpinGuard lock(m_spinner);
+    std::lock_guard<std::mutex> lock(m_mutex);
 
-    const auto it(m_cells.find(climber.tick()));
+    const auto& pk(climber.pointKey());
+    const auto z(pk.z);
+    const auto it(m_cells.find(z));
 
     if (it != m_cells.end())
     {
@@ -28,7 +30,7 @@ Tube::Insertion Tube::insert(const Climber& climber, Cell::PooledNode& cell)
 
         if (cell->point() != curr->point())
         {
-            const Point& center(climber.bounds().mid());
+            const Point& center(pk.bounds().mid());
 
             const auto a(cell->point().sqDist3d(center));
             const auto b(curr->point().sqDist3d(center));
@@ -53,7 +55,7 @@ Tube::Insertion Tube::insert(const Climber& climber, Cell::PooledNode& cell)
     else
     {
         result.setDone(cell->size());
-        m_cells.emplace(std::make_pair(climber.tick(), std::move(cell)));
+        m_cells.emplace(std::make_pair(z, std::move(cell)));
     }
 
     return result;

@@ -10,13 +10,12 @@
 
 #include <cassert>
 
-#include <entwine/formats/cesium/settings.hpp>
+#include <entwine/types/chunk-storage/chunk-storage.hpp>
 #include <entwine/types/delta.hpp>
 #include <entwine/types/manifest.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
-#include <entwine/types/storage.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/io.hpp>
@@ -31,6 +30,7 @@ namespace
     const double epsilon(0.005);
 }
 
+/*
 Metadata::Metadata(
         const Bounds& boundsNativeConforming,
         const Schema& schema,
@@ -58,7 +58,6 @@ Metadata::Metadata(
             clone(m_boundsScaledConforming->growBy(epsilon)))
     , m_schema(makeUnique<Schema>(schema))
     , m_structure(makeUnique<Structure>(structure))
-    , m_hierarchyStructure(makeUnique<Structure>(hierarchyStructure))
     , m_manifest(makeUnique<Manifest>(manifest))
     , m_storage(makeUnique<Storage>(*this, chunkStorage, hierarchyCompress))
     , m_reprojection(maybeClone(reprojection))
@@ -100,17 +99,16 @@ std::unique_ptr<Metadata> Metadata::create(
     {
         m->awakenManifest(ep);
 
-        /*
         // assert(!subsetId || *subsetId == m_subset->id());
         const std::string mpath("entwine-manifest" + m->postfix());
         const Json::Value mjson(parse(io::ensureGetString(ep, mpath)));
         m->m_manifest = makeUnique<Manifest>(mjson, ep);
         if (!m->density()) m->m_density = densityLowerBound(m->manifest());
-        */
     }
 
     return m;
 }
+*/
 
 Json::Value Metadata::unify(Json::Value json)
 {
@@ -164,26 +162,22 @@ Metadata::Metadata(const Json::Value& json)
     , m_boundsScaledEpsilon(
             clone(m_boundsScaledConforming->growBy(epsilon)))
     , m_schema(makeUnique<Schema>(json["schema"]))
-    , m_structure(makeUnique<Structure>(json["structure"]))
-    , m_hierarchyStructure(makeUnique<Structure>(json["hierarchyStructure"]))
+    , m_structure(makeUnique<NewStructure>(json["structure"]))
     , m_manifest()
-    , m_storage(makeUnique<Storage>(*this, json))
+    , m_chunkStorage(makeUnique<ChunkStorage>(*this))
     , m_reprojection(maybeCreate<Reprojection>(json["reprojection"]))
+      /*
     , m_subset(json.isMember("subset") ?
             makeUnique<Subset>(boundsNativeCubic(), json["subset"]) : nullptr)
+            */
     , m_transformation(json.isMember("transformation") ?
             makeUnique<Transformation>(
                 extract<double>(json["transformation"])) :
             nullptr)
-    , m_cesiumSettings(
-            json.isMember("formats") && json["formats"].isMember("cesium") ?
-                makeUnique<cesium::Settings>(json["formats"]["cesium"]) :
-                nullptr)
     , m_version(makeUnique<Version>(json["version"].asString()))
     , m_srs(json["srs"].asString())
     , m_density(json["density"].asDouble())
     , m_trustHeaders(json["trustHeaders"].asBool())
-    , m_slicedBase(json["baseType"].asString() == "sliced")
     , m_preserveSpatial(extract<std::string>(json["preserveSpatial"]))
 { }
 
@@ -195,19 +189,16 @@ Metadata::Metadata(const Metadata& other)
     , m_boundsScaledCubic(clone(other.boundsScaledCubic()))
     , m_boundsScaledEpsilon(clone(other.boundsScaledEpsilon()))
     , m_schema(makeUnique<Schema>(other.schema()))
-    , m_structure(makeUnique<Structure>(other.structure()))
-    , m_hierarchyStructure(makeUnique<Structure>(other.hierarchyStructure()))
+    , m_structure(makeUnique<NewStructure>(other.structure()))
     , m_manifest(makeUnique<Manifest>(other.manifest()))
-    , m_storage(makeUnique<Storage>(*this, other.storage()))
+    , m_chunkStorage(makeUnique<ChunkStorage>(*this))
     , m_reprojection(maybeClone(other.reprojection()))
-    , m_subset(maybeClone(other.subset()))
+    // , m_subset(maybeClone(other.subset()))
     , m_transformation(maybeClone(other.transformation()))
-    , m_cesiumSettings(maybeClone(other.cesiumSettings()))
     , m_version(makeUnique<Version>(other.version()))
     , m_srs(other.srs())
     , m_density(other.density())
     , m_trustHeaders(other.trustHeaders())
-    , m_slicedBase(other.slicedBase())
     , m_preserveSpatial(other.preserveSpatial())
 { }
 
@@ -221,18 +212,18 @@ Json::Value Metadata::toJson() const
     json["boundsConforming"] = boundsNativeConforming().toJson();
     json["schema"] = m_schema->toJson();
     json["structure"] = m_structure->toJson();
-    json["hierarchyStructure"] = m_hierarchyStructure->toJson();
     json["trustHeaders"] = m_trustHeaders;
 
-    const Json::Value storage(m_storage->toJson());
+    /*
+    const Json::Value storage(m_chunkStorage->toJson());
     for (const auto& k : storage.getMemberNames()) json[k] = storage[k];
+    */
 
     if (m_srs.size()) json["srs"] = m_srs;
     if (m_reprojection) json["reprojection"] = m_reprojection->toJson();
-    if (m_subset) json["subset"] = m_subset->toJson();
+    // if (m_subset) json["subset"] = m_subset->toJson();
 
     if (m_delta) m_delta->insertInto(json);
-    if (m_slicedBase) json["baseType"] = "sliced";
 
     if (m_transformation)
     {
@@ -243,11 +234,6 @@ Json::Value Metadata::toJson() const
     }
 
     if (m_density) json["density"] = m_density;
-
-    if (m_cesiumSettings)
-    {
-        json["formats"]["cesium"] = m_cesiumSettings->toJson();
-    }
 
     json["version"] = m_version->toString();
 
@@ -261,8 +247,10 @@ void Metadata::save(const arbiter::Endpoint& endpoint) const
     const auto json(toJson());
     io::ensurePut(endpoint, "entwine" + postfix(), json.toStyledString());
 
+    /*
     const bool primary(!m_subset || m_subset->primary());
     if (m_manifest) m_manifest->save(primary, postfix());
+    */
 }
 
 void Metadata::merge(const Metadata& other)
@@ -271,20 +259,18 @@ void Metadata::merge(const Metadata& other)
     m_manifest->merge(other.manifest());
 }
 
+/*
 std::string Metadata::basename(const Id& chunkId) const
 {
     return
         m_structure->maybePrefix(chunkId) +
         postfix(chunkId >= m_structure->coldIndexBegin());
 }
-
-std::string Metadata::filename(const Id& chunkId) const
-{
-    return m_storage->filename(chunkId);
-}
+*/
 
 std::string Metadata::postfix(const bool isColdChunk) const
 {
+    // TODO
     // Things we save, and their postfixing.
     //
     // Metadata files (main meta, ids, manifest):
@@ -301,21 +287,22 @@ std::string Metadata::postfix(const bool isColdChunk) const
     //
     // Hierarchy metadata:
     //      All postfixes applied.
-    return m_subset && !isColdChunk ? m_subset->postfix() : "";
+    // return m_subset && !isColdChunk ? m_subset->postfix() : "";
+    return "";
 }
 
 void Metadata::makeWhole()
 {
-    m_subset.reset();
-    m_structure->unbump();
-    m_hierarchyStructure->unbump(false);
+    // m_subset.reset();
+    // m_structure->unbump();
 }
 
 void Metadata::unbump()
 {
-    m_structure->unbump();
+    // m_structure->unbump();
 }
 
+/*
 std::unique_ptr<Bounds> Metadata::boundsNativeSubset() const
 {
     return m_subset ? clone(m_subset->bounds()) : nullptr;
@@ -325,6 +312,7 @@ std::unique_ptr<Bounds> Metadata::boundsScaledSubset() const
 {
     return m_subset ? clone(m_subset->bounds().deltify(delta())) : nullptr;
 }
+*/
 
 Bounds Metadata::makeScaledCube(
         const Bounds& nativeConformingBounds,

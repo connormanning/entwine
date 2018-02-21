@@ -9,6 +9,7 @@
 ******************************************************************************/
 
 #pragma once
+/*
 
 #include <cstddef>
 #include <list>
@@ -16,7 +17,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include <entwine/tree/builder.hpp>
+#include <entwine/tree/heuristics.hpp>
+#include <entwine/tree/registry.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/util/unique.hpp>
 
@@ -47,7 +49,8 @@ private:
 public:
     Clipper(Builder& builder, Origin origin)
         : m_builder(builder)
-        , m_startDepth(builder.metadata().structure().coldDepthBegin())
+        // , m_startDepth(builder.metadata().structure().coldDepthBegin())
+        , m_startDepth(0)
         , m_id(origin)
         , m_clips()
         , m_fastCache(32, m_clips.end())
@@ -58,62 +61,44 @@ public:
     {
         for (const auto& c : m_clips)
         {
-            m_builder.clip(c.first, c.second.chunkNum, m_id);
+            // m_builder.clip(c.first, c.second.chunkNum, m_id);
         }
     }
 
-    bool insert(const Id& chunkId, std::size_t chunkNum, std::size_t depth)
+    bool insert(const Id& chunkId, std::size_t chunkNum, std::size_t depth);
+
+    void clip()
     {
-        assert(depth >= m_startDepth);
-        depth -= m_startDepth;
+        if (m_clips.size() < heuristics::clipCacheSize) return;
 
-        if (depth < m_fastCache.size())
+        m_fastCache.assign(32, m_clips.end());
+        bool done(false);
+
+        while (m_clips.size() > heuristics::clipCacheSize && !done)
         {
-            auto& it(m_fastCache[depth]);
+            ClipInfo::Map::iterator& it(*m_order.rbegin());
 
-            if (it != m_clips.end() && it->first == chunkId)
+            if (!it->second.fresh)
             {
-                it->second.fresh = true;
-                m_order.splice(
-                        m_order.begin(),
-                        m_order,
-                        *it->second.orderIt);
-
-                return false;
+                // m_builder.clip(it->first, it->second.chunkNum, m_id);
+                m_clips.erase(it);
+                m_order.pop_back();
+            }
+            else
+            {
+                done = true;
             }
         }
 
-        auto it(m_clips.find(chunkId));
-
-        if (it != m_clips.end())
-        {
-            if (depth < m_fastCache.size()) m_fastCache[depth] = it;
-
-            it->second.fresh = true;
-            m_order.splice(
-                    m_order.begin(),
-                    m_order,
-                    *it->second.orderIt);
-
-            return false;
-        }
-        else
-        {
-            it = m_clips.insert(
-                        std::make_pair(chunkId, ClipInfo(chunkNum))).first;
-
-            m_order.push_front(it);
-            it->second.orderIt =
-                makeUnique<ClipInfo::Order::iterator>(m_order.begin());
-
-            if (depth < m_fastCache.size()) m_fastCache[depth] = it;
-
-            return true;
-        }
+        for (auto& p : m_clips) p.second.fresh = false;
     }
 
-    void clip();
-    void clip(const Id& chunkId);
+    void clip(const Id& chunkId)
+    {
+        // m_builder.clip(chunkId, m_clips.at(chunkId).chunkNum, m_id, true);
+        m_clips.erase(chunkId);
+    }
+
     std::size_t id() const { return m_id; }
     std::size_t size() const { return m_clips.size(); }
 
@@ -129,4 +114,5 @@ private:
 };
 
 } // namespace entwine
+*/
 
