@@ -59,8 +59,8 @@ Builder::Builder(
         const std::size_t clipThreads,
         const OuterScope outerScope)
     : m_arbiter(outerScope.getArbiter())
-    , m_outEndpoint(makeUnique<Endpoint>(m_arbiter->getEndpoint(outPath)))
-    , m_tmpEndpoint(makeUnique<Endpoint>(m_arbiter->getEndpoint(tmpPath)))
+    , m_out(makeUnique<Endpoint>(m_arbiter->getEndpoint(outPath)))
+    , m_tmp(makeUnique<Endpoint>(m_arbiter->getEndpoint(tmpPath)))
     , m_threadPools(makeUnique<ThreadPools>(workThreads, clipThreads))
     , m_metadata(([this, &metadata]()
     {
@@ -91,10 +91,10 @@ Builder::Builder(
         const std::size_t* subsetId,
         const OuterScope outerScope)
     : m_arbiter(outerScope.getArbiter())
-    , m_outEndpoint(makeUnique<Endpoint>(m_arbiter->getEndpoint(outPath)))
-    , m_tmpEndpoint(makeUnique<Endpoint>(m_arbiter->getEndpoint(tmpPath)))
+    , m_out(makeUnique<Endpoint>(m_arbiter->getEndpoint(outPath)))
+    , m_tmp(makeUnique<Endpoint>(m_arbiter->getEndpoint(tmpPath)))
     , m_threadPools(makeUnique<ThreadPools>(workThreads, clipThreads))
-    , m_metadata(Metadata::create(*m_outEndpoint, subsetId))
+    , m_metadata(Metadata::create(*m_out, subsetId))
     , m_isContinuation(true)
     , m_pointPool(
             outerScope.getPointPool(m_metadata->schema(), m_metadata->delta()))
@@ -195,7 +195,7 @@ void Builder::go(std::size_t max)
 
 void Builder::doRun(const std::size_t max)
 {
-    if (!m_tmpEndpoint)
+    if (!m_tmp)
     {
         throw std::runtime_error("Cannot add to read-only builder");
     }
@@ -267,7 +267,7 @@ void Builder::insertPath(const Origin origin, FileInfo& info)
 
         try
         {
-            localHandle = m_arbiter->getLocalHandle(rawPath, *m_tmpEndpoint);
+            localHandle = m_arbiter->getLocalHandle(rawPath, *m_tmp);
         }
         catch (const std::exception& e)
         {
@@ -409,7 +409,7 @@ Cells Builder::insertData(
 
 void Builder::save()
 {
-    save(*m_outEndpoint);
+    save(*m_out);
 }
 
 void Builder::save(const std::string to)
@@ -422,10 +422,10 @@ void Builder::save(const arbiter::Endpoint& ep)
     m_threadPools->cycle();
 
     if (verbose()) std::cout << "Saving registry..." << std::endl;
-    m_registry->save(*m_outEndpoint);
+    m_registry->save(*m_out);
 
     if (verbose()) std::cout << "Saving metadata..." << std::endl;
-    m_metadata->save(*m_outEndpoint);
+    m_metadata->save(*m_out);
 }
 
 void Builder::merge(Builder& other)
@@ -452,20 +452,20 @@ void Builder::merge(Builder& other)
 
 void Builder::prepareEndpoints()
 {
-    if (m_tmpEndpoint)
+    if (m_tmp)
     {
-        if (m_tmpEndpoint->isRemote())
+        if (m_tmp->isRemote())
         {
             throw std::runtime_error("Tmp path must be local");
         }
 
-        if (!arbiter::fs::mkdirp(m_tmpEndpoint->root()))
+        if (!arbiter::fs::mkdirp(m_tmp->root()))
         {
             throw std::runtime_error("Couldn't create tmp directory");
         }
 
-        const std::string rootDir(m_outEndpoint->root());
-        if (!m_outEndpoint->isRemote())
+        const std::string rootDir(m_out->root());
+        if (!m_out->isRemote())
         {
             if (!arbiter::fs::mkdirp(rootDir))
             {
@@ -504,8 +504,8 @@ std::shared_ptr<PointPool> Builder::sharedPointPool() const
     return m_pointPool;
 }
 
-const arbiter::Endpoint& Builder::outEndpoint() const { return *m_outEndpoint; }
-const arbiter::Endpoint& Builder::tmpEndpoint() const { return *m_tmpEndpoint; }
+const arbiter::Endpoint& Builder::outEndpoint() const { return *m_out; }
+const arbiter::Endpoint& Builder::tmpEndpoint() const { return *m_tmp; }
 
 std::mutex& Builder::mutex() { return m_mutex; }
 

@@ -266,7 +266,7 @@ UniqueStage Executor::createReader(const std::string path) const
 
     auto lock(getLock());
 
-    if (pdal::Reader* reader = static_cast<pdal::Reader*>(
+    if (pdal::Reader* reader = dynamic_cast<pdal::Reader*>(
             m_stageFactory->createStage(driver)))
     {
         pdal::Options options;
@@ -293,7 +293,7 @@ UniqueStage Executor::createFerryFilter(const std::vector<std::string>& p) const
     auto lock(getLock());
 
     if (pdal::Filter* filter =
-            static_cast<pdal::Filter*>(
+            dynamic_cast<pdal::Filter*>(
                 m_stageFactory->createStage("filters.ferry")))
     {
         std::size_t d(1);
@@ -329,7 +329,7 @@ UniqueStage Executor::createReprojectionFilter(const Reprojection& reproj) const
     auto lock(getLock());
 
     if (pdal::Filter* filter =
-            static_cast<pdal::Filter*>(
+            dynamic_cast<pdal::Filter*>(
                 m_stageFactory->createStage("filters.reprojection")))
     {
         pdal::Options options;
@@ -361,7 +361,7 @@ UniqueStage Executor::createTransformationFilter(
     auto lock(getLock());
 
     if (pdal::Filter* filter =
-            static_cast<pdal::Filter*>(
+            dynamic_cast<pdal::Filter*>(
                 m_stageFactory->createStage("filters.transformation")))
     {
         std::ostringstream ss;

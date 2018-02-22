@@ -62,6 +62,8 @@ class Builder
     friend class Sequence;
 
 public:
+    Builder(const Config& config);
+
     // Launch a new build.
     Builder(
             const Metadata& metadata,
@@ -167,8 +169,8 @@ private:
     //
 
     std::shared_ptr<arbiter::Arbiter> m_arbiter;
-    std::unique_ptr<arbiter::Endpoint> m_outEndpoint;
-    std::unique_ptr<arbiter::Endpoint> m_tmpEndpoint;
+    std::unique_ptr<arbiter::Endpoint> m_out;
+    std::unique_ptr<arbiter::Endpoint> m_tmp;
 
     std::unique_ptr<ThreadPools> m_threadPools;
     std::unique_ptr<Metadata> m_metadata;

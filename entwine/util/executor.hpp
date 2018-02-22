@@ -45,7 +45,7 @@ public:
 
     ~ScopedStage();
 
-    template<typename T> T getAs() { return static_cast<T>(m_stage); }
+    template<typename T> T getAs() { return dynamic_cast<T>(m_stage); }
 
 private:
     pdal::Stage* m_stage;
