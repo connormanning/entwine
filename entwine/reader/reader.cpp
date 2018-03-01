@@ -68,7 +68,7 @@ namespace
 
     HierarchyCell::Pool hierarchyPool(4096);
 
-    const std::size_t basePoolBlockSize(65536);
+    const std::size_t basePoolBlockSize(4096);
 }
 
 Reader::Reader(const std::string path, const std::string tmp, Cache& cache)
@@ -84,7 +84,7 @@ Reader::Reader(const std::string path, const std::string tmp, Cache& cache)
                 m_metadata,
                 m_endpoint,
                 m_cache))
-    , m_threadPool(2)
+    , m_threadPool(makeUnique<Pool>(2))
 {
     init();
 }
@@ -104,7 +104,7 @@ Reader::Reader(
                 m_metadata,
                 m_endpoint,
                 m_cache))
-    , m_threadPool(2)
+    , m_threadPool(makeUnique<Pool>(2))
 {
     init();
 }
@@ -124,7 +124,7 @@ void Reader::init()
 
     if (structure.hasCold())
     {
-        m_threadPool.add([&]()
+        m_threadPool->add([&]()
         {
             const auto ids(extractIds(m_endpoint.get("entwine-ids")));
             if (ids.empty()) return;
@@ -268,6 +268,14 @@ bool Reader::exists(const QueryChunkState& c) const
 {
     if (m_ready)
     {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        if (m_threadPool)
+        {
+            m_threadPool.reset();
+            std::cout << m_endpoint.prefixedRoot() << " joined" << std::endl;
+        }
+        lock.unlock();
+
         if (c.depth() >= m_ids.size()) return false;
         const auto& slice(m_ids[c.depth()]);
         return std::binary_search(slice.begin(), slice.end(), c.chunkId());

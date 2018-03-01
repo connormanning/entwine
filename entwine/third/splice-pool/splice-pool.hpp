@@ -743,6 +743,11 @@ public:
         return m_allocated;
     }
 
+    std::size_t used() const
+    {
+        return allocated() - available();
+    }
+
     std::size_t available() const
     {
         std::lock_guard<std::mutex> lock(m_mutex);
