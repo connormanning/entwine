@@ -37,19 +37,28 @@ namespace
 
 Manifest::Manifest(
         const FileInfoList& fileInfo,
-        const arbiter::Endpoint& endpoint)
+        const arbiter::Endpoint* endpoint)
     : m_fileInfo(fileInfo)
     , m_remote(m_fileInfo.size(), false)
-    , m_endpoint(endpoint)
+    , m_endpoint(maybeClone(endpoint))
     , m_chunkSize(chunkSize)
 { }
 
-Manifest::Manifest(
-        const Json::Value& json,
-        const arbiter::Endpoint& endpoint)
-    : m_endpoint(endpoint)
+Manifest::Manifest(Json::Value json, const arbiter::Endpoint* endpoint)
+    : m_endpoint(maybeClone(endpoint))
 {
-    if (!json.isObject()) throw std::runtime_error("Invalid manifest JSON");
+    if (json.isArray())
+    {
+        Json::Value o;
+        o["fileInfo"] = json;
+        json = o;
+    }
+
+    if (!json.isObject())
+    {
+        throw std::runtime_error(
+                "Invalid manifest JSON: " + json.toStyledString());
+    }
 
     const Json::Value& fileInfo(json["fileInfo"]);
     if (fileInfo.isArray() && fileInfo.size())
@@ -69,15 +78,20 @@ Manifest::Manifest(
     const bool remote(json["remote"].asBool());
     m_remote.resize(m_fileInfo.size(), remote);
 
-    // If we have fileStats and pointStats, then we're dealing with a full
-    // manifest from Manifest::toJson (a previous build).  Otherwise, we have
-    // a simplified manifest from Manifest::toInferenceJson.
-    if (json.isMember("fileStats") && json.isMember("pointStats"))
+    if (json.isObject())
     {
-        // Full manifest from Manifest::toJson.
-        m_fileStats = FileStats(json["fileStats"]);
-        m_pointStats = PointStats(json["pointStats"]);
+        // If we have fileStats and pointStats, then we're dealing with a full
+        // manifest from Manifest::toJson (a previous build).  Otherwise, we
+        // have a simplified manifest from Manifest::toInferenceJson.
+        if (json.isMember("fileStats") && json.isMember("pointStats"))
+        {
+            // Full manifest from Manifest::toJson.
+            m_fileStats = FileStats(json["fileStats"]);
+            m_pointStats = PointStats(json["pointStats"]);
+        }
     }
+
+    std::cout << "Made manifest" << std::endl;
 }
 
 Manifest::Manifest(const Manifest& other)
@@ -85,7 +99,7 @@ Manifest::Manifest(const Manifest& other)
     , m_remote(other.m_remote)
     , m_fileStats(other.m_fileStats)
     , m_pointStats(other.m_pointStats)
-    , m_endpoint(other.m_endpoint)
+    , m_endpoint(maybeClone(other.m_endpoint.get()))
     , m_chunkSize(other.m_chunkSize)
 { }
 
@@ -218,9 +232,10 @@ void Manifest::awakenAll(Pool& pool) const
 void Manifest::awaken(Origin origin) const
 {
     if (!m_remote.at(origin)) return;
+    if (!m_endpoint) return;
 
     const std::size_t chunk(origin / m_chunkSize * m_chunkSize);
-    const auto m(m_endpoint.getSubEndpoint("m"));
+    const auto m(m_endpoint->getSubEndpoint("m"));
     const auto bytes(io::ensureGet(m, std::to_string(chunk)));
     const auto json(parse(bytes->data()));
 
@@ -248,7 +263,8 @@ void Manifest::awaken(Origin origin) const
 
 void Manifest::save(const bool primary, const std::string postfix) const
 {
-    auto m(m_endpoint.getSubEndpoint("m"));
+    if (!m_endpoint) throw std::runtime_error("No endpoint to save manifest");
+    auto m(m_endpoint->getSubEndpoint("m"));
 
     Json::Value json;
     json["fileStats"] = m_fileStats.toJson();
@@ -304,7 +320,7 @@ void Manifest::save(const bool primary, const std::string postfix) const
     }
 
     io::ensurePut(
-            m_endpoint,
+            *m_endpoint,
             "entwine-manifest" + postfix,
             primary ? json.toStyledString() : toFastString(json));
 }

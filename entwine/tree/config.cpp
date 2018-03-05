@@ -11,6 +11,8 @@
 #include <entwine/tree/config.hpp>
 
 #include <entwine/third/arbiter/arbiter.hpp>
+#include <entwine/tree/inference.hpp>
+#include <entwine/types/file-info.hpp>
 #include <entwine/util/json.hpp>
 
 namespace entwine
@@ -33,6 +35,27 @@ Json::Value Config::defaults() const
     json["dataStorage"] = "laszip";
     json["hierStorage"] = "json";
     return json;
+}
+
+void Config::finalize()
+{
+    if (m_json["input"].isString()) infer();
+}
+
+void Config::infer()
+{
+    // TODO Pass options.
+    Inference inference(m_json["input"].asString());
+    inference.go();
+
+    // TODO Don't overwrite parameters that have been manually specified.
+    m_json["schema"] = inference.schema().toJson();
+    m_json["bounds"] = inference.bounds().toJson();
+    m_json["input"] = toJson(inference.fileInfo());
+    if (const Delta* d = inference.delta())
+    {
+        inference.delta()->insertInto(m_json);
+    }
 }
 
 } // namespace entwine

@@ -51,6 +51,29 @@ namespace
     const std::size_t inputRetryLimit(16);
 }
 
+Builder::Builder(const Config& config)
+    : m_arbiter(std::make_shared<Arbiter>(config["arbiter"]))
+    , m_out(makeUnique<Endpoint>(m_arbiter->getEndpoint(config.output())))
+    , m_tmp(makeUnique<Endpoint>(m_arbiter->getEndpoint(config.tmp())))
+    , m_threadPools(makeUnique<ThreadPools>(config.threads()))
+    , m_metadata(makeUnique<Metadata>(config))
+    , m_pointPool(std::make_shared<PointPool>(
+                m_metadata->schema(),
+                m_metadata->delta()))
+    , m_sequence(makeUnique<Sequence>(*this))
+    , m_registry(makeUnique<Registry>(
+                *m_metadata,
+                *m_out,
+                *m_tmp,
+                *m_pointPool))
+    , m_start(now())
+{
+    prepareEndpoints();
+}
+
+
+
+/*
 Builder::Builder(
         const Metadata& metadata,
         const std::string outPath,
@@ -81,6 +104,7 @@ Builder::Builder(
 {
     prepareEndpoints();
 }
+*/
 
 /*
 Builder::Builder(
@@ -367,7 +391,7 @@ Cells Builder::insertData(
         rejected.push(std::move(cell));
     });
 
-    const Bounds& boundsConforming(m_metadata->boundsScaledEpsilon());
+    const Bounds& boundsConforming(m_metadata->boundsScaledCubic());
     const auto boundsSubset(nullptr); // m_metadata->boundsScaledSubset());
 
     while (!cells.empty())
@@ -473,11 +497,6 @@ void Builder::prepareEndpoints()
             }
 
             if (!arbiter::fs::mkdirp(rootDir + "h"))
-            {
-                throw std::runtime_error("Couldn't create " + rootDir + "h");
-            }
-
-            if (!arbiter::fs::mkdirp(rootDir + "laz"))
             {
                 throw std::runtime_error("Couldn't create " + rootDir + "h");
             }

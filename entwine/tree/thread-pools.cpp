@@ -15,6 +15,10 @@
 namespace entwine
 {
 
+ThreadPools::ThreadPools(const std::size_t t)
+    : ThreadPools(getWorkThreads(t), getClipThreads(t))
+{ }
+
 ThreadPools::ThreadPools(
         const std::size_t workThreads,
         const std::size_t clipThreads)

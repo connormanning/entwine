@@ -142,6 +142,8 @@ Inference::Inference(
     }
 }
 
+Inference::~Inference() { }
+
 void Inference::go()
 {
     if (m_pool || m_valid)

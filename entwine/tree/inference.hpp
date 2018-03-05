@@ -73,6 +73,7 @@ public:
     Inference(Builder& builder, const FileInfoList& fileInfo);
 
     Inference(const Json::Value& json);
+    ~Inference();
 
     void go();
     bool done() const { return m_done; }

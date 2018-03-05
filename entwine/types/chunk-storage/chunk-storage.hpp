@@ -14,6 +14,7 @@
 
 #include <entwine/tree/builder.hpp>
 #include <entwine/tree/chunk.hpp>
+#include <entwine/tree/config.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/storage-types.hpp>
 #include <entwine/util/io.hpp>
@@ -27,7 +28,9 @@ public:
     ChunkStorage(const Metadata& metadata) : m_metadata(metadata) { }
     virtual ~ChunkStorage() { }
 
-    static std::unique_ptr<ChunkStorage> create(const Metadata& metadata);
+    static std::unique_ptr<ChunkStorage> create(
+            const Metadata& m,
+            const Config& c);
 
     virtual void write(
             const arbiter::Endpoint& out,

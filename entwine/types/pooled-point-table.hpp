@@ -16,7 +16,6 @@
 #include <pdal/Dimension.hpp>
 #include <pdal/PointTable.hpp>
 #include <pdal/Reader.hpp>
-#include <pdal/Streamable.hpp>
 
 #include <entwine/types/binary-point-table.hpp>
 #include <entwine/types/manifest.hpp>
@@ -411,7 +410,7 @@ private:
     std::size_t m_xyzNormal;
 };
 
-class StreamReader : public pdal::Reader, public pdal::Streamable
+class StreamReader : public pdal::Reader
 {
 public:
     StreamReader(pdal::StreamPointTable& table) : m_table(table) { }

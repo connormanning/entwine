@@ -19,6 +19,7 @@ namespace entwine
 class ThreadPools
 {
 public:
+    ThreadPools(std::size_t threads);
     ThreadPools(std::size_t workThreads, std::size_t clipThreads);
 
     Pool& workPool() { return m_workPool; }

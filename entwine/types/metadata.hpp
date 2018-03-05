@@ -16,6 +16,7 @@
 
 #include <pdal/Dimension.hpp>
 
+#include <entwine/tree/config.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/defs.hpp>
 
@@ -43,6 +44,7 @@ class Metadata
     friend class Sequence;
 
 public:
+    Metadata(const Config& config);
     /*
     Metadata(
             const Bounds& nativeBounds,
@@ -61,12 +63,12 @@ public:
             const cesium::Settings* cesiumSettings = nullptr,
             std::vector<std::string> preserveSpatial =
                 std::vector<std::string>());
-    */
 
     Metadata(const arbiter::Endpoint& endpoint);
 
     explicit Metadata(const Json::Value& json);
     Metadata(const Metadata& other);
+    */
     ~Metadata();
 
     /*

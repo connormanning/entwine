@@ -36,9 +36,9 @@ class Manifest
 public:
     Manifest(
             const FileInfoList& fileInfo,
-            const arbiter::Endpoint& endpoint);
+            const arbiter::Endpoint* endpoint = nullptr);
 
-    Manifest(const Json::Value& json, const arbiter::Endpoint& endpoint);
+    Manifest(Json::Value json, const arbiter::Endpoint* endpoint = nullptr);
 
     Manifest(const Manifest& other);
 
@@ -137,7 +137,7 @@ private:
     FileStats m_fileStats;
     PointStats m_pointStats;
 
-    const arbiter::Endpoint m_endpoint;
+    std::unique_ptr<arbiter::Endpoint> m_endpoint;
     std::size_t m_chunkSize = 0;
 
     mutable std::mutex m_mutex;

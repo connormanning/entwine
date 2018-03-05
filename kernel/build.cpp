@@ -416,10 +416,10 @@ void Kernel::build(std::vector<std::string> args)
         ++a;
     }
 
-    auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(json["arbiter"]));
-
     json["verbose"] = true;
-    std::unique_ptr<Builder> builder(ConfigParser::getBuilder(json, arbiter));
+    Config config(json);
+    config.finalize();
+    auto builder(makeUnique<Builder>(config));
 
     if (builder->isContinuation())
     {

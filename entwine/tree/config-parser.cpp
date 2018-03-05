@@ -79,7 +79,7 @@ std::unique_ptr<Builder> ConfigParser::getBuilder(const Config& config)
 {
     auto arbiter(std::make_shared<arbiter::Arbiter>(config["arbiter"]));
 
-    return std::unique_ptr<Builder>();
+    return makeUnique<Builder>(config);
 }
 
 std::unique_ptr<Builder> ConfigParser::getBuilder(

@@ -30,6 +30,29 @@ namespace
     const double epsilon(0.005);
 }
 
+Metadata::Metadata(const Config& config)
+    : m_delta(config.delta())
+    , m_boundsNativeConforming(config.bounds())
+    , m_boundsNativeCubic(
+            clone(makeNativeCube(*m_boundsNativeConforming, m_delta.get())))
+    , m_boundsScaledConforming(
+            clone(m_boundsNativeConforming->deltify(m_delta.get())))
+    , m_boundsScaledCubic(
+            clone(m_boundsNativeConforming->cubeify(m_delta.get())))
+    , m_schema(makeUnique<Schema>(config["schema"]))
+    , m_structure(makeUnique<NewStructure>(config.json()))
+    , m_manifest(makeUnique<Manifest>(config["input"]))
+    , m_chunkStorage(ChunkStorage::create(*this, config))
+    , m_reprojection(Reprojection::create(config["reprojection"]))
+    , m_version(makeUnique<Version>(currentVersion()))
+    , m_srs(m_reprojection ? m_reprojection->out() : "")
+    , m_density(config.density())
+    , m_trustHeaders(config.trustHeaders())
+{
+    std::cout << "M " << toJson() << std::endl;
+}
+
+
 /*
 Metadata::Metadata(
         const Bounds& boundsNativeConforming,
@@ -137,12 +160,15 @@ Json::Value Metadata::unify(Json::Value json)
     return json;
 }
 
+/*
 Metadata::Metadata(const arbiter::Endpoint& ep)
     : Metadata(unify(parse(ep.get("entwine"))))
 {
     awakenManifest(ep);
 }
+*/
 
+/*
 void Metadata::awakenManifest(const arbiter::Endpoint& ep)
 {
     const std::string path("entwine-manifest" + postfix());
@@ -150,7 +176,9 @@ void Metadata::awakenManifest(const arbiter::Endpoint& ep)
     m_manifest = makeUnique<Manifest>(json, ep);
     if (!m_density) m_density = densityLowerBound(*m_manifest);
 }
+*/
 
+/*
 Metadata::Metadata(const Json::Value& json)
     : m_delta(Delta::maybeCreate(json))
     , m_boundsNativeConforming(makeUnique<Bounds>(json["boundsConforming"]))
@@ -166,10 +194,8 @@ Metadata::Metadata(const Json::Value& json)
     , m_manifest()
     , m_chunkStorage(makeUnique<ChunkStorage>(*this))
     , m_reprojection(maybeCreate<Reprojection>(json["reprojection"]))
-      /*
-    , m_subset(json.isMember("subset") ?
-            makeUnique<Subset>(boundsNativeCubic(), json["subset"]) : nullptr)
-            */
+    // , m_subset(json.isMember("subset") ?
+            // makeUnique<Subset>(boundsNativeCubic(), json["subset"]) : nullptr)
     , m_transformation(json.isMember("transformation") ?
             makeUnique<Transformation>(
                 extract<double>(json["transformation"])) :
@@ -180,7 +206,9 @@ Metadata::Metadata(const Json::Value& json)
     , m_trustHeaders(json["trustHeaders"].asBool())
     , m_preserveSpatial(extract<std::string>(json["preserveSpatial"]))
 { }
+*/
 
+/*
 Metadata::Metadata(const Metadata& other)
     : m_delta(maybeClone(other.delta()))
     , m_boundsNativeConforming(clone(other.boundsNativeConforming()))
@@ -201,6 +229,7 @@ Metadata::Metadata(const Metadata& other)
     , m_trustHeaders(other.trustHeaders())
     , m_preserveSpatial(other.preserveSpatial())
 { }
+*/
 
 Metadata::~Metadata() { }
 

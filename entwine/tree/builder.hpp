@@ -20,6 +20,7 @@
 
 #include <pdal/Dimension.hpp>
 
+#include <entwine/tree/config.hpp>
 #include <entwine/tree/new-climber.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/manifest.hpp>
@@ -64,6 +65,7 @@ class Builder
 public:
     Builder(const Config& config);
 
+    /*
     // Launch a new build.
     Builder(
             const Metadata& metadata,
@@ -72,6 +74,7 @@ public:
             std::size_t workThreads,
             std::size_t clipThreads,
             OuterScope outerScope = OuterScope());
+    */
 
     /*
     // Continue an existing build.
@@ -176,7 +179,7 @@ private:
     std::unique_ptr<Metadata> m_metadata;
 
     mutable std::mutex m_mutex;
-    bool m_isContinuation;
+    bool m_isContinuation = false;
 
     mutable std::shared_ptr<PointPool> m_pointPool;
 

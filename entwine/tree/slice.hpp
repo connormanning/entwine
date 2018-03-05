@@ -185,7 +185,8 @@ private:
 
     std::string filename(uint64_t x, uint64_t y) const
     {
-        return std::to_string(m_depth) + '-' +
+        return
+            (m_depth < 10 ? "0" : "") + std::to_string(m_depth) + '-' +
             std::to_string(x) + '-' + std::to_string(y);
     }
 
