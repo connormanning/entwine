@@ -86,15 +86,38 @@ private:
         }
     }
 
-    const Metadata& m_metadata;
-    const arbiter::Endpoint& m_out;
-    const arbiter::Endpoint& m_tmp;
-    PointPool& m_pointPool;
+    void write(
+            uint64_t x,
+            uint64_t y,
+            const Bounds& bounds,
+            Cells&& cells) const
+    {
+        m_metadata.storage().write(
+                m_out,
+                m_tmp,
+                m_pointPool,
+                filename(x, y),
+                bounds,
+                std::move(cells));
+    }
 
-    const uint64_t m_depth;
-    const bool m_contiguous;
-    std::size_t m_chunksAcross;
-    std::size_t m_pointsAcross;
+    Cells read(uint64_t x, uint64_t y) const
+    {
+        return m_metadata.storage().read(
+                m_out,
+                m_tmp,
+                m_pointPool,
+                filename(x, y));
+    }
+
+    std::string filename(uint64_t x, uint64_t y) const
+    {
+        return
+            (m_depth < 10 ? "0" : "") +
+            std::to_string(m_depth) + '-' +
+            std::to_string(x) + '-' +
+            std::to_string(y);
+    }
 
     class ReffedChunk
     {
@@ -159,36 +182,15 @@ private:
         std::mutex m_mutex;
     };
 
-    void write(
-            uint64_t x,
-            uint64_t y,
-            const Bounds& bounds,
-            Cells&& cells) const
-    {
-        m_metadata.storage().write(
-                m_out,
-                m_tmp,
-                m_pointPool,
-                filename(x, y),
-                bounds,
-                std::move(cells));
-    }
+    const Metadata& m_metadata;
+    const arbiter::Endpoint& m_out;
+    const arbiter::Endpoint& m_tmp;
+    PointPool& m_pointPool;
 
-    Cells read(uint64_t x, uint64_t y) const
-    {
-        return m_metadata.storage().read(
-                m_out,
-                m_tmp,
-                m_pointPool,
-                filename(x, y));
-    }
-
-    std::string filename(uint64_t x, uint64_t y) const
-    {
-        return
-            (m_depth < 10 ? "0" : "") + std::to_string(m_depth) + '-' +
-            std::to_string(x) + '-' + std::to_string(y);
-    }
+    const uint64_t m_depth;
+    const bool m_contiguous;
+    std::size_t m_chunksAcross;
+    std::size_t m_pointsAcross;
 
     std::vector<ReffedChunk> m_chunks;
 };

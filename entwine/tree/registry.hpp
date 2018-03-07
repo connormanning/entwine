@@ -61,6 +61,8 @@ public:
 
     void clip(uint64_t d, uint64_t x, uint64_t y, uint64_t o);
 
+    const Metadata& metadata() const { return m_metadata; }
+
 private:
     void loadAsNew();
     void loadFromRemote();

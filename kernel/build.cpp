@@ -418,7 +418,8 @@ void Kernel::build(std::vector<std::string> args)
 
     json["verbose"] = true;
     Config config(json);
-    config.finalize();
+    config = config.prepare();
+
     auto builder(makeUnique<Builder>(config));
 
     if (builder->isContinuation())

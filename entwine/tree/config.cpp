@@ -12,7 +12,6 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/inference.hpp>
-#include <entwine/types/file-info.hpp>
 #include <entwine/util/json.hpp>
 
 namespace entwine
@@ -37,25 +36,42 @@ Json::Value Config::defaults() const
     return json;
 }
 
-void Config::finalize()
+Config Config::prepare()
 {
-    if (m_json["input"].isString()) infer();
+    NewInference inference(*this);
+    return inference.go();
 }
 
-void Config::infer()
+FileInfoList Config::input() const
 {
-    // TODO Pass options.
-    Inference inference(m_json["input"].asString());
-    inference.go();
+    FileInfoList f;
+    arbiter::Arbiter arbiter(m_json["arbiter"]);
 
-    // TODO Don't overwrite parameters that have been manually specified.
-    m_json["schema"] = inference.schema().toJson();
-    m_json["bounds"] = inference.bounds().toJson();
-    m_json["input"] = toJson(inference.fileInfo());
-    if (const Delta* d = inference.delta())
+    auto insert([&](std::string p)
     {
-        inference.delta()->insertInto(m_json);
-    }
+        if (p.empty()) return;
+
+        if (p.back() != '*')
+        {
+            if (arbiter::util::isDirectory(p)) p += '*';
+            else if (
+                    arbiter::util::getBasename(p).find_first_of('.') ==
+                    std::string::npos)
+            {
+                p += "/*";
+            }
+        }
+
+        Paths current(arbiter.resolve(p, true));
+        std::sort(current.begin(), current.end());
+        for (const auto& c : current) f.emplace_back(c);
+    });
+
+    const auto& i(m_json["input"]);
+    if (i.isString()) insert(i.asString());
+    else if (i.isArray()) for (const auto& j : i) insert(j.asString());
+
+    return f;
 }
 
 } // namespace entwine

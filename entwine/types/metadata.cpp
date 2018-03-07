@@ -31,8 +31,9 @@ namespace
 }
 
 Metadata::Metadata(const Config& config)
-    : m_delta(config.delta())
-    , m_boundsNativeConforming(config.bounds())
+    : m_delta(config.delta().exists() ?
+            makeUnique<Delta>(config.delta()) : std::unique_ptr<Delta>())
+    , m_boundsNativeConforming(makeUnique<Bounds>(config.bounds()))
     , m_boundsNativeCubic(
             clone(makeNativeCube(*m_boundsNativeConforming, m_delta.get())))
     , m_boundsScaledConforming(
@@ -48,9 +49,7 @@ Metadata::Metadata(const Config& config)
     , m_srs(m_reprojection ? m_reprojection->out() : "")
     , m_density(config.density())
     , m_trustHeaders(config.trustHeaders())
-{
-    std::cout << "M " << toJson() << std::endl;
-}
+{ }
 
 
 /*

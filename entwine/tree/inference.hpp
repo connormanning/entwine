@@ -19,6 +19,7 @@
 #include <pdal/SpatialReference.hpp>
 
 #include <entwine/third/arbiter/arbiter.hpp>
+#include <entwine/tree/config.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/delta.hpp>
 #include <entwine/types/file-info.hpp>
@@ -33,9 +34,47 @@ namespace entwine
 class Builder;
 class Reprojection;
 
+class NewInference
+{
+public:
+    NewInference(const Config& config)
+        : m_in(config)
+        , m_out(config)
+        , m_arbiter(config["arbiter"])
+        , m_tmp(m_arbiter.getEndpoint(config.tmp()))
+        , m_re(config.reprojection())
+    { }
+
+    Config go();
+    // Config output() const { return m_out; }
+
+private:
+    void add(FileInfo& f);
+    void add(FileInfo& f, std::string localPath);
+    void aggregate();
+
+    const Config m_in;
+    Config m_out;
+
+    bool m_done = false;
+    std::unique_ptr<Pool> m_pool;
+    std::size_t m_index = 0;
+    arbiter::Arbiter m_arbiter;
+    arbiter::Endpoint m_tmp;
+    std::unique_ptr<Reprojection> m_re;
+    mutable std::mutex m_mutex;
+
+    // These are the portions we build during go().
+    FileInfoList m_fileInfo;
+    Schema m_schema;
+    Scale m_scale = 1;
+};
+
 class Inference
 {
 public:
+    Inference(const Config& config);
+
     Inference(
             const FileInfoList& fileInfo,
             const Reprojection* reprojection = nullptr,
@@ -137,7 +176,6 @@ private:
     std::unique_ptr<Bounds> m_bounds;
     std::unique_ptr<Schema> m_schema;
     std::unique_ptr<Delta> m_delta;
-    std::vector<std::string> m_srsList;
 
     FileInfoList m_fileInfo;
 

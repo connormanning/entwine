@@ -25,7 +25,7 @@ class NewStructure
 {
 public:
     NewStructure(const Json::Value& json)
-        : m_numPointsHint(json["numPointsHint"].asUInt64())
+        : m_numPointsHint(json["numPoints"].asUInt64())
         , m_head(json["head"].asInt64())
         , m_body(json["body"].asInt64())
         , m_tail(json["tail"].asInt64())

@@ -12,8 +12,12 @@
 
 #include <json/json.h>
 
+#include <entwine/tree/thread-pools.hpp>
 #include <entwine/types/bounds.hpp>
+#include <entwine/types/defs.hpp>
 #include <entwine/types/delta.hpp>
+#include <entwine/types/file-info.hpp>
+#include <entwine/types/reprojection.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -23,12 +27,38 @@ class Config
 {
 public:
     Config(const Json::Value& json);
+    Config prepare();
 
-    // std::string input() const { return m_json["input"].asString(); }
+    FileInfoList input() const;
     std::string output() const { return m_json["output"].asString(); }
     std::string tmp() const { return m_json["tmp"].asString(); }
 
-    std::size_t threads() const { return m_json["threads"].asUInt64(); }
+    std::size_t numPoints() const { return m_json["numPoints"].asUInt64(); }
+
+    std::size_t threads() const
+    {
+        const auto& t(m_json["threads"]);
+        if (t.isNumeric()) return t.asUInt64();
+        else return t[0].asUInt64() + t[1].asUInt64();
+    }
+    std::size_t workThreads() const
+    {
+        const auto& t(m_json["threads"]);
+        if (t.isNumeric())
+        {
+            return ThreadPools::getWorkThreads(m_json["threads"].asUInt64());
+        }
+        else return t[0].asUInt64();
+    }
+    std::size_t clipThreads() const
+    {
+        const auto& t(m_json["threads"]);
+        if (t.isNumeric())
+        {
+            return ThreadPools::getClipThreads(m_json["threads"].asUInt64());
+        }
+        else return t[1].asUInt64();
+    }
 
     std::size_t head() const { return m_json["head"].asUInt64(); }
     std::size_t body() const { return m_json["body"].asUInt64(); }
@@ -37,34 +67,26 @@ public:
     std::string dataStorage() const { return m_json["dataStorage"].asString(); }
     std::string hierStorage() const { return m_json["hierStorage"].asString(); }
 
-    void finalize();
-
     const Json::Value& json() const { return m_json; }
     const Json::Value& operator[](std::string k) const { return m_json[k]; }
     Json::Value& operator[](std::string k) { return m_json[k]; }
 
-    std::unique_ptr<Delta> delta() const
-    {
-        if (Delta::existsIn(m_json)) return makeUnique<Delta>(m_json);
-        else return std::unique_ptr<Delta>();
-    }
+    Bounds bounds() const { return Bounds(m_json["bounds"]); }
+    Scale scale() const { return Scale(m_json["scale"]); }
+    Offset offset() const { return Offset(m_json["offset"]); }
+    Delta delta() const { return Delta(m_json); }
 
-    std::unique_ptr<Bounds> bounds() const
+    std::unique_ptr<Reprojection> reprojection() const
     {
-        if (m_json.isMember("bounds"))
-        {
-            return makeUnique<Bounds>(m_json["bounds"]);
-        }
-        else return std::unique_ptr<Bounds>();
+        return Reprojection::create(m_json);
     }
 
     bool force() const { return m_json["force"].asBool(); }
     bool trustHeaders() const { return m_json["trustHeaders"].asBool(); }
     double density() const { return m_json["density"].asDouble(); }
+    std::string srs() const { return m_json["srs"].asString(); }
 
 private:
-    void infer();
-
     Json::Value defaults() const;
 
     Json::Value m_json;

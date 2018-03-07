@@ -66,6 +66,32 @@ bool Clipper::insert(const Id& chunkId, std::size_t chunkNum, std::size_t depth)
     }
 }
 
+void Clipper::clip()
+{
+    if (m_clips.size() < heuristics::clipcachesize) return;
+
+    m_fastcache.assign(32, m_clips.end());
+    bool done(false);
+
+    while (m_clips.size() > heuristics::clipcachesize && !done)
+    {
+        clipinfo::map::iterator& it(*m_order.rbegin());
+
+        if (!it->second.fresh)
+        {
+            // m_builder.clip(it->first, it->second.chunknum, m_id);
+            m_clips.erase(it);
+            m_order.pop_back();
+        }
+        else
+        {
+            done = true;
+        }
+    }
+
+    for (auto& p : m_clips) p.second.fresh = false;
+}
+
 } // namespace entwine
 */
 

@@ -15,12 +15,20 @@
 namespace entwine
 {
 
-void NewClipper::clip()
+void NewClipper::clip(const bool force)
 {
-    for (const auto& clip : m_clips)
+    const std::size_t start(m_registry.metadata().structure().head());
+    for (std::size_t d(start); d < m_clips.size(); ++d)
     {
-        m_registry.clip(clip.d, clip.x, clip.y, m_origin);
+        auto& c(m_clips[d]);
+        if (c.empty()) return;
+        else c.clip(d, force);
     }
+}
+
+void NewClipper::clip(const uint64_t d, const uint64_t x, const uint64_t y)
+{
+    m_registry.clip(d, x, y, m_origin);
 }
 
 } // namespace entwine

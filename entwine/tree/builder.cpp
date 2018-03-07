@@ -352,8 +352,7 @@ void Builder::insertPath(const Origin origin, FileInfo& info)
             inserted = 0;
             const float available(m_pointPool->dataPool().available());
             const float allocated(m_pointPool->dataPool().allocated());
-            // TODO Enable clip.
-            // if (available / allocated < 0.5) clipper.clip();
+            if (available / allocated < 0.5) clipper.clip();
         }
 
         return insertData(std::move(cells), origin, clipper, climber);

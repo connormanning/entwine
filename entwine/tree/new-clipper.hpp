@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <cstdint>
 #include <set>
 
@@ -55,31 +56,89 @@ class Registry;
 
 class NewClipper
 {
+    class Clip
+    {
+    public:
+        Clip(NewClipper& c) : m_clipper(c) { }
+        ~Clip() { assert(empty()); }
+
+        bool insert(uint64_t x, uint64_t y)
+        {
+            const auto a(m_touched.find(x));
+            if (a == m_touched.end())
+            {
+                m_touched[x][y] = true;
+                return true;
+            }
+
+            auto& inner(a->second);
+            auto b(inner.find(y));
+            if (b == inner.end())
+            {
+                inner.emplace(y, true);
+                return true;
+            }
+
+            b->second = true;
+            return false;
+        }
+
+        void clip(const uint64_t d, const bool force)
+        {
+            for (auto a(m_touched.begin()); a != m_touched.end(); )
+            {
+                auto& inner(a->second);
+                for (auto b(inner.begin()); b != inner.end(); )
+                {
+                    if (force || !b->second)
+                    {
+                        m_clipper.clip(d, a->first, b->first);
+                        b = inner.erase(b);
+                    }
+                    else
+                    {
+                        b->second = false;
+                        ++b;
+                    }
+                }
+
+                if (inner.empty()) a = m_touched.erase(a);
+                else ++a;
+            }
+        }
+
+        bool empty() const { return m_touched.empty(); }
+
+    private:
+        NewClipper& m_clipper;
+        std::map<uint64_t, std::map<uint64_t, bool>> m_touched;
+    };
+
 public:
     NewClipper(Registry& registry, Origin origin)
         : m_registry(registry)
         , m_origin(origin)
+        , m_clips(64, *this)
     { }
 
-    ~NewClipper()
-    {
-        clip();
-    }
+    ~NewClipper() { clip(true); }
 
     bool insert(uint64_t d, uint64_t x, uint64_t y)
     {
-        return m_clips.emplace(d, x, y).second;
+        return m_clips.at(d).insert(x, y);
     }
 
-    void clip();
+    void clip(bool force = false);
 
     const Origin origin() const { return m_origin; }
 
 private:
+    void clip(uint64_t d, uint64_t x, uint64_t y);
+
     Registry& m_registry;
     const Origin m_origin;
 
-    std::set<Position> m_clips;
+    std::vector<Clip> m_clips;
 };
 
 
