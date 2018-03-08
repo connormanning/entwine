@@ -239,8 +239,9 @@ std::size_t Reader::write(
 {
     if (data.empty()) return 0;
     std::unique_lock<std::mutex> lock(m_mutex);
-
     Schema schema(m_appends.at(name));
+    lock.unlock();
+
     Schema requested(q["schema"]);
 
     // The requested schema must match this addon's schema - with the exception
@@ -256,7 +257,6 @@ std::size_t Reader::write(
     }
 
     WriteQuery writeQuery(*this, QueryParams(q), name, schema, data);
-    lock.unlock();
 
     writeQuery.run();
     return writeQuery.numPoints();
