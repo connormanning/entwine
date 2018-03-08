@@ -62,8 +62,6 @@ public:
     // should not be cached through calls to insert.
     Insertion insert(const NewClimber& climber, Cell::PooledNode& cell);
 
-    using Cells = std::map<uint64_t, Cell::PooledNode>;
-
     bool empty() const { return m_cells.empty(); }
     static constexpr std::size_t maxTickDepth() { return 64; }
 
@@ -77,6 +75,8 @@ public:
                     (point.z - bounds.min().z) * (1ULL << depth) /
                     (bounds.max().z - bounds.min().z));
     }
+
+    using Cells = std::map<uint64_t, Cell::PooledNode>;
 
     Cells::iterator begin() { return m_cells.begin(); }
     Cells::iterator end() { return m_cells.end(); }

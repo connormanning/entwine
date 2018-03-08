@@ -37,7 +37,6 @@ public:
             const arbiter::Endpoint& tmp,
             PointPool& pointPool,
             const std::string& filename,
-            const Bounds& bounds,
             Cell::PooledStack&& cells) const
     {
         throw std::runtime_error("ChunkStorage::write not implemented");

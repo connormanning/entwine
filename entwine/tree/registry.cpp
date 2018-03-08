@@ -63,7 +63,44 @@ Registry::~Registry() { }
 
 void Registry::save(const arbiter::Endpoint& endpoint) const
 {
-    // TODO
+    Json::Value h;
+    hierarchy(h, m_metadata.structure().body(), 0, 0);
+    const std::string f("entwine-hierarchy" + m_metadata.postfix() + ".json");
+    io::ensurePut(endpoint, f, h.toStyledString());
+}
+
+void Registry::hierarchy(
+        Json::Value& h,
+        uint64_t d,
+        uint64_t x,
+        uint64_t y) const
+{
+    h["n"] = static_cast<Json::UInt64>(m_slices[d].np(x, y));
+
+    auto next([this, &h](uint64_t d, uint64_t x, uint64_t y)
+    {
+        const std::string key(
+                d < 10 ? "0" : "" +
+                std::to_string(d) + '/' +
+                std::to_string(x) + '/' +
+                std::to_string(y));
+        hierarchy(h[key], d, x, y);
+    });
+
+    ++d;
+    const auto& s(m_slices[d]);
+
+    if (d <= m_metadata.structure().tail())
+    {
+        x <<= 1u;
+        y <<= 1u;
+
+        if (s.np(x, y)) next(d, x, y);
+        if (s.np(x, y + 1)) next(d, x, y + 1);
+        if (s.np(x + 1, y)) next(d, x + 1, y);
+        if (s.np(x + 1, y + 1)) next(d, x + 1, y + 1);
+    }
+    else if (s.np(x, y)) next(d, x, y);
 }
 
 bool Registry::addPoint(

@@ -67,6 +67,12 @@ private:
     void loadAsNew();
     void loadFromRemote();
 
+    void hierarchy(
+            Json::Value& json,
+            uint64_t d,
+            uint64_t x,
+            uint64_t y) const;
+
     const Metadata& m_metadata;
     const arbiter::Endpoint& m_out;
     const arbiter::Endpoint& m_tmp;

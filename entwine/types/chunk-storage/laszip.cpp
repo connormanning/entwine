@@ -24,7 +24,6 @@ void LasZipStorage::write(
         const arbiter::Endpoint& tmp,
         PointPool& pointPool,
         const std::string& filename,
-        const Bounds& bounds,
         Cell::PooledStack&& cells) const
 {
     if (!m_metadata.delta())
@@ -49,6 +48,8 @@ void LasZipStorage::write(
 
     const Schema& schema(m_metadata.schema());
     const Delta& delta(*m_metadata.delta());
+    Bounds bounds(Bounds::expander());
+    for (const Cell& c : cells) bounds.grow(c.point());
 
     CellTable table(
             pointPool,

@@ -273,7 +273,8 @@ Json::Value Metadata::toJson() const
 void Metadata::save(const arbiter::Endpoint& endpoint) const
 {
     const auto json(toJson());
-    io::ensurePut(endpoint, "entwine" + postfix(), json.toStyledString());
+    const std::string f("entwine" + postfix() + ".json");
+    io::ensurePut(endpoint, f, json.toStyledString());
 
     /*
     const bool primary(!m_subset || m_subset->primary());

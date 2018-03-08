@@ -72,24 +72,22 @@ public:
 
     PointPool& pointPool() const { return m_pointPool; }
     uint64_t depth() const { return m_depth; }
+    std::size_t np(uint64_t x, uint64_t y) const
+    {
+        const std::size_t i(y * m_chunksAcross + x);
+        return m_chunks.at(i).np();
+    }
 
 private:
-    std::unique_ptr<NewChunk> create(const Bounds& b) const
+    std::unique_ptr<NewChunk> create() const
     {
-        if (m_contiguous)
-        {
-            return makeUnique<NewContiguousChunk>(b, m_pointsAcross);
-        }
-        else
-        {
-            return makeUnique<NewMappedChunk>(b, m_pointsAcross);
-        }
+        if (m_contiguous) return makeUnique<NewContiguousChunk>(m_pointsAcross);
+        else return makeUnique<NewMappedChunk>(m_pointsAcross);
     }
 
     void write(
             uint64_t x,
             uint64_t y,
-            const Bounds& bounds,
             Cells&& cells) const
     {
         m_metadata.storage().write(
@@ -97,7 +95,6 @@ private:
                 m_tmp,
                 m_pointPool,
                 filename(x, y),
-                bounds,
                 std::move(cells));
     }
 
@@ -134,7 +131,7 @@ private:
 
                 if (!m_chunk)
                 {
-                    m_chunk = s.create(ck.bounds());
+                    m_chunk = s.create();
                     if (m_np)
                     {
                         Cells cells(s.read(ck.x, ck.y));
@@ -166,7 +163,7 @@ private:
 
                     m_np = 0;
                     for (const Cell& cell : cells) m_np += cell.size();
-                    s.write(x, y, m_chunk->bounds(), std::move(cells));
+                    s.write(x, y, std::move(cells));
 
                     m_chunk.reset();
                 }
@@ -174,6 +171,7 @@ private:
         }
 
         NewChunk& chunk() { return *m_chunk; }
+        std::size_t np() const { return m_np; }
 
     private:
         std::size_t m_np = 0;
@@ -189,8 +187,8 @@ private:
 
     const uint64_t m_depth;
     const bool m_contiguous;
-    std::size_t m_chunksAcross;
-    std::size_t m_pointsAcross;
+    const std::size_t m_chunksAcross;
+    const std::size_t m_pointsAcross;
 
     std::vector<ReffedChunk> m_chunks;
 };

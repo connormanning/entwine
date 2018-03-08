@@ -27,10 +27,7 @@ namespace entwine
 class NewChunk
 {
 public:
-    NewChunk(const Bounds& bounds)
-        : m_bounds(bounds)
-    { }
-
+    NewChunk() { }
     virtual ~NewChunk() { }
 
     virtual Tube::Insertion insert(
@@ -38,17 +35,13 @@ public:
             const NewClimber& climber) = 0;
 
     virtual Cells acquire(PointPool& pointPool) = 0;
-    const Bounds& bounds() const { return m_bounds; }
-
-protected:
-    const Bounds m_bounds;
 };
 
 class NewContiguousChunk : public NewChunk
 {
 public:
-    NewContiguousChunk(const Bounds& bounds, std::size_t pointsAcross)
-        : NewChunk(bounds)
+    NewContiguousChunk(std::size_t pointsAcross)
+        : NewChunk()
         , m_pointsAcross(pointsAcross)
         , m_tubes(m_pointsAcross * m_pointsAcross)
     { }
@@ -86,8 +79,8 @@ private:
 class NewMappedChunk : public NewChunk
 {
 public:
-    NewMappedChunk(const Bounds& bounds, std::size_t pointsAcross)
-        : NewChunk(bounds)
+    NewMappedChunk(std::size_t pointsAcross)
+        : NewChunk()
     { }
 
     virtual Tube::Insertion insert(
