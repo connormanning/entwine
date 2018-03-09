@@ -14,43 +14,11 @@
 #include <cstdint>
 #include <set>
 
+#include <entwine/tree/key.hpp>
 #include <entwine/types/defs.hpp>
 
 namespace entwine
 {
-
-struct Position
-{
-    Position() = default;
-
-    // TODO Remove Z default param.
-    Position(uint64_t d, uint64_t x, uint64_t y, uint64_t z = 0)
-        : d(d), x(x), y(y), z(z)
-    { }
-
-    uint64_t d = 0;
-    uint64_t x = 0;
-    uint64_t y = 0;
-    uint64_t z = 0;
-};
-
-inline bool operator<(const Position& a, const Position& b)
-{
-    if (a.d < b.d) return true;
-    if (a.d == b.d)
-    {
-        if (a.x < b.x) return true;
-        else if (a.x == b.x)
-        {
-            if (a.y < b.y) return true;
-            else if (a.y == b.y)
-            {
-                if (a.z < b.z) return true;
-            }
-        }
-    }
-    return false;
-}
 
 class Registry;
 
@@ -62,64 +30,36 @@ class NewClipper
         Clip(NewClipper& c) : m_clipper(c) { }
         ~Clip() { assert(empty()); }
 
-        bool insert(uint64_t x, uint64_t y, uint64_t z)
+        bool insert(const Xyz& p)
         {
-            const auto a(m_touched.find(x));
-            if (a == m_touched.end())
+            const auto it(m_touched.find(p));
+            if (it == m_touched.end())
             {
-                m_touched[x][y][z] = true;
+                m_touched[p] = true;
                 return true;
             }
-
-            auto& av(a->second);
-            auto b(av.find(y));
-            if (b == av.end())
+            else
             {
-                av[y][z] = true;
-                return true;
+                it->second = true;
+                return false;
             }
-
-            auto& bv(b->second);
-            auto c(bv.find(z));
-            if (c == bv.end())
-            {
-                bv[z] = true;
-                return true;
-            }
-
-            c->second = true;
-            return false;
         }
 
         void clip(const uint64_t d, const bool force)
         {
-            for (auto a(m_touched.begin()); a != m_touched.end(); )
+            for (auto it(m_touched.begin()); it != m_touched.end(); )
             {
-                auto& av(a->second);
-                for (auto b(av.begin()); b != av.end(); )
+                if (force || !it->second)
                 {
-                    auto& bv(b->second);
-                    for (auto c(bv.begin()); c != bv.end(); )
-                    {
-                        auto& cv(c->second);
-                        if (force || !cv)
-                        {
-                            m_clipper.clip(d, a->first, b->first, c->first);
-                            c = bv.erase(c);
-                        }
-                        else
-                        {
-                            cv = false;
-                            ++c;
-                        }
-                    }
-
-                    if (bv.empty()) b = av.erase(b);
-                    else ++b;
+                    const Xyz& p(it->first);
+                    m_clipper.clip(d, p);
+                    it = m_touched.erase(it);
                 }
-
-                if (av.empty()) a = m_touched.erase(a);
-                else ++a;
+                else
+                {
+                    it->second = false;
+                    ++it;
+                }
             }
         }
 
@@ -128,10 +68,8 @@ class NewClipper
     private:
         NewClipper& m_clipper;
 
-        // TODO This needs to be abstracted away, as well as the repetitive
-        // code throughout this class.
-        std::map<uint64_t, std::map<uint64_t, std::map<uint64_t, bool>>>
-            m_touched;
+
+        std::map<Xyz, bool> m_touched;
     };
 
 public:
@@ -143,9 +81,9 @@ public:
 
     ~NewClipper() { clip(true); }
 
-    bool insert(uint64_t d, uint64_t x, uint64_t y, uint64_t z)
+    bool insert(uint64_t d, const Xyz& v)
     {
-        return m_clips.at(d).insert(x, y, z);
+        return m_clips.at(d).insert(v);
     }
 
     void clip(bool force = false);
@@ -153,7 +91,7 @@ public:
     const Origin origin() const { return m_origin; }
 
 private:
-    void clip(uint64_t d, uint64_t x, uint64_t y, uint64_t z);
+    void clip(uint64_t d, const Xyz& p);
 
     Registry& m_registry;
     const Origin m_origin;

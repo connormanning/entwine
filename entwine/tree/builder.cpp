@@ -391,7 +391,7 @@ Cells Builder::insertData(
     });
 
     const Bounds& boundsConforming(m_metadata->boundsScaledCubic());
-    const auto boundsSubset(nullptr); // m_metadata->boundsScaledSubset());
+    // const auto boundsSubset(m_metadata->boundsScaledSubset());
 
     while (!cells.empty())
     {
@@ -400,7 +400,7 @@ Cells Builder::insertData(
 
         if (boundsConforming.contains(point))
         {
-            if (!boundsSubset) //  || boundsSubset->contains(point))
+            // if (!boundsSubset || boundsSubset->contains(point))
             {
                 climber.init(point);
 
@@ -414,10 +414,12 @@ Cells Builder::insertData(
                     pointStats.addOverflow();
                 }
             }
+            /*
             else
             {
                 reject(cell);
             }
+            */
         }
         else
         {

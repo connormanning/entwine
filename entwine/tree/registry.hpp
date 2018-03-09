@@ -20,6 +20,7 @@
 
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/cold.hpp>
+#include <entwine/tree/key.hpp>
 #include <entwine/tree/slice.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/tube.hpp>
@@ -59,7 +60,7 @@ public:
             NewClipper& clipper,
             std::size_t maxDepth = 0);
 
-    void clip(uint64_t d, uint64_t x, uint64_t y, uint64_t z, uint64_t o);
+    void clip(uint64_t d, const Xyz& p, uint64_t o);
 
     const Metadata& metadata() const { return m_metadata; }
 
@@ -67,12 +68,7 @@ private:
     void loadAsNew();
     void loadFromRemote();
 
-    void hierarchy(
-            Json::Value& json,
-            uint64_t d,
-            uint64_t x,
-            uint64_t y,
-            uint64_t z) const;
+    void hierarchy(Json::Value& json, uint64_t d, Xyz p) const;
 
     const Metadata& m_metadata;
     const arbiter::Endpoint& m_out;

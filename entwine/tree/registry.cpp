@@ -65,39 +65,23 @@ void Registry::save(const arbiter::Endpoint& endpoint) const
 {
     Json::Value h;
     // TODO Also need to add the `head` depths.
-    hierarchy(h, m_metadata.structure().body(), 0, 0, 0);
+    hierarchy(h, m_metadata.structure().body(), Xyz());
     const std::string f("entwine-hierarchy" + m_metadata.postfix() + ".json");
     io::ensurePut(endpoint, f, h.toStyledString());
 }
 
-void Registry::hierarchy(
-        Json::Value& h,
-        uint64_t d,
-        uint64_t x,
-        uint64_t y,
-        uint64_t z) const
+void Registry::hierarchy(Json::Value& h, uint64_t d, Xyz p) const
 {
-    h["n"] = static_cast<Json::UInt64>(m_slices[d].np(x, y, z));
-
-    auto next([this, &h](uint64_t d, uint64_t x, uint64_t y, uint64_t z)
-    {
-        const std::string key(
-                d < 10 ? "0" : "" +
-                std::to_string(d) + '/' +
-                std::to_string(x) + '/' +
-                std::to_string(y) + '/' +
-                std::to_string(z));
-        hierarchy(h[key], d, x, y, z);
-    });
+    h["n"] = static_cast<Json::UInt64>(m_slices[d].np(p));
 
     ++d;
     const auto& s(m_slices[d]);
 
     if (d <= m_metadata.structure().tail())
     {
-        x <<= 1u;
-        y <<= 1u;
-        z <<= 1u;
+        p.x <<= 1u;
+        p.y <<= 1u;
+        p.z <<= 1u;
 
         for (std::size_t a(0); a < 2; ++a)
         {
@@ -105,16 +89,14 @@ void Registry::hierarchy(
             {
                 for (std::size_t c(0); c < 2; ++c)
                 {
-                    if (s.np(x + a, y + b, z + c))
-                    {
-                        next(d, x + a, y + b, z + c);
-                    }
+                    Xyz next(p.x + a, p.y + b, p.z + c);
+                    if (s.np(next)) hierarchy(h[next.toString(d)], d, next);
                 }
             }
         }
 
     }
-    else if (s.np(x, y, z)) next(d, x, y, z);
+    else if (s.np(p)) hierarchy(h[p.toString(d)], d, p);
 }
 
 bool Registry::addPoint(
@@ -135,14 +117,9 @@ bool Registry::addPoint(
     }
 }
 
-void Registry::clip(
-        const uint64_t d,
-        const uint64_t x,
-        const uint64_t y,
-        const uint64_t z,
-        const uint64_t o)
+void Registry::clip(const uint64_t d, const Xyz& p, const uint64_t o)
 {
-    m_slices.at(d).clip(x, y, z, o);
+    m_slices.at(d).clip(p, o);
 }
 
 } // namespace entwine

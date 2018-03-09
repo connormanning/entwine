@@ -21,7 +21,7 @@ Tube::Insertion Tube::insert(const NewClimber& climber, Cell::PooledNode& cell)
     std::lock_guard<std::mutex> lock(m_mutex);
 
     const auto& pk(climber.pointKey());
-    const auto z(pk.z);
+    const auto z(pk.position().z);
     const auto it(m_cells.find(z));
 
     if (it != m_cells.end())

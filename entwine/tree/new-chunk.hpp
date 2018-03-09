@@ -50,7 +50,7 @@ public:
             Cell::PooledNode& cell,
             const NewClimber& climber) override
     {
-        const auto& pk(climber.pointKey());
+        const Xyz& pk(climber.pointKey().position());
         const std::size_t i(
                 (pk.y % m_pointsAcross) * m_pointsAcross +
                 (pk.x % m_pointsAcross));
@@ -88,7 +88,7 @@ public:
             const NewClimber& climber) override
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        const auto& pk(climber.pointKey());
+        const Xyz& pk(climber.pointKey().position());
         return m_tubes[pk.y][pk.x].insert(climber, cell);
     }
 
