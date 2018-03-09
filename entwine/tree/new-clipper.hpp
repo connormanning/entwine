@@ -62,24 +62,32 @@ class NewClipper
         Clip(NewClipper& c) : m_clipper(c) { }
         ~Clip() { assert(empty()); }
 
-        bool insert(uint64_t x, uint64_t y)
+        bool insert(uint64_t x, uint64_t y, uint64_t z)
         {
             const auto a(m_touched.find(x));
             if (a == m_touched.end())
             {
-                m_touched[x][y] = true;
+                m_touched[x][y][z] = true;
                 return true;
             }
 
-            auto& inner(a->second);
-            auto b(inner.find(y));
-            if (b == inner.end())
+            auto& av(a->second);
+            auto b(av.find(y));
+            if (b == av.end())
             {
-                inner.emplace(y, true);
+                av[y][z] = true;
                 return true;
             }
 
-            b->second = true;
+            auto& bv(b->second);
+            auto c(bv.find(z));
+            if (c == bv.end())
+            {
+                bv[z] = true;
+                return true;
+            }
+
+            c->second = true;
             return false;
         }
 
@@ -87,22 +95,30 @@ class NewClipper
         {
             for (auto a(m_touched.begin()); a != m_touched.end(); )
             {
-                auto& inner(a->second);
-                for (auto b(inner.begin()); b != inner.end(); )
+                auto& av(a->second);
+                for (auto b(av.begin()); b != av.end(); )
                 {
-                    if (force || !b->second)
+                    auto& bv(b->second);
+                    for (auto c(bv.begin()); c != bv.end(); )
                     {
-                        m_clipper.clip(d, a->first, b->first);
-                        b = inner.erase(b);
+                        auto& cv(c->second);
+                        if (force || !cv)
+                        {
+                            m_clipper.clip(d, a->first, b->first, c->first);
+                            c = bv.erase(c);
+                        }
+                        else
+                        {
+                            cv = false;
+                            ++c;
+                        }
                     }
-                    else
-                    {
-                        b->second = false;
-                        ++b;
-                    }
+
+                    if (bv.empty()) b = av.erase(b);
+                    else ++b;
                 }
 
-                if (inner.empty()) a = m_touched.erase(a);
+                if (av.empty()) a = m_touched.erase(a);
                 else ++a;
             }
         }
@@ -111,7 +127,11 @@ class NewClipper
 
     private:
         NewClipper& m_clipper;
-        std::map<uint64_t, std::map<uint64_t, bool>> m_touched;
+
+        // TODO This needs to be abstracted away, as well as the repetitive
+        // code throughout this class.
+        std::map<uint64_t, std::map<uint64_t, std::map<uint64_t, bool>>>
+            m_touched;
     };
 
 public:
@@ -123,9 +143,9 @@ public:
 
     ~NewClipper() { clip(true); }
 
-    bool insert(uint64_t d, uint64_t x, uint64_t y)
+    bool insert(uint64_t d, uint64_t x, uint64_t y, uint64_t z)
     {
-        return m_clips.at(d).insert(x, y);
+        return m_clips.at(d).insert(x, y, z);
     }
 
     void clip(bool force = false);
@@ -133,7 +153,7 @@ public:
     const Origin origin() const { return m_origin; }
 
 private:
-    void clip(uint64_t d, uint64_t x, uint64_t y);
+    void clip(uint64_t d, uint64_t x, uint64_t y, uint64_t z);
 
     Registry& m_registry;
     const Origin m_origin;

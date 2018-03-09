@@ -53,9 +53,9 @@ public:
         const auto& ck(climber.chunkKey());
 
         const std::size_t i(ck.y * m_chunksAcross + ck.x);
-        ReffedChunk& rc(m_chunks.at(i));
+        ReffedChunk& rc(m_chunks.at(i).get(ck.z));
 
-        if (clipper.insert(climber.depth(), ck.x, ck.y))
+        if (clipper.insert(climber.depth(), ck.x, ck.y, ck.z))
         {
             rc.ref(*this, climber);
         }
@@ -63,19 +63,19 @@ public:
         return rc.chunk().insert(cell, climber);
     }
 
-    void clip(uint64_t x, uint64_t y, uint64_t o)
+    void clip(uint64_t x, uint64_t y, uint64_t z, uint64_t o)
     {
         const std::size_t i(y * m_chunksAcross + x);
-        ReffedChunk& rc(m_chunks.at(i));
-        rc.unref(*this, x, y, o);
+        ReffedChunk& rc(m_chunks.at(i).at(z));
+        rc.unref(*this, x, y, z, o);
     }
 
     PointPool& pointPool() const { return m_pointPool; }
     uint64_t depth() const { return m_depth; }
-    std::size_t np(uint64_t x, uint64_t y) const
+    std::size_t np(uint64_t x, uint64_t y, uint64_t z) const
     {
         const std::size_t i(y * m_chunksAcross + x);
-        return m_chunks.at(i).np();
+        return m_chunks.at(i).np(z);
     }
 
 private:
@@ -88,32 +88,34 @@ private:
     void write(
             uint64_t x,
             uint64_t y,
+            uint64_t z,
             Cells&& cells) const
     {
         m_metadata.storage().write(
                 m_out,
                 m_tmp,
                 m_pointPool,
-                filename(x, y),
+                filename(x, y, z),
                 std::move(cells));
     }
 
-    Cells read(uint64_t x, uint64_t y) const
+    Cells read(uint64_t x, uint64_t y, uint64_t z) const
     {
         return m_metadata.storage().read(
                 m_out,
                 m_tmp,
                 m_pointPool,
-                filename(x, y));
+                filename(x, y, z));
     }
 
-    std::string filename(uint64_t x, uint64_t y) const
+    std::string filename(uint64_t x, uint64_t y, uint64_t z) const
     {
         return
             (m_depth < 10 ? "0" : "") +
             std::to_string(m_depth) + '-' +
             std::to_string(x) + '-' +
-            std::to_string(y);
+            std::to_string(y) + '-' +
+            std::to_string(z);
     }
 
     class ReffedChunk
@@ -124,7 +126,7 @@ private:
             const auto& ck(climber.chunkKey());
             const auto o(climber.origin());
 
-            std::lock_guard<std::mutex> lock(m_mutex);
+            // std::lock_guard<std::mutex> lock(m_mutex);
             if (!m_refs.count(o))
             {
                 m_refs[o] = 1;
@@ -134,7 +136,7 @@ private:
                     m_chunk = s.create();
                     if (m_np)
                     {
-                        Cells cells(s.read(ck.x, ck.y));
+                        Cells cells(s.read(ck.x, ck.y, ck.z));
                         assert(cells.size() == m_np);
 
                         NewClimber c(climber);
@@ -151,9 +153,14 @@ private:
             else ++m_refs[o];
         }
 
-        void unref(const Slice& s, uint64_t x, uint64_t y, uint64_t o)
+        void unref(
+                const Slice& s,
+                uint64_t x,
+                uint64_t y,
+                uint64_t z,
+                uint64_t o)
         {
-            std::lock_guard<std::mutex> lock(m_mutex);
+            // std::lock_guard<std::mutex> lock(m_mutex);
             if (!--m_refs.at(o))
             {
                 m_refs.erase(o);
@@ -163,7 +170,7 @@ private:
 
                     m_np = 0;
                     for (const Cell& cell : cells) m_np += cell.size();
-                    s.write(x, y, std::move(cells));
+                    s.write(x, y, z, std::move(cells));
 
                     m_chunk.reset();
                 }
@@ -177,7 +184,52 @@ private:
         std::size_t m_np = 0;
         std::unique_ptr<NewChunk> m_chunk;
         std::map<Origin, std::size_t> m_refs;
-        std::mutex m_mutex;
+        // std::mutex m_mutex;
+    };
+
+    class SplitChunk
+    {
+    public:
+        void ref(const Slice& s, const NewClimber& climber)
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_chunks[climber.chunkKey().z].ref(s, climber);
+        }
+
+        void unref(
+                const Slice& s,
+                uint64_t x,
+                uint64_t y,
+                uint64_t z,
+                uint64_t o)
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_chunks.at(z).unref(s, x, y, z, o);
+        }
+
+        ReffedChunk& get(uint64_t z)
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            return m_chunks[z];
+        }
+
+        ReffedChunk& at(uint64_t z)
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            return m_chunks.at(z);
+        }
+
+        std::size_t np(uint64_t z) const
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            auto it(m_chunks.find(z));
+            if (it != m_chunks.end()) return it->second.np();
+            else return 0;
+        }
+
+    private:
+        mutable std::mutex m_mutex;
+        std::map<uint64_t, ReffedChunk> m_chunks;
     };
 
     const Metadata& m_metadata;
@@ -190,7 +242,7 @@ private:
     const std::size_t m_chunksAcross;
     const std::size_t m_pointsAcross;
 
-    std::vector<ReffedChunk> m_chunks;
+    std::vector<SplitChunk> m_chunks;
 };
 
 } // namespace entwine

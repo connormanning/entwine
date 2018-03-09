@@ -59,7 +59,7 @@ public:
             NewClipper& clipper,
             std::size_t maxDepth = 0);
 
-    void clip(uint64_t d, uint64_t x, uint64_t y, uint64_t o);
+    void clip(uint64_t d, uint64_t x, uint64_t y, uint64_t z, uint64_t o);
 
     const Metadata& metadata() const { return m_metadata; }
 
@@ -71,7 +71,8 @@ private:
             Json::Value& json,
             uint64_t d,
             uint64_t x,
-            uint64_t y) const;
+            uint64_t y,
+            uint64_t z) const;
 
     const Metadata& m_metadata;
     const arbiter::Endpoint& m_out;

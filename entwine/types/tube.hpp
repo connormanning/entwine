@@ -17,10 +17,7 @@
 #include <mutex>
 #include <vector>
 
-#include <entwine/types/bounds.hpp>
 #include <entwine/types/point-pool.hpp>
-#include <entwine/types/schema.hpp>
-#include <entwine/types/structure.hpp>
 
 namespace entwine
 {
@@ -64,17 +61,6 @@ public:
 
     bool empty() const { return m_cells.empty(); }
     static constexpr std::size_t maxTickDepth() { return 64; }
-
-    static std::size_t calcTick(
-            const Point& point,
-            const Bounds& bounds,
-            const std::size_t depth)
-    {
-        return
-            std::floor(
-                    (point.z - bounds.min().z) * (1ULL << depth) /
-                    (bounds.max().z - bounds.min().z));
-    }
 
     using Cells = std::map<uint64_t, Cell::PooledNode>;
 

@@ -64,7 +64,8 @@ Registry::~Registry() { }
 void Registry::save(const arbiter::Endpoint& endpoint) const
 {
     Json::Value h;
-    hierarchy(h, m_metadata.structure().body(), 0, 0);
+    // TODO Also need to add the `head` depths.
+    hierarchy(h, m_metadata.structure().body(), 0, 0, 0);
     const std::string f("entwine-hierarchy" + m_metadata.postfix() + ".json");
     io::ensurePut(endpoint, f, h.toStyledString());
 }
@@ -73,18 +74,20 @@ void Registry::hierarchy(
         Json::Value& h,
         uint64_t d,
         uint64_t x,
-        uint64_t y) const
+        uint64_t y,
+        uint64_t z) const
 {
-    h["n"] = static_cast<Json::UInt64>(m_slices[d].np(x, y));
+    h["n"] = static_cast<Json::UInt64>(m_slices[d].np(x, y, z));
 
-    auto next([this, &h](uint64_t d, uint64_t x, uint64_t y)
+    auto next([this, &h](uint64_t d, uint64_t x, uint64_t y, uint64_t z)
     {
         const std::string key(
                 d < 10 ? "0" : "" +
                 std::to_string(d) + '/' +
                 std::to_string(x) + '/' +
-                std::to_string(y));
-        hierarchy(h[key], d, x, y);
+                std::to_string(y) + '/' +
+                std::to_string(z));
+        hierarchy(h[key], d, x, y, z);
     });
 
     ++d;
@@ -94,13 +97,24 @@ void Registry::hierarchy(
     {
         x <<= 1u;
         y <<= 1u;
+        z <<= 1u;
 
-        if (s.np(x, y)) next(d, x, y);
-        if (s.np(x, y + 1)) next(d, x, y + 1);
-        if (s.np(x + 1, y)) next(d, x + 1, y);
-        if (s.np(x + 1, y + 1)) next(d, x + 1, y + 1);
+        for (std::size_t a(0); a < 2; ++a)
+        {
+            for (std::size_t b(0); b < 2; ++b)
+            {
+                for (std::size_t c(0); c < 2; ++c)
+                {
+                    if (s.np(x + a, y + b, z + c))
+                    {
+                        next(d, x + a, y + b, z + c);
+                    }
+                }
+            }
+        }
+
     }
-    else if (s.np(x, y)) next(d, x, y);
+    else if (s.np(x, y, z)) next(d, x, y, z);
 }
 
 bool Registry::addPoint(
@@ -125,9 +139,10 @@ void Registry::clip(
         const uint64_t d,
         const uint64_t x,
         const uint64_t y,
+        const uint64_t z,
         const uint64_t o)
 {
-    m_slices.at(d).clip(x, y, o);
+    m_slices.at(d).clip(x, y, z, o);
 }
 
 } // namespace entwine

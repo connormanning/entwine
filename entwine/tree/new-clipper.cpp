@@ -26,9 +26,13 @@ void NewClipper::clip(const bool force)
     }
 }
 
-void NewClipper::clip(const uint64_t d, const uint64_t x, const uint64_t y)
+void NewClipper::clip(
+        const uint64_t d,
+        const uint64_t x,
+        const uint64_t y,
+        const uint64_t z)
 {
-    m_registry.clip(d, x, y, m_origin);
+    m_registry.clip(d, x, y, z, m_origin);
 }
 
 } // namespace entwine
