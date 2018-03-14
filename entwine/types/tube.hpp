@@ -30,12 +30,8 @@ public:
     class Insertion
     {
     public:
-        Insertion() : m_done(false), m_delta(0) { }
-
-        Insertion(bool done, int delta)
-            : m_done(done)
-            , m_delta(delta)
-        { }
+        Insertion() { }
+        Insertion(bool done, int delta) : m_done(done) , m_delta(delta) { }
 
         bool done() const { return m_done; }
         int delta() const { return m_delta; }
@@ -44,8 +40,8 @@ public:
         void setDone(int delta) { m_done = true; m_delta = delta; }
 
     private:
-        bool m_done;
-        int m_delta;
+        bool m_done = false;
+        int m_delta = 0;
     };
 
     // If result.done() == true, then this cell has been consumed and may no

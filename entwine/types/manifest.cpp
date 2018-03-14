@@ -90,8 +90,6 @@ Manifest::Manifest(Json::Value json, const arbiter::Endpoint* endpoint)
             m_pointStats = PointStats(json["pointStats"]);
         }
     }
-
-    std::cout << "Made manifest" << std::endl;
 }
 
 Manifest::Manifest(const Manifest& other)

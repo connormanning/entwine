@@ -18,7 +18,8 @@
 
 #include <json/json.h>
 
-#include <entwine/tree/chunk.hpp>
+#include <entwine/tree/new-climber.hpp>
+#include <entwine/tree/new-clipper.hpp>
 #include <entwine/tree/cold.hpp>
 #include <entwine/tree/key.hpp>
 #include <entwine/tree/slice.hpp>
@@ -36,12 +37,9 @@ namespace entwine
 
 class NewClimber;
 class NewClipper;
-class Structure;
 
 class Registry
 {
-    friend class Builder;
-
 public:
     Registry(
             const Metadata& metadata,
@@ -49,7 +47,6 @@ public:
             const arbiter::Endpoint& tmp,
             PointPool& pointPool,
             bool exists = false);
-    ~Registry();
 
     void save(const arbiter::Endpoint& endpoint) const;
     void merge(const Registry& other) { } // TODO
@@ -58,9 +55,24 @@ public:
             Cell::PooledNode& cell,
             NewClimber& climber,
             NewClipper& clipper,
-            std::size_t maxDepth = 0);
+            std::size_t maxDepth = 0)
+    {
+        Tube::Insertion attempt;
 
-    void clip(uint64_t d, const Xyz& p, uint64_t o);
+        while (true)
+        {
+            auto& slice(m_slices.at(climber.depth()));
+            attempt = slice.insert(cell, climber, clipper);
+
+            if (!attempt.done()) climber.step(cell->point());
+            else return true;
+        }
+    }
+
+    void clip(uint64_t d, const Xyz& p, uint64_t o)
+    {
+        m_slices.at(d).clip(p, o);
+    }
 
     const Metadata& metadata() const { return m_metadata; }
 

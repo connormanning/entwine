@@ -14,8 +14,6 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/climber.hpp>
-#include <entwine/tree/clipper.hpp>
-#include <entwine/tree/new-clipper.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
@@ -59,8 +57,6 @@ Registry::Registry(
     }
 }
 
-Registry::~Registry() { }
-
 void Registry::save(const arbiter::Endpoint& endpoint) const
 {
     Json::Value h;
@@ -97,29 +93,6 @@ void Registry::hierarchy(Json::Value& h, uint64_t d, Xyz p) const
 
     }
     else if (s.np(p)) hierarchy(h[p.toString(d)], d, p);
-}
-
-bool Registry::addPoint(
-        Cell::PooledNode& cell,
-        NewClimber& climber,
-        NewClipper& clipper,
-        const std::size_t maxDepth)
-{
-    Tube::Insertion attempt;
-
-    while (true)
-    {
-        auto& slice(m_slices.at(climber.depth()));
-        attempt = slice.insert(cell, climber, clipper);
-
-        if (!attempt.done()) climber.step(cell->point());
-        else return true;
-    }
-}
-
-void Registry::clip(const uint64_t d, const Xyz& p, const uint64_t o)
-{
-    m_slices.at(d).clip(p, o);
 }
 
 } // namespace entwine
