@@ -100,7 +100,7 @@ void LasZipStorage::write(
 
     if (!local)
     {
-        io::ensurePut(out, filename, tmp.getBinary(localFile));
+        io::ensurePut(out, filename + ".laz", tmp.getBinary(localFile));
         arbiter::fs::remove(tmp.prefixedRoot() + localFile);
     }
 }

@@ -535,19 +535,5 @@ void Builder::append(const FileInfoList& fileInfo)
     m_sequence = makeUnique<Sequence>(*this);
 }
 
-void Builder::clip(
-        const Id& index,
-        const std::size_t chunkNum,
-        const std::size_t id,
-        const bool sync)
-{
-    // m_registry->clip(index, chunkNum, id, sync);
-}
-
-void Builder::clip(const uint64_t d, const uint64_t x, const uint64_t y)
-{
-    // m_registry->clip(d, x, y);
-}
-
 } // namespace entwine
 
