@@ -500,7 +500,7 @@ void Kernel::build(std::vector<std::string> args)
 
     std::cout <<
         "Output:\n" <<
-        "\tOutput path: " << outPath << "\n" <<
+        "\tOutput path: " << outPath <<
         // "\tData storage: " << toString(storage.chunkStorageType()) <<
         std::endl;
 
