@@ -186,7 +186,7 @@ private:
     std::unique_ptr<Sequence> m_sequence;
     std::unique_ptr<Registry> m_registry;
 
-    bool m_verbose = false;
+    bool m_verbose = true;
 
     TimePoint m_start;
 
