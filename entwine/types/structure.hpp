@@ -49,9 +49,9 @@ public:
     Json::Value toJson() const
     {
         Json::Value json;
-        json["head"] = head();
-        json["body"] = body();
-        json["tail"] = tail();
+        json["head"] = static_cast<Json::UInt64>(head());
+        json["body"] = static_cast<Json::UInt64>(body());
+        json["tail"] = static_cast<Json::UInt64>(tail());
         return json;
     }
 
