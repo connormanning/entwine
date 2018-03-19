@@ -60,12 +60,49 @@ Registry::Registry(
 void Registry::save(const arbiter::Endpoint& endpoint) const
 {
     Json::Value h;
-    // TODO Also need to add the `head` depths.
-    hierarchy(h, m_metadata.structure().body(), Xyz());
+
+    const auto& s(m_metadata.structure());
+    for (std::size_t d(s.head()); d < s.body(); ++d)
+    {
+        const Xyz base;
+        const auto& s(m_slices[d]);
+        h[base.toString(d)] = static_cast<Json::UInt64>(s.np(base));
+    }
+
+    flatHierarchy(h, s.body(), Xyz());
     const std::string f("entwine-hierarchy" + m_metadata.postfix() + ".json");
     io::ensurePut(endpoint, f, h.toStyledString());
 }
 
+void Registry::flatHierarchy(Json::Value& h, uint64_t d, Xyz p) const
+{
+    h[p.toString(d)] = static_cast<Json::UInt64>(m_slices[d].np(p));
+
+    ++d;
+    const auto& s(m_slices[d]);
+
+    if (d <= m_metadata.structure().tail())
+    {
+        p.x <<= 1u;
+        p.y <<= 1u;
+        p.z <<= 1u;
+
+        for (std::size_t a(0); a < 2; ++a)
+        {
+            for (std::size_t b(0); b < 2; ++b)
+            {
+                for (std::size_t c(0); c < 2; ++c)
+                {
+                    Xyz next(p.x + a, p.y + b, p.z + c);
+                    if (s.np(next)) flatHierarchy(h, d, next);
+                }
+            }
+        }
+    }
+    else if (s.np(p)) flatHierarchy(h, d, p);
+}
+
+/*
 void Registry::hierarchy(Json::Value& h, uint64_t d, Xyz p) const
 {
     h["n"] = static_cast<Json::UInt64>(m_slices[d].np(p));
@@ -90,10 +127,10 @@ void Registry::hierarchy(Json::Value& h, uint64_t d, Xyz p) const
                 }
             }
         }
-
     }
     else if (s.np(p)) hierarchy(h[p.toString(d)], d, p);
 }
+*/
 
 } // namespace entwine
 

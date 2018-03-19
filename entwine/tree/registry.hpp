@@ -80,6 +80,7 @@ private:
     void loadAsNew();
     void loadFromRemote();
 
+    void flatHierarchy(Json::Value& json, uint64_t d, Xyz p) const;
     void hierarchy(Json::Value& json, uint64_t d, Xyz p) const;
 
     const Metadata& m_metadata;
