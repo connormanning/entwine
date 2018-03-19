@@ -112,6 +112,8 @@ private:
             const Origin o(climber.origin());
             const Xyz& ck(climber.chunkKey().position());
 
+            std::lock_guard<std::mutex> lock(m_mutex);
+
             if (!m_refs.count(o))
             {
                 m_refs[o] = 1;
@@ -140,6 +142,8 @@ private:
 
         void unref(const Slice& s, const Xyz& p, uint64_t o)
         {
+            std::lock_guard<std::mutex> lock(m_mutex);
+
             if (!--m_refs.at(o))
             {
                 m_refs.erase(o);
@@ -160,6 +164,7 @@ private:
         std::size_t np() const { return m_np; }
 
     private:
+        std::mutex m_mutex;
         std::size_t m_np = 0;
         std::unique_ptr<NewChunk> m_chunk;
         std::map<Origin, std::size_t> m_refs;

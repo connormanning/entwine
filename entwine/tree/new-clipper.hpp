@@ -68,7 +68,6 @@ class NewClipper
     private:
         NewClipper& m_clipper;
 
-
         std::map<Xyz, bool> m_touched;
     };
 
