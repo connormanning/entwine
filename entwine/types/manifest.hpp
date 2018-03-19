@@ -45,7 +45,7 @@ public:
     FileInfoList diff(const FileInfoList& fileInfo) const;
     void append(const FileInfoList& fileInfo);
 
-    Json::Value toJson() const;
+    // Json::Value toJson() const;
     std::size_t size() const { return m_fileInfo.size(); }
 
     Origin find(const std::string& path) const;
@@ -103,6 +103,7 @@ public:
     }
 
     void save(bool primary, std::string postfix = "") const;
+    void save(const arbiter::Endpoint& ep) const;
 
     Paths paths() const
     {

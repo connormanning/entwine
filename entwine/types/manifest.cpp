@@ -188,6 +188,7 @@ void Manifest::merge(const Manifest& other)
     m_fileStats.add(fileStats);
 }
 
+/*
 Json::Value Manifest::toJson() const
 {
     Json::Value json;
@@ -208,6 +209,7 @@ Json::Value Manifest::toJson() const
 
     return json;
 }
+*/
 
 void Manifest::awakenAll(Pool& pool) const
 {
@@ -257,6 +259,12 @@ void Manifest::awaken(Origin origin) const
         m_remote.at(i) = false;
         ++i;
     }
+}
+
+void Manifest::save(const arbiter::Endpoint& ep) const
+{
+    const Json::Value json(toJson(m_fileInfo));
+    io::ensurePut(ep, "entwine-files.json", json.toStyledString());
 }
 
 void Manifest::save(const bool primary, const std::string postfix) const
@@ -319,7 +327,7 @@ void Manifest::save(const bool primary, const std::string postfix) const
 
     io::ensurePut(
             *m_endpoint,
-            "entwine-manifest" + postfix,
+            "entwine-files" + postfix + ".json",
             primary ? json.toStyledString() : toFastString(json));
 }
 

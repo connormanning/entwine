@@ -25,11 +25,6 @@
 namespace entwine
 {
 
-namespace
-{
-    const double epsilon(0.005);
-}
-
 Metadata::Metadata(const Config& config)
     : m_delta(config.delta().exists() ?
             makeUnique<Delta>(config.delta()) : std::unique_ptr<Delta>())
@@ -276,6 +271,7 @@ void Metadata::save(const arbiter::Endpoint& endpoint) const
     const std::string f("entwine" + postfix() + ".json");
     io::ensurePut(endpoint, f, json.toStyledString());
 
+    if (m_manifest) m_manifest->save(endpoint);
     /*
     const bool primary(!m_subset || m_subset->primary());
     if (m_manifest) m_manifest->save(primary, postfix());
