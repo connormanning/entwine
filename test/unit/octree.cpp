@@ -98,8 +98,7 @@ void Octree::insert(const std::string path)
     const auto driver(m_stageFactory.inferReaderDriver(path));
     if (driver.empty()) return;
 
-    auto reader(dynamic_cast<pdal::Reader*>(
-                m_stageFactory.createStage(driver)));
+    pdal::Stage* reader(m_stageFactory.createStage(driver));
     if (!reader) return;
 
     pdal::Options options;

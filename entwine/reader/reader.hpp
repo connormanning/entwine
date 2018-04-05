@@ -205,7 +205,7 @@ private:
     // Outer vector is organized by depth.
     std::vector<std::vector<Id>> m_ids;
 
-    Pool m_threadPool;
+    mutable std::unique_ptr<Pool> m_threadPool;
     bool m_ready = false;
 
     mutable std::mutex m_mutex;

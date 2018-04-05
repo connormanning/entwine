@@ -42,7 +42,7 @@ ChunkReader::ChunkReader(
     , m_schema(metadata.schema())
     , m_id(id)
     , m_depth(depth)
-    , m_cells(metadata.storage().deserialize(endpoint, tmp, pool, m_id))
+    , m_cells(metadata.storage().deserialize(endpoint, tmp, m_pool, m_id))
 { }
 
 ChunkReader::ChunkReader(

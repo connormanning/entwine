@@ -66,6 +66,7 @@ namespace
     }
 
     const std::size_t basePoolBlockSize(65536);
+    // HierarchyCell::Pool hierarchyPool(4096);
 }
 
 Reader::Reader(const std::string path, const std::string tmp, Cache& cache)
@@ -76,6 +77,14 @@ Reader::Reader(const std::string path, const std::string tmp, Cache& cache)
     , m_pool(m_metadata.schema(), m_metadata.delta(), basePoolBlockSize)
     , m_cache(cache)
     , m_threadPool(2)
+    /*
+    , m_hierarchy(
+            makeUnique<HierarchyReader>(
+                hierarchyPool,
+                m_metadata,
+                m_endpoint,
+                m_cache))
+    */
 {
     init();
 }
@@ -90,6 +99,14 @@ Reader::Reader(
     , m_pool(m_metadata.schema(), m_metadata.delta(), basePoolBlockSize)
     , m_cache(cache)
     , m_threadPool(2)
+    /*
+    , m_hierarchy(
+            makeUnique<HierarchyReader>(
+                hierarchyPool,
+                m_metadata,
+                m_endpoint,
+                m_cache))
+    */
 {
     init();
 }
@@ -109,7 +126,7 @@ void Reader::init()
 
     if (structure.hasCold())
     {
-        m_threadPool.add([&]()
+        m_threadPool->add([&]()
         {
             const auto ids(extractIds(m_endpoint.get("entwine-ids")));
             if (ids.empty()) return;
@@ -224,8 +241,9 @@ std::size_t Reader::write(
 {
     if (data.empty()) return 0;
     std::unique_lock<std::mutex> lock(m_mutex);
-
     Schema schema(m_appends.at(name));
+    lock.unlock();
+
     Schema requested(q["schema"]);
 
     // The requested schema must match this addon's schema - with the exception
@@ -241,7 +259,6 @@ std::size_t Reader::write(
     }
 
     WriteQuery writeQuery(*this, QueryParams(q), name, schema, data);
-    lock.unlock();
 
     writeQuery.run();
     return writeQuery.numPoints();
@@ -253,6 +270,14 @@ bool Reader::exists(const QueryChunkState& c) const
 {
     if (m_ready)
     {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        if (m_threadPool)
+        {
+            m_threadPool.reset();
+            std::cout << m_endpoint.prefixedRoot() << " joined" << std::endl;
+        }
+        lock.unlock();
+
         if (c.depth() >= m_ids.size()) return false;
         const auto& slice(m_ids[c.depth()]);
         return std::binary_search(slice.begin(), slice.end(), c.chunkId());

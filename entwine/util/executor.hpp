@@ -45,7 +45,7 @@ public:
 
     ~ScopedStage();
 
-    template<typename T> T getAs() { return dynamic_cast<T>(m_stage); }
+    pdal::Stage* get() { return m_stage; }
 
 private:
     pdal::Stage* m_stage;
@@ -160,7 +160,7 @@ bool Executor::run(
     UniqueStage scopedReader(createReader(path));
     if (!scopedReader) return false;
 
-    pdal::Reader* reader(scopedReader->getAs<pdal::Reader*>());
+    pdal::Stage* reader(scopedReader->get());
     pdal::Stage* executor(reader);
 
     // Needed so that the SRS has been initialized.
@@ -173,7 +173,7 @@ bool Executor::run(
         scopedFerry = createFerryFilter(preserve);
         if (!scopedFerry) return false;
 
-        pdal::Filter* filter(scopedFerry->getAs<pdal::Filter*>());
+        pdal::Stage* filter(scopedFerry->get());
 
         filter->setInput(*executor);
         executor = filter;
@@ -190,7 +190,7 @@ bool Executor::run(
         scopedReproj = createReprojectionFilter(srs);
         if (!scopedReproj) return false;
 
-        pdal::Filter* filter(scopedReproj->getAs<pdal::Filter*>());
+        pdal::Stage* filter(scopedReproj->get());
 
         filter->setInput(*executor);
         executor = filter;
@@ -203,7 +203,7 @@ bool Executor::run(
         scopedTransform = createTransformationFilter(*transform);
         if (!scopedTransform) return false;
 
-        pdal::Filter* filter(scopedTransform->getAs<pdal::Filter*>());
+        pdal::Stage* filter(scopedTransform->get());
 
         filter->setInput(*executor);
         executor = filter;
