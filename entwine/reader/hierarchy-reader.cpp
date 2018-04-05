@@ -57,6 +57,8 @@ Json::Value HierarchyReader::query(
     std::deque<Dir> lag;
 
     Json::Value json;
+
+    std::lock_guard<std::mutex> lock(m_mutex);
     Reservation reservation(m_cache, m_endpoint.prefixedRoot());
     traverse(json, reservation, query, pointState, lag);
     return json;
