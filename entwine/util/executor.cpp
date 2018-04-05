@@ -94,7 +94,7 @@ std::vector<std::string> Executor::dims(const std::string path) const
 {
     std::vector<std::string> list;
     UniqueStage scopedReader(createReader(path));
-    pdal::Reader* reader(scopedReader->getAs<pdal::Reader*>());
+    pdal::Stage* reader(scopedReader->get());
     pdal::PointTable table;
     { auto lock(getLock()); reader->prepare(table); }
     for (const auto& id : table.layout()->dims())
@@ -114,7 +114,7 @@ std::unique_ptr<Preview> Executor::preview(
     auto result(makeUnique<Preview>());
     auto& p(*result);
 
-    pdal::Reader* reader(scopedReader->getAs<pdal::Reader*>());
+    pdal::Stage* reader(scopedReader->get());
     const pdal::QuickInfo qi(([this, reader]()
     {
         auto lock(getLock());
@@ -192,7 +192,7 @@ std::unique_ptr<Preview> Executor::preview(
         UniqueStage scopedFilter(createReprojectionFilter(selectedSrs));
         if (!scopedFilter) return result;
 
-        pdal::Filter& filter(*scopedFilter->getAs<pdal::Filter*>());
+        pdal::Stage& filter(*scopedFilter->get());
 
         filter.setInput(bufferState.getBuffer());
         { auto lock(getLock()); filter.prepare(bufferState.getTable()); }
@@ -228,7 +228,7 @@ Bounds Executor::transform(
         throw std::runtime_error("Could not create transformation filter");
     }
 
-    pdal::Filter& filter(*scopedFilter->getAs<pdal::Filter*>());
+    pdal::Stage& filter(*scopedFilter->get());
 
     filter.setInput(bufferState.getBuffer());
     { auto lock(getLock()); filter.prepare(bufferState.getTable()); }
@@ -266,8 +266,7 @@ UniqueStage Executor::createReader(const std::string path) const
 
     auto lock(getLock());
 
-    if (pdal::Reader* reader = static_cast<pdal::Reader*>(
-            m_stageFactory->createStage(driver)))
+    if (pdal::Stage* reader = m_stageFactory->createStage(driver))
     {
         pdal::Options options;
         options.add(pdal::Option("filename", path));
@@ -292,9 +291,7 @@ UniqueStage Executor::createFerryFilter(const std::vector<std::string>& p) const
 
     auto lock(getLock());
 
-    if (pdal::Filter* filter =
-            static_cast<pdal::Filter*>(
-                m_stageFactory->createStage("filters.ferry")))
+    if (pdal::Stage* filter = m_stageFactory->createStage("filters.ferry"))
     {
         std::size_t d(1);
         pdal::Options options;
@@ -328,9 +325,8 @@ UniqueStage Executor::createReprojectionFilter(const Reprojection& reproj) const
 
     auto lock(getLock());
 
-    if (pdal::Filter* filter =
-            static_cast<pdal::Filter*>(
-                m_stageFactory->createStage("filters.reprojection")))
+    if (pdal::Stage* filter =
+            m_stageFactory->createStage("filters.reprojection"))
     {
         pdal::Options options;
         options.add(pdal::Option("in_srs", reproj.in()));
@@ -360,9 +356,8 @@ UniqueStage Executor::createTransformationFilter(
 
     auto lock(getLock());
 
-    if (pdal::Filter* filter =
-            static_cast<pdal::Filter*>(
-                m_stageFactory->createStage("filters.transformation")))
+    if (pdal::Stage* filter =
+            m_stageFactory->createStage("filters.transformation"))
     {
         std::ostringstream ss;
         ss << std::setprecision(std::numeric_limits<double>::digits10);

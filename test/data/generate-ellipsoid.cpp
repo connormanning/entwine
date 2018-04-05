@@ -182,7 +182,6 @@ int main()
 
             nycViews.push_back(view->makeNew());
             auto& nycView(nycViews.back());
-            nycView->setSpatialReference(pdal::SpatialReference("EPSG:3857"));
 
             for (std::size_t i(0); i < view->size(); ++i)
             {
