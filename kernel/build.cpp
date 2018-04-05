@@ -200,7 +200,7 @@ void Kernel::build(std::vector<std::string> args)
         }
     }
 
-    Json::Value json(ConfigParser::defaults());
+    Json::Value json;
     entwine::arbiter::Arbiter localArbiter;
 
     std::size_t a(0);
@@ -524,9 +524,12 @@ void Kernel::build(std::vector<std::string> args)
         "Metadata:\n" <<
         "\tNative bounds: " << metadata.boundsNativeConforming() << "\n" <<
         "\tCubic bounds: " << metadata.boundsNativeCubic() << "\n" <<
+        "\tScaled cube: " << metadata.boundsScaledCubic() << "\n" <<
         "\tReprojection: " << getReprojString(reprojection) << "\n" <<
         "\tStoring dimensions: " << getDimensionString(schema) <<
         std::endl;
+
+    std::cout << metadata.structure().toJson() << std::endl;
 
     if (metadata.transformation())
     {

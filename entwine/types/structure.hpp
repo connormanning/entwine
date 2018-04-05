@@ -58,9 +58,9 @@ public:
 private:
     std::size_t m_numPointsHint;
 
-    uint64_t m_head = 7;
-    uint64_t m_body = 9;
-    uint64_t m_tail = 12;
+    uint64_t m_head;
+    uint64_t m_body;
+    uint64_t m_tail;
 };
 
 class Structure;

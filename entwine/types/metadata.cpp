@@ -260,6 +260,9 @@ Json::Value Metadata::toJson() const
 
     json["version"] = m_version->toString();
 
+    json["dataStorage"] = "laz";
+    json["hierarchyStorage"] = "json";
+
     for (const auto s : m_preserveSpatial) json["preserveSpatial"].append(s);
 
     return json;

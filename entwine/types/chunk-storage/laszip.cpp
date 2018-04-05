@@ -70,11 +70,11 @@ void LasZipStorage::write(
 
     pdal::Options options;
     options.add("filename", localDir + localFile);
-    options.add("minor_version", 4);
-    options.add("extra_dims", "all");
+    options.add("minor_version", 2);
+    // options.add("extra_dims", "all");
     options.add("software_id", "Entwine " + currentVersion().toString());
     options.add("compression", "laszip");
-    options.add("dataformat_id", timeMask | colorMask);
+    options.add("dataformat_id", /* timeMask | */ colorMask);
 
     options.add("scale_x", delta.scale().x);
     options.add("scale_y", delta.scale().y);

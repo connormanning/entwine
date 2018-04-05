@@ -569,12 +569,15 @@ void NewInference::aggregate()
 
     if (m_out.scale() != 1 && m_out.offset() == 0)
     {
+        /*
         const Offset offset = bounds.mid().apply([](double d)
         {
             const int64_t v(d);
             if (static_cast<double>(v / 10 * 10) == d) return v;
-            else return (v + 10) / 10 * 10;
+            else return (v) / 10 * 10;
         });
+        */
+        Offset offset(0, 0, 0);
 
         m_out["offset"] = offset.toJson();
     }
