@@ -17,6 +17,7 @@
 #include <pdal/Dimension.hpp>
 
 #include <entwine/types/bounds.hpp>
+#include <entwine/types/defs.hpp>
 #include <entwine/types/storage-types.hpp>
 
 namespace Json { class Value; }

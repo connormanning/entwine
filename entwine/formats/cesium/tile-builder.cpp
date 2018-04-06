@@ -28,6 +28,7 @@ TileBuilder::TileBuilder(const Metadata& metadata, const TileInfo& info)
     , m_divisor(divisor())
     , m_hasColor(false)
     , m_hasNormals(false)
+    , m_hasBatchTableDimensions(m_settings.batchTableDimensions().size())
     , m_table(m_schema)
     , m_pr(m_table, 0)
 {
@@ -47,7 +48,7 @@ TileBuilder::TileBuilder(const Metadata& metadata, const TileInfo& info)
         m_data.emplace(
                 std::piecewise_construct,
                 std::forward_as_tuple(p.first),
-                std::forward_as_tuple(p.second, m_hasColor, m_hasNormals));
+                std::forward_as_tuple(p.second, m_hasColor, m_hasNormals, m_hasBatchTableDimensions));
     }
 
     if (m_settings.coloring() == "tile")
@@ -72,8 +73,8 @@ void TileBuilder::push(std::size_t rawTick, const Cell& cell)
     for (const auto& single : cell)
     {
         m_table.setPoint(single);
-        if (delta)
 
+        if (delta)
         {
             selected.points.emplace_back(
                     Point::unscale(
@@ -122,6 +123,9 @@ void TileBuilder::push(std::size_t rawTick, const Cell& cell)
                 m_pr.getFieldAs<double>(normalYDim),
                 m_pr.getFieldAs<double>(normalZDim));
         }
+
+        // If batch table dimensions were specified, we must store the point index from which to extract them when building the table.
+        if (m_hasBatchTableDimensions) selected.pointIndices.emplace_back(single);
     }
 }
 

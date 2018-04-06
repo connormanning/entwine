@@ -203,7 +203,7 @@ void SparseChunk::tile() const
         const std::size_t tick(tilePair.first);
         const auto& tileData(tilePair.second);
 
-        cesium::Tile tile(tileData);
+        cesium::Tile tile(m_metadata, tileData);
 
         io::ensurePut(
                 endpoint,
@@ -292,7 +292,7 @@ void ContiguousChunk::tile() const
         const std::size_t tick(tilePair.first);
         const auto& tileData(tilePair.second);
 
-        cesium::Tile tile(tileData);
+        cesium::Tile tile(m_metadata, tileData);
 
         io::ensurePut(
                 endpoint,
