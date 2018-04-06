@@ -41,7 +41,7 @@ BatchTable::BatchTable(const Metadata& metadata, const TileData& tileData)
         m_batchReferences.emplace_back(dimName, byteOffset, BatchReference::findComponentType(dimInfo.type())); 
         const auto& ref = m_batchReferences.back();
 
-        // It is necessary to retrieve the data here for later use; the point table's setPoint method cannot be used during call appendBinary.
+        // It is necessary to retrieve the data here for later use; the point table's setPoint method cannot be used during calls to appendBinary.
         // To this end, allocate space for the data and copy it over.
         m_data.resize(byteOffset + m_tileData.pointIndices.size() * ref.bytes());
 

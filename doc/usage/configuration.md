@@ -271,6 +271,12 @@ Entwine uses [Arbiter](http://arbitercpp.com) ([source repository](https://githu
 
 For S3, if AWSCLI has been installed, then the credentials will be picked up from there, making this field unnecessary.  See the [S3](#s3) section for more information.
 
+To update Entwine's arbiter.cpp and arbiter.hpp source files from the Arbiter source repository, Arbiter must be amalgamated using the following command:
+
+```
+python amalgamate.py -c entwine -j
+```
+
 ### Compress
 Determines whether point data is compressed via [LAZ-perf](https://github.com/hobu/laz-perf).  In general, turning off compression is not very useful except for special cases of debugging or validating output.
 
