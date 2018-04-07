@@ -1,4 +1,4 @@
-FROM pdal/pdal:master
+FROM pdal/pdal:1.7
 MAINTAINER Connor Manning <connor@hobu.co>
 
 RUN \
