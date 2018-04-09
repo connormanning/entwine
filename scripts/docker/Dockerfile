@@ -6,16 +6,13 @@ RUN \
         /etc/apk/repositories; \
     apk update; \
     apk add --no-cache \
+        bash \
         xz-libs \
         openssl-dev \
         openssl \
         cmake \
         libunwind \
         libexecinfo \
-    ;
-
-RUN \
-    apk add --no-cache --virtual .build-deps \
         xz-dev \
         openssl-dev \
         alpine-sdk \
@@ -34,8 +31,7 @@ RUN \
         -DCMAKE_INSTALL_PREFIX=/usr \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo .. ; \
     make -j4; \
-    make install; \
-    apk del .build-deps
+    make install;
 
 ENTRYPOINT ["entwine"]
 
