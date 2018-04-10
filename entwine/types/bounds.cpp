@@ -174,9 +174,9 @@ Bounds Bounds::undeltify(const Delta& delta) const
 
 Bounds Bounds::cubeify(const Delta* delta) const
 {
-    if (delta) return cubeify(*delta);
+    if (delta) return cubeify(delta->scale());
 
-    const Bounds originCentered(cubeify(Delta()));
+    const Bounds originCentered(cubeify(Scale(1)));
     const Point integralMid(
             Point::apply([](double d)
             {
@@ -198,21 +198,18 @@ Bounds Bounds::cubeify(const Delta* delta) const
     return result;
 }
 
-Bounds Bounds::cubeify(const Delta& delta) const
+Bounds Bounds::cubeify(const Scale& s) const
 {
-    // The radius of the result is guaranteed to be >= 20 units beyond the
-    // maximum extents of the input.
-    const double maxDist(
-            1 + std::ceil(std::max(std::max(width(), depth()), height())));
+    const double maxDist(std::max(std::max(width(), depth()), height()) + 1.0);
 
-    const std::size_t rawRadius(std::ceil(maxDist / 2.0));
-    const double radius(20 + (rawRadius + 10) / 10 * 10);
+    // const std::size_t rawRadius(std::ceil(maxDist / 2.0));
+    // const double radius(20 + (rawRadius + 10) / 10 * 10);
 
-    const auto& s(delta.scale());
+    const double radius(maxDist / 2.0);
+
     const Point p(
-            Point::apply(
-                [](double v) { return std::ceil(v); },
-                Point(radius / s.x, radius / s.y, radius / s.z)));
+            Point(radius / s.x, radius / s.y, radius / s.z)
+            .apply([](double v) { return std::ceil(v); }));
 
     return Bounds(-p, p);
 }

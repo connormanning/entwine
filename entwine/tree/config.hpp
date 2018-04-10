@@ -73,8 +73,11 @@ public:
 
     Bounds bounds() const { return Bounds(m_json["bounds"]); }
     Scale scale() const { return Scale(m_json["scale"]); }
-    Offset offset() const { return Offset(m_json["offset"]); }
-    Delta delta() const { return Delta(m_json); }
+    Offset offset() const
+    {
+        return bounds().mid().apply([](double d) { return std::llround(d); });
+    }
+    Delta delta() const { return Delta(scale(), offset()); }
 
     std::unique_ptr<Reprojection> reprojection() const
     {

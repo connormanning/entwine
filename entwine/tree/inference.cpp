@@ -567,22 +567,7 @@ void NewInference::aggregate()
         else m_out["scale"] = m_scale.toJson();
     }
 
-    if (m_out.scale() != 1 && m_out.offset() == 0)
-    {
-        /*
-        const Offset offset = bounds.mid().apply([](double d)
-        {
-            const int64_t v(d);
-            if (static_cast<double>(v / 10 * 10) == d) return v;
-            else return (v) / 10 * 10;
-        });
-        */
-        Offset offset(0, 0, 0);
-
-        m_out["offset"] = offset.toJson();
-    }
-
-    if (m_out.delta().exists())
+    if (m_out.scale() != Scale(1))
     {
         DimList dims
         {
@@ -684,11 +669,13 @@ void Inference::makeSchema()
 
     m_schema = makeUnique<Schema>(dims);
 
+    /*
     if (const Delta* d = delta())
     {
         const Bounds cube(m_bounds->cubeify(*d));
         m_schema = makeUnique<Schema>(Schema::deltify(cube, *d, *m_schema));
     }
+    */
 }
 
 std::size_t Inference::numPoints() const

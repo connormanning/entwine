@@ -455,5 +455,8 @@ inline std::ostream& operator<<(std::ostream& os, const Color& c)
     return os;
 }
 
+using Offset = Point;
+using Scale = Point;
+
 } // namespace entwine
 

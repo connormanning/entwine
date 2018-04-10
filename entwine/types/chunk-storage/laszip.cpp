@@ -80,9 +80,11 @@ void LasZipStorage::write(
     options.add("scale_y", delta.scale().y);
     options.add("scale_z", delta.scale().z);
 
+    /*
     options.add("offset_x", offset.x);
     options.add("offset_y", offset.y);
     options.add("offset_z", offset.z);
+    */
 
     if (auto r = m_metadata.reprojection()) options.add("a_srs", r->out());
     else if (m_metadata.srs().size()) options.add("a_srs", m_metadata.srs());

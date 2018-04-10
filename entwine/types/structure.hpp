@@ -32,8 +32,7 @@ public:
     {
         if (!m_tail)
         {
-            const auto n(std::max<std::size_t>(m_numPointsHint, 10000000));
-            m_tail = std::ceil(std::log2(n) / std::log2(4));
+            m_tail = std::ceil(std::log2(m_numPointsHint) / std::log2(4));
         }
 
         m_head = std::max<uint64_t>(m_head, 0);
