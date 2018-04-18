@@ -4010,7 +4010,7 @@ namespace util
         {
             // We are going to join current with a populated subpath, so make
             // sure they are separated by a slash.
-            sep = "/";
+            sep = "\\";
         }
         else if (next.empty() && currentIsDir)
         {
@@ -4018,7 +4018,7 @@ namespace util
             // directory.  Retain its trailing slash.
             if (current.size() && !isSlash(current.back()))
             {
-                sep = "/";
+                sep = "\\";
             }
         }
 
