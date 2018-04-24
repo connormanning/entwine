@@ -41,6 +41,29 @@ void Files::save(const arbiter::Endpoint& ep) const
     io::ensurePut(ep, "entwine-files.json", json.toStyledString());
 }
 
+void Files::append(const FileInfoList& fileInfo)
+{
+    FileInfoList adding(diff(fileInfo));
+    for (const auto& f : adding) m_files.emplace_back(f);
+}
+
+FileInfoList Files::diff(const FileInfoList& in) const
+{
+    FileInfoList out;
+    for (const auto& f : in)
+    {
+        auto matches([&f](const FileInfo& x) { return f.path() == x.path(); });
+
+        if (std::none_of(m_files.begin(), m_files.end(), matches))
+        {
+            out.emplace_back(f);
+        }
+    }
+
+    return out;
+}
+
+
 Manifest::Manifest(
         const FileInfoList& fileInfo,
         const arbiter::Endpoint* endpoint)

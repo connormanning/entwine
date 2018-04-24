@@ -44,11 +44,16 @@ Metadata::Metadata(const Config& config)
     , m_srs(m_reprojection ? m_reprojection->out() : "")
     , m_density(config.density())
     , m_trustHeaders(config.trustHeaders())
-{ }
+{
+}
 
 Metadata::Metadata(const arbiter::Endpoint& ep)
     : Metadata(parse(ep.get("entwine.json")))
-{ }
+{
+    Files files(parse(ep.get("entwine-files.json")));
+    files.append(m_files->list());
+    m_files = makeUnique<Files>(files.list());
+}
 
 /*
 std::unique_ptr<Metadata> Metadata::create(
@@ -196,6 +201,7 @@ Json::Value Metadata::toJson() const
     json["boundsConforming"] = boundsNativeConforming().toJson();
     json["schema"] = m_schema->toJson();
     json["structure"] = m_structure->toJson();
+    json["numPoints"] = Json::UInt64(m_structure->numPointsHint());
     json["trustHeaders"] = m_trustHeaders;
 
     /*

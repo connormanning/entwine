@@ -56,7 +56,9 @@ Builder::Builder(const Config& config)
     , m_out(makeUnique<Endpoint>(m_arbiter->getEndpoint(config.output())))
     , m_tmp(makeUnique<Endpoint>(m_arbiter->getEndpoint(config.tmp())))
     , m_threadPools(makeUnique<ThreadPools>(config.threads()))
-    , m_metadata(makeUnique<Metadata>(config))
+    , m_isContinuation(!config.force() && m_out->tryGetSize("entwine.json"))
+    , m_metadata(m_isContinuation ?
+            makeUnique<Metadata>(*m_out) : makeUnique<Metadata>(config))
     , m_pointPool(std::make_shared<PointPool>(
                 m_metadata->schema(),
                 m_metadata->delta()))
@@ -64,7 +66,8 @@ Builder::Builder(const Config& config)
                 *m_metadata,
                 *m_out,
                 *m_tmp,
-                *m_pointPool))
+                *m_pointPool,
+                m_isContinuation))
     , m_sequence(makeUnique<Sequence>(*m_metadata, m_mutex))
     , m_start(now())
 {

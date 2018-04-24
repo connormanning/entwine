@@ -176,10 +176,11 @@ private:
     std::unique_ptr<arbiter::Endpoint> m_tmp;
 
     std::unique_ptr<ThreadPools> m_threadPools;
+
+    bool m_isContinuation = false;
     std::unique_ptr<Metadata> m_metadata;
 
     mutable std::mutex m_mutex;
-    bool m_isContinuation = false;
 
     mutable std::shared_ptr<PointPool> m_pointPool;
 

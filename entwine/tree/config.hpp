@@ -13,6 +13,7 @@
 #include <json/json.h>
 
 #include <entwine/tree/thread-pools.hpp>
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/delta.hpp>
@@ -74,7 +75,14 @@ public:
     const Json::Value& operator[](std::string k) const { return m_json[k]; }
     Json::Value& operator[](std::string k) { return m_json[k]; }
 
-    Bounds bounds() const { return Bounds(m_json["bounds"]); }
+    Bounds bounds() const
+    {
+        if (m_json.isMember("boundsConforming"))
+        {
+            return Bounds(m_json["boundsConforming"]);
+        }
+        return Bounds(m_json["bounds"]);
+    }
     Scale scale() const { return Scale(m_json["scale"]); }
     Offset offset() const
     {
@@ -89,6 +97,11 @@ public:
 
     bool force() const { return m_json["force"].asBool(); }
     bool trustHeaders() const { return m_json["trustHeaders"].asBool(); }
+    bool exists() const
+    {
+        return !force() &&
+            arbiter::Arbiter(m_json["arbiter"]).tryGetSize("entwine.json");
+    }
     double density() const { return m_json["density"].asDouble(); }
     std::string srs() const { return m_json["srs"].asString(); }
 

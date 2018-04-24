@@ -75,6 +75,9 @@ public:
     const FileInfoList& list() const { return m_files; }
     const PointStats& pointStats() const { return m_pointStats; }
 
+    FileInfoList diff(const FileInfoList& fileInfo) const;
+    void append(const FileInfoList& fileInfo);
+
 private:
     FileInfoList m_files;
 

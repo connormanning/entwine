@@ -55,6 +55,17 @@ Registry::Registry(
         if (d >= s.body() && d < s.tail()) chunksAcross *= 2;
         else pointsAcross *= 2;
     }
+
+    if (exists)
+    {
+        const auto h(parse(out.get("entwine-hierarchy.json")));
+        for (const auto key : h.getMemberNames())
+        {
+            const Dxyz dxyz(key);
+            const uint64_t np(h[key].asUInt64());
+            m_slices.at(dxyz.d).setNp(dxyz.p, np);
+        }
+    }
 }
 
 void Registry::save(const arbiter::Endpoint& endpoint) const

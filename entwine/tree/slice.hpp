@@ -78,6 +78,12 @@ public:
         return m_chunks.at(i).np(p.z);
     }
 
+    void setNp(const Xyz& p, std::size_t np)
+    {
+        const std::size_t i(p.y * m_chunksAcross + p.x);
+        m_chunks.at(i).setNp(p.z, np);
+    }
+
 private:
     std::unique_ptr<NewChunk> create() const
     {
@@ -162,6 +168,7 @@ private:
 
         NewChunk& chunk() { return *m_chunk; }
         std::size_t np() const { return m_np; }
+        void setNp(uint64_t np) { m_np = np; }
 
     private:
         std::mutex m_mutex;
@@ -203,6 +210,11 @@ private:
             auto it(m_chunks.find(z));
             if (it != m_chunks.end()) return it->second.np();
             else return 0;
+        }
+
+        void setNp(uint64_t z, uint64_t np)
+        {
+            m_chunks[z].setNp(np);
         }
 
     private:
