@@ -19,7 +19,7 @@
 
 #include <json/json.h>
 
-#include <entwine/reader/filter.hpp>
+#include <entwine/new-reader/filter.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/file-info.hpp>
@@ -31,6 +31,57 @@ namespace entwine
 class Bounds;
 class Pool;
 
+class Files
+{
+public:
+    Files(const FileInfoList& files)
+        : m_files(files)
+    {
+        for (const auto& f : m_files) m_pointStats += f.pointStats();
+    }
+
+    Files(const Json::Value& json) : Files(toFileInfo(json)) { }
+
+    void save(const arbiter::Endpoint& ep) const;
+
+    std::size_t size() const { return m_files.size(); }
+
+    Origin find(const std::string& p) const
+    {
+        for (std::size_t i(0); i < size(); ++i)
+        {
+            if (m_files[i].path().find(p) != std::string::npos) return i;
+        }
+
+        return invalidOrigin;
+    }
+
+    FileInfo& get(Origin o) { return m_files.at(o); }
+    const FileInfo& get(Origin o) const { return m_files.at(o); }
+
+    void set(Origin o, FileInfo::Status status, std::string message = "")
+    {
+        get(o).status(status, message);
+    }
+
+    void add(Origin origin, const PointStats& stats)
+    {
+        get(origin).add(stats);
+
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_pointStats.add(stats);
+    }
+
+    const FileInfoList& list() const { return m_files; }
+    const PointStats& pointStats() const { return m_pointStats; }
+
+private:
+    FileInfoList m_files;
+
+    mutable std::mutex m_mutex;
+    PointStats m_pointStats;
+};
+
 class Manifest
 {
 public:
@@ -38,9 +89,9 @@ public:
             const FileInfoList& fileInfo,
             const arbiter::Endpoint* endpoint = nullptr);
 
-    Manifest(Json::Value json, const arbiter::Endpoint* endpoint = nullptr);
+    // Manifest(Json::Value json, const arbiter::Endpoint* endpoint = nullptr);
 
-    Manifest(const Manifest& other);
+    // Manifest(const Manifest& other);
 
     FileInfoList diff(const FileInfoList& fileInfo) const;
     void append(const FileInfoList& fileInfo);
@@ -138,7 +189,7 @@ private:
     FileStats m_fileStats;
     PointStats m_pointStats;
 
-    std::unique_ptr<arbiter::Endpoint> m_endpoint;
+    // std::unique_ptr<arbiter::Endpoint> m_endpoint;
     std::size_t m_chunkSize = 0;
 
     mutable std::mutex m_mutex;

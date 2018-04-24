@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include <entwine/reader/comparison.hpp>
+#include <entwine/new-reader/comparison.hpp>
 
 #include <json/json.h>
 
@@ -45,7 +45,7 @@ double extractComparisonValue(
         // If this dimension is a path, we need to convert the path
         // string to an Origin.
         const std::string path(val.asString());
-        const Origin origin(metadata.manifest().find(path));
+        const Origin origin(metadata.files().find(path));
         if (origin == invalidOrigin)
         {
             throw std::runtime_error("Could not find path: " + path);
@@ -64,7 +64,7 @@ double extractComparisonValue(
         if (dimensionName == "OriginId")
         {
             const Origin origin(val.asUInt64());
-            if (origin > metadata.manifest().size())
+            if (origin > metadata.files().size())
             {
                 throw std::runtime_error(
                         "Could not find origin: " + std::to_string(origin));
@@ -110,7 +110,7 @@ std::unique_ptr<Bounds> maybeExtractBounds(
     if (dimensionName == "Path" || dimensionName == "OriginId")
     {
         const Origin origin(val);
-        const auto& fileInfo(metadata.manifest().get(origin));
+        const auto& fileInfo(metadata.files().get(origin));
 
         // File info is stored absolutely positioned, so convert it into the
         // local coordinate system for the index.

@@ -33,7 +33,6 @@ set(
     "${BASE}/config.hpp"
     "${BASE}/heuristics.hpp"
     "${BASE}/inference.hpp"
-    "${BASE}/key.hpp"
     "${BASE}/merger.hpp"
     "${BASE}/registry.hpp"
     "${BASE}/sequence.hpp"

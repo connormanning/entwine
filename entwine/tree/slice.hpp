@@ -13,9 +13,9 @@
 #include <cassert>
 #include <mutex>
 
-#include <entwine/tree/key.hpp>
 #include <entwine/tree/new-chunk.hpp>
 #include <entwine/tree/new-climber.hpp>
+#include <entwine/types/key.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/chunk-storage/chunk-storage.hpp>
 #include <entwine/util/unique.hpp>

@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include <entwine/reader/filterable.hpp>
+#include <entwine/new-reader/filterable.hpp>
 
 namespace entwine
 {

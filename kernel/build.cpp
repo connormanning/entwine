@@ -437,7 +437,7 @@ void Kernel::build(std::vector<std::string> args)
 
     const Metadata& metadata(builder->metadata());
     const NewStructure& structure(metadata.structure());
-    const Manifest& manifest(metadata.manifest());
+    const Files& files(metadata.files());
 
     const Reprojection* reprojection(metadata.reprojection());
     const Schema& schema(metadata.schema());
@@ -448,13 +448,13 @@ void Kernel::build(std::vector<std::string> args)
         "Version: " << currentVersion().toString() << "\n" <<
         "Input:\n\t";
 
-    if (manifest.size() == 1)
+    if (files.size() == 1)
     {
-        std::cout << "File: " << manifest.get(0).path() << std::endl;
+        std::cout << "File: " << files.get(0).path() << std::endl;
     }
     else
     {
-        std::cout << "Files: " << manifest.size() << std::endl;
+        std::cout << "Files: " << files.size() << std::endl;
     }
 
     /*
@@ -486,7 +486,7 @@ void Kernel::build(std::vector<std::string> args)
 
     std::cout << "\tDensity estimate (per square unit): ";
     if (metadata.density()) std::cout << metadata.density() << std::endl;
-    else std::cout << densityLowerBound(metadata.manifest().fileInfo()) <<
+    else std::cout << densityLowerBound(metadata.files().list()) <<
         std::endl;
 
     if (!metadata.trustHeaders())
@@ -540,7 +540,7 @@ void Kernel::build(std::vector<std::string> args)
     std::cout << std::endl;
 
     auto start = now();
-    const std::size_t alreadyInserted(manifest.pointStats().inserts());
+    const std::size_t alreadyInserted(files.pointStats().inserts());
 
     builder->go(runCount);
 
@@ -550,7 +550,7 @@ void Kernel::build(std::vector<std::string> args)
 
     std::cout << "Save complete.  Indexing stats:\n";
 
-    const PointStats stats(manifest.pointStats());
+    const PointStats stats(files.pointStats());
 
     if (alreadyInserted)
     {

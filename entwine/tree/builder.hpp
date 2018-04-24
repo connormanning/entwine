@@ -132,7 +132,7 @@ public:
 
 private:
     void doRun(std::size_t max);
-    bool exists() const { return !!m_metadata->manifestPtr(); }
+    // bool exists() const { return !!m_metadata->manifestPtr(); }
 
     std::mutex& mutex();
 
@@ -183,8 +183,8 @@ private:
 
     mutable std::shared_ptr<PointPool> m_pointPool;
 
-    std::unique_ptr<Sequence> m_sequence;
     std::unique_ptr<Registry> m_registry;
+    std::unique_ptr<Sequence> m_sequence;
 
     bool m_verbose = true;
 

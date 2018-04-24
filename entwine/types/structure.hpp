@@ -26,9 +26,9 @@ class NewStructure
 public:
     NewStructure(const Json::Value& json)
         : m_numPointsHint(json["numPoints"].asUInt64())
-        , m_head(json["head"].asInt64())
-        , m_body(json["body"].asInt64())
-        , m_tail(json["tail"].asInt64())
+        , m_head(json["structure"]["head"].asInt64())
+        , m_body(json["structure"]["body"].asInt64())
+        , m_tail(json["structure"]["tail"].asInt64())
     {
         if (!m_tail)
         {

@@ -28,7 +28,7 @@ std::unique_ptr<ChunkStorage> ChunkStorage::create(
     if (s == "lazperf") return makeUnique<LazPerfStorage>(m);
     if (s == "binary")  return makeUnique<BinaryStorage>(m);
     */
-    throw std::runtime_error("Invalid chunk compression type");
+    throw std::runtime_error("Invalid chunk compression type: " + s);
 }
 
 } // namespace entwine

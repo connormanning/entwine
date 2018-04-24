@@ -27,6 +27,7 @@ namespace entwine
 class FileInfo
 {
     friend class Manifest;
+    friend class Files;
     friend class Inference;
 
 public:

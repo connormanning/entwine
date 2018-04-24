@@ -127,6 +127,7 @@ add_subdirectory(kernel)
 set(OBJS
     # $<TARGET_OBJECTS:formats>
     # $<TARGET_OBJECTS:reader>
+    $<TARGET_OBJECTS:new-reader>
     $<TARGET_OBJECTS:chunk-storage>
     $<TARGET_OBJECTS:third>
     $<TARGET_OBJECTS:tree>

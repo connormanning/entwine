@@ -29,6 +29,7 @@ namespace arbiter { class Endpoint; }
 
 class ChunkStorage;
 class Delta;
+class Files;
 class Manifest;
 class Point;
 class Reprojection;
@@ -45,27 +46,9 @@ class Metadata
 
 public:
     Metadata(const Config& config);
-    /*
-    Metadata(
-            const Bounds& nativeBounds,
-            const Schema& schema,
-            const Structure& structure,
-            const Structure& hierarchyStructure,
-            const Manifest& manifest,
-            bool trustHeaders,
-            ChunkStorageType chunkStorage,
-            HierarchyCompression hierarchyCompress,
-            double density,
-            const Reprojection* reprojection = nullptr,
-            const Subset* subset = nullptr,
-            const Delta* delta = nullptr,
-            const std::vector<double>* transformation = nullptr,
-            const cesium::Settings* cesiumSettings = nullptr,
-            std::vector<std::string> preserveSpatial =
-                std::vector<std::string>());
-
     Metadata(const arbiter::Endpoint& endpoint);
 
+    /*
     explicit Metadata(const Json::Value& json);
     Metadata(const Metadata& other);
     */
@@ -121,8 +104,7 @@ public:
 
     const Schema& schema() const { return *m_schema; }
     const NewStructure& structure() const { return *m_structure; }
-    const Manifest* manifestPtr() const { return m_manifest.get(); }
-    const Manifest& manifest() const { return *m_manifest; }
+    const Files& files() const { return *m_files; }
 
     std::string chunkStorageType() const { return "laszip"; }   // TODO
     const ChunkStorage& storage() const { return *m_chunkStorage; }
@@ -154,13 +136,12 @@ public:
 private:
     static Json::Value unify(Json::Value json);
 
-    void awakenManifest(const arbiter::Endpoint& ep);
     Metadata& operator=(const Metadata& other);
 
     // These are aggregated as the Builder runs.
-    Manifest& manifest() { return *m_manifest; }
-    Manifest* manifestPtr() { return m_manifest.get(); }
-    ChunkStorage& storage() { return *m_chunkStorage; }
+    // Manifest& manifest() { return *m_manifest; }
+    Files& mutableFiles() { return *m_files; }
+    // ChunkStorage& storage() { return *m_chunkStorage; }
     std::string& srs() { return m_srs; }
 
     std::unique_ptr<Delta> m_delta;
@@ -174,7 +155,7 @@ private:
 
     std::unique_ptr<Schema> m_schema;
     std::unique_ptr<NewStructure> m_structure;
-    std::unique_ptr<Manifest> m_manifest;
+    std::unique_ptr<Files> m_files;
     std::unique_ptr<ChunkStorage> m_chunkStorage;
     std::unique_ptr<Reprojection> m_reprojection;
     // std::unique_ptr<Subset> m_subset;

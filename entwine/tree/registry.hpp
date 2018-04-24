@@ -21,8 +21,8 @@
 #include <entwine/tree/new-climber.hpp>
 #include <entwine/tree/new-clipper.hpp>
 #include <entwine/tree/cold.hpp>
-#include <entwine/tree/key.hpp>
 #include <entwine/tree/slice.hpp>
+#include <entwine/types/key.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/tube.hpp>
 #include <entwine/util/unique.hpp>

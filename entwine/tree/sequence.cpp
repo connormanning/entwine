@@ -21,17 +21,15 @@
 namespace entwine
 {
 
-Sequence::Sequence(Builder& builder)
-    : m_metadata(*builder.m_metadata)
-    , m_manifest(m_metadata.manifestPtr())
-    , m_mutex(builder.mutex())
+Sequence::Sequence(Metadata& metadata, std::mutex& mutex)
+    : m_metadata(metadata)
+    , m_files(metadata.mutableFiles())
+    , m_mutex(mutex)
     , m_origin(0)
-    , m_end(m_manifest ? m_manifest->size() : 0)
+    , m_end(m_files.size())
     , m_added(0)
     , m_overlaps()
 {
-    if (!m_manifest) return;
-
     const Bounds activeBounds(
             // m_metadata.subset() ?
                 // *m_metadata.boundsNativeSubset() :
@@ -39,7 +37,7 @@ Sequence::Sequence(Builder& builder)
 
     for (Origin i(m_origin); i < m_end; ++i)
     {
-        const FileInfo& f(m_manifest->get(i));
+        const FileInfo& f(m_files.get(i));
         const Bounds* b(f.boundsEpsilon());
 
         if (!b || activeBounds.overlaps(*b, true))
@@ -47,13 +45,6 @@ Sequence::Sequence(Builder& builder)
             m_overlaps.push_back(i);
         }
     }
-
-    /*
-    if (builder.verbose() && m_metadata.subset())
-    {
-        std::cout << "Overlaps: " << m_overlaps.size() << std::endl;
-    }
-    */
 
     m_origin = m_overlaps.empty() ? m_end : m_overlaps.front();
 }
@@ -77,7 +68,7 @@ std::unique_ptr<Origin> Sequence::next(std::size_t max)
 
 bool Sequence::checkInfo(Origin origin)
 {
-    FileInfo& info(m_manifest->get(origin));
+    FileInfo& info(m_files.get(origin));
 
     if (info.status() != FileInfo::Status::Outstanding)
     {
@@ -85,14 +76,14 @@ bool Sequence::checkInfo(Origin origin)
     }
     else if (!Executor::get().good(info.path()))
     {
-        m_manifest->set(origin, FileInfo::Status::Omitted);
+        m_files.set(origin, FileInfo::Status::Omitted);
         return false;
     }
     else if (const Bounds* infoBounds = info.boundsEpsilon())
     {
         if (!checkBounds(origin, *infoBounds, info.numPoints()))
         {
-            m_manifest->set(origin, FileInfo::Status::Inserted);
+            m_files.set(origin, FileInfo::Status::Inserted);
             return false;
         }
     }

@@ -65,7 +65,10 @@ public:
     std::size_t tail() const { return m_json["tail"].asUInt64(); }
 
     std::string dataStorage() const { return m_json["dataStorage"].asString(); }
-    std::string hierStorage() const { return m_json["hierStorage"].asString(); }
+    std::string hierStorage() const
+    {
+        return m_json["hierarchyStorage"].asString();
+    }
 
     const Json::Value& json() const { return m_json; }
     const Json::Value& operator[](std::string k) const { return m_json[k]; }

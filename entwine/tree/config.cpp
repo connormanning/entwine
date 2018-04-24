@@ -24,15 +24,14 @@ Config::Config(const Json::Value& json)
 Json::Value Config::defaults() const
 {
     Json::Value json;
-    json["input"] = Json::Value::null;
-    json["output"] = Json::Value::null;
     json["tmp"] = arbiter::fs::getTempPath();
     json["threads"] = 8;
     json["trustHeaders"] = true;
-    json["head"] = 7;
-    json["body"] = 9;
+    json["structure"]["head"] = 8;
+    json["structure"]["body"] = 8;
+    json["structure"]["tail"] = 11;
     json["dataStorage"] = "laszip";
-    json["hierStorage"] = "json";
+    json["hierarchyStorage"] = "json";
     return json;
 }
 
@@ -47,8 +46,22 @@ FileInfoList Config::input() const
     FileInfoList f;
     arbiter::Arbiter arbiter(m_json["arbiter"]);
 
-    auto insert([&](std::string p)
+    auto insert([&](const Json::Value& j)
     {
+        if (j.isObject())
+        {
+            f.emplace_back(j);
+            return;
+        }
+
+        if (!j.isString())
+        {
+            throw std::runtime_error(
+                    j.toStyledString() + " not convertible to string");
+        }
+
+        std::string p(j.asString());
+
         if (p.empty()) return;
 
         if (p.back() != '*')
@@ -68,8 +81,8 @@ FileInfoList Config::input() const
     });
 
     const auto& i(m_json["input"]);
-    if (i.isString()) insert(i.asString());
-    else if (i.isArray()) for (const auto& j : i) insert(j.asString());
+    if (i.isString()) insert(i);
+    else if (i.isArray()) for (const auto& j : i) insert(j);
 
     return f;
 }

@@ -60,12 +60,12 @@ Builder::Builder(const Config& config)
     , m_pointPool(std::make_shared<PointPool>(
                 m_metadata->schema(),
                 m_metadata->delta()))
-    , m_sequence(makeUnique<Sequence>(*this))
     , m_registry(makeUnique<Registry>(
                 *m_metadata,
                 *m_out,
                 *m_tmp,
                 *m_pointPool))
+    , m_sequence(makeUnique<Sequence>(*m_metadata, m_mutex))
     , m_start(now())
 {
     prepareEndpoints();
@@ -165,9 +165,9 @@ Builder::~Builder()
 void Builder::go(std::size_t max)
 {
     bool done(false);
-    const auto& manifest(m_metadata->manifest());
+    const auto& files(m_metadata->files());
 
-    const std::size_t alreadyInserted(manifest.pointStats().inserts());
+    const std::size_t alreadyInserted(files.pointStats().inserts());
 
     Pool p(2);
     p.add([this, max, &done]()
@@ -176,7 +176,7 @@ void Builder::go(std::size_t max)
         done = true;
     });
 
-    p.add([this, &done, &manifest, alreadyInserted]()
+    p.add([this, &done, &files, alreadyInserted]()
     {
         using ms = std::chrono::milliseconds;
         const std::size_t interval(10);
@@ -190,10 +190,10 @@ void Builder::go(std::size_t max)
             if (s % interval == 0)
             {
                 const double inserts(
-                        manifest.pointStats().inserts() - alreadyInserted);
+                        files.pointStats().inserts() - alreadyInserted);
 
                 const double progress(
-                        (manifest.pointStats().inserts() + alreadyInserted) /
+                        (files.pointStats().inserts() + alreadyInserted) /
                         (double)(m_metadata->structure().numPointsHint()));
 
                 const auto& d(pointPool().dataPool());
@@ -227,7 +227,7 @@ void Builder::doRun(const std::size_t max)
     while (auto o = m_sequence->next(max))
     {
         const Origin origin(*o);
-        FileInfo& info(m_metadata->manifest().get(origin));
+        FileInfo& info(m_metadata->mutableFiles().get(origin));
         const auto path(info.path());
 
         if (verbose())
@@ -266,7 +266,7 @@ void Builder::doRun(const std::size_t max)
                 message = "Unknown error";
             }
 
-            m_metadata->manifest().set(origin, status, message);
+            m_metadata->mutableFiles().set(origin, status, message);
             if (verbose()) std::cout << "\tDone " << origin << std::endl;
         });
     }
@@ -428,7 +428,11 @@ Cells Builder::insertData(
         }
     }
 
-    if (origin != invalidOrigin) m_metadata->manifest().add(origin, pointStats);
+    if (origin != invalidOrigin)
+    {
+        m_metadata->mutableFiles().add(origin, pointStats);
+    }
+
     return rejected;
 }
 
@@ -460,7 +464,6 @@ void Builder::merge(Builder& other)
     {
         throw std::runtime_error("Cannot merge non-subset build");
     }
-    */
 
     if (m_threadPools->clipPool().running())
     {
@@ -473,6 +476,7 @@ void Builder::merge(Builder& other)
     {
         m_metadata->merge(*other.m_metadata);
     }
+    */
 }
 
 void Builder::prepareEndpoints()
@@ -495,11 +499,6 @@ void Builder::prepareEndpoints()
             if (!arbiter::fs::mkdirp(rootDir))
             {
                 throw std::runtime_error("Couldn't create " + rootDir);
-            }
-
-            if (!arbiter::fs::mkdirp(rootDir + "h"))
-            {
-                throw std::runtime_error("Couldn't create " + rootDir + "h");
             }
         }
     }
@@ -529,11 +528,13 @@ const arbiter::Endpoint& Builder::tmpEndpoint() const { return *m_tmp; }
 
 std::mutex& Builder::mutex() { return m_mutex; }
 
+/*
 void Builder::append(const FileInfoList& fileInfo)
 {
-    m_metadata->manifest().append(fileInfo);
+    m_metadata->files().append(fileInfo);
     m_sequence = makeUnique<Sequence>(*this);
 }
+*/
 
 } // namespace entwine
 

@@ -35,15 +35,19 @@ namespace
     const std::size_t chunkSize(100);
 }
 
+void Files::save(const arbiter::Endpoint& ep) const
+{
+    const Json::Value json(toJson(m_files));
+    io::ensurePut(ep, "entwine-files.json", json.toStyledString());
+}
+
 Manifest::Manifest(
         const FileInfoList& fileInfo,
         const arbiter::Endpoint* endpoint)
     : m_fileInfo(fileInfo)
-    , m_remote(m_fileInfo.size(), false)
-    , m_endpoint(maybeClone(endpoint))
-    , m_chunkSize(chunkSize)
 { }
 
+/*
 Manifest::Manifest(Json::Value json, const arbiter::Endpoint* endpoint)
     : m_endpoint(maybeClone(endpoint))
 {
@@ -100,6 +104,7 @@ Manifest::Manifest(const Manifest& other)
     , m_endpoint(maybeClone(other.m_endpoint.get()))
     , m_chunkSize(other.m_chunkSize)
 { }
+*/
 
 Origin Manifest::find(const std::string& search) const
 {
@@ -231,8 +236,9 @@ void Manifest::awakenAll(Pool& pool) const
 
 void Manifest::awaken(Origin origin) const
 {
+    /*
     if (!m_remote.at(origin)) return;
-    if (!m_endpoint) return;
+    // if (!m_endpoint) return;
 
     const std::size_t chunk(origin / m_chunkSize * m_chunkSize);
     const auto m(m_endpoint->getSubEndpoint("m"));
@@ -259,6 +265,7 @@ void Manifest::awaken(Origin origin) const
         m_remote.at(i) = false;
         ++i;
     }
+    */
 }
 
 void Manifest::save(const arbiter::Endpoint& ep) const
@@ -267,6 +274,7 @@ void Manifest::save(const arbiter::Endpoint& ep) const
     io::ensurePut(ep, "entwine-files.json", json.toStyledString());
 }
 
+/*
 void Manifest::save(const bool primary, const std::string postfix) const
 {
     if (!m_endpoint) throw std::runtime_error("No endpoint to save manifest");
@@ -330,6 +338,7 @@ void Manifest::save(const bool primary, const std::string postfix) const
             "entwine-files" + postfix + ".json",
             primary ? json.toStyledString() : toFastString(json));
 }
+*/
 
 } // namespace entwine
 

@@ -12,9 +12,9 @@
 
 #include <json/json.h>
 
-#include <entwine/tree/builder.hpp>
 #include <entwine/tree/chunk.hpp>
 #include <entwine/tree/config.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/storage-types.hpp>
 #include <entwine/util/io.hpp>

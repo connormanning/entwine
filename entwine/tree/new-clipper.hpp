@@ -14,8 +14,8 @@
 #include <cstdint>
 #include <set>
 
-#include <entwine/tree/key.hpp>
 #include <entwine/types/defs.hpp>
+#include <entwine/types/key.hpp>
 
 namespace entwine
 {

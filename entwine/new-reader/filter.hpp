@@ -14,8 +14,9 @@
 
 #include <json/json.h>
 
-#include <entwine/reader/comparison.hpp>
-#include <entwine/reader/logic-gate.hpp>
+#include <entwine/new-reader/comparison.hpp>
+#include <entwine/new-reader/logic-gate.hpp>
+#include <entwine/new-reader/query-params.hpp>
 #include <entwine/types/delta.hpp>
 #include <entwine/types/metadata.hpp>
 
@@ -25,6 +26,10 @@ namespace entwine
 class Filter
 {
 public:
+    Filter(const Metadata& m, const NewQueryParams& p)
+        : Filter(m, p.bounds(), p.filter(), &p.delta())
+    { }
+
     Filter(
             const Metadata& metadata,
             const Bounds& queryBounds,

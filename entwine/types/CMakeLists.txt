@@ -23,6 +23,7 @@ set(
     "${BASE}/dir.hpp"
     "${BASE}/file-info.hpp"
     "${BASE}/fixed-point-layout.hpp"
+    "${BASE}/key.hpp"
     "${BASE}/manifest.hpp"
     "${BASE}/metadata.hpp"
     "${BASE}/outer-scope.hpp"

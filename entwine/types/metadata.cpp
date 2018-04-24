@@ -37,7 +37,7 @@ Metadata::Metadata(const Config& config)
             clone(m_boundsNativeConforming->cubeify(m_delta.get())))
     , m_schema(makeUnique<Schema>(config["schema"]))
     , m_structure(makeUnique<NewStructure>(config.json()))
-    , m_manifest(makeUnique<Manifest>(config["input"]))
+    , m_files(makeUnique<Files>(config.input()))
     , m_chunkStorage(ChunkStorage::create(*this, config))
     , m_reprojection(Reprojection::create(config["reprojection"]))
     , m_version(makeUnique<Version>(currentVersion()))
@@ -46,50 +46,11 @@ Metadata::Metadata(const Config& config)
     , m_trustHeaders(config.trustHeaders())
 { }
 
+Metadata::Metadata(const arbiter::Endpoint& ep)
+    : Metadata(parse(ep.get("entwine.json")))
+{ }
 
 /*
-Metadata::Metadata(
-        const Bounds& boundsNativeConforming,
-        const Schema& schema,
-        const Structure& structure,
-        const Structure& hierarchyStructure,
-        const Manifest& manifest,
-        const bool trustHeaders,
-        const ChunkStorageType chunkStorage,
-        const HierarchyCompression hierarchyCompress,
-        const double density,
-        const Reprojection* reprojection,
-        const Subset* subset,
-        const Delta* delta,
-        const Transformation* transformation,
-        const cesium::Settings* cesiumSettings,
-        const std::vector<std::string> preserveSpatial)
-    : m_delta(maybeClone(delta))
-    , m_boundsNativeConforming(clone(boundsNativeConforming))
-    , m_boundsNativeCubic(clone(makeNativeCube(boundsNativeConforming, delta)))
-    , m_boundsScaledConforming(
-            clone(m_boundsNativeConforming->deltify(m_delta.get())))
-    , m_boundsScaledCubic(
-            clone(m_boundsNativeConforming->cubeify(m_delta.get())))
-    , m_boundsScaledEpsilon(
-            clone(m_boundsScaledConforming->growBy(epsilon)))
-    , m_schema(makeUnique<Schema>(schema))
-    , m_structure(makeUnique<Structure>(structure))
-    , m_manifest(makeUnique<Manifest>(manifest))
-    , m_storage(makeUnique<Storage>(*this, chunkStorage, hierarchyCompress))
-    , m_reprojection(maybeClone(reprojection))
-    , m_subset(maybeClone(subset))
-    , m_transformation(maybeClone(transformation))
-    , m_cesiumSettings(maybeClone(cesiumSettings))
-    , m_version(makeUnique<Version>(currentVersion()))
-    , m_srs(m_reprojection ? m_reprojection->out() : "")
-    , m_density(density)
-    , m_trustHeaders(trustHeaders)
-    , m_preserveSpatial(preserveSpatial)
-{
-    if (!m_density) m_density = densityLowerBound(*m_manifest);
-}
-
 std::unique_ptr<Metadata> Metadata::create(
         const arbiter::Endpoint& ep,
         const std::size_t* subsetId)
@@ -259,8 +220,7 @@ Json::Value Metadata::toJson() const
     if (m_density) json["density"] = m_density;
 
     json["version"] = m_version->toString();
-
-    json["dataStorage"] = "laz";
+    json["dataStorage"] = "laszip";
     json["hierarchyStorage"] = "json";
 
     for (const auto s : m_preserveSpatial) json["preserveSpatial"].append(s);
@@ -274,7 +234,7 @@ void Metadata::save(const arbiter::Endpoint& endpoint) const
     const std::string f("entwine" + postfix() + ".json");
     io::ensurePut(endpoint, f, json.toStyledString());
 
-    if (m_manifest) m_manifest->save(endpoint);
+    m_files->save(endpoint);
     /*
     const bool primary(!m_subset || m_subset->primary());
     if (m_manifest) m_manifest->save(primary, postfix());
@@ -284,7 +244,7 @@ void Metadata::save(const arbiter::Endpoint& endpoint) const
 void Metadata::merge(const Metadata& other)
 {
     if (m_srs.empty()) m_srs = other.srs();
-    m_manifest->merge(other.manifest());
+    // m_manifest->merge(other.manifest());
 }
 
 /*

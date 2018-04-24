@@ -52,7 +52,7 @@ Json::Value ConfigParser::defaults()
     json["head"] = 7;
     json["body"] = 9;
     json["dataStorage"] = "laszip";
-    json["hierStorage"] = "json";
+    json["hierarchyStorage"] = "json";
     /*
     json["prefixIds"] = false;
     json["storage"] = "laszip";

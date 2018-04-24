@@ -27,7 +27,7 @@ class Sequence
     friend class Builder;
 
 public:
-    Sequence(Builder& builder);
+    Sequence(Metadata& metadata, std::mutex& mutex);
 
     std::unique_ptr<Origin> next(std::size_t max);
     bool done() const { auto l(getLock()); return m_origin < m_end; }
@@ -55,8 +55,8 @@ private:
             const Bounds& bounds,
             std::size_t numPoints);
 
-    Metadata& m_metadata;
-    Manifest* m_manifest;
+    const Metadata& m_metadata;
+    Files& m_files;
     std::mutex& m_mutex;
 
     Origin m_origin;

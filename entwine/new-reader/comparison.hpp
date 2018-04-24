@@ -12,7 +12,7 @@
 
 #include <vector>
 
-#include <entwine/reader/filterable.hpp>
+#include <entwine/new-reader/filterable.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/util/unique.hpp>

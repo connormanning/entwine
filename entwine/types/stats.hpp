@@ -41,6 +41,12 @@ public:
 
     bool empty() const { return !m_inserts && !m_outOfBounds && !m_overflows; }
 
+    PointStats& operator+=(const PointStats& other)
+    {
+        add(other);
+        return *this;
+    }
+
     void add(const PointStats& other)
     {
         m_inserts += other.m_inserts;

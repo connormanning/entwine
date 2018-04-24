@@ -10,6 +10,7 @@ set(
     "${BASE}/logic-gate.cpp"
     "${BASE}/query.cpp"
     "${BASE}/reader.cpp"
+    "${BASE}/new-reader.cpp"
 )
 
 set(
@@ -26,6 +27,7 @@ set(
     "${BASE}/query-chunk-state.hpp"
     "${BASE}/query-params.hpp"
     "${BASE}/reader.hpp"
+    "${BASE}/new-reader.hpp"
 )
 
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})

@@ -12,8 +12,8 @@
 
 #include <cstddef>
 
-#include <entwine/tree/key.hpp>
 #include <entwine/types/defs.hpp>
+#include <entwine/types/key.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/point.hpp>
 #include <entwine/types/structure.hpp>
@@ -34,7 +34,6 @@ public:
 
     void reset()
     {
-        m_d = 0;
         m_point.reset();
         m_chunk.reset();
     }
@@ -47,24 +46,19 @@ public:
     void init(const Point& p, uint64_t depth)
     {
         reset();
-        while (m_d < depth) step(p);
+        while (m_chunk.d < depth) step(p);
     }
 
     void step(const Point& p)
     {
         m_point.step(p);
-        if (m_d >= m_structure.body() && m_d < m_structure.tail())
-        {
-            m_chunk.step(p);
-        }
-
-        ++m_d;
+        m_chunk.step(p);
     }
 
     Origin origin() const { return m_origin; }
-    uint64_t depth() const { return m_d; }
+    uint64_t depth() const { return m_chunk.d; }
     const Key& pointKey() const { return m_point; }
-    const Key& chunkKey() const { return m_chunk; }
+    const Key& chunkKey() const { return m_chunk.k; }
     std::size_t pointSize() const { return m_metadata.schema().pointSize(); }
 
 private:
@@ -72,10 +66,8 @@ private:
     const NewStructure& m_structure;
     const Origin m_origin;
 
-    uint64_t m_d = 0;
-
     Key m_point;
-    Key m_chunk;
+    ChunkKey m_chunk;
 };
 
 } // namespace entwine
