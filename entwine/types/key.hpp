@@ -13,6 +13,7 @@
 #include <cassert>
 #include <cctype>
 #include <cstdint>
+#include <ostream>
 #include <string>
 
 #include <entwine/types/bounds.hpp>
@@ -209,6 +210,18 @@ struct ChunkKey
     Key k;
     uint64_t d = 0;
 };
+
+inline std::ostream& operator<<(std::ostream& os, const Xyz& xyz)
+{
+    os << xyz.toString();
+    return os;
+}
+
+inline std::ostream& operator<<(std::ostream& os, const Dxyz& dxyz)
+{
+    os << dxyz.toString();
+    return os;
+}
 
 } // namespace entwine
 

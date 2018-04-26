@@ -25,6 +25,7 @@
 #include <entwine/types/key.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/tube.hpp>
+#include <entwine/util/pool.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace arbiter
@@ -46,6 +47,7 @@ public:
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
             PointPool& pointPool,
+            Pool& threadPool,
             bool exists = false);
 
     void save(const arbiter::Endpoint& endpoint) const;
@@ -71,7 +73,10 @@ public:
 
     void clip(uint64_t d, const Xyz& p, uint64_t o)
     {
-        m_slices.at(d).clip(p, o);
+        m_threadPool.add([this, d, p, o]
+        {
+            m_slices.at(d).clip(p, o);
+        });
     }
 
     const Metadata& metadata() const { return m_metadata; }
@@ -86,6 +91,7 @@ private:
     const Metadata& m_metadata;
     const arbiter::Endpoint& m_out;
     const arbiter::Endpoint& m_tmp;
+    Pool& m_threadPool;
 
     std::vector<Slice> m_slices;
 };

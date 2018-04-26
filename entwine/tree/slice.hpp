@@ -182,14 +182,12 @@ private:
     public:
         void ref(const Slice& s, const NewClimber& climber)
         {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            m_chunks[climber.chunkKey().position().z].ref(s, climber);
+            get(climber.chunkKey().position().z).ref(s, climber);
         }
 
         void unref(const Slice& s, const Xyz& p, uint64_t o)
         {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            m_chunks.at(p.z).unref(s, p, o);
+            at(p.z).unref(s, p, o);
         }
 
         ReffedChunk& get(uint64_t z)
@@ -214,7 +212,7 @@ private:
 
         void setNp(uint64_t z, uint64_t np)
         {
-            m_chunks[z].setNp(np);
+            get(z).setNp(np);
         }
 
     private:

@@ -67,6 +67,7 @@ Builder::Builder(const Config& config)
                 *m_out,
                 *m_tmp,
                 *m_pointPool,
+                m_threadPools->clipPool(),
                 m_isContinuation))
     , m_sequence(makeUnique<Sequence>(*m_metadata, m_mutex))
     , m_start(now())

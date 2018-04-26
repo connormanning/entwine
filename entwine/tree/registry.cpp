@@ -29,10 +29,12 @@ Registry::Registry(
         const arbiter::Endpoint& out,
         const arbiter::Endpoint& tmp,
         PointPool& pointPool,
+        Pool& threadPool,
         const bool exists)
     : m_metadata(metadata)
     , m_out(out)
     , m_tmp(tmp)
+    , m_threadPool(threadPool)
 {
     std::size_t chunksAcross(1);
     std::size_t pointsAcross(1);
