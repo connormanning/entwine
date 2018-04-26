@@ -10,7 +10,11 @@
 
 #pragma once
 
+#include <cstddef>
+#include <deque>
+#include <list>
 #include <map>
+#include <mutex>
 
 #include <entwine/new-reader/new-chunk-reader.hpp>
 #include <entwine/types/key.hpp>
@@ -18,23 +22,54 @@
 namespace entwine
 {
 
-struct GlobalKey
-{
-    GlobalKey(std::string name, const Dxyz& id) : name(name), id(id) { }
+class NewReader;
 
-    const std::string name;
-    const Dxyz id;
+struct GlobalId
+{
+    GlobalId(const NewReader& reader, const Dxyz& key)
+        : reader(reader)
+        , key(key)
+    { }
+
+    const NewReader& reader;
+    const Dxyz key;
+};
+
+bool operator<(const GlobalId& a, const GlobalId& b);
+
+struct ChunkReaderInfo
+{
+    using Map = std::map<GlobalId, ChunkReaderInfo>;
+    using Order = std::list<Map::iterator>;
+
+    SharedChunkReader chunk;
+    Order::iterator it;
 };
 
 class NewCache
 {
-    using ChunkMap = std::map<GlobalKey, NewChunkReader>;
-
 public:
-    std::size_t maxBytes() const { return 0; }
+    NewCache(std::size_t maxBytes = 1024 * 1024 * 1024) // TODO default.
+        : m_maxBytes(maxBytes)
+    { }
+
+    std::size_t maxBytes() const { return m_maxBytes; }
+
+    std::deque<SharedChunkReader> acquire(
+            const NewReader& reader,
+            const std::vector<Dxyz>& keys);
 
 private:
-     ChunkMap m_chunks;
+    SharedChunkReader get(const NewReader& reader, const Dxyz& id);
+    void purge();
+
+    const std::size_t m_maxBytes = 1024 * 1024;
+
+    mutable std::mutex m_mutex;
+    std::size_t m_size = 0;
+
+    ChunkReaderInfo::Map m_chunks;
+    ChunkReaderInfo::Order m_order;
 };
 
 } // namespace entwine

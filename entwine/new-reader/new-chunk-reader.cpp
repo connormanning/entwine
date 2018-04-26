@@ -22,8 +22,7 @@ NewChunkReader::NewChunkReader(const NewReader& r, const Dxyz& id)
                 r.tmp(),
                 r.pointPool(),
                 id.toString()))
-{
-}
+{ }
 
 } // namespace entwine
 

@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include <entwine/types/key.hpp>
 #include <entwine/types/point-pool.hpp>
 
@@ -28,6 +30,8 @@ public:
 private:
     Cell::PooledStack m_cells;
 };
+
+using SharedChunkReader = std::shared_ptr<NewChunkReader>;
 
 } // namespace entwine
 

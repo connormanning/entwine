@@ -44,6 +44,9 @@ public:
     NewCache& cache() const { return *m_cache; }
     PointPool& pointPool() const { return m_pointPool; }
 
+    std::string path() const { return ep().prefixedRoot(); }
+    std::size_t pointSize() const { return m_metadata.schema().pointSize(); }
+
 private:
     void fakeHierarchy(
             Json::Value& json,

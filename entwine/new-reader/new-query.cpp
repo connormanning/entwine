@@ -72,13 +72,19 @@ void NewQuery::overlaps(HierarchyReader::Keys& keys, const ChunkKey& c) const
 
 void NewQuery::run()
 {
-    // Fetch all touched chunks (for now).
-    for (const auto& key : m_overlaps)
+    for (const auto& k : m_overlaps)
     {
-        NewChunkReader chunk(m_reader, key.first);
-        for (const auto& cell : chunk.cells())
+        // For now we're doing one at a time.
+        std::vector<Dxyz> keys;
+        keys.push_back(k.first);
+        auto block(m_reader.cache().acquire(m_reader, keys));
+
+        for (auto& chunk : block)
         {
-            maybeProcess(cell);
+            for (const auto& cell : chunk->cells())
+            {
+                maybeProcess(cell);
+            }
         }
     }
 }

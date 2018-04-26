@@ -46,7 +46,7 @@ protected:
     BinaryPointTable m_table;
     pdal::PointRef m_pointRef;
 
-// private:
+private:
     HierarchyReader::Keys overlaps() const;
     void overlaps(HierarchyReader::Keys& keys, const ChunkKey& c) const;
 
@@ -54,7 +54,7 @@ protected:
 
     HierarchyReader::Keys m_overlaps;
     uint64_t m_numPoints = 0;
-    // std::vector<NewChunkReader> m_chunks;    // TODO Hook up cache.
+    std::deque<SharedChunkReader> m_chunks;
 };
 
 class NewCountQuery : public NewQuery
