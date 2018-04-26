@@ -33,7 +33,9 @@ public:
             std::shared_ptr<arbiter::Arbiter> a =
                 std::shared_ptr<arbiter::Arbiter>());
 
-    std::vector<char> read(const Json::Value& json) const;
+    std::unique_ptr<NewCountQuery> count(const Json::Value& json) const;
+    std::unique_ptr<NewReadQuery> read(const Json::Value& json) const;
+    Json::Value fakeHierarchy(const Json::Value json) const;
 
     const Metadata& metadata() const { return m_metadata; }
     const HierarchyReader& hierarchy() const { return m_hierarchy; }
@@ -43,6 +45,11 @@ public:
     PointPool& pointPool() const { return m_pointPool; }
 
 private:
+    void fakeHierarchy(
+            Json::Value& json,
+            uint64_t d,
+            const NewQueryParams& params) const;
+
     std::shared_ptr<arbiter::Arbiter> m_arbiter;
     arbiter::Endpoint m_ep;
     arbiter::Endpoint m_tmp;

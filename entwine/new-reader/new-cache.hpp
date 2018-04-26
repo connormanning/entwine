@@ -31,6 +31,7 @@ class NewCache
     using ChunkMap = std::map<GlobalKey, NewChunkReader>;
 
 public:
+    std::size_t maxBytes() const { return 0; }
 
 private:
      ChunkMap m_chunks;
