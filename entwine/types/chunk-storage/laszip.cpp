@@ -65,8 +65,8 @@ void LasZipStorage::write(
         .apply([](double d) { return std::floor(d); });
 
     // See https://www.pdal.io/stages/writers.las.html
-    uint64_t timeMask(schema.hasTime() ? 1 : 0);
-    uint64_t colorMask(schema.hasColor() ? 2 : 0);
+    // const uint64_t timeMask(schema.hasTime() ? 1 : 0);
+    const uint64_t colorMask(/* schema.hasColor() ? */ 2 /* : 0 */);
 
     pdal::Options options;
     options.add("filename", localDir + localFile);

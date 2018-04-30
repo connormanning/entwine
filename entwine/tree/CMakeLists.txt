@@ -15,6 +15,7 @@ set(
     "${BASE}/merger.cpp"
     "${BASE}/registry.cpp"
     "${BASE}/sequence.cpp"
+    "${BASE}/split-chunk.cpp"
     "${BASE}/thread-pools.cpp"
     "${BASE}/tiler.cpp"
 )
@@ -37,6 +38,7 @@ set(
     "${BASE}/registry.hpp"
     "${BASE}/sequence.hpp"
     "${BASE}/splitter.hpp"
+    "${BASE}/split-chunk.hpp"
     "${BASE}/thread-pools.hpp"
     "${BASE}/tiler.hpp"
     "${BASE}/traverser.hpp"

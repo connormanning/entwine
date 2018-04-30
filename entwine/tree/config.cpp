@@ -29,7 +29,7 @@ Json::Value Config::defaults() const
     json["trustHeaders"] = true;
     json["structure"]["head"] = 8;
     json["structure"]["body"] = 8;
-    json["structure"]["tail"] = 11;
+    // json["structure"]["tail"] = 11;
     json["dataStorage"] = "laszip";
     json["hierarchyStorage"] = "json";
     return json;

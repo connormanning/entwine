@@ -73,10 +73,7 @@ public:
 
     void clip(uint64_t d, const Xyz& p, uint64_t o)
     {
-        m_threadPool.add([this, d, p, o]
-        {
-            m_slices.at(d).clip(p, o);
-        });
+        m_threadPool.add([this, d, p, o] { m_slices.at(d).clip(p, o); });
     }
 
     const Metadata& metadata() const { return m_metadata; }

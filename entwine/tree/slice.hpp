@@ -15,6 +15,7 @@
 
 #include <entwine/tree/new-chunk.hpp>
 #include <entwine/tree/new-climber.hpp>
+#include <entwine/tree/split-chunk.hpp>
 #include <entwine/types/key.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/chunk-storage/chunk-storage.hpp>
@@ -25,6 +26,8 @@ namespace entwine
 
 class Slice
 {
+    friend class ReffedChunk;
+
 public:
     Slice(
             const Metadata& metadata,
@@ -42,8 +45,13 @@ public:
         , m_contiguous(m_depth < m_metadata.structure().tail())
         , m_chunksAcross(chunksAcross)
         , m_pointsAcross(pointsAcross)
-        , m_chunks(m_chunksAcross * m_chunksAcross)
-    { }
+    {
+        for (std::size_t i(0); i < m_chunksAcross * m_chunksAcross; ++i)
+        {
+            m_chunks.emplace_back(
+                    SplitChunk::create(m_contiguous, m_chunksAcross));
+        }
+    }
 
     Tube::Insertion insert(
             Cell::PooledNode& cell,
@@ -51,14 +59,10 @@ public:
             NewClipper& clipper)
     {
         const Xyz& ck(climber.chunkKey().position());
-
         const std::size_t i(ck.y * m_chunksAcross + ck.x);
-        ReffedChunk& rc(m_chunks.at(i).get(ck.z));
+        ReffedChunk& rc(m_chunks[i]->get(ck.z));
 
-        if (clipper.insert(climber.depth(), ck))
-        {
-            rc.ref(*this, climber);
-        }
+        if (clipper.insert(climber.depth(), ck)) rc.ref(*this, climber);
 
         return rc.chunk().insert(cell, climber);
     }
@@ -66,7 +70,7 @@ public:
     void clip(const Xyz& p, uint64_t o)
     {
         const std::size_t i(p.y * m_chunksAcross + p.x);
-        ReffedChunk& rc(m_chunks.at(i).at(p.z));
+        ReffedChunk& rc(m_chunks[i]->at(p.z));
         rc.unref(*this, p, o);
     }
 
@@ -75,13 +79,13 @@ public:
     std::size_t np(const Xyz& p) const
     {
         const std::size_t i(p.y * m_chunksAcross + p.x);
-        return m_chunks.at(i).np(p.z);
+        return m_chunks[i]->np(p.z);
     }
 
     void setNp(const Xyz& p, std::size_t np)
     {
         const std::size_t i(p.y * m_chunksAcross + p.x);
-        m_chunks.at(i).setNp(p.z, np);
+        m_chunks[i]->setNp(p.z, np);
     }
 
 private:
@@ -110,116 +114,6 @@ private:
                 p.toString(m_depth));
     }
 
-    class ReffedChunk
-    {
-    public:
-        void ref(const Slice& s, const NewClimber& climber)
-        {
-            const Origin o(climber.origin());
-            const Xyz& ck(climber.chunkKey().position());
-
-            std::lock_guard<std::mutex> lock(m_mutex);
-
-            if (!m_refs.count(o))
-            {
-                m_refs[o] = 1;
-
-                if (!m_chunk)
-                {
-                    m_chunk = s.create();
-                    if (m_np)
-                    {
-                        Cells cells(s.read(ck));
-                        assert(cells.size() == m_np);
-
-                        NewClimber c(climber);
-
-                        while (!cells.empty())
-                        {
-                            auto cell(cells.popOne());
-                            c.init(cell->point(), s.depth());
-                            m_chunk->insert(cell, c);
-                        }
-                    }
-                }
-            }
-            else ++m_refs[o];
-        }
-
-        void unref(const Slice& s, const Xyz& p, uint64_t o)
-        {
-            std::lock_guard<std::mutex> lock(m_mutex);
-
-            if (!--m_refs.at(o))
-            {
-                m_refs.erase(o);
-                if (m_refs.empty())
-                {
-                    auto cells(m_chunk->acquire(s.pointPool()));
-
-                    m_np = 0;
-                    for (const Cell& cell : cells) m_np += cell.size();
-                    s.write(p, std::move(cells));
-
-                    m_chunk.reset();
-                }
-            }
-        }
-
-        NewChunk& chunk() { return *m_chunk; }
-        std::size_t np() const { return m_np; }
-        void setNp(uint64_t np) { m_np = np; }
-
-    private:
-        std::mutex m_mutex;
-        std::size_t m_np = 0;
-        std::unique_ptr<NewChunk> m_chunk;
-        std::map<Origin, std::size_t> m_refs;
-    };
-
-    class SplitChunk
-    {
-    public:
-        void ref(const Slice& s, const NewClimber& climber)
-        {
-            get(climber.chunkKey().position().z).ref(s, climber);
-        }
-
-        void unref(const Slice& s, const Xyz& p, uint64_t o)
-        {
-            at(p.z).unref(s, p, o);
-        }
-
-        ReffedChunk& get(uint64_t z)
-        {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            return m_chunks[z];
-        }
-
-        ReffedChunk& at(uint64_t z)
-        {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            return m_chunks.at(z);
-        }
-
-        std::size_t np(uint64_t z) const
-        {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            auto it(m_chunks.find(z));
-            if (it != m_chunks.end()) return it->second.np();
-            else return 0;
-        }
-
-        void setNp(uint64_t z, uint64_t np)
-        {
-            get(z).setNp(np);
-        }
-
-    private:
-        mutable std::mutex m_mutex;
-        std::map<uint64_t, ReffedChunk> m_chunks;
-    };
-
     const Metadata& m_metadata;
     const arbiter::Endpoint& m_out;
     const arbiter::Endpoint& m_tmp;
@@ -230,7 +124,7 @@ private:
     const std::size_t m_chunksAcross;
     const std::size_t m_pointsAcross;
 
-    std::vector<SplitChunk> m_chunks;
+    std::vector<std::unique_ptr<SplitChunk>> m_chunks;
 };
 
 } // namespace entwine

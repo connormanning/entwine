@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <cstddef>
 #include <mutex>
 
@@ -55,7 +56,8 @@ public:
                 (pk.y % m_pointsAcross) * m_pointsAcross +
                 (pk.x % m_pointsAcross));
 
-        return m_tubes.at(i).insert(climber, cell);
+        assert(i < m_tubes.size());
+        return m_tubes[i].insert(climber, cell);
     }
 
 private:
