@@ -408,6 +408,23 @@ void Kernel::build(std::vector<std::string> args)
             }
             else error("Invalid preserveSpatial specification");
         }
+        else if (arg == "--body")
+        {
+            if (++a < args.size())
+            {
+                json["structure"]["head"] = parse(args[a]);
+                json["structure"]["body"] = parse(args[a]);
+            }
+            else error("Invalid body depth");
+        }
+        else if (arg == "--tail")
+        {
+            if (++a < args.size())
+            {
+                json["structure"]["tail"] = parse(args[a]);
+            }
+            else error("Invalid tail depth");
+        }
         else
         {
             error("Invalid argument: " + args[a]);
