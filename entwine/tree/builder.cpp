@@ -57,6 +57,7 @@ Builder::Builder(const Config& config)
     , m_tmp(makeUnique<Endpoint>(m_arbiter->getEndpoint(config.tmp())))
     , m_threadPools(makeUnique<ThreadPools>(config.threads()))
     , m_isContinuation(!config.force() && m_out->tryGetSize("entwine.json"))
+    , m_sleepCount(config.sleepCount())
     , m_metadata(m_isContinuation ?
             makeUnique<Metadata>(*m_out) : makeUnique<Metadata>(config))
     , m_pointPool(std::make_shared<PointPool>(
@@ -213,6 +214,7 @@ void Builder::go(std::size_t max)
                     " U: " << used << "%"  <<
                     " I: " << commify(inserts) <<
                     " P: " << std::round(progress * 100.0) << "%" <<
+                    " C: " << NewChunk::count() <<
                     std::endl;
             }
         }
@@ -351,7 +353,7 @@ void Builder::insertPath(const Origin origin, FileInfo& info)
     {
         inserted += cells.size();
 
-        if (inserted > heuristics::sleepCount)
+        if (inserted > m_sleepCount)
         {
             inserted = 0;
             const float available(m_pointPool->dataPool().available());

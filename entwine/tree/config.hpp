@@ -95,6 +95,13 @@ public:
         return Reprojection::create(m_json);
     }
 
+    std::size_t sleepCount() const
+    {
+        return std::max<uint64_t>(
+                m_json["sleepCount"].asUInt64(),
+                heuristics::sleepCount);
+    }
+
     bool force() const { return m_json["force"].asBool(); }
     bool trustHeaders() const { return m_json["trustHeaders"].asBool(); }
     bool exists() const

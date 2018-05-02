@@ -425,6 +425,14 @@ void Kernel::build(std::vector<std::string> args)
             }
             else error("Invalid tail depth");
         }
+        else if (arg == "--sleepCount")
+        {
+            if (++a < args.size())
+            {
+                json["sleepCount"] = parse(args[a]);
+            }
+            else error("Invalid sleepCount");
+        }
         else
         {
             error("Invalid argument: " + args[a]);
@@ -517,7 +525,8 @@ void Kernel::build(std::vector<std::string> args)
 
     std::cout <<
         "Output:\n" <<
-        "\tOutput path: " << outPath <<
+        "\tOutput path: " << outPath << "\n" <<
+        "\tSleep count: " << builder->sleepCount() <<
         // "\tData storage: " << toString(storage.chunkStorageType()) <<
         std::endl;
 
@@ -543,10 +552,12 @@ void Kernel::build(std::vector<std::string> args)
         "\tCubic bounds: " << metadata.boundsNativeCubic() << "\n" <<
         "\tScaled cube: " << metadata.boundsScaledCubic() << "\n" <<
         "\tReprojection: " << getReprojString(reprojection) << "\n" <<
-        "\tStoring dimensions: " << getDimensionString(schema) <<
+        "\tStoring dimensions: " << getDimensionString(schema) << "\n" <<
+        "\tStructure: " <<
+            structure.head() << ", " <<
+            structure.body() << ", " <<
+            structure.tail() <<
         std::endl;
-
-    std::cout << metadata.structure().toJson() << std::endl;
 
     if (metadata.transformation())
     {

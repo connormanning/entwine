@@ -109,6 +109,7 @@ public:
     std::shared_ptr<PointPool> sharedPointPool() const;
 
     bool isContinuation() const { return m_isContinuation; }
+    std::size_t sleepCount() const { return m_sleepCount; }
 
     const arbiter::Endpoint& outEndpoint() const;
     const arbiter::Endpoint& tmpEndpoint() const;
@@ -177,7 +178,8 @@ private:
 
     std::unique_ptr<ThreadPools> m_threadPools;
 
-    bool m_isContinuation = false;
+    const bool m_isContinuation = false;
+    const std::size_t m_sleepCount;
     std::unique_ptr<Metadata> m_metadata;
 
     mutable std::mutex m_mutex;

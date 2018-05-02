@@ -28,8 +28,10 @@ namespace entwine
 class NewChunk
 {
 public:
-    NewChunk() { }
-    virtual ~NewChunk() { }
+    NewChunk();
+    virtual ~NewChunk();
+
+    static std::size_t count();
 
     virtual Tube::Insertion insert(
             Cell::PooledNode& cell,

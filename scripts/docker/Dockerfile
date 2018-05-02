@@ -14,6 +14,8 @@ RUN \
         libexecinfo \
     ;
 
+ADD https://www.random.org/cgi-bin/randbyte?nbytes=64&format=h /var/cache.txt
+
 RUN \
     apk add --no-cache --virtual .build-deps \
         xz-dev \
