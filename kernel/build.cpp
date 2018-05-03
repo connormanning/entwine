@@ -555,10 +555,10 @@ void Kernel::build(std::vector<std::string> args)
         "\tScaled cube: " << metadata.boundsScaledCubic() << "\n" <<
         "\tReprojection: " << getReprojString(reprojection) << "\n" <<
         "\tStoring dimensions: " << getDimensionString(schema) << "\n" <<
-        "\tStructure: " <<
+        "\tStructure: [" <<
             structure.head() << ", " <<
             structure.body() << ", " <<
-            structure.tail() <<
+            structure.tail() << "]" <<
         std::endl;
 
     if (metadata.transformation())
