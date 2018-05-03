@@ -520,7 +520,9 @@ void Kernel::build(std::vector<std::string> args)
     }
 
     std::cout <<
-        "\tThreads: " << threadPools.size() <<
+        "\tThreads: [" <<
+            threadPools.workPool().numThreads() << ", " <<
+            threadPools.clipPool().numThreads() << "]" <<
         std::endl;
 
     std::cout <<

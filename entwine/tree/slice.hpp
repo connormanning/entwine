@@ -88,6 +88,19 @@ public:
         m_chunks[i]->setNp(p.z, np);
     }
 
+    struct Info
+    {
+        std::size_t written = 0;
+        std::size_t read = 0;
+        void clear()
+        {
+            written = 0;
+            read = 0;
+        }
+    };
+
+    static Info latchInfo();
+
 private:
     std::unique_ptr<NewChunk> create() const
     {
@@ -95,24 +108,8 @@ private:
         else return makeUnique<NewMappedChunk>(m_pointsAcross);
     }
 
-    void write(const Xyz& p, Cells&& cells) const
-    {
-        m_metadata.storage().write(
-                m_out,
-                m_tmp,
-                m_pointPool,
-                p.toString(m_depth),
-                std::move(cells));
-    }
-
-    Cells read(const Xyz& p) const
-    {
-        return m_metadata.storage().read(
-                m_out,
-                m_tmp,
-                m_pointPool,
-                p.toString(m_depth));
-    }
+    void write(const Xyz& p, Cells&& cells) const;
+    Cells read(const Xyz& p) const;
 
     const Metadata& m_metadata;
     const arbiter::Endpoint& m_out;

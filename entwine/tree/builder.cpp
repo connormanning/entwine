@@ -49,13 +49,15 @@ using namespace arbiter;
 namespace
 {
     const std::size_t inputRetryLimit(16);
+    std::size_t reawakened(0);
 }
 
 Builder::Builder(const Config& config)
     : m_arbiter(std::make_shared<Arbiter>(config["arbiter"]))
     , m_out(makeUnique<Endpoint>(m_arbiter->getEndpoint(config.output())))
     , m_tmp(makeUnique<Endpoint>(m_arbiter->getEndpoint(config.tmp())))
-    , m_threadPools(makeUnique<ThreadPools>(config.threads()))
+    , m_threadPools(
+            makeUnique<ThreadPools>(config.workThreads(), config.clipThreads()))
     , m_isContinuation(!config.force() && m_out->tryGetSize("entwine.json"))
     , m_sleepCount(config.sleepCount())
     , m_metadata(m_isContinuation ?
@@ -185,6 +187,7 @@ void Builder::go(std::size_t max)
     {
         using ms = std::chrono::milliseconds;
         const std::size_t interval(10);
+        std::size_t last(0);
 
         while (!done)
         {
@@ -206,16 +209,24 @@ void Builder::go(std::size_t max)
                 const std::size_t used(
                         100.0 - 100.0 * d.available() / (double)d.allocated());
 
+                const auto info(Slice::latchInfo());
+                reawakened += info.read;
+
                 std::cout <<
                     " T: " << commify(s) << "s" <<
                     " P: " << commify(inserts * 3600.0 / s / 1000000.0) <<
+                        "(" << commify((inserts - last) *
+                                    3600.0 / 10.0 / 1000000.0) << ")" <<
                         "M/h" <<
                     " A: " << commify(d.allocated()) <<
                     " U: " << used << "%"  <<
                     " I: " << commify(inserts) <<
                     " P: " << std::round(progress * 100.0) << "%" <<
                     " C: " << NewChunk::count() <<
+                    " M: " << info.written << "/" << info.read <<
                     std::endl;
+
+                last = inserts;
             }
         }
     });
@@ -455,6 +466,8 @@ void Builder::save(const std::string to)
 void Builder::save(const arbiter::Endpoint& ep)
 {
     m_threadPools->cycle();
+
+    std::cout << "Reawakened: " << reawakened << std::endl;
 
     if (verbose()) std::cout << "Saving registry..." << std::endl;
     m_registry->save(*m_out);
