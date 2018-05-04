@@ -241,6 +241,59 @@ void Builder::doRun(const std::size_t max)
         throw std::runtime_error("Cannot add to read-only builder");
     }
 
+    for (std::size_t i(0); i < m_threadPools->workPool().numThreads(); ++i)
+    {
+        m_threadPools->workPool().add([this, max]()
+        {
+            while (auto o = m_sequence->next(max))
+            {
+                const Origin origin(*o);
+                FileInfo& info(m_metadata->mutableFiles().get(origin));
+                const auto path(info.path());
+
+                if (verbose())
+                {
+                    std::cout << "Adding " << origin << " - " << path <<
+                        std::endl;
+                }
+
+                FileInfo::Status status(FileInfo::Status::Inserted);
+                std::string message;
+
+                try
+                {
+                    insertPath(origin, info);
+                }
+                catch (const std::exception& e)
+                {
+                    if (verbose())
+                    {
+                        std::cout << "During " << path << ": " << e.what() <<
+                            std::endl;
+                    }
+
+                    status = FileInfo::Status::Error;
+                    message = e.what();
+                }
+                catch (...)
+                {
+                    if (verbose())
+                    {
+                        std::cout << "Unknown error during " << path <<
+                            std::endl;
+                    }
+
+                    status = FileInfo::Status::Error;
+                    message = "Unknown error";
+                }
+
+                m_metadata->mutableFiles().set(origin, status, message);
+                if (verbose()) std::cout << "\tDone " << origin << std::endl;
+            }
+        });
+    }
+
+    /*
     while (auto o = m_sequence->next(max))
     {
         const Origin origin(*o);
@@ -287,11 +340,14 @@ void Builder::doRun(const std::size_t max)
             if (verbose()) std::cout << "\tDone " << origin << std::endl;
         });
     }
+    */
 
+    /*
     if (verbose())
     {
         std::cout << "\tPushes complete - joining..." << std::endl;
     }
+    */
 
     save();
 }
