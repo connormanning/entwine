@@ -46,7 +46,9 @@ class Metadata
 
 public:
     Metadata(const Config& config);
-    Metadata(const arbiter::Endpoint& endpoint);
+    Metadata(
+            const arbiter::Endpoint& endpoint,
+            const Config& config = Config(Json::Value()));
 
     /*
     explicit Metadata(const Json::Value& json);
@@ -165,6 +167,8 @@ private:
     double m_density = 0;
     bool m_trustHeaders = true;
     std::vector<std::string> m_preserveSpatial;
+
+    std::unique_ptr<Bounds> m_saved;
 };
 
 } // namespace entwine

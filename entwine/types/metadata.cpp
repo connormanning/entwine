@@ -48,14 +48,54 @@ Metadata::Metadata(const Config& config)
     , m_density(config.density())
     , m_trustHeaders(config.trustHeaders())
 {
+    const auto& json(config.json());
+    if (json.isMember("subset"))
+    {
+        const std::size_t id(json["subset"]["id"].asUInt64() - 1);
+        const std::size_t of(json["subset"]["of"].asUInt64());
+        const std::size_t splits(std::sqrt(of));
+        const double span(m_boundsNativeCubic->width() / (double)splits);
+
+        const std::size_t x(id / splits);
+        const std::size_t y(id % splits);
+
+        const double xmin(m_boundsNativeCubic->min().x + span * ((double)x));
+        const double ymin(m_boundsNativeCubic->min().y + span * ((double)y));
+
+        const Bounds b(
+                xmin,
+                ymin,
+                m_boundsNativeConforming->min().z,
+                xmin + span,
+                ymin + span,
+                m_boundsNativeConforming->max().z);
+
+        std::cout << "C " << *m_boundsNativeConforming << std::endl;
+        std::cout << "B " << b << std::endl;
+        std::cout << "I " << *m_boundsNativeCubic << std::endl;
+
+        m_saved = makeUnique<Bounds>(*m_boundsNativeConforming);
+        m_boundsNativeConforming = makeUnique<Bounds>(b);
+
+        m_boundsScaledConforming = clone(
+                m_boundsNativeConforming->deltify(m_delta.get()));
+    }
 }
 
-Metadata::Metadata(const arbiter::Endpoint& ep)
-    : Metadata(parse(ep.get("entwine.json")))
+Metadata::Metadata(const arbiter::Endpoint& ep, const Config& config)
+    : Metadata(entwine::merge(config.json(), parse(ep.get("entwine.json"))))
 {
     Files files(parse(ep.get("entwine-files.json")));
     files.append(m_files->list());
     m_files = makeUnique<Files>(files.list());
+
+    if (m_saved)
+    {
+        for (std::size_t i(0); i < m_files->size(); ++i)
+        {
+            m_files->set(i, FileInfo::Status::Outstanding);
+        }
+    }
 }
 
 /*
@@ -201,7 +241,8 @@ Json::Value Metadata::toJson() const
     Json::Value json;
 
     json["bounds"] = boundsNativeCubic().toJson();
-    json["boundsConforming"] = boundsNativeConforming().toJson();
+    json["boundsConforming"] = m_saved ?
+        m_saved->toJson() : boundsNativeConforming().toJson();
     json["schema"] = m_schema->toJson();
     json["structure"] = m_structure->toJson();
     json["numPoints"] = Json::UInt64(m_structure->numPointsHint());

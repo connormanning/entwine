@@ -61,7 +61,8 @@ Builder::Builder(const Config& config)
     , m_isContinuation(!config.force() && m_out->tryGetSize("entwine.json"))
     , m_sleepCount(config.sleepCount())
     , m_metadata(m_isContinuation ?
-            makeUnique<Metadata>(*m_out) : makeUnique<Metadata>(config))
+            makeUnique<Metadata>(*m_out, config) :
+            makeUnique<Metadata>(config))
     , m_pointPool(std::make_shared<PointPool>(
                 m_metadata->schema(),
                 m_metadata->delta()))
@@ -241,6 +242,7 @@ void Builder::doRun(const std::size_t max)
         throw std::runtime_error("Cannot add to read-only builder");
     }
 
+    /*
     for (std::size_t i(0); i < m_threadPools->workPool().numThreads(); ++i)
     {
         m_threadPools->workPool().add([this, max]()
@@ -292,8 +294,8 @@ void Builder::doRun(const std::size_t max)
             }
         });
     }
+    */
 
-    /*
     while (auto o = m_sequence->next(max))
     {
         const Origin origin(*o);
@@ -340,7 +342,6 @@ void Builder::doRun(const std::size_t max)
             if (verbose()) std::cout << "\tDone " << origin << std::endl;
         });
     }
-    */
 
     /*
     if (verbose())
@@ -463,7 +464,7 @@ Cells Builder::insertData(
         rejected.push(std::move(cell));
     });
 
-    const Bounds& boundsConforming(m_metadata->boundsScaledCubic());
+    const Bounds& boundsConforming(m_metadata->boundsScaledConforming());
     // const auto boundsSubset(m_metadata->boundsScaledSubset());
 
     while (!cells.empty())
