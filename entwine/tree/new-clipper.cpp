@@ -50,11 +50,13 @@ void NewClipper::clipAll()
     for (std::size_t d(start); d < m_clips.size(); ++d)
     {
         auto& c(m_clips[d]);
-        if (c.empty()) return;
+        if (c.empty())
+        {
+            assert(m_count == 0);
+            return;
+        }
         else m_count -= c.clip(d, true);
     }
-
-    assert(m_count == 0);
 }
 
 void NewClipper::clip(const uint64_t d, const Xyz& p)
