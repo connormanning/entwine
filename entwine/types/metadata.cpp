@@ -30,7 +30,10 @@ Metadata::Metadata(const Config& config)
             makeUnique<Delta>(config.delta()) : std::unique_ptr<Delta>())
     , m_boundsNativeConforming(makeUnique<Bounds>(config.bounds()))
     , m_boundsNativeCubic(
-            clone(makeNativeCube(*m_boundsNativeConforming, m_delta.get())))
+            config.json().isMember("bounds") &&
+            config.json().isMember("boundsConforming") ?
+                makeUnique<Bounds>(config["bounds"]) :
+                clone(makeNativeCube(*m_boundsNativeConforming, m_delta.get())))
     , m_boundsScaledConforming(
             clone(m_boundsNativeConforming->deltify(m_delta.get())))
     , m_boundsScaledCubic(
