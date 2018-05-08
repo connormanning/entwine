@@ -25,22 +25,20 @@
 namespace entwine
 {
 
-Metadata::Metadata(const Config& config)
-    : m_delta(config.delta().exists() ?
-            makeUnique<Delta>(config.delta()) : std::unique_ptr<Delta>())
+Metadata::Metadata(const Config& config, const bool exists)
+    : m_delta(makeUnique<Delta>(config.delta()))
     , m_boundsNativeConforming(makeUnique<Bounds>(
-                makeNativeConformingBounds(
-                    config.boundsConforming(),
-                    config.delta())))
-    , m_boundsNativeCubic(
-            config.json().isMember("bounds") &&
-            config.json().isMember("boundsConforming") ?
-                makeUnique<Bounds>(config["bounds"]) :
-                clone(makeNativeCube(*m_boundsNativeConforming, m_delta.get())))
+                exists ?
+                    Bounds(config["boundsConforming"]) :
+                    makeNativeConformingBounds(config["bounds"])))
+    , m_boundsNativeCubic(makeUnique<Bounds>(
+                exists ?
+                    Bounds(config["bounds"]) :
+                    makeNativeCube(*m_boundsNativeConforming, m_delta.get())))
     , m_boundsScaledConforming(
-            clone(m_boundsNativeConforming->deltify(m_delta.get())))
+            clone(m_boundsNativeConforming->deltify(*m_delta)))
     , m_boundsScaledCubic(
-            clone(m_boundsNativeConforming->cubeify(m_delta.get())))
+            clone(m_boundsNativeCubic->deltify(*m_delta)))
     , m_schema(makeUnique<Schema>(config["schema"]))
     , m_subset(Subset::create(*this, config["subset"]))
     , m_files(makeUnique<Files>(config.input()))
@@ -59,7 +57,8 @@ Metadata::Metadata(const arbiter::Endpoint& ep, const Config& config)
     : Metadata(
             entwine::merge(
                 config.json(),
-                parse(ep.get("entwine" + config.postfix() + ".json"))))
+                parse(ep.get("entwine" + config.postfix() + ".json"))),
+            true)
 {
     Files files(parse(ep.get("entwine-files" + postfix() + ".json")));
     files.append(m_files->list());
@@ -88,7 +87,7 @@ Json::Value Metadata::toJson() const
     if (m_reprojection) json["reprojection"] = m_reprojection->toJson();
     // if (m_subset) json["subset"] = m_subset->toJson();
 
-    if (m_delta) m_delta->insertInto(json);
+    if (m_delta) entwine::merge(json, m_delta->toJson());
 
     if (m_transformation)
     {
@@ -139,18 +138,6 @@ void Metadata::unbump()
     // m_structure->unbump();
 }
 
-/*
-std::unique_ptr<Bounds> Metadata::boundsNativeSubset() const
-{
-    return m_subset ? clone(m_subset->bounds()) : nullptr;
-}
-
-std::unique_ptr<Bounds> Metadata::boundsScaledSubset() const
-{
-    return m_subset ? clone(m_subset->bounds().deltify(delta())) : nullptr;
-}
-*/
-
 std::string Metadata::postfix() const
 {
     if (const Subset* s = subset()) return "-" + std::to_string(s->id());
@@ -175,13 +162,13 @@ Bounds Metadata::makeNativeConformingBounds(const Bounds& b) const
     Point pmin(b.min());
     Point pmax(b.max());
 
-    pmin.apply([](double d)
+    pmin = pmin.apply([](double d)
     {
         if (static_cast<double>(static_cast<uint64_t>(d)) == d) return d - 1.0;
         else return std::floor(d);
     });
 
-    pmax.apply([](double d)
+    pmax = pmax.apply([](double d)
     {
         if (static_cast<double>(static_cast<uint64_t>(d)) == d) return d + 1.0;
         else return std::ceil(d);
@@ -193,12 +180,12 @@ Bounds Metadata::makeNativeConformingBounds(const Bounds& b) const
 Bounds Metadata::makeNativeCube(const Bounds& b, const Delta& d) const
 {
     const double maxDist(std::max(std::max(b.width(), b.depth()), b.height()));
-    double radius(std::ceil(maxDist / 2.0) + 1.0);
+    double r(maxDist / 2.0);
 
-    const Scale& s(d.scale());
-    const Point p(radius / s.x, radius / s.y, radius / s.z);
+    if (static_cast<double>(static_cast<uint64_t>(r)) == r) r += 1.0;
+    else r = std::ceil(r);
 
-    return Bounds(-p, p);
+    return Bounds(d.offset() - r, d.offset() + r);
 }
 
 } // namespace entwine

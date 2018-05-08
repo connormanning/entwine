@@ -37,24 +37,15 @@ class Reprojection;
 class NewInference
 {
 public:
-    NewInference(const Config& config)
-        : m_in(config)
-        , m_out(config)
-        , m_arbiter(config["arbiter"])
-        , m_tmp(m_arbiter.getEndpoint(config.tmp()))
-        , m_re(config.reprojection())
-    { }
-
+    NewInference(const Config& config);
     Config go();
-    // Config output() const { return m_out; }
 
 private:
     void add(FileInfo& f);
     void add(FileInfo& f, std::string localPath);
-    void aggregate();
+    Config aggregate();
 
     const Config m_in;
-    Config m_out;
 
     bool m_done = false;
     std::unique_ptr<Pool> m_pool;

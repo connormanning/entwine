@@ -39,12 +39,6 @@ public:
 
     std::size_t numPoints() const { return m_json["numPoints"].asUInt64(); }
 
-    std::size_t threads() const
-    {
-        const auto& t(m_json["threads"]);
-        if (t.isNumeric()) return t.asUInt64();
-        else return t[0].asUInt64() + t[1].asUInt64();
-    }
     std::size_t workThreads() const
     {
         const auto& t(m_json["threads"]);
@@ -54,6 +48,7 @@ public:
         }
         else return t[0].asUInt64();
     }
+
     std::size_t clipThreads() const
     {
         const auto& t(m_json["threads"]);
@@ -78,15 +73,6 @@ public:
     const Json::Value& operator[](std::string k) const { return m_json[k]; }
     Json::Value& operator[](std::string k) { return m_json[k]; }
 
-    Scale scale() const { return Scale(m_json["scale"]); }
-    Offset offset() const
-    {
-        if (!m_json["offset"].isNull()) return Offset(m_json["offset"]);
-        return boundsConforming().mid().apply(
-                [](double d) { return std::llround(d); });
-    }
-    Delta delta() const { return Delta(scale(), offset()); }
-
     std::unique_ptr<Reprojection> reprojection() const
     {
         return Reprojection::create(m_json);
@@ -97,6 +83,13 @@ public:
         return std::max<uint64_t>(
                 m_json["sleepCount"].asUInt64(),
                 heuristics::sleepCount);
+    }
+
+    bool isContinuation() const
+    {
+        return !force() &&
+            arbiter::Arbiter(m_json["arbiter"]).tryGetSize(
+                    "entwine" + postfix() + ".json");
     }
 
     bool force() const { return m_json["force"].asBool(); }
@@ -112,14 +105,17 @@ public:
         return "";
     }
 
-    Bounds boundsConforming() const
+    Scale scale() const
     {
-        if (m_json.isMember("boundsConforming"))
-        {
-            return Bounds(m_json["boundsConforming"]);
-        }
-        return Bounds(m_json["bounds"]);
+        if (!m_json["scale"].isNull()) return Scale(m_json["scale"]);
+        return Scale(0.01);
     }
+    Offset offset() const
+    {
+        if (!m_json["offset"].isNull()) return Offset(m_json["offset"]);
+        return Offset(0);
+    }
+    Delta delta() const { return Delta(scale(), offset()); }
 
 private:
     Json::Value defaults() const;

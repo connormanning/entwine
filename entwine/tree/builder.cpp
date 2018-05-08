@@ -58,9 +58,7 @@ Builder::Builder(const Config& config)
     , m_tmp(makeUnique<Endpoint>(m_arbiter->getEndpoint(config.tmp())))
     , m_threadPools(
             makeUnique<ThreadPools>(config.workThreads(), config.clipThreads()))
-    , m_isContinuation(
-            !config.force() &&
-            m_out->tryGetSize("entwine" + config.postfix() + ".json"))
+    , m_isContinuation(config.isContinuation())
     , m_sleepCount(config.sleepCount())
     , m_metadata(m_isContinuation ?
             makeUnique<Metadata>(*m_out, config) :

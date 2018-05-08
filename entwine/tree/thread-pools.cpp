@@ -23,7 +23,9 @@ ThreadPools::ThreadPools(
         const std::size_t workThreads,
         const std::size_t clipThreads)
     : m_workPool(std::max<std::size_t>(1, workThreads))
-    , m_clipPool(std::max<std::size_t>(4, clipThreads))
+    , m_clipPool(
+            std::max<std::size_t>(4, clipThreads),
+            std::max<std::size_t>(4, clipThreads) * m_workPool.numThreads())
 { }
 
 std::size_t ThreadPools::getWorkThreads(

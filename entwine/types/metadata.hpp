@@ -45,37 +45,15 @@ class Metadata
     friend class Sequence;
 
 public:
-    Metadata(const Config& config);
+    Metadata(const Config& config, bool exists = false);
     Metadata(
             const arbiter::Endpoint& endpoint,
             const Config& config = Config(Json::Value()));
 
-    /*
-    explicit Metadata(const Json::Value& json);
-    Metadata(const Metadata& other);
-    */
     ~Metadata();
 
-    /*
-    static std::unique_ptr<Metadata> create(
-            const arbiter::Endpoint& endpoint,
-            const std::size_t* subsetId = nullptr);
-    */
-
     void merge(const Metadata& other);
-
     void save(const arbiter::Endpoint& endpoint) const;
-
-private:
-    static Bounds makeNativeBounds(const Bounds& b);
-
-    static Bounds makeScaledCube(
-            const Bounds& nativeConformingBounds,
-            const Delta* delta);
-
-    static Bounds makeNativeCube(
-            const Bounds& nativeConformingBounds,
-            const Delta* delta);
 
 public:
     // Native bounds - no scale/offset applied.
@@ -145,8 +123,10 @@ private:
 
     Bounds makeNativeConformingBounds(const Bounds& b) const;
     Bounds makeNativeCube(const Bounds& b, const Delta& d) const;
+    /*
     Bounds makeScaledConformingBounds(const Bounds& b, const Delta& d) const;
     Bounds makeScaledCube(const Bounds& b, const Delta& d) const;
+    */
 
     // These are aggregated as the Builder runs.
     // Manifest& manifest() { return *m_manifest; }
