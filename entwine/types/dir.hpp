@@ -81,6 +81,7 @@ inline std::string dirToString(Dir dir)
 
     throw std::runtime_error("Cannot convert invalid Dir to string");
 }
+inline std::string toString(Dir dir) { return dirToString(dir); }
 
 inline Dir stringToDir(const std::string& s)
 {

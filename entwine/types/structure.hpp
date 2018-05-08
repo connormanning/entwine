@@ -21,29 +21,20 @@
 namespace entwine
 {
 
+class Metadata;
+
 class NewStructure
 {
 public:
-    NewStructure(const Json::Value& json)
-        : m_numPointsHint(json["numPoints"].asUInt64())
-        , m_head(json["structure"]["head"].asInt64())
-        , m_body(json["structure"]["body"].asInt64())
-        , m_tail(json["structure"]["tail"].asInt64())
-    {
-        if (!m_tail)
-        {
-            m_tail = std::ceil(std::log2(m_numPointsHint) / std::log2(4));
-        }
+    NewStructure(const Metadata& metadata, const Json::Value& json);
 
-        m_head = std::max<uint64_t>(m_head, 0);
-        m_body = std::max<uint64_t>(m_body, m_head);
-        m_tail = std::max<uint64_t>(m_tail, m_body);
-    }
-
-    std::size_t numPointsHint() const { return m_numPointsHint; }
+    uint64_t numPointsHint() const { return m_numPointsHint; }
     uint64_t head() const { return m_head; }
     uint64_t body() const { return m_body; }
     uint64_t tail() const { return m_tail; }
+
+    // Used for subsetting.
+    uint64_t minTail() const { return m_minTail; }
 
     Json::Value toJson() const
     {
@@ -55,11 +46,13 @@ public:
     }
 
 private:
-    std::size_t m_numPointsHint;
+    uint64_t m_numPointsHint = 0;
 
-    uint64_t m_head;
-    uint64_t m_body;
-    uint64_t m_tail;
+    uint64_t m_head = 0;
+    uint64_t m_body = 0;
+    uint64_t m_tail = 0;
+
+    uint64_t m_minTail = 0;
 };
 
 class Structure;

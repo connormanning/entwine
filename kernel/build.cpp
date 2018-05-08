@@ -551,15 +551,26 @@ void Kernel::build(std::vector<std::string> args)
     std::cout <<
         "Metadata:\n" <<
         "\tNative bounds: " << metadata.boundsNativeConforming() << "\n" <<
-        "\tCubic bounds: " << metadata.boundsNativeCubic() << "\n" <<
+        "\tCubic bounds: " << metadata.boundsNativeCubic() << "\n";
+
+    if (const Subset* s = metadata.subset())
+    {
+        std::cout << "\tSubset bounds: " << s->boundsNative() << "\n";
+    }
+
+    std::cout <<
         "\tScaled cube: " << metadata.boundsScaledCubic() << "\n" <<
         "\tReprojection: " << getReprojString(reprojection) << "\n" <<
         "\tStoring dimensions: " << getDimensionString(schema) << "\n" <<
         "\tStructure: [" <<
             structure.head() << ", " <<
             structure.body() << ", " <<
-            structure.tail() << "]" <<
-        std::endl;
+            structure.tail() << "]" << "\n";
+
+    if (const Subset* s = metadata.subset())
+    {
+        std::cout << "\tSubset: " << s->id() << " of " << s->of() << "\n";
+    }
 
     if (metadata.transformation())
     {

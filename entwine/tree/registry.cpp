@@ -60,7 +60,9 @@ Registry::Registry(
 
     if (exists)
     {
-        const auto h(parse(out.get("entwine-hierarchy.json")));
+        const auto h(parse(out.get(
+                        "entwine-hierarchy" + m_metadata.postfix() + ".json")));
+
         for (const auto key : h.getMemberNames())
         {
             const Dxyz dxyz(key);

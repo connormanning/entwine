@@ -66,6 +66,9 @@ public:
 
     void save(const arbiter::Endpoint& endpoint) const;
 
+private:
+    static Bounds makeNativeBounds(const Bounds& b);
+
     static Bounds makeScaledCube(
             const Bounds& nativeConformingBounds,
             const Delta* delta);
@@ -74,6 +77,7 @@ public:
             const Bounds& nativeConformingBounds,
             const Delta* delta);
 
+public:
     // Native bounds - no scale/offset applied.
     const Bounds& boundsNativeConforming() const
     {
@@ -112,7 +116,7 @@ public:
     const ChunkStorage& storage() const { return *m_chunkStorage; }
 
     const Reprojection* reprojection() const { return m_reprojection.get(); }
-    // const Subset* subset() const { return m_subset.get(); }
+    const Subset* subset() const { return m_subset.get(); }
     const Delta* delta() const { return m_delta.get(); }
     const Transformation* transformation() const
     {
@@ -128,17 +132,21 @@ public:
     double density() const { return m_density; }
     bool trustHeaders() const { return m_trustHeaders; }
 
-    // std::string basename(const Id& chunkId) const;
-    std::string postfix(bool isColdChunk = false) const;
     void unbump();
     void makeWhole();
+
+    std::string postfix() const;
+    std::string postfix(uint64_t depth) const;
 
     Json::Value toJson() const;
 
 private:
-    static Json::Value unify(Json::Value json);
-
     Metadata& operator=(const Metadata& other);
+
+    Bounds makeNativeConformingBounds(const Bounds& b) const;
+    Bounds makeNativeCube(const Bounds& b, const Delta& d) const;
+    Bounds makeScaledConformingBounds(const Bounds& b, const Delta& d) const;
+    Bounds makeScaledCube(const Bounds& b, const Delta& d) const;
 
     // These are aggregated as the Builder runs.
     // Manifest& manifest() { return *m_manifest; }
@@ -156,19 +164,17 @@ private:
     std::unique_ptr<Bounds> m_boundsScaledEpsilon;
 
     std::unique_ptr<Schema> m_schema;
-    std::unique_ptr<NewStructure> m_structure;
+    std::unique_ptr<Subset> m_subset;
     std::unique_ptr<Files> m_files;
+    std::unique_ptr<NewStructure> m_structure;
     std::unique_ptr<ChunkStorage> m_chunkStorage;
     std::unique_ptr<Reprojection> m_reprojection;
-    // std::unique_ptr<Subset> m_subset;
     std::unique_ptr<Transformation> m_transformation;
     std::unique_ptr<Version> m_version;
     std::string m_srs;
     double m_density = 0;
     bool m_trustHeaders = true;
     std::vector<std::string> m_preserveSpatial;
-
-    std::unique_ptr<Bounds> m_saved;
 };
 
 } // namespace entwine

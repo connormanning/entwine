@@ -28,7 +28,10 @@ namespace entwine
 Metadata::Metadata(const Config& config)
     : m_delta(config.delta().exists() ?
             makeUnique<Delta>(config.delta()) : std::unique_ptr<Delta>())
-    , m_boundsNativeConforming(makeUnique<Bounds>(config.bounds()))
+    , m_boundsNativeConforming(makeUnique<Bounds>(
+                makeNativeConformingBounds(
+                    config.boundsConforming(),
+                    config.delta())))
     , m_boundsNativeCubic(
             config.json().isMember("bounds") &&
             config.json().isMember("boundsConforming") ?
@@ -39,200 +42,29 @@ Metadata::Metadata(const Config& config)
     , m_boundsScaledCubic(
             clone(m_boundsNativeConforming->cubeify(m_delta.get())))
     , m_schema(makeUnique<Schema>(config["schema"]))
-    , m_structure(makeUnique<NewStructure>(config.json()))
+    , m_subset(Subset::create(*this, config["subset"]))
     , m_files(makeUnique<Files>(config.input()))
+    , m_structure(makeUnique<NewStructure>(*this, config.json()))
     , m_chunkStorage(ChunkStorage::create(*this, config))
     , m_reprojection(Reprojection::create(config["reprojection"]))
     , m_version(makeUnique<Version>(currentVersion()))
-    , m_srs(m_reprojection ? m_reprojection->out() : "")
+    , m_srs(config.srs())
     , m_density(config.density())
     , m_trustHeaders(config.trustHeaders())
 {
-    const auto& json(config.json());
-    if (json.isMember("subset"))
-    {
-        const std::size_t id(json["subset"]["id"].asUInt64() - 1);
-        const std::size_t of(json["subset"]["of"].asUInt64());
-        const std::size_t splits(std::sqrt(of));
-        const double span(m_boundsNativeCubic->width() / (double)splits);
-
-        const std::size_t x(id / splits);
-        const std::size_t y(id % splits);
-
-        const double xmin(m_boundsNativeCubic->min().x + span * ((double)x));
-        const double ymin(m_boundsNativeCubic->min().y + span * ((double)y));
-
-        const Bounds b(
-                xmin,
-                ymin,
-                m_boundsNativeConforming->min().z,
-                xmin + span,
-                ymin + span,
-                m_boundsNativeConforming->max().z);
-
-        std::cout << "C " << *m_boundsNativeConforming << std::endl;
-        std::cout << "B " << b << std::endl;
-        std::cout << "I " << *m_boundsNativeCubic << std::endl;
-
-        m_saved = makeUnique<Bounds>(*m_boundsNativeConforming);
-        m_boundsNativeConforming = makeUnique<Bounds>(b);
-
-        m_boundsScaledConforming = clone(
-                m_boundsNativeConforming->deltify(m_delta.get()));
-    }
+    if (m_srs.empty() && m_reprojection) m_srs = m_reprojection->out();
 }
 
 Metadata::Metadata(const arbiter::Endpoint& ep, const Config& config)
-    : Metadata(entwine::merge(config.json(), parse(ep.get("entwine.json"))))
+    : Metadata(
+            entwine::merge(
+                config.json(),
+                parse(ep.get("entwine" + config.postfix() + ".json"))))
 {
-    Files files(parse(ep.get("entwine-files.json")));
+    Files files(parse(ep.get("entwine-files" + postfix() + ".json")));
     files.append(m_files->list());
     m_files = makeUnique<Files>(files.list());
-
-    if (m_saved)
-    {
-        for (std::size_t i(0); i < m_files->size(); ++i)
-        {
-            m_files->set(i, FileInfo::Status::Outstanding);
-        }
-    }
 }
-
-/*
-std::unique_ptr<Metadata> Metadata::create(
-        const arbiter::Endpoint& ep,
-        const std::size_t* subsetId)
-{
-    const std::string path("entwine" + Subset::postfix(subsetId));
-    Json::Value json = subsetId ?
-        parse(io::ensureGetString(ep, path)) :
-        parse(ep.get(path));
-
-    bool exists = true;
-
-    if (json.isNull())
-    {
-        if (!subsetId) throw std::runtime_error("Invalid metadata");
-
-        exists = false;
-        json = parse(ep.get("entwine-0"));
-        json["subset"]["id"] = static_cast<Json::UInt64>(*subsetId + 1);
-    }
-
-    auto m(makeUnique<Metadata>(unify(json)));
-
-    if (exists)
-    {
-        m->awakenManifest(ep);
-
-        // assert(!subsetId || *subsetId == m_subset->id());
-        const std::string mpath("entwine-manifest" + m->postfix());
-        const Json::Value mjson(parse(io::ensureGetString(ep, mpath)));
-        m->m_manifest = makeUnique<Manifest>(mjson, ep);
-        if (!m->density()) m->m_density = densityLowerBound(m->manifest());
-    }
-
-    return m;
-}
-*/
-
-Json::Value Metadata::unify(Json::Value json)
-{
-    // Pre-1.0: nested keys have since been flattened.
-    if (json.isMember("format"))
-    {
-        for (const auto& k : json["format"].getMemberNames())
-        {
-            json[k] = json["format"][k];
-        }
-    }
-
-    // Pre-1.0: casing was inconsistent with other keys.
-    if (json.isMember("compress-hierarchy"))
-    {
-        json["compressHierarchy"] = json["compress-hierarchy"];
-    }
-
-    // 1.0: storage was a boolean named "compress", and only lazperf and
-    // uncompressed-binary was supported.
-    if (json.isMember("compress"))
-    {
-        json["storage"] = json["compress"].asBool() ? "lazperf" : "binary";
-    }
-
-    return json;
-}
-
-/*
-Metadata::Metadata(const arbiter::Endpoint& ep)
-    : Metadata(unify(parse(ep.get("entwine"))))
-{
-    awakenManifest(ep);
-}
-*/
-
-/*
-void Metadata::awakenManifest(const arbiter::Endpoint& ep)
-{
-    const std::string path("entwine-manifest" + postfix());
-    const Json::Value json(parse(io::ensureGetString(ep, path)));
-    m_manifest = makeUnique<Manifest>(json, ep);
-    if (!m_density) m_density = densityLowerBound(*m_manifest);
-}
-*/
-
-/*
-Metadata::Metadata(const Json::Value& json)
-    : m_delta(Delta::maybeCreate(json))
-    , m_boundsNativeConforming(makeUnique<Bounds>(json["boundsConforming"]))
-    , m_boundsNativeCubic(makeUnique<Bounds>(json["bounds"]))
-    , m_boundsScaledConforming(
-            clone(m_boundsNativeConforming->deltify(m_delta.get())))
-    , m_boundsScaledCubic(
-            clone(m_boundsNativeConforming->cubeify(m_delta.get())))
-    , m_boundsScaledEpsilon(
-            clone(m_boundsScaledConforming->growBy(epsilon)))
-    , m_schema(makeUnique<Schema>(json["schema"]))
-    , m_structure(makeUnique<NewStructure>(json["structure"]))
-    , m_manifest()
-    , m_chunkStorage(makeUnique<ChunkStorage>(*this))
-    , m_reprojection(maybeCreate<Reprojection>(json["reprojection"]))
-    // , m_subset(json.isMember("subset") ?
-            // makeUnique<Subset>(boundsNativeCubic(), json["subset"]) : nullptr)
-    , m_transformation(json.isMember("transformation") ?
-            makeUnique<Transformation>(
-                extract<double>(json["transformation"])) :
-            nullptr)
-    , m_version(makeUnique<Version>(json["version"].asString()))
-    , m_srs(json["srs"].asString())
-    , m_density(json["density"].asDouble())
-    , m_trustHeaders(json["trustHeaders"].asBool())
-    , m_preserveSpatial(extract<std::string>(json["preserveSpatial"]))
-{ }
-*/
-
-/*
-Metadata::Metadata(const Metadata& other)
-    : m_delta(maybeClone(other.delta()))
-    , m_boundsNativeConforming(clone(other.boundsNativeConforming()))
-    , m_boundsNativeCubic(clone(other.boundsNativeCubic()))
-    , m_boundsScaledConforming(clone(other.boundsScaledConforming()))
-    , m_boundsScaledCubic(clone(other.boundsScaledCubic()))
-    , m_boundsScaledEpsilon(clone(other.boundsScaledEpsilon()))
-    , m_schema(makeUnique<Schema>(other.schema()))
-    , m_structure(makeUnique<NewStructure>(other.structure()))
-    , m_manifest(makeUnique<Manifest>(other.manifest()))
-    , m_chunkStorage(makeUnique<ChunkStorage>(*this))
-    , m_reprojection(maybeClone(other.reprojection()))
-    // , m_subset(maybeClone(other.subset()))
-    , m_transformation(maybeClone(other.transformation()))
-    , m_version(makeUnique<Version>(other.version()))
-    , m_srs(other.srs())
-    , m_density(other.density())
-    , m_trustHeaders(other.trustHeaders())
-    , m_preserveSpatial(other.preserveSpatial())
-{ }
-*/
 
 Metadata::~Metadata() { }
 
@@ -241,8 +73,7 @@ Json::Value Metadata::toJson() const
     Json::Value json;
 
     json["bounds"] = boundsNativeCubic().toJson();
-    json["boundsConforming"] = m_saved ?
-        m_saved->toJson() : boundsNativeConforming().toJson();
+    json["boundsConforming"] = boundsNativeConforming().toJson();
     json["schema"] = m_schema->toJson();
     json["structure"] = m_structure->toJson();
     json["numPoints"] = Json::UInt64(m_structure->numPointsHint());
@@ -284,7 +115,7 @@ void Metadata::save(const arbiter::Endpoint& endpoint) const
     const std::string f("entwine" + postfix() + ".json");
     io::ensurePut(endpoint, f, json.toStyledString());
 
-    m_files->save(endpoint);
+    m_files->save(endpoint, postfix());
     /*
     const bool primary(!m_subset || m_subset->primary());
     if (m_manifest) m_manifest->save(primary, postfix());
@@ -295,38 +126,6 @@ void Metadata::merge(const Metadata& other)
 {
     if (m_srs.empty()) m_srs = other.srs();
     // m_manifest->merge(other.manifest());
-}
-
-/*
-std::string Metadata::basename(const Id& chunkId) const
-{
-    return
-        m_structure->maybePrefix(chunkId) +
-        postfix(chunkId >= m_structure->coldIndexBegin());
-}
-*/
-
-std::string Metadata::postfix(const bool isColdChunk) const
-{
-    // TODO
-    // Things we save, and their postfixing.
-    //
-    // Metadata files (main meta, ids, manifest):
-    //      All postfixes applied.
-    //
-    // Base (both data/hierarchy) chunk:
-    //      All postfixes applied.
-    //
-    // Cold hierarchy chunks:
-    //      All postfixes applied.
-    //
-    // Cold data chunks:
-    //      No subset postfixing.
-    //
-    // Hierarchy metadata:
-    //      All postfixes applied.
-    // return m_subset && !isColdChunk ? m_subset->postfix() : "";
-    return "";
 }
 
 void Metadata::makeWhole()
@@ -352,18 +151,54 @@ std::unique_ptr<Bounds> Metadata::boundsScaledSubset() const
 }
 */
 
-Bounds Metadata::makeScaledCube(
-        const Bounds& nativeConformingBounds,
-        const Delta* delta)
+std::string Metadata::postfix() const
 {
-    return nativeConformingBounds.cubeify(delta);
+    if (const Subset* s = subset()) return "-" + std::to_string(s->id());
+    return "";
 }
 
-Bounds Metadata::makeNativeCube(
-        const Bounds& nativeConformingBounds,
-        const Delta* delta)
+std::string Metadata::postfix(const uint64_t depth) const
 {
-    return makeScaledCube(nativeConformingBounds, delta).undeltify(delta);
+    if (const Subset* s = subset())
+    {
+        if (depth < m_structure->minTail())
+        {
+            return "-" + std::to_string(s->id());
+        }
+    }
+
+    return "";
+}
+
+Bounds Metadata::makeNativeConformingBounds(const Bounds& b) const
+{
+    Point pmin(b.min());
+    Point pmax(b.max());
+
+    pmin.apply([](double d)
+    {
+        if (static_cast<double>(static_cast<uint64_t>(d)) == d) return d - 1.0;
+        else return std::floor(d);
+    });
+
+    pmax.apply([](double d)
+    {
+        if (static_cast<double>(static_cast<uint64_t>(d)) == d) return d + 1.0;
+        else return std::ceil(d);
+    });
+
+    return Bounds(pmin, pmax);
+}
+
+Bounds Metadata::makeNativeCube(const Bounds& b, const Delta& d) const
+{
+    const double maxDist(std::max(std::max(b.width(), b.depth()), b.height()));
+    double radius(std::ceil(maxDist / 2.0) + 1.0);
+
+    const Scale& s(d.scale());
+    const Point p(radius / s.x, radius / s.y, radius / s.z);
+
+    return Bounds(-p, p);
 }
 
 } // namespace entwine

@@ -42,7 +42,7 @@ public:
 
     Files(const Json::Value& json) : Files(toFileInfo(json)) { }
 
-    void save(const arbiter::Endpoint& ep) const;
+    void save(const arbiter::Endpoint& ep, const std::string& postfix) const;
 
     std::size_t size() const { return m_files.size(); }
 

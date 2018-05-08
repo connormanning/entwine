@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2016, Connor Manning (connor@hobu.co)
+* Copyright (c) 2018, Connor Manning (connor@hobu.co)
 *
 * Entwine -- Point cloud indexing
 *
@@ -11,10 +11,52 @@
 #pragma once
 
 #include <cstddef>
-#include <memory>
-#include <vector>
+#include <cstdint>
+
+#include <json/json.h>
 
 #include <entwine/types/bounds.hpp>
+#include <entwine/types/dir.hpp>
+
+namespace entwine
+{
+
+class Metadata;
+
+class Subset
+{
+public:
+    Subset(const Metadata& metadata, const Json::Value& json);
+
+    static std::unique_ptr<Subset> create(
+            const Metadata& metadata,
+            const Json::Value& json);
+
+    uint64_t id() const { return m_id; }
+    uint64_t of() const { return m_of; }
+    uint64_t splits() const { return m_splits; }
+
+    const Bounds& boundsNative() const { return m_boundsNative; }
+    const Bounds& boundsScaled() const { return m_boundsScaled; }
+
+    Json::Value toJson() const
+    {
+        Json::Value json;
+        json["id"] = m_id;
+        json["of"] = m_of;
+        return json;
+    }
+
+private:
+    const uint64_t m_id;
+    const uint64_t m_of;
+
+    const uint64_t m_splits;
+    Bounds m_boundsNative;
+    Bounds m_boundsScaled;
+};
+
+} // namespace entwine
 
 /*
 namespace Json

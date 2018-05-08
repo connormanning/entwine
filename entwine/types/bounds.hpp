@@ -254,11 +254,6 @@ public:
         return width() == depth() && (!is3d() || width() == height());
     }
 
-    // Bloat all coordinates necessary to form a cube and also to the nearest
-    // integer.
-    Bounds cubeify(const Delta* delta = nullptr) const;
-    Bounds cubeify(const Scale& scale) const;
-
     Bounds deltify(const Delta* delta) const;
     Bounds deltify(const Delta& delta) const;
     Bounds undeltify(const Delta* delta) const;

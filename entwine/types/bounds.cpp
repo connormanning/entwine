@@ -172,48 +172,6 @@ Bounds Bounds::undeltify(const Delta& delta) const
             Point::unscale(max(), delta.scale(), delta.offset()));
 }
 
-Bounds Bounds::cubeify(const Delta* delta) const
-{
-    if (delta) return cubeify(delta->scale());
-
-    const Bounds originCentered(cubeify(Scale(1)));
-    const Point integralMid(
-            Point::apply([](double d)
-            {
-                const int64_t v(d);
-                if (static_cast<double>(v / 10 * 10) == d) return v;
-                else return (v + 10) / 10 * 10;
-            },
-            mid()));
-
-    const Bounds result(
-            originCentered.min() + integralMid,
-            originCentered.max() + integralMid);
-
-    if (!result.contains(*this))
-    {
-        throw std::runtime_error("Oops, invalid bounds");
-    }
-
-    return result;
-}
-
-Bounds Bounds::cubeify(const Scale& s) const
-{
-    const double maxDist(std::max(std::max(width(), depth()), height()) + 1.0);
-
-    // const std::size_t rawRadius(std::ceil(maxDist / 2.0));
-    // const double radius(20 + (rawRadius + 10) / 10 * 10);
-
-    const double radius(maxDist / 2.0);
-
-    const Point p(
-            Point(radius / s.x, radius / s.y, radius / s.z)
-            .apply([](double v) { return std::ceil(v); }));
-
-    return Bounds(-p, p);
-}
-
 std::ostream& operator<<(std::ostream& os, const Bounds& bounds)
 {
     auto flags(os.flags());

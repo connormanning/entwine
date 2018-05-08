@@ -16,10 +16,53 @@
 
 #include <entwine/tree/climber.hpp>
 #include <entwine/tree/heuristics.hpp>
+#include <entwine/types/manifest.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/types/subset.hpp>
 
 namespace entwine
 {
+
+NewStructure::NewStructure(const Metadata& m, const Json::Value& json)
+    : m_numPointsHint(json["numPoints"].asUInt64())
+    , m_head(json["structure"]["head"].asUInt64())
+    , m_body(std::max<uint64_t>(m_head, json["structure"]["body"].asUInt64()))
+    , m_tail(json["structure"]["tail"].asUInt64())
+{
+    if (!m_tail)
+    {
+        const double density(
+                json.isMember("density") ?
+                    json["density"].asDouble() :
+                    densityLowerBound(m.files().list()));
+
+        const double squareUnits(m.boundsNativeCubic().area());
+        const uint64_t calculated(density * squareUnits * 1.2);
+
+        const uint64_t workingNumPoints(
+                std::max<uint64_t>(m_numPointsHint, calculated));
+
+        // Estimate the depth at which the data becomes sparse - using either
+        // the lower density bound from the number of points or from the
+        // detailed file info.
+        m_tail = std::ceil(std::log2(workingNumPoints) / std::log2(4));
+    }
+
+    if (const Subset* s = m.subset())
+    {
+        m_minTail = m_body + s->splits();
+
+        if (m_minTail > m_tail)
+        {
+            std::cout << "Bumped: " << (m_minTail - m_tail) << std::endl;
+        }
+        std::cout << "Min tail: " << m_minTail << std::endl;
+
+        m_tail = std::max<uint64_t>(m_tail, m_minTail);
+    }
+
+    m_tail = std::max<uint64_t>(m_tail, m_body + 4);
+}
 
 ChunkInfo::ChunkInfo(const Structure& structure, const Id& index)
     : m_structure(structure)

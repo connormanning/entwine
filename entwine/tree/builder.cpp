@@ -58,7 +58,9 @@ Builder::Builder(const Config& config)
     , m_tmp(makeUnique<Endpoint>(m_arbiter->getEndpoint(config.tmp())))
     , m_threadPools(
             makeUnique<ThreadPools>(config.workThreads(), config.clipThreads()))
-    , m_isContinuation(!config.force() && m_out->tryGetSize("entwine.json"))
+    , m_isContinuation(
+            !config.force() &&
+            m_out->tryGetSize("entwine" + config.postfix() + ".json"))
     , m_sleepCount(config.sleepCount())
     , m_metadata(m_isContinuation ?
             makeUnique<Metadata>(*m_out, config) :
@@ -78,8 +80,6 @@ Builder::Builder(const Config& config)
 {
     prepareEndpoints();
 }
-
-
 
 /*
 Builder::Builder(
@@ -242,60 +242,6 @@ void Builder::doRun(const std::size_t max)
         throw std::runtime_error("Cannot add to read-only builder");
     }
 
-    /*
-    for (std::size_t i(0); i < m_threadPools->workPool().numThreads(); ++i)
-    {
-        m_threadPools->workPool().add([this, max]()
-        {
-            while (auto o = m_sequence->next(max))
-            {
-                const Origin origin(*o);
-                FileInfo& info(m_metadata->mutableFiles().get(origin));
-                const auto path(info.path());
-
-                if (verbose())
-                {
-                    std::cout << "Adding " << origin << " - " << path <<
-                        std::endl;
-                }
-
-                FileInfo::Status status(FileInfo::Status::Inserted);
-                std::string message;
-
-                try
-                {
-                    insertPath(origin, info);
-                }
-                catch (const std::exception& e)
-                {
-                    if (verbose())
-                    {
-                        std::cout << "During " << path << ": " << e.what() <<
-                            std::endl;
-                    }
-
-                    status = FileInfo::Status::Error;
-                    message = e.what();
-                }
-                catch (...)
-                {
-                    if (verbose())
-                    {
-                        std::cout << "Unknown error during " << path <<
-                            std::endl;
-                    }
-
-                    status = FileInfo::Status::Error;
-                    message = "Unknown error";
-                }
-
-                m_metadata->mutableFiles().set(origin, status, message);
-                if (verbose()) std::cout << "\tDone " << origin << std::endl;
-            }
-        });
-    }
-    */
-
     while (auto o = m_sequence->next(max))
     {
         const Origin origin(*o);
@@ -343,12 +289,10 @@ void Builder::doRun(const std::size_t max)
         });
     }
 
-    /*
     if (verbose())
     {
         std::cout << "\tPushes complete - joining..." << std::endl;
     }
-    */
 
     save();
 }
@@ -464,36 +408,29 @@ Cells Builder::insertData(
         rejected.push(std::move(cell));
     });
 
-    const Bounds& boundsConforming(m_metadata->boundsScaledConforming());
-    // const auto boundsSubset(m_metadata->boundsScaledSubset());
+    const Bounds activeBounds(
+            m_metadata->subset() ?
+                m_metadata->subset()->boundsScaled() :
+                m_metadata->boundsScaledConforming());
 
     while (!cells.empty())
     {
         Cell::PooledNode cell(cells.popOne());
         const Point& point(cell->point());
 
-        if (boundsConforming.contains(point))
+        if (activeBounds.contains(point))
         {
-            // if (!boundsSubset || boundsSubset->contains(point))
-            {
-                climber.init(point);
+            climber.init(point);
 
-                if (m_registry->addPoint(cell, climber, clipper))
-                {
-                    pointStats.addInsert();
-                }
-                else
-                {
-                    reject(cell);
-                    pointStats.addOverflow();
-                }
+            if (m_registry->addPoint(cell, climber, clipper))
+            {
+                pointStats.addInsert();
             }
-            /*
             else
             {
                 reject(cell);
+                pointStats.addOverflow();
             }
-            */
         }
         else
         {

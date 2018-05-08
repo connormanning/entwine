@@ -32,7 +32,7 @@ void Slice::write(const Xyz& p, Cells&& cells) const
             m_out,
             m_tmp,
             m_pointPool,
-            p.toString(m_depth),
+            p.toString(m_depth) + m_metadata.postfix(m_depth),
             std::move(cells));
 }
 
@@ -47,7 +47,7 @@ Cells Slice::read(const Xyz& p) const
             m_out,
             m_tmp,
             m_pointPool,
-            p.toString(m_depth));
+            p.toString(m_depth) + m_metadata.postfix(m_depth));
 }
 
 Slice::Info Slice::latchInfo()

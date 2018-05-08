@@ -35,10 +35,13 @@ namespace
     const std::size_t chunkSize(100);
 }
 
-void Files::save(const arbiter::Endpoint& ep) const
+void Files::save(const arbiter::Endpoint& ep, const std::string& postfix) const
 {
     const Json::Value json(toJson(m_files));
-    io::ensurePut(ep, "entwine-files.json", json.toStyledString());
+    io::ensurePut(
+            ep,
+            "entwine-files" + postfix + ".json",
+            json.toStyledString());
 }
 
 void Files::append(const FileInfoList& fileInfo)
