@@ -36,6 +36,8 @@ public:
     uint64_t of() const { return m_of; }
     uint64_t splits() const { return m_splits; }
 
+    bool primary() const { return m_id == 1; }
+
     const Bounds& boundsNative() const { return m_boundsNative; }
     const Bounds& boundsScaled() const { return m_boundsScaled; }
 

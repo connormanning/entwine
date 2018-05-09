@@ -101,19 +101,17 @@ bool Sequence::checkBounds(
         const Bounds& bounds,
         const std::size_t numPoints)
 {
-    /*
     if (!m_metadata.boundsNativeCubic().overlaps(bounds, true))
     {
         const Subset* subset(m_metadata.subset());
         const bool primary(!subset || subset->primary());
-        m_manifest->addOutOfBounds(origin, numPoints, primary);
+        m_files.addOutOfBounds(origin, numPoints, primary);
         return false;
     }
-    else if (const auto boundsSubset = m_metadata.boundsNativeSubset())
+    else if (const Subset* subset = m_metadata.subset())
     {
-        if (!boundsSubset->overlaps(bounds)) return false;
+        if (!subset->boundsNative().overlaps(bounds)) return false;
     }
-    */
 
     return true;
 }

@@ -72,6 +72,12 @@ public:
         m_pointStats.add(stats);
     }
 
+    void addOutOfBounds(Origin origin, std::size_t count, bool primary)
+    {
+        get(origin).pointStats().addOutOfBounds(count);
+        if (primary) m_pointStats.addOutOfBounds(count);
+    }
+
     const FileInfoList& list() const { return m_files; }
     const PointStats& pointStats() const { return m_pointStats; }
 

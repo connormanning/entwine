@@ -80,10 +80,6 @@ public:
     {
         return *m_boundsScaledCubic;
     }
-    const Bounds& boundsScaledEpsilon() const
-    {
-        return *m_boundsScaledEpsilon;
-    }
     std::unique_ptr<Bounds> boundsScaledSubset() const;
 
     const Schema& schema() const { return *m_schema; }
@@ -141,7 +137,6 @@ private:
 
     std::unique_ptr<Bounds> m_boundsScaledConforming;
     std::unique_ptr<Bounds> m_boundsScaledCubic;
-    std::unique_ptr<Bounds> m_boundsScaledEpsilon;
 
     std::unique_ptr<Schema> m_schema;
     std::unique_ptr<Subset> m_subset;
