@@ -63,30 +63,7 @@ class Builder
     friend class Sequence;
 
 public:
-    Builder(const Config& config);
-
-    /*
-    // Launch a new build.
-    Builder(
-            const Metadata& metadata,
-            std::string outPath,
-            std::string tmpPath,
-            std::size_t workThreads,
-            std::size_t clipThreads,
-            OuterScope outerScope = OuterScope());
-    */
-
-    /*
-    // Continue an existing build.
-    Builder(
-            std::string outPath,
-            std::string tmpPath,
-            std::size_t workThreads,
-            std::size_t clipThreads,
-            const std::size_t* subsetId = nullptr,
-            OuterScope outerScope = OuterScope());
-    */
-
+    Builder(const Config& config, OuterScope os = OuterScope());
     ~Builder();
 
     // Perform indexing.  A _maxFileInsertions_ of zero inserts all files in
@@ -94,7 +71,7 @@ public:
     void go(std::size_t maxFileInsertions = 0);
 
     // Aggregate spatially segmented build.
-    void merge(Builder& other);
+    void merge(Builder& other, NewClipper& clipper);
 
     // Various getters.
     const Metadata& metadata() const;
@@ -132,6 +109,7 @@ public:
             OuterScope outerScope = OuterScope());
 
 private:
+    Registry& registry();
     void doRun(std::size_t max);
     // bool exists() const { return !!m_metadata->manifestPtr(); }
 

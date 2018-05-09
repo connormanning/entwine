@@ -85,7 +85,7 @@ Json::Value Metadata::toJson() const
 
     if (m_srs.size()) json["srs"] = m_srs;
     if (m_reprojection) json["reprojection"] = m_reprojection->toJson();
-    // if (m_subset) json["subset"] = m_subset->toJson();
+    if (m_subset) json["subset"] = m_subset->toJson();
 
     if (m_delta) entwine::merge(json, m_delta->toJson());
 
@@ -129,7 +129,7 @@ void Metadata::merge(const Metadata& other)
 
 void Metadata::makeWhole()
 {
-    // m_subset.reset();
+    m_subset.reset();
     // m_structure->unbump();
 }
 
@@ -148,7 +148,7 @@ std::string Metadata::postfix(const uint64_t depth) const
 {
     if (const Subset* s = subset())
     {
-        if (depth < m_structure->minTail())
+        if (depth < m_structure->shared())
         {
             return "-" + std::to_string(s->id());
         }

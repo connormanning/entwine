@@ -51,7 +51,7 @@ public:
             bool exists = false);
 
     void save(const arbiter::Endpoint& endpoint) const;
-    void merge(const Registry& other) { } // TODO
+    void merge(const Registry& other, NewClipper& clipper);
 
     bool addPoint(
             Cell::PooledNode& cell,
@@ -82,8 +82,11 @@ private:
     void loadAsNew();
     void loadFromRemote();
 
-    void flatHierarchy(Json::Value& json, uint64_t d, Xyz p) const;
-    void hierarchy(Json::Value& json, uint64_t d, Xyz p) const;
+    void hierarchy(
+            Json::Value& json,
+            uint64_t d,
+            Xyz p,
+            uint64_t maxDepth = 0) const;
 
     const Metadata& m_metadata;
     const arbiter::Endpoint& m_out;

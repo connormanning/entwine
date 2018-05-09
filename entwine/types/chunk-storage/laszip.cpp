@@ -76,6 +76,9 @@ void LasZipStorage::write(
     options.add("compression", "laszip");
     options.add("dataformat_id", /* timeMask | */ colorMask);
 
+    options.add("creation_doy", 1);
+    options.add("creation_year", 1970);
+
     options.add("scale_x", delta.scale().x);
     options.add("scale_y", delta.scale().y);
     options.add("scale_z", delta.scale().z);

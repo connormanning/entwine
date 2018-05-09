@@ -50,15 +50,14 @@ NewStructure::NewStructure(const Metadata& m, const Json::Value& json)
 
     if (const Subset* s = m.subset())
     {
-        m_minTail = m_body + s->splits();
+        m_shared = m_body + s->splits();
 
-        if (m_minTail > m_tail)
+        if (m_shared > m_tail)
         {
-            std::cout << "Bumped: " << (m_minTail - m_tail) << std::endl;
+            std::cout << "Bumped: " << (m_shared - m_tail) << std::endl;
         }
-        std::cout << "Min tail: " << m_minTail << std::endl;
 
-        m_tail = std::max<uint64_t>(m_tail, m_minTail);
+        m_tail = std::max<uint64_t>(m_tail, m_shared);
     }
 
     m_tail = std::max<uint64_t>(m_tail, m_body + 4);

@@ -49,7 +49,13 @@ void ReffedChunk::ref(const Slice& s, const NewClimber& climber)
                 {
                     auto cell(cells.popOne());
                     c.init(cell->point(), s.depth());
-                    m_chunk->insert(cell, c);
+                    if (!m_chunk->insert(cell, c).done())
+                    {
+                        throw std::runtime_error(
+                                "Invalid wakeup: " +
+                                climber.chunkKey().position()
+                                    .toString(s.depth()));
+                    }
                 }
             }
         }

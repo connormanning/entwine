@@ -23,8 +23,8 @@ Subset::Subset(const Metadata& m, const Json::Value& json)
     , m_boundsScaled(m.boundsScaledCubic())
 {
     if (!m_id) throw std::runtime_error("Subset IDs should be 1-based.");
-    if (m_id > m_of) throw std::runtime_error("Invalid subset ID - too large.");
     if (m_of <= 1) throw std::runtime_error("Invalid subset range");
+    if (m_id > m_of) throw std::runtime_error("Invalid subset ID - too large.");
 
     if (static_cast<uint64_t>(std::pow(2, std::log2(m_of))) != m_of)
     {

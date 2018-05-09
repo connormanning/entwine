@@ -10,6 +10,7 @@
 
 #include <entwine/tree/builder.hpp>
 #include <entwine/tree/merger.hpp>
+#include <entwine/tree/new-clipper.hpp>
 #include <entwine/tree/thread-pools.hpp>
 #include <entwine/types/manifest.hpp>
 #include <entwine/types/metadata.hpp>
@@ -20,44 +21,23 @@
 namespace entwine
 {
 
-Merger::Merger(
-        const std::string path,
-        const std::size_t threads,
-        const bool verbose,
-        std::shared_ptr<arbiter::Arbiter> arbiter)
-    : m_builder()
-    , m_path(path)
-    , m_threads(threads)
-    , m_outerScope(makeUnique<OuterScope>())
-    , m_verbose(verbose)
+Merger::Merger(const Config& config)
+    : m_config(config)
+    , m_verbose(config.verbose())
 {
-    m_outerScope->setArbiter(arbiter);
+    m_outerScope.setArbiter(
+            std::make_shared<arbiter::Arbiter>(config["arbiter"]));
 
-    const std::size_t zero(0);
-    m_builder = Builder::tryCreateExisting(
-            m_path,
-            ".",
-            ThreadPools::getWorkThreads(threads),
-            ThreadPools::getClipThreads(threads),
-            &zero,
-            *m_outerScope);
+    Config first(m_config);
+    first["subset"]["id"] = 1;
 
-    if (!m_builder)
-    {
-        throw std::runtime_error("Path not mergeable");
-    }
-    /*
-    else if (!m_builder->metadata().subset())
-    {
-        throw std::runtime_error(
-                "This path is already whole - no merge needed");
-    }
-    */
+    m_builder = makeUnique<Builder>(first, m_outerScope);
+
+    if (!m_builder) throw std::runtime_error("Path not mergeable");
 
     m_builder->verbose(m_verbose);
-    m_outerScope->setPointPool(m_builder->sharedPointPool());
+    m_outerScope.setPointPool(m_builder->sharedPointPool());
 
-    /*
     if (const Subset* subset = m_builder->metadata().subset())
     {
         m_of = subset->of();
@@ -66,11 +46,10 @@ Merger::Merger(
     {
         throw std::runtime_error("Could not get number of subsets");
     }
-    */
 
     if (m_verbose)
     {
-        std::cout << "Awakened 1 / " << total() << std::endl;
+        std::cout << "Awakened 1 / " << m_of << std::endl;
     }
 }
 
@@ -78,52 +57,25 @@ Merger::~Merger() { }
 
 void Merger::go()
 {
-    m_builder->unbump();
-
-    Pool pool(m_threads);
-    std::size_t fetches(static_cast<float>(pool.size()) * 1.2);
-
-    while (m_pos < total())
+    auto clipper(makeUnique<NewClipper>(m_builder->registry()));
+    for (m_id = 2; m_id <= m_of; ++m_id)
     {
-        const std::size_t n(std::min(fetches, total() - m_pos));
-        std::vector<std::unique_ptr<Builder>> builders(n);
-
-        for (auto& b : builders)
+        if (m_verbose)
         {
-            const std::size_t id(m_pos++);
-            if (m_verbose)
-            {
-                std::cout << "Merging " << m_pos << " / " << total() <<
-                    std::endl;
-            }
-
-            pool.add([this, &b, id]()
-            {
-                b = Builder::tryCreateExisting(
-                        m_path,
-                        ".",
-                        ThreadPools::getWorkThreads(m_threads),
-                        ThreadPools::getClipThreads(m_threads),
-                        &id,
-                        *m_outerScope);
-
-                if (!b) std::cout << "Create failed: " << id << std::endl;
-            });
+            std::cout << "Merging " << m_id << " / " << m_of << std::endl;
         }
 
-        pool.cycle();
-
-        for (auto& b : builders)
-        {
-            if (!b) throw std::runtime_error("Couldn't create subset");
-            b->verbose(m_verbose);
-            m_builder->merge(*b);
-        }
+        Config current(m_config);
+        current["subset"]["id"] = Json::UInt64(m_id);
+        current["subset"]["of"] = Json::UInt64(m_of);
+        Builder b(current, m_outerScope);
+        m_builder->merge(b, *clipper);
     }
 
     m_builder->makeWhole();
 
     if (m_verbose) std::cout << "Merge complete.  Saving..." << std::endl;
+    clipper.reset();
     m_builder->save();
     m_builder.reset();
     if (m_verbose) std::cout << "\tFinal save complete." << std::endl;

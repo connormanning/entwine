@@ -27,6 +27,7 @@ namespace entwine
 class Slice
 {
     friend class ReffedChunk;
+    friend class Registry;
 
 public:
     Slice(

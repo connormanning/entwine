@@ -12,6 +12,9 @@
 #include <string>
 #include <vector>
 
+#include <entwine/tree/config.hpp>
+#include <entwine/types/outer-scope.hpp>
+
 namespace Json { class Value; }
 
 namespace entwine
@@ -20,32 +23,24 @@ namespace entwine
 namespace arbiter { class Arbiter; }
 
 class Builder;
-class OuterScope;
 
 class Merger
 {
 public:
-    Merger(
-            std::string path,
-            std::size_t threads,
-            bool verbose = false,
-            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
-
+    Merger(const Config& config);
     ~Merger();
 
     void go();
 
-    std::size_t index() const { return m_pos + 1; }
-    std::size_t total() const { return m_of; }
+    std::size_t id() const { return m_id; }
+    std::size_t of() const { return m_of; }
 
 private:
+    const Config m_config;
     std::unique_ptr<Builder> m_builder;
-    std::string m_path;
-    std::vector<std::size_t> m_others;
-    std::size_t m_threads;
-    std::unique_ptr<OuterScope> m_outerScope;
+    OuterScope m_outerScope;
 
-    std::size_t m_pos = 1;
+    std::size_t m_id = 1;
     std::size_t m_of = 0;
     bool m_verbose;
 };

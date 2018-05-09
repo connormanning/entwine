@@ -52,8 +52,8 @@ namespace
     std::size_t reawakened(0);
 }
 
-Builder::Builder(const Config& config)
-    : m_arbiter(std::make_shared<Arbiter>(config["arbiter"]))
+Builder::Builder(const Config& config, OuterScope os)
+    : m_arbiter(os.getArbiter(config["arbiter"]))
     , m_out(makeUnique<Endpoint>(m_arbiter->getEndpoint(config.output())))
     , m_tmp(makeUnique<Endpoint>(m_arbiter->getEndpoint(config.tmp())))
     , m_threadPools(
@@ -63,9 +63,7 @@ Builder::Builder(const Config& config)
     , m_metadata(m_isContinuation ?
             makeUnique<Metadata>(*m_out, config) :
             makeUnique<Metadata>(config))
-    , m_pointPool(std::make_shared<PointPool>(
-                m_metadata->schema(),
-                m_metadata->delta()))
+    , m_pointPool(os.getPointPool(m_metadata->schema(), m_metadata->delta()))
     , m_registry(makeUnique<Registry>(
                 *m_metadata,
                 *m_out,
@@ -468,26 +466,10 @@ void Builder::save(const arbiter::Endpoint& ep)
     m_metadata->save(*m_out);
 }
 
-void Builder::merge(Builder& other)
+void Builder::merge(Builder& other, NewClipper& clipper)
 {
-    /*
-    if (!m_metadata->subset())
-    {
-        throw std::runtime_error("Cannot merge non-subset build");
-    }
-
-    if (m_threadPools->clipPool().running())
-    {
-        m_threadPools->workPool().resize(m_threadPools->size());
-        m_threadPools->clipPool().join();
-    }
-
-    m_registry->merge(*other.m_registry);
-    if (other.exists())
-    {
-        m_metadata->merge(*other.m_metadata);
-    }
-    */
+    m_registry->merge(*other.m_registry, clipper);
+    m_metadata->merge(*other.m_metadata);
 }
 
 void Builder::prepareEndpoints()
@@ -522,6 +504,7 @@ const Metadata& Builder::metadata() const           { return *m_metadata; }
 const Registry& Builder::registry() const           { return *m_registry; }
 const arbiter::Arbiter& Builder::arbiter() const    { return *m_arbiter; }
 arbiter::Arbiter& Builder::arbiter() { return *m_arbiter; }
+Registry& Builder::registry() { return *m_registry; }
 
 Sequence& Builder::sequence() { return *m_sequence; }
 const Sequence& Builder::sequence() const { return *m_sequence; }

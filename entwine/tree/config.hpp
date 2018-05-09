@@ -30,6 +30,7 @@ namespace entwine
 class Config
 {
 public:
+    Config();
     Config(const Json::Value& json);
     Config prepare();
 
@@ -89,9 +90,12 @@ public:
     {
         return !force() &&
             arbiter::Arbiter(m_json["arbiter"]).tryGetSize(
-                    "entwine" + postfix() + ".json");
+                    arbiter::util::join(
+                        output(),
+                        "entwine" + postfix() + ".json"));
     }
 
+    bool verbose() const { return m_json["verbose"].asBool(); }
     bool force() const { return m_json["force"].asBool(); }
     bool trustHeaders() const { return m_json["trustHeaders"].asBool(); }
     double density() const { return m_json["density"].asDouble(); }

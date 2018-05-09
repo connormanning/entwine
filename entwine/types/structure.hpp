@@ -33,8 +33,9 @@ public:
     uint64_t body() const { return m_body; }
     uint64_t tail() const { return m_tail; }
 
-    // Used for subsetting.
-    uint64_t minTail() const { return m_minTail; }
+    // Used for subsetting.  Anything below this depth is potentially
+    // conflicting between different subsets.
+    uint64_t shared() const { return m_shared; }
 
     Json::Value toJson() const
     {
@@ -52,7 +53,7 @@ private:
     uint64_t m_body = 0;
     uint64_t m_tail = 0;
 
-    uint64_t m_minTail = 0;
+    uint64_t m_shared = 0;
 };
 
 class Structure;

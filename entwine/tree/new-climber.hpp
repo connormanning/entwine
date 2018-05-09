@@ -24,7 +24,7 @@ namespace entwine
 class NewClimber
 {
 public:
-    NewClimber(const Metadata& metadata, Origin origin)
+    NewClimber(const Metadata& metadata, Origin origin = 0)
         : m_metadata(metadata)
         , m_structure(m_metadata.structure())
         , m_origin(origin)

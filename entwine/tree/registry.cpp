@@ -84,16 +84,58 @@ void Registry::save(const arbiter::Endpoint& endpoint) const
         h[base.toString(d)] = static_cast<Json::UInt64>(s.np(base));
     }
 
-    flatHierarchy(h, s.body(), Xyz());
+    hierarchy(h, s.body(), Xyz());
     const std::string f("entwine-hierarchy" + m_metadata.postfix() + ".json");
     io::ensurePut(endpoint, f, h.toStyledString());
 }
 
-void Registry::flatHierarchy(Json::Value& h, uint64_t d, Xyz p) const
+void Registry::merge(const Registry& other, NewClipper& clipper)
+{
+    const auto& s(m_metadata.structure());
+    Json::Value h;
+    other.hierarchy(h, s.body(), Xyz());
+
+    NewClimber climber(m_metadata);
+
+    for (const std::string key : h.getMemberNames())
+    {
+        const Dxyz dxyz(key);
+
+        if (dxyz.d < s.shared())
+        {
+            auto cells(other.m_slices.at(dxyz.d).read(dxyz.p));
+
+            while (!cells.empty())
+            {
+                auto cell(cells.popOne());
+                climber.init(cell->point(), dxyz.d);
+                if (!m_slices.at(dxyz.d).insert(cell, climber, clipper).done())
+                {
+                    throw std::runtime_error(
+                            "Invalid merge insert: " + dxyz.toString());
+                }
+            }
+        }
+        else
+        {
+            const uint64_t np(h[key].asUInt64());
+            auto& slice(m_slices.at(dxyz.d));
+            slice.setNp(dxyz.p, slice.np(dxyz.p) + np);
+        }
+    }
+}
+
+void Registry::hierarchy(
+        Json::Value& h,
+        uint64_t d,
+        Xyz p,
+        const uint64_t maxDepth) const
 {
     h[p.toString(d)] = static_cast<Json::UInt64>(m_slices[d].np(p));
 
     ++d;
+    if (maxDepth && d >= maxDepth) return;
+
     const auto& s(m_slices[d]);
 
     if (d <= m_metadata.structure().tail())
@@ -109,43 +151,13 @@ void Registry::flatHierarchy(Json::Value& h, uint64_t d, Xyz p) const
                 for (std::size_t c(0); c < 2; ++c)
                 {
                     Xyz next(p.x + a, p.y + b, p.z + c);
-                    if (s.np(next)) flatHierarchy(h, d, next);
+                    if (s.np(next)) hierarchy(h, d, next);
                 }
             }
         }
     }
-    else if (s.np(p)) flatHierarchy(h, d, p);
+    else if (s.np(p)) hierarchy(h, d, p);
 }
-
-/*
-void Registry::hierarchy(Json::Value& h, uint64_t d, Xyz p) const
-{
-    h["n"] = static_cast<Json::UInt64>(m_slices[d].np(p));
-
-    ++d;
-    const auto& s(m_slices[d]);
-
-    if (d <= m_metadata.structure().tail())
-    {
-        p.x <<= 1u;
-        p.y <<= 1u;
-        p.z <<= 1u;
-
-        for (std::size_t a(0); a < 2; ++a)
-        {
-            for (std::size_t b(0); b < 2; ++b)
-            {
-                for (std::size_t c(0); c < 2; ++c)
-                {
-                    Xyz next(p.x + a, p.y + b, p.z + c);
-                    if (s.np(next)) hierarchy(h[next.toString(d)], d, next);
-                }
-            }
-        }
-    }
-    else if (s.np(p)) hierarchy(h[p.toString(d)], d, p);
-}
-*/
 
 } // namespace entwine
 

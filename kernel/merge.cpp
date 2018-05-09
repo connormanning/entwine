@@ -15,6 +15,9 @@
 #include <memory>
 #include <string>
 
+#include <json/json.h>
+
+#include <entwine/tree/config.hpp>
 #include <entwine/tree/merger.hpp>
 
 using namespace entwine;
@@ -44,12 +47,11 @@ void Kernel::merge(std::vector<std::string> args)
         throw std::runtime_error("Merge path required");
     }
 
-    const std::string path(args[0]);
+    Config config;
+    config["output"] = args[0];
+    config["verbose"] = true;
 
     std::size_t a(1);
-    std::size_t threads(1);
-
-    Json::Value arbiterConfig;
 
     while (a < args.size())
     {
@@ -59,7 +61,7 @@ void Kernel::merge(std::vector<std::string> args)
         {
             if (++a < args.size())
             {
-                arbiterConfig["s3"]["profile"] = args[a];
+                config["arbiter"]["s3"]["profile"] = args[a];
             }
             else
             {
@@ -70,22 +72,21 @@ void Kernel::merge(std::vector<std::string> args)
         {
             if (++a < args.size())
             {
-                threads = std::stoul(args[a]);
+                config["threads"] = Json::UInt64(std::stoul(args[a]));
             }
             else
             {
-                throw std::runtime_error("Invalid credential path argument");
+                throw std::runtime_error("Invalid threads setting");
             }
         }
 
         ++a;
     }
 
-    auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(arbiterConfig));
+    Merger merger(config);
 
-    Merger merger(path, threads, true, arbiter);
-
-    std::cout << "Merging " << path << "..." << std::endl;
+    std::cout << "Merging " << config["output"].asString() << "..." <<
+        std::endl;
     merger.go();
     std::cout << "Merge complete." << std::endl;
 }

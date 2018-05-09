@@ -17,6 +17,10 @@
 namespace entwine
 {
 
+Config::Config()
+    : Config(Json::nullValue)
+{ }
+
 Config::Config(const Json::Value& json)
     : m_json(merge(defaults(), json))
 { }

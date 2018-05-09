@@ -76,13 +76,13 @@ class NewClipper
     };
 
 public:
-    NewClipper(Registry& registry, Origin origin)
+    NewClipper(Registry& registry, Origin origin = 0)
         : m_registry(registry)
         , m_origin(origin)
         , m_clips(64, *this)
     { }
 
-    ~NewClipper() { clipAll(); }
+    ~NewClipper() { if (m_origin != invalidOrigin) clipAll(); }
 
     bool insert(uint64_t d, const Xyz& v)
     {
