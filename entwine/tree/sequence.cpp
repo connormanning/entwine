@@ -31,9 +31,9 @@ Sequence::Sequence(Metadata& metadata, std::mutex& mutex)
     , m_overlaps()
 {
     const Bounds activeBounds(
-            // m_metadata.subset() ?
-                // *m_metadata.boundsNativeSubset() :
-                m_metadata.boundsNativeCubic());
+            m_metadata.subset() ?
+                m_metadata.subset()->boundsNative() :
+                m_metadata.boundsNativeConforming());
 
     for (Origin i(m_origin); i < m_end; ++i)
     {
@@ -44,6 +44,11 @@ Sequence::Sequence(Metadata& metadata, std::mutex& mutex)
         {
             m_overlaps.push_back(i);
         }
+    }
+
+    if (m_metadata.subset())
+    {
+        std::cout << "Overlaps: " << m_overlaps.size() << std::endl;
     }
 
     m_origin = m_overlaps.empty() ? m_end : m_overlaps.front();
