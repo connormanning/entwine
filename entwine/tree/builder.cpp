@@ -77,92 +77,6 @@ Builder::Builder(const Config& config, OuterScope os)
     prepareEndpoints();
 }
 
-/*
-Builder::Builder(
-        const Metadata& metadata,
-        const std::string outPath,
-        const std::string tmpPath,
-        const std::size_t workThreads,
-        const std::size_t clipThreads,
-        const OuterScope outerScope)
-    : m_arbiter(outerScope.getArbiter())
-    , m_out(makeUnique<Endpoint>(m_arbiter->getEndpoint(outPath)))
-    , m_tmp(makeUnique<Endpoint>(m_arbiter->getEndpoint(tmpPath)))
-    , m_threadPools(makeUnique<ThreadPools>(workThreads, clipThreads))
-    , m_metadata(([this, &metadata]()
-    {
-        auto m(clone(metadata));
-        m->manifest().awakenAll(m_threadPools->clipPool());
-        return m;
-    })())
-    , m_isContinuation(false)
-    , m_pointPool(
-            outerScope.getPointPool(m_metadata->schema(), m_metadata->delta()))
-    , m_sequence(makeUnique<Sequence>(*this))
-    , m_registry(makeUnique<Registry>(
-                *m_metadata,
-                outEndpoint(),
-                tmpEndpoint(),
-                *m_pointPool))
-    , m_start(now())
-{
-    prepareEndpoints();
-}
-*/
-
-/*
-Builder::Builder(
-        const std::string outPath,
-        const std::string tmpPath,
-        const std::size_t workThreads,
-        const std::size_t clipThreads,
-        const std::size_t* subsetId,
-        const OuterScope outerScope)
-    : m_arbiter(outerScope.getArbiter())
-    , m_out(makeUnique<Endpoint>(m_arbiter->getEndpoint(outPath)))
-    , m_tmp(makeUnique<Endpoint>(m_arbiter->getEndpoint(tmpPath)))
-    , m_threadPools(makeUnique<ThreadPools>(workThreads, clipThreads))
-    , m_metadata(Metadata::create(*m_out, subsetId))
-    , m_isContinuation(true)
-    , m_pointPool(
-            outerScope.getPointPool(m_metadata->schema(), m_metadata->delta()))
-    , m_sequence(makeUnique<Sequence>(*this))
-    , m_registry(makeUnique<Registry>(
-                *m_metadata,
-                outEndpoint(),
-                tmpEndpoint(),
-                *m_pointPool,
-                exists()))
-    , m_start(now())
-{
-    if (m_metadata->manifestPtr())
-    {
-        m_metadata->manifest().awakenAll(m_threadPools->clipPool());
-    }
-    prepareEndpoints();
-}
-*/
-
-std::unique_ptr<Builder> Builder::tryCreateExisting(
-        const std::string out,
-        const std::string tmp,
-        const std::size_t works,
-        const std::size_t clips,
-        const std::size_t* subsetId,
-        OuterScope os)
-{
-    /*
-    const std::string postfix(Subset::postfix(subsetId));
-
-    if (os.getArbiter()->getEndpoint(out).tryGetSize("entwine" + postfix))
-    {
-        return makeUnique<Builder>(out, tmp, works, clips, subsetId, os);
-    }
-    */
-
-    return std::unique_ptr<Builder>();
-}
-
 Builder::~Builder()
 { }
 
@@ -497,7 +411,6 @@ void Builder::prepareEndpoints()
     }
 }
 
-void Builder::unbump() { m_metadata->unbump(); }
 void Builder::makeWhole() { m_metadata->makeWhole(); }
 
 const Metadata& Builder::metadata() const           { return *m_metadata; }

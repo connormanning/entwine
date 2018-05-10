@@ -93,20 +93,11 @@ public:
 
     // Set up our metadata as finished with merging.
     void makeWhole();
-    void unbump();
 
     void append(const FileInfoList& fileInfo);
 
     bool verbose() const { return m_verbose; }
     void verbose(bool v) { m_verbose = v; }
-
-    static std::unique_ptr<Builder> tryCreateExisting(
-            std::string path,
-            std::string tmp,
-            std::size_t workThreads,
-            std::size_t clipThreads,
-            const std::size_t* subsetId = nullptr,
-            OuterScope outerScope = OuterScope());
 
 private:
     Registry& registry();

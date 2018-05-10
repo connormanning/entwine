@@ -418,6 +418,7 @@ std::unique_ptr<Builder> ConfigParser::tryGetExisting(
     OuterScope os;
     os.setArbiter(arbiter);
 
+    /*
     return Builder::tryCreateExisting(
             outPath,
             tmpPath,
@@ -425,6 +426,8 @@ std::unique_ptr<Builder> ConfigParser::tryGetExisting(
             clipThreads,
             subsetId.get(),
             os);
+    */
+    return std::unique_ptr<Builder>();
 }
 
 void ConfigParser::normalizeInput(

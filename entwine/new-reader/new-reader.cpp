@@ -30,17 +30,6 @@ NewReader::NewReader(
     , m_pointPool(m_metadata.schema(), m_metadata.delta())
 { }
 
-/*
-std::vector<char> NewReader::read(const Json::Value& j) const
-{
-    const NewQueryParams p(j);
-    NewQuery q(*this, p);
-    q.run();
-
-    return std::vector<char>();
-}
-*/
-
 std::unique_ptr<NewCountQuery> NewReader::count(const Json::Value& j) const
 {
     const NewQueryParams p(j);
@@ -53,30 +42,46 @@ std::unique_ptr<NewReadQuery> NewReader::read(const Json::Value& j) const
     return makeUnique<NewReadQuery>(*this, p, Schema(j["schema"]));
 }
 
-Json::Value NewReader::fakeHierarchy(const Json::Value j) const
+Json::Value NewReader::hierarchy(const Json::Value& j) const
 {
+    Json::Value h;
     const NewQueryParams p(j);
-
-    Json::Value json;
-    uint64_t d(p.db());
-
-    fakeHierarchy(json, d, p);
-
-    return json;
+    ChunkKey c(m_metadata);
+    c.d = m_metadata.structure().body();
+    hierarchy(h, p, c);
+    return h;
 }
 
-void NewReader::fakeHierarchy(
+void NewReader::hierarchy(
         Json::Value& json,
-        uint64_t d,
-        const NewQueryParams& p) const
+        const NewQueryParams& p,
+        const ChunkKey& c) const
 {
-    json["n"] = 1;
+    if (c.depth() >= p.de()) return;
 
-    if (++d >= p.de() || d >= 14) return;
+    const auto& b(p.bounds());
+    if (b != Bounds::everything() && !b.growBy(0.05).contains(c.bounds()))
+    {
+        return;
+    }
+
+    const uint64_t count(m_hierarchy.count(c.get()));
+    if (c.depth() >= p.db())
+    {
+        json["n"] = count;
+        if (c.inTail()) json["n"] = std::max<uint64_t>(count / 8, 1);
+    }
+
+    if (c.depth() + 1 >= p.de()) return;
 
     for (std::size_t i(0); i < dirEnd(); ++i)
     {
-        fakeHierarchy(json[dirToString(toDir(i))], d, p);
+        const auto dir(toDir(i));
+        const ChunkKey next(c.getStep(dir));
+        if (m_hierarchy.count(next.get()))
+        {
+            hierarchy(json[toString(dir)], p, next);
+        }
     }
 }
 

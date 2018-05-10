@@ -87,7 +87,7 @@ Json::Value Metadata::toJson() const
     if (m_reprojection) json["reprojection"] = m_reprojection->toJson();
     if (m_subset) json["subset"] = m_subset->toJson();
 
-    if (m_delta) entwine::merge(json, m_delta->toJson());
+    if (m_delta) json = entwine::merge(json, m_delta->toJson());
 
     if (m_transformation)
     {

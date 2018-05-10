@@ -17,6 +17,7 @@
 #include <entwine/new-reader/hierarchy-reader.hpp>
 #include <entwine/new-reader/new-query.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
+#include <entwine/types/key.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/util/json.hpp>
 
@@ -35,7 +36,7 @@ public:
 
     std::unique_ptr<NewCountQuery> count(const Json::Value& json) const;
     std::unique_ptr<NewReadQuery> read(const Json::Value& json) const;
-    Json::Value fakeHierarchy(const Json::Value json) const;
+    Json::Value hierarchy(const Json::Value& json) const;
 
     const Metadata& metadata() const { return m_metadata; }
     const HierarchyReader& hierarchy() const { return m_hierarchy; }
@@ -48,10 +49,10 @@ public:
     std::size_t pointSize() const { return m_metadata.schema().pointSize(); }
 
 private:
-    void fakeHierarchy(
+    void hierarchy(
             Json::Value& json,
-            uint64_t d,
-            const NewQueryParams& params) const;
+            const NewQueryParams& params,
+            const ChunkKey& c) const;
 
     std::shared_ptr<arbiter::Arbiter> m_arbiter;
     arbiter::Endpoint m_ep;
