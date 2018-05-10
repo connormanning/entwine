@@ -31,6 +31,7 @@ public:
 
     std::unique_ptr<Origin> next(std::size_t max);
     bool done() const { auto l(getLock()); return m_origin < m_end; }
+    std::size_t added() const { return m_added; }
 
     // Stop this build as soon as possible.  All partially inserted paths will
     // be completed, and non-inserted paths can be added by continuing this
