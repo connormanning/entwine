@@ -106,6 +106,8 @@ public:
         return false;
     }
 
+    Registry& registry() { return m_registry; }
+
     bool insert(ReffedSelfChunk& c);
 
     void clip();

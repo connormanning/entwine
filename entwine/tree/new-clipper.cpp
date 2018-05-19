@@ -87,7 +87,8 @@ std::size_t NewClipper::Clip::newClip(const bool force)
         if (force || !it->second)
         {
             ReffedSelfChunk& c(*it->first);
-            c.unref(m_clipper.origin());
+            const Origin o(m_clipper.origin());
+            m_clipper.registry().clipPool().add([&c, o] { c.unref(o); });
             ++n;
             it = m_chunks.erase(it);
         }

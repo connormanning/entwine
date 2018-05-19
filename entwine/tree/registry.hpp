@@ -62,24 +62,14 @@ public:
             std::size_t i = 0)
     {
         return m_root.insert(cell, climber, clipper);
-        /*
-        Tube::Insertion attempt;
-
-        while (true)
-        {
-            auto& slice(m_slices.at(climber.depth()));
-            attempt = slice.insert(cell, climber, clipper);
-
-            if (!attempt.done()) climber.step(cell->point());
-            else return true;
-        }
-        */
     }
 
     void clip(uint64_t d, const Xyz& p, uint64_t o)
     {
         m_threadPool.add([this, d, p, o] { m_slices.at(d).clip(p, o); });
     }
+
+    Pool& clipPool() { return m_threadPool; }
 
     const Metadata& metadata() const { return m_metadata; }
 

@@ -13,13 +13,6 @@
 namespace entwine
 {
 
-/*
-std::unique_ptr<SelfChunk> create(const ChunkKey& c)
-{
-    return makeUnique<SelfContiguousChunk>
-}
-*/
-
 void ReffedSelfChunk::ref(const NewClimber& climber)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -28,16 +21,21 @@ void ReffedSelfChunk::ref(const NewClimber& climber)
     {
         m_refs[climber.origin()] = 1;
 
-        if (!m_chunk)
+        if (!m_chunk || m_chunk->written())
         {
-            if (m_key.depth() < m_metadata.structure().tail())
+            if (!m_chunk)
             {
-                m_chunk = makeUnique<SelfContiguousChunk>(*this);
+                if (m_key.depth() < m_metadata.structure().tail())
+                {
+                    m_chunk = makeUnique<SelfContiguousChunk>(*this);
+                }
+                else
+                {
+                    m_chunk = makeUnique<SelfMappedChunk>(*this);
+                }
             }
-            else
-            {
-                m_chunk = makeUnique<SelfMappedChunk>(*this);
-            }
+
+            if (m_chunk->written()) m_chunk->init();
 
             if (const uint64_t np = m_hierarchy.get(m_key.get()))
             {
@@ -88,8 +86,6 @@ void ReffedSelfChunk::unref(const Origin o)
                     m_pointPool,
                     m_key.toString() + m_metadata.postfix(m_key.depth()),
                     std::move(cells));
-
-            m_chunk.reset();
         }
     }
 }

@@ -45,9 +45,12 @@ public:
             NewClipper* clipper) = 0;
 
     virtual Cells acquire(PointPool& pointPool) = 0;
+    virtual void init() { m_written = false; }
+    bool written() const { return m_written; }
 
 protected:
     const ReffedSelfChunk& m_ref;
+    bool m_written = false;
 };
 
 class ReffedSelfChunk
@@ -130,6 +133,13 @@ public:
         }
     }
 
+    virtual void init() override
+    {
+        assert(m_tubes.empty());
+        m_tubes.resize(m_pointsAcross * m_pointsAcross);
+        m_written = false;
+    }
+
     virtual bool insert(
             Cell::PooledNode& cell,
             NewClimber& climber,
@@ -166,6 +176,7 @@ private:
         }
 
         m_tubes.clear();
+        m_written = true;
         return cells;
     }
 
@@ -220,6 +231,7 @@ private:
         }
 
         m_tubes.clear();
+        m_written = true;
         return cells;
     }
 
