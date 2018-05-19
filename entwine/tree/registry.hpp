@@ -21,6 +21,8 @@
 #include <entwine/tree/new-climber.hpp>
 #include <entwine/tree/new-clipper.hpp>
 #include <entwine/tree/cold.hpp>
+#include <entwine/tree/hierarchy.hpp>
+#include <entwine/tree/self-chunk.hpp>
 #include <entwine/tree/slice.hpp>
 #include <entwine/types/key.hpp>
 #include <entwine/types/point-pool.hpp>
@@ -57,8 +59,10 @@ public:
             Cell::PooledNode& cell,
             NewClimber& climber,
             NewClipper& clipper,
-            std::size_t maxDepth = 0)
+            std::size_t i = 0)
     {
+        return m_root.insert(cell, climber, clipper);
+        /*
         Tube::Insertion attempt;
 
         while (true)
@@ -69,6 +73,7 @@ public:
             if (!attempt.done()) climber.step(cell->point());
             else return true;
         }
+        */
     }
 
     void clip(uint64_t d, const Xyz& p, uint64_t o)
@@ -92,8 +97,10 @@ private:
     const arbiter::Endpoint& m_out;
     const arbiter::Endpoint& m_tmp;
     Pool& m_threadPool;
+    Hierarchy m_hierarchy;
 
     std::vector<Slice> m_slices;
+    ReffedSelfChunk m_root;
 };
 
 } // namespace entwine

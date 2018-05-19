@@ -152,7 +152,6 @@ private:
     std::unique_ptr<Metadata> m_metadata;
 
     mutable std::mutex m_mutex;
-
     mutable std::shared_ptr<PointPool> m_pointPool;
 
     std::unique_ptr<Registry> m_registry;

@@ -126,20 +126,22 @@ struct Key
         p.reset();
     }
 
-    void step(const Point& g)
+    Dir step(const Point& g)
     {
-        step(getDirection(b.mid(), g));
+        return step(getDirection(b.mid(), g));
     }
 
-    void step(Dir dir)
+    Dir step(Dir dir)
     {
         p.x = (p.x << 1) | (isEast(dir)  ? 1u : 0u);
         p.y = (p.y << 1) | (isNorth(dir) ? 1u : 0u);
         p.z = (p.z << 1) | (isUp(dir)    ? 1u : 0u);
 
         b.go(dir);
+        return dir;
     }
 
+    const Metadata& metadata() const { return m; }
     const Bounds& bounds() const { return b; }
     const Xyz& position() const { return p; }
 
@@ -156,26 +158,54 @@ struct ChunkKey
     void reset()
     {
         d = 0;
+        // d = metadata().structure().body();
         k.reset();
     }
 
-    void step(const Point& g)
+    Dir step(const Point& g)
     {
-        if (inBody()) k.step(g);
+        Dir result(toDir(0));
+        if (inBody()) result = k.step(g);
         ++d;
+        return result;
     }
 
-    void step(Dir dir)
+    Dir step(Dir dir)
     {
-        if (inBody()) k.step(dir);
+        Dir result(toDir(0));
+        if (inBody()) result = k.step(dir);
         ++d;
+        return result;
     }
 
-    void step()
+    Dir step()
     {
         assert(inTail());
         ++d;
+        return toDir(0);
     }
+    /*
+    Dir step(const Point& g)
+    {
+        ++d;
+        if (inBody()) return k.step(g);
+        else return toDir(0);
+    }
+
+    Dir step(Dir dir)
+    {
+        ++d;
+        if (inBody()) return k.step(dir);
+        else return toDir(0);
+    }
+
+    Dir step()
+    {
+        assert(inTail());
+        ++d;
+        return toDir(0);
+    }
+    */
 
     ChunkKey getStep(Dir dir) const
     {
@@ -202,9 +232,14 @@ struct ChunkKey
         return d >= k.m.structure().tail();
     }
 
+    std::string toString() const { return position().toString(d); }
+
     Dxyz get() const { return Dxyz(d, k.p); }
 
+    const Metadata& metadata() const { return k.metadata(); }
+    const Xyz& position() const { return k.position(); }
     const Bounds& bounds() const { return k.bounds(); }
+    const Key& key() const { return k; }
     uint64_t depth() const { return d; }
 
     Key k;

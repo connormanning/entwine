@@ -21,6 +21,7 @@ namespace entwine
 {
 
 class Registry;
+class ReffedSelfChunk;
 
 class NewClipper
 {
@@ -30,8 +31,14 @@ class NewClipper
         Clip(NewClipper& c) : m_clipper(c) { }
         ~Clip() { assert(empty()); }
 
+        bool insert(ReffedSelfChunk& c);
+        std::size_t newClip(bool force = false);
+
         bool insert(const Xyz& p)
         {
+            std::cout << "OTH" << std::endl;
+            return false;
+            /*
             const auto it(m_touched.find(p));
             if (it == m_touched.end())
             {
@@ -43,11 +50,14 @@ class NewClipper
                 it->second = true;
                 return false;
             }
+            */
         }
 
         std::size_t clip(const uint64_t d, bool force = false)
         {
+            std::cout << "OLD" << std::endl;
             std::size_t n(0);
+            /*
             for (auto it(m_touched.begin()); it != m_touched.end(); )
             {
                 if (force || !it->second)
@@ -63,16 +73,18 @@ class NewClipper
                     ++it;
                 }
             }
-
+            */
             return n;
         }
 
-        bool empty() const { return m_touched.empty(); }
+        bool empty() const { return m_chunks.empty(); }
 
     private:
         NewClipper& m_clipper;
 
-        std::map<Xyz, bool> m_touched;
+        // std::map<Xyz, bool> m_touched;
+
+        std::map<ReffedSelfChunk*, bool> m_chunks;
     };
 
 public:
@@ -86,10 +98,15 @@ public:
 
     bool insert(uint64_t d, const Xyz& v)
     {
+        /*
         const bool added(m_clips.at(d).insert(v));
         if (added) ++m_count;
         return added;
+        */
+        return false;
     }
+
+    bool insert(ReffedSelfChunk& c);
 
     void clip();
 

@@ -14,6 +14,7 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/climber.hpp>
+#include <entwine/tree/self-chunk.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
@@ -35,6 +36,7 @@ Registry::Registry(
     , m_out(out)
     , m_tmp(tmp)
     , m_threadPool(threadPool)
+    , m_root(ChunkKey(metadata), out, tmp, pointPool, m_hierarchy)
 {
     std::size_t chunksAcross(1);
     std::size_t pointsAcross(1);
@@ -74,19 +76,8 @@ Registry::Registry(
 
 void Registry::save(const arbiter::Endpoint& endpoint) const
 {
-    Json::Value h;
-
-    const auto& s(m_metadata.structure());
-    for (std::size_t d(s.head()); d < s.body(); ++d)
-    {
-        const Xyz base;
-        const auto& s(m_slices[d]);
-        h[base.toString(d)] = static_cast<Json::UInt64>(s.np(base));
-    }
-
-    hierarchy(h, s.body(), Xyz());
     const std::string f("entwine-hierarchy" + m_metadata.postfix() + ".json");
-    io::ensurePut(endpoint, f, h.toStyledString());
+    io::ensurePut(endpoint, f, m_hierarchy.toJson().toStyledString());
 }
 
 void Registry::merge(const Registry& other, NewClipper& clipper)

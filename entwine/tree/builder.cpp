@@ -346,6 +346,7 @@ Cells Builder::insertData(
                 m_metadata->subset()->boundsScaled() :
                 m_metadata->boundsScaledConforming());
 
+    static int i(0);
     while (!cells.empty())
     {
         Cell::PooledNode cell(cells.popOne());
@@ -355,7 +356,8 @@ Cells Builder::insertData(
         {
             climber.init(point);
 
-            if (m_registry->addPoint(cell, climber, clipper))
+            // std::cout << "I " << ++i << std::endl;
+            if (m_registry->addPoint(cell, climber, clipper, i))
             {
                 pointStats.addInsert();
             }

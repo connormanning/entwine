@@ -49,10 +49,10 @@ public:
         while (m_chunk.d < depth) step(p);
     }
 
-    void step(const Point& p)
+    Dir step(const Point& p)
     {
         m_point.step(p);
-        m_chunk.step(p);
+        return m_chunk.step(p);
     }
 
     Origin origin() const { return m_origin; }
