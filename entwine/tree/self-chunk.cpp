@@ -23,7 +23,57 @@ namespace
 
 SelfChunk::SelfChunk(const ReffedSelfChunk& ref)
     : m_ref(ref)
-{ }
+    , m_overflow(m_ref.pointPool().cellPool())
+{
+    const auto& s(m_ref.metadata().structure());
+
+    const std::size_t pointsAcross(1UL << s.body());
+    const float size(pointsAcross * pointsAcross);
+    m_limit = size * 0.25;
+
+    m_overflowDepth = s.body() + (s.tail() - s.body()) / 2;
+}
+
+bool SelfChunk::insert(
+        const Key& key,
+        Cell::PooledNode& cell,
+        NewClipper& clipper)
+{
+    if (insert(key, cell)) return true;
+    if (m_ref.key().depth() < m_overflowDepth) return false;
+
+    std::lock_guard<std::mutex> lock(m_overflowMutex);
+    if (m_hasChildren) return false;
+
+    m_overflow.push(std::move(cell));
+    m_keys.push(key);
+
+    assert(m_overflow.size() == m_keys.size());
+
+    if (m_overflow.size() <= m_limit) return true;
+
+    m_hasChildren = true;
+
+    while (!m_overflow.empty())
+    {
+        auto curCell(m_overflow.popOne());
+        Key curKey(m_keys.top());
+        m_keys.pop();
+
+        curKey.step(curCell->point());
+        if (!step(curCell->point()).insert(curCell, curKey, clipper))
+        {
+            throw std::runtime_error("Invalid overflow");
+        }
+
+        assert(m_overflow.size() == m_keys.size());
+    }
+
+    assert(m_overflow.empty());
+    assert(m_keys.empty());
+
+    return true;
+}
 
 void ReffedSelfChunk::ref(NewClipper& clipper)
 {
@@ -118,14 +168,6 @@ void ReffedSelfChunk::unref(const Origin o)
         if (m_refs.empty())
         {
             CountedCells cells(m_chunk->acquire());
-
-            if (!m_overflow.empty())
-            {
-                assert(!m_hasChildren);
-
-                cells.np += m_overflow.size();
-                cells.stack.pushBack(std::move(m_overflow));
-            }
 
             m_hierarchy.set(m_key.get(), cells.np);
 

@@ -42,16 +42,41 @@ public:
     SelfChunk(const ReffedSelfChunk& ref);
     virtual ~SelfChunk() { assert(acquired()); }
 
-    virtual bool insert(const Key& key, Cell::PooledNode& cell) = 0;
     virtual ReffedSelfChunk& step(const Point& p) = 0;
+    bool insert(const Key& key, Cell::PooledNode& cell, NewClipper& clipper);
 
 protected:
-    virtual CountedCells acquire() = 0;
-    virtual void init() { m_acquired = false; }
+    virtual bool insert(
+            const Key& key,
+            Cell::PooledNode& cell) = 0;
+
+    CountedCells acquire()
+    {
+        CountedCells cells(doAcquire());
+        m_acquired = true;
+
+        if (!m_overflow.empty())
+        {
+            assert(!m_hasChildren);
+            cells.np += m_overflow.size();
+            cells.stack.pushBack(std::move(m_overflow));
+        }
+        return cells;
+    }
+
+    virtual CountedCells doAcquire() = 0;
     bool acquired() const { return m_acquired; }
+    virtual void init() { m_acquired = false; }
 
     const ReffedSelfChunk& m_ref;
     bool m_acquired = false;
+
+    std::mutex m_overflowMutex;
+    bool m_hasChildren = false;
+    Cell::PooledStack m_overflow;
+    std::stack<Key> m_keys;
+    std::size_t m_limit;
+    std::size_t m_overflowDepth;
 };
 
 class ReffedSelfChunk
@@ -69,17 +94,7 @@ public:
         , m_tmp(tmp)
         , m_pointPool(pointPool)
         , m_hierarchy(hierarchy)
-        , m_hasChildren(false)
-        , m_overflow(m_pointPool.cellPool())
-    {
-        const auto& s(m_metadata.structure());
-
-        const std::size_t pointsAcross(1UL << s.body());
-        const float size(pointsAcross * pointsAcross);
-        m_limit = size * 0.25;
-
-        m_overflowDepth = s.body() + (s.tail() - s.body()) / 2;
-    }
+    { }
 
     struct Info
     {
@@ -94,41 +109,7 @@ public:
     bool insert(Cell::PooledNode& cell, const Key& key, NewClipper& clipper)
     {
         if (clipper.insert(*this)) ref(clipper);
-        if (m_chunk->insert(key, cell)) return true;
-        // return false;
-        if (m_key.depth() < m_overflowDepth) return false;
-
-        std::lock_guard<std::mutex> lock(m_overflowMutex);
-        if (m_hasChildren) return false;
-
-        m_overflow.push(std::move(cell));
-        m_keys.push(key);
-
-        assert(m_overflow.size() == m_keys.size());
-
-        if (m_overflow.size() <= m_limit) return true;
-
-        m_hasChildren = true;
-
-        while (!m_overflow.empty())
-        {
-            auto curCell(m_overflow.popOne());
-            Key curKey(m_keys.top());
-            m_keys.pop();
-
-            curKey.step(curCell->point());
-            if (!m_chunk->step(curCell->point()).insert(curCell, curKey, clipper))
-            {
-                throw std::runtime_error("Invalid overflow");
-            }
-
-            assert(m_overflow.size() == m_keys.size());
-        }
-
-        assert(m_overflow.empty());
-        assert(m_keys.empty());
-
-        return true;
+        return m_chunk->insert(key, cell, clipper);
     }
 
     void ref(NewClipper& clipper);
@@ -154,13 +135,6 @@ private:
     std::mutex m_mutex;
     std::unique_ptr<SelfChunk> m_chunk;
     std::map<Origin, std::size_t> m_refs;
-
-    std::mutex m_overflowMutex;
-    bool m_hasChildren;
-    Cell::PooledStack m_overflow;
-    std::stack<Key> m_keys;
-    std::size_t m_limit;
-    std::size_t m_overflowDepth;
 };
 
 class SelfContiguousChunk : public SelfChunk
@@ -169,7 +143,7 @@ public:
     SelfContiguousChunk(const ReffedSelfChunk& c)
         : SelfChunk(c)
         , m_pointsAcross(1UL << c.metadata().structure().body())
-        , m_tubes(m_pointsAcross * m_pointsAcross)
+        , m_tubes(makeUnique<std::vector<Tube>>(m_pointsAcross * m_pointsAcross))
     {
         assert(c.key().depth() < c.metadata().structure().tail());
 
@@ -187,8 +161,8 @@ public:
 
     virtual void init() override
     {
-        assert(m_tubes.empty());
-        m_tubes.resize(m_pointsAcross * m_pointsAcross);
+        assert(!m_tubes);
+        m_tubes = makeUnique<std::vector<Tube>>(m_pointsAcross * m_pointsAcross);
         m_acquired = false;
     }
 
@@ -199,8 +173,8 @@ public:
                 (pos.y % m_pointsAcross) * m_pointsAcross +
                 (pos.x % m_pointsAcross));
 
-        assert(i < m_tubes.size());
-        return m_tubes[i].insert(key, cell);
+        assert(i < m_tubes->size());
+        return (*m_tubes)[i].insert(key, cell);
     }
 
     virtual ReffedSelfChunk& step(const Point& p) override
@@ -210,11 +184,11 @@ public:
     }
 
 private:
-    virtual CountedCells acquire() override
+    virtual CountedCells doAcquire() override
     {
         CountedCells cells(m_ref.pointPool().cellPool());
 
-        for (auto& tube : m_tubes)
+        for (auto& tube : *m_tubes)
         {
             for (auto& inner : tube)
             {
@@ -223,13 +197,12 @@ private:
             }
         }
 
-        m_tubes.clear();
-        m_acquired = true;
+        m_tubes.reset();
         return cells;
     }
 
     const std::size_t m_pointsAcross;
-    std::vector<Tube> m_tubes;
+    std::unique_ptr<std::vector<Tube>> m_tubes;
 
     std::vector<std::unique_ptr<ReffedSelfChunk>> m_children;
 };
@@ -260,7 +233,7 @@ public:
     }
 
 private:
-    virtual CountedCells acquire() override
+    virtual CountedCells doAcquire() override
     {
         CountedCells cells(m_ref.pointPool().cellPool());
 
@@ -278,7 +251,6 @@ private:
         }
 
         m_tubes.clear();
-        m_acquired = true;
         return cells;
     }
 
