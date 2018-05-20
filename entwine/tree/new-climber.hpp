@@ -34,8 +34,9 @@ public:
 
     void reset()
     {
+        m_depth = 0;
         m_point.reset();
-        m_chunk.reset();
+        // m_chunk.reset();
     }
 
     void init(const Point& p)
@@ -46,17 +47,20 @@ public:
     void init(const Point& p, uint64_t depth)
     {
         reset();
-        while (m_chunk.d < depth) step(p);
+        while (m_depth < depth) step(p);
+        // while (m_chunk.d < depth) step(p);
     }
 
-    Dir step(const Point& p)
+    void step(const Point& p)
     {
+        ++m_depth;
         m_point.step(p);
-        return m_chunk.step(p);
+        // return m_chunk.step(p);
     }
 
     Origin origin() const { return m_origin; }
-    uint64_t depth() const { return m_chunk.d; }
+    // uint64_t depth() const { return m_chunk.d; }
+    uint64_t depth() const { return m_depth; }
     const Key& pointKey() const { return m_point; }
     const Key& chunkKey() const { return m_chunk.k; }
     std::size_t pointSize() const { return m_metadata.schema().pointSize(); }
@@ -68,6 +72,7 @@ private:
 
     Key m_point;
     ChunkKey m_chunk;
+    std::size_t m_depth = 0;
 };
 
 } // namespace entwine

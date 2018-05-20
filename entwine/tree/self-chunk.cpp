@@ -15,11 +15,12 @@ namespace entwine
 
 void ReffedSelfChunk::ref(const NewClimber& climber)
 {
+    const Origin o(climber.origin());
     std::lock_guard<std::mutex> lock(m_mutex);
 
-    if (!m_refs.count(climber.origin()))
+    if (!m_refs.count(o))
     {
-        m_refs[climber.origin()] = 1;
+        m_refs[o] = 1;
 
         if (!m_chunk || m_chunk->written())
         {
@@ -62,11 +63,14 @@ void ReffedSelfChunk::ref(const NewClimber& climber)
             }
         }
     }
+    else ++m_refs[o];
 }
 
 void ReffedSelfChunk::unref(const Origin o)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
+
+    assert(m_refs.count(o));
 
     if (!--m_refs.at(o))
     {

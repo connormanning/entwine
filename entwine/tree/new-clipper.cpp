@@ -47,7 +47,7 @@ void NewClipper::clip()
 
 void NewClipper::clipAll()
 {
-    std::cout << "Clipall" << std::endl;
+    std::cout << "CA " << origin() << std::endl;
     const std::size_t start(m_registry.metadata().structure().head());
     for (std::size_t d(m_clips.size() - 1); d >= start; --d)
     {
