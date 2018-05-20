@@ -23,13 +23,13 @@ void NewClipper::clip()
     const auto startTime(now());
     const auto n(m_count);
 
-    const std::size_t tail(m_registry.metadata().structure().tail());
+    const std::size_t body(m_registry.metadata().structure().body());
 
-    std::size_t cur(tail);
+    std::size_t cur(body);
     while (cur < m_clips.size() && !m_clips[cur].empty()) ++cur;
     --cur; // We've gone one past the last - back it up by one.
 
-    while (cur >= tail && m_count > heuristics::clipCacheSize)
+    while (cur >= body && m_count > heuristics::clipCacheSize)
     {
         auto& c(m_clips[cur]);
         if (c.empty()) return;
