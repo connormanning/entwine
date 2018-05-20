@@ -13,6 +13,7 @@
 #include <cassert>
 #include <cstddef>
 #include <mutex>
+#include <utility>
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/new-clipper.hpp>
@@ -27,6 +28,13 @@
 namespace entwine
 {
 
+struct CountedCells
+{
+    CountedCells(Cell::Pool& pool) : stack(pool) { }
+    Cells stack;
+    uint64_t np = 0;
+};
+
 class SelfChunk
 {
     friend class ReffedSelfChunk;
@@ -39,7 +47,7 @@ public:
     virtual ReffedSelfChunk& step(const Point& p) = 0;
 
 protected:
-    virtual Cells acquire() = 0;
+    virtual CountedCells acquire() = 0;
     virtual void init() { m_acquired = false; }
     bool acquired() const { return m_acquired; }
 
@@ -152,13 +160,17 @@ public:
     }
 
 private:
-    virtual Cells acquire() override
+    virtual CountedCells acquire() override
     {
-        Cells cells(m_ref.pointPool().cellPool());
+        CountedCells cells(m_ref.pointPool().cellPool());
 
         for (auto& tube : m_tubes)
         {
-            for (auto& inner : tube) cells.push(std::move(inner.second));
+            for (auto& inner : tube)
+            {
+                cells.np += inner.second->size();
+                cells.stack.push(std::move(inner.second));
+            }
         }
 
         m_tubes.clear();
@@ -198,16 +210,20 @@ public:
     }
 
 private:
-    virtual Cells acquire() override
+    virtual CountedCells acquire() override
     {
-        Cells cells(m_ref.pointPool().cellPool());
+        CountedCells cells(m_ref.pointPool().cellPool());
 
         for (auto& y : m_tubes)
         {
             for (auto& x : y.second)
             {
                 Tube& t(x.second);
-                for (auto& inner : t) cells.push(std::move(inner.second));
+                for (auto& inner : t)
+                {
+                    cells.np += inner.second->size();
+                    cells.stack.push(std::move(inner.second));
+                }
             }
         }
 

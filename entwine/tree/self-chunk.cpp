@@ -114,18 +114,16 @@ void ReffedSelfChunk::unref(const Origin o)
         if (m_refs.empty())
         {
             assert(m_chunk);
-            auto cells(m_chunk->acquire());
 
-            uint64_t np(0);
-            for (const Cell& cell : cells) np += cell.size();
-            m_hierarchy.set(m_key.get(), np);
+            CountedCells cells(m_chunk->acquire());
+            m_hierarchy.set(m_key.get(), cells.np);
 
             m_metadata.storage().write(
                     m_out,
                     m_tmp,
                     m_pointPool,
                     m_key.toString() + m_metadata.postfix(m_key.depth()),
-                    std::move(cells));
+                    std::move(cells.stack));
 
             std::lock_guard<std::mutex> lock(m);
             --info.count;
