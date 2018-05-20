@@ -15,6 +15,7 @@
 #include <limits>
 #include <map>
 #include <mutex>
+#include <unordered_map>
 #include <vector>
 
 #include <entwine/types/key.hpp>
@@ -100,7 +101,7 @@ public:
     bool empty() const { return m_cells.empty(); }
     static constexpr std::size_t maxTickDepth() { return 64; }
 
-    using CellMap = std::map<uint64_t, Cell::PooledNode>;
+    using CellMap = std::unordered_map<uint64_t, Cell::PooledNode>;
 
     CellMap::iterator begin() { return m_cells.begin(); }
     CellMap::iterator end() { return m_cells.end(); }

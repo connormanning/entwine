@@ -83,8 +83,8 @@ void ReffedSelfChunk::ref(NewClipper& clipper)
                     auto cell(cells.popOne());
                     pk.init(cell->point(), m_key.depth());
 
-                    // if (!insert(cell, pk, clipper))
-                    if (!m_chunk->insert(pk, cell))
+                    if (!insert(cell, pk, clipper))
+                    // if (!m_chunk->insert(pk, cell))
                     {
                         throw std::runtime_error(
                                 "Invalid wakeup: " + m_key.toString());

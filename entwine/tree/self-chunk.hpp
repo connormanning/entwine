@@ -72,9 +72,13 @@ public:
         , m_hasChildren(false)
         , m_overflow(m_pointPool.cellPool())
     {
-        const std::size_t pointsAcross(1UL << m_metadata.structure().body());
+        const auto& s(m_metadata.structure());
+
+        const std::size_t pointsAcross(1UL << s.body());
         const float size(pointsAcross * pointsAcross);
-        m_limit = size * 0.2;
+        m_limit = size * 0.25;
+
+        m_overflowDepth = s.body() + (s.tail() - s.body()) / 2;
     }
 
     struct Info
@@ -87,13 +91,12 @@ public:
 
     static Info latchInfo();
 
-    bool insert(Cell::PooledNode& cell, const Key& key, NewClipper& clipper,
-            bool doLock = true)
+    bool insert(Cell::PooledNode& cell, const Key& key, NewClipper& clipper)
     {
         if (clipper.insert(*this)) ref(clipper);
         if (m_chunk->insert(key, cell)) return true;
-        return false;
-        // if (m_key.depth() < m_metadata.structure().tail()) return false;
+        // return false;
+        if (m_key.depth() < m_overflowDepth) return false;
 
         std::lock_guard<std::mutex> lock(m_overflowMutex);
         if (m_hasChildren) return false;
@@ -157,6 +160,7 @@ private:
     Cell::PooledStack m_overflow;
     std::stack<Key> m_keys;
     std::size_t m_limit;
+    std::size_t m_overflowDepth;
 };
 
 class SelfContiguousChunk : public SelfChunk
