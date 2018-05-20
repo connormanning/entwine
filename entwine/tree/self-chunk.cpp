@@ -16,9 +16,12 @@ namespace entwine
 namespace
 {
     std::mutex m;
-    std::size_t n(0);
     ReffedSelfChunk::Info info;
 }
+
+SelfChunk::SelfChunk(const ReffedSelfChunk& ref)
+    : m_ref(ref)
+{ }
 
 void ReffedSelfChunk::ref(const NewClimber& climber)
 {
@@ -29,7 +32,7 @@ void ReffedSelfChunk::ref(const NewClimber& climber)
     {
         m_refs[o] = 1;
 
-        if (!m_chunk || m_chunk->written())
+        if (!m_chunk || m_chunk->acquired())
         {
             if (!m_chunk)
             {
@@ -42,16 +45,18 @@ void ReffedSelfChunk::ref(const NewClimber& climber)
                     m_chunk = makeUnique<SelfMappedChunk>(*this);
                 }
 
+                assert(!m_chunk->acquired());
+
                 std::lock_guard<std::mutex> lock(m);
-                ++n;
+                ++info.count;
             }
 
-            if (m_chunk->written())
+            if (m_chunk->acquired())
             {
                 m_chunk->init();
 
                 std::lock_guard<std::mutex> lock(m);
-                ++n;
+                ++info.count;
             }
 
             if (const uint64_t np = m_hierarchy.get(m_key.get()))
@@ -75,7 +80,7 @@ void ReffedSelfChunk::ref(const NewClimber& climber)
                 {
                     auto cell(cells.popOne());
                     c.init(cell->point(), m_key.depth());
-                    if (!m_chunk->insert(cell, c, nullptr))
+                    if (!m_chunk->insert(cell, c))
                     {
                         throw std::runtime_error(
                                 "Invalid wakeup: " + m_key.toString());
@@ -85,12 +90,6 @@ void ReffedSelfChunk::ref(const NewClimber& climber)
         }
     }
     else ++m_refs[o];
-}
-
-std::size_t ReffedSelfChunk::count()
-{
-    std::lock_guard<std::mutex> lock(m);
-    return n;
 }
 
 ReffedSelfChunk::Info ReffedSelfChunk::latchInfo()
@@ -114,7 +113,7 @@ void ReffedSelfChunk::unref(const Origin o)
         if (m_refs.empty())
         {
             assert(m_chunk);
-            auto cells(m_chunk->acquire(m_pointPool));
+            auto cells(m_chunk->acquire());
 
             uint64_t np(0);
             for (const Cell& cell : cells) np += cell.size();
@@ -128,7 +127,7 @@ void ReffedSelfChunk::unref(const Origin o)
                     std::move(cells));
 
             std::lock_guard<std::mutex> lock(m);
-            --n;
+            --info.count;
             ++info.written;
         }
     }

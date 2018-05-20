@@ -153,12 +153,11 @@ struct Key
 
 struct ChunkKey
 {
-    ChunkKey(const Metadata& m) : k(m) { }
+    ChunkKey(const Metadata& m) : k(m) { reset(); }
 
     void reset()
     {
-        d = 0;
-        // d = metadata().structure().body();
+        d = metadata().structure().body();
         k.reset();
     }
 
@@ -184,28 +183,6 @@ struct ChunkKey
         ++d;
         return toDir(0);
     }
-    /*
-    Dir step(const Point& g)
-    {
-        ++d;
-        if (inBody()) return k.step(g);
-        else return toDir(0);
-    }
-
-    Dir step(Dir dir)
-    {
-        ++d;
-        if (inBody()) return k.step(dir);
-        else return toDir(0);
-    }
-
-    Dir step()
-    {
-        assert(inTail());
-        ++d;
-        return toDir(0);
-    }
-    */
 
     ChunkKey getStep(Dir dir) const
     {

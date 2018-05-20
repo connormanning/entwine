@@ -28,29 +28,24 @@
 namespace entwine
 {
 
-class ReffedSelfChunk;
-
 class SelfChunk
 {
-public:
-    SelfChunk(const ReffedSelfChunk& ref)
-        : m_ref(ref)
-    { }
+    friend class ReffedSelfChunk;
 
+public:
+    SelfChunk(const ReffedSelfChunk& ref);
     virtual ~SelfChunk() { }
 
-    virtual bool insert(
-            Cell::PooledNode& cell,
-            NewClimber& climber,
-            NewClipper* clipper) = 0;
-
-    virtual Cells acquire(PointPool& pointPool) = 0;
-    virtual void init() { m_written = false; }
-    bool written() const { return m_written; }
+    virtual bool insert(Cell::PooledNode& cell, NewClimber& climber) = 0;
+    virtual ReffedSelfChunk& step(const Cell::PooledNode& cell) = 0;
 
 protected:
+    virtual Cells acquire() = 0;
+    virtual void init() { m_acquired = false; }
+    bool acquired() const { return m_acquired; }
+
     const ReffedSelfChunk& m_ref;
-    bool m_written = false;
+    bool m_acquired = false;
 };
 
 class ReffedSelfChunk
@@ -68,20 +63,14 @@ public:
         , m_tmp(tmp)
         , m_pointPool(pointPool)
         , m_hierarchy(hierarchy)
-    {
-        if (m_key.d == 0) m_key.d = m_metadata.structure().body();
-    }
+    { }
 
-    static std::size_t count();
     struct Info
     {
         std::size_t written = 0;
         std::size_t read = 0;
-        void clear()
-        {
-            written = 0;
-            read = 0;
-        }
+        std::size_t count = 0;
+        void clear() { written = 0; read = 0; }
     };
 
     static Info latchInfo();
@@ -92,17 +81,13 @@ public:
             NewClipper& clipper)
     {
         if (clipper.insert(*this)) ref(climber);
-        return m_chunk->insert(cell, climber, &clipper);
+        return m_chunk->insert(cell, climber);
     }
 
     void ref(const NewClimber& climber);
     void unref(Origin o);
 
     SelfChunk& chunk() { return *m_chunk; }
-    /*
-    std::size_t np() const { return m_np; }
-    void setNp(uint64_t np) { m_np = np; }
-    */
 
     const ChunkKey& key() const { return m_key; }
     const Metadata& metadata() const { return m_metadata; }
@@ -120,7 +105,6 @@ private:
     Hierarchy& m_hierarchy;
 
     std::mutex m_mutex;
-    // std::size_t m_np = 0;
     std::unique_ptr<SelfChunk> m_chunk;
     std::map<Origin, std::size_t> m_refs;
 };
@@ -151,13 +135,10 @@ public:
     {
         assert(m_tubes.empty());
         m_tubes.resize(m_pointsAcross * m_pointsAcross);
-        m_written = false;
+        m_acquired = false;
     }
 
-    virtual bool insert(
-            Cell::PooledNode& cell,
-            NewClimber& climber,
-            NewClipper* clipper) override
+    virtual bool insert(Cell::PooledNode& cell, NewClimber& climber) override
     {
         const Xyz& pk(climber.pointKey().position());
         const std::size_t i(
@@ -165,24 +146,19 @@ public:
                 (pk.x % m_pointsAcross));
 
         assert(i < m_tubes.size());
+        return m_tubes[i].insert(climber, cell).done();
+    }
 
-        Tube::Insertion attempt(m_tubes[i].insert(climber, cell));
-
-        if (attempt.done()) return true;
-        else if (!clipper) return false;
-
+    virtual ReffedSelfChunk& step(const Cell::PooledNode& cell) override
+    {
         const Dir dir(getDirection(m_ref.key().bounds().mid(), cell->point()));
-        auto& rc(*m_children.at(toIntegral(dir)));
-
-        climber.step(cell->point());
-
-        return rc.insert(cell, climber, *clipper);
+        return *m_children.at(toIntegral(dir));
     }
 
 private:
-    virtual Cells acquire(PointPool& pointPool) override
+    virtual Cells acquire() override
     {
-        Cells cells(pointPool.cellPool());
+        Cells cells(m_ref.pointPool().cellPool());
 
         for (auto& tube : m_tubes)
         {
@@ -190,7 +166,7 @@ private:
         }
 
         m_tubes.clear();
-        m_written = true;
+        m_acquired = true;
         return cells;
     }
 
@@ -213,27 +189,22 @@ public:
                 c.hierarchy())
     { }
 
-    virtual bool insert(
-            Cell::PooledNode& cell,
-            NewClimber& climber,
-            NewClipper* clipper) override
+    virtual bool insert(Cell::PooledNode& cell, NewClimber& climber) override
     {
-        {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            const Xyz& pk(climber.pointKey().position());
-            Tube::Insertion attempt(m_tubes[pk.y][pk.x].insert(climber, cell));
+        std::lock_guard<std::mutex> lock(m_mutex);
+        const Xyz& pk(climber.pointKey().position());
+        return m_tubes[pk.y][pk.x].insert(climber, cell).done();
+    }
 
-            if (attempt.done()) return true;
-        }
-
-        climber.step(cell->point());
-        return m_child.insert(cell, climber, *clipper);
+    virtual ReffedSelfChunk& step(const Cell::PooledNode& cell) override
+    {
+        return m_child;
     }
 
 private:
-    virtual Cells acquire(PointPool& pointPool) override
+    virtual Cells acquire() override
     {
-        Cells cells(pointPool.cellPool());
+        Cells cells(m_ref.pointPool().cellPool());
 
         for (auto& y : m_tubes)
         {
@@ -245,7 +216,7 @@ private:
         }
 
         m_tubes.clear();
-        m_written = true;
+        m_acquired = true;
         return cells;
     }
 

@@ -135,7 +135,7 @@ void Builder::go(std::size_t max)
                     " U: " << used << "%"  <<
                     " I: " << commify(inserts) <<
                     " P: " << std::round(progress * 100.0) << "%" <<
-                    " C: " << ReffedSelfChunk::count() <<
+                    " C: " << info.count <<
                     " W: " << info.written <<
                     " R: " << info.read <<
                     std::endl;
@@ -347,7 +347,6 @@ Cells Builder::insertData(
                 m_metadata->subset()->boundsScaled() :
                 m_metadata->boundsScaledConforming());
 
-    static int i(0);
     while (!cells.empty())
     {
         Cell::PooledNode cell(cells.popOne());
@@ -357,8 +356,7 @@ Cells Builder::insertData(
         {
             climber.init(point);
 
-            // std::cout << "I " << ++i << std::endl;
-            if (m_registry->addPoint(cell, climber, clipper, i))
+            if (m_registry->addPoint(cell, climber, clipper))
             {
                 pointStats.addInsert();
             }

@@ -58,10 +58,17 @@ public:
     bool addPoint(
             Cell::PooledNode& cell,
             NewClimber& climber,
-            NewClipper& clipper,
-            std::size_t i = 0)
+            NewClipper& clipper)
     {
-        return m_root.insert(cell, climber, clipper);
+        ReffedSelfChunk* rc = &m_root;
+
+        while (!rc->insert(cell, climber, clipper))
+        {
+            climber.step(cell->point());
+            rc = &rc->chunk().step(cell);
+        }
+
+        return true;
     }
 
     void clip(uint64_t d, const Xyz& p, uint64_t o)
