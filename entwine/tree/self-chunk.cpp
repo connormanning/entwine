@@ -10,6 +10,8 @@
 
 #include <entwine/tree/self-chunk.hpp>
 
+#include <entwine/types/chunk-storage/chunk-storage.hpp>
+
 namespace entwine
 {
 
@@ -23,7 +25,7 @@ SelfChunk::SelfChunk(const ReffedSelfChunk& ref)
     : m_ref(ref)
 { }
 
-void ReffedSelfChunk::ref(const NewClipper& clipper)
+void ReffedSelfChunk::ref(NewClipper& clipper)
 {
     const Origin o(clipper.origin());
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -81,6 +83,7 @@ void ReffedSelfChunk::ref(const NewClipper& clipper)
                     auto cell(cells.popOne());
                     pk.init(cell->point(), m_key.depth());
 
+                    // if (!insert(cell, pk, clipper))
                     if (!m_chunk->insert(pk, cell))
                     {
                         throw std::runtime_error(
@@ -106,6 +109,7 @@ void ReffedSelfChunk::unref(const Origin o)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
+    assert(m_chunk);
     assert(m_refs.count(o));
 
     if (!--m_refs.at(o))
@@ -113,9 +117,16 @@ void ReffedSelfChunk::unref(const Origin o)
         m_refs.erase(o);
         if (m_refs.empty())
         {
-            assert(m_chunk);
-
             CountedCells cells(m_chunk->acquire());
+
+            if (!m_overflow.empty())
+            {
+                assert(!m_hasChildren);
+
+                cells.np += m_overflow.size();
+                cells.stack.pushBack(std::move(m_overflow));
+            }
+
             m_hierarchy.set(m_key.get(), cells.np);
 
             m_metadata.storage().write(

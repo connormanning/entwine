@@ -13,15 +13,14 @@
 #include <cassert>
 #include <cstddef>
 #include <mutex>
+#include <stack>
 #include <utility>
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/new-clipper.hpp>
 #include <entwine/tree/hierarchy.hpp>
-#include <entwine/types/chunk-storage/chunk-storage.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/point-pool.hpp>
-#include <entwine/types/storage.hpp>
 #include <entwine/types/tube.hpp>
 #include <entwine/util/unique.hpp>
 
@@ -41,7 +40,7 @@ class SelfChunk
 
 public:
     SelfChunk(const ReffedSelfChunk& ref);
-    virtual ~SelfChunk() { }
+    virtual ~SelfChunk() { assert(acquired()); }
 
     virtual bool insert(const Key& key, Cell::PooledNode& cell) = 0;
     virtual ReffedSelfChunk& step(const Point& p) = 0;
@@ -70,7 +69,13 @@ public:
         , m_tmp(tmp)
         , m_pointPool(pointPool)
         , m_hierarchy(hierarchy)
-    { }
+        , m_hasChildren(false)
+        , m_overflow(m_pointPool.cellPool())
+    {
+        const std::size_t pointsAcross(1UL << m_metadata.structure().body());
+        const float size(pointsAcross * pointsAcross);
+        m_limit = size * 0.2;
+    }
 
     struct Info
     {
@@ -82,13 +87,48 @@ public:
 
     static Info latchInfo();
 
-    bool insert(Cell::PooledNode& cell, const Key& key, NewClipper& clipper)
+    bool insert(Cell::PooledNode& cell, const Key& key, NewClipper& clipper,
+            bool doLock = true)
     {
         if (clipper.insert(*this)) ref(clipper);
-        return m_chunk->insert(key, cell);
+        if (m_chunk->insert(key, cell)) return true;
+        return false;
+        // if (m_key.depth() < m_metadata.structure().tail()) return false;
+
+        std::lock_guard<std::mutex> lock(m_overflowMutex);
+        if (m_hasChildren) return false;
+
+        m_overflow.push(std::move(cell));
+        m_keys.push(key);
+
+        assert(m_overflow.size() == m_keys.size());
+
+        if (m_overflow.size() <= m_limit) return true;
+
+        m_hasChildren = true;
+
+        while (!m_overflow.empty())
+        {
+            auto curCell(m_overflow.popOne());
+            Key curKey(m_keys.top());
+            m_keys.pop();
+
+            curKey.step(curCell->point());
+            if (!m_chunk->step(curCell->point()).insert(curCell, curKey, clipper))
+            {
+                throw std::runtime_error("Invalid overflow");
+            }
+
+            assert(m_overflow.size() == m_keys.size());
+        }
+
+        assert(m_overflow.empty());
+        assert(m_keys.empty());
+
+        return true;
     }
 
-    void ref(const NewClipper& clipper);
+    void ref(NewClipper& clipper);
     void unref(Origin o);
 
     SelfChunk& chunk() { return *m_chunk; }
@@ -111,6 +151,12 @@ private:
     std::mutex m_mutex;
     std::unique_ptr<SelfChunk> m_chunk;
     std::map<Origin, std::size_t> m_refs;
+
+    std::mutex m_overflowMutex;
+    bool m_hasChildren;
+    Cell::PooledStack m_overflow;
+    std::stack<Key> m_keys;
+    std::size_t m_limit;
 };
 
 class SelfContiguousChunk : public SelfChunk
