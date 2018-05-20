@@ -18,7 +18,6 @@
 
 #include <json/json.h>
 
-#include <entwine/tree/new-climber.hpp>
 #include <entwine/tree/new-clipper.hpp>
 #include <entwine/tree/cold.hpp>
 #include <entwine/tree/hierarchy.hpp>
@@ -55,17 +54,14 @@ public:
     void save(const arbiter::Endpoint& endpoint) const;
     void merge(const Registry& other, NewClipper& clipper);
 
-    bool addPoint(
-            Cell::PooledNode& cell,
-            NewClimber& climber,
-            NewClipper& clipper)
+    bool addPoint(Cell::PooledNode& cell, Key& key, NewClipper& clipper)
     {
         ReffedSelfChunk* rc = &m_root;
 
-        while (!rc->insert(cell, climber, clipper))
+        while (!rc->insert(cell, key, clipper))
         {
-            climber.step(cell->point());
-            rc = &rc->chunk().step(cell);
+            key.step(cell->point());
+            rc = &rc->chunk().step(cell->point());
         }
 
         return true;

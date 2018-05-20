@@ -292,9 +292,8 @@ void Builder::insertPath(const Origin origin, FileInfo& info)
     std::size_t inserted(0);
 
     NewClipper clipper(*m_registry, origin);
-    NewClimber climber(*m_metadata, origin);
 
-    auto inserter([this, origin, &clipper, &climber, &inserted]
+    auto inserter([this, &clipper, &inserted]
     (Cell::PooledStack cells)
     {
         inserted += cells.size();
@@ -307,7 +306,7 @@ void Builder::insertPath(const Origin origin, FileInfo& info)
             if (available / allocated < 0.5) clipper.clip();
         }
 
-        return insertData(std::move(cells), origin, clipper, climber);
+        return insertData(std::move(cells), clipper);
     });
 
     std::unique_ptr<PooledPointTable> table(
@@ -328,11 +327,7 @@ void Builder::insertPath(const Origin origin, FileInfo& info)
     }
 }
 
-Cells Builder::insertData(
-        Cells cells,
-        const Origin origin,
-        NewClipper& clipper,
-        NewClimber& climber)
+Cells Builder::insertData(Cells cells, NewClipper& clipper)
 {
     PointStats pointStats;
     Cells rejected(m_pointPool->cellPool());
@@ -347,6 +342,8 @@ Cells Builder::insertData(
                 m_metadata->subset()->boundsScaled() :
                 m_metadata->boundsScaledConforming());
 
+    Key key(*m_metadata);
+
     while (!cells.empty())
     {
         Cell::PooledNode cell(cells.popOne());
@@ -354,9 +351,9 @@ Cells Builder::insertData(
 
         if (activeBounds.contains(point))
         {
-            climber.init(point);
+            key.init(point);
 
-            if (m_registry->addPoint(cell, climber, clipper))
+            if (m_registry->addPoint(cell, key, clipper))
             {
                 pointStats.addInsert();
             }
@@ -373,9 +370,9 @@ Cells Builder::insertData(
         }
     }
 
-    if (origin != invalidOrigin)
+    if (clipper.origin() != invalidOrigin)
     {
-        m_metadata->mutableFiles().add(origin, pointStats);
+        m_metadata->mutableFiles().add(clipper.origin(), pointStats);
     }
 
     return rejected;

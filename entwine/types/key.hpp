@@ -126,6 +126,17 @@ struct Key
         p.reset();
     }
 
+    void init(const Point& g)
+    {
+        init(g, m.structure().body());
+    }
+
+    void init(const Point& g, uint64_t depth)
+    {
+        reset();
+        for (std::size_t d(0); d < depth; ++d) step(g);
+    }
+
     Dir step(const Point& g)
     {
         return step(getDirection(b.mid(), g));

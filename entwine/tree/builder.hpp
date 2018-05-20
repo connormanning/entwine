@@ -117,11 +117,7 @@ private:
     void insertPath(Origin origin, FileInfo& info);
 
     // Returns a stack of rejected info nodes so that they may be reused.
-    Cells insertData(
-            Cells cells,
-            Origin origin,
-            NewClipper& clipper,
-            NewClimber& climber);
+    Cells insertData(Cells cells, NewClipper& clipper);
 
     // Remove resources that are no longer needed.
     void clip(

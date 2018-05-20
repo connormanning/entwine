@@ -23,9 +23,9 @@ SelfChunk::SelfChunk(const ReffedSelfChunk& ref)
     : m_ref(ref)
 { }
 
-void ReffedSelfChunk::ref(const NewClimber& climber)
+void ReffedSelfChunk::ref(const NewClipper& clipper)
 {
-    const Origin o(climber.origin());
+    const Origin o(clipper.origin());
     std::lock_guard<std::mutex> lock(m_mutex);
 
     if (!m_refs.count(o))
@@ -74,13 +74,14 @@ void ReffedSelfChunk::ref(const NewClimber& climber)
 
                 assert(cells.size() == np);
 
-                NewClimber c(climber);
+                Key pk(m_metadata);
 
                 while (!cells.empty())
                 {
                     auto cell(cells.popOne());
-                    c.init(cell->point(), m_key.depth());
-                    if (!m_chunk->insert(cell, c))
+                    pk.init(cell->point(), m_key.depth());
+
+                    if (!m_chunk->insert(pk, cell))
                     {
                         throw std::runtime_error(
                                 "Invalid wakeup: " + m_key.toString());

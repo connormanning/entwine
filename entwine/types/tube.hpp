@@ -17,6 +17,8 @@
 #include <mutex>
 #include <vector>
 
+#include <entwine/types/key.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/types/point-pool.hpp>
 
 namespace entwine
@@ -55,15 +57,55 @@ public:
     // should not be cached through calls to insert.
     Insertion insert(const NewClimber& climber, Cell::PooledNode& cell);
 
+    bool insert(const Key& pk, Cell::PooledNode& cell)
+    {
+        const auto z(pk.position().z);
+
+        std::lock_guard<std::mutex> lock(m_mutex);
+        const auto it(m_cells.find(z));
+
+        if (it != m_cells.end())
+        {
+            Cell::PooledNode& curr(it->second);
+
+            if (cell->point() != curr->point())
+            {
+                const Point& center(pk.bounds().mid());
+
+                const auto a(cell->point().sqDist3d(center));
+                const auto b(curr->point().sqDist3d(center));
+
+                if (a < b || (a == b && ltChained(cell->point(), curr->point())))
+                {
+                    std::swap(cell, curr);
+                }
+            }
+            else
+            {
+                it->second->push(
+                        std::move(cell),
+                        pk.metadata().schema().pointSize());
+                return true;
+            }
+        }
+        else
+        {
+            m_cells.emplace(std::make_pair(z, std::move(cell)));
+            return true;
+        }
+
+        return false;
+    }
+
     bool empty() const { return m_cells.empty(); }
     static constexpr std::size_t maxTickDepth() { return 64; }
 
-    using Cells = std::map<uint64_t, Cell::PooledNode>;
+    using CellMap = std::map<uint64_t, Cell::PooledNode>;
 
-    Cells::iterator begin() { return m_cells.begin(); }
-    Cells::iterator end() { return m_cells.end(); }
-    Cells::const_iterator begin() const { return m_cells.begin(); }
-    Cells::const_iterator end() const { return m_cells.end(); }
+    CellMap::iterator begin() { return m_cells.begin(); }
+    CellMap::iterator end() { return m_cells.end(); }
+    CellMap::const_iterator begin() const { return m_cells.begin(); }
+    CellMap::const_iterator end() const { return m_cells.end(); }
 
     Tube() = default;
 
@@ -79,7 +121,7 @@ public:
     }
 
 private:
-    Cells m_cells;
+    CellMap m_cells;
     std::mutex m_mutex;
 };
 

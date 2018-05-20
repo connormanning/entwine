@@ -15,7 +15,6 @@
 #include <mutex>
 
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/tree/new-climber.hpp>
 #include <entwine/tree/new-clipper.hpp>
 #include <entwine/tree/hierarchy.hpp>
 #include <entwine/types/chunk-storage/chunk-storage.hpp>
@@ -36,8 +35,8 @@ public:
     SelfChunk(const ReffedSelfChunk& ref);
     virtual ~SelfChunk() { }
 
-    virtual bool insert(Cell::PooledNode& cell, NewClimber& climber) = 0;
-    virtual ReffedSelfChunk& step(const Cell::PooledNode& cell) = 0;
+    virtual bool insert(const Key& key, Cell::PooledNode& cell) = 0;
+    virtual ReffedSelfChunk& step(const Point& p) = 0;
 
 protected:
     virtual Cells acquire() = 0;
@@ -75,16 +74,13 @@ public:
 
     static Info latchInfo();
 
-    virtual bool insert(
-            Cell::PooledNode& cell,
-            NewClimber& climber,
-            NewClipper& clipper)
+    bool insert(Cell::PooledNode& cell, const Key& key, NewClipper& clipper)
     {
-        if (clipper.insert(*this)) ref(climber);
-        return m_chunk->insert(cell, climber);
+        if (clipper.insert(*this)) ref(clipper);
+        return m_chunk->insert(key, cell);
     }
 
-    void ref(const NewClimber& climber);
+    void ref(const NewClipper& clipper);
     void unref(Origin o);
 
     SelfChunk& chunk() { return *m_chunk; }
@@ -138,20 +134,20 @@ public:
         m_acquired = false;
     }
 
-    virtual bool insert(Cell::PooledNode& cell, NewClimber& climber) override
+    virtual bool insert(const Key& key, Cell::PooledNode& cell) override
     {
-        const Xyz& pk(climber.pointKey().position());
+        const Xyz& pos(key.position());
         const std::size_t i(
-                (pk.y % m_pointsAcross) * m_pointsAcross +
-                (pk.x % m_pointsAcross));
+                (pos.y % m_pointsAcross) * m_pointsAcross +
+                (pos.x % m_pointsAcross));
 
         assert(i < m_tubes.size());
-        return m_tubes[i].insert(climber, cell).done();
+        return m_tubes[i].insert(key, cell);
     }
 
-    virtual ReffedSelfChunk& step(const Cell::PooledNode& cell) override
+    virtual ReffedSelfChunk& step(const Point& p) override
     {
-        const Dir dir(getDirection(m_ref.key().bounds().mid(), cell->point()));
+        const Dir dir(getDirection(m_ref.key().bounds().mid(), p));
         return *m_children.at(toIntegral(dir));
     }
 
@@ -189,14 +185,14 @@ public:
                 c.hierarchy())
     { }
 
-    virtual bool insert(Cell::PooledNode& cell, NewClimber& climber) override
+    virtual bool insert(const Key& key, Cell::PooledNode& cell) override
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        const Xyz& pk(climber.pointKey().position());
-        return m_tubes[pk.y][pk.x].insert(climber, cell).done();
+        const Xyz& pos(key.position());
+        return m_tubes[pos.y][pos.x].insert(key, cell);
     }
 
-    virtual ReffedSelfChunk& step(const Cell::PooledNode& cell) override
+    virtual ReffedSelfChunk& step(const Point&) override
     {
         return m_child;
     }
