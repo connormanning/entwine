@@ -33,7 +33,7 @@ void NewClipper::clip()
     {
         auto& c(m_clips[cur]);
         if (c.empty()) return;
-        else m_count -= c.newClip(cur);
+        else m_count -= c.newClip();
 
         --cur;
     }
@@ -47,7 +47,6 @@ void NewClipper::clip()
 
 void NewClipper::clipAll()
 {
-    std::cout << "CA " << origin() << std::endl;
     const std::size_t start(m_registry.metadata().structure().head());
     for (std::size_t d(m_clips.size() - 1); d >= start; --d)
     {
@@ -77,6 +76,13 @@ bool NewClipper::Clip::insert(ReffedSelfChunk& c)
         it->second = true;
         return false;
     }
+}
+
+bool NewClipper::Clip::Cmp::operator()(
+        const ReffedSelfChunk* a,
+        const ReffedSelfChunk* b) const
+{
+    return a->key().position() < b->key().position();
 }
 
 std::size_t NewClipper::Clip::newClip(const bool force)

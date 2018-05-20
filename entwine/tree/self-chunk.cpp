@@ -13,6 +13,13 @@
 namespace entwine
 {
 
+namespace
+{
+    std::mutex m;
+    std::size_t n(0);
+    ReffedSelfChunk::Info info;
+}
+
 void ReffedSelfChunk::ref(const NewClimber& climber)
 {
     const Origin o(climber.origin());
@@ -34,12 +41,26 @@ void ReffedSelfChunk::ref(const NewClimber& climber)
                 {
                     m_chunk = makeUnique<SelfMappedChunk>(*this);
                 }
+
+                std::lock_guard<std::mutex> lock(m);
+                ++n;
             }
 
-            if (m_chunk->written()) m_chunk->init();
+            if (m_chunk->written())
+            {
+                m_chunk->init();
+
+                std::lock_guard<std::mutex> lock(m);
+                ++n;
+            }
 
             if (const uint64_t np = m_hierarchy.get(m_key.get()))
             {
+                {
+                    std::lock_guard<std::mutex> lock(m);
+                    ++info.read;
+                }
+
                 Cells cells = m_metadata.storage().read(
                         m_out,
                         m_tmp,
@@ -66,6 +87,21 @@ void ReffedSelfChunk::ref(const NewClimber& climber)
     else ++m_refs[o];
 }
 
+std::size_t ReffedSelfChunk::count()
+{
+    std::lock_guard<std::mutex> lock(m);
+    return n;
+}
+
+ReffedSelfChunk::Info ReffedSelfChunk::latchInfo()
+{
+    std::lock_guard<std::mutex> lock(m);
+
+    Info result(info);
+    info.clear();
+    return result;
+}
+
 void ReffedSelfChunk::unref(const Origin o)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -90,6 +126,10 @@ void ReffedSelfChunk::unref(const Origin o)
                     m_pointPool,
                     m_key.toString() + m_metadata.postfix(m_key.depth()),
                     std::move(cells));
+
+            std::lock_guard<std::mutex> lock(m);
+            --n;
+            ++info.written;
         }
     }
 }

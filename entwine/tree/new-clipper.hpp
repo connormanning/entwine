@@ -83,8 +83,14 @@ class NewClipper
         NewClipper& m_clipper;
 
         // std::map<Xyz, bool> m_touched;
+        struct Cmp
+        {
+            bool operator()(
+                    const ReffedSelfChunk* a,
+                    const ReffedSelfChunk* b) const;
+        };
 
-        std::map<ReffedSelfChunk*, bool> m_chunks;
+        std::map<ReffedSelfChunk*, bool, Cmp> m_chunks;
     };
 
 public:

@@ -72,6 +72,20 @@ public:
         if (m_key.d == 0) m_key.d = m_metadata.structure().body();
     }
 
+    static std::size_t count();
+    struct Info
+    {
+        std::size_t written = 0;
+        std::size_t read = 0;
+        void clear()
+        {
+            written = 0;
+            read = 0;
+        }
+    };
+
+    static Info latchInfo();
+
     virtual bool insert(
             Cell::PooledNode& cell,
             NewClimber& climber,

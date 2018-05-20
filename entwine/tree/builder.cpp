@@ -122,7 +122,7 @@ void Builder::go(std::size_t max)
                 const std::size_t used(
                         100.0 - 100.0 * d.available() / (double)d.allocated());
 
-                const auto info(Slice::latchInfo());
+                const auto info(ReffedSelfChunk::latchInfo());
                 reawakened += info.read;
 
                 std::cout <<
@@ -135,8 +135,9 @@ void Builder::go(std::size_t max)
                     " U: " << used << "%"  <<
                     " I: " << commify(inserts) <<
                     " P: " << std::round(progress * 100.0) << "%" <<
-                    " C: " << NewChunk::count() <<
-                    " M: " << info.written << "/" << info.read <<
+                    " C: " << ReffedSelfChunk::count() <<
+                    " W: " << info.written <<
+                    " R: " << info.read <<
                     std::endl;
 
                 last = inserts;
