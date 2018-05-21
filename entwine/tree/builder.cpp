@@ -138,6 +138,7 @@ void Builder::go(std::size_t max)
                     " C: " << info.count <<
                     " W: " << info.written <<
                     " R: " << info.read <<
+                    " F: " << info.reffed <<
                     std::endl;
 
                 last = inserts;
@@ -220,6 +221,8 @@ void Builder::doRun(const std::size_t max)
 
             m_metadata->mutableFiles().set(origin, status, message);
             if (verbose()) std::cout << "\tDone " << origin << std::endl;
+
+            m_registry->purge();
         });
     }
 

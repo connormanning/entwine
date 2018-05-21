@@ -67,6 +67,11 @@ public:
         return true;
     }
 
+    void purge()
+    {
+        m_root.empty();
+    }
+
     void clip(uint64_t d, const Xyz& p, uint64_t o)
     {
         m_threadPool.add([this, d, p, o] { m_slices.at(d).clip(p, o); });

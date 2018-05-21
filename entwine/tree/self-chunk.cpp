@@ -67,6 +67,53 @@ bool SelfChunk::insert(
     return true;
 }
 
+ReffedSelfChunk::ReffedSelfChunk(
+        const ChunkKey& key,
+        const arbiter::Endpoint& out,
+        const arbiter::Endpoint& tmp,
+        PointPool& pointPool,
+        Hierarchy& hierarchy)
+    : m_key(key)
+    , m_metadata(m_key.metadata())
+    , m_out(out)
+    , m_tmp(tmp)
+    , m_pointPool(pointPool)
+    , m_hierarchy(hierarchy)
+{
+    std::lock_guard<std::mutex> lock(m);
+    ++info.reffed;
+}
+
+ReffedSelfChunk::ReffedSelfChunk(
+        const ChunkKey& key,
+        const ReffedSelfChunk& parent)
+    : ReffedSelfChunk(
+            key,
+            parent.out(),
+            parent.tmp(),
+            parent.pointPool(),
+            parent.hierarchy())
+{ }
+
+ReffedSelfChunk::ReffedSelfChunk(const ReffedSelfChunk& o)
+    : ReffedSelfChunk(
+            o.key(),
+            o.out(),
+            o.tmp(),
+            o.pointPool(),
+            o.hierarchy())
+{
+    // This happens only during the constructor of the contiguous chunk.
+    assert(!o.m_chunk);
+    assert(o.m_refs.empty());
+}
+
+ReffedSelfChunk::~ReffedSelfChunk()
+{
+    std::lock_guard<std::mutex> lock(m);
+    --info.reffed;
+}
+
 void ReffedSelfChunk::ref(NewClipper& clipper)
 {
     const Origin o(clipper.origin());
@@ -137,15 +184,6 @@ void ReffedSelfChunk::ref(NewClipper& clipper)
     else ++m_refs[o];
 }
 
-ReffedSelfChunk::Info ReffedSelfChunk::latchInfo()
-{
-    std::lock_guard<std::mutex> lock(m);
-
-    Info result(info);
-    info.clear();
-    return result;
-}
-
 void ReffedSelfChunk::unref(const Origin o)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -174,6 +212,30 @@ void ReffedSelfChunk::unref(const Origin o)
             ++info.written;
         }
     }
+}
+
+bool ReffedSelfChunk::empty()
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+
+    if (!m_chunk) return true;
+
+    if (m_chunk->terminus() && m_refs.empty())
+    {
+        m_chunk.reset();
+        return true;
+    }
+
+    return false;
+}
+
+ReffedSelfChunk::Info ReffedSelfChunk::latchInfo()
+{
+    std::lock_guard<std::mutex> lock(m);
+
+    Info result(info);
+    info.clear();
+    return result;
 }
 
 } // namespace entwine

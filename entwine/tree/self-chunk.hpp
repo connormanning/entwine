@@ -45,6 +45,8 @@ public:
     virtual ReffedSelfChunk& step(const Point& p) = 0;
     bool insert(const Key& key, Cell::PooledNode& cell, NewClipper& clipper);
 
+    virtual bool terminus() = 0;
+
 protected:
     virtual bool insert(
             const Key& key,
@@ -79,50 +81,24 @@ protected:
 
 class ReffedSelfChunk
 {
-    friend class SelfContiguousChunk;
-
 public:
     ReffedSelfChunk(
             const ChunkKey& key,
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
             PointPool& pointPool,
-            Hierarchy& hierarchy)
-        : m_key(key)
-        , m_metadata(m_key.metadata())
-        , m_out(out)
-        , m_tmp(tmp)
-        , m_pointPool(pointPool)
-        , m_hierarchy(hierarchy)
-    { }
+            Hierarchy& hierarchy);
 
-    ReffedSelfChunk(const ChunkKey& key, const ReffedSelfChunk& parent)
-        : ReffedSelfChunk(
-                key,
-                parent.out(),
-                parent.tmp(),
-                parent.pointPool(),
-                parent.hierarchy())
-    { }
-
-    ReffedSelfChunk(const ReffedSelfChunk& o)
-        : m_key(o.key())
-        , m_metadata(o.metadata())
-        , m_out(o.out())
-        , m_tmp(o.tmp())
-        , m_pointPool(o.pointPool())
-        , m_hierarchy(o.hierarchy())
-    {
-        // This happens only during the constructor of the contiguous chunk.
-        assert(!o.m_chunk);
-        assert(o.m_refs.empty());
-    }
+    ReffedSelfChunk(const ChunkKey& key, const ReffedSelfChunk& parent);
+    ReffedSelfChunk(const ReffedSelfChunk& o);
+    ~ReffedSelfChunk();
 
     struct Info
     {
         std::size_t written = 0;
         std::size_t read = 0;
         std::size_t count = 0;
+        std::size_t reffed = 0;
         void clear() { written = 0; read = 0; }
     };
 
@@ -136,6 +112,7 @@ public:
 
     void ref(NewClipper& clipper);
     void unref(Origin o);
+    bool empty();
 
     SelfChunk& chunk() { assert(m_chunk); return *m_chunk; }
 
@@ -207,6 +184,12 @@ public:
         return m_children.at(toIntegral(dir));
     }
 
+    virtual bool terminus() override
+    {
+        for (auto& c : m_children) if (!c.empty()) return false;
+        return true;
+    }
+
 private:
     virtual CountedCells doAcquire() override
     {
@@ -251,6 +234,11 @@ public:
     virtual ReffedSelfChunk& step(const Point&) override
     {
         return m_child;
+    }
+
+    virtual bool terminus() override
+    {
+        return m_child.empty();
     }
 
 private:
