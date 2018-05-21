@@ -127,7 +127,7 @@ void Builder::go(std::size_t max)
 
                 std::cout <<
                     " T: " << commify(s) << "s" <<
-                    " P: " << commify(inserts * 3600.0 / s / 1000000.0) <<
+                    " R: " << commify(inserts * 3600.0 / s / 1000000.0) <<
                         "(" << commify((inserts - last) *
                                     3600.0 / 10.0 / 1000000.0) << ")" <<
                         "M/h" <<
@@ -136,9 +136,9 @@ void Builder::go(std::size_t max)
                     " I: " << commify(inserts) <<
                     " P: " << std::round(progress * 100.0) << "%" <<
                     " C: " << info.count <<
+                    " F: " << info.reffed <<
                     " W: " << info.written <<
                     " R: " << info.read <<
-                    " F: " << info.reffed <<
                     std::endl;
 
                 last = inserts;

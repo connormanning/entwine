@@ -186,8 +186,10 @@ public:
 
     virtual bool terminus() override
     {
-        for (auto& c : m_children) if (!c.empty()) return false;
-        return true;
+        // Call empty() on all children to traverse into their branch check.
+        bool result(true);
+        for (auto& c : m_children) if (!c.empty()) result = false;
+        return result;
     }
 
 private:
