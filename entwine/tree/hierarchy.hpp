@@ -21,6 +21,15 @@ namespace entwine
 class Hierarchy
 {
 public:
+    Hierarchy() { }
+    Hierarchy(const Json::Value& json)
+    {
+        for (const auto key : json.getMemberNames())
+        {
+            m_map[Dxyz(key)] = json[key].asUInt64();
+        }
+    }
+
     void set(const Dxyz& key, uint64_t val)
     {
         std::lock_guard<std::mutex> lock(m_mutex);
@@ -47,9 +56,12 @@ public:
         return json;
     }
 
+    using Map = std::map<Dxyz, uint64_t>;
+    const Map& map() const { return m_map; }
+
 private:
     mutable std::mutex m_mutex;
-    std::map<Dxyz, uint64_t> m_map;
+    Map m_map;
 };
 
 } // namespace entwine

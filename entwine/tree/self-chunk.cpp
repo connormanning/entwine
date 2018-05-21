@@ -24,15 +24,7 @@ namespace
 SelfChunk::SelfChunk(const ReffedSelfChunk& ref)
     : m_ref(ref)
     , m_overflow(m_ref.pointPool().cellPool())
-{
-    const auto& s(m_ref.metadata().structure());
-
-    const std::size_t pointsAcross(1UL << s.body());
-    const float size(pointsAcross * pointsAcross);
-    m_limit = size * 0.25;
-
-    m_overflowDepth = s.body() + (s.tail() - s.body()) / 2;
-}
+{ }
 
 bool SelfChunk::insert(
         const Key& key,
@@ -40,7 +32,7 @@ bool SelfChunk::insert(
         NewClipper& clipper)
 {
     if (insert(key, cell)) return true;
-    if (m_ref.key().depth() < m_overflowDepth) return false;
+    if (m_ref.key().depth() < m_ref.metadata().overflowDepth()) return false;
 
     std::lock_guard<std::mutex> lock(m_overflowMutex);
     if (m_hasChildren) return false;
@@ -50,7 +42,7 @@ bool SelfChunk::insert(
 
     assert(m_overflow.size() == m_keys.size());
 
-    if (m_overflow.size() <= m_limit) return true;
+    if (m_overflow.size() <= m_ref.metadata().overflowLimit()) return true;
 
     m_hasChildren = true;
 
@@ -84,7 +76,7 @@ void ReffedSelfChunk::ref(NewClipper& clipper)
     {
         m_refs[o] = 1;
 
-        if (!m_chunk || m_chunk->acquired())
+        if (!m_chunk || m_chunk->remote())
         {
             if (!m_chunk)
             {
@@ -97,13 +89,13 @@ void ReffedSelfChunk::ref(NewClipper& clipper)
                     m_chunk = makeUnique<SelfMappedChunk>(*this);
                 }
 
-                assert(!m_chunk->acquired());
+                assert(!m_chunk->remote());
 
                 std::lock_guard<std::mutex> lock(m);
                 ++info.count;
             }
 
-            if (m_chunk->acquired())
+            if (m_chunk->remote())
             {
                 m_chunk->init();
 
@@ -134,7 +126,6 @@ void ReffedSelfChunk::ref(NewClipper& clipper)
                     pk.init(cell->point(), m_key.depth());
 
                     if (!insert(cell, pk, clipper))
-                    // if (!m_chunk->insert(pk, cell))
                     {
                         throw std::runtime_error(
                                 "Invalid wakeup: " + m_key.toString());

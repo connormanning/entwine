@@ -104,6 +104,9 @@ public:
     const Version& version() const { return *m_version; }
     const std::string& srs() const { return m_srs; }
     double density() const { return m_density; }
+    uint64_t overflowDepth() const { return m_overflowDepth; }
+    double overflowRatio() const { return m_overflowRatio; }
+    uint64_t overflowLimit() const { return m_overflowLimit; }
     bool trustHeaders() const { return m_trustHeaders; }
 
     void unbump();
@@ -149,6 +152,9 @@ private:
     std::string m_srs;
     double m_density = 0;
     bool m_trustHeaders = true;
+    uint64_t m_overflowDepth;
+    double m_overflowRatio;
+    uint64_t m_overflowLimit;
     std::vector<std::string> m_preserveSpatial;
 };
 

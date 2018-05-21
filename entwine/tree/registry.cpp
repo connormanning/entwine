@@ -35,9 +35,15 @@ Registry::Registry(
     : m_metadata(metadata)
     , m_out(out)
     , m_tmp(tmp)
+    , m_pointPool(pointPool)
     , m_threadPool(threadPool)
+    , m_hierarchy(exists ?
+            parse(m_out.get(
+                    "entwine-hierarchy" + m_metadata.postfix() + ".json")) :
+            Json::Value())
     , m_root(ChunkKey(metadata), out, tmp, pointPool, m_hierarchy)
 {
+    /*
     std::size_t chunksAcross(1);
     std::size_t pointsAcross(1);
     const std::size_t maxDepth(64);
@@ -59,7 +65,9 @@ Registry::Registry(
         if (d >= s.body() && d < s.tail()) chunksAcross *= 2;
         else pointsAcross *= 2;
     }
+    */
 
+    /*
     if (exists)
     {
         const auto h(parse(out.get(
@@ -72,6 +80,7 @@ Registry::Registry(
             m_slices.at(dxyz.d).setNp(dxyz.p, np);
         }
     }
+    */
 }
 
 void Registry::save(const arbiter::Endpoint& endpoint) const
@@ -83,24 +92,36 @@ void Registry::save(const arbiter::Endpoint& endpoint) const
 void Registry::merge(const Registry& other, NewClipper& clipper)
 {
     const auto& s(m_metadata.structure());
-    Json::Value h;
-    other.hierarchy(h, s.body(), Xyz());
 
     NewClimber climber(m_metadata);
 
-    for (const std::string key : h.getMemberNames())
+    for (const auto& p : other.hierarchy().map())
     {
-        const Dxyz dxyz(key);
+        const Dxyz& dxyz(p.first);
+        const uint64_t np(p.second);
 
         if (dxyz.d < s.shared())
         {
-            auto cells(other.m_slices.at(dxyz.d).read(dxyz.p));
+            auto cells(m_metadata.storage().read(
+                        m_out,
+                        m_tmp,
+                        m_pointPool,
+                        dxyz.toString() + other.metadata().postfix(dxyz.d)));
+
+            Key pk(m_metadata);
 
             while (!cells.empty())
             {
                 auto cell(cells.popOne());
-                climber.init(cell->point(), dxyz.d);
-                if (!m_slices.at(dxyz.d).insert(cell, climber, clipper).done())
+                pk.init(cell->point(), dxyz.d);
+
+                ReffedSelfChunk* rc(&m_root);
+                for (std::size_t d(s.body()); d < dxyz.d; ++d)
+                {
+                    rc = &rc->chunk().step(cell->point());
+                }
+
+                if (!rc->insert(cell, pk, clipper))
                 {
                     throw std::runtime_error(
                             "Invalid merge insert: " + dxyz.toString());
@@ -109,9 +130,8 @@ void Registry::merge(const Registry& other, NewClipper& clipper)
         }
         else
         {
-            const uint64_t np(h[key].asUInt64());
-            auto& slice(m_slices.at(dxyz.d));
-            slice.setNp(dxyz.p, slice.np(dxyz.p) + np);
+            assert(!m_hierarchy.get(dxyz));
+            m_hierarchy.set(dxyz, np);
         }
     }
 }

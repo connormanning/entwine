@@ -31,9 +31,10 @@ Json::Value Config::defaults() const
     json["tmp"] = arbiter::fs::getTempPath();
     json["threads"] = 8;
     json["trustHeaders"] = true;
+    json["overflowDepth"] = 12;
+    json["overflowRatio"] = 1.0;
     json["structure"]["head"] = 8;
     json["structure"]["body"] = 8;
-    // json["structure"]["tail"] = 11;
     json["dataStorage"] = "laszip";
     json["hierarchyStorage"] = "json";
     return json;

@@ -49,7 +49,13 @@ Metadata::Metadata(const Config& config, const bool exists)
     , m_srs(config.srs())
     , m_density(config.density())
     , m_trustHeaders(config.trustHeaders())
+    , m_overflowDepth(std::max(config.overflowDepth(), m_structure->shared()))
+    , m_overflowRatio(config.overflowRatio())
 {
+    const std::size_t pointsAcross(1UL << m_structure->body());
+    const float baseChunkSize(pointsAcross * pointsAcross);
+    m_overflowLimit = baseChunkSize * m_overflowRatio;
+
     if (m_srs.empty() && m_reprojection) m_srs = m_reprojection->out();
 }
 
@@ -77,6 +83,8 @@ Json::Value Metadata::toJson() const
     json["structure"] = m_structure->toJson();
     json["numPoints"] = Json::UInt64(m_structure->numPointsHint());
     json["trustHeaders"] = m_trustHeaders;
+    json["overflowDepth"] = Json::UInt64(m_overflowDepth);
+    if (m_overflowRatio != 1.0) json["overflowRatio"] = m_overflowRatio;
 
     /*
     const Json::Value storage(m_chunkStorage->toJson());

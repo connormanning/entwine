@@ -433,6 +433,22 @@ void Kernel::build(std::vector<std::string> args)
             }
             else error("Invalid sleepCount");
         }
+        else if (arg == "--overflowRatio")
+        {
+            if (++a < args.size())
+            {
+                json["overflowRatio"] = parse(args[a]);
+            }
+            else error("Invalid overflowRatio");
+        }
+        else if (arg == "--overflowDepth")
+        {
+            if (++a < args.size())
+            {
+                json["overflowDepth"] = parse(args[a]);
+            }
+            else error("Invalid overflowDepth");
+        }
         else
         {
             error("Invalid argument: " + args[a]);
@@ -562,6 +578,8 @@ void Kernel::build(std::vector<std::string> args)
         "\tScaled cube: " << metadata.boundsScaledCubic() << "\n" <<
         "\tReprojection: " << getReprojString(reprojection) << "\n" <<
         "\tStoring dimensions: " << getDimensionString(schema) << "\n" <<
+        "\tOverflow depth: " << metadata.overflowDepth() << "\n" <<
+        "\tOverflow ratio: " << metadata.overflowRatio() << "\n" <<
         "\tStructure: [" <<
             structure.head() << ", " <<
             structure.body() << ", " <<

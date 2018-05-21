@@ -75,6 +75,7 @@ public:
     Pool& clipPool() { return m_threadPool; }
 
     const Metadata& metadata() const { return m_metadata; }
+    const Hierarchy& hierarchy() const { return m_hierarchy; }
 
 private:
     void loadAsNew();
@@ -89,6 +90,7 @@ private:
     const Metadata& m_metadata;
     const arbiter::Endpoint& m_out;
     const arbiter::Endpoint& m_tmp;
+    PointPool& m_pointPool;
     Pool& m_threadPool;
     Hierarchy m_hierarchy;
 

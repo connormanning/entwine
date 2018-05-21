@@ -40,7 +40,7 @@ class SelfChunk
 
 public:
     SelfChunk(const ReffedSelfChunk& ref);
-    virtual ~SelfChunk() { assert(acquired()); }
+    virtual ~SelfChunk() { assert(remote()); }
 
     virtual ReffedSelfChunk& step(const Point& p) = 0;
     bool insert(const Key& key, Cell::PooledNode& cell, NewClipper& clipper);
@@ -53,7 +53,7 @@ protected:
     CountedCells acquire()
     {
         CountedCells cells(doAcquire());
-        m_acquired = true;
+        m_remote = true;
 
         if (!m_overflow.empty())
         {
@@ -65,22 +65,22 @@ protected:
     }
 
     virtual CountedCells doAcquire() = 0;
-    bool acquired() const { return m_acquired; }
-    virtual void init() { m_acquired = false; }
+    bool remote() const { return m_remote; }
+    virtual void init() { m_remote = false; }
 
     const ReffedSelfChunk& m_ref;
-    bool m_acquired = false;
+    bool m_remote = false;
 
     std::mutex m_overflowMutex;
     bool m_hasChildren = false;
     Cell::PooledStack m_overflow;
     std::stack<Key> m_keys;
-    std::size_t m_limit;
-    std::size_t m_overflowDepth;
 };
 
 class ReffedSelfChunk
 {
+    friend class SelfContiguousChunk;
+
 public:
     ReffedSelfChunk(
             const ChunkKey& key,
@@ -95,6 +95,28 @@ public:
         , m_pointPool(pointPool)
         , m_hierarchy(hierarchy)
     { }
+
+    ReffedSelfChunk(const ChunkKey& key, const ReffedSelfChunk& parent)
+        : ReffedSelfChunk(
+                key,
+                parent.out(),
+                parent.tmp(),
+                parent.pointPool(),
+                parent.hierarchy())
+    { }
+
+    ReffedSelfChunk(const ReffedSelfChunk& o)
+        : m_key(o.key())
+        , m_metadata(o.metadata())
+        , m_out(o.out())
+        , m_tmp(o.tmp())
+        , m_pointPool(o.pointPool())
+        , m_hierarchy(o.hierarchy())
+    {
+        // This happens only during the constructor of the contiguous chunk.
+        assert(!o.m_chunk);
+        assert(o.m_refs.empty());
+    }
 
     struct Info
     {
@@ -115,7 +137,7 @@ public:
     void ref(NewClipper& clipper);
     void unref(Origin o);
 
-    SelfChunk& chunk() { return *m_chunk; }
+    SelfChunk& chunk() { assert(m_chunk); return *m_chunk; }
 
     const ChunkKey& key() const { return m_key; }
     const Metadata& metadata() const { return m_metadata; }
@@ -143,19 +165,21 @@ public:
     SelfContiguousChunk(const ReffedSelfChunk& c)
         : SelfChunk(c)
         , m_pointsAcross(1UL << c.metadata().structure().body())
-        , m_tubes(makeUnique<std::vector<Tube>>(m_pointsAcross * m_pointsAcross))
     {
         assert(c.key().depth() < c.metadata().structure().tail());
 
+        init();
+
+        m_children.reserve(dirEnd());
         for (std::size_t d(0); d < dirEnd(); ++d)
         {
-            m_children.emplace_back(
-                    makeUnique<ReffedSelfChunk>(
-                        c.key().getStep(toDir(d)),
-                        c.out(),
-                        c.tmp(),
-                        c.pointPool(),
-                        c.hierarchy()));
+            const ChunkKey key(c.key().getStep(toDir(d)));
+            m_children.emplace_back(key, c);
+
+            if (!m_hasChildren)
+            {
+                m_hasChildren = m_ref.hierarchy().get(key.get());
+            }
         }
     }
 
@@ -163,7 +187,7 @@ public:
     {
         assert(!m_tubes);
         m_tubes = makeUnique<std::vector<Tube>>(m_pointsAcross * m_pointsAcross);
-        m_acquired = false;
+        m_remote = false;
     }
 
     virtual bool insert(const Key& key, Cell::PooledNode& cell) override
@@ -180,7 +204,7 @@ public:
     virtual ReffedSelfChunk& step(const Point& p) override
     {
         const Dir dir(getDirection(m_ref.key().bounds().mid(), p));
-        return *m_children.at(toIntegral(dir));
+        return m_children.at(toIntegral(dir));
     }
 
 private:
@@ -204,7 +228,7 @@ private:
     const std::size_t m_pointsAcross;
     std::unique_ptr<std::vector<Tube>> m_tubes;
 
-    std::vector<std::unique_ptr<ReffedSelfChunk>> m_children;
+    std::vector<ReffedSelfChunk> m_children;
 };
 
 class SelfMappedChunk : public SelfChunk
@@ -212,13 +236,10 @@ class SelfMappedChunk : public SelfChunk
 public:
     SelfMappedChunk(const ReffedSelfChunk& c)
         : SelfChunk(c)
-        , m_child(
-                c.key().getStep(),
-                c.out(),
-                c.tmp(),
-                c.pointPool(),
-                c.hierarchy())
-    { }
+        , m_child(c.key().getStep(), c)
+    {
+        m_hasChildren = m_ref.hierarchy().get(m_child.key().get());
+    }
 
     virtual bool insert(const Key& key, Cell::PooledNode& cell) override
     {

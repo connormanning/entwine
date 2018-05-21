@@ -98,6 +98,8 @@ public:
     bool verbose() const { return m_json["verbose"].asBool(); }
     bool force() const { return m_json["force"].asBool(); }
     bool trustHeaders() const { return m_json["trustHeaders"].asBool(); }
+    uint64_t overflowDepth() const { return m_json["overflowDepth"].asUInt64(); }
+    double overflowRatio() const { return m_json["overflowRatio"].asDouble(); }
     double density() const { return m_json["density"].asDouble(); }
     std::string srs() const { return m_json["srs"].asString(); }
     std::string postfix() const
