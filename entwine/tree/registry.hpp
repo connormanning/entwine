@@ -18,9 +18,9 @@
 
 #include <json/json.h>
 
-#include <entwine/tree/new-clipper.hpp>
+#include <entwine/tree/chunk.hpp>
+#include <entwine/tree/clipper.hpp>
 #include <entwine/tree/hierarchy.hpp>
-#include <entwine/tree/self-chunk.hpp>
 #include <entwine/types/key.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/tube.hpp>
@@ -35,8 +35,7 @@ namespace arbiter
 namespace entwine
 {
 
-class NewClimber;
-class NewClipper;
+class Clipper;
 
 class Registry
 {
@@ -50,11 +49,11 @@ public:
             bool exists = false);
 
     void save(const arbiter::Endpoint& endpoint) const;
-    void merge(const Registry& other, NewClipper& clipper);
+    void merge(const Registry& other, Clipper& clipper);
 
-    bool addPoint(Cell::PooledNode& cell, Key& key, NewClipper& clipper)
+    bool addPoint(Cell::PooledNode& cell, Key& key, Clipper& clipper)
     {
-        ReffedFixedChunk* rc = &m_root;
+        ReffedChunk* rc = &m_root;
 
         while (!rc->insert(cell, key, clipper))
         {
@@ -80,7 +79,7 @@ private:
     Pool& m_threadPool;
     Hierarchy m_hierarchy;
 
-    ReffedFixedChunk m_root;
+    ReffedChunk m_root;
 };
 
 } // namespace entwine

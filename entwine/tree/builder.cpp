@@ -18,8 +18,7 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/third/splice-pool/splice-pool.hpp>
-#include <entwine/tree/new-climber.hpp>
-#include <entwine/tree/new-clipper.hpp>
+#include <entwine/tree/clipper.hpp>
 #include <entwine/tree/heuristics.hpp>
 #include <entwine/tree/registry.hpp>
 #include <entwine/tree/sequence.hpp>
@@ -116,7 +115,7 @@ void Builder::go(std::size_t max)
                 const std::size_t used(
                         100.0 - 100.0 * d.available() / (double)d.allocated());
 
-                const auto info(ReffedFixedChunk::latchInfo());
+                const auto info(ReffedChunk::latchInfo());
                 reawakened += info.read;
 
                 std::cout <<
@@ -267,7 +266,7 @@ void Builder::insertPath(const Origin origin, FileInfo& info)
 
     std::size_t inserted(0);
 
-    NewClipper clipper(*m_registry, origin);
+    Clipper clipper(*m_registry, origin);
 
     auto inserter([this, &clipper, &inserted]
     (Cell::PooledStack cells)
@@ -303,7 +302,7 @@ void Builder::insertPath(const Origin origin, FileInfo& info)
     }
 }
 
-Cells Builder::insertData(Cells cells, NewClipper& clipper)
+Cells Builder::insertData(Cells cells, Clipper& clipper)
 {
     PointStats pointStats;
     Cells rejected(m_pointPool->cellPool());
@@ -377,7 +376,7 @@ void Builder::save(const arbiter::Endpoint& ep)
     m_metadata->save(*m_out);
 }
 
-void Builder::merge(Builder& other, NewClipper& clipper)
+void Builder::merge(Builder& other, Clipper& clipper)
 {
     m_registry->merge(*other.m_registry, clipper);
     m_metadata->merge(*other.m_metadata);

@@ -17,7 +17,7 @@
 #include <utility>
 
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/tree/new-clipper.hpp>
+#include <entwine/tree/clipper.hpp>
 #include <entwine/tree/hierarchy.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/point-pool.hpp>
@@ -34,20 +34,20 @@ struct CountedCells
     uint64_t np = 0;
 };
 
-class FixedChunk;
+class Chunk;
 
-class ReffedFixedChunk
+class ReffedChunk
 {
 public:
-    ReffedFixedChunk(
+    ReffedChunk(
             const ChunkKey& key,
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
             PointPool& pointPool,
             Hierarchy& hierarchy);
 
-    ReffedFixedChunk(const ReffedFixedChunk& o);
-    ~ReffedFixedChunk();
+    ReffedChunk(const ReffedChunk& o);
+    ~ReffedChunk();
 
     struct Info
     {
@@ -58,13 +58,13 @@ public:
         void clear() { written = 0; read = 0; }
     };
 
-    bool insert(Cell::PooledNode& cell, const Key& key, NewClipper& clipper);
+    bool insert(Cell::PooledNode& cell, const Key& key, Clipper& clipper);
 
-    void ref(NewClipper& clipper);
+    void ref(Clipper& clipper);
     void unref(Origin o);
     bool empty();
 
-    FixedChunk& chunk() { assert(m_chunk); return *m_chunk; }
+    Chunk& chunk() { assert(m_chunk); return *m_chunk; }
 
     const ChunkKey& key() const { return m_key; }
     const Metadata& metadata() const { return m_metadata; }
@@ -84,16 +84,14 @@ private:
     Hierarchy& m_hierarchy;
 
     std::mutex m_mutex;
-    std::unique_ptr<FixedChunk> m_chunk;
+    std::unique_ptr<Chunk> m_chunk;
     std::map<Origin, std::size_t> m_refs;
 };
 
-class FixedChunk
+class Chunk
 {
-    friend class ReffedFixedChunk;
-
 public:
-    FixedChunk(const ReffedFixedChunk& ref)
+    Chunk(const ReffedChunk& ref)
         : m_ref(ref)
         , m_overflow(m_ref.pointPool().cellPool())
         , m_pointsAcross(1UL << m_ref.metadata().structure().body())
@@ -125,9 +123,9 @@ public:
         m_remote = false;
     }
 
-    bool insert(const Key& key, Cell::PooledNode& cell, NewClipper& clipper);
+    bool insert(const Key& key, Cell::PooledNode& cell, Clipper& clipper);
 
-    ReffedFixedChunk& step(const Point& p)
+    ReffedChunk& step(const Point& p)
     {
         const Dir dir(getDirection(m_ref.key().bounds().mid(), p));
         return m_children[toIntegral(dir)];
@@ -182,7 +180,7 @@ private:
         return (*m_tubes)[i].insert(key, cell);
     }
 
-    const ReffedFixedChunk& m_ref;
+    const ReffedChunk& m_ref;
     bool m_remote = false;
 
     std::mutex m_overflowMutex;
@@ -193,7 +191,7 @@ private:
     const std::size_t m_pointsAcross;
     std::unique_ptr<std::vector<Tube>> m_tubes;
 
-    std::vector<ReffedFixedChunk> m_children;
+    std::vector<ReffedChunk> m_children;
 };
 
 } // namespace entwine

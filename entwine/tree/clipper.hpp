@@ -21,45 +21,43 @@ namespace entwine
 {
 
 class Registry;
-class ReffedFixedChunk;
+class ReffedChunk;
 
-class NewClipper
+class Clipper
 {
     class Clip
     {
     public:
-        Clip(NewClipper& c) : m_clipper(c) { }
+        Clip(Clipper& c) : m_clipper(c) { }
         ~Clip() { assert(empty()); }
 
-        bool insert(ReffedFixedChunk& c);
+        bool insert(ReffedChunk& c);
         std::size_t clip(bool force = false);
         bool empty() const { return m_chunks.empty(); }
 
     private:
-        NewClipper& m_clipper;
+        Clipper& m_clipper;
 
         struct Cmp
         {
-            bool operator()(
-                    const ReffedFixedChunk* a,
-                    const ReffedFixedChunk* b) const;
+            bool operator()(const ReffedChunk* a, const ReffedChunk* b) const;
         };
 
-        std::map<ReffedFixedChunk*, bool, Cmp> m_chunks;
+        std::map<ReffedChunk*, bool, Cmp> m_chunks;
     };
 
 public:
-    NewClipper(Registry& registry, Origin origin = 0)
+    Clipper(Registry& registry, Origin origin = 0)
         : m_registry(registry)
         , m_origin(origin)
         , m_clips(64, *this)
     { }
 
-    ~NewClipper() { if (m_origin != invalidOrigin) clipAll(); }
+    ~Clipper() { if (m_origin != invalidOrigin) clipAll(); }
 
     Registry& registry() { return m_registry; }
 
-    bool insert(ReffedFixedChunk& c);
+    bool insert(ReffedChunk& c);
 
     void clip();
 

@@ -13,7 +13,7 @@
 #include <pdal/PointView.hpp>
 
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/tree/self-chunk.hpp>
+#include <entwine/tree/chunk.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/chunk-storage/chunk-storage.hpp>
 #include <entwine/types/metadata.hpp>
@@ -51,7 +51,7 @@ void Registry::save(const arbiter::Endpoint& endpoint) const
     io::ensurePut(endpoint, f, m_hierarchy.toJson().toStyledString());
 }
 
-void Registry::merge(const Registry& other, NewClipper& clipper)
+void Registry::merge(const Registry& other, Clipper& clipper)
 {
     const auto& s(m_metadata.structure());
 
@@ -75,7 +75,7 @@ void Registry::merge(const Registry& other, NewClipper& clipper)
                 auto cell(cells.popOne());
                 pk.init(cell->point(), dxyz.d);
 
-                ReffedFixedChunk* rc(&m_root);
+                ReffedChunk* rc(&m_root);
                 for (std::size_t d(s.body()); d < dxyz.d; ++d)
                 {
                     rc = &rc->chunk().step(cell->point());

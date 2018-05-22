@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include <entwine/tree/self-chunk.hpp>
+#include <entwine/tree/chunk.hpp>
 
 #include <entwine/types/chunk-storage/chunk-storage.hpp>
 
@@ -18,10 +18,10 @@ namespace entwine
 namespace
 {
     std::mutex m;
-    ReffedFixedChunk::Info info;
+    ReffedChunk::Info info;
 }
 
-ReffedFixedChunk::ReffedFixedChunk(
+ReffedChunk::ReffedChunk(
         const ChunkKey& key,
         const arbiter::Endpoint& out,
         const arbiter::Endpoint& tmp,
@@ -38,8 +38,8 @@ ReffedFixedChunk::ReffedFixedChunk(
     ++info.reffed;
 }
 
-ReffedFixedChunk::ReffedFixedChunk(const ReffedFixedChunk& o)
-    : ReffedFixedChunk(
+ReffedChunk::ReffedChunk(const ReffedChunk& o)
+    : ReffedChunk(
             o.key(),
             o.out(),
             o.tmp(),
@@ -51,22 +51,22 @@ ReffedFixedChunk::ReffedFixedChunk(const ReffedFixedChunk& o)
     assert(o.m_refs.empty());
 }
 
-ReffedFixedChunk::~ReffedFixedChunk()
+ReffedChunk::~ReffedChunk()
 {
     std::lock_guard<std::mutex> lock(m);
     --info.reffed;
 }
 
-bool ReffedFixedChunk::insert(
+bool ReffedChunk::insert(
         Cell::PooledNode& cell,
         const Key& key,
-        NewClipper& clipper)
+        Clipper& clipper)
 {
     if (clipper.insert(*this)) ref(clipper);
     return m_chunk->insert(key, cell, clipper);
 }
 
-void ReffedFixedChunk::ref(NewClipper& clipper)
+void ReffedChunk::ref(Clipper& clipper)
 {
     const Origin o(clipper.origin());
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -79,7 +79,7 @@ void ReffedFixedChunk::ref(NewClipper& clipper)
         {
             if (!m_chunk)
             {
-                m_chunk = makeUnique<FixedChunk>(*this);
+                m_chunk = makeUnique<Chunk>(*this);
                 assert(!m_chunk->remote());
 
                 std::lock_guard<std::mutex> lock(m);
@@ -128,7 +128,7 @@ void ReffedFixedChunk::ref(NewClipper& clipper)
     else ++m_refs[o];
 }
 
-void ReffedFixedChunk::unref(const Origin o)
+void ReffedChunk::unref(const Origin o)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -158,7 +158,7 @@ void ReffedFixedChunk::unref(const Origin o)
     }
 }
 
-bool ReffedFixedChunk::empty()
+bool ReffedChunk::empty()
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -173,7 +173,7 @@ bool ReffedFixedChunk::empty()
     return false;
 }
 
-ReffedFixedChunk::Info ReffedFixedChunk::latchInfo()
+ReffedChunk::Info ReffedChunk::latchInfo()
 {
     std::lock_guard<std::mutex> lock(m);
 
@@ -182,18 +182,7 @@ ReffedFixedChunk::Info ReffedFixedChunk::latchInfo()
     return result;
 }
 
-
-
-
-
-
-
-
-
-bool FixedChunk::insert(
-        const Key& key,
-        Cell::PooledNode& cell,
-        NewClipper& clipper)
+bool Chunk::insert(const Key& key, Cell::PooledNode& cell, Clipper& clipper)
 {
     if (insertNative(key, cell)) return true;
     if (m_ref.key().depth() < m_ref.metadata().overflowDepth()) return false;

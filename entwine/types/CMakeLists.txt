@@ -11,7 +11,6 @@ set(
     "${BASE}/storage.cpp"
     "${BASE}/structure.cpp"
     "${BASE}/subset.cpp"
-    "${BASE}/tube.cpp"
 )
 
 set(

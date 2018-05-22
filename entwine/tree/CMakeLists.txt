@@ -4,8 +4,8 @@ set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 set(
     SOURCES
     "${BASE}/builder.cpp"
-    "${BASE}/self-chunk.cpp"
-    "${BASE}/new-clipper.cpp"
+    "${BASE}/chunk.cpp"
+    "${BASE}/clipper.cpp"
     "${BASE}/config.cpp"
     "${BASE}/inference.cpp"
     "${BASE}/merger.cpp"
@@ -17,9 +17,8 @@ set(
 set(
     HEADERS
     "${BASE}/builder.hpp"
-    "${BASE}/self-chunk.hpp"
-    "${BASE}/new-climber.hpp"
-    "${BASE}/new-clipper.hpp"
+    "${BASE}/chunk.hpp"
+    "${BASE}/clipper.hpp"
     "${BASE}/config.hpp"
     "${BASE}/heuristics.hpp"
     "${BASE}/hierarchy.hpp"
@@ -28,7 +27,6 @@ set(
     "${BASE}/registry.hpp"
     "${BASE}/sequence.hpp"
     "${BASE}/thread-pools.hpp"
-    "${BASE}/traverser.hpp"
 )
 
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})

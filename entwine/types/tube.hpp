@@ -30,34 +30,12 @@ class NewClimber;
 class Tube
 {
 public:
-    class Insertion
-    {
-    public:
-        Insertion() { }
-        Insertion(bool done, int delta) : m_done(done) , m_delta(delta) { }
-
-        bool done() const { return m_done; }
-        int delta() const { return m_delta; }
-
-        void setDelta(int delta) { m_delta = delta; }
-        void setDone(int delta) { m_done = true; m_delta = delta; }
-
-    private:
-        bool m_done = false;
-        int m_delta = 0;
-    };
-
-    // If result.done() == true, then this cell has been consumed and may no
-    // longer be accessed.
+    // If result == true, then this cell has been consumed and may no longer be
+    // accessed.
     //
-    // The value of result.delta() is equal to (pointsInserted - pointsRemoved),
-    // which may be any value if result.done() == false.
-    //
-    // If result.done() == false, the cell should be reinserted.  In this case,
-    // it's possible that the cell was swapped with another - so cell values
-    // should not be cached through calls to insert.
-    Insertion insert(const NewClimber& climber, Cell::PooledNode& cell);
-
+    // Otherwise, the cell should be reinserted.  In this case, it's possible
+    // that the cell was swapped with another - so cell values should not be
+    // cached through calls to insert.
     bool insert(const Key& pk, Cell::PooledNode& cell)
     {
         const auto z(pk.position().z);
@@ -99,7 +77,6 @@ public:
     }
 
     bool empty() const { return m_cells.empty(); }
-    static constexpr std::size_t maxTickDepth() { return 64; }
 
     using CellMap = std::unordered_map<uint64_t, Cell::PooledNode>;
 

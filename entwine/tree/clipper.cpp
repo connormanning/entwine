@@ -8,23 +8,23 @@
 *
 ******************************************************************************/
 
-#include <entwine/tree/new-clipper.hpp>
+#include <entwine/tree/clipper.hpp>
 
+#include <entwine/tree/chunk.hpp>
 #include <entwine/tree/registry.hpp>
-#include <entwine/tree/self-chunk.hpp>
 #include <entwine/util/time.hpp>
 
 namespace entwine
 {
 
-bool NewClipper::insert(ReffedFixedChunk& c)
+bool Clipper::insert(ReffedChunk& c)
 {
     const bool added(m_clips.at(c.key().depth()).insert(c));
     if (added) ++m_count;
     return added;
 }
 
-void NewClipper::clip()
+void Clipper::clip()
 {
     if (m_count <= heuristics::clipCacheSize) return;
     const auto startTime(now());
@@ -52,7 +52,7 @@ void NewClipper::clip()
     }
 }
 
-void NewClipper::clipAll()
+void Clipper::clipAll()
 {
     const std::size_t start(m_registry.metadata().structure().head());
     for (std::size_t d(m_clips.size() - 1); d >= start; --d)
@@ -63,7 +63,7 @@ void NewClipper::clipAll()
     assert(!m_count);
 }
 
-bool NewClipper::Clip::insert(ReffedFixedChunk& c)
+bool Clipper::Clip::insert(ReffedChunk& c)
 {
     const auto it(m_chunks.find(&c));
     if (it == m_chunks.end())
@@ -78,21 +78,21 @@ bool NewClipper::Clip::insert(ReffedFixedChunk& c)
     }
 }
 
-bool NewClipper::Clip::Cmp::operator()(
-        const ReffedFixedChunk* a,
-        const ReffedFixedChunk* b) const
+bool Clipper::Clip::Cmp::operator()(
+        const ReffedChunk* a,
+        const ReffedChunk* b) const
 {
     return a->key().position() < b->key().position();
 }
 
-std::size_t NewClipper::Clip::clip(const bool force)
+std::size_t Clipper::Clip::clip(const bool force)
 {
     std::size_t n(0);
     for (auto it(m_chunks.begin()); it != m_chunks.end(); )
     {
         if (force || !it->second)
         {
-            ReffedFixedChunk& c(*it->first);
+            ReffedChunk& c(*it->first);
             const Origin o(m_clipper.origin());
             m_clipper.registry().clipPool().add([&c, o] { c.unref(o); });
             ++n;

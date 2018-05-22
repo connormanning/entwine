@@ -9,8 +9,8 @@
 ******************************************************************************/
 
 #include <entwine/tree/builder.hpp>
+#include <entwine/tree/clipper.hpp>
 #include <entwine/tree/merger.hpp>
-#include <entwine/tree/new-clipper.hpp>
 #include <entwine/tree/thread-pools.hpp>
 #include <entwine/types/manifest.hpp>
 #include <entwine/types/metadata.hpp>
@@ -57,7 +57,7 @@ Merger::~Merger() { }
 
 void Merger::go()
 {
-    auto clipper(makeUnique<NewClipper>(m_builder->registry()));
+    auto clipper(makeUnique<Clipper>(m_builder->registry()));
     for (m_id = 2; m_id <= m_of; ++m_id)
     {
         if (m_verbose)

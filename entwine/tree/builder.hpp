@@ -21,7 +21,6 @@
 #include <pdal/Dimension.hpp>
 
 #include <entwine/tree/config.hpp>
-#include <entwine/tree/new-climber.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/manifest.hpp>
 #include <entwine/types/outer-scope.hpp>
@@ -43,7 +42,7 @@ namespace arbiter
 }
 
 class Bounds;
-class NewClipper;
+class Clipper;
 class Executor;
 class FileInfo;
 class Metadata;
@@ -71,7 +70,7 @@ public:
     void go(std::size_t maxFileInsertions = 0);
 
     // Aggregate spatially segmented build.
-    void merge(Builder& other, NewClipper& clipper);
+    void merge(Builder& other, Clipper& clipper);
 
     // Various getters.
     const Metadata& metadata() const;
@@ -117,7 +116,7 @@ private:
     void insertPath(Origin origin, FileInfo& info);
 
     // Returns a stack of rejected info nodes so that they may be reused.
-    Cells insertData(Cells cells, NewClipper& clipper);
+    Cells insertData(Cells cells, Clipper& clipper);
 
     // Remove resources that are no longer needed.
     void clip(
