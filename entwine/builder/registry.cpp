@@ -8,12 +8,12 @@
 *
 ******************************************************************************/
 
-#include <entwine/tree/registry.hpp>
+#include <entwine/builder/registry.hpp>
 
 #include <pdal/PointView.hpp>
 
+#include <entwine/builder/chunk.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/tree/chunk.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/chunk-storage/chunk-storage.hpp>
 #include <entwine/types/metadata.hpp>

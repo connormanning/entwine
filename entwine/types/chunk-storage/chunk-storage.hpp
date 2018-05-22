@@ -10,9 +10,10 @@
 
 #pragma once
 
+#include <string>
+
 #include <json/json.h>
 
-#include <entwine/tree/config.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/storage-types.hpp>
@@ -29,7 +30,7 @@ public:
 
     static std::unique_ptr<ChunkStorage> create(
             const Metadata& m,
-            const Config& c);
+            std::string type);
 
     virtual void write(
             const arbiter::Endpoint& out,

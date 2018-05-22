@@ -1,4 +1,4 @@
-set(MODULE tree)
+set(MODULE builder)
 set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 set(

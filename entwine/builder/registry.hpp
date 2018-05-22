@@ -18,9 +18,9 @@
 
 #include <json/json.h>
 
-#include <entwine/tree/chunk.hpp>
-#include <entwine/tree/clipper.hpp>
-#include <entwine/tree/hierarchy.hpp>
+#include <entwine/builder/chunk.hpp>
+#include <entwine/builder/clipper.hpp>
+#include <entwine/builder/hierarchy.hpp>
 #include <entwine/types/key.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/tube.hpp>

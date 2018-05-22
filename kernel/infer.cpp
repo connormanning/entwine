@@ -13,8 +13,8 @@
 #include <cstddef>
 #include <string>
 
-#include <entwine/tree/config.hpp>
-#include <entwine/tree/inference.hpp>
+#include <entwine/builder/config.hpp>
+#include <entwine/builder/inference.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/util/matrix.hpp>
 

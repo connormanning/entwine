@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include <entwine/tree/chunk.hpp>
+#include <entwine/builder/chunk.hpp>
 
 #include <entwine/types/chunk-storage/chunk-storage.hpp>
 

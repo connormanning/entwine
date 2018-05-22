@@ -20,9 +20,8 @@ namespace entwine
 
 std::unique_ptr<ChunkStorage> ChunkStorage::create(
         const Metadata& m,
-        const Config& c)
+        const std::string s)
 {
-    const std::string s(c.dataStorage());
     if (s == "laszip")  return makeUnique<LasZipStorage>(m);
     /*
     if (s == "lazperf") return makeUnique<LazPerfStorage>(m);

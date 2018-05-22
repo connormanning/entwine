@@ -8,12 +8,11 @@
 *
 ******************************************************************************/
 
-#include <entwine/tree/inference.hpp>
+#include <entwine/builder/inference.hpp>
 
 #include <limits>
 
-#include <entwine/tree/builder.hpp>
-#include <entwine/tree/thread-pools.hpp>
+#include <entwine/builder/thread-pools.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/util/executor.hpp>

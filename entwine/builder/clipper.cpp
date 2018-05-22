@@ -8,10 +8,10 @@
 *
 ******************************************************************************/
 
-#include <entwine/tree/clipper.hpp>
+#include <entwine/builder/clipper.hpp>
 
-#include <entwine/tree/chunk.hpp>
-#include <entwine/tree/registry.hpp>
+#include <entwine/builder/chunk.hpp>
+#include <entwine/builder/registry.hpp>
 #include <entwine/util/time.hpp>
 
 namespace entwine

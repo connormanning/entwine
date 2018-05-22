@@ -8,10 +8,10 @@
 *
 ******************************************************************************/
 
-#include <entwine/tree/config.hpp>
+#include <entwine/builder/config.hpp>
 
+#include <entwine/builder/inference.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/tree/inference.hpp>
 #include <entwine/util/json.hpp>
 
 namespace entwine

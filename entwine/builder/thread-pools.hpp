@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include <entwine/tree/heuristics.hpp>
+#include <entwine/builder/heuristics.hpp>
 #include <entwine/util/pool.hpp>
 
 namespace entwine

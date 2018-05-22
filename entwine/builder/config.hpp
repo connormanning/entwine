@@ -15,7 +15,7 @@
 
 #include <json/json.h>
 
-#include <entwine/tree/thread-pools.hpp>
+#include <entwine/builder/thread-pools.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/defs.hpp>

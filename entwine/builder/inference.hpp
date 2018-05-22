@@ -18,8 +18,8 @@
 
 #include <pdal/SpatialReference.hpp>
 
+#include <entwine/builder/config.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/tree/config.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/delta.hpp>
 #include <entwine/types/file-info.hpp>
@@ -31,7 +31,6 @@
 namespace entwine
 {
 
-class Builder;
 class Reprojection;
 
 class NewInference

@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-#include <entwine/tree/config.hpp>
+#include <entwine/builder/config.hpp>
 #include <entwine/types/outer-scope.hpp>
 
 namespace Json { class Value; }

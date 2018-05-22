@@ -29,16 +29,6 @@ const std::size_t clipCacheSize(64);
 // work threads to clip threads.
 const float defaultWorkToClipRatio(0.33);
 
-// Pooled point cells, data, and hierarchy nodes come from the splice pool,
-// which allocates them in blocks.  This sets the block size.
-const std::size_t poolBlockSize(1024 * 1024);
-
-// Since hierarchy blocks simply count bucketed points, after the sparse depth
-// we don't expect to see much reduction in hierarchy block size - we just
-// expect their average magnitudes to decrease.  So keep splitting hierarchy
-// blocks well past the point after which we expect the data to get sparse.
-const float hierarchySparseFactor(1.25);
-
 } // namespace heuristics
 } // namespace entwine
 

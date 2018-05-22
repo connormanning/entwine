@@ -10,7 +10,7 @@
 
 #include <cmath>
 
-#include <entwine/tree/thread-pools.hpp>
+#include <entwine/builder/thread-pools.hpp>
 
 namespace entwine
 {

@@ -15,9 +15,9 @@
 #include <iostream>
 #include <string>
 
+#include <entwine/builder/builder.hpp>
+#include <entwine/builder/thread-pools.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/tree/builder.hpp>
-#include <entwine/tree/thread-pools.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>

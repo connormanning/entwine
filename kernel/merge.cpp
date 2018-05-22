@@ -17,8 +17,8 @@
 
 #include <json/json.h>
 
-#include <entwine/tree/config.hpp>
-#include <entwine/tree/merger.hpp>
+#include <entwine/builder/config.hpp>
+#include <entwine/builder/merger.hpp>
 
 using namespace entwine;
 

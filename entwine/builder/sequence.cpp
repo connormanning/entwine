@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include <entwine/tree/sequence.hpp>
+#include <entwine/builder/sequence.hpp>
 
 #include <iterator>
 

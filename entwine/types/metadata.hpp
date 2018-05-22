@@ -16,7 +16,7 @@
 
 #include <pdal/Dimension.hpp>
 
-#include <entwine/tree/config.hpp>
+#include <entwine/builder/config.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/defs.hpp>
 
@@ -48,7 +48,7 @@ public:
     Metadata(const Config& config, bool exists = false);
     Metadata(
             const arbiter::Endpoint& endpoint,
-            const Config& config = Config(Json::Value()));
+            const Config& config = Config());
 
     ~Metadata();
 

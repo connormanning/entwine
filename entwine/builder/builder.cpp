@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include <entwine/tree/builder.hpp>
+#include <entwine/builder/builder.hpp>
 
 #include <chrono>
 #include <limits>
@@ -16,13 +16,13 @@
 #include <random>
 #include <thread>
 
+#include <entwine/builder/clipper.hpp>
+#include <entwine/builder/heuristics.hpp>
+#include <entwine/builder/registry.hpp>
+#include <entwine/builder/sequence.hpp>
+#include <entwine/builder/thread-pools.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/third/splice-pool/splice-pool.hpp>
-#include <entwine/tree/clipper.hpp>
-#include <entwine/tree/heuristics.hpp>
-#include <entwine/tree/registry.hpp>
-#include <entwine/tree/sequence.hpp>
-#include <entwine/tree/thread-pools.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/pooled-point-table.hpp>

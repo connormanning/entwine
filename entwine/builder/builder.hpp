@@ -20,7 +20,7 @@
 
 #include <pdal/Dimension.hpp>
 
-#include <entwine/tree/config.hpp>
+#include <entwine/builder/config.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/manifest.hpp>
 #include <entwine/types/outer-scope.hpp>

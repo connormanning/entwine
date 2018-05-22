@@ -8,10 +8,10 @@
 *
 ******************************************************************************/
 
-#include <entwine/tree/builder.hpp>
-#include <entwine/tree/clipper.hpp>
-#include <entwine/tree/merger.hpp>
-#include <entwine/tree/thread-pools.hpp>
+#include <entwine/builder/builder.hpp>
+#include <entwine/builder/clipper.hpp>
+#include <entwine/builder/merger.hpp>
+#include <entwine/builder/thread-pools.hpp>
 #include <entwine/types/manifest.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/subset.hpp>

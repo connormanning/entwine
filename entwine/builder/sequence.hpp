@@ -11,9 +11,9 @@
 #include <iostream>
 #include <memory>
 
+#include <entwine/builder/builder.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/manifest.hpp>
-#include <entwine/tree/builder.hpp>
 
 namespace entwine
 {

@@ -130,7 +130,7 @@ set(OBJS
     $<TARGET_OBJECTS:new-reader>
     $<TARGET_OBJECTS:chunk-storage>
     $<TARGET_OBJECTS:third>
-    $<TARGET_OBJECTS:tree>
+    $<TARGET_OBJECTS:builder>
     $<TARGET_OBJECTS:types>
     $<TARGET_OBJECTS:util>
 )
