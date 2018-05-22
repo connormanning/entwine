@@ -21,7 +21,7 @@ namespace entwine
 {
 
 class Registry;
-class ReffedSelfChunk;
+class ReffedFixedChunk;
 
 class NewClipper
 {
@@ -31,7 +31,7 @@ class NewClipper
         Clip(NewClipper& c) : m_clipper(c) { }
         ~Clip() { assert(empty()); }
 
-        bool insert(ReffedSelfChunk& c);
+        bool insert(ReffedFixedChunk& c);
         std::size_t newClip(bool force = false);
 
         bool insert(const Xyz& p)
@@ -86,11 +86,11 @@ class NewClipper
         struct Cmp
         {
             bool operator()(
-                    const ReffedSelfChunk* a,
-                    const ReffedSelfChunk* b) const;
+                    const ReffedFixedChunk* a,
+                    const ReffedFixedChunk* b) const;
         };
 
-        std::map<ReffedSelfChunk*, bool, Cmp> m_chunks;
+        std::map<ReffedFixedChunk*, bool, Cmp> m_chunks;
     };
 
 public:
@@ -114,7 +114,7 @@ public:
 
     Registry& registry() { return m_registry; }
 
-    bool insert(ReffedSelfChunk& c);
+    bool insert(ReffedFixedChunk& c);
 
     void clip();
 

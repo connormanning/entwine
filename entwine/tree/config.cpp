@@ -35,6 +35,7 @@ Json::Value Config::defaults() const
     json["overflowRatio"] = 1.0;
     json["structure"]["head"] = 8;
     json["structure"]["body"] = 8;
+    json["structure"]["tail"] = 64;
     json["dataStorage"] = "laszip";
     json["hierarchyStorage"] = "json";
     return json;

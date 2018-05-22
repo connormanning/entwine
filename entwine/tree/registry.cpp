@@ -115,7 +115,7 @@ void Registry::merge(const Registry& other, NewClipper& clipper)
                 auto cell(cells.popOne());
                 pk.init(cell->point(), dxyz.d);
 
-                ReffedSelfChunk* rc(&m_root);
+                ReffedFixedChunk* rc(&m_root);
                 for (std::size_t d(s.body()); d < dxyz.d; ++d)
                 {
                     rc = &rc->chunk().step(cell->point());

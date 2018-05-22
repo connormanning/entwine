@@ -56,7 +56,7 @@ public:
 
     bool addPoint(Cell::PooledNode& cell, Key& key, NewClipper& clipper)
     {
-        ReffedSelfChunk* rc = &m_root;
+        ReffedFixedChunk* rc = &m_root;
 
         while (!rc->insert(cell, key, clipper))
         {
@@ -100,7 +100,7 @@ private:
     Hierarchy m_hierarchy;
 
     std::vector<Slice> m_slices;
-    ReffedSelfChunk m_root;
+    ReffedFixedChunk m_root;
 };
 
 } // namespace entwine

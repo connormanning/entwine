@@ -18,56 +18,10 @@ namespace entwine
 namespace
 {
     std::mutex m;
-    ReffedSelfChunk::Info info;
+    ReffedFixedChunk::Info info;
 }
 
-SelfChunk::SelfChunk(const ReffedSelfChunk& ref)
-    : m_ref(ref)
-    , m_overflow(m_ref.pointPool().cellPool())
-{ }
-
-bool SelfChunk::insert(
-        const Key& key,
-        Cell::PooledNode& cell,
-        NewClipper& clipper)
-{
-    if (insert(key, cell)) return true;
-    if (m_ref.key().depth() < m_ref.metadata().overflowDepth()) return false;
-
-    std::lock_guard<std::mutex> lock(m_overflowMutex);
-    if (m_hasChildren) return false;
-
-    m_overflow.push(std::move(cell));
-    m_keys.push(key);
-
-    assert(m_overflow.size() == m_keys.size());
-
-    if (m_overflow.size() <= m_ref.metadata().overflowLimit()) return true;
-
-    m_hasChildren = true;
-
-    while (!m_overflow.empty())
-    {
-        auto curCell(m_overflow.popOne());
-        Key curKey(m_keys.top());
-        m_keys.pop();
-
-        curKey.step(curCell->point());
-        if (!step(curCell->point()).insert(curCell, curKey, clipper))
-        {
-            throw std::runtime_error("Invalid overflow");
-        }
-
-        assert(m_overflow.size() == m_keys.size());
-    }
-
-    assert(m_overflow.empty());
-    assert(m_keys.empty());
-
-    return true;
-}
-
-ReffedSelfChunk::ReffedSelfChunk(
+ReffedFixedChunk::ReffedFixedChunk(
         const ChunkKey& key,
         const arbiter::Endpoint& out,
         const arbiter::Endpoint& tmp,
@@ -84,37 +38,35 @@ ReffedSelfChunk::ReffedSelfChunk(
     ++info.reffed;
 }
 
-ReffedSelfChunk::ReffedSelfChunk(
-        const ChunkKey& key,
-        const ReffedSelfChunk& parent)
-    : ReffedSelfChunk(
-            key,
-            parent.out(),
-            parent.tmp(),
-            parent.pointPool(),
-            parent.hierarchy())
-{ }
-
-ReffedSelfChunk::ReffedSelfChunk(const ReffedSelfChunk& o)
-    : ReffedSelfChunk(
+ReffedFixedChunk::ReffedFixedChunk(const ReffedFixedChunk& o)
+    : ReffedFixedChunk(
             o.key(),
             o.out(),
             o.tmp(),
             o.pointPool(),
             o.hierarchy())
 {
-    // This happens only during the constructor of the contiguous chunk.
+    // This happens only during the constructor of the chunk.
     assert(!o.m_chunk);
     assert(o.m_refs.empty());
 }
 
-ReffedSelfChunk::~ReffedSelfChunk()
+ReffedFixedChunk::~ReffedFixedChunk()
 {
     std::lock_guard<std::mutex> lock(m);
     --info.reffed;
 }
 
-void ReffedSelfChunk::ref(NewClipper& clipper)
+bool ReffedFixedChunk::insert(
+        Cell::PooledNode& cell,
+        const Key& key,
+        NewClipper& clipper)
+{
+    if (clipper.insert(*this)) ref(clipper);
+    return m_chunk->insert(key, cell, clipper);
+}
+
+void ReffedFixedChunk::ref(NewClipper& clipper)
 {
     const Origin o(clipper.origin());
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -127,15 +79,7 @@ void ReffedSelfChunk::ref(NewClipper& clipper)
         {
             if (!m_chunk)
             {
-                if (m_key.depth() < m_metadata.structure().tail())
-                {
-                    m_chunk = makeUnique<SelfContiguousChunk>(*this);
-                }
-                else
-                {
-                    m_chunk = makeUnique<SelfMappedChunk>(*this);
-                }
-
+                m_chunk = makeUnique<FixedChunk>(*this);
                 assert(!m_chunk->remote());
 
                 std::lock_guard<std::mutex> lock(m);
@@ -184,7 +128,7 @@ void ReffedSelfChunk::ref(NewClipper& clipper)
     else ++m_refs[o];
 }
 
-void ReffedSelfChunk::unref(const Origin o)
+void ReffedFixedChunk::unref(const Origin o)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -214,7 +158,7 @@ void ReffedSelfChunk::unref(const Origin o)
     }
 }
 
-bool ReffedSelfChunk::empty()
+bool ReffedFixedChunk::empty()
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -229,13 +173,62 @@ bool ReffedSelfChunk::empty()
     return false;
 }
 
-ReffedSelfChunk::Info ReffedSelfChunk::latchInfo()
+ReffedFixedChunk::Info ReffedFixedChunk::latchInfo()
 {
     std::lock_guard<std::mutex> lock(m);
 
     Info result(info);
     info.clear();
     return result;
+}
+
+
+
+
+
+
+
+
+
+bool FixedChunk::insert(
+        const Key& key,
+        Cell::PooledNode& cell,
+        NewClipper& clipper)
+{
+    if (insertNative(key, cell)) return true;
+    if (m_ref.key().depth() < m_ref.metadata().overflowDepth()) return false;
+
+    std::lock_guard<std::mutex> lock(m_overflowMutex);
+    if (m_hasChildren) return false;
+
+    m_overflow.push(std::move(cell));
+    m_keys.push(key);
+
+    assert(m_overflow.size() == m_keys.size());
+
+    if (m_overflow.size() <= m_ref.metadata().overflowLimit()) return true;
+
+    m_hasChildren = true;
+
+    while (!m_overflow.empty())
+    {
+        auto curCell(m_overflow.popOne());
+        Key curKey(m_keys.top());
+        m_keys.pop();
+
+        curKey.step(curCell->point());
+        if (!step(curCell->point()).insert(curCell, curKey, clipper))
+        {
+            throw std::runtime_error("Invalid overflow");
+        }
+
+        assert(m_overflow.size() == m_keys.size());
+    }
+
+    assert(m_overflow.empty());
+    assert(m_keys.empty());
+
+    return true;
 }
 
 } // namespace entwine

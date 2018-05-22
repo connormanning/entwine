@@ -122,7 +122,7 @@ void Builder::go(std::size_t max)
                 const std::size_t used(
                         100.0 - 100.0 * d.available() / (double)d.allocated());
 
-                const auto info(ReffedSelfChunk::latchInfo());
+                const auto info(ReffedFixedChunk::latchInfo());
                 reawakened += info.read;
 
                 std::cout <<

@@ -56,14 +56,14 @@ void NewClipper::clipAll()
     assert(!m_count);
 }
 
-bool NewClipper::insert(ReffedSelfChunk& c)
+bool NewClipper::insert(ReffedFixedChunk& c)
 {
     const bool added(m_clips.at(c.key().depth()).insert(c));
     if (added) ++m_count;
     return added;
 }
 
-bool NewClipper::Clip::insert(ReffedSelfChunk& c)
+bool NewClipper::Clip::insert(ReffedFixedChunk& c)
 {
     const auto it(m_chunks.find(&c));
     if (it == m_chunks.end())
@@ -79,8 +79,8 @@ bool NewClipper::Clip::insert(ReffedSelfChunk& c)
 }
 
 bool NewClipper::Clip::Cmp::operator()(
-        const ReffedSelfChunk* a,
-        const ReffedSelfChunk* b) const
+        const ReffedFixedChunk* a,
+        const ReffedFixedChunk* b) const
 {
     return a->key().position() < b->key().position();
 }
@@ -92,7 +92,7 @@ std::size_t NewClipper::Clip::newClip(const bool force)
     {
         if (force || !it->second)
         {
-            ReffedSelfChunk& c(*it->first);
+            ReffedFixedChunk& c(*it->first);
             const Origin o(m_clipper.origin());
             m_clipper.registry().clipPool().add([&c, o] { c.unref(o); });
             ++n;
