@@ -16,7 +16,6 @@
 #include <thread>
 
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/tree/chunk.hpp>
 
 namespace
 {

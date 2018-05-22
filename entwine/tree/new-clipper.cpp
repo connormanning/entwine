@@ -17,6 +17,13 @@
 namespace entwine
 {
 
+bool NewClipper::insert(ReffedFixedChunk& c)
+{
+    const bool added(m_clips.at(c.key().depth()).insert(c));
+    if (added) ++m_count;
+    return added;
+}
+
 void NewClipper::clip()
 {
     if (m_count <= heuristics::clipCacheSize) return;
@@ -33,7 +40,7 @@ void NewClipper::clip()
     {
         auto& c(m_clips[cur]);
         if (c.empty()) return;
-        else m_count -= c.newClip();
+        else m_count -= c.clip();
 
         --cur;
     }
@@ -51,16 +58,9 @@ void NewClipper::clipAll()
     for (std::size_t d(m_clips.size() - 1); d >= start; --d)
     {
         auto& c(m_clips[d]);
-        m_count -= c.newClip(true);
+        m_count -= c.clip(true);
     }
     assert(!m_count);
-}
-
-bool NewClipper::insert(ReffedFixedChunk& c)
-{
-    const bool added(m_clips.at(c.key().depth()).insert(c));
-    if (added) ++m_count;
-    return added;
 }
 
 bool NewClipper::Clip::insert(ReffedFixedChunk& c)
@@ -85,7 +85,7 @@ bool NewClipper::Clip::Cmp::operator()(
     return a->key().position() < b->key().position();
 }
 
-std::size_t NewClipper::Clip::newClip(const bool force)
+std::size_t NewClipper::Clip::clip(const bool force)
 {
     std::size_t n(0);
     for (auto it(m_chunks.begin()); it != m_chunks.end(); )
@@ -105,11 +105,6 @@ std::size_t NewClipper::Clip::newClip(const bool force)
         }
     }
     return n;
-}
-
-void NewClipper::clip(const uint64_t d, const Xyz& p)
-{
-    m_registry.clip(d, p, m_origin);
 }
 
 } // namespace entwine

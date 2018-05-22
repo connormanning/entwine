@@ -17,8 +17,6 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/tree/builder.hpp>
-#include <entwine/tree/chunk.hpp>
-#include <entwine/tree/config-parser.hpp>
 #include <entwine/tree/thread-pools.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/metadata.hpp>

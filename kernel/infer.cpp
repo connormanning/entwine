@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <string>
 
+#include <entwine/tree/config.hpp>
 #include <entwine/tree/inference.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/util/matrix.hpp>
@@ -65,45 +66,7 @@ namespace
 
             "\t-x\n"
             "\t\tDo not trust file headers when determining bounds.  By\n"
-            "\t\tdefault, the headers are considered to be good.\n\n"
-
-            "\t-m <JSON-array>\n"
-            "\t\tTransformation matrix.\n\n";
-    }
-
-    std::string getReprojString(const Reprojection* reprojection)
-    {
-        if (reprojection)
-        {
-            std::string s;
-
-            if (reprojection->hammer())
-            {
-                s += reprojection->in() + " (OVERRIDING file headers)";
-            }
-            else
-            {
-                if (reprojection->in().size())
-                {
-                    s += "(from file headers, or a default of '";
-                    s += reprojection->in();
-                    s += "')";
-                }
-                else
-                {
-                    s += "(from file headers)";
-                }
-            }
-
-            s += " -> ";
-            s += reprojection->out();
-
-            return s;
-        }
-        else
-        {
-            return "(none)";
-        }
+            "\t\tdefault, the headers are considered to be good.\n\n";
     }
 }
 
@@ -127,14 +90,7 @@ void Kernel::infer(std::vector<std::string> args)
     Paths paths;
     bool addingPath(args.front().front() != '-');
 
-    std::size_t threads(4);
-    Json::Value jsonReprojection;
-    std::string tmpPath("tmp");
-    bool trustHeaders(true);
-    Json::Value arbiterConfig;
-    std::unique_ptr<std::vector<double>> transformation;
-
-    std::string output;
+    Json::Value json;
 
     std::size_t a(0);
 
@@ -146,7 +102,7 @@ void Kernel::infer(std::vector<std::string> args)
         {
             if (arg.front() != '-')
             {
-                paths.push_back(arg);
+                json["input"].append(arg);
             }
             else
             {
@@ -162,7 +118,7 @@ void Kernel::infer(std::vector<std::string> args)
         {
             if (++a < args.size())
             {
-                tmpPath = args[a];
+                json["tmp"] = args[a];
             }
             else
             {
@@ -173,7 +129,7 @@ void Kernel::infer(std::vector<std::string> args)
         {
             if (++a < args.size())
             {
-                output = args[a] + ".entwine-inference";
+                json["output"] = args[a] + ".entwine-inference";
             }
             else
             {
@@ -190,12 +146,12 @@ void Kernel::infer(std::vector<std::string> args)
 
                 if (onlyOutput)
                 {
-                    jsonReprojection["out"] = args[a];
+                    json["reprojection"]["out"] = args[a];
                 }
                 else
                 {
-                    jsonReprojection["in"] = args[a];
-                    jsonReprojection["out"] = args[++a];
+                    json["reprojection"]["in"] = args[a];
+                    json["reprojection"]["out"] = args[++a];
                 }
             }
             else
@@ -205,17 +161,17 @@ void Kernel::infer(std::vector<std::string> args)
         }
         else if (arg == "-h")
         {
-            jsonReprojection["hammer"] = true;
+            json["reprojection"]["hammer"] = true;
         }
         else if (arg == "-x")
         {
-            trustHeaders = false;
+            json["trustHeaders"] = false;
         }
         else if (arg == "-t")
         {
             if (++a < args.size())
             {
-                threads = Json::UInt64(std::stoul(args[a]));
+                json["threads"] = Json::UInt64(std::stoul(args[a]));
             }
             else
             {
@@ -226,79 +182,50 @@ void Kernel::infer(std::vector<std::string> args)
         {
             if (++a < args.size())
             {
-                arbiterConfig["s3"]["profile"] = args[a];
+                json["arbiter"]["s3"]["profile"] = args[a];
             }
             else
             {
                 throw std::runtime_error("Invalid AWS user argument");
             }
         }
-        else if (arg == "-e") { arbiterConfig["s3"]["sse"] = true; }
-        else if (arg == "-v") { arbiterConfig["verbose"] = true; }
-        else if (arg == "-m")
-        {
-            if (++a < args.size())
-            {
-                transformation = makeUnique<std::vector<double>>(
-                        extract<double>(parse(args[a])));
-                if (transformation->size() != 16)
-                {
-                    throw std::runtime_error("Invalid transformation matrix");
-                }
-            }
-        }
+        else if (arg == "-e") { json["arbiter"]["s3"]["sse"] = true; }
+        else if (arg == "-v") { json["arbiter"]["verbose"] = true; }
 
         ++a;
     }
 
-    entwine::arbiter::fs::mkdirp(tmpPath);
-
-    std::unique_ptr<Reprojection> reprojection;
-
-    if (jsonReprojection.isMember("out"))
+    if (json.isMember("tmp"))
     {
-        reprojection.reset(new Reprojection(jsonReprojection));
+        entwine::arbiter::fs::mkdirp(json["tmp"].asString());
     }
 
-    auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(arbiterConfig));
+    auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(json["arbiter"]));
 
-    const auto reprojString(getReprojString(reprojection.get()));
-    const auto trustHeadersString(trustHeaders ? "yes" : "no");
-
-    std::cout << "Inferring from: ";
+    std::cout << "Inferring from: " << json.toStyledString() << std::endl;
+    /*
     if (paths.size() == 1) std::cout << paths.front() << std::endl;
     else std::cout << paths.size() << " paths" << std::endl;
     std::cout << "\tTemp path: " << tmpPath << std::endl;
     std::cout << "\tThreads: " << threads << std::endl;
     std::cout << "\tReprojection: " << reprojString << std::endl;
     std::cout << "\tTrust file headers? " << trustHeadersString << std::endl;
+    */
 
-    const bool allowDelta(true);
-    const bool verbose(true);
-    const bool cesiumify(false);
+    const Config in(json);
+    NewInference inference(in);
+    const Config out(inference.go());
 
-    Inference inference(
-            paths,
-            reprojection.get(),
-            trustHeaders,
-            allowDelta,
-            tmpPath,
-            threads,
-            verbose,
-            cesiumify,
-            arbiter.get());
-
-    if (transformation) inference.transformation(*transformation);
-
-    inference.go();
-
-    if (output.size())
+    if (json.isMember("output"))
     {
+        const std::string output(json["output"].asString());
         std::cout << "Writing details to " << output << "..." << std::endl;
-        Json::Value json(inference.toJson());
+        Json::Value json(out.json());
         arbiter->put(output, json.toStyledString());
     }
 
+    std::cout << out.json() << std::endl;
+    /*
     std::cout << "Schema: " << inference.schema() << std::endl;
     std::cout << "Bounds: " << inference.bounds() << std::endl;
     std::cout << "Points: " << commify(inference.numPoints()) << std::endl;
@@ -322,5 +249,6 @@ void Kernel::infer(std::vector<std::string> args)
 
     const double density(densityLowerBound(inference.fileInfo()));
     std::cout << "Density estimate (per square unit): " << density << std::endl;
+    */
 }
 

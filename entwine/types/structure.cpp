@@ -14,7 +14,6 @@
 #include <cmath>
 #include <iostream>
 
-#include <entwine/tree/climber.hpp>
 #include <entwine/tree/heuristics.hpp>
 #include <entwine/types/manifest.hpp>
 #include <entwine/types/metadata.hpp>

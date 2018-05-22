@@ -12,7 +12,6 @@
 
 #include <json/json.h>
 
-#include <entwine/tree/chunk.hpp>
 #include <entwine/tree/config.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/point-pool.hpp>

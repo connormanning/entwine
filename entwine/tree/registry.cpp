@@ -13,13 +13,14 @@
 #include <pdal/PointView.hpp>
 
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/tree/climber.hpp>
 #include <entwine/tree/self-chunk.hpp>
 #include <entwine/types/bounds.hpp>
+#include <entwine/types/chunk-storage/chunk-storage.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/structure.hpp>
 #include <entwine/types/subset.hpp>
+#include <entwine/util/io.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -42,46 +43,7 @@ Registry::Registry(
                     "entwine-hierarchy" + m_metadata.postfix() + ".json")) :
             Json::Value())
     , m_root(ChunkKey(metadata), out, tmp, pointPool, m_hierarchy)
-{
-    /*
-    std::size_t chunksAcross(1);
-    std::size_t pointsAcross(1);
-    const std::size_t maxDepth(64);
-    m_slices.reserve(maxDepth);
-
-    const auto& s(m_metadata.structure());
-
-    for (std::size_t d(0); d < maxDepth; ++d)
-    {
-        m_slices.emplace_back(
-                m_metadata,
-                m_out,
-                m_tmp,
-                pointPool,
-                d,
-                chunksAcross,
-                pointsAcross);
-
-        if (d >= s.body() && d < s.tail()) chunksAcross *= 2;
-        else pointsAcross *= 2;
-    }
-    */
-
-    /*
-    if (exists)
-    {
-        const auto h(parse(out.get(
-                        "entwine-hierarchy" + m_metadata.postfix() + ".json")));
-
-        for (const auto key : h.getMemberNames())
-        {
-            const Dxyz dxyz(key);
-            const uint64_t np(h[key].asUInt64());
-            m_slices.at(dxyz.d).setNp(dxyz.p, np);
-        }
-    }
-    */
-}
+{ }
 
 void Registry::save(const arbiter::Endpoint& endpoint) const
 {
@@ -92,8 +54,6 @@ void Registry::save(const arbiter::Endpoint& endpoint) const
 void Registry::merge(const Registry& other, NewClipper& clipper)
 {
     const auto& s(m_metadata.structure());
-
-    NewClimber climber(m_metadata);
 
     for (const auto& p : other.hierarchy().map())
     {
@@ -134,40 +94,6 @@ void Registry::merge(const Registry& other, NewClipper& clipper)
             m_hierarchy.set(dxyz, np);
         }
     }
-}
-
-void Registry::hierarchy(
-        Json::Value& h,
-        uint64_t d,
-        Xyz p,
-        const uint64_t maxDepth) const
-{
-    h[p.toString(d)] = static_cast<Json::UInt64>(m_slices[d].np(p));
-
-    ++d;
-    if (maxDepth && d >= maxDepth) return;
-
-    const auto& s(m_slices[d]);
-
-    if (d <= m_metadata.structure().tail())
-    {
-        p.x <<= 1u;
-        p.y <<= 1u;
-        p.z <<= 1u;
-
-        for (std::size_t a(0); a < 2; ++a)
-        {
-            for (std::size_t b(0); b < 2; ++b)
-            {
-                for (std::size_t c(0); c < 2; ++c)
-                {
-                    Xyz next(p.x + a, p.y + b, p.z + c);
-                    if (s.np(next)) hierarchy(h, d, next);
-                }
-            }
-        }
-    }
-    else if (s.np(p)) hierarchy(h, d, p);
 }
 
 } // namespace entwine

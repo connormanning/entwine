@@ -18,16 +18,12 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/third/splice-pool/splice-pool.hpp>
-#include <entwine/tree/chunk.hpp>
-#include <entwine/tree/climber.hpp>
 #include <entwine/tree/new-climber.hpp>
-#include <entwine/tree/clipper.hpp>
 #include <entwine/tree/new-clipper.hpp>
 #include <entwine/tree/heuristics.hpp>
 #include <entwine/tree/registry.hpp>
 #include <entwine/tree/sequence.hpp>
 #include <entwine/tree/thread-pools.hpp>
-#include <entwine/tree/traverser.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/pooled-point-table.hpp>
@@ -50,7 +46,6 @@ namespace
 {
     const std::size_t inputRetryLimit(16);
     std::size_t reawakened(0);
-    std::size_t down(0);
 }
 
 Builder::Builder(const Config& config, OuterScope os)
@@ -75,7 +70,6 @@ Builder::Builder(const Config& config, OuterScope os)
     , m_sequence(makeUnique<Sequence>(*m_metadata, m_mutex))
     , m_start(now())
 {
-    down = config["down"].asUInt64();
     prepareEndpoints();
 }
 
@@ -161,27 +155,6 @@ void Builder::doRun(const std::size_t max)
         const Origin origin(*o);
         FileInfo& info(m_metadata->mutableFiles().get(origin));
         const auto path(info.path());
-
-        if (down && m_sequence->added() % down == 0)
-        {
-            std::cout << "Cycling" << std::endl;
-            m_threadPools->cycle();
-
-            m_registry->save(*m_out);
-
-            m_pointPool = std::make_shared<PointPool>(
-                    m_metadata->schema(), m_metadata->delta());
-
-            m_registry = makeUnique<Registry>(
-                    *m_metadata,
-                    *m_out,
-                    *m_tmp,
-                    *m_pointPool,
-                    m_threadPools->clipPool(),
-                    true);
-
-            std::cout << "\tCycled " << NewChunk::count() << std::endl;
-        }
 
         if (verbose())
         {

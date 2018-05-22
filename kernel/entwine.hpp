@@ -17,7 +17,6 @@
 #include <json/json.h>
 
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/tree/config-parser.hpp>
 
 class Kernel
 {
