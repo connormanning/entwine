@@ -10,7 +10,9 @@
 
 #pragma once
 
+#include <cmath>
 #include <cstddef>
+#include <stdexcept>
 #include <string>
 
 #include <json/json.h>
@@ -43,7 +45,7 @@ public:
         json["dataStorage"] = "laszip";
         json["hierarchyStorage"] = "json";
         json["threads"] = 8;
-        json["splits"] = 8;
+        json["ticks"] = 256;
         json["overflowDepth"] = 4;
         json["overflowRatio"] = 0.5;
         return json;
@@ -74,10 +76,6 @@ public:
         }
         else return t[1].asUInt64();
     }
-
-    std::size_t head() const { return m_json["head"].asUInt64(); }
-    std::size_t body() const { return m_json["body"].asUInt64(); }
-    std::size_t tail() const { return m_json["tail"].asUInt64(); }
 
     std::string dataStorage() const { return m_json["dataStorage"].asString(); }
     std::string hierStorage() const
@@ -113,9 +111,21 @@ public:
     bool verbose() const { return m_json["verbose"].asBool(); }
     bool force() const { return m_json["force"].asBool(); }
     bool trustHeaders() const { return m_json["trustHeaders"].asBool(); }
+
+    uint64_t ticks() const { return m_json["ticks"].asUInt64(); }
     uint64_t overflowDepth() const { return m_json["overflowDepth"].asUInt64(); }
-    double overflowRatio() const { return m_json["overflowRatio"].asDouble(); }
-    double density() const { return m_json["density"].asDouble(); }
+    uint64_t overflowThreshold() const
+    {
+        if (m_json.isMember("overflowThreshold"))
+        {
+            return m_json["overflowThreshold"].asUInt64();
+        }
+        else
+        {
+            return ticks() * ticks() * m_json["overflowRatio"].asDouble();
+        }
+    }
+
     std::string srs() const { return m_json["srs"].asString(); }
     std::string postfix() const
     {

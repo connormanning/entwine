@@ -46,15 +46,19 @@ Metadata::Metadata(const Config& config, const bool exists)
     , m_srs(config.srs().empty() && m_reprojection ?
             m_reprojection->out() : config.srs())
     , m_subset(Subset::create(*this, config["subset"]))
-    , m_density(config.density())
     , m_trustHeaders(config.trustHeaders())
     , m_totalPoints(m_files->totalPoints())
-    , m_splits(config["splits"].asUInt64())
-    , m_gridSpan(1UL << m_splits)
+    , m_ticks(config.ticks())
+    , m_startDepth(std::log2(m_ticks))
     , m_sharedDepth(m_subset ? m_subset->splits() : 0)
     , m_overflowDepth(std::max(config.overflowDepth(), m_sharedDepth))
-    , m_overflowThreshold(m_gridSpan * m_gridSpan * config.overflowRatio())
-{ }
+    , m_overflowThreshold(config.overflowThreshold())
+{
+    if (1UL << m_startDepth != m_ticks)
+    {
+        throw std::runtime_error("Invalid 'ticks' setting");
+    }
+}
 
 Metadata::Metadata(const arbiter::Endpoint& ep, const Config& config)
     : Metadata(
@@ -81,7 +85,7 @@ Json::Value Metadata::toJson() const
     json["bounds"] = boundsNativeCubic().toJson();
     json["boundsConforming"] = boundsNativeConforming().toJson();
     json["schema"] = m_schema->toJson();
-    json["splits"] = m_splits;
+    json["ticks"] = m_ticks;
     json["numPoints"] = m_totalPoints;
 
     if (m_srs.size()) json["srs"] = m_srs;

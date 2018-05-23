@@ -95,13 +95,12 @@ public:
 
     const Version& version() const { return *m_version; }
     const std::string& srs() const { return m_srs; }
-    double density() const { return m_density; }
 
     bool trustHeaders() const { return m_trustHeaders; }
 
     uint64_t totalPoints() const { return m_totalPoints; }
-    uint64_t startDepth() const { return m_splits; }
-    uint64_t gridSpan() const { return m_gridSpan; }
+    uint64_t ticks() const { return m_ticks; }
+    uint64_t startDepth() const { return m_startDepth; }
     uint64_t sharedDepth() const { return m_sharedDepth; }
     uint64_t overflowDepth() const { return m_overflowDepth; }
     uint64_t overflowThreshold() const { return m_overflowThreshold; }
@@ -147,15 +146,15 @@ private:
     std::string m_srs;
     std::unique_ptr<Subset> m_subset;
 
-    double m_density = 0;
-    bool m_trustHeaders = true;
-    uint64_t m_totalPoints;
+    const bool m_trustHeaders = true;
+    const uint64_t m_totalPoints;
 
-    uint64_t m_splits;
-    uint64_t m_gridSpan;
-    uint64_t m_sharedDepth;
-    uint64_t m_overflowDepth;
-    uint64_t m_overflowThreshold;
+    const uint64_t m_ticks;
+    const uint64_t m_startDepth;
+    const uint64_t m_sharedDepth;
+
+    const uint64_t m_overflowDepth;
+    const uint64_t m_overflowThreshold;
 };
 
 } // namespace entwine

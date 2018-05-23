@@ -15,6 +15,8 @@
 #include <iostream>
 #include <string>
 
+#include <pdal/util/Utils.hpp>
+
 #include <entwine/builder/builder.hpp>
 #include <entwine/builder/thread-pools.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
@@ -25,6 +27,7 @@
 #include <entwine/types/schema.hpp>
 #include <entwine/types/storage.hpp>
 #include <entwine/types/subset.hpp>
+#include <entwine/util/env.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/matrix.hpp>
 
@@ -118,29 +121,37 @@ namespace
             "\t\tsubset-total - Total number of subsets that will be built.\n"
             "\t\tMust be a binary power.\n\n"
 
-            "\t-m <JSON-array>\n"
-            "\t\tTransformation matrix.\n\n"
-
-            "\t-d <density>\n"
-            "\t\tDensity estimate, in points per square unit\n\n";
+            ;
     }
 
     std::string getDimensionString(const Schema& schema)
     {
         const DimList dims(schema.dims());
-        std::string results("[\n\t\t");
+        std::string results("[\n");
+        const std::string prefix("                ");
+        const std::size_t width(pdal::Utils::screenWidth());
+
+        std::string line;
 
         for (std::size_t i(0); i < dims.size(); ++i)
         {
-            if (i)
+            const auto name(dims[i].name());
+            const bool last(i == dims.size() - 1);
+
+            if (prefix.size() + line.size() + name.size() + 1 >= width)
             {
-                if (i % 5 == 0) results += "\n\t\t";
-                else results += ", ";
+                results += prefix + line + '\n';
+                line.clear();
             }
-            results += dims[i].name();
+
+            if (line.size()) line += ' ';
+            line += dims[i].name();
+
+            if (!last) line += ',';
+            else results += prefix + line + '\n';
         }
 
-        results += "\n\t]";
+        results += "\t]";
 
         return results;
     }
@@ -378,26 +389,6 @@ void Kernel::build(std::vector<std::string> args)
                 error("Invalid thread count specification");
             }
         }
-        else if (arg == "-m")
-        {
-            if (++a < args.size())
-            {
-                json["transformation"] = parse(args[a]);
-                if (json["transformation"].size() != 16)
-                {
-                    throw std::runtime_error("Invalid transformation matrix");
-                }
-            }
-            else error("Invalid transformation matrix");
-        }
-        else if (arg == "-d")
-        {
-            if (++a < args.size())
-            {
-                json["density"] = parse(args[a]);
-            }
-            else error("Invalid density specification");
-        }
         else if (arg == "-p")
         {
             if (++a < args.size())
@@ -405,14 +396,6 @@ void Kernel::build(std::vector<std::string> args)
                 json["preserveSpatial"] = parse(args[a]);
             }
             else error("Invalid preserveSpatial specification");
-        }
-        else if (arg == "--splits")
-        {
-            if (++a < args.size())
-            {
-                json["splits"]["head"] = parse(args[a]);
-            }
-            else error("Invalid body depth");
         }
         else if (arg == "--sleepCount")
         {
@@ -422,6 +405,14 @@ void Kernel::build(std::vector<std::string> args)
             }
             else error("Invalid sleepCount");
         }
+        else if (arg == "--splits")
+        {
+            if (++a < args.size())
+            {
+                json["splits"] = parse(args[a]);
+            }
+            else error("Invalid splits dpecification");
+        }
         else if (arg == "--overflowRatio")
         {
             if (++a < args.size())
@@ -429,6 +420,14 @@ void Kernel::build(std::vector<std::string> args)
                 json["overflowRatio"] = parse(args[a]);
             }
             else error("Invalid overflowRatio");
+        }
+        else if (arg == "--overflowThreshold")
+        {
+            if (++a < args.size())
+            {
+                json["overflowThreshold"] = parse(args[a]);
+            }
+            else error("Invalid overflowThreshold");
         }
         else if (arg == "--overflowDepth")
         {
@@ -512,10 +511,8 @@ void Kernel::build(std::vector<std::string> args)
     std::cout << "\tTotal points: " << commify(metadata.totalPoints()) <<
         std::endl;
 
-    std::cout << "\tDensity estimate (per square unit): ";
-    if (metadata.density()) std::cout << metadata.density() << std::endl;
-    else std::cout << densityLowerBound(metadata.files().list()) <<
-        std::endl;
+    std::cout << "\tDensity estimate (per square unit): " <<
+        densityLowerBound(metadata.files().list()) << std::endl;
 
     if (!metadata.trustHeaders())
     {
@@ -561,13 +558,20 @@ void Kernel::build(std::vector<std::string> args)
         std::cout << "\tSubset bounds: " << s->boundsNative() << "\n";
     }
 
+    const auto t(metadata.ticks());
     std::cout <<
         "\tScaled cube: " << metadata.boundsScaledCubic() << "\n" <<
         "\tReprojection: " << getReprojString(reprojection) << "\n" <<
         "\tStoring dimensions: " << getDimensionString(schema) << "\n" <<
-        "\tSplits: " << metadata.startDepth() << "\n" <<
+        "\tTicks: " << t << "\n" <<
+        "\tResolution 2D: " <<
+            t << " * " << t << " = " << commify(t * t) << "\n" <<
+        "\tResolution 3D: " <<
+            t << " * " << t << " * " << t << " = " << commify(t * t * t) <<
+            "\n" <<
         "\tOverflow depth: " << metadata.overflowDepth() << "\n" <<
-        "\tOverflow threshold: " << metadata.overflowThreshold() << "\n";
+        "\tOverflow threshold: " << commify(metadata.overflowThreshold()) <<
+            "\n";
 
     if (const Subset* s = metadata.subset())
     {
