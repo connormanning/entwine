@@ -5,11 +5,10 @@ set(
     SOURCES
     "${BASE}/bounds.cpp"
     "${BASE}/file-info.cpp"
-    "${BASE}/manifest.cpp"
+    "${BASE}/files.cpp"
     "${BASE}/metadata.cpp"
     "${BASE}/pooled-point-table.cpp"
     "${BASE}/storage.cpp"
-    "${BASE}/structure.cpp"
     "${BASE}/subset.cpp"
 )
 
@@ -21,9 +20,9 @@ set(
     "${BASE}/dim-info.hpp"
     "${BASE}/dir.hpp"
     "${BASE}/file-info.hpp"
+    "${BASE}/files.hpp"
     "${BASE}/fixed-point-layout.hpp"
     "${BASE}/key.hpp"
-    "${BASE}/manifest.hpp"
     "${BASE}/metadata.hpp"
     "${BASE}/outer-scope.hpp"
     "${BASE}/point.hpp"
@@ -34,7 +33,6 @@ set(
     "${BASE}/stats.hpp"
     "${BASE}/storage.hpp"
     "${BASE}/storage-types.hpp"
-    "${BASE}/structure.hpp"
     "${BASE}/subset.hpp"
     "${BASE}/tube.hpp"
     "${BASE}/vector-point-table.hpp"

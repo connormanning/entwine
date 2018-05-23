@@ -22,7 +22,7 @@
 
 #include <entwine/builder/config.hpp>
 #include <entwine/types/defs.hpp>
-#include <entwine/types/manifest.hpp>
+#include <entwine/types/file-info.hpp>
 #include <entwine/types/outer-scope.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/util/time.hpp>
@@ -65,8 +65,7 @@ public:
     Builder(const Config& config, OuterScope os = OuterScope());
     ~Builder();
 
-    // Perform indexing.  A _maxFileInsertions_ of zero inserts all files in
-    // the manifest.
+    // Perform indexing.  A _maxFileInsertions_ of zero inserts all files.
     void go(std::size_t maxFileInsertions = 0);
 
     // Aggregate spatially segmented build.
@@ -101,7 +100,6 @@ public:
 private:
     Registry& registry();
     void doRun(std::size_t max);
-    // bool exists() const { return !!m_metadata->manifestPtr(); }
 
     std::mutex& mutex();
 

@@ -17,6 +17,11 @@
 namespace entwine
 {
 
+namespace
+{
+    const std::size_t minClipDepth(4);
+}
+
 bool Clipper::insert(ReffedChunk& c)
 {
     const bool added(m_clips.at(c.key().depth()).insert(c));
@@ -30,13 +35,11 @@ void Clipper::clip()
     const auto startTime(now());
     const auto n(m_count);
 
-    const std::size_t body(m_registry.metadata().structure().body());
-
-    std::size_t cur(body);
+    std::size_t cur(minClipDepth);
     while (cur < m_clips.size() && !m_clips[cur].empty()) ++cur;
     --cur; // We've gone one past the last - back it up by one.
 
-    while (cur >= body && m_count > heuristics::clipCacheSize)
+    while (cur >= minClipDepth && m_count > heuristics::clipCacheSize)
     {
         auto& c(m_clips[cur]);
         if (c.empty()) return;
@@ -54,11 +57,10 @@ void Clipper::clip()
 
 void Clipper::clipAll()
 {
-    const std::size_t start(m_registry.metadata().structure().head());
-    for (std::size_t d(m_clips.size() - 1); d >= start; --d)
+    const std::size_t last(m_clips.size() - 1);
+    for (std::size_t d(last); d <= last; --d)
     {
-        auto& c(m_clips[d]);
-        m_count -= c.clip(true);
+        m_count -= m_clips[d].clip(true);
     }
     assert(!m_count);
 }

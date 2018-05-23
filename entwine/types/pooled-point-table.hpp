@@ -19,10 +19,9 @@
 #include <pdal/Streamable.hpp>
 
 #include <entwine/types/binary-point-table.hpp>
-#include <entwine/types/manifest.hpp>
+#include <entwine/types/files.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/schema.hpp>
-#include <entwine/types/structure.hpp>
 
 namespace entwine
 {

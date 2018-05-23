@@ -9,7 +9,7 @@
 ******************************************************************************/
 
 #include <entwine/types/file-info.hpp>
-#include <entwine/types/manifest.hpp>
+#include <entwine/types/files.hpp>
 
 namespace entwine
 {
@@ -114,12 +114,6 @@ double densityLowerBound(const FileInfoList& files)
     }
 
     return points / areaUpperBound(files);
-}
-
-double densityLowerBound(const Manifest& manifest)
-{
-    return
-        manifest.pointStats().inserts() / areaUpperBound(manifest.fileInfo());
 }
 
 double areaUpperBound(const FileInfoList& files)

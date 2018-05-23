@@ -24,11 +24,11 @@
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/third/splice-pool/splice-pool.hpp>
 #include <entwine/types/bounds.hpp>
+#include <entwine/types/file-info.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
-#include <entwine/types/structure.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/compression.hpp>
 #include <entwine/util/executor.hpp>
@@ -95,6 +95,8 @@ void Builder::go(std::size_t max)
         const std::size_t interval(10);
         std::size_t last(0);
 
+        const double totalPoints(files.totalPoints());
+
         while (!done)
         {
             const auto t(since<ms>(m_start));
@@ -108,7 +110,7 @@ void Builder::go(std::size_t max)
 
                 const double progress(
                         (files.pointStats().inserts() + alreadyInserted) /
-                        (double)(m_metadata->structure().numPointsHint()));
+                        totalPoints);
 
                 const auto& d(pointPool().dataPool());
 
@@ -295,8 +297,7 @@ void Builder::insertPath(const Origin origin, FileInfo& info)
                 *table,
                 localPath,
                 reprojection,
-                transformation,
-                m_metadata->preserveSpatial()))
+                transformation))
     {
         throw std::runtime_error("Failed to execute: " + rawPath);
     }

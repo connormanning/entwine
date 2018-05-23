@@ -12,11 +12,10 @@
 
 #include <entwine/types/chunk-storage/chunk-storage.hpp>
 #include <entwine/types/delta.hpp>
-#include <entwine/types/manifest.hpp>
+#include <entwine/types/files.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
-#include <entwine/types/structure.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/io.hpp>
 #include <entwine/util/json.hpp>
@@ -40,30 +39,32 @@ Metadata::Metadata(const Config& config, const bool exists)
     , m_boundsScaledCubic(
             clone(m_boundsNativeCubic->deltify(*m_delta)))
     , m_schema(makeUnique<Schema>(config["schema"]))
-    , m_subset(Subset::create(*this, config["subset"]))
     , m_files(makeUnique<Files>(config.input()))
-    , m_structure(makeUnique<NewStructure>(*this, config.json()))
     , m_chunkStorage(ChunkStorage::create(*this, config.dataStorage()))
     , m_reprojection(Reprojection::create(config["reprojection"]))
     , m_version(makeUnique<Version>(currentVersion()))
-    , m_srs(config.srs())
+    , m_srs(config.srs().empty() && m_reprojection ?
+            m_reprojection->out() : config.srs())
+    , m_subset(Subset::create(*this, config["subset"]))
     , m_density(config.density())
     , m_trustHeaders(config.trustHeaders())
-    , m_overflowDepth(std::max(config.overflowDepth(), m_structure->shared()))
-    , m_overflowRatio(config.overflowRatio())
-{
-    const std::size_t pointsAcross(1UL << m_structure->body());
-    const float baseChunkSize(pointsAcross * pointsAcross);
-    m_overflowLimit = baseChunkSize * m_overflowRatio;
-
-    if (m_srs.empty() && m_reprojection) m_srs = m_reprojection->out();
-}
+    , m_totalPoints(m_files->totalPoints())
+    , m_splits(config["splits"].asUInt64())
+    , m_gridSpan(1UL << m_splits)
+    , m_sharedDepth(m_subset ? m_subset->splits() : 0)
+    , m_overflowDepth(std::max(config.overflowDepth(), m_sharedDepth))
+    , m_overflowThreshold(m_gridSpan * m_gridSpan * config.overflowRatio())
+{ }
 
 Metadata::Metadata(const arbiter::Endpoint& ep, const Config& config)
     : Metadata(
             entwine::merge(
                 config.json(),
-                parse(ep.get("entwine" + config.postfix() + ".json"))),
+                entwine::merge(
+                    parse(ep.get("entwine" +
+                            config.postfix() + ".json")),
+                    parse(ep.get("entwine-params" +
+                            config.postfix() + ".json")))),
             true)
 {
     Files files(parse(ep.get("entwine-files" + postfix() + ".json")));
@@ -80,20 +81,11 @@ Json::Value Metadata::toJson() const
     json["bounds"] = boundsNativeCubic().toJson();
     json["boundsConforming"] = boundsNativeConforming().toJson();
     json["schema"] = m_schema->toJson();
-    json["structure"] = m_structure->toJson();
-    json["numPoints"] = Json::UInt64(m_structure->numPointsHint());
-    json["trustHeaders"] = m_trustHeaders;
-    json["overflowDepth"] = Json::UInt64(m_overflowDepth);
-    if (m_overflowRatio != 1.0) json["overflowRatio"] = m_overflowRatio;
-
-    /*
-    const Json::Value storage(m_chunkStorage->toJson());
-    for (const auto& k : storage.getMemberNames()) json[k] = storage[k];
-    */
+    json["splits"] = m_splits;
+    json["numPoints"] = m_totalPoints;
 
     if (m_srs.size()) json["srs"] = m_srs;
     if (m_reprojection) json["reprojection"] = m_reprojection->toJson();
-    if (m_subset) json["subset"] = m_subset->toJson();
 
     if (m_delta) json = entwine::merge(json, m_delta->toJson());
 
@@ -105,45 +97,51 @@ Json::Value Metadata::toJson() const
         }
     }
 
-    if (m_density) json["density"] = m_density;
-
-    json["version"] = m_version->toString();
     json["dataStorage"] = "laszip";
     json["hierarchyStorage"] = "json";
 
-    for (const auto s : m_preserveSpatial) json["preserveSpatial"].append(s);
+    return json;
+}
+
+Json::Value Metadata::toBuildParamsJson() const
+{
+    Json::Value json;
+
+    json["version"] = m_version->toString();
+    json["trustHeaders"] = m_trustHeaders;
+    json["overflowDepth"] = Json::UInt64(m_overflowDepth);
+    json["overflowThreshold"] = Json::UInt64(m_overflowThreshold);
+    if (m_subset) json["subset"] = m_subset->toJson();
 
     return json;
 }
 
 void Metadata::save(const arbiter::Endpoint& endpoint) const
 {
-    const auto json(toJson());
-    const std::string f("entwine" + postfix() + ".json");
-    io::ensurePut(endpoint, f, json.toStyledString());
+    {
+        const auto json(toJson());
+        const std::string f("entwine" + postfix() + ".json");
+        io::ensurePut(endpoint, f, json.toStyledString());
+    }
+
+    {
+        const auto json(toBuildParamsJson());
+        const std::string f("entwine-params" + postfix() + ".json");
+        io::ensurePut(endpoint, f, json.toStyledString());
+    }
 
     m_files->save(endpoint, postfix());
-    /*
-    const bool primary(!m_subset || m_subset->primary());
-    if (m_manifest) m_manifest->save(primary, postfix());
-    */
 }
 
 void Metadata::merge(const Metadata& other)
 {
     if (m_srs.empty()) m_srs = other.srs();
-    // m_manifest->merge(other.manifest());
+    m_files->merge(other.files());
 }
 
 void Metadata::makeWhole()
 {
     m_subset.reset();
-    // m_structure->unbump();
-}
-
-void Metadata::unbump()
-{
-    // m_structure->unbump();
 }
 
 std::string Metadata::postfix() const
@@ -156,7 +154,7 @@ std::string Metadata::postfix(const uint64_t depth) const
 {
     if (const Subset* s = subset())
     {
-        if (depth < m_structure->shared())
+        if (depth < m_sharedDepth)
         {
             return "-" + std::to_string(s->id());
         }

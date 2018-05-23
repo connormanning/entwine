@@ -20,7 +20,6 @@
 #include <entwine/types/dir.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/point.hpp>
-#include <entwine/types/structure.hpp>
 
 namespace entwine
 {
@@ -42,7 +41,7 @@ struct Xyz
 
     std::string toString(std::size_t d) const
     {
-        return (d < 10 ? "0" : "") + std::to_string(d) + '-' + toString();
+        return std::to_string(d) + '-' + toString();
     }
 
     uint64_t x = 0;
@@ -126,15 +125,12 @@ struct Key
         p.reset();
     }
 
-    void init(const Point& g)
-    {
-        init(g, m.structure().body());
-    }
+    void init(const Point& g) { init(g, 0); }
 
     void init(const Point& g, uint64_t depth)
     {
         reset();
-        for (std::size_t d(0); d < depth; ++d) step(g);
+        for (std::size_t d(0); d < m.startDepth() + depth; ++d) step(g);
     }
 
     Dir step(const Point& g)
@@ -168,31 +164,20 @@ struct ChunkKey
 
     void reset()
     {
-        d = metadata().structure().body();
+        d = 0;
         k.reset();
     }
 
     Dir step(const Point& g)
     {
-        Dir result(toDir(0));
-        if (inBody()) result = k.step(g);
         ++d;
-        return result;
+        return k.step(g);
     }
 
     Dir step(Dir dir)
     {
-        Dir result(toDir(0));
-        if (inBody()) result = k.step(dir);
         ++d;
-        return result;
-    }
-
-    Dir step()
-    {
-        assert(inTail());
-        ++d;
-        return toDir(0);
+        return k.step(dir);
     }
 
     ChunkKey getStep(Dir dir) const
@@ -200,24 +185,6 @@ struct ChunkKey
         ChunkKey c(*this);
         c.step(dir);
         return c;
-    }
-
-    ChunkKey getStep() const
-    {
-        ChunkKey c(*this);
-        c.step();
-        return c;
-    }
-
-    bool inBody() const
-    {
-        const auto& s(k.m.structure());
-        return d >= s.body() && d < s.tail();
-    }
-
-    bool inTail() const
-    {
-        return d >= k.m.structure().tail();
     }
 
     std::string toString() const { return position().toString(d); }

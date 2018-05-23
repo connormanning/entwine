@@ -12,36 +12,11 @@
 
 #include <entwine/builder/inference.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/util/json.hpp>
 
 namespace entwine
 {
 
-Config::Config()
-    : Config(Json::nullValue)
-{ }
-
-Config::Config(const Json::Value& json)
-    : m_json(merge(defaults(), json))
-{ }
-
-Json::Value Config::defaults() const
-{
-    Json::Value json;
-    json["tmp"] = arbiter::fs::getTempPath();
-    json["threads"] = 8;
-    json["trustHeaders"] = true;
-    json["overflowDepth"] = 12;
-    json["overflowRatio"] = 1.0;
-    json["structure"]["head"] = 8;
-    json["structure"]["body"] = 8;
-    json["structure"]["tail"] = 64;
-    json["dataStorage"] = "laszip";
-    json["hierarchyStorage"] = "json";
-    return json;
-}
-
-Config Config::prepare()
+Config Config::prepare() const
 {
     NewInference inference(*this);
     return inference.go();

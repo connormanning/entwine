@@ -26,7 +26,6 @@ namespace entwine
 
 class FileInfo
 {
-    friend class Manifest;
     friend class Files;
     friend class Inference;
 
@@ -117,10 +116,7 @@ inline Json::Value toJson(const FileInfoList& fileInfo)
     return json;
 }
 
-class Manifest;
-
 double densityLowerBound(const FileInfoList& files);
-double densityLowerBound(const Manifest& manifest);
 double areaUpperBound(const FileInfoList& files);
 
 } // namespace entwine

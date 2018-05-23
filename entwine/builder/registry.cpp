@@ -18,7 +18,6 @@
 #include <entwine/types/chunk-storage/chunk-storage.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
-#include <entwine/types/structure.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/io.hpp>
 #include <entwine/util/unique.hpp>
@@ -53,14 +52,12 @@ void Registry::save(const arbiter::Endpoint& endpoint) const
 
 void Registry::merge(const Registry& other, Clipper& clipper)
 {
-    const auto& s(m_metadata.structure());
-
     for (const auto& p : other.hierarchy().map())
     {
         const Dxyz& dxyz(p.first);
         const uint64_t np(p.second);
 
-        if (dxyz.d < s.shared())
+        if (dxyz.d < m_metadata.sharedDepth())
         {
             auto cells(m_metadata.storage().read(
                         m_out,
@@ -76,7 +73,7 @@ void Registry::merge(const Registry& other, Clipper& clipper)
                 pk.init(cell->point(), dxyz.d);
 
                 ReffedChunk* rc(&m_root);
-                for (std::size_t d(s.body()); d < dxyz.d; ++d)
+                for (std::size_t d(0); d < dxyz.d; ++d)
                 {
                     rc = &rc->chunk().step(cell->point());
                 }

@@ -19,11 +19,11 @@
 #include <entwine/builder/thread-pools.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/bounds.hpp>
+#include <entwine/types/files.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/storage.hpp>
-#include <entwine/types/structure.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/matrix.hpp>
@@ -406,22 +406,13 @@ void Kernel::build(std::vector<std::string> args)
             }
             else error("Invalid preserveSpatial specification");
         }
-        else if (arg == "--body")
+        else if (arg == "--splits")
         {
             if (++a < args.size())
             {
-                json["structure"]["head"] = parse(args[a]);
-                json["structure"]["body"] = parse(args[a]);
+                json["splits"]["head"] = parse(args[a]);
             }
             else error("Invalid body depth");
-        }
-        else if (arg == "--tail")
-        {
-            if (++a < args.size())
-            {
-                json["structure"]["tail"] = parse(args[a]);
-            }
-            else error("Invalid tail depth");
         }
         else if (arg == "--sleepCount")
         {
@@ -475,7 +466,6 @@ void Kernel::build(std::vector<std::string> args)
     std::string tmpPath(tmpEndpoint.root());
 
     const Metadata& metadata(builder->metadata());
-    const NewStructure& structure(metadata.structure());
     const Files& files(metadata.files());
 
     const Reprojection* reprojection(metadata.reprojection());
@@ -519,9 +509,8 @@ void Kernel::build(std::vector<std::string> args)
 
     const auto& threadPools(builder->threadPools());
 
-    std::cout <<
-        "\tPoint count hint: " << commify(structure.numPointsHint()) <<
-            " points\n";
+    std::cout << "\tTotal points: " << commify(metadata.totalPoints()) <<
+        std::endl;
 
     std::cout << "\tDensity estimate (per square unit): ";
     if (metadata.density()) std::cout << metadata.density() << std::endl;
@@ -576,12 +565,9 @@ void Kernel::build(std::vector<std::string> args)
         "\tScaled cube: " << metadata.boundsScaledCubic() << "\n" <<
         "\tReprojection: " << getReprojString(reprojection) << "\n" <<
         "\tStoring dimensions: " << getDimensionString(schema) << "\n" <<
+        "\tSplits: " << metadata.startDepth() << "\n" <<
         "\tOverflow depth: " << metadata.overflowDepth() << "\n" <<
-        "\tOverflow ratio: " << metadata.overflowRatio() << "\n" <<
-        "\tStructure: [" <<
-            structure.head() << ", " <<
-            structure.body() << ", " <<
-            structure.tail() << "]" << "\n";
+        "\tOverflow threshold: " << metadata.overflowThreshold() << "\n";
 
     if (const Subset* s = metadata.subset())
     {

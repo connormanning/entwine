@@ -30,12 +30,9 @@ namespace arbiter { class Endpoint; }
 class ChunkStorage;
 class Delta;
 class Files;
-class Manifest;
 class Point;
 class Reprojection;
 class Schema;
-class Structure;
-class NewStructure;
 class Subset;
 class Version;
 
@@ -83,7 +80,6 @@ public:
     std::unique_ptr<Bounds> boundsScaledSubset() const;
 
     const Schema& schema() const { return *m_schema; }
-    const NewStructure& structure() const { return *m_structure; }
     const Files& files() const { return *m_files; }
 
     std::string chunkStorageType() const { return "laszip"; }   // TODO
@@ -96,28 +92,29 @@ public:
     {
         return m_transformation.get();
     }
-    const std::vector<std::string>& preserveSpatial() const
-    {
-        return m_preserveSpatial;
-    }
 
     const Version& version() const { return *m_version; }
     const std::string& srs() const { return m_srs; }
     double density() const { return m_density; }
-    uint64_t overflowDepth() const { return m_overflowDepth; }
-    double overflowRatio() const { return m_overflowRatio; }
-    uint64_t overflowLimit() const { return m_overflowLimit; }
+
     bool trustHeaders() const { return m_trustHeaders; }
 
-    void unbump();
+    uint64_t totalPoints() const { return m_totalPoints; }
+    uint64_t startDepth() const { return m_splits; }
+    uint64_t gridSpan() const { return m_gridSpan; }
+    uint64_t sharedDepth() const { return m_sharedDepth; }
+    uint64_t overflowDepth() const { return m_overflowDepth; }
+    uint64_t overflowThreshold() const { return m_overflowThreshold; }
+
     void makeWhole();
 
     std::string postfix() const;
     std::string postfix(uint64_t depth) const;
 
-    Json::Value toJson() const;
-
 private:
+    Json::Value toJson() const;
+    Json::Value toBuildParamsJson() const;
+
     Metadata& operator=(const Metadata& other);
 
     Bounds makeNativeConformingBounds(const Bounds& b) const;
@@ -142,20 +139,23 @@ private:
     std::unique_ptr<Bounds> m_boundsScaledCubic;
 
     std::unique_ptr<Schema> m_schema;
-    std::unique_ptr<Subset> m_subset;
     std::unique_ptr<Files> m_files;
-    std::unique_ptr<NewStructure> m_structure;
     std::unique_ptr<ChunkStorage> m_chunkStorage;
     std::unique_ptr<Reprojection> m_reprojection;
     std::unique_ptr<Transformation> m_transformation;
     std::unique_ptr<Version> m_version;
     std::string m_srs;
+    std::unique_ptr<Subset> m_subset;
+
     double m_density = 0;
     bool m_trustHeaders = true;
+    uint64_t m_totalPoints;
+
+    uint64_t m_splits;
+    uint64_t m_gridSpan;
+    uint64_t m_sharedDepth;
     uint64_t m_overflowDepth;
-    double m_overflowRatio;
-    uint64_t m_overflowLimit;
-    std::vector<std::string> m_preserveSpatial;
+    uint64_t m_overflowThreshold;
 };
 
 } // namespace entwine

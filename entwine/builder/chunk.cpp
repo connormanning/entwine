@@ -195,27 +195,28 @@ bool Chunk::insert(const Key& key, Cell::PooledNode& cell, Clipper& clipper)
 
     assert(m_overflow.size() == m_keys.size());
 
-    if (m_overflow.size() <= m_ref.metadata().overflowLimit()) return true;
-
-    m_hasChildren = true;
-
-    while (!m_overflow.empty())
+    if (m_overflow.size() > m_ref.metadata().overflowThreshold())
     {
-        auto curCell(m_overflow.popOne());
-        Key curKey(m_keys.top());
-        m_keys.pop();
+        m_hasChildren = true;
 
-        curKey.step(curCell->point());
-        if (!step(curCell->point()).insert(curCell, curKey, clipper))
+        while (!m_overflow.empty())
         {
-            throw std::runtime_error("Invalid overflow");
+            auto curCell(m_overflow.popOne());
+            Key curKey(m_keys.top());
+            m_keys.pop();
+
+            curKey.step(curCell->point());
+            if (!step(curCell->point()).insert(curCell, curKey, clipper))
+            {
+                throw std::runtime_error("Invalid overflow");
+            }
+
+            assert(m_overflow.size() == m_keys.size());
         }
 
-        assert(m_overflow.size() == m_keys.size());
+        assert(m_overflow.empty());
+        assert(m_keys.empty());
     }
-
-    assert(m_overflow.empty());
-    assert(m_keys.empty());
 
     return true;
 }

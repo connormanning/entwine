@@ -22,6 +22,7 @@
 #include <entwine/types/delta.hpp>
 #include <entwine/types/file-info.hpp>
 #include <entwine/types/reprojection.hpp>
+#include <entwine/util/json.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -30,9 +31,23 @@ namespace entwine
 class Config
 {
 public:
-    Config();
-    Config(const Json::Value& json);
-    Config prepare();
+    Config() : Config(Json::nullValue) { }
+    Config(const Json::Value& json) : m_json(merge(defaults(), json)) { }
+    Config prepare() const;
+
+    Json::Value defaults() const
+    {
+        Json::Value json;
+        json["tmp"] = arbiter::fs::getTempPath();
+        json["trustHeaders"] = true;
+        json["dataStorage"] = "laszip";
+        json["hierarchyStorage"] = "json";
+        json["threads"] = 8;
+        json["splits"] = 8;
+        json["overflowDepth"] = 4;
+        json["overflowRatio"] = 0.5;
+        return json;
+    }
 
     FileInfoList input() const;
     std::string output() const { return m_json["output"].asString(); }
@@ -124,8 +139,6 @@ public:
     Delta delta() const { return Delta(scale(), offset()); }
 
 private:
-    Json::Value defaults() const;
-
     Json::Value m_json;
 };
 

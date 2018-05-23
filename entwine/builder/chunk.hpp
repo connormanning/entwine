@@ -94,10 +94,8 @@ public:
     Chunk(const ReffedChunk& ref)
         : m_ref(ref)
         , m_overflow(m_ref.pointPool().cellPool())
-        , m_pointsAcross(1UL << m_ref.metadata().structure().body())
+        , m_gridSpan(m_ref.metadata().gridSpan())
     {
-        assert(m_ref.key().depth() < m_ref.metadata().structure().tail());
-
         init();
 
         m_children.reserve(dirEnd());
@@ -118,8 +116,7 @@ public:
     void init()
     {
         assert(!m_tubes);
-        m_tubes = makeUnique<std::vector<Tube>>(
-                m_pointsAcross * m_pointsAcross);
+        m_tubes = makeUnique<std::vector<Tube>>(m_gridSpan * m_gridSpan);
         m_remote = false;
     }
 
@@ -173,8 +170,8 @@ private:
     {
         const Xyz& pos(key.position());
         const std::size_t i(
-                (pos.y % m_pointsAcross) * m_pointsAcross +
-                (pos.x % m_pointsAcross));
+                (pos.y % m_gridSpan) * m_gridSpan +
+                (pos.x % m_gridSpan));
 
         assert(i < m_tubes->size());
         return (*m_tubes)[i].insert(key, cell);
@@ -188,7 +185,7 @@ private:
     Cell::PooledStack m_overflow;
     std::stack<Key> m_keys;
 
-    const std::size_t m_pointsAcross;
+    const uint64_t m_gridSpan;
     std::unique_ptr<std::vector<Tube>> m_tubes;
 
     std::vector<ReffedChunk> m_children;

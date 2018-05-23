@@ -12,7 +12,6 @@
 #include <entwine/builder/clipper.hpp>
 #include <entwine/builder/merger.hpp>
 #include <entwine/builder/thread-pools.hpp>
-#include <entwine/types/manifest.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/pool.hpp>

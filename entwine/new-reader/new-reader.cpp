@@ -47,7 +47,6 @@ Json::Value NewReader::hierarchy(const Json::Value& j) const
     Json::Value h;
     const NewQueryParams p(j);
     ChunkKey c(m_metadata);
-    c.d = m_metadata.structure().body();
     hierarchy(h, p, c);
     return h;
 }
@@ -66,11 +65,7 @@ void NewReader::hierarchy(
     }
 
     const uint64_t count(m_hierarchy.count(c.get()));
-    if (c.depth() >= p.db())
-    {
-        json["n"] = count;
-        if (c.inTail()) json["n"] = std::max<uint64_t>(count / 8, 1);
-    }
+    if (c.depth() >= p.db()) json["n"] = count;
 
     if (c.depth() + 1 >= p.de()) return;
 

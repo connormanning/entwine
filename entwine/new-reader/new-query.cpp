@@ -40,7 +40,6 @@ HierarchyReader::Keys NewQuery::overlaps() const
 {
     HierarchyReader::Keys keys;
     ChunkKey c(m_metadata);
-    c.d = m_metadata.structure().body();    // TODO Handle `head`?
     overlaps(keys, c);
     return keys;
 }
@@ -57,16 +56,9 @@ void NewQuery::overlaps(HierarchyReader::Keys& keys, const ChunkKey& c) const
 
     if (c.depth() + 1 >= m_params.de()) return;
 
-    if (c.inBody())
+    for (std::size_t i(0); i < dirEnd(); ++i)
     {
-        for (std::size_t i(0); i < dirEnd(); ++i)
-        {
-            overlaps(keys, c.getStep(toDir(i)));
-        }
-    }
-    else
-    {
-        overlaps(keys, c.getStep());
+        overlaps(keys, c.getStep(toDir(i)));
     }
 }
 
