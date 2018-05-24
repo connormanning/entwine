@@ -15,8 +15,6 @@
 #include <iostream>
 #include <string>
 
-#include <pdal/util/Utils.hpp>
-
 #include <entwine/builder/builder.hpp>
 #include <entwine/builder/thread-pools.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
@@ -128,8 +126,8 @@ namespace
     {
         const DimList dims(schema.dims());
         std::string results("[\n");
-        const std::string prefix("                ");
-        const std::size_t width(pdal::Utils::screenWidth());
+        const std::string prefix(16, ' ');
+        const std::size_t width(80);
 
         std::string line;
 

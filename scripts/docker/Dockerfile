@@ -7,8 +7,6 @@ RUN \
     apk update; \
     apk add --no-cache \
         xz-libs \
-        openssl-dev \
-        openssl \
         cmake \
         libunwind \
         libexecinfo \
@@ -19,13 +17,13 @@ ADD https://www.random.org/cgi-bin/randbyte?nbytes=64&format=h /var/cache.txt
 RUN \
     apk add --no-cache --virtual .build-deps \
         xz-dev \
-        openssl-dev \
         alpine-sdk \
         git \
-        laz-perf-dev \
+        libressl-dev \
         curl-dev \
         libexecinfo-dev \
         libunwind-dev \
+        laz-perf-dev \
     ; \
     git clone https://github.com/connormanning/entwine.git /var/entwine; \
     cd /var/entwine; \
