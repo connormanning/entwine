@@ -33,11 +33,13 @@ namespace entwine
 
 class Reprojection;
 
-class NewInference
+class Inference
 {
 public:
-    NewInference(const Config& config);
+    Inference(Config config);
     Config go();
+
+    const Config& inConfig() const { return m_in; }
 
 private:
     void add(FileInfo& f);

@@ -29,15 +29,11 @@
 #include <entwine/util/json.hpp>
 #include <entwine/util/matrix.hpp>
 
-using namespace entwine;
+namespace entwine
+{
 
 namespace
 {
-    std::string yesNo(const bool val)
-    {
-        return (val ? "yes" : "no");
-    }
-
     std::string getUsageString()
     {
         return
@@ -122,38 +118,6 @@ namespace
             ;
     }
 
-    std::string getDimensionString(const Schema& schema)
-    {
-        const DimList dims(schema.dims());
-        std::string results("[\n");
-        const std::string prefix(16, ' ');
-        const std::size_t width(80);
-
-        std::string line;
-
-        for (std::size_t i(0); i < dims.size(); ++i)
-        {
-            const auto name(dims[i].name());
-            const bool last(i == dims.size() - 1);
-
-            if (prefix.size() + line.size() + name.size() + 1 >= width)
-            {
-                results += prefix + line + '\n';
-                line.clear();
-            }
-
-            if (line.size()) line += ' ';
-            line += dims[i].name();
-
-            if (!last) line += ',';
-            else results += prefix + line + '\n';
-        }
-
-        results += "\t]";
-
-        return results;
-    }
-
     std::string getReprojString(const Reprojection* reprojection)
     {
         if (reprojection)
@@ -190,7 +154,7 @@ namespace
     }
 }
 
-void Kernel::build(std::vector<std::string> args)
+void App::build(std::vector<std::string> args)
 {
     if (args.empty())
     {
@@ -619,4 +583,6 @@ void Kernel::build(std::vector<std::string> args)
             commify(stats.overflows()) << "\n" <<
         std::endl;
 }
+
+} // namespace entwine
 

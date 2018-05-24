@@ -6,7 +6,6 @@ set(
     "${BASE}/entwine.cpp"
     "${BASE}/infer.cpp"
     "${BASE}/merge.cpp"
-    "${BASE}/rebase.cpp"
 )
 
 add_executable(kernel ${SOURCES})

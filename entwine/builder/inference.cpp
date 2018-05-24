@@ -37,20 +37,20 @@ namespace
     });
 }
 
-NewInference::NewInference(const Config& config)
+Inference::Inference(const Config config)
     : m_in(config)
     , m_arbiter(config["arbiter"])
     , m_tmp(m_arbiter.getEndpoint(config.tmp()))
     , m_re(config.reprojection())
 { }
 
-Config NewInference::go()
+Config Inference::go()
 {
     if (m_pool || m_done)
     {
         throw std::runtime_error("Cannot call Inference::go twice");
     }
-    m_pool = makeUnique<Pool>(m_in.workThreads() + m_in.clipThreads());
+    m_pool = makeUnique<Pool>(m_in.totalThreads());
     m_fileInfo = m_in.input();
 
     const std::size_t size(m_fileInfo.size());
@@ -66,7 +66,7 @@ Config NewInference::go()
     return aggregate();
 }
 
-void NewInference::add(FileInfo& f)
+void Inference::add(FileInfo& f)
 {
     if (Executor::get().good(f.path()))
     {
@@ -96,7 +96,7 @@ void NewInference::add(FileInfo& f)
     }
 }
 
-void NewInference::add(FileInfo& f, const std::string localPath)
+void Inference::add(FileInfo& f, const std::string localPath)
 {
     if (auto preview = Executor::get().preview(localPath, m_re.get()))
     {
@@ -133,7 +133,7 @@ void NewInference::add(FileInfo& f, const std::string localPath)
     }
 }
 
-Config NewInference::aggregate()
+Config Inference::aggregate()
 {
     Config out(m_in);
 

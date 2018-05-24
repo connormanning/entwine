@@ -20,7 +20,8 @@
 #include <entwine/builder/config.hpp>
 #include <entwine/builder/merger.hpp>
 
-using namespace entwine;
+namespace entwine
+{
 
 namespace
 {
@@ -39,7 +40,7 @@ namespace
     }
 }
 
-void Kernel::merge(std::vector<std::string> args)
+void App::merge(std::vector<std::string> args)
 {
     if (args.size() < 1)
     {
@@ -90,4 +91,6 @@ void Kernel::merge(std::vector<std::string> args)
     merger.go();
     std::cout << "Merge complete." << std::endl;
 }
+
+} // namespace entwine
 

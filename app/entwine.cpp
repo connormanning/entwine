@@ -27,8 +27,8 @@ namespace
     {
         return
             "\tVersion: " + entwine::currentVersion().toString() + "\n" +
-            "\tUsage: entwine <kernel> <options>\n"
-            "\tKernels:\n"
+            "\tUsage: entwine <app> <options>\n"
+            "\tApps:\n"
             "\t\tbuild\n"
             "\t\t\tBuild (or continue to build) an index\n"
             "\t\tinfer\n"
@@ -49,11 +49,11 @@ int main(int argc, char** argv)
 
     if (argc < 2)
     {
-        std::cout << "Kernel type required\n" << getUsageString() << std::endl;
+        std::cout << "App type required\n" << getUsageString() << std::endl;
         exit(1);
     }
 
-    const std::string kernel(argv[1]);
+    const std::string app(argv[1]);
 
     std::vector<std::string> args;
 
@@ -75,23 +75,23 @@ int main(int argc, char** argv)
 
     try
     {
-        if (kernel == "build")
+        if (app == "build")
         {
-            Kernel::build(args);
+            entwine::App::build(args);
         }
-        else if (kernel == "merge")
+        else if (app == "merge")
         {
-            Kernel::merge(args);
+            entwine::App::merge(args);
         }
-        else if (kernel == "infer")
+        else if (app == "infer")
         {
-            Kernel::infer(args);
+            entwine::App::infer(args);
         }
         else
         {
-            if (kernel != "help" && kernel != "-h" && kernel != "--help")
+            if (app != "help" && app != "-h" && app != "--help")
             {
-                std::cout << "Invalid kernel type\n";
+                std::cout << "Invalid app type\n";
             }
 
             std::cout << getUsageString() << std::endl;

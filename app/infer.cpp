@@ -70,7 +70,7 @@ namespace
     }
 }
 
-void Kernel::infer(std::vector<std::string> args)
+void App::infer(std::vector<std::string> args)
 {
     if (args.empty())
     {
@@ -129,7 +129,7 @@ void Kernel::infer(std::vector<std::string> args)
         {
             if (++a < args.size())
             {
-                json["output"] = args[a] + ".entwine-inference";
+                json["output"] = args[a];
             }
             else
             {
@@ -202,53 +202,62 @@ void Kernel::infer(std::vector<std::string> args)
 
     auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(json["arbiter"]));
 
-    std::cout << "Inferring from: " << json.toStyledString() << std::endl;
-    /*
-    if (paths.size() == 1) std::cout << paths.front() << std::endl;
-    else std::cout << paths.size() << " paths" << std::endl;
-    std::cout << "\tTemp path: " << tmpPath << std::endl;
-    std::cout << "\tThreads: " << threads << std::endl;
-    std::cout << "\tReprojection: " << reprojString << std::endl;
-    std::cout << "\tTrust file headers? " << trustHeadersString << std::endl;
-    */
+    Inference inference(json);
+    const Config in(inference.inConfig());
 
-    const Config in(json);
-    NewInference inference(in);
-    const Config out(inference.go());
+    std::cout << "Scanning:" << std::endl;
 
-    if (json.isMember("output"))
+    if (in["input"].size() == 1)
     {
-        const std::string output(json["output"].asString());
-        std::cout << "Writing details to " << output << "..." << std::endl;
-        Json::Value json(out.json());
-        arbiter->put(output, json.toStyledString());
+        std::cout << "\tInput: " << in["input"][0].asString() << std::endl;
+    }
+    else
+    {
+        std::cout << "\tInput: " << in["input"].size() << " files" << std::endl;
     }
 
-    std::cout << out.json() << std::endl;
-    /*
-    std::cout << "Schema: " << inference.schema() << std::endl;
-    std::cout << "Bounds: " << inference.bounds() << std::endl;
-    std::cout << "Points: " << commify(inference.numPoints()) << std::endl;
+    std::cout << "\tTemp path: " << in.tmp() << std::endl;
+    std::cout << "\tThreads: " << in.totalThreads() << std::endl;
+    // std::cout << "\tReprojection: " << reprojString << std::endl;
+    std::cout << "\tTrust file headers? " << yesNo(in.trustHeaders()) <<
+        std::endl;
 
+    std::cout << std::endl;
+    const Config out(inference.go());
+    std::cout << std::endl;
+
+    if (out.output().size())
+    {
+        std::string path(out.output());
+        if (arbiter::Arbiter::getExtension(path) != "json") path += ".json";
+
+        std::cout << "Writing details to " << path << "...";
+        Json::Value json(out.json());
+        arbiter->put(path, json.toStyledString());
+        std::cout << " written." << std::endl;
+    }
+
+    // std::cout << out.json() << std::endl;
+    std::cout << "Results:" << std::endl;
+    std::cout << "\tSchema: " << getDimensionString(Schema(out["schema"])) <<
+        std::endl;
+    std::cout << "\tPoints: " << commify(out.numPoints()) << std::endl;
+    std::cout << "\tBounds: " << Bounds(out["bounds"]) << std::endl;
+    if (out.json().isMember("scale"))
+    {
+        std::cout << "\tScale: " << Scale(out["scale"]) << std::endl;
+    }
+    const double density(densityLowerBound(out.input()));
+    std::cout << "\tDensity estimate (per square unit): " << density <<
+        std::endl;
+
+    /*
     if (reprojection)
     {
         std::cout << "Reprojection: " << *reprojection << std::endl;
     }
-
-    if (const auto delta = inference.delta())
-    {
-        std::cout << "Scale:  " << delta->scale() << std::endl;
-        std::cout << "Offset: " << delta->offset() << std::endl;
-    }
-
-    if (const auto t = inference.transformation())
-    {
-        std::cout << "Transformation: ";
-        matrix::print(*t);
-    }
-
-    const double density(densityLowerBound(inference.fileInfo()));
-    std::cout << "Density estimate (per square unit): " << density << std::endl;
     */
+
+    std::cout << std::endl;
 }
 

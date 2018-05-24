@@ -122,7 +122,7 @@ endif()
 include_directories(BEFORE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 add_subdirectory(entwine)
-add_subdirectory(kernel)
+add_subdirectory(app)
 
 set(OBJS
     # $<TARGET_OBJECTS:formats>

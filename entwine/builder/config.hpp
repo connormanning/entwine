@@ -45,9 +45,11 @@ public:
         json["dataStorage"] = "laszip";
         json["hierarchyStorage"] = "json";
         json["threads"] = 8;
+        /*
         json["ticks"] = 256;
         json["overflowDepth"] = 4;
         json["overflowRatio"] = 0.5;
+        */
         return json;
     }
 
@@ -56,6 +58,7 @@ public:
     std::string tmp() const { return m_json["tmp"].asString(); }
 
     std::size_t numPoints() const { return m_json["numPoints"].asUInt64(); }
+    std::size_t totalThreads() const { return m_json["threads"].asUInt64(); }
 
     std::size_t workThreads() const
     {

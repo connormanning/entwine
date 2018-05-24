@@ -18,7 +18,7 @@ namespace entwine
 
 Config Config::prepare() const
 {
-    NewInference inference(*this);
+    Inference inference(*this);
     return inference.go();
 }
 
