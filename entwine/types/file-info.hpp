@@ -27,7 +27,6 @@ namespace entwine
 class FileInfo
 {
     friend class Files;
-    friend class Inference;
 
 public:
     enum class Status : char
@@ -87,7 +86,7 @@ private:
     std::string m_path;
     Status m_status;
 
-    // If Bounds is set while the Status is Outstanding, then we have inferred
+    // If Bounds is set while the Status is Outstanding, then we havescanned
     // the bounds and number of points in this file from the header.
     Bounds m_bounds;    // Represented in the output projection.
     Bounds m_boundsEpsilon;

@@ -4,8 +4,8 @@ set(
     SOURCES
     "${BASE}/build.cpp"
     "${BASE}/entwine.cpp"
-    "${BASE}/infer.cpp"
     "${BASE}/merge.cpp"
+    "${BASE}/scan.cpp"
 )
 
 add_executable(kernel ${SOURCES})

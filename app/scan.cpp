@@ -14,7 +14,7 @@
 #include <string>
 
 #include <entwine/builder/config.hpp>
-#include <entwine/builder/inference.hpp>
+#include <entwine/builder/scan.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/util/matrix.hpp>
 
@@ -25,7 +25,7 @@ namespace
     std::string getUsageString()
     {
         return
-            "\nUsage: entwine infer <path or glob> <options>\n"
+            "\nUsage: entwine scan <path or glob> <options>\n"
 
             "\nPath or glob:\n"
             "\tA single file or wildcard directory path.  A non-recursive\n"
@@ -36,7 +36,7 @@ namespace
 
             "\t-r (<input reprojection>) <output reprojection>\n"
             "\t\tSet the spatial reference system reprojection.  The input\n"
-            "\t\tvalue may be omitted to infer the input SRS from the file\n"
+            "\t\tvalue may be omitted to scan the input SRS from the file\n"
             "\t\theader.  In this case the build will fail if no input SRS\n"
             "\t\tmay be inferred.  Reprojection strings may be any of the\n"
             "\t\tformats supported by GDAL.\n\n"
@@ -48,8 +48,7 @@ namespace
 
             "\t-o <output-path>\n"
             "\t\tIf provided, detailed per-file information will be written\n"
-            "\t\tto this file in JSON format.  The extension\n"
-            "'.entwine-inference' will be added automatically.\n\n"
+            "\t\tto this file in JSON format.\n\n"
 
             "\t-h\n"
             "\t\tIf set, the user-supplied input SRS will always override\n"
@@ -70,7 +69,7 @@ namespace
     }
 }
 
-void App::infer(std::vector<std::string> args)
+void App::scan(std::vector<std::string> args)
 {
     if (args.empty())
     {
@@ -202,8 +201,8 @@ void App::infer(std::vector<std::string> args)
 
     auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(json["arbiter"]));
 
-    Inference inference(json);
-    const Config in(inference.inConfig());
+    Scan scan(json);
+    const Config in(scan.inConfig());
 
     std::cout << "Scanning:" << std::endl;
 
@@ -223,7 +222,7 @@ void App::infer(std::vector<std::string> args)
         std::endl;
 
     std::cout << std::endl;
-    const Config out(inference.go());
+    const Config out(scan.go());
     std::cout << std::endl;
 
     if (out.output().size())

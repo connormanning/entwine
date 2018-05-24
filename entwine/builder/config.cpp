@@ -10,7 +10,7 @@
 
 #include <entwine/builder/config.hpp>
 
-#include <entwine/builder/inference.hpp>
+#include <entwine/builder/scan.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 
 namespace entwine
@@ -18,8 +18,8 @@ namespace entwine
 
 Config Config::prepare() const
 {
-    Inference inference(*this);
-    return inference.go();
+    Scan scan(*this);
+    return scan.go();
 }
 
 FileInfoList Config::input() const

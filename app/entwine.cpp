@@ -31,7 +31,7 @@ namespace
             "\tApps:\n"
             "\t\tbuild\n"
             "\t\t\tBuild (or continue to build) an index\n"
-            "\t\tinfer\n"
+            "\t\tscan\n"
             "\t\t\tAggregate information for an unindexed dataset\n"
             "\t\tmerge\n"
             "\t\t\tMerge colocated previously built subsets\n";
@@ -83,9 +83,9 @@ int main(int argc, char** argv)
         {
             entwine::App::merge(args);
         }
-        else if (app == "infer")
+        else if (app == "scan")
         {
-            entwine::App::infer(args);
+            entwine::App::scan(args);
         }
         else
         {

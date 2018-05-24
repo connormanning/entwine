@@ -33,10 +33,10 @@ namespace entwine
 
 class Reprojection;
 
-class Inference
+class Scan
 {
 public:
-    Inference(Config config);
+    Scan(Config config);
     Config go();
 
     const Config& inConfig() const { return m_in; }

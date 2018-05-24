@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include <entwine/builder/inference.hpp>
+#include <entwine/builder/scan.hpp>
 
 #include <limits>
 
@@ -37,18 +37,18 @@ namespace
     });
 }
 
-Inference::Inference(const Config config)
+Scan::Scan(const Config config)
     : m_in(config)
     , m_arbiter(config["arbiter"])
     , m_tmp(m_arbiter.getEndpoint(config.tmp()))
     , m_re(config.reprojection())
 { }
 
-Config Inference::go()
+Config Scan::go()
 {
     if (m_pool || m_done)
     {
-        throw std::runtime_error("Cannot call Inference::go twice");
+        throw std::runtime_error("Cannot call Scan::go twice");
     }
     m_pool = makeUnique<Pool>(m_in.totalThreads());
     m_fileInfo = m_in.input();
@@ -66,7 +66,7 @@ Config Inference::go()
     return aggregate();
 }
 
-void Inference::add(FileInfo& f)
+void Scan::add(FileInfo& f)
 {
     if (Executor::get().good(f.path()))
     {
@@ -96,7 +96,7 @@ void Inference::add(FileInfo& f)
     }
 }
 
-void Inference::add(FileInfo& f, const std::string localPath)
+void Scan::add(FileInfo& f, const std::string localPath)
 {
     if (auto preview = Executor::get().preview(localPath, m_re.get()))
     {
@@ -133,7 +133,7 @@ void Inference::add(FileInfo& f, const std::string localPath)
     }
 }
 
-Config Inference::aggregate()
+Config Scan::aggregate()
 {
     Config out(m_in);
 

@@ -7,9 +7,9 @@ set(
     "${BASE}/chunk.cpp"
     "${BASE}/clipper.cpp"
     "${BASE}/config.cpp"
-    "${BASE}/inference.cpp"
     "${BASE}/merger.cpp"
     "${BASE}/registry.cpp"
+    "${BASE}/scan.cpp"
     "${BASE}/sequence.cpp"
     "${BASE}/thread-pools.cpp"
 )
@@ -22,9 +22,9 @@ set(
     "${BASE}/config.hpp"
     "${BASE}/heuristics.hpp"
     "${BASE}/hierarchy.hpp"
-    "${BASE}/inference.hpp"
     "${BASE}/merger.hpp"
     "${BASE}/registry.hpp"
+    "${BASE}/scan.hpp"
     "${BASE}/sequence.hpp"
     "${BASE}/thread-pools.hpp"
 )
