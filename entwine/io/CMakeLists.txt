@@ -1,19 +1,20 @@
-set(MODULE chunk-storage)
+set(MODULE io)
 set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 set(
     SOURCES
-    "${BASE}/chunk-storage.cpp"
-    "${BASE}/laszip.cpp"
-    "${BASE}/lazperf.cpp"
+    "${BASE}/binary.cpp"
+    "${BASE}/ensure.cpp"
+    "${BASE}/io.cpp"
+    "${BASE}/laz.cpp"
 )
 
 set(
     HEADERS
     "${BASE}/binary.hpp"
-    "${BASE}/chunk-storage.hpp"
-    "${BASE}/laszip.hpp"
-    "${BASE}/lazperf.hpp"
+    "${BASE}/ensure.hpp"
+    "${BASE}/io.hpp"
+    "${BASE}/laz.hpp"
 )
 
 install(FILES ${HEADERS} DESTINATION include/entwine/types/${MODULE})

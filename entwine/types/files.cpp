@@ -14,10 +14,10 @@
 #include <iostream>
 #include <limits>
 
+#include <entwine/io/ensure.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/pool.hpp>
-#include <entwine/util/io.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/unique.hpp>
 
@@ -27,10 +27,7 @@ namespace entwine
 void Files::save(const arbiter::Endpoint& ep, const std::string& postfix) const
 {
     const Json::Value json(toJson(m_files));
-    io::ensurePut(
-            ep,
-            "entwine-files" + postfix + ".json",
-            json.toStyledString());
+    ensurePut(ep, "entwine-files" + postfix + ".json", json.toStyledString());
 }
 
 void Files::append(const FileInfoList& fileInfo)

@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2016, Connor Manning (connor@hobu.co)
+* Copyright (c) 2018, Connor Manning (connor@hobu.co)
 *
 * Entwine -- Point cloud indexing
 *
@@ -18,9 +18,6 @@ namespace entwine
 {
 
 namespace arbiter { class Endpoint; }
-
-namespace io
-{
 
 void ensurePut(
         const arbiter::Endpoint& endpoint,
@@ -43,6 +40,5 @@ std::string ensureGetString(
         const arbiter::Endpoint& endpoint,
         const std::string& path);
 
-} // namespace io
 } // namespace entwine
 

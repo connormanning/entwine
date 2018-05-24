@@ -23,7 +23,6 @@
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
-#include <entwine/types/storage.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/env.hpp>
 #include <entwine/util/json.hpp>

@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2017, Connor Manning (connor@hobu.co)
+* Copyright (c) 2018, Connor Manning (connor@hobu.co)
 *
 * Entwine -- Point cloud indexing
 *
@@ -8,18 +8,16 @@
 *
 ******************************************************************************/
 
-#include <entwine/types/chunk-storage/laszip.hpp>
+#include <entwine/io/laz.hpp>
 
 #include <pdal/io/LasWriter.hpp>
 
-#include <entwine/types/pooled-point-table.hpp>
-#include <entwine/types/reprojection.hpp>
 #include <entwine/util/executor.hpp>
 
 namespace entwine
 {
 
-void LasZipStorage::write(
+void Laz::write(
         const arbiter::Endpoint& out,
         const arbiter::Endpoint& tmp,
         PointPool& pointPool,
@@ -37,14 +35,6 @@ void LasZipStorage::write(
     const std::string localFile(
             (local ? filename : arbiter::crypto::encodeAsHex(filename)) +
             ".laz");
-
-    /*
-    std::cout << "mkdirp " << localDir << std::endl;
-    if (local && !arbiter::fs::mkdirp(localDir + localFile))
-    {
-        throw std::runtime_error("Couldn't create " + localDir + localFile);
-    }
-    */
 
     const Schema& schema(m_metadata.schema());
     const Delta& delta(*m_metadata.delta());
@@ -65,19 +55,16 @@ void LasZipStorage::write(
         .apply([](double d) { return std::floor(d); });
 
     // See https://www.pdal.io/stages/writers.las.html
-    // const uint64_t timeMask(schema.hasTime() ? 1 : 0);
-    const uint64_t colorMask(/* schema.hasColor() ? */ 2 /* : 0 */);
+    const uint64_t timeMask(schema.hasTime() ? 1 : 0);
+    const uint64_t colorMask(schema.hasColor() ? 2 : 0);
 
     pdal::Options options;
     options.add("filename", localDir + localFile);
     options.add("minor_version", 2);
-    // options.add("extra_dims", "all");
+    options.add("extra_dims", "all");
     options.add("software_id", "Entwine " + currentVersion().toString());
     options.add("compression", "laszip");
-    options.add("dataformat_id", /* timeMask | */ colorMask);
-
-    options.add("creation_doy", 1);
-    options.add("creation_year", 1970);
+    options.add("dataformat_id", timeMask | colorMask);
 
     options.add("scale_x", delta.scale().x);
     options.add("scale_y", delta.scale().y);
@@ -87,8 +74,7 @@ void LasZipStorage::write(
     options.add("offset_y", offset.y);
     options.add("offset_z", offset.z);
 
-    if (auto r = m_metadata.reprojection()) options.add("a_srs", r->out());
-    else if (m_metadata.srs().size()) options.add("a_srs", m_metadata.srs());
+    if (m_metadata.srs().size()) options.add("a_srs", m_metadata.srs());
 
     auto lock(Executor::getLock());
 
@@ -103,12 +89,12 @@ void LasZipStorage::write(
 
     if (!local)
     {
-        io::ensurePut(out, filename + ".laz", tmp.getBinary(localFile));
+        ensurePut(out, filename + ".laz", tmp.getBinary(localFile));
         arbiter::fs::remove(tmp.prefixedRoot() + localFile);
     }
 }
 
-Cell::PooledStack LasZipStorage::read(
+Cell::PooledStack Laz::read(
         const arbiter::Endpoint& out,
         const arbiter::Endpoint& tmp,
         PointPool& pool,
@@ -127,7 +113,7 @@ Cell::PooledStack LasZipStorage::read(
         copied = true;
 
         static const arbiter::drivers::Fs fs;
-        fs.put(localFile, *io::ensureGet(out, basename));
+        fs.put(localFile, *ensureGet(out, basename));
     }
 
     CellTable table(pool, makeUnique<Schema>(Schema::normalize(pool.schema())));
@@ -145,4 +131,5 @@ Cell::PooledStack LasZipStorage::read(
 }
 
 } // namespace entwine
+
 

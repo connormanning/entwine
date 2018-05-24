@@ -8,7 +8,6 @@ set(
     "${BASE}/files.cpp"
     "${BASE}/metadata.cpp"
     "${BASE}/pooled-point-table.cpp"
-    "${BASE}/storage.cpp"
     "${BASE}/subset.cpp"
 )
 
@@ -31,15 +30,11 @@ set(
     "${BASE}/reprojection.hpp"
     "${BASE}/schema.hpp"
     "${BASE}/stats.hpp"
-    "${BASE}/storage.hpp"
-    "${BASE}/storage-types.hpp"
     "${BASE}/subset.hpp"
     "${BASE}/tube.hpp"
     "${BASE}/vector-point-table.hpp"
     "${BASE}/version.hpp"
 )
-
-add_subdirectory(chunk-storage)
 
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})
 add_library(${MODULE} OBJECT ${SOURCES})

@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include <entwine/util/io.hpp>
+#include <entwine/io/ensure.hpp>
 
 #include <chrono>
 #include <iostream>
@@ -45,8 +45,6 @@ namespace
 }
 
 namespace entwine
-{
-namespace io
 {
 
 void ensurePut(
@@ -116,6 +114,5 @@ std::string ensureGetString(
     return std::string();
 }
 
-} // namespace io
 } // namespace entwine
 

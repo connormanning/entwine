@@ -8,21 +8,18 @@
 *
 ******************************************************************************/
 
-#include <entwine/new-reader/new-chunk-reader.hpp>
+#pragma once
 
-#include <entwine/io/chunk-storage.hpp>
-#include <entwine/new-reader/new-reader.hpp>
+#include <entwine/io/laz.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
 
-NewChunkReader::NewChunkReader(const NewReader& r, const Dxyz& id)
-    : m_cells(r.metadata().storage().read(
-                r.ep(),
-                r.tmp(),
-                r.pointPool(),
-                id.toString()))
-{ }
+std::unique_ptr<DataIo> DataIo::create(const Metadata& m, std::string type)
+{
+    if (type == "laz") return makeUnique<Laz>(m);
+}
 
 } // namespace entwine
 

@@ -40,16 +40,18 @@ public:
     Json::Value defaults() const
     {
         Json::Value json;
+
         json["tmp"] = arbiter::fs::getTempPath();
         json["trustHeaders"] = true;
-        json["dataStorage"] = "laszip";
-        json["hierarchyStorage"] = "json";
         json["threads"] = 8;
-        /*
+
+        json["dataType"] = "laz";
+        json["hierarchyType"] = "json";
+
         json["ticks"] = 256;
         json["overflowDepth"] = 4;
         json["overflowRatio"] = 0.5;
-        */
+
         return json;
     }
 
@@ -80,11 +82,8 @@ public:
         else return t[1].asUInt64();
     }
 
-    std::string dataStorage() const { return m_json["dataStorage"].asString(); }
-    std::string hierStorage() const
-    {
-        return m_json["hierarchyStorage"].asString();
-    }
+    std::string dataType() const { return m_json["dataType"].asString(); }
+    std::string hierType() const { return m_json["hierarchyType"].asString(); }
 
     const Json::Value& json() const { return m_json; }
     const Json::Value& operator[](std::string k) const { return m_json[k]; }

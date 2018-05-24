@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2017, Connor Manning (connor@hobu.co)
+* Copyright (c) 2018, Connor Manning (connor@hobu.co)
 *
 * Entwine -- Point cloud indexing
 *
@@ -10,15 +10,17 @@
 
 #pragma once
 
-#include <entwine/types/chunk-storage/chunk-storage.hpp>
+#include <entwine/io/io.hpp>
 
 namespace entwine
 {
 
-class LasZipStorage : public ChunkStorage
+class Laz : public DataIo
 {
 public:
-    LasZipStorage(const Metadata& m) : ChunkStorage(m) { }
+    Laz(const Metadata& m) : DataIo(m) { }
+
+    virtual std::string type() const override { return "laz"; }
 
     virtual void write(
             const arbiter::Endpoint& out,
@@ -30,7 +32,7 @@ public:
     virtual Cell::PooledStack read(
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
-            PointPool& pool,
+            PointPool& pointPool,
             const std::string& filename) const override;
 };
 

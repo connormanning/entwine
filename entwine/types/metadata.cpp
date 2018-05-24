@@ -10,14 +10,13 @@
 
 #include <cassert>
 
-#include <entwine/types/chunk-storage/chunk-storage.hpp>
+#include <entwine/io/io.hpp>
 #include <entwine/types/delta.hpp>
 #include <entwine/types/files.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/subset.hpp>
-#include <entwine/util/io.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/unique.hpp>
 
@@ -40,7 +39,7 @@ Metadata::Metadata(const Config& config, const bool exists)
             clone(m_boundsNativeCubic->deltify(*m_delta)))
     , m_schema(makeUnique<Schema>(config["schema"]))
     , m_files(makeUnique<Files>(config.input()))
-    , m_chunkStorage(ChunkStorage::create(*this, config.dataStorage()))
+    , m_dataIo(DataIo::create(*this, config.dataType()))
     , m_reprojection(Reprojection::create(config["reprojection"]))
     , m_version(makeUnique<Version>(currentVersion()))
     , m_srs(config.srs().empty() && m_reprojection ?
@@ -67,7 +66,7 @@ Metadata::Metadata(const arbiter::Endpoint& ep, const Config& config)
                 entwine::merge(
                     parse(ep.get("entwine" +
                             config.postfix() + ".json")),
-                    parse(ep.get("entwine-params" +
+                    parse(ep.get("entwine-build" +
                             config.postfix() + ".json")))),
             true)
 {
@@ -101,8 +100,8 @@ Json::Value Metadata::toJson() const
         }
     }
 
-    json["dataStorage"] = "laszip";
-    json["hierarchyStorage"] = "json";
+    json["dataType"] = m_dataIo->type();
+    json["hierarchyType"] = "json"; // TODO.
 
     return json;
 }
@@ -125,13 +124,13 @@ void Metadata::save(const arbiter::Endpoint& endpoint) const
     {
         const auto json(toJson());
         const std::string f("entwine" + postfix() + ".json");
-        io::ensurePut(endpoint, f, json.toStyledString());
+        ensurePut(endpoint, f, json.toStyledString());
     }
 
     {
         const auto json(toBuildParamsJson());
-        const std::string f("entwine-params" + postfix() + ".json");
-        io::ensurePut(endpoint, f, json.toStyledString());
+        const std::string f("entwine-build" + postfix() + ".json");
+        ensurePut(endpoint, f, json.toStyledString());
     }
 
     m_files->save(endpoint, postfix());

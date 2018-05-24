@@ -10,7 +10,7 @@
 
 #include <entwine/builder/chunk.hpp>
 
-#include <entwine/types/chunk-storage/chunk-storage.hpp>
+#include <entwine/io/io.hpp>
 
 namespace entwine
 {
@@ -101,7 +101,7 @@ void ReffedChunk::ref(Clipper& clipper)
                     ++info.read;
                 }
 
-                Cells cells = m_metadata.storage().read(
+                Cells cells = m_metadata.dataIo().read(
                         m_out,
                         m_tmp,
                         m_pointPool,
@@ -144,7 +144,7 @@ void ReffedChunk::unref(const Origin o)
 
             m_hierarchy.set(m_key.get(), cells.np);
 
-            m_metadata.storage().write(
+            m_metadata.dataIo().write(
                     m_out,
                     m_tmp,
                     m_pointPool,

@@ -27,7 +27,7 @@ namespace entwine
 
 namespace arbiter { class Endpoint; }
 
-class ChunkStorage;
+class DataIo;
 class Delta;
 class Files;
 class Point;
@@ -82,8 +82,7 @@ public:
     const Schema& schema() const { return *m_schema; }
     const Files& files() const { return *m_files; }
 
-    std::string chunkStorageType() const { return "laszip"; }   // TODO
-    const ChunkStorage& storage() const { return *m_chunkStorage; }
+    const DataIo& dataIo() const { return *m_dataIo; }
 
     const Reprojection* reprojection() const { return m_reprojection.get(); }
     const Subset* subset() const { return m_subset.get(); }
@@ -118,15 +117,9 @@ private:
 
     Bounds makeNativeConformingBounds(const Bounds& b) const;
     Bounds makeNativeCube(const Bounds& b, const Delta& d) const;
-    /*
-    Bounds makeScaledConformingBounds(const Bounds& b, const Delta& d) const;
-    Bounds makeScaledCube(const Bounds& b, const Delta& d) const;
-    */
 
     // These are aggregated as the Builder runs.
-    // Manifest& manifest() { return *m_manifest; }
     Files& mutableFiles() { return *m_files; }
-    // ChunkStorage& storage() { return *m_chunkStorage; }
     std::string& srs() { return m_srs; }
 
     std::unique_ptr<Delta> m_delta;
@@ -139,7 +132,7 @@ private:
 
     std::unique_ptr<Schema> m_schema;
     std::unique_ptr<Files> m_files;
-    std::unique_ptr<ChunkStorage> m_chunkStorage;
+    std::unique_ptr<DataIo> m_dataIo;
     std::unique_ptr<Reprojection> m_reprojection;
     std::unique_ptr<Transformation> m_transformation;
     std::unique_ptr<Version> m_version;

@@ -13,13 +13,12 @@
 #include <pdal/PointView.hpp>
 
 #include <entwine/builder/chunk.hpp>
+#include <entwine/io/io.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/bounds.hpp>
-#include <entwine/types/chunk-storage/chunk-storage.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/subset.hpp>
-#include <entwine/util/io.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -47,7 +46,7 @@ Registry::Registry(
 void Registry::save(const arbiter::Endpoint& endpoint) const
 {
     const std::string f("entwine-hierarchy" + m_metadata.postfix() + ".json");
-    io::ensurePut(endpoint, f, m_hierarchy.toJson().toStyledString());
+    ensurePut(endpoint, f, m_hierarchy.toJson().toStyledString());
 }
 
 void Registry::merge(const Registry& other, Clipper& clipper)
@@ -59,7 +58,7 @@ void Registry::merge(const Registry& other, Clipper& clipper)
 
         if (dxyz.d < m_metadata.sharedDepth())
         {
-            auto cells(m_metadata.storage().read(
+            auto cells(m_metadata.dataIo().read(
                         m_out,
                         m_tmp,
                         m_pointPool,
