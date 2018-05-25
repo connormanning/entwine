@@ -9,6 +9,11 @@
 #include "Shlwapi.h"
 #include <iterator>
 
+#include <iostream>
+#include <cwctype>
+#include <locale>
+
+
 /*
 The MIT License (MIT)
 
@@ -1070,6 +1075,8 @@ bool mkdirp(std::string raw)
 
 }
 
+
+
 bool remove(std::string filename)
 {
     filename = expandTilde(filename);
@@ -1095,6 +1102,20 @@ namespace
 			pos = s.find(cc, pos + 1);
 		}
 		return s;
+	}
+
+
+	bool icase_wchar_cmp(wchar_t a, wchar_t b)
+	{
+		return std::toupper(a, std::locale()) == std::toupper(b, std::locale());
+	}
+
+
+	bool icase_cmp(std::wstring const& s1, std::wstring const& s2)
+	{
+		return (s1.size() == s2.size()) &&
+			std::equal(s1.begin(), s1.end(), s2.begin(),
+				icase_wchar_cmp);
 	}
 
     Globs globOne(std::string path)
@@ -1128,8 +1149,6 @@ namespace
 		std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
 		std::wstring wide(converter.from_bytes(path));
 
-		std::wcout << "wide: '" << wide << "'" << std::endl;
-
 		WIN32_FIND_DATAW data{};
 		LPCWSTR fname = wide.c_str();
         HANDLE hFind(INVALID_HANDLE_VALUE);
@@ -1141,29 +1160,22 @@ namespace
         {
             do
             {
-				if (data.cFileName == L"." ||
-					data.cFileName == L"..")
+				if (icase_cmp(std::wstring(data.cFileName), L".") ||
+					icase_cmp(std::wstring(data.cFileName), L".."))
 					continue;
 
 				std::vector<wchar_t> buf(MAX_PATH);
+				wide.erase(std::remove(wide.begin(), wide.end(), '*'), wide.end());
+				std::replace(wide.begin(), wide.end(), '\\', '/');
+
 				std::copy(wide.begin(), wide.end(), buf.begin()	);
+
 				BOOL appended = PathAppendW(buf.data(), data.cFileName);
-				std::wstring output(buf.data(), buf.size());
+				std::wstring output(buf.data(), wcslen( buf.data()));
 
 				results.files.push_back(
 					converter.to_bytes(output));
-				//if ((data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
-    //            {
-				//	std::wstring ouput(wide);
-				//	BOOL appended = PathAppendW(output, data.cFileName);
-    //                results.files.push_back(
-    //                        converter.to_bytes(output));
-    //            }
-    //            else
-    //            {
-    //                results.dirs.push_back(
-				//		converter.to_bytes(data.cFileName));
-    //            }
+
             }
             while (FindNextFileW(hFind, &data));
         }
