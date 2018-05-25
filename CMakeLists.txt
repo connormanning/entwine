@@ -68,6 +68,7 @@ if (NOT WIN32)
     else()
         message("Backtrace was not found")
     endif()
+else()
 endif()
 
 find_package(LibLZMA)
@@ -142,11 +143,13 @@ endif()
 
 if (MSVC)
     find_library(LZMA_LIBRARY liblzma PATHS "${CMAKE_INSTALL_PREFIX}/lib")
+    find_library(SHLWAPI Shlwapi.lib) 
+    target_link_libraries(entwine  Ws2_32.lib Shlwapi.lib)
 else()
     target_link_libraries(entwine lzma)
 endif()
 
-target_link_libraries(entwine PUBLIC pdalcpp pdal_util ${LZMA_LIBRARY} ${CMAKE_DL_LIBS})
+target_link_libraries(entwine PUBLIC pdalcpp pdal_util ${LZMA_LIBRARY} ${CMAKE_DL_LIBS} shlwapi.lib)
 
 target_link_libraries(entwine ${JSON_CPP_LINK_TYPE} ${ENTWINE_JSONCPP_LIB_NAME})
 
