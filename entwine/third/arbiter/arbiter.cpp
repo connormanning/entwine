@@ -1163,7 +1163,9 @@ namespace
 				if (icase_cmp(std::wstring(data.cFileName), L".") ||
 					icase_cmp(std::wstring(data.cFileName), L".."))
 					continue;
-
+                
+                    
+                    
 				std::vector<wchar_t> buf(MAX_PATH);
 				wide.erase(std::remove(wide.begin(), wide.end(), '*'), wide.end());
 				std::replace(wide.begin(), wide.end(), '\\', '/');
@@ -1172,10 +1174,19 @@ namespace
 
 				BOOL appended = PathAppendW(buf.data(), data.cFileName);
 				std::wstring output(buf.data(), wcslen( buf.data()));
+				std::replace(output.begin(), output.end(), '\\', '/');                
+                if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+                {
+                    results.dirs.push_back(converter.to_bytes(output));
 
+                    output.append(L"/*");
+                    Globs more = globOne(converter.to_bytes(output));
+                    std::copy(more.dirs.begin(), more.dirs.end(), std::back_inserter(results.dirs));
+                    std::copy(more.files.begin(), more.files.end(), std::back_inserter(results.files));
+
+                }
 				results.files.push_back(
 					converter.to_bytes(output));
-
             }
             while (FindNextFileW(hFind, &data));
         }
@@ -4657,8 +4668,11 @@ std::string getBasename(const std::string fullPath)
     const std::string stripped(stripPostfixing(Arbiter::stripType(fullPath)));
 
     // Now do the real slash searching.
-    const std::size_t pos(stripped.rfind('/'));
 
+    std::size_t pos(stripped.rfind('/'));
+    if (pos == std::string::npos) 
+        pos = stripped.rfind('\\');
+    
     if (pos != std::string::npos)
     {
         const std::string sub(stripped.substr(pos + 1));
