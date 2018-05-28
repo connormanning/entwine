@@ -20,6 +20,7 @@ public:
 
     virtual std::string type() const override { return "zstandard"; }
 
+    /*
     virtual void write(
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
@@ -33,6 +34,7 @@ public:
             const arbiter::Endpoint& tmp,
             PointPool& pointPool,
             const std::string& filename) const override;
+    */
 };
 
 } // namespace entwine

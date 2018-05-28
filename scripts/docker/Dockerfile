@@ -27,7 +27,7 @@ RUN \
     ; \
     git clone https://github.com/connormanning/entwine.git /var/entwine; \
     cd /var/entwine; \
-    git checkout ept-contained; \
+    git checkout ept; \
     mkdir -p /usr/local/include; \
     mkdir build; \
     cd build; \
