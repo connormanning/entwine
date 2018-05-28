@@ -17,6 +17,7 @@
 
 #include <entwine/builder/builder.hpp>
 #include <entwine/builder/thread-pools.hpp>
+#include <entwine/io/io.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/files.hpp>
@@ -398,6 +399,14 @@ void App::build(std::vector<std::string> args)
             }
             else error("Invalid overflowDepth");
         }
+        else if (arg == "--dataType")
+        {
+            if (++a < args.size())
+            {
+                json["dataType"] = args[a];
+            }
+            else error("Invalid dataType");
+        }
         else
         {
             error("Invalid argument: " + args[a]);
@@ -409,6 +418,13 @@ void App::build(std::vector<std::string> args)
     json["verbose"] = true;
     Config config(json);
     config = config.prepare();
+
+    Json::Value originDim;
+    originDim["name"] = "OriginId";
+    originDim["type"] = "unsigned";
+    originDim["size"] = 4;
+    config["schema"].append(originDim);
+    std::cout << config["schema"] << std::endl;
 
     auto builder(makeUnique<Builder>(config));
 
@@ -488,7 +504,8 @@ void App::build(std::vector<std::string> args)
 
     std::cout <<
         "Output:\n" <<
-        "\tOutput path: " << outPath << "\n" <<
+        "\tPath: " << outPath << "\n" <<
+        "\tData type: " << metadata.dataIo().type() << "\n" <<
         "\tSleep count: " << builder->sleepCount() <<
         // "\tData storage: " << toString(storage.chunkStorageType()) <<
         std::endl;

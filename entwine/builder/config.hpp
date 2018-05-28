@@ -45,7 +45,7 @@ public:
         json["trustHeaders"] = true;
         json["threads"] = 8;
 
-        json["dataType"] = "laz";
+        json["dataType"] = "laszip";
         json["hierarchyType"] = "json";
 
         json["ticks"] = 256;

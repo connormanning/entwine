@@ -8,26 +8,25 @@
 *
 ******************************************************************************/
 
-#pragma once
-
-#include <entwine/io/io.hpp>
+#include <entwine/io/binary.hpp>
 
 namespace entwine
 {
 
-class Laz : public DataIo
+class Zstandard : public Binary
 {
 public:
-    Laz(const Metadata& m) : DataIo(m) { }
+    Zstandard(const Metadata& m) : Binary(m) { }
 
-    virtual std::string type() const override { return "laz"; }
+    virtual std::string type() const override { return "zstandard"; }
 
     virtual void write(
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
             PointPool& pointPool,
             const std::string& filename,
-            Cell::PooledStack&& cells) const override;
+            Cell::PooledStack&& cells,
+            uint64_t np) const override;
 
     virtual Cell::PooledStack read(
             const arbiter::Endpoint& out,

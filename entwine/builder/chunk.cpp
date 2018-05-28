@@ -149,7 +149,8 @@ void ReffedChunk::unref(const Origin o)
                     m_tmp,
                     m_pointPool,
                     m_key.toString() + m_metadata.postfix(m_key.depth()),
-                    std::move(cells.stack));
+                    std::move(cells.stack),
+                    cells.np);
 
             std::lock_guard<std::mutex> lock(m);
             --info.count;
@@ -182,43 +183,29 @@ ReffedChunk::Info ReffedChunk::latchInfo()
     return result;
 }
 
-bool Chunk::insert(const Key& key, Cell::PooledNode& cell, Clipper& clipper)
+void Chunk::doOverflow(Clipper& clipper)
 {
-    if (insertNative(key, cell)) return true;
-    if (m_ref.key().depth() < m_ref.metadata().overflowDepth()) return false;
+    m_hasChildren = true;
 
-    std::lock_guard<std::mutex> lock(m_overflowMutex);
-    if (m_hasChildren) return false;
-
-    m_overflow.push(std::move(cell));
-    m_keys.push(key);
-
-    assert(m_overflow.size() == m_keys.size());
-
-    if (m_overflow.size() > m_ref.metadata().overflowThreshold())
+    while (!m_overflow.empty())
     {
-        m_hasChildren = true;
+        auto curCell(m_overflow.popOne());
+        Key& curKey(m_keys->back());
 
-        while (!m_overflow.empty())
+        curKey.step(curCell->point());
+        if (!step(curCell->point()).insert(curCell, curKey, clipper))
         {
-            auto curCell(m_overflow.popOne());
-            Key curKey(m_keys.top());
-            m_keys.pop();
-
-            curKey.step(curCell->point());
-            if (!step(curCell->point()).insert(curCell, curKey, clipper))
-            {
-                throw std::runtime_error("Invalid overflow");
-            }
-
-            assert(m_overflow.size() == m_keys.size());
+            throw std::runtime_error("Invalid overflow");
         }
 
-        assert(m_overflow.empty());
-        assert(m_keys.empty());
+        m_keys->pop_back();
+        assert(m_overflow.size() == m_keys->size());
     }
 
-    return true;
+    assert(m_overflow.empty());
+    assert(m_keys->empty());
+
+    m_keys.reset();
 }
 
 } // namespace entwine

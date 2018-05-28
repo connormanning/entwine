@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include <entwine/io/laz.hpp>
+#include <entwine/io/laszip.hpp>
 
 #include <pdal/io/LasWriter.hpp>
 
@@ -22,7 +22,8 @@ void Laz::write(
         const arbiter::Endpoint& tmp,
         PointPool& pointPool,
         const std::string& filename,
-        Cell::PooledStack&& cells) const
+        Cell::PooledStack&& cells,
+        const uint64_t np) const
 {
     if (!m_metadata.delta())
     {

@@ -116,11 +116,23 @@ public:
     void init()
     {
         assert(!m_tubes);
+        assert(!m_keys);
         m_tubes = makeUnique<std::vector<Tube>>(m_ticks * m_ticks);
+        m_keys = makeUnique<std::vector<Key>>();
         m_remote = false;
     }
 
-    bool insert(const Key& key, Cell::PooledNode& cell, Clipper& clipper);
+    bool insert(const Key& key, Cell::PooledNode& cell, Clipper& clipper)
+    {
+        if (insertNative(key, cell)) return true;
+
+        if (m_ref.key().depth() < m_ref.metadata().overflowDepth())
+        {
+            return false;
+        }
+
+        return insertOverflow(key, cell, clipper);
+    }
 
     ReffedChunk& step(const Point& p)
     {
@@ -150,11 +162,12 @@ public:
         }
 
         m_tubes.reset();
+        m_keys.reset();
 
         if (!m_overflow.empty())
         {
             assert(!m_hasChildren);
-            cells.np += m_overflow.size();
+            for (const auto& cell : m_overflow) cells.np += cell.size();
             cells.stack.pushBack(std::move(m_overflow));
         }
 
@@ -163,6 +176,7 @@ public:
         return cells;
     }
 
+    const std::unique_ptr<std::vector<Key>>& keys() const { return m_keys; }
     bool remote() const { return m_remote; }
 
 private:
@@ -175,13 +189,37 @@ private:
         return (*m_tubes)[i].insert(key, cell);
     }
 
+    bool insertOverflow(
+            const Key& key,
+            Cell::PooledNode& cell,
+            Clipper& clipper)
+    {
+        std::lock_guard<std::mutex> lock(m_overflowMutex);
+        if (m_hasChildren) return false;
+
+        assert(m_keys);
+        m_overflow.push(std::move(cell));
+        m_keys->push_back(key);
+
+        assert(m_overflow.size() == m_keys->size());
+
+        if (m_overflow.size() > m_ref.metadata().overflowThreshold())
+        {
+            doOverflow(clipper);
+        }
+
+        return true;
+    }
+
+    void doOverflow(Clipper& clipper);
+
     const ReffedChunk& m_ref;
     bool m_remote = false;
 
     std::mutex m_overflowMutex;
     bool m_hasChildren = false;
     Cell::PooledStack m_overflow;
-    std::stack<Key> m_keys;
+    std::unique_ptr<std::vector<Key>> m_keys;
 
     const uint64_t m_ticks;
     std::unique_ptr<std::vector<Tube>> m_tubes;

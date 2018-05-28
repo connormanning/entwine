@@ -6,7 +6,8 @@ set(
     "${BASE}/binary.cpp"
     "${BASE}/ensure.cpp"
     "${BASE}/io.cpp"
-    "${BASE}/laz.cpp"
+    "${BASE}/laszip.cpp"
+    "${BASE}/zstandard.cpp"
 )
 
 set(
@@ -14,7 +15,8 @@ set(
     "${BASE}/binary.hpp"
     "${BASE}/ensure.hpp"
     "${BASE}/io.hpp"
-    "${BASE}/laz.hpp"
+    "${BASE}/laszip.hpp"
+    "${BASE}/zstandard.hpp"
 )
 
 install(FILES ${HEADERS} DESTINATION include/entwine/types/${MODULE})
