@@ -5,7 +5,6 @@ set(
     SOURCES
     "${BASE}/compression.cpp"
     "${BASE}/executor.cpp"
-    "${BASE}/lzma.cpp"
     "${BASE}/pool.cpp"
 )
 

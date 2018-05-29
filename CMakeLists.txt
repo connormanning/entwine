@@ -141,20 +141,9 @@ else()
     add_library(entwine SHARED ${OBJS})
 endif()
 
-if (MSVC)
-    find_library(LZMA_LIBRARY liblzma PATHS "${CMAKE_INSTALL_PREFIX}/lib")
-else()
-    target_link_libraries(entwine lzma)
-endif()
-
 target_link_libraries(entwine PUBLIC pdalcpp pdal_util ${LZMA_LIBRARY} ${CMAKE_DL_LIBS})
 
 target_link_libraries(entwine ${JSON_CPP_LINK_TYPE} ${ENTWINE_JSONCPP_LIB_NAME})
-
-if (${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
-    target_link_libraries(entwine atomic)
-endif()
-
 
 target_link_libraries(entwine PRIVATE ${CURL_LIBRARIES})
 target_include_directories(entwine PRIVATE "${CURL_INCLUDE_DIR}")
