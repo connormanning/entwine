@@ -192,6 +192,8 @@ void App::build(std::vector<std::string> args)
         throw std::runtime_error(message);
     });
 
+    bool allowOriginId(true);
+
     while (a < args.size())
     {
         const std::string arg(args[a]);
@@ -407,6 +409,10 @@ void App::build(std::vector<std::string> args)
             }
             else error("Invalid dataType");
         }
+        else if (arg == "--noOriginId")
+        {
+            allowOriginId = false;
+        }
         else
         {
             error("Invalid argument: " + args[a]);
@@ -419,12 +425,15 @@ void App::build(std::vector<std::string> args)
     Config config(json);
     config = config.prepare();
 
-    Json::Value originDim;
-    originDim["name"] = "OriginId";
-    originDim["type"] = "unsigned";
-    originDim["size"] = 4;
-    config["schema"].append(originDim);
-    std::cout << config["schema"] << std::endl;
+    if (allowOriginId)
+    {
+        Schema s(config["schema"]);
+        if (!s.contains(pdal::Dimension::Id::OriginId))
+        {
+            s = s.append(DimInfo(pdal::Dimension::Id::OriginId));
+        }
+        config["schema"] = s.toJson();
+    }
 
     auto builder(makeUnique<Builder>(config));
 
