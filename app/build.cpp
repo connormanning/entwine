@@ -192,7 +192,7 @@ void App::build(std::vector<std::string> args)
         throw std::runtime_error(message);
     });
 
-    bool allowOriginId(true);
+    bool allowOriginId(false);
 
     while (a < args.size())
     {
@@ -375,7 +375,7 @@ void App::build(std::vector<std::string> args)
             {
                 json["splits"] = parse(args[a]);
             }
-            else error("Invalid splits dpecification");
+            else error("Invalid splits specification");
         }
         else if (arg == "--overflowRatio")
         {
@@ -409,9 +409,9 @@ void App::build(std::vector<std::string> args)
             }
             else error("Invalid dataType");
         }
-        else if (arg == "--noOriginId")
+        else if (arg == "--withOriginId")
         {
-            allowOriginId = false;
+            allowOriginId = true;
         }
         else
         {
