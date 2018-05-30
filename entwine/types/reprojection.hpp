@@ -55,8 +55,8 @@ public:
     Json::Value toJson() const
     {
         Json::Value json;
-        json["in"] = in();
         json["out"] = out();
+        if (m_in.size()) json["in"] = in();
         if (m_hammer) json["hammer"] = true;
         return json;
     }

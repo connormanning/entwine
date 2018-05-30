@@ -549,7 +549,9 @@ void App::build(std::vector<std::string> args)
     std::cout <<
         "\tScaled cube: " << metadata.boundsScaledCubic() << "\n" <<
         "\tReprojection: " << getReprojString(reprojection) << "\n" <<
-        "\tStoring dimensions: " << getDimensionString(schema) << "\n" <<
+        "\tStoring dimensions: " << getDimensionString(schema) << std::endl;
+
+    std::cout << "Build parameters:\n" <<
         "\tTicks: " << t << "\n" <<
         "\tResolution 2D: " <<
             t << " * " << t << " = " << commify(t * t) << "\n" <<
