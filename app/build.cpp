@@ -117,41 +117,6 @@ namespace
 
             ;
     }
-
-    std::string getReprojString(const Reprojection* reprojection)
-    {
-        if (reprojection)
-        {
-            std::string s;
-
-            if (reprojection->hammer())
-            {
-                s += reprojection->in() + " (OVERRIDING file headers)";
-            }
-            else
-            {
-                if (reprojection->in().size())
-                {
-                    s += "(from file headers, or a default of '";
-                    s += reprojection->in();
-                    s += "')";
-                }
-                else
-                {
-                    s += "(from file headers)";
-                }
-            }
-
-            s += " -> ";
-            s += reprojection->out();
-
-            return s;
-        }
-        else
-        {
-            return "(none)";
-        }
-    }
 }
 
 void App::build(std::vector<std::string> args)
@@ -422,8 +387,15 @@ void App::build(std::vector<std::string> args)
     }
 
     json["verbose"] = true;
+
+    // Extract the output and remove it from the Scan config - this path is
+    // the output path for 'build', not 'scan'.
+    const std::string output(json["output"].asString());
+    json.removeMember("output");
+
     Config config(json);
     config = config.prepare();
+    config["output"] = output;  // Re-add output to resulting 'build' config.
 
     if (allowOriginId)
     {
@@ -471,18 +443,6 @@ void App::build(std::vector<std::string> args)
         std::cout << "Files: " << files.size() << std::endl;
     }
 
-    /*
-    if (const Subset* subset = metadata.subset())
-    {
-        std::cout <<
-            "\tSubset: " <<
-                subset->id() + 1 << " of " <<
-                subset->of() << "\n" <<
-            "\tSubset bounds: " << subset->bounds() <<
-            std::endl;
-    }
-    */
-
     if (runCount)
     {
         std::cout <<
@@ -515,8 +475,8 @@ void App::build(std::vector<std::string> args)
         "Output:\n" <<
         "\tPath: " << outPath << "\n" <<
         "\tData type: " << metadata.dataIo().type() << "\n" <<
+        "\tHierarchy type: " << "json" << "\n" <<
         "\tSleep count: " << builder->sleepCount() <<
-        // "\tData storage: " << toString(storage.chunkStorageType()) <<
         std::endl;
 
     if (const auto* delta = metadata.delta())
@@ -548,7 +508,8 @@ void App::build(std::vector<std::string> args)
     const auto t(metadata.ticks());
     std::cout <<
         "\tScaled cube: " << metadata.boundsScaledCubic() << "\n" <<
-        "\tReprojection: " << getReprojString(reprojection) << "\n" <<
+        "\tReprojection: " <<
+            (reprojection ? reprojection->toString() : "(none)") << "\n" <<
         "\tStoring dimensions: " << getDimensionString(schema) << std::endl;
 
     std::cout << "Build parameters:\n" <<

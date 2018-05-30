@@ -63,7 +63,28 @@ Config Scan::go()
     }
 
     m_pool->join();
-    return aggregate();
+
+    Config out(aggregate());
+
+    // The "output" value from the Config is not related to the Scan itself,
+    // but where to write the output Scan.  Remove that member, and write the
+    // Scan results to that path if it exists.
+    std::string path(out.output());
+    out.json().removeMember("output");
+
+    if (path.size())
+    {
+        if (arbiter::Arbiter::getExtension(path) != "json") path += ".json";
+
+        arbiter::Arbiter arbiter(m_in["arbiter"]);
+
+        std::cout << std::endl;
+        std::cout << "Writing details to " << path << "...";
+        arbiter.put(path, out.json().toStyledString());
+        std::cout << " written." << std::endl;
+    }
+
+    return out;
 }
 
 void Scan::add(FileInfo& f)

@@ -199,10 +199,9 @@ void App::scan(std::vector<std::string> args)
         entwine::arbiter::fs::mkdirp(json["tmp"].asString());
     }
 
-    auto arbiter(std::make_shared<entwine::arbiter::Arbiter>(json["arbiter"]));
-
-    Scan scan(json);
-    const Config in(scan.inConfig());
+    const Config in(json);
+    Scan scan(in);
+    std::unique_ptr<Reprojection> reprojection(in.reprojection());
 
     std::cout << "Scanning:" << std::endl;
 
@@ -217,26 +216,14 @@ void App::scan(std::vector<std::string> args)
 
     std::cout << "\tTemp path: " << in.tmp() << std::endl;
     std::cout << "\tThreads: " << in.totalThreads() << std::endl;
-    // std::cout << "\tReprojection: " << reprojString << std::endl;
+    std::cout << "\tReprojection: " <<
+        (reprojection ? reprojection->toString() : "(none)") << std::endl;
     std::cout << "\tTrust file headers? " << yesNo(in.trustHeaders()) <<
         std::endl;
 
-    std::cout << std::endl;
     const Config out(scan.go());
     std::cout << std::endl;
 
-    if (out.output().size())
-    {
-        std::string path(out.output());
-        if (arbiter::Arbiter::getExtension(path) != "json") path += ".json";
-
-        std::cout << "Writing details to " << path << "...";
-        Json::Value json(out.json());
-        arbiter->put(path, json.toStyledString());
-        std::cout << " written." << std::endl;
-    }
-
-    // std::cout << out.json() << std::endl;
     std::cout << "Results:" << std::endl;
     std::cout << "\tSchema: " << getDimensionString(Schema(out["schema"])) <<
         std::endl;
@@ -249,13 +236,6 @@ void App::scan(std::vector<std::string> args)
     const double density(densityLowerBound(out.input()));
     std::cout << "\tDensity estimate (per square unit): " << density <<
         std::endl;
-
-    /*
-    if (reprojection)
-    {
-        std::cout << "Reprojection: " << *reprojection << std::endl;
-    }
-    */
 
     std::cout << std::endl;
 }

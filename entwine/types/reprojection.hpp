@@ -61,6 +61,28 @@ public:
         return json;
     }
 
+    std::string toString() const
+    {
+        std::string s;
+
+        if (hammer())
+        {
+            s += in() + " (OVERRIDING file headers)";
+        }
+        else if (in().size())
+        {
+            s += "(from file headers, or a default of '";
+            s += in() + "')";
+        }
+        else
+        {
+            s += "(from file headers)";
+        }
+
+        s += " -> " + out();
+        return s;
+    }
+
     std::string in() const { return m_in; }
     std::string out() const { return m_out; }
     bool hammer() const { return m_hammer; }
