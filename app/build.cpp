@@ -452,8 +452,8 @@ void App::build(std::vector<std::string> args)
 
     const auto& threadPools(builder->threadPools());
 
-    std::cout << "\tTotal points: " << commify(metadata.totalPoints()) <<
-        std::endl;
+    std::cout << "\tTotal points: " <<
+        commify(metadata.files().totalPoints()) << std::endl;
 
     std::cout << "\tDensity estimate (per square unit): " <<
         densityLowerBound(metadata.files().list()) << std::endl;

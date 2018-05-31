@@ -76,6 +76,8 @@ public:
     void add(const PointStats& stats) { m_pointStats.add(stats); }
 
 private:
+    void merge(const FileInfo& b);
+
     PointStats& pointStats() { return m_pointStats; }
     void status(Status status, std::string message = "")
     {

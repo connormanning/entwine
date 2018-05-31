@@ -46,7 +46,6 @@ Metadata::Metadata(const Config& config, const bool exists)
             m_reprojection->out() : config.srs())
     , m_subset(Subset::create(*this, config["subset"]))
     , m_trustHeaders(config.trustHeaders())
-    , m_totalPoints(m_files->totalPoints())
     , m_ticks(config.ticks())
     , m_startDepth(std::log2(m_ticks))
     , m_sharedDepth(m_subset ? m_subset->splits() : 0)
@@ -85,7 +84,7 @@ Json::Value Metadata::toJson() const
     json["boundsConforming"] = boundsNativeConforming().toJson();
     json["schema"] = m_schema->toJson();
     json["ticks"] = m_ticks;
-    json["numPoints"] = m_totalPoints;
+    json["numPoints"] = (Json::UInt64)m_files->totalPoints();
 
     if (m_srs.size()) json["srs"] = m_srs;
     if (m_reprojection) json["reprojection"] = m_reprojection->toJson();

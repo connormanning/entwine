@@ -19,6 +19,7 @@
 #include <entwine/builder/config.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/defs.hpp>
+#include <entwine/types/subset.hpp>
 
 namespace Json { class Value; }
 
@@ -33,7 +34,6 @@ class Files;
 class Point;
 class Reprojection;
 class Schema;
-class Subset;
 class Version;
 
 class Metadata
@@ -62,7 +62,11 @@ public:
     {
         return *m_boundsNativeCubic;
     }
-    std::unique_ptr<Bounds> boundsNativeSubset() const;
+    const Bounds* boundsNativeSubset() const
+    {
+        if (m_subset) return &m_subset->boundsNative();
+        else return nullptr;
+    }
 
     // Aliases for API simplicity.
     const Bounds& boundsConforming() const { return boundsNativeConforming(); }
@@ -77,7 +81,11 @@ public:
     {
         return *m_boundsScaledCubic;
     }
-    std::unique_ptr<Bounds> boundsScaledSubset() const;
+    const Bounds* boundsScaledSubset() const
+    {
+        if (m_subset) return &m_subset->boundsScaled();
+        else return nullptr;
+    }
 
     const Schema& schema() const { return *m_schema; }
     const Files& files() const { return *m_files; }
@@ -97,7 +105,6 @@ public:
 
     bool trustHeaders() const { return m_trustHeaders; }
 
-    uint64_t totalPoints() const { return m_totalPoints; }
     uint64_t ticks() const { return m_ticks; }
     uint64_t startDepth() const { return m_startDepth; }
     uint64_t sharedDepth() const { return m_sharedDepth; }
@@ -140,7 +147,6 @@ private:
     std::unique_ptr<Subset> m_subset;
 
     const bool m_trustHeaders = true;
-    const uint64_t m_totalPoints;
 
     const uint64_t m_ticks;
     const uint64_t m_startDepth;

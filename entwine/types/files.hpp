@@ -36,7 +36,12 @@ public:
     Files(const FileInfoList& files)
         : m_files(files)
     {
-        for (const auto& f : m_files) m_pointStats += f.pointStats();
+        for (const auto& f : m_files)
+        {
+            m_pointStats += f.pointStats();
+            addStatus(f.status());
+            m_totalPoints += f.numPoints();
+        }
     }
 
     Files(const Json::Value& json) : Files(toFileInfo(json)) { }
@@ -60,13 +65,7 @@ public:
 
     void set(Origin o, FileInfo::Status status, std::string message = "")
     {
-        switch (status)
-        {
-            case FileInfo::Status::Inserted:    m_fileStats.addInsert(); break;
-            case FileInfo::Status::Omitted:     m_fileStats.addOmit(); break;
-            case FileInfo::Status::Error:       m_fileStats.addError(); break;
-            default: break;
-        }
+        addStatus(status);
         get(o).status(status, message);
     }
 
@@ -98,13 +97,22 @@ public:
         return n;
     }
 
-    void merge(const Files& other)
-    {
-        std::cout << "TODO: Files::merge" << std::endl;
-    }
+    void merge(const Files& other);
 
 private:
+    void addStatus(FileInfo::Status status)
+    {
+        switch (status)
+        {
+            case FileInfo::Status::Inserted:    m_fileStats.addInsert(); break;
+            case FileInfo::Status::Omitted:     m_fileStats.addOmit(); break;
+            case FileInfo::Status::Error:       m_fileStats.addError(); break;
+            default: break;
+        }
+    }
+
     FileInfoList m_files;
+    uint64_t m_totalPoints = 0;
 
     mutable std::mutex m_mutex;
     PointStats m_pointStats;

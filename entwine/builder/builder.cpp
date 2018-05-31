@@ -313,10 +313,8 @@ Cells Builder::insertData(Cells cells, Clipper& clipper)
         rejected.push(std::move(cell));
     });
 
-    const Bounds activeBounds(
-            m_metadata->subset() ?
-                m_metadata->subset()->boundsScaled() :
-                m_metadata->boundsScaledConforming());
+    const Bounds& boundsConforming(m_metadata->boundsScaledConforming());
+    const Bounds* boundsSubset(m_metadata->boundsScaledSubset());
 
     Key key(*m_metadata);
 
@@ -325,18 +323,25 @@ Cells Builder::insertData(Cells cells, Clipper& clipper)
         Cell::PooledNode cell(cells.popOne());
         const Point& point(cell->point());
 
-        if (activeBounds.contains(point))
+        if (boundsConforming.contains(point))
         {
-            key.init(point);
-
-            if (m_registry->addPoint(cell, key, clipper))
+            if (!boundsSubset || boundsSubset->contains(point))
             {
-                pointStats.addInsert();
+                key.init(point);
+
+                if (m_registry->addPoint(cell, key, clipper))
+                {
+                    pointStats.addInsert();
+                }
+                else
+                {
+                    reject(cell);
+                    pointStats.addOverflow();
+                }
             }
             else
             {
                 reject(cell);
-                pointStats.addOverflow();
             }
         }
         else

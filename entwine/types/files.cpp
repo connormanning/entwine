@@ -52,5 +52,18 @@ FileInfoList Files::diff(const FileInfoList& in) const
     return out;
 }
 
+void Files::merge(const Files& other)
+{
+    if (size() != other.size())
+    {
+        throw std::runtime_error("Invalid files list for merging");
+    }
+
+    for (std::size_t i(0); i < size(); ++i)
+    {
+        m_files[i].merge(other.list()[i]);
+    }
+}
+
 } // namespace entwine
 

@@ -98,6 +98,21 @@ Json::Value FileInfo::toJson(const bool everything) const
     return json;
 }
 
+void FileInfo::merge(const FileInfo& b)
+{
+    if (path() != b.path())
+    {
+        throw std::runtime_error("Invalid paths to merge");
+    }
+
+    if (status() == Status::Outstanding && status() != Status::Outstanding)
+    {
+        status(b.status());
+    }
+
+    pointStats().add(b.pointStats());
+}
+
 double densityLowerBound(const FileInfoList& files)
 {
     double points(0);
