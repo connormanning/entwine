@@ -66,9 +66,6 @@ Config Scan::go()
 
     Config out(aggregate());
 
-    // The "output" value from the Config is not related to the Scan itself,
-    // but where to write the output Scan.  Remove that member, and write the
-    // Scan results to that path if it exists.
     std::string path(m_in.output());
 
     if (path.size())
