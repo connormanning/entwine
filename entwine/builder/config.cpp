@@ -19,7 +19,7 @@ namespace entwine
 Config Config::prepare() const
 {
     Scan scan(*this);
-    return scan.go();
+    return merge(m_json, scan.go().json());
 }
 
 FileInfoList Config::input() const

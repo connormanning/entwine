@@ -23,7 +23,6 @@ public:
     Ref(const Cell& cell, const char* data) : m_cell(&cell), m_data(data) { }
 
     const Cell& cell() { return *m_cell; }
-    // char* data() { return m_data; }
     const Cell& cell() const { return *m_cell; }
     const char* data() const { return m_data; }
 
@@ -56,43 +55,7 @@ public:
 protected:
     std::vector<char> getBuffer(
             const Cell::PooledStack& cells,
-            uint64_t np) const
-    {
-        std::vector<char> buffer;
-        const uint64_t pointSize(m_metadata.schema().pointSize());
-        buffer.reserve(np * pointSize);
-
-        BinaryPointTable ta(m_metadata.schema()), tb(m_metadata.schema());
-        std::vector<Ref> refs;
-        refs.reserve(np);
-        for (const Cell& cell : cells)
-        {
-            for (const char* data : cell)
-            {
-                refs.emplace_back(cell, data);
-            }
-        }
-
-        using DimId = pdal::Dimension::Id;
-        std::sort(
-                refs.begin(),
-                refs.end(),
-                [&ta, &tb](const Ref& a, const Ref& b)
-                {
-                    ta.setPoint(a.data());
-                    tb.setPoint(b.data());
-                    return
-                        ta.ref().getFieldAs<double>(DimId::GpsTime) <
-                        tb.ref().getFieldAs<double>(DimId::GpsTime);
-                });
-
-        for (const Ref& ref : refs)
-        {
-            buffer.insert(buffer.end(), ref.data(), ref.data() + pointSize);
-        }
-
-        return buffer;
-    }
+            uint64_t np) const;
 
     Cell::PooledStack getCells(
             PointPool& pool,

@@ -8,11 +8,11 @@ set(
     "${BASE}/scan.cpp"
 )
 
-add_executable(kernel ${SOURCES})
-add_dependencies(kernel entwine)
+add_executable(app ${SOURCES})
+add_dependencies(app entwine)
 
-target_link_libraries(kernel entwine ${Backtrace_LIBRARIES})
-set_target_properties(kernel PROPERTIES OUTPUT_NAME entwine)
+target_link_libraries(app entwine ${Backtrace_LIBRARIES})
+set_target_properties(app PROPERTIES OUTPUT_NAME entwine)
 
-install(TARGETS kernel DESTINATION bin)
+install(TARGETS app DESTINATION bin)
 

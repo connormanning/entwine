@@ -40,8 +40,11 @@ public:
     Config(const Json::Value& json, bool mergeBuildParams = true)
         : m_json(
                 merge(
-                    merge(defaults(), json),
-                    mergeBuildParams ? defaultBuildParams() : Json::nullValue))
+                    merge(
+                        defaults(),
+                        mergeBuildParams ?
+                            defaultBuildParams() : Json::nullValue),
+                    json))
     { }
 
     Config prepare() const;

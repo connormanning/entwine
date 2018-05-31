@@ -450,8 +450,6 @@ void App::build(std::vector<std::string> args)
             (runCount > 1 ? "s" : "") << "\n";
     }
 
-    // const Storage& storage(metadata.storage());
-
     const auto& threadPools(builder->threadPools());
 
     std::cout << "\tTotal points: " << commify(metadata.totalPoints()) <<

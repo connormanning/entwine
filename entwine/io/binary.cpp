@@ -27,6 +27,7 @@ void Binary::write(
         const uint64_t np) const
 {
     writeBuffer(out, filename + ".bin", getBuffer(cells, np));
+    pointPool.release(std::move(cells));
 }
 
 Cell::PooledStack Binary::read(
@@ -36,6 +37,53 @@ Cell::PooledStack Binary::read(
         const std::string& filename) const
 {
     return getCells(pool, getBuffer(out, filename + ".bin"));
+}
+
+std::vector<char> Binary::getBuffer(
+        const Cell::PooledStack& cells,
+        uint64_t np) const
+{
+    std::vector<char> buffer;
+    const uint64_t ps(m_metadata.schema().pointSize());
+    buffer.reserve(np * ps);
+
+    using DimId = pdal::Dimension::Id;
+
+    BinaryPointTable ta(m_metadata.schema()), tb(m_metadata.schema());
+    std::vector<Ref> refs;
+    refs.reserve(np);
+    for (const Cell& cell : cells)
+    {
+        for (const char* data : cell)
+        {
+            refs.emplace_back(cell, data);
+        }
+    }
+
+    assert(refs.size() == np);
+
+    std::sort(
+            refs.begin(),
+            refs.end(),
+            [&ta, &tb, ps](const Ref& a, const Ref& b)
+            {
+                ta.setPoint(a.data());
+                tb.setPoint(b.data());
+
+                double ga(ta.ref().getFieldAs<double>(DimId::GpsTime));
+                double gb(tb.ref().getFieldAs<double>(DimId::GpsTime));
+
+                return
+                    (ga < gb) ||
+                    (ga == gb && std::memcmp(a.data(), b.data(), ps) < 0);
+            });
+
+    for (const Ref& ref : refs)
+    {
+        buffer.insert(buffer.end(), ref.data(), ref.data() + ps);
+    }
+
+    return buffer;
 }
 
 Cell::PooledStack Binary::getCells(
@@ -61,7 +109,8 @@ Cell::PooledStack Binary::getCells(
     {
         assert(dataStack.size());
         auto data(dataStack.popOne());
-        table.setPoint(pos);
+        std::copy(pos, pos + pointSize, *data);
+        table.setPoint(*data);
 
         assert(cell);
         cell->val().set(pr, std::move(data));
