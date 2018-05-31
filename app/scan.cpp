@@ -199,7 +199,7 @@ void App::scan(std::vector<std::string> args)
         entwine::arbiter::fs::mkdirp(json["tmp"].asString());
     }
 
-    const Config in(json);
+    const Config in(json, false);
     Scan scan(in);
     std::unique_ptr<Reprojection> reprojection(in.reprojection());
 

@@ -492,7 +492,6 @@ void App::build(std::vector<std::string> args)
             std::cout << scale << std::endl;
         }
         std::cout << "\tOffset: " << delta->offset() << std::endl;
-        std::cout << "\tXYZ width: " << schema.find("X").size() << std::endl;
     }
 
     std::cout <<

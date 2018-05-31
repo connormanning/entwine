@@ -33,8 +33,17 @@ namespace entwine
 class Config
 {
 public:
-    Config() : Config(Json::nullValue) { }
-    Config(const Json::Value& json) : m_json(merge(defaults(), json)) { }
+    Config(bool mergeBuildParams = true)
+        : Config(Json::nullValue, mergeBuildParams)
+    { }
+
+    Config(const Json::Value& json, bool mergeBuildParams = true)
+        : m_json(
+                merge(
+                    merge(defaults(), json),
+                    mergeBuildParams ? defaultBuildParams() : Json::nullValue))
+    { }
+
     Config prepare() const;
 
     Json::Value defaults() const
@@ -44,6 +53,13 @@ public:
         json["tmp"] = arbiter::fs::getTempPath();
         json["trustHeaders"] = true;
         json["threads"] = 8;
+
+        return json;
+    }
+
+    Json::Value defaultBuildParams() const
+    {
+        Json::Value json;
 
         json["dataType"] = "laszip";
         json["hierarchyType"] = "json";
@@ -147,7 +163,10 @@ public:
     Offset offset() const
     {
         if (!m_json["offset"].isNull()) return Offset(m_json["offset"]);
-        return Offset(0);
+        return Bounds(m_json["bounds"]).mid().apply([](double d)
+        {
+            return std::llround(d);
+        });
     }
     Delta delta() const { return Delta(scale(), offset()); }
 

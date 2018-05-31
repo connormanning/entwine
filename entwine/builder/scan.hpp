@@ -41,6 +41,9 @@ public:
 
     const Config& inConfig() const { return m_in; }
 
+    std::size_t index() const { return m_index; }
+    std::size_t total() const { return m_fileInfo.size(); }
+
 private:
     void add(FileInfo& f);
     void add(FileInfo& f, std::string localPath);

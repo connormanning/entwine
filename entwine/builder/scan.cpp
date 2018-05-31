@@ -69,8 +69,7 @@ Config Scan::go()
     // The "output" value from the Config is not related to the Scan itself,
     // but where to write the output Scan.  Remove that member, and write the
     // Scan results to that path if it exists.
-    std::string path(out.output());
-    out.json().removeMember("output");
+    std::string path(m_in.output());
 
     if (path.size())
     {
@@ -156,7 +155,7 @@ void Scan::add(FileInfo& f, const std::string localPath)
 
 Config Scan::aggregate()
 {
-    Config out(m_in);
+    Config out(false);
 
     std::size_t np(0);
     Bounds bounds(Bounds::expander());
@@ -198,19 +197,16 @@ Config Scan::aggregate()
         return d;
     });
 
-    if (out["scale"].isNull()) out["scale"] = m_scale.toJson();
+    if (out["scale"].isNull())
+    {
+        if (m_scale.x == m_scale.y && m_scale.x == m_scale.z)
+        {
+            out["scale"] = m_scale.x;
+        }
+        else out["scale"] = m_scale.toJson();
+    }
     if (out["bounds"].isNull()) out["bounds"] = bounds.toJson();
     bounds = Bounds(out["bounds"]);
-
-    Offset offset = bounds.mid()
-        .apply([](double d) { return std::llround(d); });
-
-    if (std::max(bounds.width(), bounds.depth()) > bounds.height() * 2)
-    {
-        offset.z = std::llround(bounds.min().z);
-    }
-
-    out["offset"] = offset.toJson();
 
     if (out.scale() != 1)
     {
