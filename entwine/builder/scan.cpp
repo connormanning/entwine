@@ -67,7 +67,6 @@ Config Scan::go()
     Config out(aggregate());
 
     std::string path(m_in.output());
-
     if (path.size())
     {
         if (arbiter::Arbiter::getExtension(path) != "json") path += ".json";

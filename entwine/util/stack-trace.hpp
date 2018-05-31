@@ -14,11 +14,13 @@
 #include <iostream>
 #include <mutex>
 
+/*
 #include <pdal/util/Utils.hpp>
 
 #include <execinfo.h>
 #include <unistd.h>
 #include <dlfcn.h>
+*/
 
 namespace entwine
 {
@@ -30,6 +32,8 @@ namespace
 
 inline void stackTrace()
 {
+    std::cout << "TODO: stackTrace" << std::endl;
+    /*
     std::lock_guard<std::mutex> lock(mutex);
 
     void* buffer[32];
@@ -72,11 +76,14 @@ inline void stackTrace()
     for (const auto& l : lines) std::cout << l << std::endl;
 
     free(symbols);
+    */
 }
 
 template<typename Signal>
 inline void stackTraceOn(Signal s)
 {
+    std::cout << "TODO: stackTraceOn" << std::endl;
+    /*
     signal(s, [](int sig)
     {
         {
@@ -87,6 +94,7 @@ inline void stackTraceOn(Signal s)
         stackTrace();
         exit(1);
     });
+    */
 }
 
 } // namespace entwine
