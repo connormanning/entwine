@@ -82,7 +82,6 @@ inline void stackTrace()
 template<typename Signal>
 inline void stackTraceOn(Signal s)
 {
-    std::cout << "TODO: stackTraceOn" << std::endl;
     /*
     signal(s, [](int sig)
     {

@@ -33,23 +33,15 @@ namespace entwine
 class Config
 {
 public:
-    Config(bool mergeBuildParams = true)
-        : Config(Json::nullValue, mergeBuildParams)
-    { }
+    Config() { }
 
-    Config(const Json::Value& json, bool mergeBuildParams = true)
-        : m_json(
-                merge(
-                    merge(
-                        defaults(),
-                        mergeBuildParams ?
-                            defaultBuildParams() : Json::nullValue),
-                    json))
+    Config(const Json::Value& json)
+        : m_json(json)
     { }
 
     Config prepare() const;
 
-    Json::Value defaults() const
+    static Json::Value defaults()
     {
         Json::Value json;
 
@@ -60,7 +52,7 @@ public:
         return json;
     }
 
-    Json::Value defaultBuildParams() const
+    static Json::Value defaultBuildParams()
     {
         Json::Value json;
 

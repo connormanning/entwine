@@ -97,6 +97,8 @@ public:
     bool verbose() const { return m_verbose; }
     void verbose(bool v) { m_verbose = v; }
 
+    const Config& inConfig() const { return m_config; }
+
 private:
     Registry& registry();
     void doRun(std::size_t max);
@@ -133,6 +135,8 @@ private:
     std::string localize(std::string path, Origin origin);
 
     //
+
+    const Config m_config;
 
     std::shared_ptr<arbiter::Arbiter> m_arbiter;
     std::unique_ptr<arbiter::Endpoint> m_out;

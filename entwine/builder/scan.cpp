@@ -38,10 +38,10 @@ namespace
 }
 
 Scan::Scan(const Config config)
-    : m_in(config)
-    , m_arbiter(config["arbiter"])
-    , m_tmp(m_arbiter.getEndpoint(config.tmp()))
-    , m_re(config.reprojection())
+    : m_in(merge(Config::defaults(), config.json()))
+    , m_arbiter(m_in["arbiter"])
+    , m_tmp(m_arbiter.getEndpoint(m_in.tmp()))
+    , m_re(m_in.reprojection())
 { }
 
 Config Scan::go()
@@ -151,7 +151,7 @@ void Scan::add(FileInfo& f, const std::string localPath)
 
 Config Scan::aggregate()
 {
-    Config out(false);
+    Config out;
 
     std::size_t np(0);
     Bounds bounds(Bounds::expander());

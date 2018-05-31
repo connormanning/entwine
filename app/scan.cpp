@@ -199,8 +199,9 @@ void App::scan(std::vector<std::string> args)
         entwine::arbiter::fs::mkdirp(json["tmp"].asString());
     }
 
-    const Config in(json, false);
+    Config in(json);
     Scan scan(in);
+    in = scan.inConfig();
     std::unique_ptr<Reprojection> reprojection(in.reprojection());
 
     std::cout << "Scanning:" << std::endl;
@@ -218,7 +219,7 @@ void App::scan(std::vector<std::string> args)
     std::cout << "\tThreads: " << in.totalThreads() << std::endl;
     std::cout << "\tReprojection: " <<
         (reprojection ? reprojection->toString() : "(none)") << std::endl;
-    std::cout << "\tTrust file headers? " << yesNo(in.trustHeaders()) <<
+    std::cout << "\tTrust file headers? " << yesNo(in.trustHeaders()) << "\n" <<
         std::endl;
 
     const Config out(scan.go());

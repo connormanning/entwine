@@ -48,16 +48,22 @@ namespace
 }
 
 Builder::Builder(const Config& config, OuterScope os)
-    : m_arbiter(os.getArbiter(config["arbiter"]))
-    , m_out(makeUnique<Endpoint>(m_arbiter->getEndpoint(config.output())))
-    , m_tmp(makeUnique<Endpoint>(m_arbiter->getEndpoint(config.tmp())))
+    : m_config(entwine::merge(
+                Config::defaults(),
+                Config::defaultBuildParams(),
+                config.json()))
+    , m_arbiter(os.getArbiter(m_config["arbiter"]))
+    , m_out(makeUnique<Endpoint>(m_arbiter->getEndpoint(m_config.output())))
+    , m_tmp(makeUnique<Endpoint>(m_arbiter->getEndpoint(m_config.tmp())))
     , m_threadPools(
-            makeUnique<ThreadPools>(config.workThreads(), config.clipThreads()))
-    , m_isContinuation(config.isContinuation())
-    , m_sleepCount(config.sleepCount())
+            makeUnique<ThreadPools>(
+                m_config.workThreads(),
+                m_config.clipThreads()))
+    , m_isContinuation(m_config.isContinuation())
+    , m_sleepCount(m_config.sleepCount())
     , m_metadata(m_isContinuation ?
-            makeUnique<Metadata>(*m_out, config) :
-            makeUnique<Metadata>(config))
+            makeUnique<Metadata>(*m_out, m_config) :
+            makeUnique<Metadata>(m_config))
     , m_pointPool(os.getPointPool(m_metadata->schema(), m_metadata->delta()))
     , m_registry(makeUnique<Registry>(
                 *m_metadata,
