@@ -259,6 +259,7 @@ public:
             }
         }
 
+        /*
         using DimId = pdal::Dimension::Id;
         BinaryPointTable ta(m_schema), tb(m_schema);
         const uint64_t ps(m_schema.pointSize());
@@ -278,6 +279,7 @@ public:
                         (ga < gb) ||
                         (ga == gb && std::memcmp(a.data(), b.data(), ps) < 0);
                 });
+        */
     }
 
     ~CellTable() { m_pool.release(acquire()); }
