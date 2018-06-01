@@ -71,7 +71,12 @@ public:
     std::string tmp() const { return m_json["tmp"].asString(); }
 
     std::size_t numPoints() const { return m_json["numPoints"].asUInt64(); }
-    std::size_t totalThreads() const { return m_json["threads"].asUInt64(); }
+    std::size_t totalThreads() const
+    {
+        const auto& t(m_json["threads"]);
+        if (t.isNumeric()) return t.asUInt64();
+        else return t[0].asUInt64() + t[1].asUInt64();
+    }
 
     std::size_t workThreads() const
     {
