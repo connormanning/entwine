@@ -44,8 +44,8 @@ public:
     Json::Value toJson() const
     {
         Json::Value json;
-        json["id"] = m_id;
-        json["of"] = m_of;
+        json["id"] = (Json::UInt64)m_id;
+        json["of"] = (Json::UInt64)m_of;
         return json;
     }
 

@@ -51,7 +51,7 @@ public:
         Json::Value json;
         for (const auto& p : m_map)
         {
-            json[p.first.toString()] = p.second;
+            json[p.first.toString()] = (Json::UInt64)p.second;
         }
         return json;
     }
