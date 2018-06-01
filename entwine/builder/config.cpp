@@ -18,8 +18,22 @@ namespace entwine
 
 Config Config::prepare() const
 {
-    Scan scan(*this);
-    return merge(json(), scan.go().json());
+    // If our input is a Scan, extract it and return the result without redoing
+    // the scan.
+    const Json::Value& p(m_json["input"]);
+    if (p.isString() && arbiter::Arbiter::getExtension(p.asString()) == "json")
+    {
+        std::cout << "Using existing scan as input" << std::endl;
+        const auto path(p.asString());
+        arbiter::Arbiter a(m_json["arbiter"]);
+        const auto scan(entwine::parse(a.get(path)));
+        return merge(json(), scan);
+    }
+    else
+    {
+        Scan scan(*this);
+        return merge(json(), scan.go().json());
+    }
 }
 
 FileInfoList Config::input() const

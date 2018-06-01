@@ -224,6 +224,7 @@ Config Scan::aggregate()
     if (out["schema"].isNull()) out["schema"] = m_schema.toJson();
     out["numPoints"] = std::max<Json::UInt64>(np, out.numPoints());
     out["input"] = toJson(m_fileInfo);
+    if (m_re) out["reprojection"] = m_re->toJson();
 
     return out;
 }
