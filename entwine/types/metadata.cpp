@@ -83,7 +83,7 @@ Json::Value Metadata::toJson() const
     json["bounds"] = boundsNativeCubic().toJson();
     json["boundsConforming"] = boundsNativeConforming().toJson();
     json["schema"] = m_schema->toJson();
-    json["ticks"] = m_ticks;
+    json["ticks"] = (Json::UInt64)m_ticks;
     json["numPoints"] = (Json::UInt64)m_files->totalPoints();
 
     if (m_srs.size()) json["srs"] = m_srs;
