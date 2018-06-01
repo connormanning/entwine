@@ -33,10 +33,7 @@ ReffedChunk::ReffedChunk(
     , m_tmp(tmp)
     , m_pointPool(pointPool)
     , m_hierarchy(hierarchy)
-{
-    std::lock_guard<std::mutex> lock(m);
-    ++info.reffed;
-}
+{ }
 
 ReffedChunk::ReffedChunk(const ReffedChunk& o)
     : ReffedChunk(
@@ -51,11 +48,7 @@ ReffedChunk::ReffedChunk(const ReffedChunk& o)
     assert(o.m_refs.empty());
 }
 
-ReffedChunk::~ReffedChunk()
-{
-    std::lock_guard<std::mutex> lock(m);
-    --info.reffed;
-}
+ReffedChunk::~ReffedChunk() { }
 
 bool ReffedChunk::insert(
         Cell::PooledNode& cell,
@@ -81,17 +74,11 @@ void ReffedChunk::ref(Clipper& clipper)
             {
                 m_chunk = makeUnique<Chunk>(*this);
                 assert(!m_chunk->remote());
-
-                std::lock_guard<std::mutex> lock(m);
-                ++info.count;
             }
 
             if (m_chunk->remote())
             {
                 m_chunk->init();
-
-                std::lock_guard<std::mutex> lock(m);
-                ++info.count;
             }
 
             if (const uint64_t np = m_hierarchy.get(m_key.get()))
@@ -153,7 +140,6 @@ void ReffedChunk::unref(const Origin o)
                     cells.np);
 
             std::lock_guard<std::mutex> lock(m);
-            --info.count;
             ++info.written;
         }
     }

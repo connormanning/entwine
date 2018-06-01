@@ -53,8 +53,6 @@ public:
     {
         std::size_t written = 0;
         std::size_t read = 0;
-        std::size_t count = 0;
-        std::size_t reffed = 0;
         void clear() { written = 0; read = 0; }
     };
 

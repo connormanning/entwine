@@ -136,8 +136,6 @@ void Builder::go(std::size_t max)
                     " U: " << used << "%"  <<
                     " I: " << commify(inserts) <<
                     " P: " << std::round(progress * 100.0) << "%" <<
-                    " C: " << info.count <<
-                    " F: " << info.reffed <<
                     " W: " << info.written <<
                     " R: " << info.read <<
                     std::endl;
