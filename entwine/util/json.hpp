@@ -58,19 +58,25 @@ inline std::string commify(const std::size_t n)
     return s;
 }
 
-inline void recMerge(Json::Value& dst, const Json::Value& add)
+inline void recMerge(
+        Json::Value& dst,
+        const Json::Value& add,
+        bool hard = true)
 {
     for (const auto& key : add.getMemberNames())
     {
-        if (add[key].isObject()) recMerge(dst[key], add[key]);
-        else dst[key] = add[key];
+        if (add[key].isObject()) recMerge(dst[key], add[key], hard);
+        else if (hard || !dst.isMember(key)) dst[key] = add[key];
     }
 }
 
-inline Json::Value merge(const Json::Value& a, const Json::Value& b)
+inline Json::Value merge(
+        const Json::Value& a,
+        const Json::Value& b,
+        bool hard = true)
 {
     Json::Value c(a);
-    recMerge(c, b);
+    recMerge(c, b, hard);
     return c;
 }
 

@@ -18,6 +18,8 @@ namespace entwine
 
 Config Config::prepare() const
 {
+    Json::Value scan;
+
     // If our input is a Scan, extract it and return the result without redoing
     // the scan.
     const Json::Value& p(m_json["input"]);
@@ -26,23 +28,24 @@ Config Config::prepare() const
         std::cout << "Using existing scan as input" << std::endl;
         const auto path(p.asString());
         arbiter::Arbiter a(m_json["arbiter"]);
-        const auto scan(entwine::parse(a.get(path)));
-
-        // First, merge our explicit config over the scan so any new settings
-        // take precedence, for example changing the scale factor to something
-        // other than the scanned scale.
-        Json::Value result = merge(scan, json());
-
-        // Then, always make sure we use the "input" from the scan, which
-        // represents the actual input files rather than the path of the scan.
-        result["input"] = scan["input"];
-        return result;
+        scan = entwine::parse(a.get(path));
     }
     else
     {
-        Scan scan(*this);
-        return merge(json(), scan.go().json());
+        std::cout << "Scanning input" << std::endl;
+        scan = Scan(*this).go().json();
     }
+
+    // First, soft-merge our scan results over the config without overwriting
+    // anything, for example we might have an explicit scale factor or bounds
+    // specification that should override scan results.
+    Json::Value result = merge(json(), scan, false);
+
+    // Then, always make sure we use the "input" from the scan, which
+    // represents the expanded input files and their meta-info rather than the
+    // path of the scan or the string paths.
+    result["input"] = scan["input"];
+    return result;
 }
 
 FileInfoList Config::input() const
