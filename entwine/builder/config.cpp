@@ -27,7 +27,16 @@ Config Config::prepare() const
         const auto path(p.asString());
         arbiter::Arbiter a(m_json["arbiter"]);
         const auto scan(entwine::parse(a.get(path)));
-        return merge(json(), scan);
+
+        // First, merge our explicit config over the scan so any new settings
+        // take precedence, for example changing the scale factor to something
+        // other than the scanned scale.
+        Json::Value result = merge(scan, json());
+
+        // Then, always make sure we use the "input" from the scan, which
+        // represents the actual input files rather than the path of the scan.
+        result["input"] = scan["input"];
+        return result;
     }
     else
     {
