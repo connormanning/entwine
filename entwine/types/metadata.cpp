@@ -51,6 +51,7 @@ Metadata::Metadata(const Config& config, const bool exists)
     , m_sharedDepth(m_subset ? m_subset->splits() : 0)
     , m_overflowDepth(std::max(config.overflowDepth(), m_sharedDepth))
     , m_overflowThreshold(config.overflowThreshold())
+    , m_hierarchyStep(config.hierarchyStep())
 {
     if (1UL << m_startDepth != m_ticks)
     {
@@ -101,6 +102,7 @@ Json::Value Metadata::toJson() const
 
     json["dataType"] = m_dataIo->type();
     json["hierarchyType"] = "json"; // TODO.
+    json["hierarchyStep"] = (Json::UInt64)m_hierarchyStep;
 
     return json;
 }
@@ -111,8 +113,8 @@ Json::Value Metadata::toBuildParamsJson() const
 
     json["version"] = m_version->toString();
     json["trustHeaders"] = m_trustHeaders;
-    json["overflowDepth"] = Json::UInt64(m_overflowDepth);
-    json["overflowThreshold"] = Json::UInt64(m_overflowThreshold);
+    json["overflowDepth"] = (Json::UInt64)m_overflowDepth;
+    json["overflowThreshold"] = (Json::UInt64)m_overflowThreshold;
     if (m_subset) json["subset"] = m_subset->toJson();
 
     return json;

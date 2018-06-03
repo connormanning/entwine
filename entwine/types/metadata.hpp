@@ -110,6 +110,7 @@ public:
     uint64_t sharedDepth() const { return m_sharedDepth; }
     uint64_t overflowDepth() const { return m_overflowDepth; }
     uint64_t overflowThreshold() const { return m_overflowThreshold; }
+    uint64_t hierarchyStep() const { return m_hierarchyStep; }
 
     void makeWhole();
 
@@ -154,6 +155,8 @@ private:
 
     const uint64_t m_overflowDepth;
     const uint64_t m_overflowThreshold;
+
+    const uint64_t m_hierarchyStep;
 };
 
 } // namespace entwine

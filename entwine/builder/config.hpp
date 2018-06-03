@@ -62,6 +62,7 @@ public:
         json["ticks"] = 256;
         json["overflowDepth"] = 6;
         json["overflowRatio"] = 0.5;
+        json["hierarchyStep"] = 6;
 
         return json;
     }
@@ -143,6 +144,10 @@ public:
         {
             return ticks() * ticks() * m_json["overflowRatio"].asDouble();
         }
+    }
+    uint64_t hierarchyStep() const
+    {
+        return m_json["hierarchyStep"].asUInt64();
     }
 
     std::string srs() const { return m_json["srs"].asString(); }

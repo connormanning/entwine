@@ -374,6 +374,14 @@ void App::build(std::vector<std::string> args)
             }
             else error("Invalid dataType");
         }
+        else if (arg == "--hierarchyStep")
+        {
+            if (++a < args.size())
+            {
+                json["hierarchyStep"] = parse(args[a]);
+            }
+            else error("Invalid hierarchyStep");
+        }
         else if (arg == "--withOriginId")
         {
             allowOriginId = true;
@@ -474,6 +482,7 @@ void App::build(std::vector<std::string> args)
         "\tPath: " << outPath << "\n" <<
         "\tData type: " << metadata.dataIo().type() << "\n" <<
         "\tHierarchy type: " << "json" << "\n" <<
+        "\tHierarchy step: " << metadata.hierarchyStep() << "\n" <<
         "\tSleep count: " << builder->sleepCount() <<
         std::endl;
 

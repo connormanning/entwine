@@ -413,6 +413,11 @@ void Builder::prepareEndpoints()
             {
                 throw std::runtime_error("Couldn't create " + rootDir);
             }
+
+            if (!arbiter::fs::mkdirp(rootDir + "h"))
+            {
+                throw std::runtime_error("Couldn't create hierarchy directory");
+            }
         }
     }
 }

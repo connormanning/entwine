@@ -36,17 +36,13 @@ Registry::Registry(
     , m_tmp(tmp)
     , m_pointPool(pointPool)
     , m_threadPool(threadPool)
-    , m_hierarchy(exists ?
-            parse(m_out.get(
-                    "entwine-hierarchy" + m_metadata.postfix() + ".json")) :
-            Json::Value())
+    , m_hierarchy(m_metadata, out, exists)
     , m_root(ChunkKey(metadata), out, tmp, pointPool, m_hierarchy)
 { }
 
 void Registry::save(const arbiter::Endpoint& endpoint) const
 {
-    const std::string f("entwine-hierarchy" + m_metadata.postfix() + ".json");
-    ensurePut(endpoint, f, m_hierarchy.toJson().toStyledString());
+    m_hierarchy.save(m_metadata, endpoint);
 }
 
 void Registry::merge(const Registry& other, Clipper& clipper)

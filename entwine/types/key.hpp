@@ -89,6 +89,7 @@ struct Dxyz
     }
 
     std::string toString() const { return p.toString(d); }
+    uint64_t depth() const { return d; }
 
     Xyz p;
 
@@ -190,6 +191,7 @@ struct ChunkKey
     std::string toString() const { return position().toString(d); }
 
     Dxyz get() const { return Dxyz(d, k.p); }
+    Dxyz dxyz() const { return get(); }
 
     const Metadata& metadata() const { return k.metadata(); }
     const Xyz& position() const { return k.position(); }

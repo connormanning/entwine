@@ -13,14 +13,20 @@
 #include <map>
 #include <mutex>
 
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/key.hpp>
 
 namespace entwine
 {
 
+class Metadata;
+
 class Hierarchy
 {
 public:
+    using Map = std::map<Dxyz, uint64_t>;
+    const Map& map() const { return m_map; }
+
     Hierarchy() { }
     Hierarchy(const Json::Value& json)
     {
@@ -29,6 +35,11 @@ public:
             m_map[Dxyz(key)] = json[key].asUInt64();
         }
     }
+
+    Hierarchy(
+            const Metadata& metadata,
+            const arbiter::Endpoint& top,
+            bool exists);
 
     void set(const Dxyz& key, uint64_t val)
     {
@@ -56,10 +67,32 @@ public:
         return json;
     }
 
-    using Map = std::map<Dxyz, uint64_t>;
-    const Map& map() const { return m_map; }
+    void save(
+            const Metadata& metadata,
+            const arbiter::Endpoint& top) const;
 
 private:
+    std::string filename(const Metadata& m, const Dxyz& dxyz) const
+    {
+        return dxyz.toString() + m.postfix() + ".json";
+    }
+
+    std::string filename(const Metadata& m, const ChunkKey& k) const
+    {
+        return filename(m, k.dxyz());
+    }
+
+    void load(
+            const Metadata& metadata,
+            const arbiter::Endpoint& endpoint,
+            const Dxyz& key = Dxyz());
+
+    void save(
+            const Metadata& metadata,
+            const arbiter::Endpoint& endpoint,
+            const ChunkKey& key,
+            Json::Value& json) const;
+
     mutable std::mutex m_mutex;
     Map m_map;
 };
