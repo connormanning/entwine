@@ -6,16 +6,11 @@ RUN \
         /etc/apk/repositories; \
     apk update; \
     apk add --no-cache \
+        bash \
         xz-libs \
         cmake \
         libunwind \
         libexecinfo \
-    ;
-
-ADD https://www.random.org/cgi-bin/randbyte?nbytes=64&format=h /var/cache.txt
-
-RUN \
-    apk add --no-cache --virtual .build-deps \
         xz-dev \
         alpine-sdk \
         git \
@@ -35,8 +30,7 @@ RUN \
         -DCMAKE_INSTALL_PREFIX=/usr \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo .. ; \
     make -j4; \
-    make install; \
-    apk del .build-deps
+    make install;
 
 ENTRYPOINT ["entwine"]
 
