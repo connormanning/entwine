@@ -7,6 +7,7 @@ mkdir -p _build || exit 1
 cd _build || exit 1
 
 cmake \
+    -g "Unix Makefiles" \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DCMAKE_INSTALL_PREFIX=/usr \
     ..
