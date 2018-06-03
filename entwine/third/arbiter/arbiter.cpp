@@ -875,10 +875,13 @@ const drivers::Http& Endpoint::getHttpDriver() const
 #include <glob.h>
 #include <sys/stat.h>
 #else
-
+#define UNICODE
+#include <Shlwapi.h>
+#include <iterator>
 #include <locale>
 #include <codecvt>
 #include <windows.h>
+#include <direct.h>
 #endif
 
 #include <algorithm>
@@ -1024,7 +1027,6 @@ namespace fs
 
 bool mkdirp(std::string raw)
 {
-#ifndef ARBITER_WINDOWS
     const std::string dir(([&raw]()
     {
         std::string s(expandTilde(raw));
@@ -1049,27 +1051,29 @@ bool mkdirp(std::string raw)
         it = std::find_if(++it, end, util::isSlash);
 
         const std::string cur(dir.begin(), it);
+#ifndef ARBITER_WINDOWS
         const bool err(::mkdir(cur.c_str(), S_IRWXU | S_IRGRP | S_IROTH));
         if (err && errno != EEXIST) return false;
+#else
+        // Use CreateDirectory instead of _mkdir; it is more reliable when creating directories on a drive other than the working path.
+
+        std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+		const std::wstring wide(converter.from_bytes(cur));
+		const bool err(::CreateDirectoryW(wide.c_str(), NULL));
+        if (err && ::GetLastError() != ERROR_ALREADY_EXISTS) return false;
+#endif
     }
     while (it != end);
 
     return true;
 
-#else
-    throw ArbiterError("Windows mkdirp not done yet.");
-#endif
 }
 
 bool remove(std::string filename)
 {
     filename = expandTilde(filename);
 
-#ifndef ARBITER_WINDOWS
     return ::remove(filename.c_str()) == 0;
-#else
-    throw ArbiterError("Windows remove not done yet.");
-#endif
 }
 
 namespace
@@ -1080,6 +1084,31 @@ namespace
         std::vector<std::string> dirs;
     };
 
+template<typename C>
+	std::basic_string<C> remove_dups(std::basic_string<C> s, C c)
+	{
+		C cc[3] = { c, c };
+		auto pos = s.find(cc);
+		while (pos != s.npos) {
+			s.erase(pos, 1);
+			pos = s.find(cc, pos + 1);
+		}
+		return s;
+	}
+    
+	bool icase_wchar_cmp(wchar_t a, wchar_t b)
+	{
+		return std::toupper(a, std::locale()) == std::toupper(b, std::locale());
+	}
+
+
+	bool icase_cmp(std::wstring const& s1, std::wstring const& s2)
+	{
+		return (s1.size() == s2.size()) &&
+			std::equal(s1.begin(), s1.end(), s2.begin(),
+				icase_wchar_cmp);
+	}
+    
     Globs globOne(std::string path)
     {
         Globs results;
@@ -1107,28 +1136,54 @@ namespace
 
         globfree(&buffer);
 #else
-        std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-        const std::wstring wide(converter.from_bytes(path));
+		std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
+		std::wstring wide(converter.from_bytes(path));
 
-        LPWIN32_FIND_DATAW data{};
-        HANDLE hFind(FindFirstFileW(wide.c_str(), data));
+		WIN32_FIND_DATAW data{};
+		LPCWSTR fname = wide.c_str();
+        HANDLE hFind(INVALID_HANDLE_VALUE);
+		hFind = FindFirstFileW(fname, &data);
 
-        if (hFind != INVALID_HANDLE_VALUE)
+		if (hFind == (HANDLE)-1) return results; // bad filename
+
+        if (hFind != INVALID_HANDLE_VALUE )
         {
             do
             {
-                if ((data->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+				if (icase_cmp(std::wstring(data.cFileName), L".") ||
+					icase_cmp(std::wstring(data.cFileName), L".."))
+					continue;
+   
+				std::vector<wchar_t> buf(MAX_PATH);
+				wide.erase(std::remove(wide.begin(), wide.end(), '*'), wide.end());
+
+				std::replace(wide.begin(), wide.end(), '\\', '/');
+
+				std::copy(wide.begin(), wide.end(), buf.begin()	);	
+                BOOL appended = PathAppendW(buf.data(), data.cFileName);
+
+				std::wstring output(buf.data(), wcslen( buf.data()));
+                
+                // Erase any \'s
+                output.erase(std::remove(output.begin(), output.end(), '\\'), output.end());
+
+                if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
                 {
-                    results.files.push_back(
-                            converter.to_bytes(data->cFileName));
+                    results.dirs.push_back(converter.to_bytes(output));
+
+                    output.append(L"/*");
+                    Globs more = globOne(converter.to_bytes(output));
+                    std::copy(more.dirs.begin(), more.dirs.end(), std::back_inserter(results.dirs));
+                    std::copy(more.files.begin(), more.files.end(), std::back_inserter(results.files));
+
                 }
-                else
-                {
-                    results.dirs.push_back(converter.to_bytes(data->cFileName));
-                }
+
+				results.files.push_back(
+					converter.to_bytes(output));
             }
-            while (FindNextFileW(hFind, data));
+            while (FindNextFileW(hFind, &data));
         }
+		FindClose(hFind);
 #endif
 
         return results;
@@ -1963,6 +2018,11 @@ void S3::put(
     Headers headers(m_config->baseHeaders());
     headers.insert(userHeaders.begin(), userHeaders.end());
 
+    if (Arbiter::getExtension(rawPath) == "json")
+    {
+        headers["Content-Type"] = "application/json";
+    }
+
     const ApiV4 apiV4(
             "PUT",
             m_config->region(),
@@ -2123,7 +2183,10 @@ S3::ApiV4::ApiV4(
 
     if (verb == "PUT" || verb == "POST")
     {
-        m_headers["Content-Type"] = "application/octet-stream";
+        if (!m_headers.count("Content-Type"))
+        {
+            m_headers["Content-Type"] = "application/octet-stream";
+        }
         m_headers["Transfer-Encoding"] = "";
         m_headers["Expect"] = "";
     }
@@ -3238,7 +3301,7 @@ Curl::Curl(const Json::Value& json)
         {
             if (h.isMember("timeout"))
             {
-                m_timeout = h["timeout"].asUInt64();
+                m_timeout = long(h["timeout"].asUInt64());
             }
 
             if (h.isMember("followRedirect"))
@@ -4463,22 +4526,7 @@ namespace
         std::time_t now(std::time(nullptr));
         std::tm utc(*std::gmtime(&now));
         std::tm loc(*std::localtime(&now));
-        return std::difftime(std::mktime(&utc), std::mktime(&loc));
-    }
-
-    std::tm getTm()
-    {
-        std::tm tm;
-        tm.tm_sec = 0;
-        tm.tm_min = 0;
-        tm.tm_hour = 0;
-        tm.tm_mday = 0;
-        tm.tm_mon = 0;
-        tm.tm_year = 0;
-        tm.tm_wday = 0;
-        tm.tm_yday = 0;
-        tm.tm_isdst = 0;
-        return tm;
+        return (int64_t)std::difftime(std::mktime(&utc), std::mktime(&loc));
     }
 }
 
@@ -4495,7 +4543,8 @@ Time::Time(const std::string& s, const std::string& format)
 {
     static const int64_t utcOffset(utcOffsetSeconds());
 
-    auto tm(getTm());
+    std::tm tm{};
+
 #ifndef ARBITER_WINDOWS
     // We'd prefer to use get_time, but it has poor compiler support.
     if (!strptime(s.c_str(), format.c_str(), &tm))
@@ -4510,7 +4559,9 @@ Time::Time(const std::string& s, const std::string& format)
         throw ArbiterError("Failed to parse " + s + " as time: " + format);
     }
 #endif
-    tm.tm_sec -= utcOffset;
+    if (utcOffset > std::numeric_limits<int>::max())
+        throw ArbiterError("Can't convert offset time in seconds to tm type.");
+    tm.tm_sec -= (int)utcOffset;
     m_time = std::mktime(&tm);
 }
 
@@ -4535,7 +4586,7 @@ std::string Time::str(const std::string& format) const
 
 int64_t Time::operator-(const Time& other) const
 {
-    return std::difftime(m_time, other.m_time);
+    return (int64_t)std::difftime(m_time, other.m_time);
 }
 
 int64_t Time::asUnix() const
@@ -4607,8 +4658,12 @@ std::string getBasename(const std::string fullPath)
     const std::string stripped(stripPostfixing(Arbiter::stripType(fullPath)));
 
     // Now do the real slash searching.
-    const std::size_t pos(stripped.rfind('/'));
-
+    std::size_t pos(stripped.rfind('/'));
+    
+    // Maybe windows
+    if (pos == std::string::npos) 
+        pos = stripped.rfind('\\');
+    
     if (pos != std::string::npos)
     {
         const std::string sub(stripped.substr(pos + 1));
