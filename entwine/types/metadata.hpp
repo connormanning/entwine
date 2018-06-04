@@ -52,7 +52,6 @@ public:
     void merge(const Metadata& other);
     void save(const arbiter::Endpoint& endpoint) const;
 
-public:
     // Native bounds - no scale/offset applied.
     const Bounds& boundsNativeConforming() const
     {
@@ -117,10 +116,10 @@ public:
     std::string postfix() const;
     std::string postfix(uint64_t depth) const;
 
-private:
     Json::Value toJson() const;
     Json::Value toBuildParamsJson() const;
 
+private:
     Metadata& operator=(const Metadata& other);
 
     Bounds makeNativeConformingBounds(const Bounds& b) const;

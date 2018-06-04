@@ -42,7 +42,10 @@ void Hierarchy::load(
 
         m_map[k] = json[s].asUInt64();
 
-        if (k.depth() > root.depth() && (k.depth() % m.hierarchyStep() == 0))
+        if (
+                (m.hierarchyStep()) &&
+                (k.depth() > root.depth()) &&
+                (k.depth() % m.hierarchyStep() == 0))
         {
             load(m, ep, k);
         }
@@ -69,10 +72,11 @@ void Hierarchy::save(
     const uint64_t n(get(k.dxyz()));
     if (!n) return;
 
-    if (k.depth() && (k.depth() % m.hierarchyStep() == 0))
+    curr[k.toString()] = static_cast<Json::UInt64>(n);
+
+    if (m.hierarchyStep() && k.depth() && (k.depth() % m.hierarchyStep() == 0))
     {
         Json::Value next;
-        curr[k.toString()] = static_cast<Json::UInt64>(n);
         next[k.toString()] = static_cast<Json::UInt64>(n);
 
         for (uint64_t dir(0); dir < 8; ++dir)
@@ -84,8 +88,6 @@ void Hierarchy::save(
     }
     else
     {
-        curr[k.toString()] = static_cast<Json::UInt64>(n);
-
         for (uint64_t dir(0); dir < 8; ++dir)
         {
             save(m, ep, k.getStep(toDir(dir)), curr);
