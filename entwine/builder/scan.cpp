@@ -75,7 +75,9 @@ Config Scan::go()
 
         std::cout << std::endl;
         std::cout << "Writing details to " << path << "...";
-        arbiter.put(path, out.json().toStyledString());
+        arbiter.put(path,
+                m_fileInfo.size() <= 100 ?
+                    out.json().toStyledString() : toFastString(out.json()));
         std::cout << " written." << std::endl;
     }
 
@@ -117,7 +119,7 @@ void Scan::add(FileInfo& f, const std::string localPath)
     if (auto preview = Executor::get().preview(localPath, m_re.get()))
     {
         f.numPoints(preview->numPoints);
-        f.metadata(preview->metadata);
+        // f.metadata(preview->metadata);
         f.srs(preview->srs);
         if (!preview->numPoints) return;
 
