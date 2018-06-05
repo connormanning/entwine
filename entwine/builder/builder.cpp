@@ -381,6 +381,7 @@ void Builder::save(const arbiter::Endpoint& ep)
 
     const auto& h(m_registry->hierarchy());
     if (
+            !m_metadata->subset() &&
             !m_metadata->hierarchyStep() &&
             h.map().size() > heuristics::maxHierarchyNodesPerFile)
     {
