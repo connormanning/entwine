@@ -80,7 +80,6 @@ public:
         Analysis(const Map& hierarchy, const Map& analyzed, uint64_t step);
 
         uint64_t step = 0;
-        uint64_t idealNodes = 0;
         uint64_t totalFiles = 0;
         uint64_t totalNodes = 0;
         uint64_t maxNodesPerFile = 0;

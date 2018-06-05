@@ -95,34 +95,6 @@ void Hierarchy::save(
     }
 }
 
-Hierarchy::Analysis::Analysis(
-        const Hierarchy::Map& hierarchy,
-        const Hierarchy::Map& analyzed,
-        uint64_t step)
-    : step(step)
-    , idealNodes(hierarchy.size())
-    , totalFiles(analyzed.size())
-{
-    for (const auto& p : analyzed)
-    {
-        const uint64_t n(p.second);
-        totalNodes += n;
-        maxNodesPerFile = std::max(maxNodesPerFile, n);
-    }
-
-    mean = (double)totalNodes / analyzed.size();
-
-    double ss(0);
-    for (const auto& p : analyzed)
-    {
-        const double n(p.second);
-        ss += std::pow(n - mean, 2.0);
-    }
-
-    stddev = std::sqrt(ss / ((double)totalNodes - 1.0));
-    rsd = stddev / mean;
-}
-
 Hierarchy::AnalysisSet Hierarchy::analyze(const Metadata& m) const
 {
     AnalysisSet result;
@@ -138,34 +110,6 @@ Hierarchy::AnalysisSet Hierarchy::analyze(const Metadata& m) const
     }
 
     return result;
-}
-
-void Hierarchy::Analysis::summarize() const
-{
-    std::cout <<
-        "HS" << step <<
-        " I: " << idealNodes <<
-        " T: " << totalNodes <<
-        " F: " << totalFiles <<
-        " S: " << maxNodesPerFile <<
-        " M: " << mean <<
-        " D: " << stddev <<
-        " R: " << rsd <<
-        std::endl;
-}
-
-bool Hierarchy::Analysis::operator<(const Hierarchy::Analysis& b) const
-{
-    const Hierarchy::Analysis& a(*this);
-
-    if (a.fits() && !b.fits()) return true;
-    if (b.fits() && !a.fits()) return false;
-
-    if (a.rsd < b.rsd / 5.0) return true;
-    if (b.rsd < a.rsd / 5.0) return false;
-
-    // Prefer the higher step if their RSDs are close enough.
-    return a.step > b.step;
 }
 
 void Hierarchy::analyze(
@@ -197,6 +141,60 @@ void Hierarchy::analyze(
             analyze(m, step, k.getStep(toDir(dir)), curr, map);
         }
     }
+}
+
+Hierarchy::Analysis::Analysis(
+        const Hierarchy::Map& hierarchy,
+        const Hierarchy::Map& analyzed,
+        uint64_t step)
+    : step(step)
+    , totalFiles(analyzed.size())
+{
+    for (const auto& p : analyzed)
+    {
+        const uint64_t n(p.second);
+        totalNodes += n;
+        maxNodesPerFile = std::max(maxNodesPerFile, n);
+    }
+
+    mean = (double)totalNodes / analyzed.size();
+
+    double ss(0);
+    for (const auto& p : analyzed)
+    {
+        const double n(p.second);
+        ss += std::pow(n - mean, 2.0);
+    }
+
+    stddev = std::sqrt(ss / ((double)totalNodes - 1.0));
+    rsd = stddev / mean;
+}
+
+bool Hierarchy::Analysis::operator<(const Hierarchy::Analysis& b) const
+{
+    const Hierarchy::Analysis& a(*this);
+
+    if (a.fits() && !b.fits()) return true;
+    if (b.fits() && !a.fits()) return false;
+
+    if (a.rsd < b.rsd / 5.0) return true;
+    if (b.rsd < a.rsd / 5.0) return false;
+
+    // Prefer the higher step if their RSDs are close enough.
+    return a.step > b.step;
+}
+
+void Hierarchy::Analysis::summarize() const
+{
+    std::cout <<
+        "HS" << step <<
+        " T: " << totalNodes <<
+        " F: " << totalFiles <<
+        " X: " << maxNodesPerFile <<
+        " M: " << mean <<
+        " D: " << stddev <<
+        " R: " << rsd <<
+        std::endl;
 }
 
 } // namespace entwine
