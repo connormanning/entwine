@@ -110,7 +110,7 @@ bool Sequence::checkBounds(
     }
     else if (const Subset* subset = m_metadata.subset())
     {
-        if (!subset->boundsNative().overlaps(bounds)) return false;
+        if (!subset->boundsNative().overlaps(bounds, true)) return false;
     }
 
     return true;
