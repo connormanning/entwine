@@ -95,5 +95,109 @@ void Hierarchy::save(
     }
 }
 
+Hierarchy::Analysis::Analysis(
+        const Hierarchy::Map& hierarchy,
+        const Hierarchy::Map& analyzed,
+        uint64_t step)
+    : step(step)
+    , idealNodes(hierarchy.size())
+    , totalFiles(analyzed.size())
+{
+    for (const auto& p : analyzed)
+    {
+        const uint64_t n(p.second);
+        totalNodes += n;
+        maxNodesPerFile = std::max(maxNodesPerFile, n);
+    }
+
+    mean = (double)totalNodes / analyzed.size();
+
+    double ss(0);
+    for (const auto& p : analyzed)
+    {
+        const double n(p.second);
+        ss += std::pow(n - mean, 2.0);
+    }
+
+    stddev = std::sqrt(ss / ((double)totalNodes - 1.0));
+    rsd = stddev / mean;
+}
+
+Hierarchy::AnalysisSet Hierarchy::analyze(const Metadata& m) const
+{
+    AnalysisSet result;
+    std::vector<uint64_t> steps{ 5, 6, 8, 10 };
+    for (const uint64_t step : steps)
+    {
+        Map analyzed;
+        const ChunkKey k(m);
+        analyzed[k.dxyz()] = 1;
+        analyze(m, step, k, k.dxyz(), analyzed);
+
+        result.emplace(m_map, analyzed, step);
+    }
+
+    return result;
+}
+
+void Hierarchy::Analysis::summarize() const
+{
+    std::cout <<
+        "HS" << step <<
+        " I: " << idealNodes <<
+        " T: " << totalNodes <<
+        " F: " << totalFiles <<
+        " S: " << maxNodesPerFile <<
+        " M: " << mean <<
+        " D: " << stddev <<
+        " R: " << rsd <<
+        std::endl;
+}
+
+bool Hierarchy::Analysis::operator<(const Hierarchy::Analysis& b) const
+{
+    const Hierarchy::Analysis& a(*this);
+
+    if (a.fits() && !b.fits()) return true;
+    if (b.fits() && !a.fits()) return false;
+
+    if (a.rsd < b.rsd / 5.0) return true;
+    if (b.rsd < a.rsd / 5.0) return false;
+
+    // Prefer the higher step if their RSDs are close enough.
+    return a.step > b.step;
+}
+
+void Hierarchy::analyze(
+    const Metadata& m,
+    const uint64_t step,
+    const ChunkKey& k,
+    const Dxyz& curr,
+    Hierarchy::Map& map) const
+{
+    const uint64_t n(get(k.dxyz()));
+    if (!n) return;
+
+    ++map[curr];
+
+    if (step && k.depth() && (k.depth() % step == 0))
+    {
+        const Dxyz next(k.dxyz());
+        map[next] = 1;
+
+        for (uint64_t dir(0); dir < 8; ++dir)
+        {
+            analyze(m, step, k.getStep(toDir(dir)), next, map);
+        }
+    }
+    else
+    {
+        for (uint64_t dir(0); dir < 8; ++dir)
+        {
+            analyze(m, step, k.getStep(toDir(dir)), curr, map);
+        }
+    }
+}
+
 } // namespace entwine
 

@@ -121,6 +121,7 @@ public:
 
 private:
     Metadata& operator=(const Metadata& other);
+    void setHierarchyStep(uint64_t v) { m_hierarchyStep = v; }
 
     Bounds makeNativeConformingBounds(const Bounds& b) const;
     Bounds makeNativeCube(const Bounds& b, const Delta& d) const;
@@ -155,7 +156,7 @@ private:
     const uint64_t m_overflowDepth;
     const uint64_t m_overflowThreshold;
 
-    const uint64_t m_hierarchyStep;
+    uint64_t m_hierarchyStep;
 };
 
 } // namespace entwine

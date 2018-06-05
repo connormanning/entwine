@@ -12,7 +12,9 @@
 
 #include <map>
 #include <mutex>
+#include <set>
 
+#include <entwine/builder/heuristics.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/key.hpp>
 
@@ -25,7 +27,6 @@ class Hierarchy
 {
 public:
     using Map = std::map<Dxyz, uint64_t>;
-    const Map& map() const { return m_map; }
 
     Hierarchy() { }
     Hierarchy(const Json::Value& json)
@@ -67,9 +68,35 @@ public:
         return json;
     }
 
+    const Map& map() const { return m_map; }
+
     void save(
             const Metadata& metadata,
             const arbiter::Endpoint& top) const;
+
+    struct Analysis
+    {
+        Analysis() { }
+        Analysis(const Map& hierarchy, const Map& analyzed, uint64_t step);
+
+        uint64_t step = 0;
+        uint64_t idealNodes = 0;
+        uint64_t totalFiles = 0;
+        uint64_t totalNodes = 0;
+        uint64_t maxNodesPerFile = 0;
+        double mean = 0;
+        double stddev = 0;
+        double rsd = 0;
+
+        bool fits() const { return maxNodesPerFile <= 65536; }
+
+        void summarize() const;
+        bool operator<(const Analysis& b) const;
+    };
+
+    using AnalysisSet = std::set<Analysis>;
+
+    AnalysisSet analyze(const Metadata& m) const;
 
 private:
     std::string filename(const Metadata& m, const Dxyz& dxyz) const
@@ -92,6 +119,13 @@ private:
             const arbiter::Endpoint& endpoint,
             const ChunkKey& key,
             Json::Value& json) const;
+
+    void analyze(
+            const Metadata& m,
+            uint64_t step,
+            const ChunkKey& key,
+            const Dxyz& curr,
+            Map& map) const;
 
     mutable std::mutex m_mutex;
     Map m_map;

@@ -102,7 +102,7 @@ Json::Value Metadata::toJson() const
 
     json["dataType"] = m_dataIo->type();
     json["hierarchyType"] = "json"; // TODO.
-    json["hierarchyStep"] = (Json::UInt64)m_hierarchyStep;
+    if (m_hierarchyStep) json["hierarchyStep"] = (Json::UInt64)m_hierarchyStep;
 
     return json;
 }

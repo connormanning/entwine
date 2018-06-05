@@ -477,12 +477,13 @@ void App::build(std::vector<std::string> args)
             threadPools.clipPool().numThreads() << "]" <<
         std::endl;
 
+    const auto hs(metadata.hierarchyStep());
     std::cout <<
         "Output:\n" <<
         "\tPath: " << outPath << "\n" <<
         "\tData type: " << metadata.dataIo().type() << "\n" <<
         "\tHierarchy type: " << "json" << "\n" <<
-        "\tHierarchy step: " << metadata.hierarchyStep() << "\n" <<
+        "\tHierarchy step: " << (hs ? std::to_string(hs) : "auto") << "\n" <<
         "\tSleep count: " << builder->sleepCount() <<
         std::endl;
 
