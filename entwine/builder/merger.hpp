@@ -8,12 +8,14 @@
 *
 ******************************************************************************/
 
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include <entwine/builder/config.hpp>
 #include <entwine/types/outer-scope.hpp>
+#include <entwine/util/pool.hpp>
 
 namespace Json { class Value; }
 
@@ -32,17 +34,20 @@ public:
 
     void go();
 
-    std::size_t id() const { return m_id; }
-    std::size_t of() const { return m_of; }
+    uint64_t id() const { return m_id; }
+    uint64_t of() const { return m_of; }
 
 private:
     const Config m_config;
     std::unique_ptr<Builder> m_builder;
     OuterScope m_outerScope;
 
-    std::size_t m_id = 1;
-    std::size_t m_of = 0;
+    uint64_t m_id = 1;
+    uint64_t m_of = 0;
     bool m_verbose;
+
+    uint64_t m_threads;
+    Pool m_pool;
 };
 
 } // namespace entwine

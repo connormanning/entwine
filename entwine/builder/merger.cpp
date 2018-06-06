@@ -8,9 +8,12 @@
 *
 ******************************************************************************/
 
+#include <entwine/builder/merger.hpp>
+
+#include <cassert>
+
 #include <entwine/builder/builder.hpp>
 #include <entwine/builder/clipper.hpp>
-#include <entwine/builder/merger.hpp>
 #include <entwine/builder/thread-pools.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/subset.hpp>
@@ -21,8 +24,10 @@ namespace entwine
 {
 
 Merger::Merger(const Config& config)
-    : m_config(config)
-    , m_verbose(config.verbose())
+    : m_config(merge(Config::defaults(), config.json()))
+    , m_verbose(m_config.verbose())
+    , m_threads(m_config.totalThreads())
+    , m_pool(m_threads)
 {
     m_outerScope.setArbiter(
             std::make_shared<arbiter::Arbiter>(config["arbiter"]));
@@ -57,18 +62,61 @@ Merger::~Merger() { }
 void Merger::go()
 {
     auto clipper(makeUnique<Clipper>(m_builder->registry()));
-    for (m_id = 2; m_id <= m_of; ++m_id)
+
+    m_id = 2;
+    while (m_id <= m_of)
     {
+        // One-based.
+        const uint64_t n(std::min<uint64_t>(m_threads, m_of - m_id + 1));
+        assert(m_id + n <= m_of + 1);
+
+        std::vector<std::unique_ptr<Builder>> v(n);
+
+        for (uint64_t i(0); i < n; ++i)
+        {
+            assert(m_id + i <= m_of);
+            Config current(m_config);
+            current["subset"]["id"] = Json::UInt64(m_id + i);
+            current["subset"]["of"] = Json::UInt64(m_of);
+            current["threads"] = 1;
+
+            m_pool.add([this, &v, current, i]()
+            {
+                try
+                {
+                    v[i] = makeUnique<Builder>(current, m_outerScope);
+                }
+                catch (std::exception& e)
+                {
+                    std::cout << "Failed create " << i << ": " <<
+                        e.what() << std::endl;
+                }
+                catch (...)
+                {
+                    std::cout << "Failed create " << i << ": " <<
+                        "unknown error" << std::endl;
+                }
+            });
+        }
+
+        m_pool.cycle();
+
         if (m_verbose)
         {
             std::cout << "Merging " << m_id << " / " << m_of << std::endl;
         }
 
-        Config current(m_config);
-        current["subset"]["id"] = Json::UInt64(m_id);
-        current["subset"]["of"] = Json::UInt64(m_of);
-        Builder b(current, m_outerScope);
-        m_builder->merge(b, *clipper);
+        for (uint64_t i(0); i < v.size(); ++i)
+        {
+            if (!v.at(i) || !v.at(i)->isContinuation())
+            {
+                throw std::runtime_error("A subset could not be created");
+            }
+
+            m_builder->merge(*v.at(i), *clipper);
+        }
+
+        m_id += n;
     }
 
     m_builder->makeWhole();

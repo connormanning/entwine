@@ -17,6 +17,7 @@
 #include <entwine/builder/heuristics.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/key.hpp>
+#include <entwine/util/pool.hpp>
 
 namespace entwine
 {
@@ -72,7 +73,8 @@ public:
 
     void save(
             const Metadata& metadata,
-            const arbiter::Endpoint& top) const;
+            const arbiter::Endpoint& top,
+            Pool& pool) const;
 
     struct Analysis
     {
@@ -116,6 +118,7 @@ private:
     void save(
             const Metadata& metadata,
             const arbiter::Endpoint& endpoint,
+            Pool& pool,
             const ChunkKey& key,
             Json::Value& json) const;
 

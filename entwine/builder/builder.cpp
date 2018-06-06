@@ -70,7 +70,7 @@ Builder::Builder(const Config& config, OuterScope os)
                 *m_out,
                 *m_tmp,
                 *m_pointPool,
-                m_threadPools->clipPool(),
+                *m_threadPools,
                 m_isContinuation))
     , m_sequence(makeUnique<Sequence>(*m_metadata, m_mutex))
     , m_start(now())
@@ -375,7 +375,9 @@ void Builder::save(const std::string to)
 
 void Builder::save(const arbiter::Endpoint& ep)
 {
-    m_threadPools->cycle();
+    m_threadPools->join();
+    m_threadPools->workPool().resize(m_threadPools->size());
+    m_threadPools->go();
 
     std::cout << "Reawakened: " << reawakened << std::endl;
 

@@ -12,6 +12,7 @@
 
 #include <entwine/io/ensure.hpp>
 #include <entwine/types/metadata.hpp>
+#include <entwine/util/json.hpp>
 
 namespace entwine
 {
@@ -52,20 +53,27 @@ void Hierarchy::load(
     }
 }
 
-void Hierarchy::save(const Metadata& m, const arbiter::Endpoint& top) const
+void Hierarchy::save(
+        const Metadata& m,
+        const arbiter::Endpoint& top,
+        Pool& pool) const
 {
     const arbiter::Endpoint ep(top.getSubEndpoint("h"));
 
     Json::Value json;
     const ChunkKey k(m);
-    save(m, ep, k, json);
+    save(m, ep, pool, k, json);
 
-    ensurePut(ep, filename(m, k), json.toStyledString());
+    const std::string f(filename(m, k));
+    pool.add([&ep, f, json]() { ensurePut(ep, f, json.toStyledString()); });
+
+    pool.cycle();
 }
 
 void Hierarchy::save(
         const Metadata& m,
         const arbiter::Endpoint& ep,
+        Pool& pool,
         const ChunkKey& k,
         Json::Value& curr) const
 {
@@ -81,16 +89,17 @@ void Hierarchy::save(
 
         for (uint64_t dir(0); dir < 8; ++dir)
         {
-            save(m, ep, k.getStep(toDir(dir)), next);
+            save(m, ep, pool, k.getStep(toDir(dir)), next);
         }
 
-        ensurePut(ep, filename(m, k), next.toStyledString());
+        const std::string f(filename(m, k));
+        pool.add([&ep, f, next]() { ensurePut(ep, f, toFastString(next)); });
     }
     else
     {
         for (uint64_t dir(0); dir < 8; ++dir)
         {
-            save(m, ep, k.getStep(toDir(dir)), curr);
+            save(m, ep, pool, k.getStep(toDir(dir)), curr);
         }
     }
 }

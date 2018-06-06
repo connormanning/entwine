@@ -21,6 +21,7 @@
 #include <entwine/builder/chunk.hpp>
 #include <entwine/builder/clipper.hpp>
 #include <entwine/builder/hierarchy.hpp>
+#include <entwine/builder/thread-pools.hpp>
 #include <entwine/types/key.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/tube.hpp>
@@ -45,7 +46,7 @@ public:
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
             PointPool& pointPool,
-            Pool& threadPool,
+            ThreadPools& threadPools,
             bool exists = false);
 
     void save(const arbiter::Endpoint& endpoint) const;
@@ -66,7 +67,8 @@ public:
 
     void purge() { m_root.empty(); }
 
-    Pool& clipPool() { return m_threadPool; }
+    Pool& workPool() { return m_threadPools.workPool(); }
+    Pool& clipPool() { return m_threadPools.clipPool(); }
 
     const Metadata& metadata() const { return m_metadata; }
     const Hierarchy& hierarchy() const { return m_hierarchy; }
@@ -76,7 +78,7 @@ private:
     const arbiter::Endpoint& m_out;
     const arbiter::Endpoint& m_tmp;
     PointPool& m_pointPool;
-    Pool& m_threadPool;
+    ThreadPools& m_threadPools;
     Hierarchy m_hierarchy;
 
     ReffedChunk m_root;
