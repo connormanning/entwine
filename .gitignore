@@ -14,3 +14,11 @@ test/data/*
 *.vcxproj
 *.vcxproj.filters
 *.sln
+
+# Visual Studio 2015/2017 cache/options directory
+.vs/
+
+# Visual C++ cache files
+ipch/
+
+CMakeSettings.json

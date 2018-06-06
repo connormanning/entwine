@@ -457,6 +457,15 @@ For S3, if `AWSCLI`_ has been installed, then the credentials will be picked up
 from there, making this field unnecessary.  See the S3_ section for more
 information.
 
+
+To update Entwine's arbiter.cpp and arbiter.hpp source files from the Arbiter
+source repository, Arbiter must be amalgamated using the following command:
+
+.. code-block:: shell
+
+	python amalgamate.py -c entwine -j
+
+
 .. _AWSCLI: https://aws.amazon.com/cli/
 
 Storage

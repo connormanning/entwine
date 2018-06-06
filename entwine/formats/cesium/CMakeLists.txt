@@ -3,6 +3,7 @@ set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 set(
     SOURCES
+    "${BASE}/batch-reference.cpp"
     "${BASE}/batch-table.cpp"
     "${BASE}/feature-table.cpp"
     "${BASE}/settings.cpp"
@@ -13,6 +14,7 @@ set(
 
 set(
     HEADERS
+    "${BASE}/batch-reference.hpp"
     "${BASE}/batch-table.hpp"
     "${BASE}/feature-table.hpp"
     "${BASE}/settings.hpp"

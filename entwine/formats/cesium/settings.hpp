@@ -11,6 +11,7 @@
 #pragma once
 
 #include <cstddef>
+#include <string>
 
 #include <json/json.h>
 
@@ -26,7 +27,8 @@ public:
             std::size_t tilesetSplit,
             double geometricErrorDivisor,
             std::string coloring,
-            bool truncate);
+            bool truncate,
+            std::vector<std::string> batchTableDimensions);
 
     Settings(const Json::Value& json);
 
@@ -36,12 +38,14 @@ public:
     double geometricErrorDivisor() const { return m_geometricErrorDivisor; }
     const std::string& coloring() const { return m_coloring; }
     bool truncate() const { return m_truncate; }
+    const std::vector<std::string>& batchTableDimensions() const { return m_batchTableDimensions; }
 
 private:
     std::size_t m_tilesetSplit;
     double m_geometricErrorDivisor;
     std::string m_coloring;
     bool m_truncate;    // If true, color/intensity should be scaled to 8 bits.
+    std::vector<std::string> m_batchTableDimensions;
 };
 
 } // namespace cesium
