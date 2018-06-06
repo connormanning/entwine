@@ -36,19 +36,27 @@ BatchTable::BatchTable(const Metadata& metadata, const TileData& tileData)
     for (const auto& dimName : dimNames)
     {
         DimInfo dimInfo(schema.find(dimName));
-        
+
         // All properties will be scalar for now.
-        m_batchReferences.emplace_back(dimName, byteOffset, BatchReference::findComponentType(dimInfo.type())); 
+        m_batchReferences.emplace_back(
+                dimName,
+                byteOffset,
+                BatchReference::findComponentType(dimInfo.type()));
         const auto& ref = m_batchReferences.back();
 
-        // It is necessary to retrieve the data here for later use; the point table's setPoint method cannot be used during calls to appendBinary.
+        // It is necessary to retrieve the data here for later use; the point
+        // table's setPoint method cannot be used during calls to appendBinary.
         // To this end, allocate space for the data and copy it over.
-        m_data.resize(byteOffset + m_tileData.pointIndices.size() * ref.bytes());
+        m_data.resize(
+                byteOffset + m_tileData.pointIndices.size() * ref.bytes());
 
         for (const auto index : m_tileData.pointIndices)
         {
             m_table.setPoint(index);
-            m_pointRef.getField(m_data.data() + byteOffset, dimInfo.id(), dimInfo.type());
+            m_pointRef.getField(
+                    m_data.data() + byteOffset,
+                    dimInfo.id(),
+                    dimInfo.type());
             byteOffset += ref.bytes();
         }
     }
@@ -57,9 +65,6 @@ BatchTable::BatchTable(const Metadata& metadata, const TileData& tileData)
 Json::Value BatchTable::getJson() const
 {
     Json::Value json;
-
-    const auto& settings = *m_metadata.cesiumSettings();
-    const auto& dims(settings.batchTableDimensions());
 
     for (const auto& ref : m_batchReferences)
     {

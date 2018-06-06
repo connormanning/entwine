@@ -46,11 +46,16 @@ public:
         Vec4,
     };
 
-    BatchReference(std::string propertyName, std::size_t byteOffset, const ComponentType componentType, const Type type = Type::Scalar)
+    BatchReference(
+            std::string propertyName,
+            std::size_t byteOffset,
+            const ComponentType componentType,
+            const Type type = Type::Scalar)
         : m_propertyName(propertyName)
         , m_byteOffset(byteOffset)
         , m_componentType(componentType)
-        , m_type(type) { };
+        , m_type(type)
+    { }
 
     std::string name() const { return m_propertyName; };
     std::size_t byteOffset() const { return m_byteOffset; };
@@ -64,14 +69,8 @@ private:
     const std::size_t m_byteOffset;
     const ComponentType m_componentType;
     const Type m_type;
-
-    // Mappings used for converting between the PDAL dimension type, the batch reference types, and their respective string representation and size.
-    static const std::unordered_map<const pdal::Dimension::Type, const ComponentType> componentTypes;
-    static const std::unordered_map<const ComponentType, const char*> componentTypeNames;
-    static const std::unordered_map<const ComponentType, std::uint8_t> componentTypeSizes;
-    static const std::unordered_map<const Type, const char*> typeNames;
-    static const std::unordered_map<const Type, std::uint8_t> typeSizes;
 };
 
 } // namespace cesium
 } // namespace entwine
+

@@ -40,8 +40,8 @@ private:
     const std::vector<Color>& colors() const;
     const std::vector<Point>& normals() const;
 
-    const TileData& m_tileData;
     const Metadata& m_metadata;
+    const TileData& m_tileData;
     std::vector<BatchReference> m_batchReferences;
     std::vector<char> m_data;
 
