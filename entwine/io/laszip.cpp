@@ -62,7 +62,7 @@ void Laz::write(
     pdal::Options options;
     options.add("filename", localDir + localFile);
     options.add("minor_version", 2);
-    // options.add("extra_dims", "all");
+    options.add("extra_dims", "all");
     options.add("software_id", "Entwine " + currentVersion().toString());
     options.add("compression", "laszip");
     options.add("dataformat_id", timeMask | colorMask);

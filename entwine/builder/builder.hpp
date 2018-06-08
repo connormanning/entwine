@@ -149,7 +149,7 @@ private:
 
     TimePoint m_start;
     TimePoint m_reset;
-    const std::size_t m_resetMinutes = 60;
+    const int m_resetMinutes = 60;
 
     Builder(const Builder&);
     Builder& operator=(const Builder&);
