@@ -118,15 +118,6 @@ private:
     // Returns a stack of rejected info nodes so that they may be reused.
     Cells insertData(Cells cells, Clipper& clipper);
 
-    // Remove resources that are no longer needed.
-    void clip(
-            const Id& index,
-            std::size_t chunkNum,
-            std::size_t id,
-            bool sync = false);
-
-    void clip(uint64_t d, uint64_t x, uint64_t y);
-
     // Validate sources.
     void prepareEndpoints();
 
@@ -157,6 +148,8 @@ private:
     bool m_verbose = true;
 
     TimePoint m_start;
+    TimePoint m_reset;
+    const std::size_t m_resetMinutes = 60;
 
     Builder(const Builder&);
     Builder& operator=(const Builder&);

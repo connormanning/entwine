@@ -74,6 +74,7 @@ Builder::Builder(const Config& config, OuterScope os)
                 m_isContinuation))
     , m_sequence(makeUnique<Sequence>(*m_metadata, m_mutex))
     , m_start(now())
+    , m_reset(now())
 {
     prepareEndpoints();
 }
@@ -83,6 +84,9 @@ Builder::~Builder()
 
 void Builder::go(std::size_t max)
 {
+    m_start = now();
+    m_reset = m_start;
+
     bool done(false);
     const auto& files(m_metadata->files());
 
@@ -157,6 +161,15 @@ void Builder::doRun(const std::size_t max)
 
     while (auto o = m_sequence->next(max))
     {
+        if (since<std::chrono::minutes>(m_reset) >= m_resetMinutes)
+        {
+            std::cout << "\tCycling memory pool" << std::endl;
+            m_threadPools->cycle();
+            m_pointPool->clear();
+            m_reset = now();
+            std::cout << "\tCycled" << std::endl;
+        }
+
         const Origin origin(*o);
         FileInfo& info(m_metadata->mutableFiles().get(origin));
         const auto path(info.path());
@@ -378,6 +391,7 @@ void Builder::save(const arbiter::Endpoint& ep)
     m_threadPools->join();
     m_threadPools->workPool().resize(m_threadPools->size());
     m_threadPools->go();
+    m_pointPool->clear();
 
     std::cout << "Reawakened: " << reawakened << std::endl;
 
@@ -461,14 +475,6 @@ const arbiter::Endpoint& Builder::outEndpoint() const { return *m_out; }
 const arbiter::Endpoint& Builder::tmpEndpoint() const { return *m_tmp; }
 
 std::mutex& Builder::mutex() { return m_mutex; }
-
-/*
-void Builder::append(const FileInfoList& fileInfo)
-{
-    m_metadata->files().append(fileInfo);
-    m_sequence = makeUnique<Sequence>(*this);
-}
-*/
 
 } // namespace entwine
 
