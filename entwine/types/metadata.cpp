@@ -57,6 +57,35 @@ Metadata::Metadata(const Config& config, const bool exists)
     {
         throw std::runtime_error("Invalid 'ticks' setting");
     }
+
+    if (m_delta)
+    {
+        const uint64_t size(m_schema->find("X").size());
+        Point mn;
+        Point mx;
+
+        if (size == 4)
+        {
+            mn = std::numeric_limits<int32_t>::lowest();
+            mx = std::numeric_limits<int32_t>::max();
+        }
+        else if (size == 8)
+        {
+            mn = std::numeric_limits<int64_t>::lowest();
+            mx = std::numeric_limits<int64_t>::max();
+        }
+
+        const Bounds ex(mn, mx);
+
+        if (!ex.contains(*m_boundsScaledCubic))
+        {
+            std::cout <<
+                "Maximal extents: " << ex << "\n" <<
+                "Scaled bounds:   " << *m_boundsScaledCubic << std::endl;
+            throw std::runtime_error(
+                    "Bounds are too large for the selected scale");
+        }
+    }
 }
 
 Metadata::Metadata(const arbiter::Endpoint& ep, const Config& config)
