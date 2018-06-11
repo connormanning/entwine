@@ -501,6 +501,11 @@ void App::build(std::vector<std::string> args)
         }
         std::cout << "\tOffset: " << delta->offset() << std::endl;
     }
+    else
+    {
+        std::cout << "\tScale: (absolute)" << std::endl;
+        std::cout << "\tOffset: (0, 0, 0)" << std::endl;
+    }
 
     std::cout <<
         "Metadata:\n" <<
@@ -512,13 +517,17 @@ void App::build(std::vector<std::string> args)
         std::cout << "\tSubset bounds: " << s->boundsNative() << "\n";
     }
 
-    const auto t(metadata.ticks());
+    if (metadata.delta())
+    {
+        std::cout << "\tScaled cube: " << metadata.boundsScaledCubic() << "\n";
+    }
+
     std::cout <<
-        "\tScaled cube: " << metadata.boundsScaledCubic() << "\n" <<
         "\tReprojection: " <<
             (reprojection ? reprojection->toString() : "(none)") << "\n" <<
         "\tStoring dimensions: " << getDimensionString(schema) << std::endl;
 
+    const auto t(metadata.ticks());
     std::cout << "Build parameters:\n" <<
         "\tTicks: " << t << "\n" <<
         "\tResolution 2D: " <<

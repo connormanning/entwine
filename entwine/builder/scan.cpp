@@ -195,7 +195,10 @@ Config Scan::aggregate()
         return d;
     });
 
-    if (out["scale"].isNull())
+    if (out["bounds"].isNull()) out["bounds"] = bounds.toJson();
+    bounds = Bounds(out["bounds"]);
+
+    if (m_scale != 1 && !m_in.absolute())
     {
         if (m_scale.x == m_scale.y && m_scale.x == m_scale.z)
         {
@@ -203,10 +206,8 @@ Config Scan::aggregate()
         }
         else out["scale"] = m_scale.toJson();
     }
-    if (out["bounds"].isNull()) out["bounds"] = bounds.toJson();
-    bounds = Bounds(out["bounds"]);
 
-    // if (out.scale() != 1)
+    if (out.delta() && !m_in.absolute())
     {
         DimList dims
         {

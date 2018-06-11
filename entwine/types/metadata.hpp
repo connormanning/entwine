@@ -124,7 +124,7 @@ private:
     void setHierarchyStep(uint64_t v) { m_hierarchyStep = v; }
 
     Bounds makeNativeConformingBounds(const Bounds& b) const;
-    Bounds makeNativeCube(const Bounds& b, const Delta& d) const;
+    Bounds makeNativeCube(const Bounds& b, const Delta* d) const;
 
     // These are aggregated as the Builder runs.
     Files& mutableFiles() { return *m_files; }

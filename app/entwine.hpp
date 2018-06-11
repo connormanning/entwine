@@ -45,6 +45,7 @@ private:
         for (std::size_t i(0); i < dims.size(); ++i)
         {
             const auto name(dims[i].name());
+            const auto type(dims[i].typeString());
             const bool last(i == dims.size() - 1);
 
             if (prefix.size() + line.size() + name.size() + 1 >= width)
@@ -54,7 +55,7 @@ private:
             }
 
             if (line.size()) line += ' ';
-            line += dims[i].name();
+            line += dims[i].name() + ':' + type;
 
             if (!last) line += ',';
             else results += prefix + line + '\n';
