@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <mutex>
 #include <stack>
+#include <unordered_map>
 #include <utility>
 
 #include <entwine/builder/clipper.hpp>
@@ -115,21 +116,11 @@ public:
     {
         assert(!m_tubes);
         assert(!m_keys);
+        assert(m_overflow.empty());
+        assert(!m_overflowCount);
         m_tubes = makeUnique<std::vector<Tube>>(m_ticks * m_ticks);
         m_keys = makeUnique<std::vector<Key>>();
         m_remote = false;
-    }
-
-    bool insert(const Key& key, Cell::PooledNode& cell, Clipper& clipper)
-    {
-        if (insertNative(key, cell)) return true;
-
-        if (m_ref.key().depth() < m_ref.metadata().overflowDepth())
-        {
-            return false;
-        }
-
-        return insertOverflow(key, cell, clipper);
     }
 
     ReffedChunk& step(const Point& p)
@@ -155,18 +146,20 @@ public:
             for (auto& inner : tube)
             {
                 cells.np += inner.second->size();
-                cells.stack.push(std::move(inner.second));
+                cells.stack.pushBack(std::move(inner.second));
             }
         }
 
         m_tubes.reset();
         m_keys.reset();
 
-        if (!m_overflow.empty())
+        if (m_overflowCount)
         {
+            assert(!m_overflow.empty());
             assert(!m_hasChildren);
-            for (const auto& cell : m_overflow) cells.np += cell.size();
+            cells.np += m_overflowCount;
             cells.stack.pushBack(std::move(m_overflow));
+            m_overflowCount = 0;
         }
 
         m_remote = true;
@@ -174,8 +167,22 @@ public:
         return cells;
     }
 
-    const std::unique_ptr<std::vector<Key>>& keys() const { return m_keys; }
     bool remote() const { return m_remote; }
+
+    bool insert(const Key& key, Cell::PooledNode& cell, Clipper& clipper)
+    {
+        if (insertNative(key, cell))
+        {
+            return true;
+        }
+
+        if (m_ref.key().depth() >= m_ref.metadata().overflowDepth())
+        {
+            return insertOverflow(key, cell, clipper);
+        }
+
+        return false;
+    }
 
 private:
     bool insertNative(const Key& key, Cell::PooledNode& cell)
@@ -196,12 +203,14 @@ private:
         if (m_hasChildren) return false;
 
         assert(m_keys);
+        m_overflowCount += cell->size();
         m_overflow.push(std::move(cell));
         m_keys->push_back(key);
 
+        assert(m_overflowCount >= m_overflow.size());
         assert(m_overflow.size() == m_keys->size());
 
-        if (m_overflow.size() > m_ref.metadata().overflowThreshold())
+        if (m_overflowCount > m_ref.metadata().overflowThreshold())
         {
             doOverflow(clipper);
         }
@@ -216,6 +225,7 @@ private:
 
     std::mutex m_overflowMutex;
     bool m_hasChildren = false;
+    uint64_t m_overflowCount = 0;
     Cell::PooledStack m_overflow;
     std::unique_ptr<std::vector<Key>> m_keys;
 

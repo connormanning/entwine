@@ -382,6 +382,14 @@ void App::build(std::vector<std::string> args)
             }
             else error("Invalid hierarchyStep");
         }
+        else if (arg == "--ticks")
+        {
+            if (++a < args.size())
+            {
+                json["ticks"] = parse(args[a]);
+            }
+            else error("Invalid ticks");
+        }
         else if (arg == "--withOriginId")
         {
             allowOriginId = true;

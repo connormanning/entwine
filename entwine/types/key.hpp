@@ -49,6 +49,11 @@ struct Xyz
     uint64_t z = 0;
 };
 
+inline bool operator==(const Xyz& a, const Xyz& b)
+{
+    return a.x == b.x && a.y == b.y && a.z == b.z;
+}
+
 struct Dxyz
 {
     Dxyz() : x(p.x), y(p.y), z(p.z) { }
@@ -112,6 +117,11 @@ inline bool operator<(const Dxyz& a, const Dxyz& b)
     return a.d < b.d || (a.d == b.d && a.p < b.p);
 }
 
+inline bool operator==(const Dxyz& a, const Dxyz& b)
+{
+    return a.d == b.d && a.p < b.p;
+}
+
 struct Key
 {
     Key(const Metadata& metadata)
@@ -158,6 +168,16 @@ struct Key
     Bounds b;
     Xyz p;
 };
+
+inline bool operator<(const Key& a, const Key& b)
+{
+    return a.p < b.p;
+}
+
+inline bool operator==(const Key& a, const Key& b)
+{
+    return a.p == b.p;
+}
 
 struct ChunkKey
 {
@@ -216,4 +236,18 @@ inline std::ostream& operator<<(std::ostream& os, const Dxyz& dxyz)
 }
 
 } // namespace entwine
+
+namespace std
+{
+    template<> struct hash<entwine::Key>
+    {
+        std::size_t operator()(const entwine::Key& k) const
+        {
+            return
+                std::hash<uint64_t>()(k.p.x) ^
+                std::hash<uint64_t>()(k.p.y) ^
+                std::hash<uint64_t>()(k.p.z);
+        }
+    };
+}
 
