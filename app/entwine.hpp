@@ -26,9 +26,9 @@ class App
 {
 public:
     static void build(std::vector<std::string> args);
+    static void convert(std::vector<std::string> args);
     static void merge(std::vector<std::string> args);
     static void scan(std::vector<std::string> args);
-    static void rebase(std::vector<std::string> args);
 
 private:
     static std::string yesNo(bool b) { return b ? "yes" : "no"; }

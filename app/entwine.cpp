@@ -87,6 +87,10 @@ int main(int argc, char** argv)
         {
             entwine::App::scan(args);
         }
+        else if (app == "convert")
+        {
+            entwine::App::convert(args);
+        }
         else
         {
             if (app != "help" && app != "-h" && app != "--help")

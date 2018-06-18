@@ -125,7 +125,7 @@ add_subdirectory(entwine)
 add_subdirectory(app)
 
 set(OBJS
-    # $<TARGET_OBJECTS:formats>
+    $<TARGET_OBJECTS:formats>
     # $<TARGET_OBJECTS:reader>
     # $<TARGET_OBJECTS:new-reader>
     $<TARGET_OBJECTS:io>
