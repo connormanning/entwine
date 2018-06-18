@@ -25,6 +25,7 @@ Tileset::Tileset(const Json::Value& config)
                 config.isMember("tmp") ?
                     config["tmp"].asString() : arbiter::fs::getTempPath()))
     , m_metadata(m_in)
+    , m_hierarchyStep(m_metadata.hierarchyStep())
     , m_hasColor(m_metadata.schema().contains("Red"))
     , m_pointPool(m_metadata.schema(), m_metadata.delta())
 {
@@ -32,29 +33,39 @@ Tileset::Tileset(const Json::Value& config)
     arbiter::fs::mkdirp(m_tmp.root());
 }
 
-void Tileset::build() const
+Tileset::HierarchyTree Tileset::getHierarchyTree(const ChunkKey& root) const
 {
     HierarchyTree h;
 
-    const Json::Value hier(parse(m_in.get("h/0-0-0-0.json")));
-    for (const std::string& key : hier.getMemberNames())
+    const Json::Value fetched(
+            parse(m_in.get("h/" + root.get().toString() + ".json")));
+
+    for (const std::string& key : fetched.getMemberNames())
     {
-        h[Dxyz(key)] = hier[key].asUInt64();
+        h[Dxyz(key)] = fetched[key].asUInt64();
     }
+
+    return h;
+}
+
+void Tileset::build() const
+{
+    const HierarchyTree h(getHierarchyTree(ChunkKey(m_metadata)));
+    const Json::Value content(build(h, ChunkKey(m_metadata)));
 
     Json::Value json;
     json["asset"]["version"] = "0.0";
-    json["geometricError"] = 10000;
-    json["root"] = build(h, ChunkKey(m_metadata));
+    json["geometricError"] = m_rootGeometricError;
+    json["root"] = content;
 
     m_out.put("tileset.json", json.toStyledString());
 }
 
 Json::Value Tileset::build(
-        const HierarchyTree& h,
+        const HierarchyTree& hier,
         const ChunkKey& ck) const
 {
-    uint64_t n(h.count(ck.get()) ? h.at(ck.get()) : 0);
+    uint64_t n(hier.count(ck.get()) ? hier.at(ck.get()) : 0);
     if (!n) return Json::nullValue;
 
     Pnts pnts(*this, ck);
@@ -63,14 +74,23 @@ Json::Value Tileset::build(
     Tile tile(*this, ck);
     Json::Value json(tile.toJson());
 
-    for (std::size_t i(0); i < 8; ++i)
+    auto next([this, &ck, &json](const HierarchyTree& hier)
     {
-        const auto child(build(h, ck.getStep(toDir(i))));
-        if (!child.isNull())
+        for (std::size_t i(0); i < 8; ++i)
         {
-            json["children"].append(child);
+            const auto child(build(hier, ck.getStep(toDir(i))));
+            if (!child.isNull())
+            {
+                json["children"].append(child);
+            }
         }
+    });
+
+    if (ck.depth() && m_hierarchyStep && ck.depth() % m_hierarchyStep == 0)
+    {
+        next(getHierarchyTree(ck));
     }
+    else next(hier);
 
     return json;
 }

@@ -50,8 +50,10 @@ private:
     void buildSubtree(const ChunkKey& ck) const;
 
     Json::Value build(
-            const HierarchyTree& h,
+            const HierarchyTree& hier,
             const ChunkKey& ck) const;
+
+    HierarchyTree getHierarchyTree(const ChunkKey& root) const;
 
     arbiter::Arbiter m_arbiter;
     const arbiter::Endpoint m_in;
@@ -59,6 +61,7 @@ private:
     const arbiter::Endpoint m_tmp;
 
     const Metadata m_metadata;
+    const uint64_t m_hierarchyStep;
     const bool m_hasColor;
     const double m_rootGeometricError = 1000;
 
