@@ -27,9 +27,12 @@ Tileset::Tileset(const Json::Value& config)
     , m_metadata(m_in)
     , m_hierarchyStep(m_metadata.hierarchyStep())
     , m_hasColor(m_metadata.schema().contains("Red"))
-    , m_rootGeometricError(m_metadata.boundsNativeCubic().width() / 32.0)
+    , m_rootGeometricError(
+            m_metadata.boundsNativeCubic().width() /
+            (config.isMember("geometricErrorDivisor") ?
+                config["geometricErrorDivisor"].asDouble() : 32.0))
     , m_pointPool(m_metadata.schema(), m_metadata.delta())
-    , m_threadPool(std::min<uint64_t>(8, config["threads"].asUInt64()))
+    , m_threadPool(std::max<uint64_t>(4, config["threads"].asUInt64()))
 {
     arbiter::fs::mkdirp(m_out.root());
     arbiter::fs::mkdirp(m_tmp.root());

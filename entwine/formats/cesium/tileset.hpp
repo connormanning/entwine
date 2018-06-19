@@ -32,6 +32,7 @@ public:
     void build() const;
 
     const arbiter::Endpoint& in() const { return m_in; }
+    const arbiter::Endpoint& out() const { return m_out; }
     const arbiter::Endpoint& tmp() const { return m_tmp; }
 
     const Metadata& metadata() const { return m_metadata; }
