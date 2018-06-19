@@ -15,6 +15,7 @@
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/util/json.hpp>
+#include <entwine/util/pool.hpp>
 
 namespace entwine
 {
@@ -31,7 +32,6 @@ public:
     void build() const;
 
     const arbiter::Endpoint& in() const { return m_in; }
-    const arbiter::Endpoint& out() const { return m_out; }
     const arbiter::Endpoint& tmp() const { return m_tmp; }
 
     const Metadata& metadata() const { return m_metadata; }
@@ -45,13 +45,15 @@ public:
     }
 
     PointPool& pointPool() const { return m_pointPool; }
+    Pool& threadPool() const { return m_threadPool; }
 
 private:
-    void buildSubtree(const ChunkKey& ck) const;
+    void build(const ChunkKey& ck) const;
 
     Json::Value build(
-            const HierarchyTree& hier,
-            const ChunkKey& ck) const;
+            uint64_t startDepth,
+            const ChunkKey& ck,
+            const HierarchyTree& hier) const;
 
     HierarchyTree getHierarchyTree(const ChunkKey& root) const;
 
@@ -63,15 +65,16 @@ private:
     const Metadata m_metadata;
     const uint64_t m_hierarchyStep;
     const bool m_hasColor;
-    const double m_rootGeometricError = 1000;
+    const double m_rootGeometricError;
 
     mutable PointPool m_pointPool;
+    mutable Pool m_threadPool;
 };
 
 class Tile
 {
 public:
-    Tile(const Tileset& tileset, const ChunkKey& ck);
+    Tile(const Tileset& tileset, const ChunkKey& ck, bool external = false);
 
     Json::Value toJson() const { return m_json; }
 
@@ -91,28 +94,28 @@ private:
     }
 
     const Tileset& m_tileset;
-    const ChunkKey m_key;
     Json::Value m_json;
 };
 
 class Pnts
 {
+    using Xyz = std::vector<float>;
+    using Rgb = std::vector<uint8_t>;
+
 public:
     Pnts(const Tileset& tileset, const ChunkKey& ck);
-    void build();
+    std::vector<char> build();
 
 private:
-    void buildXyz(const Cell::PooledStack& cells);
-    void buildRgb(const Cell::PooledStack& cells);
-    void write();
+    Xyz buildXyz(const Cell::PooledStack& cells) const;
+    Rgb buildRgb(const Cell::PooledStack& cells) const;
+    std::vector<char> build(const Xyz& xyz, const Rgb& rgb) const;
 
     const Tileset& m_tileset;
     const ChunkKey m_key;
     Point m_mid;
 
     std::size_t m_np = 0;
-    std::vector<float> m_xyz;
-    std::vector<uint8_t> m_rgb;
 };
 
 } // namespace cesium

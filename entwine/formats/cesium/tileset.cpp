@@ -27,7 +27,9 @@ Tileset::Tileset(const Json::Value& config)
     , m_metadata(m_in)
     , m_hierarchyStep(m_metadata.hierarchyStep())
     , m_hasColor(m_metadata.schema().contains("Red"))
+    , m_rootGeometricError(m_metadata.boundsNativeCubic().width() / 32.0)
     , m_pointPool(m_metadata.schema(), m_metadata.delta())
+    , m_threadPool(std::min<uint64_t>(8, config["threads"].asUInt64()))
 {
     arbiter::fs::mkdirp(m_out.root());
     arbiter::fs::mkdirp(m_tmp.root());
@@ -50,58 +52,82 @@ Tileset::HierarchyTree Tileset::getHierarchyTree(const ChunkKey& root) const
 
 void Tileset::build() const
 {
-    const HierarchyTree h(getHierarchyTree(ChunkKey(m_metadata)));
-    const Json::Value content(build(h, ChunkKey(m_metadata)));
+    build(ChunkKey(m_metadata));
+    m_threadPool.join();
+}
+
+void Tileset::build(const ChunkKey& ck) const
+{
+    const HierarchyTree hier(getHierarchyTree(ck));
 
     Json::Value json;
     json["asset"]["version"] = "0.0";
     json["geometricError"] = m_rootGeometricError;
-    json["root"] = content;
+    json["root"] = build(ck.depth(), ck, hier);
 
-    m_out.put("tileset.json", json.toStyledString());
+    if (!ck.depth())
+    {
+        m_out.put("tileset.json", json.toStyledString());
+    }
+    else
+    {
+        m_out.put("tileset-" + ck.toString() + ".json", toFastString(json));
+    }
 }
 
 Json::Value Tileset::build(
-        const HierarchyTree& hier,
-        const ChunkKey& ck) const
+        uint64_t startDepth,
+        const ChunkKey& ck,
+        const HierarchyTree& hier) const
 {
     uint64_t n(hier.count(ck.get()) ? hier.at(ck.get()) : 0);
     if (!n) return Json::nullValue;
 
-    Pnts pnts(*this, ck);
-    pnts.build();
+    const bool leaf(
+            m_hierarchyStep &&
+            ck.depth() != startDepth &&
+            ck.depth() % m_hierarchyStep == 0);
+
+    if (leaf)
+    {
+        // Start a new subtree for this node.
+        build(ck);
+
+        // Write the pointer node to that external tileset.
+        Tile tile(*this, ck, true);
+        const Json::Value json(tile.toJson());
+        return json;
+    }
+
+    m_threadPool.add([this, ck]()
+    {
+        Pnts pnts(*this, ck);
+        m_out.put(ck.get().toString() + ".pnts", pnts.build());
+    });
 
     Tile tile(*this, ck);
     Json::Value json(tile.toJson());
 
-    auto next([this, &ck, &json](const HierarchyTree& hier)
+    for (std::size_t i(0); i < 8; ++i)
     {
-        for (std::size_t i(0); i < 8; ++i)
+        const auto child(build(startDepth, ck.getStep(toDir(i)), hier));
+        if (!child.isNull())
         {
-            const auto child(build(hier, ck.getStep(toDir(i))));
-            if (!child.isNull())
-            {
-                json["children"].append(child);
-            }
+            json["children"].append(child);
         }
-    });
-
-    if (ck.depth() && m_hierarchyStep && ck.depth() % m_hierarchyStep == 0)
-    {
-        next(getHierarchyTree(ck));
     }
-    else next(hier);
 
     return json;
 }
 
-Tile::Tile(const Tileset& tileset, const ChunkKey& ck)
+Tile::Tile(const Tileset& tileset, const ChunkKey& ck, bool external)
     : m_tileset(tileset)
-    , m_key(ck)
 {
     m_json["boundingVolume"]["box"] = toBox(ck.bounds());
-    m_json["content"]["url"] = ck.toString() + ".pnts";
     m_json["geometricError"] = m_tileset.geometricErrorAt(ck.depth());
+    m_json["content"]["url"] = external ?
+        "tileset-" + ck.toString() + ".json" :
+        ck.toString() + ".pnts";
     if (!ck.depth()) m_json["refine"] = "ADD";
 }
 
@@ -117,7 +143,7 @@ Pnts::Pnts(const Tileset& tileset, const ChunkKey& ck)
     }
 }
 
-void Pnts::build()
+std::vector<char> Pnts::build()
 {
     const auto data = m_tileset.metadata().dataIo().read(
             m_tileset.in(),
@@ -127,14 +153,15 @@ void Pnts::build()
 
     m_np = data.size();
 
-    buildXyz(data);
-    if (m_tileset.hasColor()) buildRgb(data);
-    write();
+    const auto xyz(buildXyz(data));
+    const auto rgb(buildRgb(data));
+    return build(xyz, rgb);
 }
 
-void Pnts::buildXyz(const Cell::PooledStack& cells)
+Pnts::Xyz Pnts::buildXyz(const Cell::PooledStack& cells) const
 {
-    m_xyz.reserve(m_np * 3);
+    Xyz v;
+    v.reserve(m_np * 3);
 
     Scale scale(1);
     Offset offset(0);
@@ -148,16 +175,18 @@ void Pnts::buildXyz(const Cell::PooledStack& cells)
     for (const auto& cell : cells)
     {
         const Point p(Point::unscale(cell.point(), scale, offset));
-        m_xyz.push_back(p.x - m_mid.x);
-        m_xyz.push_back(p.y - m_mid.y);
-        m_xyz.push_back(p.z - m_mid.z);
+        v.push_back(p.x - m_mid.x);
+        v.push_back(p.y - m_mid.y);
+        v.push_back(p.z - m_mid.z);
     }
+
+    return v;
 }
 
-void Pnts::buildRgb(const Cell::PooledStack& cells)
+Pnts::Rgb Pnts::buildRgb(const Cell::PooledStack& cells) const
 {
-    assert(m_tileset.hasColor());
-    m_rgb.reserve(m_np * 3);
+    Rgb v;
+    v.reserve(m_np * 3);
 
     using DimId = pdal::Dimension::Id;
     BinaryPointTable table(m_tileset.metadata().schema());
@@ -165,13 +194,15 @@ void Pnts::buildRgb(const Cell::PooledStack& cells)
     for (const auto& cell : cells)
     {
         table.setPoint(cell.uniqueData());
-        m_rgb.push_back(table.ref().getFieldAs<uint8_t>(DimId::Red));
-        m_rgb.push_back(table.ref().getFieldAs<uint8_t>(DimId::Green));
-        m_rgb.push_back(table.ref().getFieldAs<uint8_t>(DimId::Blue));
+        v.push_back(table.ref().getFieldAs<uint8_t>(DimId::Red));
+        v.push_back(table.ref().getFieldAs<uint8_t>(DimId::Green));
+        v.push_back(table.ref().getFieldAs<uint8_t>(DimId::Blue));
     }
+
+    return v;
 }
 
-void Pnts::write()
+std::vector<char> Pnts::build(const Xyz& xyz, const Rgb& rgb) const
 {
     Json::Value featureTable;
     featureTable["POINTS_LENGTH"] = static_cast<Json::UInt64>(m_np);
@@ -181,14 +212,14 @@ void Pnts::write()
     if (m_tileset.hasColor())
     {
         featureTable["RGB"]["byteOffset"] = static_cast<Json::UInt64>(
-                m_xyz.size() * sizeof(float));
+                xyz.size() * sizeof(float));
     }
 
     std::string featureString = toFastString(featureTable);
     while (featureString.size() % 8) featureString += ' ';
 
     const uint64_t headerSize(28);
-    const uint64_t binaryBytes = m_xyz.size() * (sizeof(float)) + m_rgb.size();
+    const uint64_t binaryBytes = xyz.size() * (sizeof(float)) + rgb.size();
     const uint64_t totalBytes = headerSize + featureString.size() + binaryBytes;
 
     std::vector<char> header;
@@ -219,17 +250,14 @@ void Pnts::write()
     pnts.insert(pnts.end(), featureString.begin(), featureString.end());
     pnts.insert(
             pnts.end(),
-            reinterpret_cast<const char*>(m_xyz.data()),
-            reinterpret_cast<const char*>(m_xyz.data() + m_xyz.size()));
+            reinterpret_cast<const char*>(xyz.data()),
+            reinterpret_cast<const char*>(xyz.data() + xyz.size()));
     pnts.insert(
             pnts.end(),
-            reinterpret_cast<const char*>(m_rgb.data()),
-            reinterpret_cast<const char*>(m_rgb.data() + m_rgb.size()));
+            reinterpret_cast<const char*>(rgb.data()),
+            reinterpret_cast<const char*>(rgb.data() + rgb.size()));
 
-    m_xyz.clear();
-    m_rgb.clear();
-
-    m_tileset.out().put(m_key.get().toString() + ".pnts", pnts);
+    return pnts;
 }
 
 } // namespace cesium
