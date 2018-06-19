@@ -47,6 +47,8 @@ void Laz::write(
             std::move(cells),
             makeUnique<Schema>(Schema::normalize(schema)));
 
+    assert(table.size() == np);
+
     StreamReader reader(table);
 
     const auto offset = Point::unscale(

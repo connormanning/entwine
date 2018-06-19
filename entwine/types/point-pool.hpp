@@ -137,6 +137,12 @@ public:
         for (auto& cell : cells) dataStack.push(cell.acquire());
     }
 
+    void clear()
+    {
+        m_cellPool.clear();
+        m_dataPool.clear();
+    }
+
 private:
     const Schema& m_schema;
     const Delta* m_delta;

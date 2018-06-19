@@ -7,6 +7,7 @@ set(
     "${BASE}/chunk.cpp"
     "${BASE}/clipper.cpp"
     "${BASE}/config.cpp"
+    "${BASE}/hierarchy.cpp"
     "${BASE}/merger.cpp"
     "${BASE}/registry.cpp"
     "${BASE}/scan.cpp"

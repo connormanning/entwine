@@ -29,6 +29,9 @@ const std::size_t clipCacheSize(64);
 // work threads to clip threads.
 const float defaultWorkToClipRatio(0.33);
 
+// Max number of nodes to store in a single hierarchy file.
+const std::size_t maxHierarchyNodesPerFile(65536);
+
 } // namespace heuristics
 } // namespace entwine
 

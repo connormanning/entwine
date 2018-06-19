@@ -444,7 +444,6 @@ public:
     ConstIterator end() const { return ConstIterator(nullptr); }
     ConstIterator cend() const { return end(); }
 
-protected:
     void clear()
     {
         m_head = nullptr;
@@ -737,6 +736,15 @@ public:
 
     virtual ~SplicePool() { }
 
+    void clear()
+    {
+        assert(!used());
+
+        doClear();
+        m_stack.clear();
+        m_allocated = 0;
+    }
+
     std::size_t allocated() const
     {
         std::lock_guard<std::mutex> lock(m_mutex);
@@ -860,6 +868,7 @@ protected:
     }
 
     virtual Stack<T> doAllocate(std::size_t blocks) = 0;
+    virtual void doClear() = 0;
     virtual void construct(T*) const { }
     virtual void destruct(T*) const { }
 
@@ -916,6 +925,11 @@ private:
                 std::make_move_iterator(newBlocks.end()));
 
         return stack;
+    }
+
+    virtual void doClear() override
+    {
+        m_blocks.clear();
     }
 
     virtual void construct(T* val) const override
@@ -991,6 +1005,12 @@ private:
                 std::make_move_iterator(newNodes.end()));
 
         return stack;
+    }
+
+    virtual void doClear() override
+    {
+        m_bytes.clear();
+        m_nodes.clear();
     }
 
     virtual void construct(T** val) const override

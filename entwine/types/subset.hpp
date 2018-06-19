@@ -42,6 +42,8 @@ public:
     const Bounds& boundsNative() const { return m_boundsNative; }
     const Bounds& boundsScaled() const { return m_boundsScaled; }
 
+///    static  std::unique_ptr<Subset> create(const Metadata& m, const Json::Value& j);
+    
     Json::Value toJson() const
     {
         Json::Value json;

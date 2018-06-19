@@ -75,7 +75,9 @@ Config Scan::go()
 
         std::cout << std::endl;
         std::cout << "Writing details to " << path << "...";
-        arbiter.put(path, out.json().toStyledString());
+        arbiter.put(path,
+                m_fileInfo.size() <= 100 ?
+                    out.json().toStyledString() : toFastString(out.json()));
         std::cout << " written." << std::endl;
     }
 
@@ -117,7 +119,7 @@ void Scan::add(FileInfo& f, const std::string localPath)
     if (auto preview = Executor::get().preview(localPath, m_re.get()))
     {
         f.numPoints(preview->numPoints);
-        f.metadata(preview->metadata);
+        // f.metadata(preview->metadata);
         f.srs(preview->srs);
         if (!preview->numPoints) return;
 
@@ -193,7 +195,10 @@ Config Scan::aggregate()
         return d;
     });
 
-    if (out["scale"].isNull())
+    if (out["bounds"].isNull()) out["bounds"] = bounds.toJson();
+    bounds = Bounds(out["bounds"]);
+
+    if (m_scale != 1 && !m_in.absolute())
     {
         if (m_scale.x == m_scale.y && m_scale.x == m_scale.z)
         {
@@ -201,10 +206,8 @@ Config Scan::aggregate()
         }
         else out["scale"] = m_scale.toJson();
     }
-    if (out["bounds"].isNull()) out["bounds"] = bounds.toJson();
-    bounds = Bounds(out["bounds"]);
 
-    if (out.scale() != 1)
+    if (out.delta() && !m_in.absolute())
     {
         DimList dims
         {

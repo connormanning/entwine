@@ -175,11 +175,11 @@ void Chunk::doOverflow(Clipper& clipper)
 
     while (!m_overflow.empty())
     {
-        auto curCell(m_overflow.popOne());
-        Key& curKey(m_keys->back());
+        auto cell(m_overflow.popOne());
+        Key& key(m_keys->back());
+        key.step(cell->point());
 
-        curKey.step(curCell->point());
-        if (!step(curCell->point()).insert(curCell, curKey, clipper))
+        if (!step(cell->point()).insert(cell, key, clipper))
         {
             throw std::runtime_error("Invalid overflow");
         }
@@ -192,6 +192,7 @@ void Chunk::doOverflow(Clipper& clipper)
     assert(m_keys->empty());
 
     m_keys.reset();
+    m_overflowCount = 0;
 }
 
 } // namespace entwine

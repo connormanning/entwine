@@ -46,11 +46,6 @@ Sequence::Sequence(Metadata& metadata, std::mutex& mutex)
         }
     }
 
-    if (m_metadata.subset())
-    {
-        std::cout << "Overlaps: " << m_overlaps.size() << std::endl;
-    }
-
     m_origin = m_overlaps.empty() ? m_end : m_overlaps.front();
 }
 
@@ -110,7 +105,7 @@ bool Sequence::checkBounds(
     }
     else if (const Subset* subset = m_metadata.subset())
     {
-        if (!subset->boundsNative().overlaps(bounds)) return false;
+        if (!subset->boundsNative().overlaps(bounds, true)) return false;
     }
 
     return true;

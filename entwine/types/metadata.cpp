@@ -24,7 +24,7 @@ namespace entwine
 {
 
 Metadata::Metadata(const Config& config, const bool exists)
-    : m_delta(makeUnique<Delta>(config.delta()))
+    : m_delta(config.delta())
     , m_boundsNativeConforming(makeUnique<Bounds>(
                 exists ?
                     Bounds(config["boundsConforming"]) :
@@ -34,9 +34,9 @@ Metadata::Metadata(const Config& config, const bool exists)
                     Bounds(config["bounds"]) :
                     makeNativeCube(*m_boundsNativeConforming, m_delta.get())))
     , m_boundsScaledConforming(
-            clone(m_boundsNativeConforming->deltify(*m_delta)))
+            clone(m_boundsNativeConforming->deltify(m_delta.get())))
     , m_boundsScaledCubic(
-            clone(m_boundsNativeCubic->deltify(*m_delta)))
+            clone(m_boundsNativeCubic->deltify(m_delta.get())))
     , m_schema(makeUnique<Schema>(config["schema"]))
     , m_files(makeUnique<Files>(config.input()))
     , m_dataIo(DataIo::create(*this, config.dataType()))
@@ -51,10 +51,45 @@ Metadata::Metadata(const Config& config, const bool exists)
     , m_sharedDepth(m_subset ? m_subset->splits() : 0)
     , m_overflowDepth(std::max(config.overflowDepth(), m_sharedDepth))
     , m_overflowThreshold(config.overflowThreshold())
+    , m_hierarchyStep(config.hierarchyStep())
 {
     if (1UL << m_startDepth != m_ticks)
     {
         throw std::runtime_error("Invalid 'ticks' setting");
+    }
+
+    if (m_delta)
+    {
+        const uint64_t size(m_schema->find("X").size());
+        Point mn;
+        Point mx;
+
+        if (size == 4)
+        {
+            mn = std::numeric_limits<int32_t>::lowest();
+            mx = std::numeric_limits<int32_t>::max();
+        }
+        else if (size == 8)
+        {
+            mn = std::numeric_limits<int64_t>::lowest();
+            mx = std::numeric_limits<int64_t>::max();
+        }
+
+        const Bounds ex(mn, mx);
+
+        if (!ex.contains(*m_boundsScaledCubic))
+        {
+            std::cout <<
+                "Maximal extents: " << ex << "\n" <<
+                "Scaled bounds:   " << *m_boundsScaledCubic << std::endl;
+            throw std::runtime_error(
+                    "Bounds are too large for the selected scale");
+        }
+    }
+
+    if (m_dataIo->type() == "laszip" && !m_delta)
+    {
+        throw std::runtime_error("Laszip output needs scaling.");
     }
 }
 
@@ -101,6 +136,7 @@ Json::Value Metadata::toJson() const
 
     json["dataType"] = m_dataIo->type();
     json["hierarchyType"] = "json"; // TODO.
+    if (m_hierarchyStep) json["hierarchyStep"] = (Json::UInt64)m_hierarchyStep;
 
     return json;
 }
@@ -111,8 +147,8 @@ Json::Value Metadata::toBuildParamsJson() const
 
     json["version"] = m_version->toString();
     json["trustHeaders"] = m_trustHeaders;
-    json["overflowDepth"] = Json::UInt64(m_overflowDepth);
-    json["overflowThreshold"] = Json::UInt64(m_overflowThreshold);
+    json["overflowDepth"] = (Json::UInt64)m_overflowDepth;
+    json["overflowThreshold"] = (Json::UInt64)m_overflowThreshold;
     if (m_subset) json["subset"] = m_subset->toJson();
 
     return json;
@@ -185,15 +221,22 @@ Bounds Metadata::makeNativeConformingBounds(const Bounds& b) const
     return Bounds(pmin, pmax);
 }
 
-Bounds Metadata::makeNativeCube(const Bounds& b, const Delta& d) const
+Bounds Metadata::makeNativeCube(const Bounds& b, const Delta* d) const
 {
+    const Offset offset(
+            d ?
+                d->offset() :
+                b.mid().apply([](double d) { return std::round(d); }));
+
     const double maxDist(std::max(std::max(b.width(), b.depth()), b.height()));
     double r(maxDist / 2.0);
 
     if (static_cast<double>(static_cast<uint64_t>(r)) == r) r += 1.0;
     else r = std::ceil(r);
 
-    return Bounds(d.offset() - r, d.offset() + r);
+    while (!Bounds(offset - r, offset + r).contains(b)) r += 1.0;
+
+    return Bounds(offset - r, offset + r);
 }
 
 } // namespace entwine

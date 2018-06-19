@@ -70,10 +70,11 @@ Builder::Builder(const Config& config, OuterScope os)
                 *m_out,
                 *m_tmp,
                 *m_pointPool,
-                m_threadPools->clipPool(),
+                *m_threadPools,
                 m_isContinuation))
     , m_sequence(makeUnique<Sequence>(*m_metadata, m_mutex))
     , m_start(now())
+    , m_reset(now())
 {
     prepareEndpoints();
 }
@@ -83,6 +84,9 @@ Builder::~Builder()
 
 void Builder::go(std::size_t max)
 {
+    m_start = now();
+    m_reset = m_start;
+
     bool done(false);
     const auto& files(m_metadata->files());
 
@@ -157,6 +161,15 @@ void Builder::doRun(const std::size_t max)
 
     while (auto o = m_sequence->next(max))
     {
+        if (since<std::chrono::minutes>(m_reset) >= m_resetMinutes)
+        {
+            std::cout << "\tCycling memory pool" << std::endl;
+            m_threadPools->cycle();
+            m_pointPool->clear();
+            m_reset = now();
+            std::cout << "\tCycled" << std::endl;
+        }
+
         const Origin origin(*o);
         FileInfo& info(m_metadata->mutableFiles().get(origin));
         const auto path(info.path());
@@ -375,9 +388,26 @@ void Builder::save(const std::string to)
 
 void Builder::save(const arbiter::Endpoint& ep)
 {
-    m_threadPools->cycle();
+    m_threadPools->join();
+    m_threadPools->workPool().resize(m_threadPools->size());
+    m_threadPools->go();
+    m_pointPool->clear();
 
     std::cout << "Reawakened: " << reawakened << std::endl;
+
+    const auto& h(m_registry->hierarchy());
+    if (
+            !m_metadata->subset() &&
+            !m_metadata->hierarchyStep() &&
+            h.map().size() > heuristics::maxHierarchyNodesPerFile)
+    {
+        const auto analysis(h.analyze(*m_metadata));
+        for (const auto& a : analysis) a.summarize();
+        const auto& chosen(*analysis.begin());
+
+        std::cout << "Setting hierarchy step: " << chosen.step << std::endl;
+        m_metadata->setHierarchyStep(chosen.step);
+    }
 
     if (verbose()) std::cout << "Saving registry..." << std::endl;
     m_registry->save(*m_out);
@@ -413,6 +443,11 @@ void Builder::prepareEndpoints()
             {
                 throw std::runtime_error("Couldn't create " + rootDir);
             }
+
+            if (!arbiter::fs::mkdirp(rootDir + "h"))
+            {
+                throw std::runtime_error("Couldn't create hierarchy directory");
+            }
         }
     }
 }
@@ -440,14 +475,6 @@ const arbiter::Endpoint& Builder::outEndpoint() const { return *m_out; }
 const arbiter::Endpoint& Builder::tmpEndpoint() const { return *m_tmp; }
 
 std::mutex& Builder::mutex() { return m_mutex; }
-
-/*
-void Builder::append(const FileInfoList& fileInfo)
-{
-    m_metadata->files().append(fileInfo);
-    m_sequence = makeUnique<Sequence>(*this);
-}
-*/
 
 } // namespace entwine
 

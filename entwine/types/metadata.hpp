@@ -52,7 +52,6 @@ public:
     void merge(const Metadata& other);
     void save(const arbiter::Endpoint& endpoint) const;
 
-public:
     // Native bounds - no scale/offset applied.
     const Bounds& boundsNativeConforming() const
     {
@@ -110,20 +109,22 @@ public:
     uint64_t sharedDepth() const { return m_sharedDepth; }
     uint64_t overflowDepth() const { return m_overflowDepth; }
     uint64_t overflowThreshold() const { return m_overflowThreshold; }
+    uint64_t hierarchyStep() const { return m_hierarchyStep; }
 
     void makeWhole();
 
     std::string postfix() const;
     std::string postfix(uint64_t depth) const;
 
-private:
     Json::Value toJson() const;
     Json::Value toBuildParamsJson() const;
 
+private:
     Metadata& operator=(const Metadata& other);
+    void setHierarchyStep(uint64_t v) { m_hierarchyStep = v; }
 
     Bounds makeNativeConformingBounds(const Bounds& b) const;
-    Bounds makeNativeCube(const Bounds& b, const Delta& d) const;
+    Bounds makeNativeCube(const Bounds& b, const Delta* d) const;
 
     // These are aggregated as the Builder runs.
     Files& mutableFiles() { return *m_files; }
@@ -154,6 +155,8 @@ private:
 
     const uint64_t m_overflowDepth;
     const uint64_t m_overflowThreshold;
+
+    uint64_t m_hierarchyStep;
 };
 
 } // namespace entwine

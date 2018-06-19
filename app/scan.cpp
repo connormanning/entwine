@@ -230,10 +230,17 @@ void App::scan(std::vector<std::string> args)
         std::endl;
     std::cout << "\tPoints: " << commify(out.numPoints()) << std::endl;
     std::cout << "\tBounds: " << Bounds(out["bounds"]) << std::endl;
+
+    std::cout << "\tScale: ";
     if (out.json().isMember("scale"))
     {
-        std::cout << "\tScale: " << Scale(out["scale"]) << std::endl;
+        Scale s(out["scale"]);
+        if (s.x == s.y && s.x == s.z) std::cout << s.x;
+        else std::cout << s;
     }
+    else std::cout << "(absolute)";
+    std::cout << std::endl;
+
     const double density(densityLowerBound(out.input()));
     std::cout << "\tDensity estimate (per square unit): " << density <<
         std::endl;

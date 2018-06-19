@@ -12,6 +12,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <memory>
 #include <stdexcept>
 #include <string>
 
@@ -60,7 +61,7 @@ public:
         json["hierarchyType"] = "json";
 
         json["ticks"] = 256;
-        json["overflowDepth"] = 6;
+        json["overflowDepth"] = 4;
         json["overflowRatio"] = 0.5;
 
         return json;
@@ -144,6 +145,10 @@ public:
             return ticks() * ticks() * m_json["overflowRatio"].asDouble();
         }
     }
+    uint64_t hierarchyStep() const
+    {
+        return m_json["hierarchyStep"].asUInt64();
+    }
 
     std::string srs() const { return m_json["srs"].asString(); }
     std::string postfix() const
@@ -155,10 +160,23 @@ public:
         return "";
     }
 
+    std::unique_ptr<Delta> delta() const
+    {
+        if (scale() != Scale(1)) return makeUnique<Delta>(scale(), offset());
+        else return std::unique_ptr<Delta>();
+    }
+
+    bool absolute() const
+    {
+        return m_json.isMember("absolute") && m_json["absolute"].asBool();
+    }
+
+private:
     Scale scale() const
     {
-        if (!m_json["scale"].isNull()) return Scale(m_json["scale"]);
-        return Scale(0.01);
+        if (m_json["absolute"].asBool()) return Scale(1);
+        else if (!m_json["scale"].isNull()) return Scale(m_json["scale"]);
+        else return Scale(0.01);
     }
     Offset offset() const
     {
@@ -168,9 +186,7 @@ public:
             return std::llround(d);
         });
     }
-    Delta delta() const { return Delta(scale(), offset()); }
 
-private:
     Json::Value m_json;
 };
 

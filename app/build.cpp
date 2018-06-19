@@ -374,6 +374,22 @@ void App::build(std::vector<std::string> args)
             }
             else error("Invalid dataType");
         }
+        else if (arg == "--hierarchyStep")
+        {
+            if (++a < args.size())
+            {
+                json["hierarchyStep"] = parse(args[a]);
+            }
+            else error("Invalid hierarchyStep");
+        }
+        else if (arg == "--ticks")
+        {
+            if (++a < args.size())
+            {
+                json["ticks"] = parse(args[a]);
+            }
+            else error("Invalid ticks");
+        }
         else if (arg == "--withOriginId")
         {
             allowOriginId = true;
@@ -469,11 +485,13 @@ void App::build(std::vector<std::string> args)
             threadPools.clipPool().numThreads() << "]" <<
         std::endl;
 
+    const auto hs(metadata.hierarchyStep());
     std::cout <<
         "Output:\n" <<
         "\tPath: " << outPath << "\n" <<
         "\tData type: " << metadata.dataIo().type() << "\n" <<
         "\tHierarchy type: " << "json" << "\n" <<
+        "\tHierarchy step: " << (hs ? std::to_string(hs) : "auto") << "\n" <<
         "\tSleep count: " << builder->sleepCount() <<
         std::endl;
 
@@ -491,6 +509,11 @@ void App::build(std::vector<std::string> args)
         }
         std::cout << "\tOffset: " << delta->offset() << std::endl;
     }
+    else
+    {
+        std::cout << "\tScale: (absolute)" << std::endl;
+        std::cout << "\tOffset: (0, 0, 0)" << std::endl;
+    }
 
     std::cout <<
         "Metadata:\n" <<
@@ -502,13 +525,17 @@ void App::build(std::vector<std::string> args)
         std::cout << "\tSubset bounds: " << s->boundsNative() << "\n";
     }
 
-    const auto t(metadata.ticks());
+    if (metadata.delta())
+    {
+        std::cout << "\tScaled cube: " << metadata.boundsScaledCubic() << "\n";
+    }
+
     std::cout <<
-        "\tScaled cube: " << metadata.boundsScaledCubic() << "\n" <<
         "\tReprojection: " <<
             (reprojection ? reprojection->toString() : "(none)") << "\n" <<
         "\tStoring dimensions: " << getDimensionString(schema) << std::endl;
 
+    const auto t(metadata.ticks());
     std::cout << "Build parameters:\n" <<
         "\tTicks: " << t << "\n" <<
         "\tResolution 2D: " <<
