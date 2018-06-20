@@ -32,8 +32,6 @@ bool Clipper::insert(ReffedChunk& c)
 void Clipper::clip()
 {
     if (m_count <= heuristics::clipCacheSize) return;
-    const auto startTime(now());
-    const auto n(m_count);
 
     std::size_t cur(minClipDepth);
     while (cur < m_clips.size() && !m_clips[cur].empty()) ++cur;
@@ -46,12 +44,6 @@ void Clipper::clip()
         else m_count -= c.clip();
 
         --cur;
-    }
-
-    if (n - m_count)
-    {
-        std::cout << "  C " << n - m_count << "/" << m_count << " in " <<
-            since<std::chrono::milliseconds>(startTime) << "ms" << std::endl;
     }
 }
 
