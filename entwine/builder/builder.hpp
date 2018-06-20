@@ -96,6 +96,7 @@ public:
 
     bool verbose() const { return m_verbose; }
     void verbose(bool v) { m_verbose = v; }
+    uint64_t resetFiles() const { return m_resetFiles; }
 
     const Config& inConfig() const { return m_config; }
 
@@ -110,6 +111,8 @@ private:
     void save();
     void save(std::string to);
     void save(const arbiter::Endpoint& to);
+
+    void cycle();
 
     // Insert points from a file.  Sets any previously unset FileInfo fields
     // based on file contents.
@@ -150,6 +153,7 @@ private:
     TimePoint m_start;
     TimePoint m_reset;
     const int m_resetMinutes = 60;
+    const uint64_t m_resetFiles = 0;
 
     Builder(const Builder&);
     Builder& operator=(const Builder&);

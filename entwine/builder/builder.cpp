@@ -75,6 +75,7 @@ Builder::Builder(const Config& config, OuterScope os)
     , m_sequence(makeUnique<Sequence>(*m_metadata, m_mutex))
     , m_start(now())
     , m_reset(now())
+    , m_resetFiles(config["resetFiles"].asUInt64())
 {
     prepareEndpoints();
 }
@@ -152,6 +153,15 @@ void Builder::go(std::size_t max)
     p.join();
 }
 
+void Builder::cycle()
+{
+    std::cout << "\tCycling memory pool" << std::endl;
+    m_threadPools->cycle();
+    m_pointPool->clear();
+    m_reset = now();
+    std::cout << "\tCycled" << std::endl;
+}
+
 void Builder::doRun(const std::size_t max)
 {
     if (!m_tmp)
@@ -161,13 +171,12 @@ void Builder::doRun(const std::size_t max)
 
     while (auto o = m_sequence->next(max))
     {
-        if (since<std::chrono::minutes>(m_reset) >= m_resetMinutes)
+        if (
+                (m_resetFiles && m_sequence->added() > m_resetFiles &&
+                     (m_sequence->added() - 1) % m_resetFiles == 0) ||
+                since<std::chrono::minutes>(m_reset) >= m_resetMinutes)
         {
-            std::cout << "\tCycling memory pool" << std::endl;
-            m_threadPools->cycle();
-            m_pointPool->clear();
-            m_reset = now();
-            std::cout << "\tCycled" << std::endl;
+            cycle();
         }
 
         const Origin origin(*o);

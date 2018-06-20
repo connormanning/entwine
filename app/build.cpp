@@ -366,6 +366,14 @@ void App::build(std::vector<std::string> args)
             }
             else error("Invalid overflowDepth");
         }
+        else if (arg == "--resetFiles")
+        {
+            if (++a < args.size())
+            {
+                json["resetFiles"] = parse(args[a]);
+            }
+            else error("Invalid resetFiles");
+        }
         else if (arg == "--dataType")
         {
             if (++a < args.size())
@@ -484,6 +492,11 @@ void App::build(std::vector<std::string> args)
             threadPools.workPool().numThreads() << ", " <<
             threadPools.clipPool().numThreads() << "]" <<
         std::endl;
+
+    if (uint64_t rf = builder->resetFiles())
+    {
+        std::cout << "\tReset files: " << rf << std::endl;
+    }
 
     const auto hs(metadata.hierarchyStep());
     std::cout <<
