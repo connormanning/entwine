@@ -42,7 +42,9 @@ Scan::Scan(const Config config)
     , m_arbiter(m_in["arbiter"])
     , m_tmp(m_arbiter.getEndpoint(m_in.tmp()))
     , m_re(m_in.reprojection())
-{ }
+{
+    arbiter::fs::mkdirp(m_tmp.root());
+}
 
 Config Scan::go()
 {

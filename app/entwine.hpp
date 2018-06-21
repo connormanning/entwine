@@ -16,56 +16,60 @@
 
 #include <json/json.h>
 
+#include "arg-parser.hpp"
+
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/util/json.hpp>
 
 namespace entwine
+{
+namespace app
 {
 
 class App
 {
 public:
-    static void build(std::vector<std::string> args);
-    static void convert(std::vector<std::string> args);
-    static void merge(std::vector<std::string> args);
-    static void scan(std::vector<std::string> args);
+    virtual ~App() { }
 
-private:
-    static std::string yesNo(bool b) { return b ? "yes" : "no"; }
-
-    static std::string getDimensionString(const Schema& schema)
+    void go(Args args)
     {
-        const DimList dims(schema.dims());
-        std::string results("[\n");
-        const std::string prefix(16, ' ');
-        const std::size_t width(80);
-
-        std::string line;
-
-        for (std::size_t i(0); i < dims.size(); ++i)
-        {
-            const auto name(dims[i].name());
-            const auto type(dims[i].typeString());
-            const bool last(i == dims.size() - 1);
-
-            if (prefix.size() + line.size() + name.size() + 1 >= width)
-            {
-                results += prefix + line + '\n';
-                line.clear();
-            }
-
-            if (line.size()) line += ' ';
-            line += dims[i].name() + ':' + type;
-
-            if (!last) line += ',';
-            else results += prefix + line + '\n';
-        }
-
-        results += "\t]";
-
-        return results;
+        addArgs();
+        if (!m_ap.handle(args)) return;
+        run();
     }
+
+protected:
+    virtual void addArgs() = 0;
+    virtual void run() = 0;
+
+    Json::Value m_json;
+    ArgParser m_ap;
+
+    void addInput(std::string description);
+    void addOutput(std::string description);
+    void addTmp();
+    void addSimpleThreads();
+    void addReprojection();
+    void addNoTrustHeaders();
+    void addAbsolute();
+    void addArbiter();
+
+    void checkEmpty(Json::Value v) const
+    {
+        if (!v.isNull()) throw std::runtime_error("Invalid specification");
+    }
+
+    Json::UInt64 extract(Json::Value v) const
+    {
+        return parse(v.asString()).asUInt64();
+    }
+
+    std::string yesNo(bool b) const { return b ? "yes" : "no"; }
+
+    std::string getDimensionString(const Schema& schema) const;
 };
 
+} // namespace app
 } // namespace entwine
 

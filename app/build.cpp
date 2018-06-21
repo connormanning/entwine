@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include "entwine.hpp"
+#include "build.hpp"
 
 #include <chrono>
 #include <fstream>
@@ -31,397 +31,167 @@
 
 namespace entwine
 {
-
-namespace
+namespace app
 {
-    std::string getUsageString()
-    {
-        return
-            "\nUsage: entwine build <config file> <options>\n"
 
-            "\nConfig file:\n"
-            "\tOptional parameter, recommended only if the options below are\n"
-            "\tinsufficient.  See template at https://git.io/v2jPQ\n"
+void Build::addArgs()
+{
+    m_ap.setUsage("entwine build (<options>)");
 
-            "\nOptions (overrides config values):\n"
+    addInput(
+            "File paths or directory entries.  For a recursive directory "
+            "search, the notation is 'directory**'.  May also be the path "
+            "to an `entwine scan` output file\n"
+            "Example: --input path.laz, -i pointclouds/, -i scan.json");
 
-            "\t-i <input path>\n"
-            "\t\tSpecify the input location.  May end in '/*' for a\n"
-            "\t\tnon-recursive directory or '/**' for a recursive search.\n"
-            "\t\tMay be type-prefixed, e.g. s3://bucket/data/*.\n\n"
+    addOutput(
+            "Output directory.\n"
+            "Example: --output ~/entwine/autzen");
 
-            "\t-o <output path>\n"
-            "\t\tOutput directory.\n\n"
+    m_ap.add(
+            "--config",
+            "-c",
+            "An entwine configuration file.  Subsequent options will override "
+            "configuration file parameters, so it may be used for templating "
+            "common options among multiple builds.\n"
+            "Example: --config template.json -i in.laz -o out",
+            [this](Json::Value v)
+            {
+                arbiter::Arbiter a(m_json["arbiter"]);
+                m_json = merge(m_json, parse(a.get(v.asString())));
+            });
 
-            "\t-a <tmp path>\n"
-            "\t\tDirectory for entwine-generated temporary files.\n\n"
+    addTmp();
+    addReprojection();
 
-            "\t-b [xmin, ymin, zmin, xmax, ymax, zmax]\n"
-            "\t\tSet the boundings for the index.  Points outside of the\n"
-            "\t\tgiven coordinates will be discarded.\n\n"
+    m_ap.add(
+            "--dataType",
+            "Data type for serialized point cloud data.  Valid values are "
+            "\"laszip\" or \"binary\".  Default: \"laszip\".\n"
+            "Example: --dataType binary",
+            [this](Json::Value v) { m_json["dataType"] = v.asString(); });
 
-            "\t-r (<input reprojection>) <output reprojection>\n"
-            "\t\tSet the spatial reference system reprojection.  The input\n"
-            "\t\tvalue may be omitted to infer the input SRS from the file\n"
-            "\t\theader.  In this case the build will fail if no input SRS\n"
-            "\t\tmay be inferred.  Reprojection strings may be any of the\n"
-            "\t\tformats supported by GDAL.\n\n"
-            "\t\tIf an input reprojection is supplied, by default it will\n"
-            "\t\tonly be used when no SRS can be inferred from the file.  To\n"
-            "\t\toverride this behavior and use the specified input SRS even\n"
-            "\t\twhen one can be found from the file header, set the '-h'\n"
-            "\t\tflag.\n\n"
+    m_ap.add(
+            "--ticks",
+            "Number of grid ticks in each spatial dimensions for data nodes.  "
+            "For example, a \"ticks\" value of 256 will result in a cube of "
+            "256*256*256 resolution.  Default: 256.\n"
+            "Example: --ticks 128",
+            [this](Json::Value v) { m_json["ticks"] = extract(v); });
 
-            "\t-h\n"
-            "\t\tIf set, the user-supplied input SRS will always override\n"
-            "\t\tany SRS inferred from file headers.\n\n"
+    m_ap.add(
+            "--noOriginId",
+            "If present, an OriginId dimension tracking points to their "
+            "original source files will *not* be inserted.",
+            [this](Json::Value v)
+            {
+                checkEmpty(v);
+                m_json["allowOriginId"] = false;
+            });
 
-            "\t-t <threads>\n"
-            "\t\tSet the number of worker threads.  Recommended to be no\n"
-            "\t\tmore than the physical number of cores.\n\n"
+    m_ap.add(
+            "--force",
+            "-f",
+            "Force build overwrite - do not continue a previous build that may "
+            "exist at this output location",
+            [this](Json::Value v) { checkEmpty(v); m_json["force"] = true; });
 
-            "\t-f\n"
-            "\t\tForce build overwrite - do not continue a previous build\n"
-            "\t\tthat may exist at this output location.\n\n"
+    m_ap.add(
+            "--bounds",
+            "-b",
+            "XYZ bounds specification beyond which points will be discarded\n"
+            "Example: --bounds 0 0 0 100 100 100, -b \"[0,0,0,100,100,100]\"",
+            [this](Json::Value v)
+            {
+                if (v.isString()) m_json["bounds"] = parse(v.asString());
+                else if (v.isArray())
+                {
+                    for (Json::ArrayIndex i(0); i < v.size(); ++i)
+                    {
+                        v[i] = std::stod(v[i].asString());
+                    }
+                    m_json["bounds"] = v;
+                }
+            });
 
-            "\t-u <aws user>\n"
-            "\t\tSpecify AWS credential user, if not default\n\n"
+    m_ap.add(
+            "--threads",
+            "-t",
+            "The number of threads\n"
+            "Example: --threads 12",
+            [this](Json::Value v) { m_json["threads"] = parse(v.asString()); });
 
-            "\t-e\n"
-            "\t\tEnable AWS server-side-encryption.\n\n"
+    addNoTrustHeaders();
+    addAbsolute();
 
-            "\t-x\n"
-            "\t\tDo not trust file headers when determining bounds.  By\n"
-            "\t\tdefault, the headers are considered to be good.\n\n"
+    m_ap.add(
+            "--scale",
+            "The scale factor for spatial coordinates.\n"
+            "Example: --scale 0.1, --scale \"[0.1, 0.1, 0.025]\"",
+            [this](Json::Value v) { m_json["scale"] = parse(v.asString()); });
 
-            "\t-c <storage compression-type>\n"
-            "\t\tSet data storage type.  Valid value: 'binary', 'laszip',\n"
-            "\t\tor 'lazperf'.\n\n"
+    m_ap.add(
+            "--run",
+            "-g",
+            "Maximum number of files to insert - the build may be continued "
+            "with another `build` invocation\n"
+            "Example: --run 20",
+            [this](Json::Value v) { m_json["run"] = extract(v); });
 
-            "\t-n\n"
-            "\t\tIf set, absolute positioning will be used, even if values\n"
-            "\t\tfor scale/offset can be inferred.\n\n"
+    m_ap.add(
+            "--resetFiles",
+            "Reset the memory pool after \"n\" files\n"
+            "Example: --resetFiles 100",
+            [this](Json::Value v) { m_json["resetFiles"] = extract(v); });
 
-            "\t-s <scale>\n"
-            "\t\tSet a scale factor for indexed output.\n\n"
+    m_ap.add(
+            "--subset",
+            "-s",
+            "A partial task specification for this build\n"
+            "Example: --subset 1 4",
+            [this](Json::Value v)
+            {
+                if (!v.isArray() || v.size() != 2)
+                {
+                    throw std::runtime_error("Invalid subset specification");
+                }
+                const Json::UInt64 id(std::stoul(v[0].asString()));
+                const Json::UInt64 of(std::stoul(v[1].asString()));
+                m_json["subset"]["id"] = id;
+                m_json["subset"]["of"] = of;
+            });
 
-            "\t-s <subset-number> <subset-total>\n"
-            "\t\tBuild only a portion of the index.  If output paths are\n"
-            "\t\tall the same, 'merge' should be run after all subsets are\n"
-            "\t\tbuilt.  If output paths are different, then 'link' should\n"
-            "\t\tbe run after all subsets are built.\n\n"
-            "\t\tsubset-number - One-based subset ID in range\n"
-            "\t\t[1, subset-total].\n\n"
-            "\t\tsubset-total - Total number of subsets that will be built.\n"
-            "\t\tMust be a binary power.\n\n"
+    m_ap.add(
+            "--overflowDepth",
+            "Depth at which nodes may overflow",
+            [this](Json::Value v) { m_json["overflowDepth"] = extract(v); });
 
-            ;
-    }
+    m_ap.add(
+            "--overflowThreshold",
+            "Threshold at which overflowed points are placed into child nodes",
+            [this](Json::Value v) { m_json["overflowThreshold"] = extract(v); });
+    m_ap.add(
+            "--overflowDepth",
+            "Depth at which nodes may overflow",
+            [this](Json::Value v) { m_json["overflowDepth"] = extract(v); });
+
+    addArbiter();
 }
 
-void App::build(std::vector<std::string> args)
+void Build::run()
 {
-    if (args.empty())
-    {
-        std::cout << getUsageString() << std::flush;
-        return;
-    }
-
-    if (args.size() == 1)
-    {
-        if (args[0] == "help" || args[0] == "-h" || args[0] == "--help")
-        {
-            std::cout << getUsageString() << std::flush;
-            return;
-        }
-    }
-
-    Json::Value json;
-    entwine::arbiter::Arbiter localArbiter;
-
-    std::size_t a(0);
-
-    if (args[0].front() != '-')
-    {
-        // First argument is a config path.
-        const std::string configPath(args[0]);
-        const Json::Value config(parse(localArbiter.get(configPath)));
-
-        recMerge(json, config);
-
-        ++a;
-    }
-
-    auto error([](const std::string& message)
-    {
-        throw std::runtime_error(message);
-    });
-
-    bool allowOriginId(false);
-
-    while (a < args.size())
-    {
-        const std::string arg(args[a]);
-
-        if (arg == "-i")
-        {
-            ++a;
-            auto i(a);
-
-            while (i < args.size() && args[i].front() != '-')
-            {
-                ++i;
-            }
-
-            if (i == a || i > args.size())
-            {
-                error("Invalid input path specification");
-            }
-            else if (i == a + 1)
-            {
-                json["input"] = args[a];
-            }
-            else
-            {
-                while (a < i)
-                {
-                    json["input"].append(args[a]);
-                    ++a;
-                }
-
-                --a;
-            }
-        }
-        else if (arg == "-o")
-        {
-            if (++a < args.size()) json["output"] = args[a];
-            else error("Invalid output path specification");
-        }
-        else if (arg == "-c")
-        {
-            if (++a < args.size()) json["storage"] = args[a];
-            else error("Invalid compression specification");
-        }
-        else if (arg == "-a")
-        {
-            if (++a < args.size()) json["tmp"] = args[a];
-            else error("Invalid tmp specification");
-        }
-        else if (arg == "-b")
-        {
-            std::string str;
-            bool done(false);
-
-            while (!done && ++a < args.size())
-            {
-                str += args[a];
-                if (args[a].find(']') != std::string::npos) done = true;
-            }
-
-            if (done) json["bounds"] = parse(str);
-            else error("Invalid bounds: " + str);
-        }
-        else if (arg == "-f") { json["force"] = true; }
-        else if (arg == "-x") { json["trustHeaders"] = false; }
-        else if (arg == "-n") { json["absolute"] = true; }
-        else if (arg == "-e") { json["arbiter"]["s3"]["sse"] = true; }
-        else if (arg == "-h")
-        {
-            json["reprojection"]["hammer"] = true;
-        }
-        else if (arg == "-s")
-        {
-            if (++a < args.size())
-            {
-                // If there's only one following argument, then this is a
-                // scale specification.  Otherwise, it's a subset specification.
-                if (a + 1 >= args.size() || args[a + 1].front() == '-')
-                {
-                    if (args[a].front() == '[')
-                    {
-                        json["scale"] = parse(args[a]);
-                    }
-                    else
-                    {
-                        const double d(std::stod(args[a]));
-                        for (int i(0); i < 3; ++i) json["scale"].append(d);
-                    }
-                }
-                else
-                {
-                    const Json::UInt64 id(std::stoul(args[a]));
-                    const Json::UInt64 of(std::stoul(args[++a]));
-
-                    json["subset"]["id"] = id;
-                    json["subset"]["of"] = of;
-                }
-            }
-            else
-            {
-                error("Invalid -s specification");
-            }
-        }
-        else if (arg == "-u")
-        {
-            if (++a < args.size())
-            {
-                json["arbiter"]["s3"]["profile"] = args[a];
-            }
-            else
-            {
-                error("Invalid AWS user argument");
-            }
-        }
-        else if (arg == "-g")
-        {
-            if (++a < args.size())
-            {
-                json["run"] = Json::UInt64(std::stoul(args[a]));
-            }
-            else error("Invalid run-count argument");
-        }
-        else if (arg == "-r")
-        {
-            if (++a < args.size())
-            {
-                const bool onlyOutput(
-                        a + 1 >= args.size() ||
-                        args[a + 1].front() == '-');
-
-                if (onlyOutput)
-                {
-                    json["reprojection"]["out"] = args[a];
-                }
-                else
-                {
-                    json["reprojection"]["in"] = args[a];
-                    json["reprojection"]["out"] = args[++a];
-                }
-            }
-            else
-            {
-                error("Invalid reprojection argument");
-            }
-        }
-        else if (arg == "-h")
-        {
-            json["reprojection"]["hammer"] = true;
-        }
-        else if (arg == "-t")
-        {
-            if (++a < args.size())
-            {
-                json["threads"] = parse(args[a]);
-            }
-            else
-            {
-                error("Invalid thread count specification");
-            }
-        }
-        else if (arg == "-p")
-        {
-            if (++a < args.size())
-            {
-                json["preserveSpatial"] = parse(args[a]);
-            }
-            else error("Invalid preserveSpatial specification");
-        }
-        else if (arg == "--sleepCount")
-        {
-            if (++a < args.size())
-            {
-                json["sleepCount"] = parse(args[a]);
-            }
-            else error("Invalid sleepCount");
-        }
-        else if (arg == "--splits")
-        {
-            if (++a < args.size())
-            {
-                json["splits"] = parse(args[a]);
-            }
-            else error("Invalid splits specification");
-        }
-        else if (arg == "--overflowRatio")
-        {
-            if (++a < args.size())
-            {
-                json["overflowRatio"] = parse(args[a]);
-            }
-            else error("Invalid overflowRatio");
-        }
-        else if (arg == "--overflowThreshold")
-        {
-            if (++a < args.size())
-            {
-                json["overflowThreshold"] = parse(args[a]);
-            }
-            else error("Invalid overflowThreshold");
-        }
-        else if (arg == "--overflowDepth")
-        {
-            if (++a < args.size())
-            {
-                json["overflowDepth"] = parse(args[a]);
-            }
-            else error("Invalid overflowDepth");
-        }
-        else if (arg == "--resetFiles")
-        {
-            if (++a < args.size())
-            {
-                json["resetFiles"] = parse(args[a]);
-            }
-            else error("Invalid resetFiles");
-        }
-        else if (arg == "--dataType")
-        {
-            if (++a < args.size())
-            {
-                json["dataType"] = args[a];
-            }
-            else error("Invalid dataType");
-        }
-        else if (arg == "--hierarchyStep")
-        {
-            if (++a < args.size())
-            {
-                json["hierarchyStep"] = parse(args[a]);
-            }
-            else error("Invalid hierarchyStep");
-        }
-        else if (arg == "--ticks")
-        {
-            if (++a < args.size())
-            {
-                json["ticks"] = parse(args[a]);
-            }
-            else error("Invalid ticks");
-        }
-        else if (arg == "--withOriginId")
-        {
-            allowOriginId = true;
-        }
-        else
-        {
-            error("Invalid argument: " + args[a]);
-        }
-
-        ++a;
-    }
-
-    json["verbose"] = true;
-
     // Extract the output and remove it from the Scan config - this path is
     // the output path for 'build', not 'scan'.
-    const std::string output(json["output"].asString());
-    json.removeMember("output");
+    const std::string output(m_json["output"].asString());
+    m_json.removeMember("output");
 
-    Config config(json);
+    Config config(m_json);
     config = config.prepare();
     config["output"] = output;  // Re-add output to resulting 'build' config.
 
-    if (allowOriginId)
+    if (
+            !config.json().isMember("allowOriginId") ||
+            config["allowOriginId"].asBool())
     {
         Schema s(config["schema"]);
         if (!s.contains(pdal::Dimension::Id::OriginId))
@@ -433,25 +203,62 @@ void App::build(std::vector<std::string> args)
 
     auto builder(makeUnique<Builder>(config));
 
-    if (builder->isContinuation())
+    log(*builder);
+
+    const Files& files(builder->metadata().files());
+
+    auto start = now();
+    const std::size_t alreadyInserted(files.pointStats().inserts());
+
+    const std::size_t runCount(m_json["run"].asUInt64());
+    builder->go(runCount);
+
+    std::cout << "\nIndex completed in " <<
+        commify(since<std::chrono::seconds>(start)) << " seconds." <<
+        std::endl;
+
+    std::cout << "Save complete.  Indexing stats:\n";
+
+    const PointStats stats(files.pointStats());
+
+    if (alreadyInserted)
+    {
+        std::cout <<
+            "\tPoints inserted:\n" <<
+            "\t\tPreviously: " << commify(alreadyInserted) << "\n" <<
+            "\t\tCurrently:  " <<
+                commify((stats.inserts() - alreadyInserted)) << "\n" <<
+            "\t\tTotal:      " << commify(stats.inserts()) << std::endl;
+    }
+    else
+    {
+        std::cout << "\tPoints inserted: " << commify(stats.inserts()) << "\n";
+    }
+
+    std::cout <<
+        "\tPoints discarded:\n" <<
+        "\t\tOutside specified bounds: " <<
+            commify(stats.outOfBounds()) << "\n" <<
+        "\t\tOverflow past max depth: " <<
+            commify(stats.overflows()) << "\n" <<
+        std::endl;
+}
+
+void Build::log(const Builder& b) const
+{
+    if (b.isContinuation())
     {
         std::cout << "\nContinuing previous index..." << std::endl;
     }
 
-    const auto& outEndpoint(builder->outEndpoint());
-    const auto& tmpEndpoint(builder->tmpEndpoint());
+    std::string outPath(b.outEndpoint().prefixedRoot());
+    std::string tmpPath(b.tmpEndpoint().root());
 
-    std::string outPath(
-            (outEndpoint.type() != "file" ? outEndpoint.type() + "://" : "") +
-            outEndpoint.root());
-    std::string tmpPath(tmpEndpoint.root());
-
-    const Metadata& metadata(builder->metadata());
+    const Metadata& metadata(b.metadata());
     const Files& files(metadata.files());
-
     const Reprojection* reprojection(metadata.reprojection());
     const Schema& schema(metadata.schema());
-    const std::size_t runCount(json["run"].asUInt64());
+    const std::size_t runCount(m_json["run"].asUInt64());
 
     std::cout << std::endl;
     std::cout <<
@@ -474,8 +281,6 @@ void App::build(std::vector<std::string> args)
             (runCount > 1 ? "s" : "") << "\n";
     }
 
-    const auto& threadPools(builder->threadPools());
-
     std::cout << "\tTotal points: " <<
         commify(metadata.files().totalPoints()) << std::endl;
 
@@ -489,11 +294,11 @@ void App::build(std::vector<std::string> args)
 
     std::cout <<
         "\tThreads: [" <<
-            threadPools.workPool().numThreads() << ", " <<
-            threadPools.clipPool().numThreads() << "]" <<
+            b.threadPools().workPool().numThreads() << ", " <<
+            b.threadPools().clipPool().numThreads() << "]" <<
         std::endl;
 
-    if (uint64_t rf = builder->resetFiles())
+    if (uint64_t rf = b.resetFiles())
     {
         std::cout << "\tReset files: " << rf << std::endl;
     }
@@ -505,7 +310,7 @@ void App::build(std::vector<std::string> args)
         "\tData type: " << metadata.dataIo().type() << "\n" <<
         "\tHierarchy type: " << "json" << "\n" <<
         "\tHierarchy step: " << (hs ? std::to_string(hs) : "auto") << "\n" <<
-        "\tSleep count: " << builder->sleepCount() <<
+        "\tSleep count: " << b.sleepCount() <<
         std::endl;
 
     if (const auto* delta = metadata.delta())
@@ -572,42 +377,8 @@ void App::build(std::vector<std::string> args)
     }
 
     std::cout << std::endl;
-
-    auto start = now();
-    const std::size_t alreadyInserted(files.pointStats().inserts());
-
-    builder->go(runCount);
-
-    std::cout << "\nIndex completed in " <<
-        commify(since<std::chrono::seconds>(start)) << " seconds." <<
-        std::endl;
-
-    std::cout << "Save complete.  Indexing stats:\n";
-
-    const PointStats stats(files.pointStats());
-
-    if (alreadyInserted)
-    {
-        std::cout <<
-            "\tPoints inserted:\n" <<
-            "\t\tPreviously: " << commify(alreadyInserted) << "\n" <<
-            "\t\tCurrently:  " <<
-                commify((stats.inserts() - alreadyInserted)) << "\n" <<
-            "\t\tTotal:      " << commify(stats.inserts()) << std::endl;
-    }
-    else
-    {
-        std::cout << "\tPoints inserted: " << commify(stats.inserts()) << "\n";
-    }
-
-    std::cout <<
-        "\tPoints discarded:\n" <<
-        "\t\tOutside specified bounds: " <<
-            commify(stats.outOfBounds()) << "\n" <<
-        "\t\tOverflow past max depth: " <<
-            commify(stats.overflows()) << "\n" <<
-        std::endl;
 }
 
+} // namespace app
 } // namespace entwine
 

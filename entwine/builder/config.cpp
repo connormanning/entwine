@@ -22,7 +22,8 @@ Config Config::prepare() const
 
     // If our input is a Scan, extract it and return the result without redoing
     // the scan.
-    const Json::Value& p(m_json["input"]);
+    Json::Value p(m_json["input"]);
+    if (p.isArray() && p.size() == 1) p = p[0];
     if (p.isString() && arbiter::Arbiter::getExtension(p.asString()) == "json")
     {
         std::cout << "Using existing scan as input" << std::endl;

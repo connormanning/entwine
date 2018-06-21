@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2016, Connor Manning (connor@hobu.co)
+* Copyright (c) 2018, Connor Manning (connor@hobu.co)
 *
 * Entwine -- Point cloud indexing
 *
@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include "entwine.hpp"
+#include "merge.hpp"
 
 #include <fstream>
 #include <iostream>
@@ -22,75 +22,28 @@
 
 namespace entwine
 {
-
-namespace
+namespace app
 {
-    std::string getUsageString()
-    {
-        return
-            "\tUsage: entwine merge <path> <options>\n"
-            "\tOptions:\n"
 
-            "\t-t <threads>\n"
-            "\t\tSet the number of worker threads.  Recommended to be no\n"
-            "\t\tmore than the physical number of cores.\n\n"
+void Merge::addArgs()
+{
+    m_ap.setUsage("entwine merge <path> (<options>)");
 
-            "\t\t-u <aws-user>\n"
-            "\t\t\tSpecify AWS credential user, if not default\n";
-    }
+    addOutput("Path containing completed subset builds");
+    addSimpleThreads();
+    addArbiter();
 }
 
-void App::merge(std::vector<std::string> args)
+void Merge::run()
 {
-    if (args.size() < 1)
-    {
-        std::cout << getUsageString() << std::endl;
-        throw std::runtime_error("Merge path required");
-    }
-
-    Config config;
-    config["output"] = args[0];
-    config["verbose"] = true;
-
-    std::size_t a(1);
-
-    while (a < args.size())
-    {
-        std::string arg(args[a]);
-
-        if (arg == "-u")
-        {
-            if (++a < args.size())
-            {
-                config["arbiter"]["s3"]["profile"] = args[a];
-            }
-            else
-            {
-                throw std::runtime_error("Invalid credential path argument");
-            }
-        }
-        else if (arg == "-t")
-        {
-            if (++a < args.size())
-            {
-                config["threads"] = Json::UInt64(std::stoul(args[a]));
-            }
-            else
-            {
-                throw std::runtime_error("Invalid threads setting");
-            }
-        }
-
-        ++a;
-    }
-
+    m_json["verbose"] = true;
+    Config config(m_json);
     Merger merger(config);
-
-    std::cout << "Merging " << config["output"].asString() << "..." <<
-        std::endl;
+    std::cout << "Merging " << config.output() << "..." << std::endl;
     merger.go();
     std::cout << "Merge complete." << std::endl;
 }
 
+} // namespace app
 } // namespace entwine
 

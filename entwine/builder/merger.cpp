@@ -119,6 +119,11 @@ void Merger::go()
         m_id += n;
     }
 
+    if (m_verbose)
+    {
+        std::cout << "Merged " << m_of << " / " << m_of << std::endl;
+    }
+
     m_builder->makeWhole();
 
     if (m_verbose) std::cout << "Merge complete.  Saving..." << std::endl;

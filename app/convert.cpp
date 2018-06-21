@@ -8,59 +8,46 @@
 *
 ******************************************************************************/
 
-#include "entwine.hpp"
+#include "convert.hpp"
 
 #include <entwine/formats/cesium/tileset.hpp>
 
 namespace entwine
 {
-
-void App::convert(std::vector<std::string> args)
+namespace app
 {
-    Json::Value config;
-    std::size_t a(0);
 
-    while (a < args.size())
-    {
-        const std::string arg(args[a]);
+void Convert::addArgs()
+{
+    m_ap.setUsage("entwine convert <options>");
 
-        if (arg == "-i")
-        {
-            if (++a < args.size()) config["input"] = args[a];
-            else throw std::runtime_error("Invalid input");
-        }
-        else if (arg == "-o")
-        {
-            if (++a < args.size()) config["output"] = args[a];
-            else throw std::runtime_error("Invalid output");
-        }
-        else if (arg == "-a")
-        {
-            if (++a < args.size()) config["tmp"] = args[a];
-            else throw std::runtime_error("Invalid tmp");
-        }
-        else if (arg == "-t")
-        {
-            if (++a < args.size())
+    m_ap.add(
+            "--input",
+            "-i",
+            "Path to a completed entwine build",
+            [this](Json::Value v) { m_json["input"] = v.asString(); });
+
+    addOutput("Path for Cesium 3D Tiles output");
+    addTmp();
+    addSimpleThreads();
+
+    m_ap.add(
+            "--geometricErrorDivisor",
+            "-g",
+            "The root geometric error is determined as the width of the "
+            "dataset cube divided by \"geometricErrorDivisor\", which defaults "
+            "to 32.  Smaller values will result in the data being loaded "
+            "at higher density\n"
+            "Example: --geometricErrorDivisor 16.0",
+            [this](Json::Value v)
             {
-                config["threads"] = Json::UInt64(std::stoul(args[a]));
-            }
-            else throw std::runtime_error("Invalid threads");
-        }
-        else if (arg == "-g")
-        {
-            if (++a < args.size())
-            {
-                config["geometricErrorDivisor"] = std::stod(args[a]);
-            }
-            else throw std::runtime_error("Invalid geometric error divisor");
-        }
-        else throw std::runtime_error("Invalid argument: " + arg);
+                m_json["geometricErrorDivisor"] = v.asDouble();
+            });
+}
 
-        ++a;
-    }
-
-    cesium::Tileset tileset(config);
+void Convert::run()
+{
+    cesium::Tileset tileset(m_json);
 
     std::cout << "Converting:" << std::endl;
     std::cout << "\tInput:  " << tileset.in().prefixedRoot() << "\n";
@@ -73,5 +60,6 @@ void App::convert(std::vector<std::string> args)
     std::cout << "\tDone." << std::endl;
 }
 
+} // namespace app
 } // namespace entwine
 

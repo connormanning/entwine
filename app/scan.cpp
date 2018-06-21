@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include "entwine.hpp"
+#include "scan.hpp"
 
 #include <cstddef>
 #include <string>
@@ -18,189 +18,37 @@
 #include <entwine/types/reprojection.hpp>
 #include <entwine/util/matrix.hpp>
 
-using namespace entwine;
-
-namespace
+namespace entwine
 {
-    std::string getUsageString()
-    {
-        return
-            "\nUsage: entwine scan <path or glob> <options>\n"
+namespace app
+{
 
-            "\nPath or glob:\n"
-            "\tA single file or wildcard directory path.  A non-recursive\n"
-            "\tglob is signified by a single '*', e.g. \"/my/dir/*\", and a\n"
-            "\trecursive search with two, e.g. \"/my/dir/*\"."
+void Scan::addArgs()
+{
+    m_ap.setUsage("entwine scan <path(s)> (<options>)");
 
-            "\nOptions:\n"
+    addInput(
+            "File paths or directory entries.  For a recursive directory "
+            "search, the notation is 'directory/**'\n"
+            "Example: --input path.laz, --input data-directory/");
 
-            "\t-r (<input reprojection>) <output reprojection>\n"
-            "\t\tSet the spatial reference system reprojection.  The input\n"
-            "\t\tvalue may be omitted to scan the input SRS from the file\n"
-            "\t\theader.  In this case the build will fail if no input SRS\n"
-            "\t\tmay be inferred.  Reprojection strings may be any of the\n"
-            "\t\tformats supported by GDAL.\n\n"
-            "\t\tIf an input reprojection is supplied, by default it will\n"
-            "\t\tonly be used when no SRS can be inferred from the file.  To\n"
-            "\t\toverride this behavior and use the specified input SRS even\n"
-            "\t\twhen one can be found from the file header, set the '-h'\n"
-            "\t\tflag.\n\n"
+    addOutput(
+            "If provided, detailed per-file information will be written "
+            "to this file in JSON format\n"
+            "Example: --output scan-output.json");
 
-            "\t-o <output-path>\n"
-            "\t\tIf provided, detailed per-file information will be written\n"
-            "\t\tto this file in JSON format.\n\n"
-
-            "\t-h\n"
-            "\t\tIf set, the user-supplied input SRS will always override\n"
-            "\t\tany SRS inferred from file headers.\n\n"
-
-            "\t-t <threads>\n"
-            "\t\tSet the number of threads.  Default: 4.\n\n"
-
-            "\t-u <aws user>\n"
-            "\t\tSpecify AWS credential user, if not default\n\n"
-
-            "\t-a <tmp path>\n"
-            "\t\tDirectory for entwine-generated temporary files.\n\n"
-
-            "\t-x\n"
-            "\t\tDo not trust file headers when determining bounds.  By\n"
-            "\t\tdefault, the headers are considered to be good.\n\n";
-    }
+    addTmp();
+    addReprojection();
+    addSimpleThreads();
+    addNoTrustHeaders();
+    addAbsolute();
+    addArbiter();
 }
 
-void App::scan(std::vector<std::string> args)
+void Scan::run()
 {
-    if (args.empty())
-    {
-        std::cout << getUsageString() << std::flush;
-        return;
-    }
-
-    if (args.size() == 1)
-    {
-        if (args[0] == "help" || args[0] == "-h" || args[0] == "--help")
-        {
-            std::cout << getUsageString() << std::flush;
-            return;
-        }
-    }
-
-    Paths paths;
-    bool addingPath(args.front().front() != '-');
-
-    Json::Value json;
-
-    std::size_t a(0);
-
-    while (a < args.size())
-    {
-        const std::string arg(args[a]);
-
-        if (addingPath)
-        {
-            if (arg.front() != '-')
-            {
-                json["input"].append(arg);
-            }
-            else
-            {
-                addingPath = false;
-            }
-        }
-
-        if (arg == "-i")
-        {
-            addingPath = true;
-        }
-        else if (arg == "-a")
-        {
-            if (++a < args.size())
-            {
-                json["tmp"] = args[a];
-            }
-            else
-            {
-                throw std::runtime_error("Invalid tmp specification");
-            }
-        }
-        else if (arg == "-o")
-        {
-            if (++a < args.size())
-            {
-                json["output"] = args[a];
-            }
-            else
-            {
-                throw std::runtime_error("Invalid output specification");
-            }
-        }
-        else if (arg == "-r")
-        {
-            if (++a < args.size())
-            {
-                const bool onlyOutput(
-                        a + 1 >= args.size() ||
-                        args[a + 1].front() == '-');
-
-                if (onlyOutput)
-                {
-                    json["reprojection"]["out"] = args[a];
-                }
-                else
-                {
-                    json["reprojection"]["in"] = args[a];
-                    json["reprojection"]["out"] = args[++a];
-                }
-            }
-            else
-            {
-                throw std::runtime_error("Invalid reprojection argument");
-            }
-        }
-        else if (arg == "-h")
-        {
-            json["reprojection"]["hammer"] = true;
-        }
-        else if (arg == "-x")
-        {
-            json["trustHeaders"] = false;
-        }
-        else if (arg == "-t")
-        {
-            if (++a < args.size())
-            {
-                json["threads"] = Json::UInt64(std::stoul(args[a]));
-            }
-            else
-            {
-                throw std::runtime_error("Invalid thread count specification");
-            }
-        }
-        else if (arg == "-u")
-        {
-            if (++a < args.size())
-            {
-                json["arbiter"]["s3"]["profile"] = args[a];
-            }
-            else
-            {
-                throw std::runtime_error("Invalid AWS user argument");
-            }
-        }
-        else if (arg == "-e") { json["arbiter"]["s3"]["sse"] = true; }
-        else if (arg == "-v") { json["arbiter"]["verbose"] = true; }
-
-        ++a;
-    }
-
-    if (json.isMember("tmp"))
-    {
-        entwine::arbiter::fs::mkdirp(json["tmp"].asString());
-    }
-
-    Config in(json);
-    Scan scan(in);
+    Config in(m_json);
+    entwine::Scan scan(in);
     in = scan.inConfig();
     std::unique_ptr<Reprojection> reprojection(in.reprojection());
 
@@ -215,7 +63,6 @@ void App::scan(std::vector<std::string> args)
         std::cout << "\tInput: " << in["input"].size() << " files" << std::endl;
     }
 
-    std::cout << "\tTemp path: " << in.tmp() << std::endl;
     std::cout << "\tThreads: " << in.totalThreads() << std::endl;
     std::cout << "\tReprojection: " <<
         (reprojection ? reprojection->toString() : "(none)") << std::endl;
@@ -247,4 +94,7 @@ void App::scan(std::vector<std::string> args)
 
     std::cout << std::endl;
 }
+
+} // namespace app
+} // namespace entwine
 
