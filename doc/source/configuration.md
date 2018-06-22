@@ -47,13 +47,7 @@ indexed.  Paths are not required to be local filesystem paths - they may be
 local, S3, GCS, Dropbox, or any other
 [Arbiter-readable](https://github.com/connormanning/arbiter) format.
 
-## Common options
 
-Each Entwine sub-command supports a few common options.
-
-# TODO
-config
-arbiter
 
 ## Build
 
@@ -69,20 +63,20 @@ LiDAR data.
 | [reprojection](#reprojection) | Coordinate system reprojection |
 | [threads](#threads) | Number of parallel threads |
 | [force](#force) | Force a new build at this output |
-| [dataType](#dataType) | Point cloud data storage type |
-| [hierarchyType](#hierarchyType) | Hierarchy storage type |
+| [dataType](#datatype) | Point cloud data storage type |
+| [hierarchyType](#hierarchytype) | Hierarchy storage type |
 | [ticks](#ticks) | Nominal resolution in one dimension |
-| [allowOriginId](#allowOriginId) | Specify per-point source file tracking |
+| [allowOriginId](#alloworiginid) | Specify per-point source file tracking |
 | [bounds](#bounds) | Dataset bounds |
 | [schema](#schema) | Attributes to store |
-| [trustHeaders](#trustHeaders) | Specify whether file headers are trustworthy |
+| [trustHeaders](#trustheaders) | Specify whether file headers are trustworthy |
 | [absolute](#absolute) | Set double precision spatial coordinates |
 | [scale](#scale) | Scaling factor for scaled integral coordinates |
 | [run](#run) | Insert a fixed number of files |
-| [resetFiles](#resetFiles) | Reset memory pooling after a number of files |
+| [resetFiles](#resetfiles) | Reset memory pooling after a number of files |
 | [subset](#subset) | Run a subset portion of a larger build |
-| [overflowDepth](#overflowDepth) | Depth at which nodes may contain overflow |
-| [overflowThreshold](#overflowThreshold) | Threshold for overflowing nodes to split |
+| [overflowDepth](#overflowdepth) | Depth at which nodes may contain overflow |
+| [overflowThreshold](#overflowthreshold) | Threshold for overflowing nodes to split |
 
 ### input
 
@@ -298,4 +292,81 @@ specified by this parameter.
 
 For nodes at depths of at least the `overflowDepth`, this parameter specifies
 the threshold at which they will split into bisected child nodes.
+
+
+
+## Scan
+
+The `scan` command is used to aggregate information about unindexed LiDAR data
+prior to building an Entwine Point Tile dataset.
+
+Most options here are common to `build` and perform exactly the same function in
+the `scan` command, aside from `output`, described below.
+
+| Key | Description |
+|-----|-------------|
+| [input](#input) | Path(s) to build |
+| [output](#output-scan) | Output directory |
+| [tmp](#tmp) | Temporary directory |
+| [reprojection](#reprojection) | Coordinate system reprojection |
+| [threads](#threads) | Number of parallel threads |
+| [trustHeaders](#trustheaders) | Specify whether file headers are trustworthy |
+
+### output (scan)
+
+The `output` for a scan is a file path to write detailed summary information
+determined by the scan, including per-file metadata.  This output file, in JSON
+format, may be used as the `input` for a [build](#build) command.
+
+
+
+## Merge
+
+The `merge` command is used to combine [subset](#subset) builds into a full
+Entwine Point Tile dataset.  All subsets must be completed.
+
+| Key | Description |
+|-----|-------------|
+| [output](#output-merge) | Output directory of subsets |
+| [tmp](#tmp) | Temporary directory |
+| [threads](#threads) | Number of parallel threads |
+
+### output (merge)
+
+The output path must be a directory containing `n` completed subset builds,
+where `n` is the `of` value from the subset specification.
+
+
+
+## Convert
+
+The `convert` command provides utilities to transform Entwine Point Tile output
+into other formats.  Currently the only conversion provided is to the
+[Cesium 3D Tiles](https://github.com/AnalyticalGraphicsInc/3d-tiles) format.
+
+| Key | Description |
+|-----|-------------|
+| [input](#input-convert) | Directory containing a completed Entwine build |
+| [output](#output-convert) | Output directory for the converted dataset |
+| [tmp](#tmp) | Temporary directory |
+| [threads](#threads) | Number of parallel threads |
+| [geometricErrorDivisor](#geometricerrordivisor) | Geometric error divisor |
+
+### input (convert)
+
+The `input` to a `convert` command is the path of a directory containing a
+completed Entwine build.
+
+### output (convert)
+
+Output directory in which to write the converted dataset.
+
+### geometricErrorDivisor
+
+The root geometric error is determined as `cubeWidth / geometricErrorDivisor`,
+which defaults to `32.0`.  Lower values will cause Cesium to render the data
+more densely.
+```json
+{ "geometricErrorDivisor": 16.0 }
+```
 

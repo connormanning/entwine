@@ -89,7 +89,6 @@ void App::addTmp()
             "Example: --tmp /tmp/entwine",
             [this](Json::Value v)
             {
-                checkEmpty(v);
                 m_json["tmp"] = v.asString();
             });
 }
