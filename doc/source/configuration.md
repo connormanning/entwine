@@ -2,12 +2,12 @@
 
 Entwine provides 4 sub-commands for indexing point cloud data:
 
-| Command   | Description                                               |
-|-----------|-----------------------------------------------------------|
-| build     | Generate an EPT dataset from LiDAR data                   |
-| scan      | Aggregate information about LiDAR data before building    |
-| merge     | Merge datasets build as subsets                           |
-| convert   | Convert an EPT dataset to a different format              |
+| Command   | Description                                                   |
+|-----------|---------------------------------------------------------------|
+| build     | Generate an EPT dataset from point cloud data                 |
+| scan      | Aggregate information about point cloud data before building  |
+| merge     | Merge datasets build as subsets                               |
+| convert   | Convert an EPT dataset to a different format                  |
 
 These commands are invoked via the command line as:
 
@@ -53,7 +53,7 @@ local, S3, GCS, Dropbox, or any other
 
 The `build` command is used to generate an
 [Entwine Point Tile](https://github.com/connormanning/ept) (EPT) dataset from
-LiDAR data.
+point cloud data.
 
 | Key | Description |
 |-----|-------------|
@@ -297,8 +297,8 @@ the threshold at which they will split into bisected child nodes.
 
 ## Scan
 
-The `scan` command is used to aggregate information about unindexed LiDAR data
-prior to building an Entwine Point Tile dataset.
+The `scan` command is used to aggregate information about unindexed point cloud
+data prior to building an Entwine Point Tile dataset.
 
 Most options here are common to `build` and perform exactly the same function in
 the `scan` command, aside from `output`, described below.
