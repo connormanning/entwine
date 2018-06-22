@@ -271,7 +271,7 @@ int main(int argc, char** argv)
         {
             entwine::app::Scan().go(args);
         }
-        if (app == "build")
+        else if (app == "build")
         {
             entwine::app::Build().go(args);
         }

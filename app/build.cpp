@@ -65,6 +65,20 @@ void Build::addArgs()
     addReprojection();
 
     m_ap.add(
+            "--threads",
+            "-t",
+            "The number of threads\n"
+            "Example: --threads 12",
+            [this](Json::Value v) { m_json["threads"] = parse(v.asString()); });
+
+    m_ap.add(
+            "--force",
+            "-f",
+            "Force build overwrite - do not continue a previous build that may "
+            "exist at this output location",
+            [this](Json::Value v) { checkEmpty(v); m_json["force"] = true; });
+
+    m_ap.add(
             "--dataType",
             "Data type for serialized point cloud data.  Valid values are "
             "\"laszip\" or \"binary\".  Default: \"laszip\".\n"
@@ -90,13 +104,6 @@ void Build::addArgs()
             });
 
     m_ap.add(
-            "--force",
-            "-f",
-            "Force build overwrite - do not continue a previous build that may "
-            "exist at this output location",
-            [this](Json::Value v) { checkEmpty(v); m_json["force"] = true; });
-
-    m_ap.add(
             "--bounds",
             "-b",
             "XYZ bounds specification beyond which points will be discarded\n"
@@ -113,13 +120,6 @@ void Build::addArgs()
                     m_json["bounds"] = v;
                 }
             });
-
-    m_ap.add(
-            "--threads",
-            "-t",
-            "The number of threads\n"
-            "Example: --threads 12",
-            [this](Json::Value v) { m_json["threads"] = parse(v.asString()); });
 
     addNoTrustHeaders();
     addAbsolute();
@@ -169,11 +169,10 @@ void Build::addArgs()
     m_ap.add(
             "--overflowThreshold",
             "Threshold at which overflowed points are placed into child nodes",
-            [this](Json::Value v) { m_json["overflowThreshold"] = extract(v); });
-    m_ap.add(
-            "--overflowDepth",
-            "Depth at which nodes may overflow",
-            [this](Json::Value v) { m_json["overflowDepth"] = extract(v); });
+            [this](Json::Value v)
+            {
+                m_json["overflowThreshold"] = extract(v);
+            });
 
     addArbiter();
 }
