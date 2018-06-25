@@ -2,12 +2,12 @@
 
 Entwine provides 4 sub-commands for indexing point cloud data:
 
-| Command   | Description                                                   |
-|-----------|---------------------------------------------------------------|
-| build     | Generate an EPT dataset from point cloud data                 |
-| scan      | Aggregate information about point cloud data before building  |
-| merge     | Merge datasets build as subsets                               |
-| convert   | Convert an EPT dataset to a different format                  |
+| Command             | Description                                                   |
+|---------------------|---------------------------------------------------------------|
+| [build](#build)     | Generate an EPT dataset from point cloud data                 |
+| [scan](#scan)       | Aggregate information about point cloud data before building  |
+| [merge](#merge)     | Merge datasets build as subsets                               |
+| [convert](#convert) | Convert an EPT dataset to a different format                  |
 
 These commands are invoked via the command line as:
 
@@ -19,7 +19,7 @@ configuration file may be specified with the `-c` command line argument.
 
 Command line argument settings are applied in order, so earlier settings can be
 overwritten by later-specified settings.  This includes configuration file
-arguments, allowing them to be used as templated for common settings that may
+arguments, allowing them to be used as templates for common settings that may
 be overwritten with command line options.
 
 Internally, Entwine CLI invocation builds a JSON configuration that is passed
@@ -220,8 +220,8 @@ Valid `type` values are: `int8`, `int16`, `int32`, `int64`, `uint8`, `uint16`,
 {
     "schema": [
         { "name": "X", "type": "uint32" },
-        { "name": "X", "type": "uint32" },
-        { "name": "X", "type": "uint32" },
+        { "name": "Y", "type": "uint32" },
+        { "name": "Z", "type": "uint32" },
         { "name": "Intensity", "type": "int8" }
     ]
 }
@@ -343,6 +343,8 @@ where `n` is the `of` value from the subset specification.
 The `convert` command provides utilities to transform Entwine Point Tile output
 into other formats.  Currently the only conversion provided is to the
 [Cesium 3D Tiles](https://github.com/AnalyticalGraphicsInc/3d-tiles) format.
+For proper positioning, data must be reprojected to `EPSG:3857` during the
+`entwine build` step.
 
 | Key | Description |
 |-----|-------------|
@@ -369,4 +371,3 @@ more densely.
 ```json
 { "geometricErrorDivisor": 16.0 }
 ```
-
