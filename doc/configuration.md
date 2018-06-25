@@ -371,3 +371,16 @@ more densely.
 ```json
 { "geometricErrorDivisor": 16.0 }
 ```
+
+# Miscellaneous
+
+## S3
+
+Entwine can read and write S3 paths.  The simplest way to make use of this
+functionality is to install [AWSCLI](https://aws.amazon.com/cli/) and run
+`aws configure`, which will write credentials to `~/.aws`.
+
+If you're using Docker, you'll need to map that directory as a volume.
+Entwine's Docker container runs as user `root`, so that mapping is as simple as
+adding `-v ~/.aws:/root/.aws` to your `docker run` invocation.
+
