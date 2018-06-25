@@ -11,7 +11,7 @@ Check out the client demos, showcasing Entwine output with [Potree](http://potre
 Usage
 --------------------------------------------------------------------------------
 
-Getting started with Entwine is easy with [Docker](http://docker.com).  Pull the most recent image with `docker pull connormanning/entwine:ept`, and index some public data:
+Getting started with Entwine is easy with [Docker](http://docker.com).  First, we can index some public data:
 
 ```
 mkdir ~/entwine
@@ -21,13 +21,13 @@ docker run -it -v ~/entwine:/entwine connormanning/entwine:ept build \
 ```
 
 Now we have our output at `~/entwine/red-rocks`.  We could have also passed a directory like `-i ~/county-data/` to index multiple files.  Now we can
-statically serve `~/entwine` with an HTTP server:
+statically serve `~/entwine` with a simple HTTP server:
 
 ```
 docker run -it -v ~/entwine:/var/www -p 8080:8080 connormanning/http-server
 ```
 
-And view the data with [Potree](http://potree.entwine.io/data/custom.html?r="http://localhost:8080/red-rocks/entwine.json").
+And view the data with [Potree](http://potree.entwine.io/data/custom.html?r=http://localhost:8080/red-rocks/entwine.json).
 
 Going further
 --------------------------------------------------------------------------------

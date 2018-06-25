@@ -61,7 +61,7 @@ public:
         json["hierarchyType"] = "json";
 
         json["ticks"] = 256;
-        json["overflowDepth"] = 4;
+        json["overflowDepth"] = 0;
         json["overflowRatio"] = 0.5;
 
         return json;
