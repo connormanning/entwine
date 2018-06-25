@@ -384,3 +384,37 @@ If you're using Docker, you'll need to map that directory as a volume.
 Entwine's Docker container runs as user `root`, so that mapping is as simple as
 adding `-v ~/.aws:/root/.aws` to your `docker run` invocation.
 
+## Cesium
+
+Creating 3D Tiles point cloud datasets for display in Cesium is a two-step
+process.
+
+First, an Entwine Point Tile datset must be created with an output projection of
+earth-centered earth-fixed, i.e. `EPSG:4978`:
+
+```
+mkdir ~/entwine
+docker run -it -v ~/entwine:/entwine connormanning/entwine:ept build \
+    -i https://entwine.io/sample-data/autzen.laz \
+    -o /entwine/autzen-ecef \
+    -r EPSG:4978
+```
+
+Then, `entwine convert` must be run to create a 3D Tiles tileset:
+
+```
+docker run -it -v ~/entwine:/entwine connormanning/entwine:ept convert \
+    -i /entwine/autzen-ecef \
+    -o /entwine/cesium/autzen
+```
+
+Statically serve the tileset locally:
+
+```
+docker run -it -v ~/entwine/cesium:/var/www -p 8080:8080 \
+    connormanning/http-server
+```
+
+And browse the tileset with
+[Cesium](http://cesium.entwine.io/?url=http://localhost:8080/autzen).
+
