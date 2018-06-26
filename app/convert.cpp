@@ -43,6 +43,28 @@ void Convert::addArgs()
             {
                 m_json["geometricErrorDivisor"] = v.asDouble();
             });
+
+    m_ap.add(
+            "--colorType",
+            "The coloring for the output tileset.  May be omitted to choose "
+            "default to RGB or Intensity, in that order, if they exist.\n"
+            "Valid values:\n"
+            "'none': no color\n"
+            "'rgb': color by RGB values\n"
+            "'intensity': grayscale by intensity values\n"
+            "'tile': random color for each tile",
+            [this](Json::Value v) { m_json["colorType"] = v.asString(); });
+
+    m_ap.add(
+            "--truncate",
+            "3D Tiles supports 8-bit color values.  If RGB (or Intensity, if "
+            "using intensity colorType) values are 16-bit, set this option to "
+            "scale them to 8-bit.",
+            [this](Json::Value v)
+            {
+                checkEmpty(v);
+                m_json["truncate"] = true;
+            });
 }
 
 void Convert::run()
@@ -52,8 +74,11 @@ void Convert::run()
     std::cout << "Converting:" << std::endl;
     std::cout << "\tInput:  " << tileset.in().prefixedRoot() << "\n";
     std::cout << "\tOutput: " << tileset.out().prefixedRoot() << "\n";
-    std::cout << "\tTmp:    " << tileset.tmp().prefixedRoot() << "\n";
+    std::cout << "\tColor:  " << tileset.colorString() << std::endl;
+    std::cout << "\tTruncate: " << (tileset.truncate() ? "yes" : "no") << "\n";
     std::cout << "\tThreads: " << tileset.threadPool().numThreads() << "\n";
+    std::cout << "\tRoot geometric error: " <<
+        tileset.rootGeometricError() << "\n";
 
     std::cout << "Running..." << std::endl;
     tileset.build();

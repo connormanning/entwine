@@ -22,6 +22,14 @@ namespace entwine
 namespace cesium
 {
 
+enum class ColorType
+{
+    None,
+    Rgb,
+    Intensity,
+    Tile
+};
+
 class Tileset
 {
     using HierarchyTree = std::map<Dxyz, uint64_t>;
@@ -36,7 +44,10 @@ public:
     const arbiter::Endpoint& tmp() const { return m_tmp; }
 
     const Metadata& metadata() const { return m_metadata; }
-    bool hasColor() const { return m_hasColor; }
+    bool hasColor() const { return m_colorType != ColorType::None; }
+    bool truncate() const { return m_truncate; }
+    ColorType colorType() const { return m_colorType; }
+    std::string colorString() const;
     double rootGeometricError() const { return m_rootGeometricError; }
     double geometricErrorAt(uint64_t depth) const
     {
@@ -56,6 +67,7 @@ private:
             const ChunkKey& ck,
             const HierarchyTree& hier) const;
 
+    ColorType getColorType(const Json::Value& config) const;
     HierarchyTree getHierarchyTree(const ChunkKey& root) const;
 
     arbiter::Arbiter m_arbiter;
@@ -65,7 +77,8 @@ private:
 
     const Metadata m_metadata;
     const uint64_t m_hierarchyStep;
-    const bool m_hasColor;
+    const ColorType m_colorType;
+    const bool m_truncate;
     const double m_rootGeometricError;
 
     mutable PointPool m_pointPool;

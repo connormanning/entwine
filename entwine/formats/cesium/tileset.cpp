@@ -26,7 +26,8 @@ Tileset::Tileset(const Json::Value& config)
                     config["tmp"].asString() : arbiter::fs::getTempPath()))
     , m_metadata(m_in)
     , m_hierarchyStep(m_metadata.hierarchyStep())
-    , m_hasColor(m_metadata.schema().contains("Red"))
+    , m_colorType(getColorType(config))
+    , m_truncate(config["truncate"].asBool())
     , m_rootGeometricError(
             m_metadata.boundsNativeCubic().width() /
             (config.isMember("geometricErrorDivisor") ?
@@ -36,6 +37,41 @@ Tileset::Tileset(const Json::Value& config)
 {
     arbiter::fs::mkdirp(m_out.root());
     arbiter::fs::mkdirp(m_tmp.root());
+}
+
+std::string Tileset::colorString() const
+{
+    switch (m_colorType)
+    {
+        case ColorType::None:       return "none";
+        case ColorType::Rgb:        return "rgb";
+        case ColorType::Intensity:  return "intensity";
+        case ColorType::Tile:       return "tile";
+        default:                    return "unknown";
+    }
+}
+
+ColorType Tileset::getColorType(const Json::Value& config) const
+{
+    if (config.isMember("colorType"))
+    {
+        const std::string s(config["colorType"].asString());
+        if (s == "none")        return ColorType::None;
+        if (s == "rgb")         return ColorType::Rgb;
+        if (s == "intensity")   return ColorType::Intensity;
+        if (s == "tile")        return ColorType::Tile;
+        throw std::runtime_error("Invalid cesium colorType: " + s);
+    }
+    else if (m_metadata.schema().contains("Red"))
+    {
+        return ColorType::Rgb;
+    }
+    else if (m_metadata.schema().contains("Intensity"))
+    {
+        return ColorType::Intensity;
+    }
+
+    return ColorType::None;
 }
 
 Tileset::HierarchyTree Tileset::getHierarchyTree(const ChunkKey& root) const
@@ -163,8 +199,8 @@ std::vector<char> Pnts::build()
 
 Pnts::Xyz Pnts::buildXyz(const Cell::PooledStack& cells) const
 {
-    Xyz v;
-    v.reserve(m_np * 3);
+    Xyz xyz;
+    xyz.reserve(m_np * 3);
 
     Scale scale(1);
     Offset offset(0);
@@ -178,31 +214,58 @@ Pnts::Xyz Pnts::buildXyz(const Cell::PooledStack& cells) const
     for (const auto& cell : cells)
     {
         const Point p(Point::unscale(cell.point(), scale, offset));
-        v.push_back(p.x - m_mid.x);
-        v.push_back(p.y - m_mid.y);
-        v.push_back(p.z - m_mid.z);
+        xyz.push_back(p.x - m_mid.x);
+        xyz.push_back(p.y - m_mid.y);
+        xyz.push_back(p.z - m_mid.z);
     }
 
-    return v;
+    return xyz;
 }
 
 Pnts::Rgb Pnts::buildRgb(const Cell::PooledStack& cells) const
 {
-    Rgb v;
-    v.reserve(m_np * 3);
+    Rgb rgb;
+    rgb.reserve(m_np * 3);
 
     using DimId = pdal::Dimension::Id;
     BinaryPointTable table(m_tileset.metadata().schema());
 
+    auto getByte([this, &table](DimId id) -> uint8_t
+    {
+        if (!m_tileset.truncate()) return table.ref().getFieldAs<uint8_t>(id);
+        else return table.ref().getFieldAs<uint16_t>(id) >> 8;
+    });
+
+    uint8_t r, g, b;
+
+    if (m_tileset.colorType() == ColorType::Tile)
+    {
+        r = std::rand() % 256;
+        g = std::rand() % 256;
+        b = std::rand() % 256;
+    }
+
+    assert(m_tileset.colorType() != ColorType::None);
     for (const auto& cell : cells)
     {
         table.setPoint(cell.uniqueData());
-        v.push_back(table.ref().getFieldAs<uint8_t>(DimId::Red));
-        v.push_back(table.ref().getFieldAs<uint8_t>(DimId::Green));
-        v.push_back(table.ref().getFieldAs<uint8_t>(DimId::Blue));
+        if (m_tileset.colorType() == ColorType::Rgb)
+        {
+            r = getByte(DimId::Red);
+            g = getByte(DimId::Green);
+            b = getByte(DimId::Blue);
+        }
+        else if (m_tileset.colorType() == ColorType::Intensity)
+        {
+            r = g = b = getByte(DimId::Intensity);
+        }
+
+        rgb.push_back(r);
+        rgb.push_back(g);
+        rgb.push_back(b);
     }
 
-    return v;
+    return rgb;
 }
 
 std::vector<char> Pnts::build(const Xyz& xyz, const Rgb& rgb) const
