@@ -30,6 +30,8 @@ enum class ColorType
     Tile
 };
 
+// This class is the entrypoint of a 3D Tiles tileset definition:
+// https://github.com/AnalyticalGraphicsInc/3d-tiles#tilesetjson
 class Tileset
 {
     using HierarchyTree = std::map<Dxyz, uint64_t>;
@@ -51,9 +53,7 @@ public:
     double rootGeometricError() const { return m_rootGeometricError; }
     double geometricErrorAt(uint64_t depth) const
     {
-        double g(m_rootGeometricError);
-        for (uint64_t d(0); d < depth; ++d) g /= 2.0;
-        return g;
+        return m_rootGeometricError / std::pow(2.0, depth);
     }
 
     PointPool& pointPool() const { return m_pointPool; }
@@ -83,53 +83,6 @@ private:
 
     mutable PointPool m_pointPool;
     mutable Pool m_threadPool;
-};
-
-class Tile
-{
-public:
-    Tile(const Tileset& tileset, const ChunkKey& ck, bool external = false);
-
-    Json::Value toJson() const { return m_json; }
-
-private:
-    Json::Value toBox(Bounds in) const
-    {
-        if (const Delta* d = m_tileset.metadata().delta())
-        {
-            in = in.unscale(d->scale(), d->offset());
-        }
-
-        Json::Value box(in.mid().toJson());
-        box.append(in.width()); box.append(0); box.append(0);
-        box.append(0); box.append(in.depth()); box.append(0);
-        box.append(0); box.append(0); box.append(in.height());
-        return box;
-    }
-
-    const Tileset& m_tileset;
-    Json::Value m_json;
-};
-
-class Pnts
-{
-    using Xyz = std::vector<float>;
-    using Rgb = std::vector<uint8_t>;
-
-public:
-    Pnts(const Tileset& tileset, const ChunkKey& ck);
-    std::vector<char> build();
-
-private:
-    Xyz buildXyz(const Cell::PooledStack& cells) const;
-    Rgb buildRgb(const Cell::PooledStack& cells) const;
-    std::vector<char> build(const Xyz& xyz, const Rgb& rgb) const;
-
-    const Tileset& m_tileset;
-    const ChunkKey m_key;
-    Point m_mid;
-
-    std::size_t m_np = 0;
 };
 
 } // namespace cesium
