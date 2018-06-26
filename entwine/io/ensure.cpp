@@ -15,8 +15,6 @@
 #include <mutex>
 #include <thread>
 
-#include <entwine/third/arbiter/arbiter.hpp>
-
 namespace
 {
     const std::size_t retries(40);
@@ -112,6 +110,34 @@ std::string ensureGetString(
         return std::string(data->begin(), data->end());
     }
     return std::string();
+}
+
+std::string ensureGet(const arbiter::Arbiter& a, const std::string& path)
+{
+    std::unique_ptr<std::string> data;
+
+    bool done(false);
+    std::size_t tried(0);
+
+    while (!done)
+    {
+        data = a.tryGet(path);
+
+        if (data)
+        {
+            done = true;
+        }
+        else
+        {
+            if (++tried < retries)
+            {
+                sleep(tried, "GET", path);
+            }
+            else suicide("GET");
+        }
+    }
+
+    return *data;
 }
 
 } // namespace entwine

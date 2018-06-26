@@ -11,6 +11,7 @@
 #include <entwine/builder/config.hpp>
 
 #include <entwine/builder/scan.hpp>
+#include <entwine/io/ensure.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 
 namespace entwine
@@ -29,7 +30,7 @@ Config Config::prepare() const
         std::cout << "Using existing scan as input" << std::endl;
         const auto path(p.asString());
         arbiter::Arbiter a(m_json["arbiter"]);
-        scan = entwine::parse(a.get(path));
+        scan = entwine::parse(ensureGet(a, path));
     }
     else
     {

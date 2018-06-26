@@ -14,10 +14,10 @@
 #include <string>
 #include <vector>
 
+#include <entwine/third/arbiter/arbiter.hpp>
+
 namespace entwine
 {
-
-namespace arbiter { class Endpoint; }
 
 void ensurePut(
         const arbiter::Endpoint& endpoint,
@@ -39,6 +39,8 @@ std::unique_ptr<std::vector<char>> ensureGet(
 std::string ensureGetString(
         const arbiter::Endpoint& endpoint,
         const std::string& path);
+
+std::string ensureGet(const arbiter::Arbiter& a, const std::string& path);
 
 } // namespace entwine
 
