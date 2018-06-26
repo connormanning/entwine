@@ -17,6 +17,11 @@ namespace entwine
 namespace cesium
 {
 
+namespace
+{
+    using DimId = pdal::Dimension::Id;
+}
+
 Tileset::Tileset(const Json::Value& config)
     : m_arbiter(config["arbiter"])
     , m_in(m_arbiter.getEndpoint(config["input"].asString()))
@@ -28,6 +33,10 @@ Tileset::Tileset(const Json::Value& config)
     , m_hierarchyStep(m_metadata.hierarchyStep())
     , m_colorType(getColorType(config))
     , m_truncate(config["truncate"].asBool())
+    , m_hasNormals(
+            m_metadata.schema().contains(DimId::NormalX) &&
+            m_metadata.schema().contains(DimId::NormalY) &&
+            m_metadata.schema().contains(DimId::NormalZ))
     , m_rootGeometricError(
             m_metadata.boundsNativeCubic().width() /
             (config.isMember("geometricErrorDivisor") ?
@@ -62,11 +71,14 @@ ColorType Tileset::getColorType(const Json::Value& config) const
         if (s == "tile")        return ColorType::Tile;
         throw std::runtime_error("Invalid cesium colorType: " + s);
     }
-    else if (m_metadata.schema().contains("Red"))
+    else if (
+            m_metadata.schema().contains(DimId::Red) &&
+            m_metadata.schema().contains(DimId::Green) &&
+            m_metadata.schema().contains(DimId::Blue))
     {
         return ColorType::Rgb;
     }
-    else if (m_metadata.schema().contains("Intensity"))
+    else if (m_metadata.schema().contains(DimId::Intensity))
     {
         return ColorType::Intensity;
     }

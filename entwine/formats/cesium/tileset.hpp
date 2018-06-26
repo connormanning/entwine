@@ -47,6 +47,7 @@ public:
 
     const Metadata& metadata() const { return m_metadata; }
     bool hasColor() const { return m_colorType != ColorType::None; }
+    bool hasNormals() const { return m_hasNormals; }
     bool truncate() const { return m_truncate; }
     ColorType colorType() const { return m_colorType; }
     std::string colorString() const;
@@ -79,6 +80,7 @@ private:
     const uint64_t m_hierarchyStep;
     const ColorType m_colorType;
     const bool m_truncate;
+    const bool m_hasNormals;
     const double m_rootGeometricError;
 
     mutable PointPool m_pointPool;

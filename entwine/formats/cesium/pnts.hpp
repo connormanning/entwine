@@ -27,6 +27,7 @@ class Pnts
 {
     using Xyz = std::vector<float>;
     using Rgb = std::vector<uint8_t>;
+    using Normals = std::vector<float>;
 
 public:
     Pnts(const Tileset& tileset, const ChunkKey& ck);
@@ -35,7 +36,12 @@ public:
 private:
     Xyz buildXyz(const Cell::PooledStack& cells) const;
     Rgb buildRgb(const Cell::PooledStack& cells) const;
-    std::vector<char> build(const Xyz& xyz, const Rgb& rgb) const;
+    Normals buildNormals(const Cell::PooledStack& cells) const;
+
+    std::vector<char> buildFile(
+            const Xyz& xyz,
+            const Rgb& rgb,
+            const Normals& normals) const;
 
     const Tileset& m_tileset;
     const ChunkKey m_key;

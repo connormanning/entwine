@@ -42,7 +42,8 @@ std::vector<char> Pnts::build()
 
     const auto xyz(buildXyz(data));
     const auto rgb(buildRgb(data));
-    return build(xyz, rgb);
+    const auto normals(buildNormals(data));
+    return buildFile(xyz, rgb, normals);
 }
 
 Pnts::Xyz Pnts::buildXyz(const Cell::PooledStack& cells) const
@@ -73,6 +74,7 @@ Pnts::Xyz Pnts::buildXyz(const Cell::PooledStack& cells) const
 Pnts::Rgb Pnts::buildRgb(const Cell::PooledStack& cells) const
 {
     Rgb rgb;
+    if (!m_tileset.hasColor()) return rgb;
     rgb.reserve(m_np * 3);
 
     using DimId = pdal::Dimension::Id;
@@ -116,24 +118,59 @@ Pnts::Rgb Pnts::buildRgb(const Cell::PooledStack& cells) const
     return rgb;
 }
 
-std::vector<char> Pnts::build(const Xyz& xyz, const Rgb& rgb) const
+Pnts::Normals Pnts::buildNormals(const Cell::PooledStack& cells) const
+{
+    Normals normals;
+    if (!m_tileset.hasNormals()) return normals;
+    normals.reserve(m_np * 3);
+
+    using DimId = pdal::Dimension::Id;
+    BinaryPointTable table(m_tileset.metadata().schema());
+
+    for (const auto& cell : cells)
+    {
+        table.setPoint(cell.uniqueData());
+        normals.push_back(table.ref().getFieldAs<float>(DimId::NormalX));
+        normals.push_back(table.ref().getFieldAs<float>(DimId::NormalY));
+        normals.push_back(table.ref().getFieldAs<float>(DimId::NormalZ));
+    }
+
+    return normals;
+}
+
+std::vector<char> Pnts::buildFile(
+        const Xyz& xyz,
+        const Rgb& rgb,
+        const Normals& normals) const
 {
     Json::Value featureTable;
     featureTable["POINTS_LENGTH"] = static_cast<Json::UInt64>(m_np);
-    featureTable["POSITION"]["byteOffset"] = 0;
     featureTable["RTC_CENTER"] = m_mid.toJson();
+
+    Json::UInt64 byteOffset(0);
+    featureTable["POSITION"]["byteOffset"] = byteOffset;
+    byteOffset += xyz.size() * sizeof(float);
 
     if (m_tileset.hasColor())
     {
-        featureTable["RGB"]["byteOffset"] = static_cast<Json::UInt64>(
-                xyz.size() * sizeof(float));
+        featureTable["RGB"]["byteOffset"] = byteOffset;
+        byteOffset += rgb.size();
+    }
+
+    if (m_tileset.hasNormals())
+    {
+        featureTable["NORMAL"]["byteOffset"] = byteOffset;
+        byteOffset += normals.size() * sizeof(float);
     }
 
     std::string featureString = toFastString(featureTable);
     while (featureString.size() % 8) featureString += ' ';
 
     const uint64_t headerSize(28);
-    const uint64_t binaryBytes = xyz.size() * (sizeof(float)) + rgb.size();
+    const uint64_t binaryBytes =
+        xyz.size() * sizeof(float) +
+        rgb.size() +
+        normals.size() * sizeof(float);
     const uint64_t totalBytes = headerSize + featureString.size() + binaryBytes;
 
     std::vector<char> header;
@@ -170,6 +207,10 @@ std::vector<char> Pnts::build(const Xyz& xyz, const Rgb& rgb) const
             pnts.end(),
             reinterpret_cast<const char*>(rgb.data()),
             reinterpret_cast<const char*>(rgb.data() + rgb.size()));
+    pnts.insert(
+            pnts.end(),
+            reinterpret_cast<const char*>(normals.data()),
+            reinterpret_cast<const char*>(normals.data() + normals.size()));
 
     return pnts;
 }
