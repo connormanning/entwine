@@ -174,32 +174,20 @@ void Build::addArgs()
                 m_json["overflowThreshold"] = extract(v);
             });
 
+    m_ap.add(
+            "--hierarchyStep",
+            "Hierarchy step size - recommended to be set for testing only as "
+            "entwine will determine it heuristically.",
+            [this](Json::Value v) { m_json["hierarchyStep"] = extract(v); });
+
     addArbiter();
 }
 
 void Build::run()
 {
-    // Extract the output and remove it from the Scan config - this path is
-    // the output path for 'build', not 'scan'.
-    const std::string output(m_json["output"].asString());
-    m_json.removeMember("output");
+    m_json["verbose"] = true;
 
     Config config(m_json);
-    config = config.prepare();
-    config["output"] = output;  // Re-add output to resulting 'build' config.
-
-    if (
-            !config.json().isMember("allowOriginId") ||
-            config["allowOriginId"].asBool())
-    {
-        Schema s(config["schema"]);
-        if (!s.contains(pdal::Dimension::Id::OriginId))
-        {
-            s = s.append(DimInfo(pdal::Dimension::Id::OriginId));
-        }
-        config["schema"] = s.toJson();
-    }
-
     auto builder(makeUnique<Builder>(config));
 
     log(*builder);
@@ -360,7 +348,6 @@ void Build::log(const Builder& b) const
         "\tResolution 3D: " <<
             t << " * " << t << " * " << t << " = " << commify(t * t * t) <<
             "\n" <<
-        "\tOverflow depth: " << metadata.overflowDepth() << "\n" <<
         "\tOverflow threshold: " << commify(metadata.overflowThreshold()) <<
             "\n";
 

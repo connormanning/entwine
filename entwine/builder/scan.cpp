@@ -60,7 +60,10 @@ Config Scan::go()
     {
         m_index = i;
         FileInfo& f(m_fileInfo.at(i));
-        std::cout << i + 1 << " / " << size << ": " << f.path() << std::endl;
+        if (m_in.verbose())
+        {
+            std::cout << i + 1 << " / " << size << ": " << f.path() << std::endl;
+        }
         add(f);
     }
 
@@ -74,13 +77,29 @@ Config Scan::go()
         if (arbiter::Arbiter::getExtension(path) != "json") path += ".json";
 
         arbiter::Arbiter arbiter(m_in["arbiter"]);
+        if (arbiter.getEndpoint(path).isLocal())
+        {
+            if (!arbiter::fs::mkdirp(arbiter::util::getNonBasename(path)))
+            {
+                std::cout << "Could not mkdir: " <<
+                    arbiter::util::getNonBasename(path) << std::endl;
+            }
+        }
 
-        std::cout << std::endl;
-        std::cout << "Writing details to " << path << "...";
+        if (m_in.verbose())
+        {
+            std::cout << std::endl;
+            std::cout << "Writing details to " << path << "...";
+        }
+
         arbiter.put(path,
                 m_fileInfo.size() <= 100 ?
                     out.json().toStyledString() : toFastString(out.json()));
-        std::cout << " written." << std::endl;
+
+        if (m_in.verbose())
+        {
+            std::cout << " written." << std::endl;
+        }
     }
 
     return out;
@@ -156,6 +175,8 @@ void Scan::add(FileInfo& f, const std::string localPath)
 Config Scan::aggregate()
 {
     Config out;
+
+    if (m_fileInfo.empty()) return out;
 
     std::size_t np(0);
     Bounds bounds(Bounds::expander());

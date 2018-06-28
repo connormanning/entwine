@@ -37,7 +37,7 @@ Metadata::Metadata(const Config& config, const bool exists)
             clone(m_boundsNativeConforming->deltify(m_delta.get())))
     , m_boundsScaledCubic(
             clone(m_boundsNativeCubic->deltify(m_delta.get())))
-    , m_schema(makeUnique<Schema>(config["schema"]))
+    , m_schema(makeUnique<Schema>(config.schema()))
     , m_files(makeUnique<Files>(config.input()))
     , m_dataIo(DataIo::create(*this, config.dataType()))
     , m_reprojection(Reprojection::create(config["reprojection"]))
@@ -208,13 +208,13 @@ Bounds Metadata::makeNativeConformingBounds(const Bounds& b) const
 
     pmin = pmin.apply([](double d)
     {
-        if (static_cast<double>(static_cast<uint64_t>(d)) == d) return d - 1.0;
+        if (static_cast<double>(static_cast<int64_t>(d)) == d) return d - 1.0;
         else return std::floor(d);
     });
 
     pmax = pmax.apply([](double d)
     {
-        if (static_cast<double>(static_cast<uint64_t>(d)) == d) return d + 1.0;
+        if (static_cast<double>(static_cast<int64_t>(d)) == d) return d + 1.0;
         else return std::ceil(d);
     });
 

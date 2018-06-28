@@ -148,7 +148,7 @@ private:
     std::unique_ptr<Registry> m_registry;
     std::unique_ptr<Sequence> m_sequence;
 
-    bool m_verbose = true;
+    bool m_verbose;
 
     TimePoint m_start;
     TimePoint m_reset;

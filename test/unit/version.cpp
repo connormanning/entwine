@@ -4,11 +4,7 @@
 
 using namespace entwine;
 
-namespace
-{
-}
-
-TEST(Version, Basic)
+TEST(version, basic)
 {
     {
         const Version v(1);
@@ -33,7 +29,7 @@ TEST(Version, Basic)
     }
 }
 
-TEST(Version, String)
+TEST(version, string)
 {
     {
         const Version v("1");
@@ -68,7 +64,7 @@ TEST(Version, String)
     EXPECT_ANY_THROW(Version("1.0.1s"));
 }
 
-TEST(Version, Comparison)
+TEST(version, comparison)
 {
     EXPECT_TRUE(Version(1, 0, 0) < Version(2, 0, 0));
     EXPECT_TRUE(Version(1, 0, 0) < Version(1, 0, 1));

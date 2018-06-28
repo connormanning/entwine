@@ -27,15 +27,25 @@ Config Config::prepare() const
     if (p.isArray() && p.size() == 1) p = p[0];
     if (p.isString() && arbiter::Arbiter::getExtension(p.asString()) == "json")
     {
-        std::cout << "Using existing scan as input" << std::endl;
+        if (verbose()) std::cout << "Using existing scan as input" << std::endl;
         const auto path(p.asString());
         arbiter::Arbiter a(m_json["arbiter"]);
         scan = entwine::parse(ensureGet(a, path));
     }
-    else
+    else if (
+            (!p.isObject()) || (
+                p.isArray() && std::any_of(
+                    p.begin(),
+                    p.end(),
+                    [](Json::Value j) { return !j.isObject(); })))
     {
-        std::cout << "Scanning input" << std::endl;
-        scan = Scan(*this).go().json();
+        if (verbose()) std::cout << "Scanning input" << std::endl;
+
+        // Remove the output from the Scan config - this path is the output
+        // path for the subsequent 'build' step.
+        Json::Value scanConfig(json());
+        scanConfig.removeMember("output");
+        scan = Scan(scanConfig).go().json();
     }
 
     // First, soft-merge our scan results over the config without overwriting
@@ -46,7 +56,19 @@ Config Config::prepare() const
     // Then, always make sure we use the "input" from the scan, which
     // represents the expanded input files and their meta-info rather than the
     // path of the scan or the string paths.
-    result["input"] = scan["input"];
+    if (!scan.isNull()) result["input"] = scan["input"];
+
+    // If necessary, add the OriginId dimension to the schema prior to building.
+    if (allowOriginId())
+    {
+        Schema s(result["schema"]);
+        if (!s.contains(pdal::Dimension::Id::OriginId))
+        {
+            s = s.append(DimInfo(pdal::Dimension::Id::OriginId));
+        }
+        result["schema"] = s.toJson();
+    }
+
     return result;
 }
 
@@ -84,7 +106,7 @@ FileInfoList Config::input() const
             }
         }
 
-        Paths current(arbiter.resolve(p, true));
+        Paths current(arbiter.resolve(p, verbose()));
         std::sort(current.begin(), current.end());
         for (const auto& c : current) f.emplace_back(c);
     });

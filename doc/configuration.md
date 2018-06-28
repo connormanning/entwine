@@ -77,6 +77,7 @@ point cloud data.
 | [subset](#subset) | Run a subset portion of a larger build |
 | [overflowDepth](#overflowdepth) | Depth at which nodes may contain overflow |
 | [overflowThreshold](#overflowthreshold) | Threshold for overflowing nodes to split |
+| [hierarchyStep](#hierarchyStep) | Step size at which to split hierarchy files |
 
 ### input
 
@@ -204,7 +205,7 @@ may not be expanded later after indexing has begun.  Typically this field does
 not need to be supplied as it will be inferred from the data itself.  This field
 is specified as an array of the format `[xmin, ymin, zmin, xmax, ymax, zmax]`.
 ```json
-{ "bounds": [0, 500, 30, 800, 1300, 50]
+{ "bounds": [0, 500, 30, 800, 1300, 50] }
 ```
 
 ### schema
@@ -292,6 +293,16 @@ specified by this parameter.
 
 For nodes at depths of at least the `overflowDepth`, this parameter specifies
 the threshold at which they will split into bisected child nodes.
+
+### hierarchyStep
+
+For large datasets with lots of data files, the
+[hierarchy](https://github.com/connormanning/entwine/blob/ept/doc/entwine-point-tile.md#hierarchy)
+describing the octree layout is split up to avoid large downloads.  This value
+describes the depth modulo at which hierarchy files are split up into child
+files.  In general, this should be set only for testing purposes as Entwine will
+heuristically determine a value if the output hierarchy is large enough to
+warrant splitting.
 
 
 

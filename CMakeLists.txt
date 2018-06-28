@@ -177,14 +177,9 @@ install(
     FILES "${PROJECT_BINARY_DIR}/entwine-config.cmake"
     DESTINATION lib/cmake/entwine)
 
-add_subdirectory(test/data)
-
 add_subdirectory(test/gtest-1.8.0)
 include_directories(entwine test/gtest-1.8.0/include test/gtest-1.8.0)
-
-# add_subdirectory(test)
-
-
+add_subdirectory(test)
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/cpack.cmake")
 add_custom_target(dist COMMAND ${CMAKE_MAKE_PROGRAM} package_source)

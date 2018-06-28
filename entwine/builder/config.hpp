@@ -25,6 +25,7 @@
 #include <entwine/types/delta.hpp>
 #include <entwine/types/file-info.hpp>
 #include <entwine/types/reprojection.hpp>
+#include <entwine/types/schema.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/unique.hpp>
 
@@ -72,6 +73,8 @@ public:
     std::string tmp() const { return m_json["tmp"].asString(); }
 
     std::size_t numPoints() const { return m_json["numPoints"].asUInt64(); }
+    Schema schema() const { return Schema(m_json["schema"]); }
+
     std::size_t totalThreads() const
     {
         const auto& t(m_json["threads"]);
@@ -131,6 +134,12 @@ public:
     bool verbose() const { return m_json["verbose"].asBool(); }
     bool force() const { return m_json["force"].asBool(); }
     bool trustHeaders() const { return m_json["trustHeaders"].asBool(); }
+    bool allowOriginId() const
+    {
+        return
+            !m_json.isMember("allowOriginId") ||
+            m_json["allowOriginId"].asBool();
+    }
 
     uint64_t ticks() const { return m_json["ticks"].asUInt64(); }
     uint64_t overflowDepth() const { return m_json["overflowDepth"].asUInt64(); }
@@ -189,6 +198,12 @@ private:
 
     Json::Value m_json;
 };
+
+inline std::ostream& operator<<(std::ostream& os, const Config& c)
+{
+    os << c.json();
+    return os;
+}
 
 } // namespace entwine
 

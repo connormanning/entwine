@@ -1,13 +1,11 @@
-add_definitions(${CMAKE_CXX_FLAGS} "/DNOMINMAX" "/DJSON_DLL" "/DGTEST_LINKED_AS_SHARED_LIBRARY=1")
+add_definitions(${CMAKE_CXX_FLAGS}
+    "/DNOMINMAX" "/DJSON_DLL" "/DGTEST_LINKED_AS_SHARED_LIBRARY=1")
 
-    
 add_executable(entwine-test
-    unit/infer.cpp
+    unit/scan.cpp
     unit/build.cpp
-    unit/files.cpp
     unit/version.cpp
-    unit/run.cpp
-    unit/octree.cpp
+    unit/main.cpp
 )
 
 configure_file(unit/config.hpp.in "${CMAKE_CURRENT_BINARY_DIR}/unit/config.hpp")

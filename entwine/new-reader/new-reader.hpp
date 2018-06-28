@@ -36,7 +36,6 @@ public:
 
     std::unique_ptr<NewCountQuery> count(const Json::Value& json) const;
     std::unique_ptr<NewReadQuery> read(const Json::Value& json) const;
-    Json::Value hierarchy(const Json::Value& json) const;
 
     const Metadata& metadata() const { return m_metadata; }
     const HierarchyReader& hierarchy() const { return m_hierarchy; }

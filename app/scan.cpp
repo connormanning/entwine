@@ -47,6 +47,8 @@ void Scan::addArgs()
 
 void Scan::run()
 {
+    m_json["verbose"] = true;
+
     Config in(m_json);
     entwine::Scan scan(in);
     in = scan.inConfig();

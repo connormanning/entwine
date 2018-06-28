@@ -51,7 +51,7 @@ Builder::Builder(const Config& config, OuterScope os)
     : m_config(entwine::merge(
                 Config::defaults(),
                 Config::defaultBuildParams(),
-                config.json()))
+                config.prepare().json()))
     , m_arbiter(os.getArbiter(m_config["arbiter"]))
     , m_out(makeUnique<Endpoint>(m_arbiter->getEndpoint(m_config.output())))
     , m_tmp(makeUnique<Endpoint>(m_arbiter->getEndpoint(m_config.tmp())))
@@ -73,9 +73,10 @@ Builder::Builder(const Config& config, OuterScope os)
                 *m_threadPools,
                 m_isContinuation))
     , m_sequence(makeUnique<Sequence>(*m_metadata, m_mutex))
+    , m_verbose(m_config.verbose())
     , m_start(now())
     , m_reset(now())
-    , m_resetFiles(config["resetFiles"].asUInt64())
+    , m_resetFiles(m_config["resetFiles"].asUInt64())
 {
     prepareEndpoints();
 }
@@ -131,19 +132,22 @@ void Builder::go(std::size_t max)
                 const auto info(ReffedChunk::latchInfo());
                 reawakened += info.read;
 
-                std::cout <<
-                    " T: " << commify(s) << "s" <<
-                    " R: " << commify(inserts * 3600.0 / s / 1000000.0) <<
-                        "(" << commify((inserts - last) *
-                                    3600.0 / 10.0 / 1000000.0) << ")" <<
-                        "M/h" <<
-                    " A: " << commify(d.allocated()) <<
-                    " U: " << used << "%"  <<
-                    " I: " << commify(inserts) <<
-                    " P: " << std::round(progress * 100.0) << "%" <<
-                    " W: " << info.written <<
-                    " R: " << info.read <<
-                    std::endl;
+                if (verbose())
+                {
+                    std::cout <<
+                        " T: " << commify(s) << "s" <<
+                        " R: " << commify(inserts * 3600.0 / s / 1000000.0) <<
+                            "(" << commify((inserts - last) *
+                                        3600.0 / 10.0 / 1000000.0) << ")" <<
+                            "M/h" <<
+                        " A: " << commify(d.allocated()) <<
+                        " U: " << used << "%"  <<
+                        " I: " << commify(inserts) <<
+                        " P: " << std::round(progress * 100.0) << "%" <<
+                        " W: " << info.written <<
+                        " R: " << info.read <<
+                        std::endl;
+                }
 
                 last = inserts;
             }
@@ -155,11 +159,11 @@ void Builder::go(std::size_t max)
 
 void Builder::cycle()
 {
-    std::cout << "\tCycling memory pool" << std::endl;
+    if (verbose()) std::cout << "\tCycling memory pool" << std::endl;
     m_threadPools->cycle();
     m_pointPool->clear();
     m_reset = now();
-    std::cout << "\tCycled" << std::endl;
+    if (verbose()) std::cout << "\tCycled" << std::endl;
 }
 
 void Builder::doRun(const std::size_t max)
@@ -402,7 +406,7 @@ void Builder::save(const arbiter::Endpoint& ep)
     m_threadPools->go();
     m_pointPool->clear();
 
-    std::cout << "Reawakened: " << reawakened << std::endl;
+    if (verbose()) std::cout << "Reawakened: " << reawakened << std::endl;
 
     const auto& h(m_registry->hierarchy());
     if (
@@ -414,7 +418,10 @@ void Builder::save(const arbiter::Endpoint& ep)
         for (const auto& a : analysis) a.summarize();
         const auto& chosen(*analysis.begin());
 
-        std::cout << "Setting hierarchy step: " << chosen.step << std::endl;
+        if (verbose())
+        {
+            std::cout << "Setting hierarchy step: " << chosen.step << std::endl;
+        }
         m_metadata->setHierarchyStep(chosen.step);
     }
 
