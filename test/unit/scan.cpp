@@ -42,7 +42,7 @@ TEST(scan, single)
     ASSERT_EQ(schema, v.schema());
 
     const FileInfoList input(out.input());
-    ASSERT_EQ(input.size(), 1);
+    ASSERT_EQ(input.size(), 1u);
 
     const FileInfo file(input.at(0));
     const auto expFile(Executor::get().preview(file.path()));
@@ -76,7 +76,7 @@ TEST(scan, multi)
     ASSERT_EQ(schema, v.schema());
 
     const FileInfoList input(out.input());
-    ASSERT_EQ(input.size(), 8);
+    ASSERT_EQ(input.size(), 8u);
 
     std::map<std::string, bool> basenames {
         { "ned.laz", false },
@@ -132,7 +132,7 @@ TEST(scan, reprojection)
     ASSERT_EQ(schema, v.schema());
 
     const FileInfoList input(out.input());
-    ASSERT_EQ(input.size(), 1);
+    ASSERT_EQ(input.size(), 1u);
 
     const FileInfo file(input.at(0));
     const auto expFile(Executor::get().preview(file.path()));
@@ -173,7 +173,7 @@ TEST(scan, reprojectionHammer)
     ASSERT_EQ(schema, v.schema());
 
     const FileInfoList input(out.input());
-    ASSERT_EQ(input.size(), 1);
+    ASSERT_EQ(input.size(), 1u);
 
     const FileInfo file(input.at(0));
     const auto expFile(Executor::get().preview(file.path()));
@@ -209,7 +209,7 @@ TEST(scan, outputFile)
     ASSERT_EQ(schema, v.schema());
 
     const FileInfoList input(out.input());
-    ASSERT_EQ(input.size(), 1);
+    ASSERT_EQ(input.size(), 1u);
 
     const FileInfo file(input.at(0));
     const auto expFile(Executor::get().preview(file.path()));

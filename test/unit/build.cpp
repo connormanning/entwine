@@ -40,7 +40,7 @@ TEST(build, basic)
     const auto hierarchyType(info["hierarchyType"].asString());
     const auto hierarchyStep(info["hierarchyStep"].asUInt64());
     EXPECT_EQ(hierarchyType, "json");
-    EXPECT_EQ(hierarchyStep, 2);
+    EXPECT_EQ(hierarchyStep, 2u);
 
     const auto numPoints(info["numPoints"].asUInt64());
     EXPECT_EQ(numPoints, v.numPoints());
