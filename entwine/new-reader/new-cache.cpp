@@ -17,8 +17,7 @@ namespace entwine
 
 bool operator<(const GlobalId& a, const GlobalId& b)
 {
-    return a.reader.path() < b.reader.path() ||
-        (a.reader.path() == b.reader.path() && a.key < b.key);
+    return a.path < b.path || (a.path == b.path && a.key < b.key);
 }
 
 std::deque<SharedChunkReader> NewCache::acquire(
@@ -30,7 +29,6 @@ std::deque<SharedChunkReader> NewCache::acquire(
     std::lock_guard<std::mutex> lock(m_mutex);
     for (const Dxyz& key : keys) block.push_back(get(reader, key));
 
-    std::cout << "Size " << m_size << std::endl;
     purge();
 
     return block;
@@ -38,7 +36,7 @@ std::deque<SharedChunkReader> NewCache::acquire(
 
 SharedChunkReader NewCache::get(const NewReader& reader, const Dxyz& key)
 {
-    const GlobalId id(reader, key);
+    const GlobalId id(reader.path(), key);
 
     auto it(m_chunks.find(id));
 
@@ -46,14 +44,12 @@ SharedChunkReader NewCache::get(const NewReader& reader, const Dxyz& key)
     {
         it = m_chunks.insert(std::make_pair(id, ChunkReaderInfo())).first;
 
-        std::cout << "Init " << key << std::endl;
         ChunkReaderInfo& info(it->second);
         info.chunk = std::make_shared<NewChunkReader>(reader, key);
         m_size += info.chunk->cells().size() * reader.pointSize();
     }
     else
     {
-        std::cout << "Used " << key << std::endl;
         ChunkReaderInfo& info(it->second);
         m_order.erase(info.it);
     }
@@ -76,7 +72,7 @@ void NewCache::purge()
         const ChunkReaderInfo& info(it->second);
 
         std::cout << "\tDele " << id.key << std::endl;
-        m_size -= info.chunk->cells().size() * id.reader.pointSize();
+        m_size -= info.chunk->cells().size() * info.chunk->pointSize();
         m_order.pop_back();
         m_chunks.erase(it);
     }

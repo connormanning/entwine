@@ -24,11 +24,18 @@ class NewChunkReader
 {
 public:
     NewChunkReader(const NewReader& reader, const Dxyz& id);
+    ~NewChunkReader()
+    {
+        m_pointPool.release(std::move(m_cells));
+    }
 
     const Cell::PooledStack& cells() const { return m_cells; }
+    uint64_t pointSize() const { return m_pointSize; }
 
 private:
+    PointPool m_pointPool;
     Cell::PooledStack m_cells;
+    uint64_t m_pointSize;
 };
 
 using SharedChunkReader = std::shared_ptr<NewChunkReader>;

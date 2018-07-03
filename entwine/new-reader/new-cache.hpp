@@ -26,12 +26,12 @@ class NewReader;
 
 struct GlobalId
 {
-    GlobalId(const NewReader& reader, const Dxyz& key)
-        : reader(reader)
+    GlobalId(const std::string path, const Dxyz& key)
+        : path(path)
         , key(key)
     { }
 
-    const NewReader& reader;
+    const std::string path;
     const Dxyz key;
 };
 

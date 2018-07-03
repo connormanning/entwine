@@ -24,17 +24,7 @@ NewQuery::NewQuery(const NewReader& r, const NewQueryParams& p)
     , m_table(m_metadata.schema())
     , m_pointRef(m_table, 0)
     , m_overlaps(overlaps())
-{
-    /*
-    Json::Value j;
-    for (const auto& p : m_overlaps)
-    {
-        j[p.first.toString()] = p.second;
-    }
-    std::cout << j.toStyledString() << std::endl;
-    std::cout << "OL: " << m_overlaps.size() << std::endl;
-    */
-}
+{ }
 
 HierarchyReader::Keys NewQuery::overlaps() const
 {
@@ -99,7 +89,6 @@ void NewReadQuery::process(const Cell& cell)
 
     for (const auto& dimInfo : m_schema.dims())
     {
-        // const DimInfo& dimInfo(dim.info());
         dimNum = pdal::Utils::toNative(dimInfo.id()) - 1;
 
         if (dimNum < 3 &&

@@ -46,5 +46,8 @@ public:
 
     Scale scale() const { return Scale(0.01); }
     uint64_t numPoints() const { return 100000; }
+
+    uint64_t ticks() const { return 16; }
+    uint64_t hierarchyStep() const { return 2; }
 };
 

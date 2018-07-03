@@ -119,7 +119,12 @@ inline bool operator<(const Dxyz& a, const Dxyz& b)
 
 inline bool operator==(const Dxyz& a, const Dxyz& b)
 {
-    return a.d == b.d && a.p < b.p;
+    return a.d == b.d && a.p == b.p;
+}
+
+inline bool operator!=(const Dxyz& a, const Dxyz& b)
+{
+    return !(a == b);
 }
 
 struct Key

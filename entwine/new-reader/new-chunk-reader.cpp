@@ -10,18 +10,20 @@
 
 #include <entwine/new-reader/new-chunk-reader.hpp>
 
-#include <entwine/io/chunk-storage.hpp>
+#include <entwine/io/io.hpp>
 #include <entwine/new-reader/new-reader.hpp>
 
 namespace entwine
 {
 
 NewChunkReader::NewChunkReader(const NewReader& r, const Dxyz& id)
-    : m_cells(r.metadata().storage().read(
+    : m_pointPool(r.metadata().schema(), r.metadata().delta(), 4096)
+    , m_cells(r.metadata().dataIo().read(
                 r.ep(),
                 r.tmp(),
-                r.pointPool(),
+                m_pointPool,
                 id.toString()))
+    , m_pointSize(r.metadata().schema().pointSize())
 { }
 
 } // namespace entwine

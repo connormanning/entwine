@@ -28,7 +28,7 @@ class NewReader
 {
 public:
     NewReader(
-            std::string data,
+            std::string out,
             std::string tmp = "",
             std::shared_ptr<NewCache> cache = std::shared_ptr<NewCache>(),
             std::shared_ptr<arbiter::Arbiter> a =
@@ -42,17 +42,11 @@ public:
     const arbiter::Endpoint& ep() const { return m_ep; }
     const arbiter::Endpoint& tmp() const { return m_tmp; }
     NewCache& cache() const { return *m_cache; }
-    PointPool& pointPool() const { return m_pointPool; }
 
     std::string path() const { return ep().prefixedRoot(); }
     std::size_t pointSize() const { return m_metadata.schema().pointSize(); }
 
 private:
-    void hierarchy(
-            Json::Value& json,
-            const NewQueryParams& params,
-            const ChunkKey& c) const;
-
     std::shared_ptr<arbiter::Arbiter> m_arbiter;
     arbiter::Endpoint m_ep;
     arbiter::Endpoint m_tmp;
@@ -60,8 +54,7 @@ private:
     const Metadata m_metadata;
     const HierarchyReader m_hierarchy;
 
-    std::shared_ptr<NewCache> m_cache;
-    mutable PointPool m_pointPool;
+    std::unique_ptr<NewCache> m_cache;
 };
 
 } // namespace entwine

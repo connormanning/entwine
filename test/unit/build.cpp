@@ -3,7 +3,6 @@
 #include "verify.hpp"
 
 #include <entwine/builder/builder.hpp>
-#include <entwine/builder/config.hpp>
 
 using namespace entwine;
 using DimId = pdal::Dimension::Id;
@@ -21,10 +20,10 @@ TEST(build, basic)
     c["input"] = test::dataPath() + "ellipsoid.laz";
     c["output"] = out;
     c["force"] = true;
-    c["hierarchyStep"] = 2;
-    c["ticks"] = 8;
+    c["ticks"] = v.ticks();
+    c["hierarchyStep"] = v.hierarchyStep();
 
-    entwine::Builder b(c);
+    Builder b(c);
     b.go();
 
     const auto info(parse(a.get(out + "entwine.json")));
@@ -52,5 +51,8 @@ TEST(build, basic)
 
     const Schema schema(info["schema"]);
     EXPECT_EQ(schema, v.schema().append(DimId::OriginId));
+
+    EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
+    EXPECT_EQ(info["hierarchyStep"].asUInt64(), v.hierarchyStep());
 }
 

@@ -44,9 +44,9 @@ void Hierarchy::load(
         m_map[k] = json[s].asUInt64();
 
         if (
-                (m.hierarchyStep()) &&
-                (k.depth() > root.depth()) &&
-                (k.depth() % m.hierarchyStep() == 0))
+                m.hierarchyStep() &&
+                k.depth() > root.depth() &&
+                k.depth() % m.hierarchyStep() == 0)
         {
             load(m, ep, k);
         }

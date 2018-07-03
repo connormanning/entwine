@@ -4,8 +4,9 @@ add_definitions(${CMAKE_CXX_FLAGS}
 add_executable(entwine-test
     unit/scan.cpp
     unit/build.cpp
-    unit/version.cpp
     unit/main.cpp
+    unit/read.cpp
+    unit/version.cpp
 )
 
 configure_file(unit/config.hpp.in "${CMAKE_CURRENT_BINARY_DIR}/unit/config.hpp")
