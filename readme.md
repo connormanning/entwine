@@ -1,6 +1,7 @@
 ![Entwine logo](./doc/logo/color/entwine_logo_2-color-small.png)
 
-[![Build Status](https://travis-ci.org/connormanning/entwine.svg?branch=master)](https://travis-ci.org/connormanning/entwine)
+[![Travis status](https://travis-ci.org/connormanning/entwine.svg?branch=master)](https://travis-ci.org/connormanning/entwine)
+[![Appveyor status](https://ci.appveyor.com/api/projects/status/qhqcre9jt14569uq)](https://ci.appveyor.com/project/hobu/entwine)
 
 
 
