@@ -32,17 +32,18 @@ Pnts::Pnts(const Tileset& tileset, const ChunkKey& ck)
 
 std::vector<char> Pnts::build()
 {
-    const auto data = m_tileset.metadata().dataIo().read(
+    auto cells = m_tileset.metadata().dataIo().read(
             m_tileset.in(),
             m_tileset.tmp(),
             m_tileset.pointPool(),
             m_key.get().toString());
 
-    m_np = data.size();
+    m_np = cells.size();
 
-    const auto xyz(buildXyz(data));
-    const auto rgb(buildRgb(data));
-    const auto normals(buildNormals(data));
+    const auto xyz(buildXyz(cells));
+    const auto rgb(buildRgb(cells));
+    const auto normals(buildNormals(cells));
+    m_tileset.pointPool().release(std::move(cells));
     return buildFile(xyz, rgb, normals);
 }
 
