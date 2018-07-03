@@ -20,8 +20,8 @@ TEST(read, basic)
         c["input"] = test::dataPath() + "ellipsoid.laz";
         c["output"] = out;
         c["force"] = true;
-        c["hierarchyStep"] = v.hierarchyStep();
-        c["ticks"] = v.ticks();
+        c["hierarchyStep"] = static_cast<Json::UInt64>(v.hierarchyStep());
+        c["ticks"] = static_cast<Json::UInt64>(v.ticks());
 
         Builder b(c);
         b.go();
