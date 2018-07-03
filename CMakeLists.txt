@@ -3,8 +3,8 @@ cmake_minimum_required(VERSION 2.8.8)
 project(entwine)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules" ${CMAKE_MODULE_PATH})
 
-set(ENTWINE_VERSION_MAJOR 1 CACHE STRING "Entwine major version" FORCE)
-set(ENTWINE_VERSION_MINOR 1 CACHE STRING "Entwine minor version" FORCE)
+set(ENTWINE_VERSION_MAJOR 2 CACHE STRING "Entwine major version" FORCE)
+set(ENTWINE_VERSION_MINOR 0 CACHE STRING "Entwine minor version" FORCE)
 set(ENTWINE_VERSION_PATCH 0 CACHE STRING "Entwine patch version" FORCE)
 set(ENTWINE_VERSION_STRING
     "${ENTWINE_VERSION_MAJOR}.${ENTWINE_VERSION_MINOR}.${ENTWINE_VERSION_PATCH}"
@@ -123,14 +123,15 @@ endif()
 include_directories(BEFORE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 add_subdirectory(entwine)
-add_subdirectory(kernel)
+add_subdirectory(app)
 
 set(OBJS
     $<TARGET_OBJECTS:formats>
-    $<TARGET_OBJECTS:reader>
-    $<TARGET_OBJECTS:chunk-storage>
+    # $<TARGET_OBJECTS:reader>
+    $<TARGET_OBJECTS:new-reader>
+    $<TARGET_OBJECTS:io>
     $<TARGET_OBJECTS:third>
-    $<TARGET_OBJECTS:tree>
+    $<TARGET_OBJECTS:builder>
     $<TARGET_OBJECTS:types>
     $<TARGET_OBJECTS:util>
 )
@@ -142,21 +143,9 @@ else()
     add_library(entwine SHARED ${OBJS})
 endif()
 
-if (MSVC)
-    find_library(LZMA_LIBRARY liblzma PATHS "${CMAKE_INSTALL_PREFIX}/lib")
-    target_include_directories(util PRIVATE ${LIBLZMA_INCLUDE_DIR})
-else()
-    target_link_libraries(entwine lzma)
-endif()
-
 target_link_libraries(entwine PUBLIC pdalcpp pdal_util ${LZMA_LIBRARY} ${CMAKE_DL_LIBS})
 
 target_link_libraries(entwine ${JSON_CPP_LINK_TYPE} ${ENTWINE_JSONCPP_LIB_NAME})
-
-if (${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
-    target_link_libraries(entwine atomic)
-endif()
-
 
 target_link_libraries(entwine PRIVATE ${CURL_LIBRARIES})
 target_include_directories(entwine PRIVATE "${CURL_INCLUDE_DIR}")
@@ -190,14 +179,9 @@ install(
     FILES "${PROJECT_BINARY_DIR}/entwine-config.cmake"
     DESTINATION lib/cmake/entwine)
 
-add_subdirectory(test/data)
-
 add_subdirectory(test/gtest-1.8.0)
 include_directories(entwine test/gtest-1.8.0/include test/gtest-1.8.0)
-
 add_subdirectory(test)
-
-
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/cpack.cmake")
 add_custom_target(dist COMMAND ${CMAKE_MAKE_PROGRAM} package_source)

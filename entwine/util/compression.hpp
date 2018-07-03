@@ -17,7 +17,7 @@
 #include <stdexcept>
 #include <vector>
 
-#include <entwine/types/structure.hpp>
+#include <entwine/types/point-pool.hpp>
 
 namespace entwine
 {
@@ -63,5 +63,4 @@ public:
 };
 
 } // namespace entwine
-
 

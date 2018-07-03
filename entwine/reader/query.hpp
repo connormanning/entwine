@@ -40,7 +40,6 @@ class Query
 {
 public:
     Query(const Reader& reader, const QueryParams& params);
-
     virtual ~Query() { }
 
     bool next();

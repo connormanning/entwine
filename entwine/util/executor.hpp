@@ -21,7 +21,6 @@
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/reprojection.hpp>
-#include <entwine/types/structure.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace pdal

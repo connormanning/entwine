@@ -56,17 +56,20 @@ public:
         }
     }
 
-    void insertInto(Json::Value& json) const
+    Json::Value toJson() const
     {
-        if (empty()) return;
-
-        if (m_scale.x == m_scale.y && m_scale.x == m_scale.z)
+        Json::Value json;
+        if (!empty())
         {
-            json["scale"] = m_scale.x;
-        }
-        else json["scale"] = m_scale.toJsonArray();
+            if (m_scale.x == m_scale.y && m_scale.x == m_scale.z)
+            {
+                json["scale"] = m_scale.x;
+            }
+            else json["scale"] = m_scale.toJsonArray();
 
-        json["offset"] = m_offset.toJsonArray();
+            json["offset"] = m_offset.toJsonArray();
+        }
+        return json;
     }
 
     static std::unique_ptr<Delta> maybeCreate(

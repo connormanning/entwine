@@ -14,13 +14,13 @@
 #include <iostream>
 #include <mutex>
 
+/*
 #include <pdal/util/Utils.hpp>
 
-#ifdef ENTWINE_HAVE_BACKTRACE
 #include <execinfo.h>
 #include <unistd.h>
 #include <dlfcn.h>
-#endif
+*/
 
 namespace entwine
 {
@@ -32,9 +32,10 @@ namespace
 
 inline void stackTrace()
 {
+    std::cout << "TODO: stackTrace" << std::endl;
+    /*
     std::lock_guard<std::mutex> lock(mutex);
 
-#ifdef ENTWINE_HAVE_BACKTRACE
     void* buffer[32];
     const std::size_t size(backtrace(buffer, 32));
     char** symbols(backtrace_symbols(buffer, size));
@@ -75,14 +76,13 @@ inline void stackTrace()
     for (const auto& l : lines) std::cout << l << std::endl;
 
     free(symbols);
-#else
-    std::cout << "Backtrace functionality was not linked" << std::endl;
-#endif
+    */
 }
 
 template<typename Signal>
 inline void stackTraceOn(Signal s)
 {
+    /*
     signal(s, [](int sig)
     {
         {
@@ -93,6 +93,7 @@ inline void stackTraceOn(Signal s)
         stackTrace();
         exit(1);
     });
+    */
 }
 
 } // namespace entwine

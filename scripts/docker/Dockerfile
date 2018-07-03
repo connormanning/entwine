@@ -1,37 +1,32 @@
-FROM pdal/pdal:1.7
+FROM pdal/ubuntu:latest
 MAINTAINER Connor Manning <connor@hobu.co>
 
-RUN \
-    echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing" >> \
-        /etc/apk/repositories; \
-    apk update; \
-    apk add --no-cache \
-        bash \
-        xz-libs \
-        openssl-dev \
-        openssl \
-        cmake \
-        libunwind \
-        libexecinfo \
-        xz-dev \
-        openssl-dev \
-        alpine-sdk \
-        git \
-        laz-perf-dev \
-        curl-dev \
-        libexecinfo-dev \
-        libunwind-dev \
-    ; \
-    git clone https://github.com/connormanning/entwine.git /var/entwine; \
-    cd /var/entwine; \
-    mkdir -p /usr/local/include; \
-    mkdir build; \
-    cd build; \
+RUN apt-get update && apt-get install -y \
+    git \
+    build-essential \
+    cmake \
+    liblzma-dev \
+    libjsoncpp-dev \
+    libcurl4-gnutls-dev \
+    libssl1.0-dev \
+    vim
+
+ENV CC gcc
+ENV CXX g++
+
+ADD https://api.github.com/repos/connormanning/entwine/commits?sha=ept \
+    /tmp/bust-cache
+
+RUN git clone https://github.com/connormanning/entwine.git /var/entwine && \
+    cd /var/entwine && \
+    git checkout ept && \
+    mkdir build && \
+    cd build && \
     cmake -G "Unix Makefiles" \
         -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_BUILD_TYPE=RelWithDebInfo .. ; \
-    make -j4; \
-    make install;
+        -DCMAKE_BUILD_TYPE=Release .. && \
+    make -j4 && \
+    make install
 
 ENTRYPOINT ["entwine"]
 

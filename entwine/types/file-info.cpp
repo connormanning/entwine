@@ -9,7 +9,7 @@
 ******************************************************************************/
 
 #include <entwine/types/file-info.hpp>
-#include <entwine/types/manifest.hpp>
+#include <entwine/types/files.hpp>
 
 namespace entwine
 {
@@ -98,6 +98,21 @@ Json::Value FileInfo::toJson(const bool everything) const
     return json;
 }
 
+void FileInfo::merge(const FileInfo& b)
+{
+    if (path() != b.path())
+    {
+        throw std::runtime_error("Invalid paths to merge");
+    }
+
+    if (status() == Status::Outstanding && status() != Status::Outstanding)
+    {
+        status(b.status());
+    }
+
+    pointStats().add(b.pointStats());
+}
+
 double densityLowerBound(const FileInfoList& files)
 {
     double points(0);
@@ -114,12 +129,6 @@ double densityLowerBound(const FileInfoList& files)
     }
 
     return points / areaUpperBound(files);
-}
-
-double densityLowerBound(const Manifest& manifest)
-{
-    return
-        manifest.pointStats().inserts() / areaUpperBound(manifest.fileInfo());
 }
 
 double areaUpperBound(const FileInfoList& files)

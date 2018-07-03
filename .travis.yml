@@ -4,18 +4,17 @@ services: docker
 compiler:
 - g++
 - clang
-before_install: "./scripts/ci/before_install.sh"
-script: docker run -v $TRAVIS_BUILD_DIR:/entwine -t --entrypoint /bin/sh connormanning/entwine -c "/entwine/scripts/ci/build.sh"
+script: docker run -v $TRAVIS_BUILD_DIR:/entwine -t --entrypoint /bin/sh connormanning/entwine:ept -c "/entwine/scripts/ci/build.sh"
 after_success:
-- echo "secure travis:" "$TRAVIS_SECURE_ENV_VARS"
+#- echo "secure travis:" "$TRAVIS_SECURE_ENV_VARS"
   # Update the TRAVIS_BRANCH value as necessary to force the build/deploy of the website
   # if both CXX==g++ and TRAVIS_BRANCH==value
-- sh -c 'if test "$TRAVIS_SECURE_ENV_VARS" = "true" -a "$CXX" = "g++"; then echo "publish website"; ./scripts/ci/build_docs.sh; ./scripts/ci/deploy_website.sh
-  $TRAVIS_BUILD_DIR/doc/build; fi'
+#- sh -c 'if test "$TRAVIS_SECURE_ENV_VARS" = "true" -a "$CXX" = "g++"; then echo "publish website"; ./scripts/ci/build_docs.sh; ./scripts/ci/deploy_website.sh
+#$TRAVIS_BUILD_DIR/doc/build; fi'
 notifications:
   email: false
-  on_success: always
-  on_failure: always
+  on_success: change
+  on_failure: change
   slack:
     secure: qAzPWkpLugFrGFDLQzoYnrziR8RS+24ILcwuXJha2blTqBi5/TdbfafnUMlaBwvaIxDiz0je4LOjTT7tJ7HYfJRW6YnXDPJ4uy1vHwxtVCEmIU+JoWvkTwWffAH0j49davyHlNwUh0ogM3iL5GU15oQCHMpZnElaEw1QntF/liYyIswYdlg1kTjhqwaPt9Q1nw46Yfb+i9iCFrARQ+gdOOSLZ6ZjJYYP9dNH+Z0qWQBDT33Trmh8W8V7flzCKLHdWH2dBJ3RxG1QMe3Gljxkc0OOub+o5ziZyGCGf8ILk9cIGjysgXd8j6WpU5mJzj4DKc2hgRUiHHepOFwlwOIO+NBBWa4tqSm+7WFGya5jDvIZj4fJNwUPuU3i7T9lUlYIMVMmGAiDB8VfM3iRuQwY2rcToNXvYFrVRveMImSkOOtCyN6BHMm925jyqk99/pcjasjADSWuSNLaD7sXuZB+qgay7ddJ3jjG231INvu6M/qO7SWOKSG20Gh2F+mbWqzAkC5nAo5eHYapk5uFpmD51kUcXN59mWaaBmuoOckxPwEEgmjANpoO9SjWPsPTfindMySUrqD8M7+M9bUB0o31PIvP8p4D3lTI262PBrJQX3wwgQacaP/lB35DAo/58jnKGJXV3yydarysFWO35urAdT5tFL9JftIF1diEj7aqSPI=
 env:

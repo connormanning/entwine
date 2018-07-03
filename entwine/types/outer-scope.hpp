@@ -29,11 +29,6 @@ public:
         m_pointPool = pointPool;
     }
 
-    void setHierarchyPool(std::shared_ptr<HierarchyCell::Pool> hierarchyPool)
-    {
-        m_hierarchyPool = hierarchyPool;
-    }
-
     template<class... Args>
     std::shared_ptr<arbiter::Arbiter> getArbiter(Args&&... args) const
     {
@@ -58,29 +53,12 @@ public:
         return m_pointPool;
     }
 
-    template<class... Args>
-    std::shared_ptr<HierarchyCell::Pool> getHierarchyPool(Args&&... args) const
-    {
-        if (!m_hierarchyPool)
-        {
-            m_hierarchyPool = std::make_shared<HierarchyCell::Pool>(
-                    std::forward<Args>(args)...);
-        }
-
-        return m_hierarchyPool;
-    }
-
     arbiter::Arbiter* getArbiterPtr() const { return m_arbiter.get(); }
     PointPool* getPointPoolPtr() const { return m_pointPool.get(); }
-    HierarchyCell::Pool* getHierarchyPoolPtr() const
-    {
-        return m_hierarchyPool.get();
-    }
 
 private:
     mutable std::shared_ptr<arbiter::Arbiter> m_arbiter;
     mutable std::shared_ptr<PointPool> m_pointPool;
-    mutable std::shared_ptr<HierarchyCell::Pool> m_hierarchyPool;
 };
 
 } // namespace entwine

@@ -16,7 +16,6 @@
 
 #include <pdal/PointRef.hpp>
 
-#include <entwine/tree/heuristics.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/point.hpp>
 #include <entwine/types/schema.hpp>
@@ -106,6 +105,8 @@ private:
     Data::RawStack m_dataStack;
 };
 
+using Cells = Cell::PooledStack;
+
 class Delta;
 
 class PointPool
@@ -114,8 +115,8 @@ public:
     PointPool(const Schema& schema, const Delta* delta = nullptr)
         : m_schema(schema)
         , m_delta(delta)
-        , m_dataPool(schema.pointSize(), heuristics::poolBlockSize)
-        , m_cellPool(heuristics::poolBlockSize)
+        , m_dataPool(schema.pointSize(), 1024 * 1024)
+        , m_cellPool(1024 * 1024)
     { }
 
     PointPool(const Schema& schema, const Delta* delta, std::size_t blockSize)
@@ -134,6 +135,12 @@ public:
     {
         Data::PooledStack dataStack(dataPool());
         for (auto& cell : cells) dataStack.push(cell.acquire());
+    }
+
+    void clear()
+    {
+        m_cellPool.clear();
+        m_dataPool.clear();
     }
 
 private:

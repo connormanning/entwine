@@ -15,6 +15,8 @@
 
 #include <json/json.h>
 
+#include <entwine/util/unique.hpp>
+
 namespace entwine
 {
 
@@ -44,13 +46,41 @@ public:
                 json["hammer"].asBool())
     { }
 
+    static std::unique_ptr<Reprojection> create(const Json::Value& json)
+    {
+        if (json.isMember("out")) return makeUnique<Reprojection>(json);
+        else return std::unique_ptr<Reprojection>();
+    }
+
     Json::Value toJson() const
     {
         Json::Value json;
-        json["in"] = in();
         json["out"] = out();
+        if (m_in.size()) json["in"] = in();
         if (m_hammer) json["hammer"] = true;
         return json;
+    }
+
+    std::string toString() const
+    {
+        std::string s;
+
+        if (hammer())
+        {
+            s += in() + " (OVERRIDING file headers)";
+        }
+        else if (in().size())
+        {
+            s += "(from file headers, or a default of '";
+            s += in() + "')";
+        }
+        else
+        {
+            s += "(from file headers)";
+        }
+
+        s += " -> " + out();
+        return s;
     }
 
     std::string in() const { return m_in; }

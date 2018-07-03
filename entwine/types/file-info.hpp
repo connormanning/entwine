@@ -26,8 +26,7 @@ namespace entwine
 
 class FileInfo
 {
-    friend class Manifest;
-    friend class Inference;
+    friend class Files;
 
 public:
     enum class Status : char
@@ -77,6 +76,8 @@ public:
     void add(const PointStats& stats) { m_pointStats.add(stats); }
 
 private:
+    void merge(const FileInfo& b);
+
     PointStats& pointStats() { return m_pointStats; }
     void status(Status status, std::string message = "")
     {
@@ -87,7 +88,7 @@ private:
     std::string m_path;
     Status m_status;
 
-    // If Bounds is set while the Status is Outstanding, then we have inferred
+    // If Bounds is set while the Status is Outstanding, then we have scanned
     // the bounds and number of points in this file from the header.
     Bounds m_bounds;    // Represented in the output projection.
     Bounds m_boundsEpsilon;
@@ -116,10 +117,7 @@ inline Json::Value toJson(const FileInfoList& fileInfo)
     return json;
 }
 
-class Manifest;
-
 double densityLowerBound(const FileInfoList& files);
-double densityLowerBound(const Manifest& manifest);
 double areaUpperBound(const FileInfoList& files);
 
 } // namespace entwine

@@ -19,10 +19,9 @@
 #include <pdal/Streamable.hpp>
 
 #include <entwine/types/binary-point-table.hpp>
-#include <entwine/types/manifest.hpp>
+#include <entwine/types/files.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/schema.hpp>
-#include <entwine/types/structure.hpp>
 
 namespace entwine
 {
@@ -120,9 +119,9 @@ public:
         , m_xyzSize(m_sizes[0] + m_sizes[1] + m_sizes[2])
         , m_xyzNormal(3 * sizeof(double) - m_xyzSize)
     {
-        assert(m_schema.find("X").typeString() == "signed");
-        assert(m_schema.find("Y").typeString() == "signed");
-        assert(m_schema.find("Z").typeString() == "signed");
+        assert(m_schema.find("X").typeString() == "int32");
+        assert(m_schema.find("Y").typeString() == "int32");
+        assert(m_schema.find("Z").typeString() == "int32");
     }
 
 protected:
@@ -262,17 +261,22 @@ public:
 
         using DimId = pdal::Dimension::Id;
         BinaryPointTable ta(m_schema), tb(m_schema);
+        const uint64_t ps(m_schema.pointSize());
 
         std::sort(
                 m_refs.begin(),
                 m_refs.end(),
-                [&ta, &tb](const Ref& a, const Ref& b)
+                [&ta, &tb, ps](const Ref& a, const Ref& b)
                 {
                     ta.setPoint(a.data());
                     tb.setPoint(b.data());
+
+                    double ga(ta.ref().getFieldAs<double>(DimId::GpsTime));
+                    double gb(tb.ref().getFieldAs<double>(DimId::GpsTime));
+
                     return
-                        ta.ref().getFieldAs<double>(DimId::GpsTime) <
-                        tb.ref().getFieldAs<double>(DimId::GpsTime);
+                        (ga < gb) ||
+                        (ga == gb && std::memcmp(a.data(), b.data(), ps) < 0);
                 });
     }
 

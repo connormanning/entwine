@@ -16,9 +16,10 @@
 
 #include <pdal/Dimension.hpp>
 
+#include <entwine/builder/config.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/defs.hpp>
-#include <entwine/types/storage-types.hpp>
+#include <entwine/types/subset.hpp>
 
 namespace Json { class Value; }
 
@@ -26,16 +27,13 @@ namespace entwine
 {
 
 namespace arbiter { class Endpoint; }
-namespace cesium { class Settings; }
 
+class DataIo;
 class Delta;
-class Manifest;
+class Files;
 class Point;
 class Reprojection;
 class Schema;
-class Storage;
-class Structure;
-class Subset;
 class Version;
 
 class Metadata
@@ -44,45 +42,15 @@ class Metadata
     friend class Sequence;
 
 public:
+    Metadata(const Config& config, bool exists = false);
     Metadata(
-            const Bounds& nativeBounds,
-            const Schema& schema,
-            const Structure& structure,
-            const Structure& hierarchyStructure,
-            const Manifest& manifest,
-            bool trustHeaders,
-            ChunkStorageType chunkStorage,
-            HierarchyCompression hierarchyCompress,
-            double density,
-            const Reprojection* reprojection = nullptr,
-            const Subset* subset = nullptr,
-            const Delta* delta = nullptr,
-            const std::vector<double>* transformation = nullptr,
-            const cesium::Settings* cesiumSettings = nullptr,
-            std::vector<std::string> preserveSpatial =
-                std::vector<std::string>());
+            const arbiter::Endpoint& endpoint,
+            const Config& config = Config());
 
-    Metadata(const arbiter::Endpoint& endpoint);
-
-    explicit Metadata(const Json::Value& json);
-    Metadata(const Metadata& other);
     ~Metadata();
 
-    static std::unique_ptr<Metadata> create(
-            const arbiter::Endpoint& endpoint,
-            const std::size_t* subsetId = nullptr);
-
     void merge(const Metadata& other);
-
     void save(const arbiter::Endpoint& endpoint) const;
-
-    static Bounds makeScaledCube(
-            const Bounds& nativeConformingBounds,
-            const Delta* delta);
-
-    static Bounds makeNativeCube(
-            const Bounds& nativeConformingBounds,
-            const Delta* delta);
 
     // Native bounds - no scale/offset applied.
     const Bounds& boundsNativeConforming() const
@@ -93,7 +61,11 @@ public:
     {
         return *m_boundsNativeCubic;
     }
-    std::unique_ptr<Bounds> boundsNativeSubset() const;
+    const Bounds* boundsNativeSubset() const
+    {
+        if (m_subset) return &m_subset->boundsNative();
+        else return nullptr;
+    }
 
     // Aliases for API simplicity.
     const Bounds& boundsConforming() const { return boundsNativeConforming(); }
@@ -108,21 +80,17 @@ public:
     {
         return *m_boundsScaledCubic;
     }
-    const Bounds& boundsScaledEpsilon() const
+    const Bounds* boundsScaledSubset() const
     {
-        return *m_boundsScaledEpsilon;
+        if (m_subset) return &m_subset->boundsScaled();
+        else return nullptr;
     }
-    std::unique_ptr<Bounds> boundsScaledSubset() const;
 
     const Schema& schema() const { return *m_schema; }
-    const Structure& structure() const { return *m_structure; }
-    const Structure& hierarchyStructure() const
-    {
-        return *m_hierarchyStructure;
-    }
-    const Manifest* manifestPtr() const { return m_manifest.get(); }
-    const Manifest& manifest() const { return *m_manifest; }
-    const Storage& storage() const { return *m_storage; }
+    const Files& files() const { return *m_files; }
+
+    const DataIo& dataIo() const { return *m_dataIo; }
+
     const Reprojection* reprojection() const { return m_reprojection.get(); }
     const Subset* subset() const { return m_subset.get(); }
     const Delta* delta() const { return m_delta.get(); }
@@ -130,39 +98,36 @@ public:
     {
         return m_transformation.get();
     }
-    const cesium::Settings* cesiumSettings() const
-    {
-        return m_cesiumSettings.get();
-    }
-    const std::vector<std::string>& preserveSpatial() const
-    {
-        return m_preserveSpatial;
-    }
 
     const Version& version() const { return *m_version; }
     const std::string& srs() const { return m_srs; }
-    double density() const { return m_density; }
-    bool trustHeaders() const { return m_trustHeaders; }
-    bool slicedBase() const { return m_slicedBase; }
 
-    std::string basename(const Id& chunkId) const;
-    std::string filename(const Id& chunkId) const;
-    std::string postfix(bool isColdChunk = false) const;
-    void unbump();
+    bool trustHeaders() const { return m_trustHeaders; }
+
+    uint64_t ticks() const { return m_ticks; }
+    uint64_t startDepth() const { return m_startDepth; }
+    uint64_t sharedDepth() const { return m_sharedDepth; }
+    uint64_t overflowDepth() const { return m_overflowDepth; }
+    uint64_t overflowThreshold() const { return m_overflowThreshold; }
+    uint64_t hierarchyStep() const { return m_hierarchyStep; }
+
     void makeWhole();
 
+    std::string postfix() const;
+    std::string postfix(uint64_t depth) const;
+
     Json::Value toJson() const;
+    Json::Value toBuildParamsJson() const;
 
 private:
-    static Json::Value unify(Json::Value json);
-
-    void awakenManifest(const arbiter::Endpoint& ep);
     Metadata& operator=(const Metadata& other);
+    void setHierarchyStep(uint64_t v) { m_hierarchyStep = v; }
+
+    Bounds makeNativeConformingBounds(const Bounds& b) const;
+    Bounds makeNativeCube(const Bounds& b, const Delta* d) const;
 
     // These are aggregated as the Builder runs.
-    Manifest& manifest() { return *m_manifest; }
-    Manifest* manifestPtr() { return m_manifest.get(); }
-    // Storage& storage() { return *m_storage; }
+    Files& mutableFiles() { return *m_files; }
     std::string& srs() { return m_srs; }
 
     std::unique_ptr<Delta> m_delta;
@@ -172,23 +137,26 @@ private:
 
     std::unique_ptr<Bounds> m_boundsScaledConforming;
     std::unique_ptr<Bounds> m_boundsScaledCubic;
-    std::unique_ptr<Bounds> m_boundsScaledEpsilon;
 
     std::unique_ptr<Schema> m_schema;
-    std::unique_ptr<Structure> m_structure;
-    std::unique_ptr<Structure> m_hierarchyStructure;
-    std::unique_ptr<Manifest> m_manifest;
-    std::unique_ptr<Storage> m_storage;
+    std::unique_ptr<Files> m_files;
+    std::unique_ptr<DataIo> m_dataIo;
     std::unique_ptr<Reprojection> m_reprojection;
-    std::unique_ptr<Subset> m_subset;
     std::unique_ptr<Transformation> m_transformation;
-    std::unique_ptr<cesium::Settings> m_cesiumSettings;
     std::unique_ptr<Version> m_version;
     std::string m_srs;
-    double m_density = 0;
-    bool m_trustHeaders = true;
-    bool m_slicedBase = true;
-    std::vector<std::string> m_preserveSpatial;
+    std::unique_ptr<Subset> m_subset;
+
+    const bool m_trustHeaders = true;
+
+    const uint64_t m_ticks;
+    const uint64_t m_startDepth;
+    const uint64_t m_sharedDepth;
+
+    const uint64_t m_overflowDepth;
+    const uint64_t m_overflowThreshold;
+
+    uint64_t m_hierarchyStep;
 };
 
 } // namespace entwine

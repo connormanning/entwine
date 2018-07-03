@@ -1962,6 +1962,11 @@ void S3::put(
     Headers headers(m_config->baseHeaders());
     headers.insert(userHeaders.begin(), userHeaders.end());
 
+    if (Arbiter::getExtension(rawPath) == "json")
+    {
+        headers["Content-Type"] = "application/json";
+    }
+
     const ApiV4 apiV4(
             "PUT",
             m_config->region(),
@@ -2122,7 +2127,10 @@ S3::ApiV4::ApiV4(
 
     if (verb == "PUT" || verb == "POST")
     {
-        m_headers["Content-Type"] = "application/octet-stream";
+        if (!m_headers.count("Content-Type"))
+        {
+            m_headers["Content-Type"] = "application/octet-stream";
+        }
         m_headers["Transfer-Encoding"] = "";
         m_headers["Expect"] = "";
     }

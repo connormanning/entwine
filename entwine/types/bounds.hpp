@@ -240,7 +240,7 @@ public:
 
     bool empty() const { return !exists(); }
     bool exists() const { return min().exists() || max().exists(); }
-    bool is3d() const { return m_min.z != m_max.z; }
+    bool is3d() const { return m_min.z || m_max.z; }
 
     Json::Value toJson() const;
     Bounds to2d() const { return Bounds(min().x, min().y, max().x, max().y); }
@@ -253,11 +253,6 @@ public:
     {
         return width() == depth() && (!is3d() || width() == height());
     }
-
-    // Bloat all coordinates necessary to form a cube and also to the nearest
-    // integer.
-    Bounds cubeify(const Delta* delta = nullptr) const;
-    Bounds cubeify(const Delta& delta) const;
 
     Bounds deltify(const Delta* delta) const;
     Bounds deltify(const Delta& delta) const;

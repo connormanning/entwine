@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2016, Connor Manning (connor@hobu.co)
+* Copyright (c) 2018, Connor Manning (connor@hobu.co)
 *
 * Entwine -- Point cloud indexing
 *
@@ -10,64 +10,48 @@
 
 #pragma once
 
-#include <string>
-#include <vector>
-
-#include <json/json.h>
-
-#include <entwine/formats/cesium/batch-table.hpp>
-#include <entwine/formats/cesium/feature-table.hpp>
-#include <entwine/formats/cesium/tile-info.hpp>
-#include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/tree/chunk.hpp>
+#include <entwine/formats/cesium/tileset.hpp>
 
 namespace entwine
 {
-
 namespace cesium
 {
 
-class TileData
-{
-public:
-    TileData(std::size_t numPoints, bool hasColor, bool hasNormals, bool hasBatchTableDimensions)
-    {
-        points.reserve(numPoints);
-        if (hasColor) colors.reserve(numPoints);
-        if (hasNormals) normals.reserve(numPoints);
-        if (hasBatchTableDimensions) pointIndices.reserve(numPoints);
-    }
-
-    std::vector<Point> points;
-    std::vector<Color> colors;
-    std::vector<Point> normals;
-    std::vector<const char*> pointIndices;
-};
-
+// This class represents a the metadata for a single tile:
+// https://github.com/AnalyticalGraphicsInc/3d-tiles#tile-metadata
 class Tile
 {
 public:
-    Tile(const Metadata& metadata, const TileData& tileData)
-        : m_featureTable(tileData)
-        , m_batchTable(metadata, tileData)
-    { }
-
-    std::vector<char> asBinary() const;
-
-    const FeatureTable& featureTable() const { return m_featureTable; }
-    const BatchTable& batchTable() const { return m_batchTable; }
-
-private:
-    void append(std::vector<char>& data, uint32_t v) const
+    Tile(const Tileset& tileset, const ChunkKey& ck, bool external = false)
+        : m_tileset(tileset)
     {
-        data.insert(
-                data.end(),
-                reinterpret_cast<const char*>(&v),
-                reinterpret_cast<const char*>(&v + 1));
+        m_json["boundingVolume"]["box"] = toBox(ck.bounds());
+        m_json["geometricError"] = m_tileset.geometricErrorAt(ck.depth());
+        m_json["content"]["url"] = external ?
+            "tileset-" + ck.toString() + ".json" :
+            ck.toString() + ".pnts";
+        if (!ck.depth()) m_json["refine"] = "ADD";
     }
 
-    FeatureTable m_featureTable;
-    BatchTable m_batchTable;
+    Json::Value toJson() const { return m_json; }
+
+private:
+    Json::Value toBox(Bounds in) const
+    {
+        if (const Delta* d = m_tileset.metadata().delta())
+        {
+            in = in.unscale(d->scale(), d->offset());
+        }
+
+        Json::Value box(in.mid().toJson());
+        box.append(in.width()); box.append(0); box.append(0);
+        box.append(0); box.append(in.depth()); box.append(0);
+        box.append(0); box.append(0); box.append(in.height());
+        return box;
+    }
+
+    const Tileset& m_tileset;
+    Json::Value m_json;
 };
 
 } // namespace cesium

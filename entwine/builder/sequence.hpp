@@ -1,0 +1,71 @@
+/******************************************************************************
+* Copyright (c) 2016, Connor Manning (connor@hobu.co)
+*
+* Entwine -- Point cloud indexing
+*
+* Entwine is available under the terms of the LGPL2 license. See COPYING
+* for specific license text and more information.
+*
+******************************************************************************/
+
+#include <iostream>
+#include <memory>
+
+#include <entwine/builder/builder.hpp>
+#include <entwine/types/defs.hpp>
+#include <entwine/types/files.hpp>
+
+namespace entwine
+{
+
+class Builder;
+class Executor;
+class Metadata;
+
+class Sequence
+{
+    friend class Builder;
+
+public:
+    Sequence(Metadata& metadata, std::mutex& mutex);
+
+    std::unique_ptr<Origin> next(std::size_t max);
+    bool done() const { auto l(getLock()); return m_origin < m_end; }
+    std::size_t added() const { return m_added; }
+
+    // Stop this build as soon as possible.  All partially inserted paths will
+    // be completed, and non-inserted paths can be added by continuing this
+    // build later.
+    void stop()
+    {
+        auto l(getLock());
+        m_end = std::min(m_end, m_origin + 1);
+        std::cout << "Stopping - setting end at " << m_end << std::endl;
+    }
+
+private:
+    std::unique_lock<std::mutex> getLock() const
+    {
+        return std::unique_lock<std::mutex>(m_mutex);
+    }
+
+    bool checkInfo(Origin origin);
+
+    bool checkBounds(
+            Origin origin,
+            const Bounds& bounds,
+            std::size_t numPoints);
+
+    const Metadata& m_metadata;
+    Files& m_files;
+    std::mutex& m_mutex;
+
+    Origin m_origin;
+    Origin m_end;
+    std::size_t m_added;
+
+    std::vector<Origin> m_overlaps;
+};
+
+} // namespace entwine
+

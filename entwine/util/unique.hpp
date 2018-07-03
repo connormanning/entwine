@@ -41,5 +41,11 @@ inline std::unique_ptr<T> maybeCreate(const Json::Value& json)
     else return std::unique_ptr<T>();
 }
 
+template<typename T>
+inline std::shared_ptr<T> maybeDefault(std::shared_ptr<T> v)
+{
+    return v ? v : std::make_shared<T>();
+}
+
 } // namespace entwine
 

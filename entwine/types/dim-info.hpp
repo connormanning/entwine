@@ -35,14 +35,11 @@ public:
         : DimInfo(pdal::Dimension::name(id), id, type)
     { }
 
-    DimInfo(
-            const std::string& name,
-            const std::string& baseTypeName,
-            std::size_t size = 0)
+    DimInfo(const std::string& name, const std::string& type)
         : DimInfo(
                 name,
                 pdal::Dimension::Id::Unknown,
-                getType(baseTypeName, size))
+                pdal::Dimension::type(type))
     { }
 
     DimInfo(const std::string& name)
@@ -50,12 +47,7 @@ public:
     { }
 
     DimInfo(const Json::Value& json)
-        : DimInfo(
-                json["name"].asString(),
-                json["type"].asString(),
-                json["size"].isIntegral() ?
-                    json["size"].asUInt64() :
-                    std::stoul(json["size"].asString()))
+        : DimInfo(json["name"].asString(), json["type"].asString())
     { }
 
     DimInfo(
@@ -71,7 +63,22 @@ public:
     std::size_t size() const { return pdal::Dimension::size(type()); }
     std::string typeString() const
     {
-        return pdal::Dimension::toName(pdal::Dimension::base(m_type));
+        using Type = pdal::Dimension::Type;
+        switch (m_type)
+        {
+            case Type::None:        return "unknown";
+            case Type::Signed8:     return "int8";
+            case Type::Signed16:    return "int16";
+            case Type::Signed32:    return "int32";
+            case Type::Signed64:    return "int64";
+            case Type::Unsigned8:   return "uint8";
+            case Type::Unsigned16:  return "uint16";
+            case Type::Unsigned32:  return "uint32";
+            case Type::Unsigned64:  return "uint64";
+            case Type::Float:       return "float";
+            case Type::Double:      return "double";
+            default:                return "unknown";
+        }
     }
 
     pdal::Dimension::Id id() const { return m_id; }
@@ -82,7 +89,6 @@ public:
         Json::Value json;
         json["name"] = name();
         json["type"] = typeString();
-        json["size"] = static_cast<Json::UInt64>(size());
         return json;
     }
 
@@ -106,50 +112,6 @@ private:
     std::string m_name;
     mutable pdal::Dimension::Id m_id;
     pdal::Dimension::Type m_type;
-    std::string m_typeString;
-
-    pdal::Dimension::Type getType(
-            const std::string& type,
-            const std::size_t size)
-    {
-        using D = pdal::Dimension::Type;
-
-        if (type == "floating")
-        {
-            if      (size == 4) return D::Float;
-            else if (size == 8) return D::Double;
-        }
-        if (type == "unsigned")
-        {
-            if      (size == 1) return D::Unsigned8;
-            else if (size == 2) return D::Unsigned16;
-            else if (size == 4) return D::Unsigned32;
-            else if (size == 8) return D::Unsigned64;
-        }
-        if (type == "signed")
-        {
-            if      (size == 1) return D::Signed8;
-            else if (size == 2) return D::Signed16;
-            else if (size == 4) return D::Signed32;
-            else if (size == 8) return D::Signed64;
-        }
-
-        if (!size)
-        {
-            if (type == "float32") return D::Float;
-            if (type == "float64") return D::Double;
-            if (type == "uint8") return D::Unsigned8;
-            if (type == "uint16") return D::Unsigned16;
-            if (type == "uint32") return D::Unsigned32;
-            if (type == "uint64") return D::Unsigned64;
-            if (type == "int8") return D::Signed8;
-            if (type == "int16") return D::Signed16;
-            if (type == "int32") return D::Signed32;
-            if (type == "int64") return D::Signed64;
-        }
-
-        throw std::runtime_error("Invalid type specification");
-    }
 };
 
 using DimList = std::vector<DimInfo>;
