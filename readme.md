@@ -15,7 +15,7 @@ Getting started with Entwine is easy with [Docker](http://docker.com).  First, w
 
 ```
 mkdir ~/entwine
-docker run -it -v ~/entwine:/entwine connormanning/entwine:ept build \
+docker run -it -v ~/entwine:/entwine connormanning/entwine build \
     -i https://entwine.io/sample-data/red-rocks.laz \
     -o /entwine/red-rocks
 ```

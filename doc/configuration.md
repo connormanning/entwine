@@ -430,7 +430,7 @@ earth-centered earth-fixed, i.e. `EPSG:4978`:
 
 ```
 mkdir ~/entwine
-docker run -it -v ~/entwine:/entwine connormanning/entwine:ept build \
+docker run -it -v ~/entwine:/entwine connormanning/entwine build \
     -i https://entwine.io/sample-data/autzen.laz \
     -o /entwine/autzen-ecef \
     -r EPSG:4978
@@ -439,7 +439,7 @@ docker run -it -v ~/entwine:/entwine connormanning/entwine:ept build \
 Then, `entwine convert` must be run to create a 3D Tiles tileset:
 
 ```
-docker run -it -v ~/entwine:/entwine connormanning/entwine:ept convert \
+docker run -it -v ~/entwine:/entwine connormanning/entwine convert \
     -i /entwine/autzen-ecef \
     -o /entwine/cesium/autzen
 ```
