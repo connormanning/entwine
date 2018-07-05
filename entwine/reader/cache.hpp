@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2016, Connor Manning (connor@hobu.co)
+* Copyright (c) 2018, Connor Manning (connor@hobu.co)
 *
 * Entwine -- Point cloud indexing
 *
@@ -10,135 +10,66 @@
 
 #pragma once
 
-#include <atomic>
-#include <condition_variable>
 #include <cstddef>
+#include <deque>
 #include <list>
 #include <map>
-#include <memory>
 #include <mutex>
-#include <set>
-#include <string>
 
-#include <entwine/types/structure.hpp>
-#include <entwine/third/arbiter/arbiter.hpp>
+#include <entwine/reader/chunk-reader.hpp>
+#include <entwine/types/key.hpp>
 
 namespace entwine
 {
 
-class Cache;
-class ColdChunkReader;
 class Reader;
-class Schema;
 
-struct FetchInfo
+struct GlobalId
 {
-    FetchInfo(
-            const Reader& reader,
-            const Id& id,
-            const Bounds& bounds,
-            std::size_t depth);
-
-    const Reader& reader;
-    const Id id;
-    const Bounds bounds;
-    const std::size_t depth;
-
-    bool operator<(const FetchInfo& rhs) const;
-};
-
-typedef std::set<FetchInfo> FetchInfoSet;
-
-
-
-struct GlobalChunkInfo
-{
-    GlobalChunkInfo(const std::string& path, const Id& id)
+    GlobalId(const std::string path, const Dxyz& key)
         : path(path)
-        , id(id)
+        , key(key)
     { }
 
-    std::string path;
-    Id id;
+    const std::string path;
+    const Dxyz key;
 };
 
-typedef std::list<GlobalChunkInfo> InactiveList;
+bool operator<(const GlobalId& a, const GlobalId& b);
 
-
-
-struct DataChunkState
+struct ChunkReaderInfo
 {
-    DataChunkState();
-    ~DataChunkState();
+    using Map = std::map<GlobalId, ChunkReaderInfo>;
+    using Order = std::list<Map::iterator>;
 
-    std::unique_ptr<ColdChunkReader> chunkReader;
-    std::unique_ptr<InactiveList::iterator> inactiveIt;
-    std::atomic_size_t refs;
-
-    std::mutex mutex;
-};
-
-typedef std::map<Id, std::unique_ptr<DataChunkState>> LocalManager;
-typedef std::map<std::string, LocalManager> GlobalManager;
-typedef std::map<Id, const ColdChunkReader*> ChunkMap;
-
-class Block
-{
-    friend class Cache;
-
-public:
-    ~Block();
-    const ChunkMap& chunkMap() const { return m_chunkMap; }
-    std::string path() const { return m_readerPath; }
-
-private:
-    Block(
-            Cache& cache,
-            const std::string& readerPath,
-            const FetchInfoSet& fetches);
-
-    void set(const Id& id, const ColdChunkReader* chunkReader);
-
-    Cache& m_cache;
-    std::string m_readerPath;
-    ChunkMap m_chunkMap;
+    SharedChunkReader chunk;
+    Order::iterator it;
 };
 
 class Cache
 {
-    friend class Block;
-
 public:
-    Cache(std::size_t maxBytes);
-
-    std::unique_ptr<Block> acquire(
-            const std::string& readerPath,
-            const FetchInfoSet& fetches);
+    Cache(std::size_t maxBytes = 1024 * 1024 * 1024) // TODO default.
+        : m_maxBytes(maxBytes)
+    { }
 
     std::size_t maxBytes() const { return m_maxBytes; }
-    std::size_t activeBytes() const { return m_activeBytes; }
 
-    void release(const Reader& reader);
+    std::deque<SharedChunkReader> acquire(
+            const Reader& reader,
+            const std::vector<Dxyz>& keys);
 
 private:
-    void release(const Block& block);
+    SharedChunkReader get(const Reader& reader, const Dxyz& id);
+    void purge();
 
-    std::unique_ptr<Block> reserve(
-            const std::string& readerPath,
-            const FetchInfoSet& fetches);
+    const std::size_t m_maxBytes = 1024 * 1024;
 
-    const ColdChunkReader* fetch(
-            const std::string& readerPath,
-            const FetchInfo& fetchInfo);
+    mutable std::mutex m_mutex;
+    std::size_t m_size = 0;
 
-    const std::size_t m_maxBytes;
-    std::size_t m_activeBytes = 0;
-
-    GlobalManager m_chunkManager;
-    InactiveList m_inactiveList;
-
-    std::mutex m_mutex;
-    std::condition_variable m_cv;
+    ChunkReaderInfo::Map m_chunks;
+    ChunkReaderInfo::Order m_order;
 };
 
 } // namespace entwine

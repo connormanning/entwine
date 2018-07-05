@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include <entwine/new-reader/logic-gate.hpp>
+#include <entwine/reader/logic-gate.hpp>
 
 #include <entwine/util/unique.hpp>
 

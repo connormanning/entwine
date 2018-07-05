@@ -11,12 +11,14 @@
 #pragma once
 
 #include <cstddef>
+#include <limits>
 #include <memory>
 
 #include <json/json.h>
 
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/delta.hpp>
+#include <entwine/types/metadata.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -70,7 +72,7 @@ public:
         : m_bounds(bounds)
         , m_delta(delta)
         , m_depthBegin(depthBegin)
-        , m_depthEnd(depthEnd)
+        , m_depthEnd(depthEnd ? depthEnd : 64)
         , m_filter(filter)
     { }
 
@@ -113,7 +115,71 @@ public:
 
     const Bounds* nativeBounds() const { return m_nativeBounds.get(); }
 
+    QueryParams finalize(const Metadata& m) const
+    {
+        Delta d(localize(m, delta()));
+        Bounds b(localize(m, bounds(), d));
+
+        if (const Bounds* n = nativeBounds())
+        {
+            d = delta();
+            b = localize(m, *n, m.delta()->inverse());
+        }
+
+        return QueryParams(b, d, db(), de(), filter());
+    }
+
 private:
+    Delta localize(const Metadata& m, const Delta& out) const
+    {
+        const Delta in(m.delta());
+        return Delta(out.scale() / in.scale(), out.offset() - in.offset());
+    }
+
+    Bounds localize(
+            const Metadata& m,
+            const Bounds& q,
+            const Delta& local) const
+    {
+        const auto e(Bounds::everything());
+        if (local.empty() || q == e) return q;
+
+        const Bounds indexedBounds(m.boundsScaledCubic());
+
+        const Point refCenter(
+                Bounds(
+                    Point::scale(
+                        indexedBounds.min(),
+                        indexedBounds.mid(),
+                        local.scale(),
+                        local.offset()),
+                    Point::scale(
+                        indexedBounds.max(),
+                        indexedBounds.mid(),
+                        local.scale(),
+                        local.offset())).mid());
+
+        const Bounds queryTransformed(
+                Point::unscale(q.min(), Point(), local.scale(), -refCenter),
+                Point::unscale(q.max(), Point(), local.scale(), -refCenter));
+
+        Bounds queryCube(
+                queryTransformed.min() + indexedBounds.mid(),
+                queryTransformed.max() + indexedBounds.mid());
+
+        // If the query bounds were 2d, make sure we maintain maximal extents.
+        if (!q.is3d())
+        {
+            queryCube = Bounds(
+                    Point(queryCube.min().x, queryCube.min().y, e.min().z),
+                    Point(queryCube.max().x, queryCube.max().y, e.max().z));
+        }
+
+        queryCube.shrink(indexedBounds);
+
+        return queryCube;
+    }
+
     const Bounds m_bounds;
     const Delta m_delta;
     const std::size_t m_depthBegin;

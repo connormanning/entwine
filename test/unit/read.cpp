@@ -4,7 +4,7 @@
 #include "verify.hpp"
 
 #include <entwine/builder/builder.hpp>
-#include <entwine/new-reader/new-reader.hpp>
+#include <entwine/reader/reader.hpp>
 
 namespace
 {
@@ -27,7 +27,7 @@ TEST(read, count)
         b.go();
     }
 
-    NewReader r(out);
+    Reader r(out);
     const Metadata& m(r.metadata());
     EXPECT_EQ(m.ticks(), v.ticks());
     EXPECT_EQ(m.hierarchyStep(), v.hierarchyStep());
@@ -62,7 +62,7 @@ TEST(read, data)
         b.go();
     }
 
-    NewReader r(out);
+    Reader r(out);
     const Metadata& m(r.metadata());
     EXPECT_EQ(m.ticks(), v.ticks());
     EXPECT_EQ(m.hierarchyStep(), v.hierarchyStep());
@@ -118,5 +118,9 @@ TEST(read, data)
     const Counts counts(count(bin));
 
     ASSERT_EQ(counts.size(), v.numPoints());
+}
+
+TEST(read, filter)
+{
 }
 

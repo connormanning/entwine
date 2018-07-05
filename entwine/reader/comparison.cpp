@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include <entwine/new-reader/comparison.hpp>
+#include <entwine/reader/comparison.hpp>
 
 #include <json/json.h>
 
