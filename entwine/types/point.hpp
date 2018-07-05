@@ -276,12 +276,12 @@ public:
 
 inline bool ltChained(const Point& lhs, const Point& rhs)
 {
-    return
-        (lhs.x < rhs.x) ||
-        (lhs.x == rhs.x &&
-            (lhs.y < rhs.y ||
-            (lhs.y == rhs.y &&
-                (lhs.z < rhs.z))));
+    if (lhs.x < rhs.x) return true;
+    if (lhs.x > rhs.x) return false;
+    if (lhs.y < rhs.y) return true;
+    if (lhs.y > rhs.y) return false;
+    if (lhs.z < rhs.z) return true;
+    return false;
 }
 
 inline bool operator<(const Point& lhs, const Point& rhs)
