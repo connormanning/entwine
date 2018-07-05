@@ -90,12 +90,18 @@ TEST(read, data)
         append(bin, j);
     }
 
-    auto cmp([](const Point& a, const Point& b) { return ltChained(a, b); });
-    using Counts = std::map<Point, uint64_t, decltype(cmp)>;
-
-    auto count([&schema, &cmp](const std::vector<char>& v) -> Counts
+    struct Cmp
     {
-        Counts c(cmp);
+        bool operator()(const Point& a, const Point& b) const
+        {
+            return ltChained(a, b);
+        }
+    };
+    using Counts = std::map<Point, uint64_t, Cmp>;
+
+    auto count([&schema](const std::vector<char>& v) -> Counts
+    {
+        Counts c;
         const std::size_t size(sizeof(double));
         for (std::size_t i(0); i < v.size(); i += schema.pointSize())
         {
