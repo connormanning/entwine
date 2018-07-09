@@ -14,14 +14,20 @@ namespace
     const Verify v;
 }
 
-TEST(scan, empty)
+TEST(scan, nonexistentDirectory)
 {
     Json::Value in;
     in["input"] = test::dataPath() + "not-an-existing-directory";
-
     Scan scan(in);
-    const Json::Value out(scan.go().json());
-    EXPECT_EQ(out, Json::nullValue);
+    EXPECT_ANY_THROW(scan.go());
+}
+
+TEST(scan, nonexistentFile)
+{
+    Json::Value in;
+    in["input"] = test::dataPath() + "not-an-existing-file.laz";
+    Scan scan(in);
+    EXPECT_ANY_THROW(scan.go());
 }
 
 TEST(scan, single)

@@ -28,7 +28,10 @@ public:
     // been enqueued to wait for an available worker thread, subsequent calls
     // to Pool::add will block until an enqueued task has been popped from the
     // queue.
-    Pool(std::size_t numThreads, std::size_t queueSize = 1);
+    Pool(
+            std::size_t numThreads,
+            std::size_t queueSize = 1,
+            bool verbose = true);
     ~Pool();
 
     // Start worker threads
@@ -63,6 +66,7 @@ private:
     // called, complete any outstanding task and return.
     void work();
 
+    bool m_verbose;
     std::size_t m_numThreads;
     std::size_t m_queueSize;
     std::vector<std::thread> m_threads;

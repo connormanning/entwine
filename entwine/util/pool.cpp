@@ -16,8 +16,12 @@
 namespace entwine
 {
 
-Pool::Pool(const std::size_t numThreads, const std::size_t queueSize)
-    : m_numThreads(std::max<std::size_t>(numThreads, 1))
+Pool::Pool(
+        const std::size_t numThreads,
+        const std::size_t queueSize,
+        const bool verbose)
+    : m_verbose(verbose)
+    , m_numThreads(std::max<std::size_t>(numThreads, 1))
     , m_queueSize(std::max<std::size_t>(queueSize, 1))
 {
     go();
@@ -108,7 +112,10 @@ void Pool::work()
             --m_outstanding;
             if (err.size())
             {
-                std::cout << "Exception in pool task: " << err << std::endl;
+                if (m_verbose)
+                {
+                    std::cout << "Exception in pool task: " << err << std::endl;
+                }
                 m_errors.push_back(err);
             }
             lock.unlock();

@@ -52,7 +52,7 @@ Config Scan::go()
     {
         throw std::runtime_error("Cannot call Scan::go twice");
     }
-    m_pool = makeUnique<Pool>(m_in.totalThreads());
+    m_pool = makeUnique<Pool>(m_in.totalThreads(), 1, m_in.verbose());
     m_fileInfo = m_in.input();
 
     const std::size_t size(m_fileInfo.size());
@@ -176,8 +176,6 @@ Config Scan::aggregate()
 {
     Config out;
 
-    if (m_fileInfo.empty()) return out;
-
     std::size_t np(0);
     Bounds bounds(Bounds::expander());
 
@@ -192,6 +190,8 @@ Config Scan::aggregate()
             if (out.srs().empty()) out["srs"] = f.srs().getWKT();
         }
     }
+
+    if (!np) throw std::runtime_error("No points found!");
 
     m_scale = m_scale.apply([](double d)->double
     {

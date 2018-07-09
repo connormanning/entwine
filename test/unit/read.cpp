@@ -13,7 +13,7 @@ namespace
 
 TEST(read, count)
 {
-    const std::string out(test::dataPath() + "out/ellipsoid/ellipsoid-multi");
+    const std::string out(test::dataPath() + "out/ellipsoid/ellipsoid");
 
     {
         Config c;
@@ -48,7 +48,7 @@ TEST(read, count)
 
 TEST(read, data)
 {
-    const std::string out(test::dataPath() + "out/ellipsoid/ellipsoid-multi");
+    const std::string out(test::dataPath() + "out/ellipsoid/ellipsoid");
 
     {
         Config c;

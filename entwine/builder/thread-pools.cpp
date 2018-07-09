@@ -15,17 +15,19 @@
 namespace entwine
 {
 
-ThreadPools::ThreadPools(const std::size_t t)
-    : ThreadPools(getWorkThreads(t), getClipThreads(t))
+ThreadPools::ThreadPools(const std::size_t t, const bool verbose)
+    : ThreadPools(getWorkThreads(t), getClipThreads(t), verbose)
 { }
 
 ThreadPools::ThreadPools(
         const std::size_t workThreads,
-        const std::size_t clipThreads)
-    : m_workPool(std::max<std::size_t>(1, workThreads))
+        const std::size_t clipThreads,
+        const bool verbose)
+    : m_workPool(std::max<std::size_t>(1, workThreads), 1, verbose)
     , m_clipPool(
             std::max<std::size_t>(4, clipThreads),
-            std::max<std::size_t>(4, clipThreads) * m_workPool.numThreads())
+            std::max<std::size_t>(4, clipThreads) * m_workPool.numThreads(),
+            verbose)
 { }
 
 std::size_t ThreadPools::getWorkThreads(
