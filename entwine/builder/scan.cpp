@@ -170,6 +170,33 @@ void Scan::add(FileInfo& f, const std::string localPath)
         m_schema = m_schema.merge(Schema(dims));
         m_scale = Point::min(m_scale, scale);
     }
+
+    if (!m_in.trustHeaders())
+    {
+        Bounds bounds(Bounds::expander());
+        std::size_t np(0);
+
+        auto tracker([&bounds, &np](Cell::PooledStack cells)
+        {
+            np += cells.size();
+            for (const auto& cell : cells) bounds.grow(cell.point());
+            return cells;
+        });
+
+        const Schema xyz({
+            { pdal::Dimension::Id::X },
+            { pdal::Dimension::Id::Y },
+            { pdal::Dimension::Id::Z }
+        });
+        PointPool pointPool(xyz);
+        PooledPointTable table(pointPool, tracker, invalidOrigin);
+
+        if (Executor::get().run(table, localPath, m_re.get()) && np)
+        {
+            f.numPoints(np);
+            f.bounds(bounds);
+        }
+    }
 }
 
 Config Scan::aggregate()
