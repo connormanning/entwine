@@ -79,7 +79,8 @@ Config Scan::go()
         arbiter::Arbiter arbiter(m_in["arbiter"]);
         if (arbiter.getEndpoint(path).isLocal())
         {
-            if (!arbiter::fs::mkdirp(arbiter::util::getNonBasename(path)))
+            const auto dir(arbiter::util::getNonBasename(path));
+            if (dir.size() && !arbiter::fs::mkdirp(dir))
             {
                 std::cout << "Could not mkdir: " <<
                     arbiter::util::getNonBasename(path) << std::endl;
