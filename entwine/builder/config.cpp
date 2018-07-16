@@ -24,6 +24,7 @@ Config Config::prepare() const
     // If our input is a Scan, extract it and return the result without redoing
     // the scan.
     Json::Value p(m_json["input"]);
+    if (p.isNull()) return json();
     if (p.isArray() && p.size() == 1) p = p[0];
     if (p.isString() && arbiter::Arbiter::getExtension(p.asString()) == "json")
     {
