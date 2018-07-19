@@ -27,7 +27,6 @@ public:
     explicit PointStats(const Json::Value& json)
         : m_inserts(json["inserts"].asUInt64())
         , m_outOfBounds(json["outOfBounds"].asUInt64())
-        , m_overflows(json["overflows"].asUInt64())
     { }
 
     Json::Value toJson() const
@@ -35,11 +34,10 @@ public:
         Json::Value json;
         json["inserts"] = static_cast<Json::UInt64>(m_inserts);
         json["outOfBounds"] = static_cast<Json::UInt64>(m_outOfBounds);
-        json["overflows"] = static_cast<Json::UInt64>(m_overflows);
         return json;
     }
 
-    bool empty() const { return !m_inserts && !m_outOfBounds && !m_overflows; }
+    bool empty() const { return !m_inserts && !m_outOfBounds; }
 
     PointStats& operator+=(const PointStats& other)
     {
@@ -51,29 +49,24 @@ public:
     {
         m_inserts += other.m_inserts;
         m_outOfBounds += other.m_outOfBounds;
-        m_overflows += other.m_overflows;
     }
 
     void addInsert()        { ++m_inserts; }
     void addOutOfBounds()   { ++m_outOfBounds; }
-    void addOverflow()      { ++m_overflows; }
 
     std::size_t inserts() const     { return m_inserts; }
     std::size_t outOfBounds() const { return m_outOfBounds; }
-    std::size_t overflows() const   { return m_overflows; }
 
     void addOutOfBounds(std::size_t n) { m_outOfBounds += n; }
     void clear()
     {
         m_inserts = 0;
         m_outOfBounds = 0;
-        m_overflows = 0;
     }
 
 private:
     std::size_t m_inserts = 0;
     std::size_t m_outOfBounds = 0;
-    std::size_t m_overflows = 0;
 };
 
 class FileStats

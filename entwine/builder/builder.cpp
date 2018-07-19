@@ -358,16 +358,8 @@ Cells Builder::insertData(Cells cells, Clipper& clipper)
             if (!boundsSubset || boundsSubset->contains(point))
             {
                 key.init(point);
-
-                if (m_registry->addPoint(cell, key, clipper))
-                {
-                    pointStats.addInsert();
-                }
-                else
-                {
-                    reject(cell);
-                    pointStats.addOverflow();
-                }
+                m_registry->addPoint(cell, key, clipper);
+                pointStats.addInsert();
             }
             else
             {

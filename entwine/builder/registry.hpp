@@ -52,7 +52,7 @@ public:
     void save(const arbiter::Endpoint& endpoint) const;
     void merge(const Registry& other, Clipper& clipper);
 
-    bool addPoint(Cell::PooledNode& cell, Key& key, Clipper& clipper)
+    void addPoint(Cell::PooledNode& cell, Key& key, Clipper& clipper)
     {
         ReffedChunk* rc = &m_root;
 
@@ -61,8 +61,6 @@ public:
             key.step(cell->point());
             rc = &rc->chunk().step(cell->point());
         }
-
-        return true;
     }
 
     void purge() { m_root.empty(); }

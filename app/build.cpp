@@ -222,13 +222,12 @@ void Build::run()
         std::cout << "\tPoints inserted: " << commify(stats.inserts()) << "\n";
     }
 
-    std::cout <<
-        "\tPoints discarded:\n" <<
-        "\t\tOutside specified bounds: " <<
-            commify(stats.outOfBounds()) << "\n" <<
-        "\t\tOverflow past max depth: " <<
-            commify(stats.overflows()) << "\n" <<
-        std::endl;
+    if (stats.outOfBounds())
+    {
+        std::cout <<
+            "\tPoints discarded:\n" << commify(stats.outOfBounds()) << "\n" <<
+            std::endl;
+    }
 }
 
 void Build::log(const Builder& b) const
