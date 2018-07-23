@@ -52,23 +52,22 @@ namespace entwine
 namespace app
 {
 
-void App::addInput(std::string description)
+void App::addInput(std::string description, bool asDefault)
 {
-    m_ap.addDefault(
-            "--input",
-            "-i",
-            description,
-            [this](Json::Value v)
+    auto f([this](Json::Value v)
+    {
+        if (v.isArray())
+        {
+            for (Json::ArrayIndex i(0); i < v.size(); ++i)
             {
-                if (v.isArray())
-                {
-                    for (Json::ArrayIndex i(0); i < v.size(); ++i)
-                    {
-                        m_json["input"].append(v[i].asString());
-                    }
-                }
-                else m_json["input"].append(v.asString());
-            });
+                m_json["input"].append(v[i].asString());
+            }
+        }
+        else m_json["input"].append(v.asString());
+    });
+
+    if (asDefault) m_ap.addDefault("--input", "-i", description, f);
+    else m_ap.add("--input", "-i", description, f);
 }
 
 void App::addOutput(std::string description)

@@ -46,7 +46,7 @@ protected:
     Json::Value m_json;
     ArgParser m_ap;
 
-    void addInput(std::string description);
+    void addInput(std::string description, bool asDefault = false);
     void addOutput(std::string description);
     void addTmp();
     void addSimpleThreads();

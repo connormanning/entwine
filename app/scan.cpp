@@ -30,7 +30,8 @@ void Scan::addArgs()
     addInput(
             "File paths or directory entries.  For a recursive directory "
             "search, the notation is 'directory/**'\n"
-            "Example: --input path.laz, --input data-directory/");
+            "Example: --input path.laz, --input data-directory/",
+            true);
 
     addOutput(
             "If provided, detailed per-file information will be written "

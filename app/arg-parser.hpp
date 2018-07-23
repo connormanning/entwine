@@ -62,6 +62,11 @@ public:
 
             if (!i && flag.front() != '-')
             {
+                if (!m_handlers.count(""))
+                {
+                    throw std::runtime_error("Invalid argument: " + flag);
+                }
+
                 flag = "";
                 --i;
             }
