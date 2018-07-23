@@ -41,7 +41,7 @@ void Convert::addArgs()
             "Example: --geometricErrorDivisor 16.0",
             [this](Json::Value v)
             {
-                m_json["geometricErrorDivisor"] = v.asDouble();
+                m_json["geometricErrorDivisor"] = parse(v.asString());
             });
 
     m_ap.add(
