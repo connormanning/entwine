@@ -2,14 +2,17 @@ FROM pdal/ubuntu:latest
 MAINTAINER Connor Manning <connor@hobu.co>
 
 RUN apt-get update && apt-get install -y \
-    git \
     build-essential \
     cmake \
+    git \
     liblzma-dev \
     libjsoncpp-dev \
     libcurl4-gnutls-dev \
     libssl1.0-dev \
-    vim
+    python-numpy \
+    python-pip \
+    vim && \
+    pip install numpy
 
 ENV CC gcc
 ENV CXX g++
