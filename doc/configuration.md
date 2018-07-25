@@ -417,7 +417,7 @@ more densely.
 | Key | Description |
 |-----|-------------|
 | [verbose](#verbose) | Enable verbose output |
-| [arbiter](#arbiter) | Remove file access settings for S3, GCS, Dropbox, etc. |
+| [arbiter](#arbiter) | Remote file access settings for S3, GCS, Dropbox, etc. |
 
 ### verbose
 
