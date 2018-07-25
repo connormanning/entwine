@@ -2,12 +2,12 @@
 
 Entwine provides 4 sub-commands for indexing point cloud data:
 
-| Command             | Description                                                   |
-|---------------------|---------------------------------------------------------------|
-| [build](#build)     | Generate an EPT dataset from point cloud data                 |
-| [scan](#scan)       | Aggregate information about point cloud data before building  |
-| [merge](#merge)     | Merge datasets build as subsets                               |
-| [convert](#convert) | Convert an EPT dataset to a different format                  |
+| Command             | Description                                             |
+|---------------------|---------------------------------------------------------|
+| [build](#build)     | Generate an EPT dataset from point cloud data           |
+| [scan](#scan)       | Scan information about point cloud data before building |
+| [merge](#merge)     | Merge datasets build as subsets                         |
+| [convert](#convert) | Convert an EPT dataset to a different format            |
 
 These commands are invoked via the command line as:
 
@@ -46,6 +46,8 @@ data, as any [PDAL-readable](https://pdal.io/stages/readers.html) format may be
 indexed.  Paths are not required to be local filesystem paths - they may be
 local, S3, GCS, Dropbox, or any other
 [Arbiter-readable](https://github.com/connormanning/arbiter) format.
+
+Each command accepts some common options, detailed at [common](#common).
 
 
 
@@ -407,6 +409,54 @@ more densely.
 ```json
 { "geometricErrorDivisor": 16.0 }
 ```
+
+
+
+## Common
+
+| Key | Description |
+|-----|-------------|
+| [verbose](#verbose) | Enable verbose output |
+| [arbiter](#arbiter) | Remove file access settings for S3, GCS, Dropbox, etc. |
+
+### verbose
+
+Defaults to `false`, and setting to `true` will enable a more verbose output to STDOUT.
+
+### arbiter
+
+This value may be set to an object representing settings for remote file access.  Amazon S3, Google Cloud Storage, and Dropbox settings can be placed here to be passed along to [Arbiter](https://github.com/connormanning/arbiter).  Some examples follow.
+
+Enable Amazon S3 server-side encryption for the default profile:
+```json
+{ "arbiter": {
+    "s3": {
+        "sse": true
+    }
+} }
+```
+
+Enable IO between multiple S3 buckets with different authentication settings.  Profiles other than `default` must use prefixed paths of the form `profile@s3://<path>`, for example `second@s3://lidar-data/usa`:
+```json
+{ "arbiter": {
+    "s3": [
+        {
+            "profile": "default",
+            "access": "<access key here>",
+            "secret": "<secret key here>"
+        },
+        {
+            "profile": "second",
+            "access": "<access key here>",
+            "secret": "<secret key here>",
+            "region": "eu-central-1",
+            "sse": true
+        }
+    ]
+} }
+```
+
+Setting the S3 profile is also accessible via command line with `--profile <profile>`, and server-side encryption can be enabled by using `--sse`.
 
 # Miscellaneous
 
