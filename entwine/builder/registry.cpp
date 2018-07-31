@@ -75,8 +75,8 @@ void Registry::merge(const Registry& other, Clipper& clipper)
 
                 if (!rc->insert(cell, pk, clipper))
                 {
-                    throw std::runtime_error(
-                            "Invalid merge insert: " + dxyz.toString());
+                    std::cout << "Invalid merge insert: " <<  dxyz.toString() <<
+                        std::endl;
                 }
             }
         }

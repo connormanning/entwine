@@ -88,12 +88,12 @@ void Merger::go()
                 }
                 catch (std::exception& e)
                 {
-                    std::cout << "Failed create " << i << ": " <<
+                    std::cout << "Failed create " << (m_id + i) << ": " <<
                         e.what() << std::endl;
                 }
                 catch (...)
                 {
-                    std::cout << "Failed create " << i << ": " <<
+                    std::cout << "Failed create " << (m_id + i) << ": " <<
                         "unknown error" << std::endl;
                 }
             });
