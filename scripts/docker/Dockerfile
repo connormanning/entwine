@@ -1,4 +1,4 @@
-FROM pdal/ubuntu:latest
+FROM pdal/ubuntu:master
 MAINTAINER Connor Manning <connor@hobu.co>
 
 RUN apt-get update && apt-get install -y \
@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
     python-pip \
     vim && \
     pip install numpy
+
 
 ENV CC gcc
 ENV CXX g++
