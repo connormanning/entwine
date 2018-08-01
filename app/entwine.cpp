@@ -195,6 +195,15 @@ void App::addArbiter()
             });
 
     m_ap.add(
+            "--requester-pays",
+            "Set the requester-pays flag to S3\n",
+            [this](Json::Value v)
+            {
+                checkEmpty(v);
+                m_json["arbiter"]["s3"]["requesterPays"] = true;
+            });
+
+    m_ap.add(
             "--verbose",
             "-v",
             "Enable developer-level verbosity",

@@ -1808,17 +1808,17 @@ std::string S3::Config::extractRegion(
 
     drivers::Fs fsDriver;
 
-    if (auto p = util::env("AWS_REGION"))
+    if (!json.isNull() && json.isMember("region"))
+    {
+        return json["region"].asString();
+    }
+    else if (auto p = util::env("AWS_REGION"))
     {
         return *p;
     }
     else if (auto p = util::env("AWS_DEFAULT_REGION"))
     {
         return *p;
-    }
-    else if (!json.isNull() && json.isMember("region"))
-    {
-        return json["region"].asString();
     }
     else if (std::unique_ptr<std::string> c = fsDriver.tryGet(configPath))
     {
