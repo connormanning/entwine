@@ -38,6 +38,7 @@ void Scan::addArgs()
             "to this file in JSON format\n"
             "Example: --output scan-output.json");
 
+    addConfig();
     addTmp();
     addReprojection();
     addSimpleThreads();

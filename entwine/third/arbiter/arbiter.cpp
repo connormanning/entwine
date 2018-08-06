@@ -1796,6 +1796,24 @@ S3::Config::Config(
     {
         m_baseHeaders["x-amz-request-payer"] = "requester";
     }
+
+    if (json.isMember("headers"))
+    {
+        const auto& headers(json["headers"]);
+
+        if (headers.isObject())
+        {
+            for (const std::string key : headers.getMemberNames())
+            {
+                m_baseHeaders[key] = headers[key].asString();
+            }
+        }
+        else
+        {
+            std::cout << "s3.headers expected to be object - skipping" <<
+                std::endl;
+        }
+    }
 }
 
 std::string S3::Config::extractRegion(

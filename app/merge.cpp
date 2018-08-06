@@ -30,6 +30,7 @@ void Merge::addArgs()
     m_ap.setUsage("entwine merge <path> (<options>)");
 
     addOutput("Path containing completed subset builds");
+    addConfig();
     addSimpleThreads();
     addArbiter();
 }

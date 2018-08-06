@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/util/stack-trace.hpp>
 
@@ -77,6 +78,22 @@ void App::addOutput(std::string description)
             "-o",
             description,
             [this](Json::Value v) { m_json["output"] = v.asString(); });
+}
+
+void App::addConfig()
+{
+    m_ap.add(
+            "--config",
+            "-c",
+            "A configuration file.  Subsequent options will override "
+            "configuration file parameters, so it may be used for templating "
+            "common options among multiple runs.\n"
+            "Example: --config template.json -i in.laz -o out",
+            [this](Json::Value v)
+            {
+                arbiter::Arbiter a(m_json["arbiter"]);
+                m_json = merge(m_json, parse(a.get(v.asString())));
+            });
 }
 
 void App::addTmp()

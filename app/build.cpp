@@ -18,7 +18,6 @@
 #include <entwine/builder/builder.hpp>
 #include <entwine/builder/thread-pools.hpp>
 #include <entwine/io/io.hpp>
-#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/files.hpp>
 #include <entwine/types/metadata.hpp>
@@ -48,19 +47,7 @@ void Build::addArgs()
             "Output directory.\n"
             "Example: --output ~/entwine/autzen");
 
-    m_ap.add(
-            "--config",
-            "-c",
-            "An entwine configuration file.  Subsequent options will override "
-            "configuration file parameters, so it may be used for templating "
-            "common options among multiple builds.\n"
-            "Example: --config template.json -i in.laz -o out",
-            [this](Json::Value v)
-            {
-                arbiter::Arbiter a(m_json["arbiter"]);
-                m_json = merge(m_json, parse(a.get(v.asString())));
-            });
-
+    addConfig();
     addTmp();
     addReprojection();
 

@@ -48,6 +48,7 @@ protected:
 
     void addInput(std::string description, bool asDefault = false);
     void addOutput(std::string description);
+    void addConfig();
     void addTmp();
     void addSimpleThreads();
     void addReprojection();
