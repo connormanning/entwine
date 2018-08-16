@@ -44,7 +44,6 @@ public:
     Cache& cache() const { return *m_cache; }
 
     std::string path() const { return ep().prefixedRoot(); }
-    std::size_t pointSize() const { return m_metadata.schema().pointSize(); }
 
 private:
     std::shared_ptr<arbiter::Arbiter> m_arbiter;

@@ -27,7 +27,7 @@ class Reader;
 class Query
 {
 public:
-    Query(const Reader& reader, const QueryParams& params);
+    Query(const Reader& reader, const Json::Value& params);
     virtual ~Query() { }
 
     void run();
@@ -60,25 +60,20 @@ private:
 class CountQuery : public Query
 {
 public:
-    CountQuery(const Reader& reader, const QueryParams& params)
-        : Query(reader, params)
+    CountQuery(const Reader& reader, const Json::Value& json)
+        : Query(reader, json)
     { }
 };
 
 class ReadQuery : public Query
 {
 public:
-    ReadQuery(
-            const Reader& reader,
-            const QueryParams& params,
-            const Schema& schema)
-        : Query(reader, params)
-        , m_schema(schema.empty() ? m_metadata.schema() : schema)
-        /*
-        , m_mid(m_params.nativeBounds() ?
-                m_params.delta().offset() :
-                m_metadata.boundsNativeCubic().mid())
-        */
+    ReadQuery(const Reader& reader, const Json::Value& json)
+        : Query(reader, json)
+        , m_schema(json.isMember("schema") ?
+                Schema(json["schema"]) : m_metadata.outSchema())
+        , m_delta(Delta::existsIn(json) ?
+                Delta(json) : Delta(m_metadata.delta()))
     { }
 
     const std::vector<char>& data() const { return m_data; }
@@ -87,58 +82,34 @@ protected:
     virtual void process(const Cell& cell) override;
 
 private:
-    /*
-    void setScaled(const DimInfo& dim, std::size_t dimNum, char* pos)
+    void setAs(char* dst, double d, pdal::Dimension::Type t)
     {
-        double d(0);
-        if (m_params.nativeBounds())
+        switch (t)
         {
-            d = Point::unscale(
-                    m_pointRef.getFieldAs<double>(dim.id()),
-                    m_metadata.delta()->scale()[dimNum],
-                    m_metadata.delta()->offset()[dimNum]);
-
-            d = Point::scale(
-                    d,
-                    m_params.delta().scale()[dimNum],
-                    m_params.delta().offset()[dimNum]);
-        }
-        else
-        {
-            d = Point::scale(
-                    m_pointRef.getFieldAs<double>(dim.id()),
-                    m_mid[dimNum],
-                    m_params.delta().scale()[dimNum],
-                    m_params.delta().offset()[dimNum]);
-        }
-
-        switch (dim.type())
-        {
-            case pdal::Dimension::Type::Double:     setAs<double>(pos, d);
+            case pdal::Dimension::Type::Double:     setAs<double>(dst, d);
                 break;
-            case pdal::Dimension::Type::Float:      setAs<float>(pos, d);
+            case pdal::Dimension::Type::Float:      setAs<float>(dst, d);
                 break;
-            case pdal::Dimension::Type::Unsigned8:  setAs<uint8_t>(pos, d);
+            case pdal::Dimension::Type::Unsigned8:  setAs<uint8_t>(dst, d);
                 break;
-            case pdal::Dimension::Type::Signed8:    setAs<int8_t>(pos, d);
+            case pdal::Dimension::Type::Signed8:    setAs<int8_t>(dst, d);
                 break;
-            case pdal::Dimension::Type::Unsigned16: setAs<uint16_t>(pos, d);
+            case pdal::Dimension::Type::Unsigned16: setAs<uint16_t>(dst, d);
                 break;
-            case pdal::Dimension::Type::Signed16:   setAs<int16_t>(pos, d);
+            case pdal::Dimension::Type::Signed16:   setAs<int16_t>(dst, d);
                 break;
-            case pdal::Dimension::Type::Unsigned32: setAs<uint32_t>(pos, d);
+            case pdal::Dimension::Type::Unsigned32: setAs<uint32_t>(dst, d);
                 break;
-            case pdal::Dimension::Type::Signed32:   setAs<int32_t>(pos, d);
+            case pdal::Dimension::Type::Signed32:   setAs<int32_t>(dst, d);
                 break;
-            case pdal::Dimension::Type::Unsigned64: setAs<uint64_t>(pos, d);
+            case pdal::Dimension::Type::Unsigned64: setAs<uint64_t>(dst, d);
                 break;
-            case pdal::Dimension::Type::Signed64:   setAs<int64_t>(pos, d);
+            case pdal::Dimension::Type::Signed64:   setAs<int64_t>(dst, d);
                 break;
             default:
                 break;
         }
     }
-    */
 
     template<typename T> void setAs(char* dst, double d)
     {
@@ -148,7 +119,7 @@ private:
     }
 
     const Schema m_schema;
-    // const Point m_mid;
+    const Delta m_delta;
 
     std::vector<char> m_data;
 };

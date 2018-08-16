@@ -31,14 +31,12 @@ Reader::Reader(
 
 std::unique_ptr<CountQuery> Reader::count(const Json::Value& j) const
 {
-    const QueryParams p(j);
-    return makeUnique<CountQuery>(*this, p);
+    return makeUnique<CountQuery>(*this, j);
 }
 
 std::unique_ptr<ReadQuery> Reader::read(const Json::Value& j) const
 {
-    const QueryParams p(j);
-    return makeUnique<ReadQuery>(*this, p, Schema(j["schema"]));
+    return makeUnique<ReadQuery>(*this, j);
 }
 
 } // namespace entwine

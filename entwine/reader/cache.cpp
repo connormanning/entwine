@@ -47,7 +47,8 @@ SharedChunkReader Cache::get(const Reader& reader, const Dxyz& key)
 
         ChunkReaderInfo& info(it->second);
         info.chunk = std::make_shared<ChunkReader>(reader, key);
-        m_size += info.chunk->cells().size() * reader.pointSize();
+        m_size += info.chunk->cells().size() *
+            reader.metadata().schema().pointSize();
     }
     else
     {

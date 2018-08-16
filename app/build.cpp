@@ -230,7 +230,7 @@ void Build::log(const Builder& b) const
     const Metadata& metadata(b.metadata());
     const Files& files(metadata.files());
     const Reprojection* reprojection(metadata.reprojection());
-    const Schema& schema(metadata.schema());
+    const Schema& schema(metadata.outSchema());
     const std::size_t runCount(m_json["run"].asUInt64());
 
     std::cout << std::endl;

@@ -15,11 +15,11 @@
 namespace entwine
 {
 
-Query::Query(const Reader& r, const QueryParams& p)
+Query::Query(const Reader& r, const Json::Value& j)
     : m_reader(r)
     , m_metadata(r.metadata())
     , m_hierarchy(r.hierarchy())
-    , m_params(p)
+    , m_params(j)
     , m_filter(m_metadata, m_params)
     , m_table(m_metadata.schema())
     , m_pointRef(m_table, 0)
@@ -86,22 +86,25 @@ void ReadQuery::process(const Cell& cell)
     char* pos(m_data.data() + m_data.size() - m_schema.pointSize());
 
     std::size_t dimNum(0);
+    double d(0);
 
     for (const auto& dimInfo : m_schema.dims())
     {
         dimNum = pdal::Utils::toNative(dimInfo.id()) - 1;
 
-        // TODO Scaled output.
-        /*
-        if (dimNum < 3 && m_params.delta().exists())
+        if (dimNum < 3 && m_delta.exists())
         {
-            setScaled(dimInfo, dimNum, pos);
+            d = Point::scale(
+                    m_pointRef.getFieldAs<double>(dimInfo.id()),
+                    m_delta.scale()[dimNum],
+                    m_delta.offset()[dimNum]);
+
+            setAs(pos, d, dimInfo.type());
         }
         else
         {
-        */
             m_pointRef.getField(pos, dimInfo.id(), dimInfo.type());
-        // }
+        }
 
         pos += dimInfo.size();
     }
