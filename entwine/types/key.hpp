@@ -137,7 +137,7 @@ struct Key
 
     void reset()
     {
-        b = m.boundsScaledCubic();
+        b = m.boundsCubic();
         p.reset();
     }
 

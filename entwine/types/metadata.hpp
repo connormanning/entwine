@@ -52,41 +52,16 @@ public:
     void merge(const Metadata& other);
     void save(const arbiter::Endpoint& endpoint) const;
 
-    // Native bounds - no scale/offset applied.
-    const Bounds& boundsNativeConforming() const
+    const Bounds& boundsConforming() const { return *m_boundsConforming; }
+    const Bounds& boundsCubic() const { return *m_boundsCubic; }
+    const Bounds* boundsSubset() const
     {
-        return *m_boundsNativeConforming;
-    }
-    const Bounds& boundsNativeCubic() const
-    {
-        return *m_boundsNativeCubic;
-    }
-    const Bounds* boundsNativeSubset() const
-    {
-        if (m_subset) return &m_subset->boundsNative();
-        else return nullptr;
-    }
-
-    // Aliases for API simplicity.
-    const Bounds& boundsConforming() const { return boundsNativeConforming(); }
-    const Bounds& boundsCubic() const { return boundsNativeCubic(); }
-
-    // Scaled bounds - scale/offset applied.
-    const Bounds& boundsScaledConforming() const
-    {
-        return *m_boundsScaledConforming;
-    }
-    const Bounds& boundsScaledCubic() const
-    {
-        return *m_boundsScaledCubic;
-    }
-    const Bounds* boundsScaledSubset() const
-    {
-        if (m_subset) return &m_subset->boundsScaled();
+        if (m_subset) return &m_subset->bounds();
         else return nullptr;
     }
 
     const Schema& schema() const { return *m_schema; }
+    const Schema& outSchema() const { return *m_outSchema; }
     const Files& files() const { return *m_files; }
 
     const DataIo& dataIo() const { return *m_dataIo; }
@@ -123,8 +98,8 @@ private:
     Metadata& operator=(const Metadata& other);
     void setHierarchyStep(uint64_t v) { m_hierarchyStep = v; }
 
-    Bounds makeNativeConformingBounds(const Bounds& b) const;
-    Bounds makeNativeCube(const Bounds& b, const Delta* d) const;
+    Bounds makeConformingBounds(const Bounds& b) const;
+    Bounds makeCube(const Bounds& b, const Delta* d) const;
 
     // These are aggregated as the Builder runs.
     Files& mutableFiles() { return *m_files; }
@@ -132,13 +107,11 @@ private:
 
     std::unique_ptr<Delta> m_delta;
 
-    std::unique_ptr<Bounds> m_boundsNativeConforming;
-    std::unique_ptr<Bounds> m_boundsNativeCubic;
-
-    std::unique_ptr<Bounds> m_boundsScaledConforming;
-    std::unique_ptr<Bounds> m_boundsScaledCubic;
+    std::unique_ptr<Bounds> m_boundsConforming;
+    std::unique_ptr<Bounds> m_boundsCubic;
 
     std::unique_ptr<Schema> m_schema;
+    std::unique_ptr<Schema> m_outSchema;
     std::unique_ptr<Files> m_files;
     std::unique_ptr<DataIo> m_dataIo;
     std::unique_ptr<Reprojection> m_reprojection;

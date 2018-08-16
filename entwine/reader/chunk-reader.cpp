@@ -17,7 +17,7 @@ namespace entwine
 {
 
 ChunkReader::ChunkReader(const Reader& r, const Dxyz& id)
-    : m_pointPool(r.metadata().schema(), r.metadata().delta(), 4096)
+    : m_pointPool(r.metadata().schema(), 1024)
     , m_cells(r.metadata().dataIo().read(
                 r.ep(),
                 r.tmp(),

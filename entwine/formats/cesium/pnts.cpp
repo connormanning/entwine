@@ -23,11 +23,6 @@ Pnts::Pnts(const Tileset& tileset, const ChunkKey& ck)
     , m_key(ck)
 {
     m_mid = m_key.bounds().mid();
-
-    if (const Delta* d = m_tileset.metadata().delta())
-    {
-        m_mid = Point::unscale(m_mid, d->scale(), d->offset());
-    }
 }
 
 std::vector<char> Pnts::build()
@@ -52,18 +47,9 @@ Pnts::Xyz Pnts::buildXyz(const Cell::PooledStack& cells) const
     Xyz xyz;
     xyz.reserve(m_np * 3);
 
-    Scale scale(1);
-    Offset offset(0);
-
-    if (const Delta* d = m_tileset.metadata().delta())
-    {
-        scale = d->scale();
-        offset = d->offset();
-    }
-
     for (const auto& cell : cells)
     {
-        const Point p(Point::unscale(cell.point(), scale, offset));
+        const Point p(cell.point());
         xyz.push_back(p.x - m_mid.x);
         xyz.push_back(p.y - m_mid.y);
         xyz.push_back(p.z - m_mid.z);

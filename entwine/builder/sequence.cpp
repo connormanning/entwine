@@ -32,8 +32,8 @@ Sequence::Sequence(Metadata& metadata, std::mutex& mutex)
 {
     const Bounds activeBounds(
             m_metadata.subset() ?
-                m_metadata.subset()->boundsNative() :
-                m_metadata.boundsNativeConforming());
+                m_metadata.subset()->bounds() :
+                m_metadata.boundsConforming());
 
     for (Origin i(m_origin); i < m_end; ++i)
     {
@@ -96,7 +96,7 @@ bool Sequence::checkBounds(
         const Bounds& bounds,
         const std::size_t numPoints)
 {
-    if (!m_metadata.boundsNativeCubic().overlaps(bounds, true))
+    if (!m_metadata.boundsCubic().overlaps(bounds, true))
     {
         const Subset* subset(m_metadata.subset());
         const bool primary(!subset || subset->primary());
@@ -105,7 +105,7 @@ bool Sequence::checkBounds(
     }
     else if (const Subset* subset = m_metadata.subset())
     {
-        if (!subset->boundsNative().overlaps(bounds, true)) return false;
+        if (!subset->bounds().overlaps(bounds, true)) return false;
     }
 
     return true;

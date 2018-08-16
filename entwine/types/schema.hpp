@@ -205,65 +205,17 @@ public:
 
     static Schema normalize(const Schema& s)
     {
-        DimList dims
-        {
-            pdal::Dimension::Id::X,
-            pdal::Dimension::Id::Y,
-            pdal::Dimension::Id::Z
-        };
+        using DimId = pdal::Dimension::Id;
+        using DimType = pdal::Dimension::Type;
 
-        for (const auto& dim : s.dims())
-        {
-            if (!DimInfo::isXyz(dim)) dims.emplace_back(dim);
-        }
-
-        return Schema(dims);
-    };
-
-    static Schema deltify(
-            const Bounds& scaledCube,
-            const Delta& delta,
-            const Schema& inSchema)
-    {
-        pdal::Dimension::Type spatialType(pdal::Dimension::Type::Double);
-
-        const Point ticks(
-                scaledCube.width(),
-                scaledCube.depth(),
-                scaledCube.height());
-
-        auto fitsWithin([&ticks](double max)
-        {
-            return ticks.x < max && ticks.y < max && ticks.z < max;
+        const Schema xyz({
+            { DimId::X, DimType::Double },
+            { DimId::Y, DimType::Double },
+            { DimId::Z, DimType::Double }
         });
 
-        if (fitsWithin(std::numeric_limits<uint32_t>::max()))
-        {
-            spatialType = pdal::Dimension::Type::Signed32;
-        }
-        else if (fitsWithin(std::numeric_limits<uint64_t>::max()))
-        {
-            spatialType = pdal::Dimension::Type::Signed64;
-        }
-        else
-        {
-            std::cout << "Cannot use this scale for these bounds" << std::endl;
-        }
-
-        DimList dims
-        {
-            DimInfo(pdal::Dimension::Id::X, spatialType),
-            DimInfo(pdal::Dimension::Id::Y, spatialType),
-            DimInfo(pdal::Dimension::Id::Z, spatialType)
-        };
-
-        for (const auto& dim : inSchema.dims())
-        {
-            if (!DimInfo::isXyz(dim.id())) dims.emplace_back(dim);
-        }
-
-        return Schema(dims);
-    }
+        return xyz.merge(s);
+    };
 
     std::vector<pdal::Dimension::Id> ids() const
     {

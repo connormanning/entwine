@@ -20,7 +20,7 @@ Subset::Subset(const Metadata& m, const Json::Value& json)
     : m_id(json["id"].asUInt64())
     , m_of(json["of"].asUInt64())
     , m_splits(std::log2(m_of) / std::log2(4))
-    , m_boundsScaled(m.boundsScaledCubic())
+    , m_bounds(m.boundsCubic())
 {
     if (!m_id) throw std::runtime_error("Subset IDs should be 1-based.");
     if (m_of <= 1) throw std::runtime_error("Invalid subset range");
@@ -41,10 +41,8 @@ Subset::Subset(const Metadata& m, const Json::Value& json)
     for (std::size_t i(0); i < m_splits; ++i)
     {
         const Dir dir(toDir(((m_id - 1) >> (i * 2)) & mask));
-        m_boundsScaled.go(dir, true);
+        m_bounds.go(dir, true);
     }
-
-    m_boundsNative = m_boundsScaled.undeltify(m.delta());
 }
 
 std::unique_ptr<Subset> Subset::create(const Metadata& m, const Json::Value& j)

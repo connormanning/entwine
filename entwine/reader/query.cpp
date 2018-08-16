@@ -19,7 +19,7 @@ Query::Query(const Reader& r, const QueryParams& p)
     : m_reader(r)
     , m_metadata(r.metadata())
     , m_hierarchy(r.hierarchy())
-    , m_params(p.finalize(m_metadata))
+    , m_params(p)
     , m_filter(m_metadata, m_params)
     , m_table(m_metadata.schema())
     , m_pointRef(m_table, 0)
@@ -91,15 +91,17 @@ void ReadQuery::process(const Cell& cell)
     {
         dimNum = pdal::Utils::toNative(dimInfo.id()) - 1;
 
-        if (dimNum < 3 &&
-                (m_params.delta().exists() || m_params.nativeBounds()))
+        // TODO Scaled output.
+        /*
+        if (dimNum < 3 && m_params.delta().exists())
         {
             setScaled(dimInfo, dimNum, pos);
         }
         else
         {
+        */
             m_pointRef.getField(pos, dimInfo.id(), dimInfo.type());
-        }
+        // }
 
         pos += dimInfo.size();
     }

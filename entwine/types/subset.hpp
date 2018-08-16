@@ -39,8 +39,7 @@ public:
 
     bool primary() const { return m_id == 1; }
 
-    const Bounds& boundsNative() const { return m_boundsNative; }
-    const Bounds& boundsScaled() const { return m_boundsScaled; }
+    const Bounds& bounds() const { return m_bounds; }
 
     Json::Value toJson() const
     {
@@ -55,8 +54,7 @@ private:
     const uint64_t m_of;
 
     const uint64_t m_splits;
-    Bounds m_boundsNative;
-    Bounds m_boundsScaled;
+    Bounds m_bounds;
 };
 
 } // namespace entwine

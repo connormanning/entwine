@@ -75,6 +75,14 @@ protected:
     {
         ensurePut(out, filename, buffer);
     }
+
+    template<typename T>
+    void append(std::vector<char>& buffer, T v) const
+    {
+        const char* cpos(reinterpret_cast<const char*>(&v));
+        const char* cend(cpos + sizeof(T));
+        buffer.insert(buffer.end(), cpos, cend);
+    }
 };
 
 } // namespace entwine

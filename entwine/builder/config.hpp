@@ -118,8 +118,9 @@ public:
     std::size_t sleepCount() const
     {
         return std::max<uint64_t>(
-                m_json["sleepCount"].asUInt64(),
-                heuristics::sleepCount);
+                m_json.isMember("sleepCount") ?
+                    m_json["sleepCount"].asUInt64() : heuristics::sleepCount,
+                500000);
     }
 
     bool isContinuation() const

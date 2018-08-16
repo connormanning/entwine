@@ -107,27 +107,22 @@ private:
 
 using Cells = Cell::PooledStack;
 
-class Delta;
-
 class PointPool
 {
 public:
-    PointPool(const Schema& schema, const Delta* delta = nullptr)
+    PointPool(const Schema& schema)
         : m_schema(schema)
-        , m_delta(delta)
         , m_dataPool(schema.pointSize(), 1024 * 1024)
         , m_cellPool(1024 * 1024)
     { }
 
-    PointPool(const Schema& schema, const Delta* delta, std::size_t blockSize)
+    PointPool(const Schema& schema, std::size_t blockSize)
         : m_schema(schema)
-        , m_delta(delta)
         , m_dataPool(schema.pointSize(), blockSize)
         , m_cellPool(blockSize)
     { }
 
     const Schema& schema() const { return m_schema; }
-    const Delta* delta() const { return m_delta; }
     Data::Pool& dataPool() { return m_dataPool; }
     Cell::Pool& cellPool() { return m_cellPool; }
 
@@ -145,7 +140,6 @@ public:
 
 private:
     const Schema& m_schema;
-    const Delta* m_delta;
 
     Data::Pool m_dataPool;
     Cell::Pool m_cellPool;

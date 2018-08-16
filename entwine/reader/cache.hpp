@@ -49,7 +49,7 @@ struct ChunkReaderInfo
 class Cache
 {
 public:
-    Cache(std::size_t maxBytes = 1024 * 1024 * 1024) // TODO default.
+    Cache(std::size_t maxBytes = 1024 * 1024 * 256) // 250 MB.
         : m_maxBytes(maxBytes)
     { }
 
@@ -63,7 +63,7 @@ private:
     SharedChunkReader get(const Reader& reader, const Dxyz& id);
     void purge();
 
-    const std::size_t m_maxBytes = 1024 * 1024;
+    const std::size_t m_maxBytes;
 
     mutable std::mutex m_mutex;
     std::size_t m_size = 0;

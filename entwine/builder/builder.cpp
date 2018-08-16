@@ -64,7 +64,7 @@ Builder::Builder(const Config& config, OuterScope os)
     , m_metadata(m_isContinuation ?
             makeUnique<Metadata>(*m_out, m_config) :
             makeUnique<Metadata>(m_config))
-    , m_pointPool(os.getPointPool(m_metadata->schema(), m_metadata->delta()))
+    , m_pointPool(os.getPointPool(m_metadata->schema()))
     , m_registry(makeUnique<Registry>(
                 *m_metadata,
                 *m_out,
@@ -316,12 +316,7 @@ void Builder::insertPath(const Origin origin, FileInfo& info)
         return insertData(std::move(cells), clipper);
     });
 
-    std::unique_ptr<PooledPointTable> table(
-            PooledPointTable::create(
-                *m_pointPool,
-                inserter,
-                m_metadata->delta(),
-                origin));
+    auto table(makeUnique<PooledPointTable>(*m_pointPool, inserter, origin));
 
     if (!Executor::get().run(
                 *table,
@@ -343,8 +338,8 @@ Cells Builder::insertData(Cells cells, Clipper& clipper)
         rejected.push(std::move(cell));
     });
 
-    const Bounds& boundsConforming(m_metadata->boundsScaledConforming());
-    const Bounds* boundsSubset(m_metadata->boundsScaledSubset());
+    const Bounds& boundsConforming(m_metadata->boundsConforming());
+    const Bounds* boundsSubset(m_metadata->boundsSubset());
 
     Key key(*m_metadata);
 

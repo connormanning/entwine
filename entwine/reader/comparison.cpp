@@ -73,6 +73,7 @@ double extractComparisonValue(
 
         d = val.asDouble();
 
+        /*
         // If this is a spatial filter, transform from user-space into our
         // local coordinate space.
         //
@@ -88,11 +89,13 @@ double extractComparisonValue(
             {
                 d = Point::unscale(
                         d,
-                        metadata.boundsScaledCubic().mid()[pos],
+                        metadata.boundsNativeCubic().mid()[pos],
                         delta->scale()[pos],
                         delta->offset()[pos]);
             }
         }
+        */
+        std::cout << "TODO" << std::endl;
     }
 
     return d;

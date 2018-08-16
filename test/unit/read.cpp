@@ -36,7 +36,7 @@ TEST(read, count)
     for (std::size_t i(0); i < 8; ++i)
     {
         Json::Value q;
-        q["bounds"] = m.boundsNativeCubic().get(toDir(i)).toJson();
+        q["bounds"] = m.boundsCubic().get(toDir(i)).toJson();
 
         auto countQuery = r.count(q);
         countQuery->run();
@@ -86,7 +86,7 @@ TEST(read, data)
     std::vector<char> bin;
     for (std::size_t i(0); i < 8; ++i)
     {
-        j["bounds"] = m.boundsNativeCubic().get(toDir(i)).toJson();
+        j["bounds"] = m.boundsCubic().get(toDir(i)).toJson();
         append(bin, j);
     }
 

@@ -44,12 +44,17 @@ std::vector<char> Binary::getBuffer(
         uint64_t np) const
 {
     std::vector<char> buffer;
-    const uint64_t ps(m_metadata.schema().pointSize());
+
+    const Schema& outSchema(m_metadata.outSchema());
+    const uint64_t ps(outSchema.pointSize());
     buffer.reserve(np * ps);
 
     using DimId = pdal::Dimension::Id;
 
-    BinaryPointTable ta(m_metadata.schema()), tb(m_metadata.schema());
+    const Schema& schema(m_metadata.schema());
+    BinaryPointTable ta(schema);
+    BinaryPointTable tb(schema);
+
     std::vector<Ref> refs;
     refs.reserve(np);
     for (const Cell& cell : cells)
@@ -78,9 +83,49 @@ std::vector<char> Binary::getBuffer(
                     (ga == gb && std::memcmp(a.data(), b.data(), ps) < 0);
             });
 
+    const auto s(m_metadata.delta()->scale());
+    const auto o(m_metadata.delta()->offset());
+
+    using DimType = pdal::Dimension::Type;
+
+    std::array<DimType, 3> types = { {
+        outSchema.find(pdal::Dimension::Id::X).type(),
+        outSchema.find(pdal::Dimension::Id::Y).type(),
+        outSchema.find(pdal::Dimension::Id::Z).type()
+    } };
+
+    const uint64_t inXyzSize(
+            schema.find(pdal::Dimension::Id::X).size() +
+            schema.find(pdal::Dimension::Id::Y).size() +
+            schema.find(pdal::Dimension::Id::Z).size());
+
     for (const Ref& ref : refs)
     {
-        buffer.insert(buffer.end(), ref.data(), ref.data() + ps);
+        const auto& p(ref.cell().point());
+
+        for (std::size_t i(0); i < 3; ++i)
+        {
+            const double v(std::llround(Point::scale(p[i], s[i], o[i])));
+            switch (types[i])
+            {
+                case DimType::Signed8:      append<int8_t>(buffer, v);
+                case DimType::Signed16:     append<int16_t>(buffer, v);
+                case DimType::Signed32:     append<int32_t>(buffer, v);
+                case DimType::Signed64:     append<int64_t>(buffer, v);
+                case DimType::Unsigned8:    append<uint8_t>(buffer, v);
+                case DimType::Unsigned16:   append<uint16_t>(buffer, v);
+                case DimType::Unsigned32:   append<uint32_t>(buffer, v);
+                case DimType::Unsigned64:   append<uint64_t>(buffer, v);
+                case DimType::Float:        append<float>(buffer, v);
+                case DimType::Double:       append<double>(buffer, v);
+                default: throw std::runtime_error("Invalid XYZ type");
+            }
+        }
+
+        buffer.insert(
+                buffer.end(),
+                ref.data() + inXyzSize,
+                ref.data() + m_metadata.schema().pointSize());
     }
 
     return buffer;
@@ -90,27 +135,60 @@ Cell::PooledStack Binary::getCells(
         PointPool& pool,
         const std::vector<char>& buffer) const
 {
-    const uint64_t pointSize(m_metadata.schema().pointSize());
-    const uint64_t np(buffer.size() / pointSize);
+    const Schema inSchema(m_metadata.outSchema());
+    BinaryPointTable inTable(inSchema);
+    pdal::PointRef inPr(inTable, 0);
 
+    const uint64_t pointSize(inSchema.pointSize());
+    const uint64_t np(buffer.size() / pointSize);
     assert(buffer.size() % pointSize == 0);
+
+    const Delta* delta(m_metadata.delta());
+    const Scale s(delta ? delta->scale() : 1);
+    const Offset o(delta ? delta->offset() : 0);
 
     Cell::PooledStack cellStack(pool.cellPool().acquire(np));
     Data::PooledStack dataStack(pool.dataPool().acquire(np));
 
-    BinaryPointTable table(m_metadata.schema());
+    const Schema& schema(m_metadata.schema());
+    BinaryPointTable table(schema);
     pdal::PointRef pr(table, 0);
 
-    const char* end(buffer.data() + buffer.size());
-
     Cell::RawNode* cell(cellStack.head());
+
+    const uint64_t inXyzSize(
+            inSchema.find(pdal::Dimension::Id::X).size() +
+            inSchema.find(pdal::Dimension::Id::Y).size() +
+            inSchema.find(pdal::Dimension::Id::Z).size());
+
+    const uint64_t outXyzSize(
+            schema.find(pdal::Dimension::Id::X).size() +
+            schema.find(pdal::Dimension::Id::Y).size() +
+            schema.find(pdal::Dimension::Id::Z).size());
+
+    const char* end(buffer.data() + buffer.size());
 
     for (const char* pos(buffer.data()); pos < end; pos += pointSize)
     {
         assert(dataStack.size());
         auto data(dataStack.popOne());
-        std::copy(pos, pos + pointSize, *data);
+
+        inTable.setPoint(pos);
+
+        const Point scaledPoint = Point(
+                inPr.getFieldAs<double>(pdal::Dimension::Id::X),
+                inPr.getFieldAs<double>(pdal::Dimension::Id::Y),
+                inPr.getFieldAs<double>(pdal::Dimension::Id::Z));
+
+        const Point p(Point::unscale(scaledPoint, s, o));
+
         table.setPoint(*data);
+
+        pr.setField(pdal::Dimension::Id::X, p.x);
+        pr.setField(pdal::Dimension::Id::Y, p.y);
+        pr.setField(pdal::Dimension::Id::Z, p.z);
+
+        std::copy(pos + inXyzSize, pos + pointSize, *data + outXyzSize);
 
         assert(cell);
         cell->val().set(pr, std::move(data));

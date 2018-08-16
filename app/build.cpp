@@ -308,17 +308,12 @@ void Build::log(const Builder& b) const
 
     std::cout <<
         "Metadata:\n" <<
-        "\tNative bounds: " << metadata.boundsNativeConforming() << "\n" <<
-        "\tCubic bounds: " << metadata.boundsNativeCubic() << "\n";
+        "\tBounds: " << metadata.boundsConforming() << "\n" <<
+        "\tCube: " << metadata.boundsCubic() << "\n";
 
     if (const Subset* s = metadata.subset())
     {
-        std::cout << "\tSubset bounds: " << s->boundsNative() << "\n";
-    }
-
-    if (metadata.delta())
-    {
-        std::cout << "\tScaled cube: " << metadata.boundsScaledCubic() << "\n";
+        std::cout << "\tSubset bounds: " << s->bounds() << "\n";
     }
 
     std::cout <<

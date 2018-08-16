@@ -25,19 +25,16 @@ namespace entwine
 
 Metadata::Metadata(const Config& config, const bool exists)
     : m_delta(config.delta())
-    , m_boundsNativeConforming(makeUnique<Bounds>(
+    , m_boundsConforming(makeUnique<Bounds>(
                 exists ?
                     Bounds(config["boundsConforming"]) :
-                    makeNativeConformingBounds(config["bounds"])))
-    , m_boundsNativeCubic(makeUnique<Bounds>(
+                    makeConformingBounds(config["bounds"])))
+    , m_boundsCubic(makeUnique<Bounds>(
                 exists ?
                     Bounds(config["bounds"]) :
-                    makeNativeCube(*m_boundsNativeConforming, m_delta.get())))
-    , m_boundsScaledConforming(
-            clone(m_boundsNativeConforming->deltify(m_delta.get())))
-    , m_boundsScaledCubic(
-            clone(m_boundsNativeCubic->deltify(m_delta.get())))
-    , m_schema(makeUnique<Schema>(config.schema()))
+                    makeCube(*m_boundsConforming, m_delta.get())))
+    , m_schema(makeUnique<Schema>(Schema::normalize(config.schema())))
+    , m_outSchema(makeUnique<Schema>(config.schema()))
     , m_files(makeUnique<Files>(config.input()))
     , m_dataIo(DataIo::create(*this, config.dataType()))
     , m_reprojection(Reprojection::create(config["reprojection"]))
@@ -60,7 +57,11 @@ Metadata::Metadata(const Config& config, const bool exists)
 
     if (m_delta)
     {
-        const uint64_t size(m_schema->find("X").size());
+        const uint64_t size = std::min(
+                m_outSchema->find("X").size(),
+                std::min(
+                    m_outSchema->find("Y").size(),
+                    m_outSchema->find("Z").size()));
         Point mn;
         Point mx;
 
@@ -75,13 +76,14 @@ Metadata::Metadata(const Config& config, const bool exists)
             mx = std::numeric_limits<int64_t>::max();
         }
 
-        const Bounds ex(mn, mx);
+        const Bounds extents(mn, mx);
+        const Bounds request(m_boundsCubic->deltify(*m_delta));
 
-        if (!ex.contains(*m_boundsScaledCubic))
+        if (!extents.contains(request))
         {
             std::cout <<
-                "Maximal extents: " << ex << "\n" <<
-                "Scaled bounds:   " << *m_boundsScaledCubic << std::endl;
+                "Maximal extents: " << extents << "\n" <<
+                "Scaled bounds:   " << request << std::endl;
             throw std::runtime_error(
                     "Bounds are too large for the selected scale");
         }
@@ -115,15 +117,14 @@ Json::Value Metadata::toJson() const
 {
     Json::Value json;
 
-    json["bounds"] = boundsNativeCubic().toJson();
-    json["boundsConforming"] = boundsNativeConforming().toJson();
-    json["schema"] = m_schema->toJson();
+    json["bounds"] = boundsCubic().toJson();
+    json["boundsConforming"] = boundsConforming().toJson();
+    json["schema"] = m_outSchema->toJson();
     json["ticks"] = (Json::UInt64)m_ticks;
     json["numPoints"] = (Json::UInt64)m_files->totalPoints();
 
     if (m_srs.size()) json["srs"] = m_srs;
     if (m_reprojection) json["reprojection"] = m_reprojection->toJson();
-
     if (m_delta) json = entwine::merge(json, m_delta->toJson());
 
     if (m_transformation)
@@ -201,7 +202,7 @@ std::string Metadata::postfix(const uint64_t depth) const
     return "";
 }
 
-Bounds Metadata::makeNativeConformingBounds(const Bounds& b) const
+Bounds Metadata::makeConformingBounds(const Bounds& b) const
 {
     Point pmin(b.min());
     Point pmax(b.max());
@@ -221,7 +222,7 @@ Bounds Metadata::makeNativeConformingBounds(const Bounds& b) const
     return Bounds(pmin, pmax);
 }
 
-Bounds Metadata::makeNativeCube(const Bounds& b, const Delta* d) const
+Bounds Metadata::makeCube(const Bounds& b, const Delta* d) const
 {
     const Offset offset(
             d ?

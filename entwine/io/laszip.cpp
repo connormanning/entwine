@@ -42,20 +42,15 @@ void Laz::write(
     Bounds bounds(Bounds::expander());
     for (const Cell& c : cells) bounds.grow(c.point());
 
-    CellTable table(
-            pointPool,
-            std::move(cells),
-            makeUnique<Schema>(Schema::normalize(schema)));
+    CellTable table(pointPool, std::move(cells));
 
     assert(table.size() == np);
 
     StreamReader reader(table);
 
-    const auto offset = Point::unscale(
-            bounds.mid(),
-            delta.scale(),
-            delta.offset())
-        .apply([](double d) { return std::floor(d); });
+    const auto offset(bounds.mid().apply([](double d) {
+        return std::floor(d);
+    }));
 
     // See https://www.pdal.io/stages/writers.las.html
     const uint64_t timeMask(schema.hasTime() ? 1 : 0);
@@ -119,7 +114,7 @@ Cell::PooledStack Laz::read(
         fs.put(localFile, *ensureGet(out, basename));
     }
 
-    CellTable table(pool, makeUnique<Schema>(Schema::normalize(pool.schema())));
+    CellTable table(pool);
 
     if (auto preview = Executor::get().preview(localFile))
     {
@@ -134,5 +129,4 @@ Cell::PooledStack Laz::read(
 }
 
 } // namespace entwine
-
 

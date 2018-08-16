@@ -38,10 +38,10 @@ Tileset::Tileset(const Json::Value& config)
             m_metadata.schema().contains(DimId::NormalY) &&
             m_metadata.schema().contains(DimId::NormalZ))
     , m_rootGeometricError(
-            m_metadata.boundsNativeCubic().width() /
+            m_metadata.boundsCubic().width() /
             (config.isMember("geometricErrorDivisor") ?
                 config["geometricErrorDivisor"].asDouble() : 32.0))
-    , m_pointPool(m_metadata.schema(), m_metadata.delta())
+    , m_pointPool(m_metadata.schema())
     , m_threadPool(std::max<uint64_t>(4, config["threads"].asUInt64()))
 {
     arbiter::fs::mkdirp(m_out.root());

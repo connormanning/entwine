@@ -17,27 +17,6 @@
 namespace entwine
 {
 
-std::unique_ptr<PooledPointTable> PooledPointTable::create(
-        PointPool& pointPool,
-        Process process,
-        const Delta* delta,
-        const Origin origin)
-{
-    if (!delta)
-    {
-        return makeUnique<PooledPointTable>(pointPool, process, origin);
-    }
-    else
-    {
-        return makeUnique<ConvertingPointTable>(
-                pointPool,
-                process,
-                origin,
-                *delta,
-                makeUnique<Schema>(Schema::normalize(pointPool.schema())));
-    }
-}
-
 void PooledPointTable::reset()
 {
     BinaryPointTable table(m_schema);

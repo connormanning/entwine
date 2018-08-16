@@ -74,9 +74,11 @@ public:
             const Schema& schema)
         : Query(reader, params)
         , m_schema(schema.empty() ? m_metadata.schema() : schema)
+        /*
         , m_mid(m_params.nativeBounds() ?
                 m_params.delta().offset() :
-                m_metadata.boundsScaledCubic().mid())
+                m_metadata.boundsNativeCubic().mid())
+        */
     { }
 
     const std::vector<char>& data() const { return m_data; }
@@ -85,6 +87,7 @@ protected:
     virtual void process(const Cell& cell) override;
 
 private:
+    /*
     void setScaled(const DimInfo& dim, std::size_t dimNum, char* pos)
     {
         double d(0);
@@ -135,6 +138,7 @@ private:
                 break;
         }
     }
+    */
 
     template<typename T> void setAs(char* dst, double d)
     {
@@ -144,7 +148,7 @@ private:
     }
 
     const Schema m_schema;
-    const Point m_mid;
+    // const Point m_mid;
 
     std::vector<char> m_data;
 };

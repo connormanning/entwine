@@ -141,7 +141,7 @@ void Scan::add(FileInfo& f, const std::string localPath)
     if (auto preview = Executor::get().preview(localPath, m_re.get()))
     {
         f.numPoints(preview->numPoints);
-        // f.metadata(preview->metadata);
+        f.metadata(preview->metadata);
         f.srs(preview->srs);
         if (!preview->numPoints) return;
 
@@ -247,7 +247,6 @@ Config Scan::aggregate()
     });
 
     if (out["bounds"].isNull()) out["bounds"] = bounds.toJson();
-    bounds = Bounds(out["bounds"]);
 
     if (m_scale != 1 && !m_in.absolute())
     {

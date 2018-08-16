@@ -38,11 +38,6 @@ public:
 private:
     Json::Value toBox(Bounds in) const
     {
-        if (const Delta* d = m_tileset.metadata().delta())
-        {
-            in = in.unscale(d->scale(), d->offset());
-        }
-
         Json::Value box(in.mid().toJson());
         box.append(in.width()); box.append(0); box.append(0);
         box.append(0); box.append(in.depth()); box.append(0);

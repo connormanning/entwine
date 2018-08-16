@@ -42,6 +42,7 @@ SharedChunkReader Cache::get(const Reader& reader, const Dxyz& key)
 
     if (it == m_chunks.end())
     {
+        // std::cout << "\tAdd " << id.key << std::endl;
         it = m_chunks.insert(std::make_pair(id, ChunkReaderInfo())).first;
 
         ChunkReaderInfo& info(it->second);
@@ -71,7 +72,7 @@ void Cache::purge()
         const GlobalId& id(it->first);
         const ChunkReaderInfo& info(it->second);
 
-        std::cout << "\tDele " << id.key << std::endl;
+        std::cout << "\tDel " << id.key << std::endl;
         m_size -= info.chunk->cells().size() * info.chunk->pointSize();
         m_order.pop_back();
         m_chunks.erase(it);
@@ -80,6 +81,7 @@ void Cache::purge()
     if (start > m_size)
     {
         std::cout << "\t\tPurged " << (start - m_size) << std::endl;
+        std::cout << "\t\tLeft " << m_size << std::endl;
     }
 }
 
