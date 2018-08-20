@@ -57,9 +57,9 @@ inline Dir getDirection(const Point& o, const Point& p, bool force2d)
     }
 }
 
-inline bool isNorth(Dir dir) { return static_cast<int>(dir) & NsBit != 0; }
-inline bool isEast (Dir dir) { return static_cast<int>(dir) & EwBit != 0; }
-inline bool isUp   (Dir dir) { return static_cast<int>(dir) & UdBit != 0; }
+inline bool isNorth(Dir dir) { return (static_cast<int>(dir) & NsBit) != 0; }
+inline bool isEast (Dir dir) { return (static_cast<int>(dir) & EwBit) != 0; }
+inline bool isUp   (Dir dir) { return (static_cast<int>(dir) & UdBit) != 0; }
 
 inline bool isSouth(Dir dir) { return !isNorth(dir); }
 inline bool isWest(Dir dir) { return !isEast(dir); }
