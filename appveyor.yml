@@ -39,6 +39,10 @@ install:
   # and install our dependencies
   - C:\temp\osgeo4w-setup.exe -q -k -r -A -s http://download.osgeo.org/osgeo4w/ -a x86_64 -P pdal,xz-devel,openssl-devel,jsoncpp -R %OSGEO4W_ROOT% > NUL
 
+  - ps: (new-object net.webclient).DownloadFile("http://curl.haxx.se/ca/cacert.pem", "c:\osgeo4w64\bin\curl-ca-bundle.crt")
+
+  - ps: iex ((new-object net.webclient).DownloadString('))
+
   - call %OSGEO4W_ROOT%\bin\o4w_env.bat
   - call %OSGEO4W_ROOT%\bin\py3_env.bat
   - call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64
@@ -57,6 +61,8 @@ build_script:
     #artifacts:
     #  - path: entwine.zip
     #    name: entwinemaster
+test_script:
+  - call .\\scripts\\appveyor\\test.cmd
 
 notifications:
   - provider: Email
