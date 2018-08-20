@@ -113,7 +113,7 @@ private:
 
     template<typename T> void setAs(char* dst, double d)
     {
-        const T v(d);
+        const T v(static_cast<T>(d));
         auto src(reinterpret_cast<const char*>(&v));
         std::copy(src, src + sizeof(T), dst);
     }
