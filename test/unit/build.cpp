@@ -21,10 +21,8 @@ TEST(build, basic)
     c["output"] = out;
     c["force"] = true;
     c["ticks"] = static_cast<Json::UInt64>(v.ticks());
-    
     c["hierarchyStep"] = static_cast<Json::UInt64>(v.hierarchyStep());
 
-    std::cout << c << std::endl;
     Builder b(c);
     b.go();
 
