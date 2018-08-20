@@ -17,7 +17,7 @@ shallow_clone: true
 clone_depth: 5
 
 # Uncomment if you need to debug AppVeyor session (https://www.appveyor.com/docs/how-to/rdp-to-build-worker)
-# on_finish:
+ on_finish:
   - ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
 
 init:
@@ -25,7 +25,7 @@ init:
   - set PYTHONPATH=%PYTHONHOME%\Lib;%OSGEO4W_ROOT%\apps\Python27\lib\site-packages
   - set PATH=C:\Program Files (x86)\MSBuild\14.0\Bin;%PATH%
   - set PATH=%PYTHONHOME%;%PATH%
-#  - ps: iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
+  - ps: iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
 
 install:
   - ps: mkdir $env:OSGEO4W_ROOT | out-null
