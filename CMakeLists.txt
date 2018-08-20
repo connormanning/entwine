@@ -60,10 +60,11 @@ find_package(PDAL ${PDAL_FIND_VERSION} REQUIRED CONFIG NO_POLICY_SCOPE)
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 find_package(Threads REQUIRED)
 find_package(LazPerf REQUIRED)
-find_library(WS2_32_LIBRARY ws2_32)
-find_library(SHLWAPI Shlwapi.lib) 
 
-if (NOT WIN32)
+if (WIN32)
+    find_library(WS2_32_LIBRARY ws2_32)
+    find_library(SHLWAPI Shlwapi.lib)
+else()
     find_package(Backtrace)
     if (${Backtrace_FOUND})
         message("Found backtrace ${Backtrace_LIBRARIES}")
@@ -148,7 +149,9 @@ target_link_libraries(entwine PUBLIC pdalcpp pdal_util ${LZMA_LIBRARY} ${CMAKE_D
 
 target_link_libraries(entwine ${JSON_CPP_LINK_TYPE} ${ENTWINE_JSONCPP_LIB_NAME})
 
-target_link_libraries(entwine PRIVATE ${SHLWAPI})
+if (WIN32)
+    target_link_libraries(entwine PRIVATE ${SHLWAPI})
+endif()
 
 target_link_libraries(entwine PRIVATE ${CURL_LIBRARIES})
 target_include_directories(entwine PRIVATE "${CURL_INCLUDE_DIR}")
