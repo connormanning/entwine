@@ -28,7 +28,7 @@ statically serve `~/entwine` with a simple HTTP server:
 docker run -it -v ~/entwine:/var/www -p 8080:8080 connormanning/http-server
 ```
 
-And view the data with [Potree](http://potree.entwine.io/data/custom.html?r=http://localhost:8080/red-rocks/entwine.json).
+And view the data with [Potree](http://potree.entwine.io/data/custom.html?r=http://localhost:8080/red-rocks/entwine.json) and [Plasio](http://speck.ly/?s=0&r=ept://localhost:8080/red-rocks&c0s=local://color).
 
 Going further
 --------------------------------------------------------------------------------
