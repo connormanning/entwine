@@ -16,6 +16,7 @@
 namespace entwine
 {
 
+    /*
 class SpinLock
 {
     friend class SpinGuard;
@@ -51,8 +52,8 @@ public:
 private:
     std::unique_lock<std::mutex> m_lock;
 };
+*/
 
-/*
 class SpinLock
 {
     friend class SpinGuard;
@@ -99,7 +100,6 @@ private:
     SpinLock& m_spinner;
     bool m_locked;
 };
-*/
 
 } // namespace entwine
 

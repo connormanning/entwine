@@ -19,10 +19,38 @@
 
 #include <entwine/types/schema.hpp>
 
+#include <entwine/types/point-pool.hpp>
+
 namespace entwine
 {
 
-class VectorPointTable : public pdal::StreamPointTable
+class ShallowPointTable : public pdal::SimplePointTable
+{
+public:
+    ShallowPointTable(const Schema& schema, Data::PooledStack&& stack)
+        : SimplePointTable(schema.pdalLayout())
+        , m_stack(std::move(stack))
+    {
+        m_refs.reserve(m_stack.size());
+        for (char* p : stack) m_refs.push_back(p);
+    }
+
+    virtual char* getPoint(pdal::PointId index) override
+    {
+        return m_refs[index];
+    }
+
+    virtual pdal::PointId addPoint() override
+    {
+        throw std::runtime_error("Cannot add points to ShallowPointTable");
+    }
+
+private:
+    Data::PooledStack m_stack;
+    std::vector<char*> m_refs;
+};
+
+class VectorPointTable : public pdal::SimplePointTable
 {
 public:
     // Constructible with either an entwine::Schema or a pdal::PointLayout.
@@ -44,33 +72,33 @@ public:
     { }
 
     VectorPointTable(pdal::PointLayout layout)
-        : StreamPointTable(m_layout)
+        : SimplePointTable(m_layout)
         , m_layout(layout)
     { }
 
     VectorPointTable(pdal::PointLayout layout, std::size_t initialNumPoints)
-        : StreamPointTable(m_layout)
+        : SimplePointTable(m_layout)
         , m_layout(layout)
     {
         resize(initialNumPoints);
     }
 
     VectorPointTable(pdal::PointLayout layout, const std::vector<char>& data)
-        : pdal::StreamPointTable(m_layout)
+        : pdal::SimplePointTable(m_layout)
         , m_layout(layout)
         , m_data(data)
         , m_size(m_data.size() / m_layout.pointSize())
     { }
 
     VectorPointTable(pdal::PointLayout layout, std::vector<char>&& data)
-        : pdal::StreamPointTable(m_layout)
+        : pdal::SimplePointTable(m_layout)
         , m_layout(layout)
         , m_data(std::move(data))
         , m_size(m_data.size() / m_layout.pointSize())
     { }
 
     std::size_t size() const { return m_size; }
-    pdal::point_count_t capacity() const override { return size(); }
+    // pdal::point_count_t capacity() const override { return size(); }
 
     pdal::PointRef at(pdal::PointId index)
     {
@@ -142,7 +170,7 @@ public:
     };
 
     Iterator begin() { return Iterator(*this); }
-    Iterator end() { return Iterator(*this, capacity()); }
+    Iterator end() { return Iterator(*this, size()); }
 
     std::size_t pointSize() const { return m_layout.pointSize(); }
 

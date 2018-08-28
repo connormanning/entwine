@@ -88,7 +88,8 @@ std::size_t Clipper::Clip::clip(const bool force)
         {
             ReffedChunk& c(*it->first);
             const Origin o(m_clipper.origin());
-            m_clipper.registry().clipPool().add([&c, o] { c.unref(o); });
+            c.unref(o);
+            // m_clipper.registry().clipPool().add([&c, o] { c.unref(o); });
             ++n;
             it = m_chunks.erase(it);
         }

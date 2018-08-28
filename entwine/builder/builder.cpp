@@ -359,10 +359,12 @@ Cells Builder::insertData(Cells cells, Clipper& clipper)
             else
             {
                 reject(cell);
+                std::cout << "J " << point << " " << boundsConforming << std::endl;
             }
         }
         else
         {
+            std::cout << "R " << point << " " << boundsConforming << std::endl;
             reject(cell);
             pointStats.addOutOfBounds();
         }

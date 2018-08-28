@@ -11,6 +11,7 @@
 #include <entwine/builder/chunk.hpp>
 
 #include <entwine/io/io.hpp>
+#include <entwine/io/laszip.hpp>
 
 namespace entwine
 {
@@ -62,7 +63,8 @@ bool ReffedChunk::insert(
 void ReffedChunk::ref(Clipper& clipper)
 {
     const Origin o(clipper.origin());
-    std::lock_guard<std::mutex> lock(m_mutex);
+    // std::lock_guard<std::mutex> lock(m_mutex);
+    SpinGuard lock(m_mutex);
 
     if (!m_refs.count(o))
     {
@@ -117,7 +119,8 @@ void ReffedChunk::ref(Clipper& clipper)
 
 void ReffedChunk::unref(const Origin o)
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    // std::lock_guard<std::mutex> lock(m_mutex);
+    SpinGuard lock(m_mutex);
 
     assert(m_chunk);
     assert(m_refs.count(o));
@@ -127,17 +130,18 @@ void ReffedChunk::unref(const Origin o)
         m_refs.erase(o);
         if (m_refs.empty())
         {
-            CountedCells cells(m_chunk->acquire());
+            Data::PooledStack data(m_chunk->acquireBinary());
+            const uint64_t np(data.size());
 
-            m_hierarchy.set(m_key.get(), cells.np);
+            m_hierarchy.set(m_key.get(), np);
 
-            m_metadata.dataIo().write(
+            reinterpret_cast<const Laz&>(m_metadata.dataIo()).write(
                     m_out,
                     m_tmp,
-                    m_pointPool,
+                    m_metadata,
                     m_key.toString() + m_metadata.postfix(m_key.depth()),
-                    std::move(cells.stack),
-                    cells.np);
+                    m_key.bounds(),
+                    std::move(data));
 
             std::lock_guard<std::mutex> lock(m);
             ++info.written;
@@ -147,7 +151,8 @@ void ReffedChunk::unref(const Origin o)
 
 bool ReffedChunk::empty()
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    // std::lock_guard<std::mutex> lock(m_mutex);
+    SpinGuard lock(m_mutex);
 
     if (!m_chunk) return true;
 

@@ -62,13 +62,13 @@ public:
     bool overlaps(const Bounds& other, bool force2d = false) const
     {
         return
-            width() > 0 && depth() > 0 &&
-            other.width() > 0 && other.depth() > 0 &&
+            // width() > 0 && depth() > 0 &&
+            // other.width() > 0 && other.depth() > 0 &&
             max().x > other.min().x && min().x < other.max().x &&
             max().y > other.min().y && min().y < other.max().y &&
             (force2d || (
                 (!height() && !other.height()) || (
-                    height() > 0 && other.height() > 0 &&
+                    // height() > 0 && other.height() > 0 &&
                     max().z > other.min().z && min().z < other.max().z)));
     }
 

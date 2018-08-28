@@ -959,6 +959,8 @@ public:
         , m_mutex()
     { }
 
+    std::size_t bufferSize() const { return m_bufferSize; }
+
 private:
     virtual Stack<T*> doAllocate(std::size_t blocks) override
     {

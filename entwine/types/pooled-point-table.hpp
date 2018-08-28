@@ -54,7 +54,7 @@ public:
 
     virtual ~PooledPointTable() { }
 
-    virtual pdal::point_count_t capacity() const override { return 4096; }
+    virtual pdal::point_count_t capacity() const override { return 8192; }
     virtual void reset() override;
 
 protected:

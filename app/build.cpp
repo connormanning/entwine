@@ -167,6 +167,11 @@ void Build::addArgs()
             "entwine will determine it heuristically.",
             [this](Json::Value v) { m_json["hierarchyStep"] = extract(v); });
 
+    m_ap.add(
+            "--sleepCount",
+            "Count (per-thread) after which idle nodes are serialized.",
+            [this](Json::Value v) { m_json["sleepCount"] = extract(v); });
+
     addArbiter();
 }
 
@@ -212,7 +217,7 @@ void Build::run()
     if (stats.outOfBounds())
     {
         std::cout <<
-            "\tPoints discarded:\n" << commify(stats.outOfBounds()) << "\n" <<
+            "\tPoints discarded: " << commify(stats.outOfBounds()) << "\n" <<
             std::endl;
     }
 }

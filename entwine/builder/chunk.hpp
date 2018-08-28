@@ -12,6 +12,7 @@
 
 #include <cassert>
 #include <cstddef>
+#include <forward_list>
 #include <mutex>
 #include <stack>
 #include <unordered_map>
@@ -24,6 +25,8 @@
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/tube.hpp>
 #include <entwine/util/unique.hpp>
+
+#include <entwine/util/spin-lock.hpp>
 
 namespace entwine
 {
@@ -82,9 +85,40 @@ private:
     PointPool& m_pointPool;
     Hierarchy& m_hierarchy;
 
-    std::mutex m_mutex;
+    // std::mutex m_mutex;
+    SpinLock m_mutex;
     std::unique_ptr<Chunk> m_chunk;
     std::map<Origin, std::size_t> m_refs;
+};
+
+class Voxel
+{
+public:
+    bool insert(const Point& p, const char* data)
+    {
+        if (m_list.empty() || m_point == p)
+        {
+            m_point = p;
+            m_list.push_front(data);
+            // m_data.insert(m_data.end(), data, data + pointSize);
+            return true;
+        }
+        return false;
+    }
+
+private:
+    Point m_point;
+    // std::vector<char> m_data;
+    std::forward_list<const char*> m_list;
+};
+
+struct VoxelTube
+{
+    VoxelTube() { }
+
+    // std::mutex mutex;
+    SpinLock mutex;
+    std::map<uint64_t, Voxel> map;
 };
 
 class Chunk
@@ -94,6 +128,8 @@ public:
         : m_ref(ref)
         , m_overflow(m_ref.pointPool().cellPool())
         , m_ticks(m_ref.metadata().ticks())
+        , m_dataPool(m_ref.pointPool().schema().pointSize(), 1024)
+        , m_stack(m_dataPool)
     {
         init();
 
@@ -114,11 +150,10 @@ public:
 
     void init()
     {
-        assert(!m_tubes);
         assert(!m_keys);
         assert(m_overflow.empty());
         assert(!m_overflowCount);
-        m_tubes = makeUnique<std::vector<Tube>>(m_ticks * m_ticks);
+        m_grid = makeUnique<std::vector<VoxelTube>>(m_ticks * m_ticks);
         m_keys = makeUnique<std::vector<Key>>();
         m_remote = false;
     }
@@ -137,34 +172,30 @@ public:
         return result;
     }
 
-    CountedCells acquire()
+    Data::PooledStack acquireBinary()
     {
-        CountedCells cells(m_ref.pointPool().cellPool());
-
-        for (auto& tube : *m_tubes)
-        {
-            for (auto& inner : tube)
-            {
-                cells.np += inner.second->size();
-                cells.stack.pushBack(std::move(inner.second));
-            }
-        }
-
-        m_tubes.reset();
+        m_grid.reset();
         m_keys.reset();
 
         if (m_overflowCount)
         {
             assert(!m_overflow.empty());
             assert(!m_hasChildren);
-            cells.np += m_overflowCount;
-            cells.stack.pushBack(std::move(m_overflow));
+
+            for (auto& cell : m_overflow)
+            {
+                m_stack.push(cell.acquire());
+            }
+
             m_overflowCount = 0;
         }
 
+        m_grid.reset();
+        m_keys.reset();
+
         m_remote = true;
 
-        return cells;
+        return std::move(m_stack);
     }
 
     bool remote() const { return m_remote; }
@@ -190,8 +221,25 @@ private:
         const Xyz& pos(key.position());
         const std::size_t i((pos.y % m_ticks) * m_ticks + (pos.x % m_ticks));
 
-        assert(i < m_tubes->size());
-        return (*m_tubes)[i].insert(key, cell);
+        VoxelTube& tube((*m_grid)[i]);
+
+        // std::lock_guard<std::mutex> tubeLock(tube.mutex);
+        SpinGuard tubeLock(tube.mutex);
+        Voxel& voxel(tube.map[pos.z]);
+
+        const char* data(cell->uniqueData());
+
+        if (voxel.insert(cell->point(), data))
+        {
+            // std::lock_guard<std::mutex> lock(m_mutex);
+            SpinGuard lock(m_mutex);
+
+            Data::PooledNode node(m_dataPool.acquireOne());
+            std::copy(data, data + m_dataPool.bufferSize(), *node);
+            m_stack.push(std::move(node));
+            return true;
+        }
+        return false;
     }
 
     bool insertOverflow(
@@ -199,7 +247,8 @@ private:
             Cell::PooledNode& cell,
             Clipper& clipper)
     {
-        std::lock_guard<std::mutex> lock(m_overflowMutex);
+        // std::lock_guard<std::mutex> lock(m_overflowMutex);
+        SpinGuard lock(m_overflowMutex);
         if (m_hasChildren) return false;
 
         assert(m_keys);
@@ -223,14 +272,23 @@ private:
     const ReffedChunk& m_ref;
     bool m_remote = false;
 
-    std::mutex m_overflowMutex;
+    // std::mutex m_overflowMutex;
+    SpinLock m_overflowMutex;
     bool m_hasChildren = false;
     uint64_t m_overflowCount = 0;
     Cell::PooledStack m_overflow;
     std::unique_ptr<std::vector<Key>> m_keys;
 
     const uint64_t m_ticks;
-    std::unique_ptr<std::vector<Tube>> m_tubes;
+
+
+
+
+    // mutable std::mutex m_mutex;
+    SpinLock m_mutex;
+    Data::Pool m_dataPool;
+    Data::PooledStack m_stack;
+    std::unique_ptr<std::vector<VoxelTube>> m_grid;
 
     std::vector<ReffedChunk> m_children;
 };
