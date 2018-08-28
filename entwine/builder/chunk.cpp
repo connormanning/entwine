@@ -17,7 +17,7 @@ namespace entwine
 
 namespace
 {
-    std::mutex m;
+    SpinLock spin;
     ReffedChunk::Info info;
 }
 
@@ -62,7 +62,7 @@ bool ReffedChunk::insert(
 void ReffedChunk::ref(Clipper& clipper)
 {
     const Origin o(clipper.origin());
-    std::lock_guard<std::mutex> lock(m_mutex);
+    SpinGuard lock(m_spin);
 
     if (!m_refs.count(o))
     {
@@ -84,7 +84,7 @@ void ReffedChunk::ref(Clipper& clipper)
             if (const uint64_t np = m_hierarchy.get(m_key.get()))
             {
                 {
-                    std::lock_guard<std::mutex> lock(m);
+                    SpinGuard lock(spin);
                     ++info.read;
                 }
 
@@ -117,7 +117,7 @@ void ReffedChunk::ref(Clipper& clipper)
 
 void ReffedChunk::unref(const Origin o)
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    SpinGuard lock(m_spin);
 
     assert(m_chunk);
     assert(m_refs.count(o));
@@ -139,7 +139,7 @@ void ReffedChunk::unref(const Origin o)
                     std::move(cells.stack),
                     cells.np);
 
-            std::lock_guard<std::mutex> lock(m);
+            SpinGuard lock(spin);
             ++info.written;
         }
     }
@@ -147,7 +147,7 @@ void ReffedChunk::unref(const Origin o)
 
 bool ReffedChunk::empty()
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    SpinGuard lock(m_spin);
 
     if (!m_chunk) return true;
 
@@ -162,7 +162,7 @@ bool ReffedChunk::empty()
 
 ReffedChunk::Info ReffedChunk::latchInfo()
 {
-    std::lock_guard<std::mutex> lock(m);
+    SpinGuard lock(spin);
 
     Info result(info);
     info.clear();

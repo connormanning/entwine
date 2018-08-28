@@ -12,7 +12,6 @@
 
 #include <cassert>
 #include <cstddef>
-#include <mutex>
 #include <stack>
 #include <unordered_map>
 #include <utility>
@@ -23,6 +22,7 @@
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/point-pool.hpp>
 #include <entwine/types/tube.hpp>
+#include <entwine/util/spin-lock.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -82,7 +82,7 @@ private:
     PointPool& m_pointPool;
     Hierarchy& m_hierarchy;
 
-    std::mutex m_mutex;
+    SpinLock m_spin;
     std::unique_ptr<Chunk> m_chunk;
     std::map<Origin, std::size_t> m_refs;
 };
@@ -199,7 +199,7 @@ private:
             Cell::PooledNode& cell,
             Clipper& clipper)
     {
-        std::lock_guard<std::mutex> lock(m_overflowMutex);
+        SpinGuard lock(m_overflowSpin);
         if (m_hasChildren) return false;
 
         assert(m_keys);
@@ -223,7 +223,7 @@ private:
     const ReffedChunk& m_ref;
     bool m_remote = false;
 
-    std::mutex m_overflowMutex;
+    SpinLock m_overflowSpin;
     bool m_hasChildren = false;
     uint64_t m_overflowCount = 0;
     Cell::PooledStack m_overflow;

@@ -191,7 +191,7 @@ void Build::run()
         commify(since<std::chrono::seconds>(start)) << " seconds." <<
         std::endl;
 
-    std::cout << "Save complete.  Indexing stats:\n";
+    std::cout << "Save complete.\n";
 
     const PointStats stats(files.pointStats());
 
@@ -212,7 +212,7 @@ void Build::run()
     if (stats.outOfBounds())
     {
         std::cout <<
-            "\tPoints discarded:\n" << commify(stats.outOfBounds()) << "\n" <<
+            "\tPoints discarded: " << commify(stats.outOfBounds()) << "\n" <<
             std::endl;
     }
 }

@@ -10,11 +10,16 @@
 
 #pragma once
 
-#include <atomic>
+#ifdef SPINLOCK_AS_MUTEX
 #include <mutex>
+#else
+#include <atomic>
+#endif
 
 namespace entwine
 {
+
+#ifdef SPINLOCK_AS_MUTEX
 
 class SpinLock
 {
@@ -52,7 +57,8 @@ private:
     std::unique_lock<std::mutex> m_lock;
 };
 
-/*
+#else
+
 class SpinLock
 {
     friend class SpinGuard;
@@ -92,14 +98,15 @@ public:
 
     ~UniqueSpin() { if (m_locked) m_spinner.unlock(); }
 
-    void lock() { m_spinner.lock(); m_locked = true; }  // Undefined if locked.
+    void lock() { m_spinner.lock(); m_locked = true; }  // UB if locked.
     void unlock() { m_spinner.unlock(); m_locked = false; }
 
 private:
     SpinLock& m_spinner;
     bool m_locked;
 };
-*/
+
+#endif
 
 } // namespace entwine
 
