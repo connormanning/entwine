@@ -26,7 +26,7 @@ void Laz::write(
         const Metadata& metadata,
         const std::string& filename,
         const Bounds& bounds,
-        Data::PooledStack data) const
+        Data::RawStack data) const
 {
     if (!m_metadata.delta())
     {
@@ -43,7 +43,7 @@ void Laz::write(
     const Schema& schema(m_metadata.schema());
     const Delta& delta(*m_metadata.delta());
 
-    ShallowPointTable table(schema, std::move(data));
+    ShallowPointTable table(schema, data);
     pdal::BufferReader reader;
     reader.addView(std::make_shared<pdal::PointView>(table));
 

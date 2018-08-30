@@ -18,7 +18,7 @@ namespace entwine
 
 namespace
 {
-    std::mutex m;
+    SpinLock spin;
     ReffedChunk::Info info;
 }
 
@@ -51,6 +51,7 @@ ReffedChunk::ReffedChunk(const ReffedChunk& o)
 
 ReffedChunk::~ReffedChunk() { }
 
+/*
 bool ReffedChunk::insert(
         Cell::PooledNode& cell,
         const Key& key,
@@ -59,12 +60,18 @@ bool ReffedChunk::insert(
     if (clipper.insert(*this)) ref(clipper);
     return m_chunk->insert(key, cell, clipper);
 }
+*/
+
+void ReffedChunk::insert(Voxel& voxel, Key& key, Clipper& clipper)
+{
+    if (clipper.insert(*this)) ref(clipper);
+    m_chunk->insert(voxel, key, clipper);
+}
 
 void ReffedChunk::ref(Clipper& clipper)
 {
     const Origin o(clipper.origin());
-    // std::lock_guard<std::mutex> lock(m_mutex);
-    SpinGuard lock(m_mutex);
+    SpinGuard lock(m_spin);
 
     if (!m_refs.count(o))
     {
@@ -86,7 +93,7 @@ void ReffedChunk::ref(Clipper& clipper)
             if (const uint64_t np = m_hierarchy.get(m_key.get()))
             {
                 {
-                    std::lock_guard<std::mutex> lock(m);
+                    SpinGuard lock(spin);
                     ++info.read;
                 }
 
@@ -100,16 +107,27 @@ void ReffedChunk::ref(Clipper& clipper)
 
                 Key pk(m_metadata);
 
+                Voxel voxel;
+                Data::RawNode node;
+                voxel.stack().push(&node);
+
                 while (!cells.empty())
                 {
                     auto cell(cells.popOne());
                     pk.init(cell->point(), m_key.depth());
 
-                    if (!insert(cell, pk, clipper))
+                    *node = cell->uniqueData();
+                    voxel.point() = cell->point();
+
+                    insert(voxel, pk, clipper);
+
+                    /*
+                    if (!insert(voxel, pk, clipper))
                     {
                         throw std::runtime_error(
                                 "Invalid wakeup: " + m_key.toString());
                     }
+                    */
                 }
             }
         }
@@ -119,8 +137,7 @@ void ReffedChunk::ref(Clipper& clipper)
 
 void ReffedChunk::unref(const Origin o)
 {
-    // std::lock_guard<std::mutex> lock(m_mutex);
-    SpinGuard lock(m_mutex);
+    SpinGuard lock(m_spin);
 
     assert(m_chunk);
     assert(m_refs.count(o));
@@ -130,7 +147,7 @@ void ReffedChunk::unref(const Origin o)
         m_refs.erase(o);
         if (m_refs.empty())
         {
-            Data::PooledStack data(m_chunk->acquireBinary());
+            Data::RawStack data(m_chunk->acquireBinary());
             const uint64_t np(data.size());
 
             m_hierarchy.set(m_key.get(), np);
@@ -143,7 +160,7 @@ void ReffedChunk::unref(const Origin o)
                     m_key.bounds(),
                     std::move(data));
 
-            std::lock_guard<std::mutex> lock(m);
+            SpinGuard lock(spin);
             ++info.written;
         }
     }
@@ -151,8 +168,7 @@ void ReffedChunk::unref(const Origin o)
 
 bool ReffedChunk::empty()
 {
-    // std::lock_guard<std::mutex> lock(m_mutex);
-    SpinGuard lock(m_mutex);
+    SpinGuard lock(m_spin);
 
     if (!m_chunk) return true;
 
@@ -167,7 +183,7 @@ bool ReffedChunk::empty()
 
 ReffedChunk::Info ReffedChunk::latchInfo()
 {
-    std::lock_guard<std::mutex> lock(m);
+    SpinGuard lock(spin);
 
     Info result(info);
     info.clear();
@@ -178,6 +194,20 @@ void Chunk::doOverflow(Clipper& clipper)
 {
     m_hasChildren = true;
 
+    for (std::size_t i(0); i < m_overflow.size(); ++i)
+    {
+        Voxel& voxel(m_overflow[i]);
+        Key& key((*m_keys)[i]);
+        const auto dir(getDirection(key.bounds().mid(), voxel.point()));
+        key.step(dir);
+        m_children[toIntegral(dir)].insert(voxel, key, clipper);
+    }
+
+    m_keys.reset();
+    m_overflow.clear(); // TODO reset.
+    m_overflowStack.reset();
+
+    /*
     while (!m_overflow.empty())
     {
         auto cell(m_overflow.popOne());
@@ -195,9 +225,10 @@ void Chunk::doOverflow(Clipper& clipper)
 
     assert(m_overflow.empty());
     assert(m_keys->empty());
+    */
 
     m_keys.reset();
-    m_overflowCount = 0;
+    // m_overflowCount = 0;
 }
 
 } // namespace entwine

@@ -11,13 +11,13 @@
 #pragma once
 
 #include <map>
-#include <mutex>
 #include <set>
 
 #include <entwine/builder/heuristics.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/key.hpp>
 #include <entwine/util/pool.hpp>
+#include <entwine/util/spin-lock.hpp>
 
 namespace entwine
 {
@@ -45,7 +45,7 @@ public:
 
     void set(const Dxyz& key, uint64_t val)
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        SpinGuard lock(m_spin);
         auto it(m_map.find(key));
         if (it == m_map.end()) m_map[key] = val;
         else it->second = val;
@@ -53,7 +53,7 @@ public:
 
     uint64_t get(const Dxyz& key) const
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        SpinGuard lock(m_spin);
         auto it(m_map.find(key));
         if (it == m_map.end()) return 0;
         else return it->second;
@@ -129,7 +129,7 @@ private:
             const Dxyz& curr,
             Map& map) const;
 
-    mutable std::mutex m_mutex;
+    mutable SpinLock m_spin;
     Map m_map;
 };
 

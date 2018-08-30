@@ -119,7 +119,7 @@ private:
     void insertPath(Origin origin, FileInfo& info);
 
     // Returns a stack of rejected info nodes so that they may be reused.
-    Cells insertData(Cells cells, Clipper& clipper);
+    // Cells insertData(Cells cells, Clipper& clipper);
 
     // Validate sources.
     void prepareEndpoints();

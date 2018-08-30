@@ -47,6 +47,7 @@ void Registry::save(const arbiter::Endpoint& endpoint) const
 
 void Registry::merge(const Registry& other, Clipper& clipper)
 {
+    /*
     for (const auto& p : other.hierarchy().map())
     {
         const Dxyz& dxyz(p.first);
@@ -86,6 +87,7 @@ void Registry::merge(const Registry& other, Clipper& clipper)
             m_hierarchy.set(dxyz, np);
         }
     }
+    */
 }
 
 } // namespace entwine

@@ -191,7 +191,7 @@ Cell::PooledStack Binary::getCells(
         std::copy(pos + inXyzSize, pos + pointSize, *data + outXyzSize);
 
         assert(cell);
-        cell->val().set(pr, std::move(data));
+        cell->get().set(pr, std::move(data));
         cell = cell->next();
     }
 

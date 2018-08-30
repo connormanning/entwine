@@ -30,6 +30,7 @@
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/subset.hpp>
+#include <entwine/types/vector-point-table.hpp>
 #include <entwine/util/compression.hpp>
 #include <entwine/util/executor.hpp>
 #include <entwine/util/json.hpp>
@@ -238,7 +239,7 @@ void Builder::doRun(const std::size_t max)
     save();
 }
 
-void Builder::insertPath(const Origin origin, FileInfo& info)
+void Builder::insertPath(const Origin originId, FileInfo& info)
 {
     const std::string rawPath(info.path());
     std::size_t tries(0);
@@ -296,10 +297,12 @@ void Builder::insertPath(const Origin origin, FileInfo& info)
         }
     }
 
-    std::size_t inserted(0);
+    uint64_t inserted(0);
+    uint64_t pointId(0);
 
-    Clipper clipper(*m_registry, origin);
+    Clipper clipper(*m_registry, originId);
 
+    /*
     auto inserter([this, &clipper, &inserted]
     (Cell::PooledStack cells)
     {
@@ -315,11 +318,68 @@ void Builder::insertPath(const Origin origin, FileInfo& info)
 
         return insertData(std::move(cells), clipper);
     });
+    */
 
-    auto table(makeUnique<PooledPointTable>(*m_pointPool, inserter, origin));
+    // auto table(makeUnique<PooledPointTable>(*m_pointPool, inserter, origin));
 
+    VectorPointTable table(m_metadata->schema(), 4096);
+    table.setProcess([this, &table, &clipper, &inserted, &pointId, &originId]()
+    {
+        inserted += table.size();
+
+        if (inserted > m_sleepCount)
+        {
+            inserted = 0;
+            clipper.clip();
+        }
+
+        Voxel voxel;
+        Point& point(voxel.point());
+        Data::RawNode node;
+        voxel.stack().push(&node);
+
+        PointStats pointStats;
+        const Bounds& boundsConforming(m_metadata->boundsConforming());
+        const Bounds* boundsSubset(m_metadata->boundsSubset());
+
+        Key key(*m_metadata);
+
+        for (auto it(table.begin()); it != table.end(); ++it)
+        {
+            auto& ref(it.pointRef());
+            if (originId != invalidOrigin)
+            {
+                ref.setField(pdal::Dimension::Id::PointId, pointId);
+                ref.setField(pdal::Dimension::Id::OriginId, originId);
+                ++pointId;
+            }
+
+            *node = it.data();
+            voxel.point() = Point(
+                    ref.getFieldAs<double>(pdal::Dimension::Id::X),
+                    ref.getFieldAs<double>(pdal::Dimension::Id::Y),
+                    ref.getFieldAs<double>(pdal::Dimension::Id::Z));
+
+            if (boundsConforming.contains(point) &&
+                    (!boundsSubset || boundsSubset->contains(point)))
+            {
+                key.init(point);
+                m_registry->addPoint(voxel, key, clipper);
+                pointStats.addInsert();
+            }
+            else pointStats.addOutOfBounds();
+        }
+
+        if (originId != invalidOrigin)
+        {
+            m_metadata->mutableFiles().add(clipper.origin(), pointStats);
+        }
+    });
+
+    std::cout << "Running" << std::endl;
     if (!Executor::get().run(
-                *table,
+                // *table,
+                table,
                 localPath,
                 reprojection,
                 transformation))
@@ -328,6 +388,7 @@ void Builder::insertPath(const Origin origin, FileInfo& info)
     }
 }
 
+/*
 Cells Builder::insertData(Cells cells, Clipper& clipper)
 {
     PointStats pointStats;
@@ -377,6 +438,7 @@ Cells Builder::insertData(Cells cells, Clipper& clipper)
 
     return rejected;
 }
+*/
 
 void Builder::save()
 {

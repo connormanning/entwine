@@ -28,7 +28,7 @@ public:
             const Metadata& metadata,
             const std::string& filename,
             const Bounds& bounds,
-            Data::PooledStack data) const;
+            Data::RawStack data) const;
 
     virtual void write(
             const arbiter::Endpoint& out,

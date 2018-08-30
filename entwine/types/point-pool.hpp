@@ -38,6 +38,45 @@ public:
     Data() = delete;
 };
 
+class Voxel
+{
+public:
+    /*
+    Voxel() { }
+
+    Voxel(const Point& p, const char* data)
+        : m_point(p)
+        , m_data(data)
+    { }
+    */
+
+    /*
+    void set(const Point& p, Data::RawNode& node) // const char* data)
+    {
+        m_point = p;
+        // m_data = data;
+        m_stack.push(&node);
+    }
+    */
+    // const char* data() const { return m_data; }
+
+    Point& point() { return m_point; }
+    Data::RawStack& stack() { return m_stack; }
+
+    const Point& point() const { return m_point; }
+    const Data::RawStack& stack() const { return m_stack; }
+
+    bool accepts(const Voxel& other) const
+    {
+        return m_stack.empty() || point() == other.point();
+    }
+
+private:
+    Point m_point;
+    Data::RawStack m_stack;
+    // const char* m_data = nullptr;
+};
+
 class Cell
 {
 public:

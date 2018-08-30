@@ -13,7 +13,6 @@
 #include <cassert>
 #include <cstddef>
 #include <forward_list>
-#include <mutex>
 #include <stack>
 #include <unordered_map>
 #include <utility>
@@ -26,6 +25,7 @@
 #include <entwine/types/tube.hpp>
 #include <entwine/util/unique.hpp>
 
+#include <entwine/types/vector-point-table.hpp>
 #include <entwine/util/spin-lock.hpp>
 
 namespace entwine
@@ -60,7 +60,8 @@ public:
         void clear() { written = 0; read = 0; }
     };
 
-    bool insert(Cell::PooledNode& cell, const Key& key, Clipper& clipper);
+    // bool insert(Cell::PooledNode& cell, const Key& key, Clipper& clipper);
+    void insert(Voxel& voxel, Key& key, Clipper& clipper);
 
     void ref(Clipper& clipper);
     void unref(Origin o);
@@ -85,13 +86,12 @@ private:
     PointPool& m_pointPool;
     Hierarchy& m_hierarchy;
 
-    // std::mutex m_mutex;
-    SpinLock m_mutex;
+    SpinLock m_spin;
     std::unique_ptr<Chunk> m_chunk;
     std::map<Origin, std::size_t> m_refs;
 };
 
-class Voxel
+class ShallowVoxel
 {
 public:
     bool insert(const Point& p, const char* data)
@@ -100,7 +100,6 @@ public:
         {
             m_point = p;
             m_list.push_front(data);
-            // m_data.insert(m_data.end(), data, data + pointSize);
             return true;
         }
         return false;
@@ -108,16 +107,20 @@ public:
 
 private:
     Point m_point;
-    // std::vector<char> m_data;
     std::forward_list<const char*> m_list;
+};
+
+struct ShallowVoxelTube
+{
+    ShallowVoxelTube() { }
+
+    SpinLock spin;
+    std::map<uint64_t, ShallowVoxel> map;
 };
 
 struct VoxelTube
 {
-    VoxelTube() { }
-
-    // std::mutex mutex;
-    SpinLock mutex;
+    SpinLock spin;
     std::map<uint64_t, Voxel> map;
 };
 
@@ -126,9 +129,11 @@ class Chunk
 public:
     Chunk(const ReffedChunk& ref)
         : m_ref(ref)
-        , m_overflow(m_ref.pointPool().cellPool())
         , m_ticks(m_ref.metadata().ticks())
-        , m_dataPool(m_ref.pointPool().schema().pointSize(), 1024)
+        , m_overflowPool(m_ref.metadata().schema().pointSize(), 1024)
+        , m_overflowStack(m_overflowPool)
+        // , m_overflow(m_ref.pointPool().cellPool())
+        , m_dataPool(m_ref.metadata().schema().pointSize(), 4096)
         , m_stack(m_dataPool)
     {
         init();
@@ -151,7 +156,7 @@ public:
     void init()
     {
         assert(!m_keys);
-        assert(m_overflow.empty());
+        // assert(m_overflow.empty());
         assert(!m_overflowCount);
         m_grid = makeUnique<std::vector<VoxelTube>>(m_ticks * m_ticks);
         m_keys = makeUnique<std::vector<Key>>();
@@ -172,67 +177,68 @@ public:
         return result;
     }
 
-    Data::PooledStack acquireBinary()
+    Data::RawStack acquireBinary()
     {
-        m_grid.reset();
-        m_keys.reset();
-
-        if (m_overflowCount)
-        {
-            assert(!m_overflow.empty());
-            assert(!m_hasChildren);
-
-            for (auto& cell : m_overflow)
-            {
-                m_stack.push(cell.acquire());
-            }
-
-            m_overflowCount = 0;
-        }
-
         m_grid.reset();
         m_keys.reset();
 
         m_remote = true;
 
-        return std::move(m_stack);
+        Data::RawStack stack(m_stack.stack());
+        stack.push(m_overflowStack.stack());
+        return stack;
     }
 
     bool remote() const { return m_remote; }
 
-    bool insert(const Key& key, Cell::PooledNode& cell, Clipper& clipper)
+    void insert(Voxel& voxel, Key& key, Clipper& clipper)
     {
-        if (insertNative(key, cell))
+        if (!insertNative(voxel, key) && !insertOverflow(voxel, key, clipper))
         {
-            return true;
+            const auto dir(getDirection(key.bounds().mid(), voxel.point()));
+            key.step(dir);
+            m_children[toIntegral(dir)].insert(voxel, key, clipper);
         }
-
-        if (m_ref.key().depth() >= m_ref.metadata().overflowDepth())
-        {
-            return insertOverflow(key, cell, clipper);
-        }
-
-        return false;
     }
 
 private:
+    bool insertNative(Voxel& voxel, Key& key)
+    {
+        const Xyz& pos(key.position());
+        const std::size_t i((pos.y % m_ticks) * m_ticks + (pos.x % m_ticks));
+        VoxelTube& tube((*m_grid)[i]);
+
+        UniqueSpin tubeLock(tube.spin);
+        Voxel& current(tube.map[pos.z]);
+
+        if (current.accepts(voxel))
+        {
+            Data::PooledNode node(m_dataPool.acquireOne());
+            const char* src(**voxel.stack().head());
+            std::copy(src, src + m_ref.metadata().schema().pointSize(), *node);
+            current.stack().push(node.get());
+            return true;
+        }
+        return false;
+    }
+
+    /*
     bool insertNative(const Key& key, Cell::PooledNode& cell)
     {
         const Xyz& pos(key.position());
         const std::size_t i((pos.y % m_ticks) * m_ticks + (pos.x % m_ticks));
 
-        VoxelTube& tube((*m_grid)[i]);
+        ShallowVoxelTube& tube((*m_grid)[i]);
 
-        // std::lock_guard<std::mutex> tubeLock(tube.mutex);
-        SpinGuard tubeLock(tube.mutex);
-        Voxel& voxel(tube.map[pos.z]);
+        UniqueSpin tubeLock(tube.spin);
+        ShallowVoxel& voxel(tube.map[pos.z]);
+        // tubeLock.unlock();
 
         const char* data(cell->uniqueData());
 
         if (voxel.insert(cell->point(), data))
         {
-            // std::lock_guard<std::mutex> lock(m_mutex);
-            SpinGuard lock(m_mutex);
+            SpinGuard lock(m_spin);
 
             Data::PooledNode node(m_dataPool.acquireOne());
             std::copy(data, data + m_dataPool.bufferSize(), *node);
@@ -241,14 +247,46 @@ private:
         }
         return false;
     }
+    */
 
+    bool insertOverflow(Voxel& voxel, Key& key, Clipper& clipper)
+    {
+        if (m_ref.key().depth() < m_ref.metadata().overflowDepth())
+        {
+            return false;
+        }
+
+        SpinGuard lock(m_overflowSpin);
+        if (m_hasChildren) return false;
+
+        assert(m_keys);
+        Data::PooledNode node(m_overflowPool.acquireOne());
+        const char* src(**voxel.stack().head());
+        std::copy(src, src + m_ref.metadata().schema().pointSize(), *node);
+
+        Voxel v;
+        v.point() = voxel.point();
+        v.stack().push(node.get());
+
+        m_overflowStack.push(std::move(node));
+        m_overflow.push_back(v);
+        m_keys->push_back(key);
+
+        if (m_overflowStack.size() > m_ref.metadata().overflowThreshold())
+        {
+            doOverflow(clipper);
+        }
+
+        return true;
+    }
+
+    /*
     bool insertOverflow(
             const Key& key,
             Cell::PooledNode& cell,
             Clipper& clipper)
     {
-        // std::lock_guard<std::mutex> lock(m_overflowMutex);
-        SpinGuard lock(m_overflowMutex);
+        SpinGuard lock(m_overflowSpin);
         if (m_hasChildren) return false;
 
         assert(m_keys);
@@ -266,26 +304,35 @@ private:
 
         return true;
     }
+    */
 
     void doOverflow(Clipper& clipper);
 
     const ReffedChunk& m_ref;
     bool m_remote = false;
-
-    // std::mutex m_overflowMutex;
-    SpinLock m_overflowMutex;
-    bool m_hasChildren = false;
-    uint64_t m_overflowCount = 0;
-    Cell::PooledStack m_overflow;
-    std::unique_ptr<std::vector<Key>> m_keys;
-
     const uint64_t m_ticks;
 
+    SpinLock m_overflowSpin;
+    bool m_hasChildren = false;
+
+    Data::Pool m_overflowPool;
+    Data::PooledStack m_overflowStack;
+    std::vector<Voxel> m_overflow;
+    std::unique_ptr<std::vector<Key>> m_keys;
+
+
+    /*
+    Data::Pool m_overflowPool
+    Data::PooledStack m_overflowStack;
+    std::vector<ShallowVoxel> m_overflowShallowVoxels;
+    */
 
 
 
-    // mutable std::mutex m_mutex;
-    SpinLock m_mutex;
+
+
+
+    SpinLock m_spin;
     Data::Pool m_dataPool;
     Data::PooledStack m_stack;
     std::unique_ptr<std::vector<VoxelTube>> m_grid;

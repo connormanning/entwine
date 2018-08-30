@@ -1,5 +1,5 @@
 /******************************************************************************
-    Copyright (c) 2016 Connor Manning
+    Copyright (c) 2018 Connor Manning
 
     Permission is hereby granted, free of charge, to any person obtaining a
     copy of this software and associated documentation files (the "Software"),
@@ -22,6 +22,7 @@
 #pragma once
 
 #include <algorithm>
+#include <atomic>
 #include <cassert>
 #include <chrono>
 #include <deque>
@@ -45,7 +46,7 @@ class Node
     friend class Stack<T>;
 
 public:
-    explicit Node(Node* next = nullptr) : m_val(), m_next(next) { }
+    explicit Node(Node* next = nullptr) : m_next(next) { }
 
     template<class... Args>
     void construct(Args&&... args)
@@ -62,8 +63,8 @@ public:
     T& operator*() { return m_val; }
     const T& operator*() const { return m_val; }
 
-    T& val() { return m_val; }
-    const T& val() const { return m_val; }
+    T& get() { return m_val; }
+    const T& get() const { return m_val; }
 
     T* operator->() { return &m_val; }
     const T* operator->() const { return &m_val; }
@@ -339,7 +340,7 @@ public:
 
             while (current && i++ < maxElements)
             {
-                std::cout << current->val() << " ";
+                std::cout << current->get() << " ";
                 current = current->next();
             }
 
@@ -518,8 +519,8 @@ public:
     T& operator*() { return **m_node; }
     const T& operator*() const { return **m_node; }
 
-    T* operator->() { return &m_node->val(); }
-    const T* operator->() const { return &m_node->val(); }
+    T* operator->() { return &m_node->get(); }
+    const T* operator->() const { return &m_node->get(); }
 
     SplicePool<T>& pool() { return m_splicePool; }
     const SplicePool<T>& pool() const { return m_splicePool; }
@@ -709,6 +710,9 @@ public:
 
     SplicePool<T>& pool() { return m_splicePool; }
 
+    Stack<T>& stack() { return m_stack; }
+    const Stack<T>& stack() const { return m_stack; }
+
 private:
     UniqueStack(const UniqueStack&) = delete;
     UniqueStack& operator=(UniqueStack&) = delete;
@@ -716,6 +720,23 @@ private:
     SplicePool<T>& m_splicePool;
     Stack<T> m_stack;
 };
+
+class SpinLock
+{
+public:
+    SpinLock() = default;
+
+    void lock() { while (m_flag.test_and_set()) ; }
+    void unlock() { m_flag.clear(); }
+
+private:
+    std::atomic_flag m_flag = ATOMIC_FLAG_INIT;
+
+    SpinLock(const SpinLock& other) = delete;
+};
+
+using SpinGuard = std::lock_guard<SpinLock>;
+using UniqueSpin = std::unique_lock<SpinLock>;
 
 template<typename T>
 class SplicePool
@@ -727,13 +748,7 @@ public:
     using StackType = Stack<T>;
     using UniqueStackType = UniqueStack<T>;
 
-    SplicePool(std::size_t blockSize)
-        : m_blockSize(blockSize)
-        , m_stack()
-        , m_mutex()
-        , m_allocated(0)
-    { }
-
+    SplicePool(std::size_t blockSize) : m_blockSize(blockSize) { }
     virtual ~SplicePool() { }
 
     void clear()
@@ -747,7 +762,7 @@ public:
 
     std::size_t allocated() const
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        SpinGuard lock(m_spin);
         return m_allocated;
     }
 
@@ -758,7 +773,7 @@ public:
 
     std::size_t available() const
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        SpinGuard lock(m_spin);
         return m_stack.size();
     }
 
@@ -769,13 +784,13 @@ public:
     {
         if (node)
         {
-            reset(&node->val());
+            reset(&node->get());
 
             // TODO - For these single node releases, we could put them into a
             // separate Stack to avoid blocking the entire pool, and only reach
             // into it when some threshold is reached or the main stack is
             // empty.
-            std::lock_guard<std::mutex> lock(m_mutex);
+            SpinGuard lock(m_spin);
             m_stack.push(node);
         }
     }
@@ -786,11 +801,11 @@ public:
         {
             while (node)
             {
-                reset(&node->val());
+                reset(&node->get());
                 node = node->next();
             }
 
-            std::lock_guard<std::mutex> lock(m_mutex);
+            SpinGuard lock(m_spin);
             m_stack.push(other);
         }
     }
@@ -801,7 +816,7 @@ public:
         UniqueNodeType node(*this);
 
         {
-            std::lock_guard<std::mutex> lock(m_mutex);
+            SpinGuard lock(m_spin);
             node.reset(m_stack.pop());
         }
 
@@ -810,7 +825,7 @@ public:
             Stack<T> newStack(doAllocate(1));
             node.reset(newStack.pop());
 
-            std::lock_guard<std::mutex> lock(m_mutex);
+            SpinGuard lock(m_spin);
 
             m_allocated += m_blockSize;
             m_stack.push(newStack);
@@ -828,7 +843,7 @@ public:
     {
         UniqueStackType other(*this);
 
-        std::unique_lock<std::mutex> lock(m_mutex);
+        UniqueSpin lock(m_spin);
         if (count >= m_stack.size())
         {
             other = UniqueStackType(*this, std::move(m_stack));
@@ -879,20 +894,16 @@ private:
     SplicePool& operator=(const SplicePool&) = delete;
 
     Stack<T> m_stack;
-    mutable std::mutex m_mutex;
+    mutable SpinLock m_spin;
 
-    std::size_t m_allocated;
+    std::size_t m_allocated = 0;
 };
 
 template<typename T>
 class ObjectPool : public SplicePool<T>
 {
 public:
-    ObjectPool(std::size_t blockSize = 4096)
-        : SplicePool<T>(blockSize)
-        , m_blocks()
-        , m_mutex()
-    { }
+    ObjectPool(std::size_t blockSize = 4096) : SplicePool<T>(blockSize) { }
 
 private:
     virtual Stack<T> doAllocate(std::size_t blocks) override
@@ -917,7 +928,7 @@ private:
             }
         }
 
-        std::lock_guard<std::mutex> lock(m_mutex);
+        SpinGuard lock(m_spin);
 
         m_blocks.insert(
                 m_blocks.end(),
@@ -943,7 +954,7 @@ private:
     }
 
     std::deque<std::unique_ptr<std::vector<Node<T>>>> m_blocks;
-    mutable std::mutex m_mutex;
+    mutable SpinLock m_spin;
 };
 
 template<typename T>
@@ -954,9 +965,6 @@ public:
         : SplicePool<T*>(blockSize)
         , m_bufferSize(bufferSize)
         , m_bytesPerBlock(m_bufferSize * this->m_blockSize)
-        , m_bytes()
-        , m_nodes()
-        , m_mutex()
     { }
 
     std::size_t bufferSize() const { return m_bufferSize; }
@@ -989,12 +997,12 @@ private:
             for (std::size_t i(0); i < this->m_blockSize; ++i)
             {
                 Node<T*>& node(nodes[i]);
-                node.val() = &bytes[m_bufferSize * i];
+                node.get() = &bytes[m_bufferSize * i];
                 stack.push(&node);
             }
         }
 
-        std::lock_guard<std::mutex> lock(m_mutex);
+        SpinGuard lock(m_spin);
 
         m_bytes.insert(
                 m_bytes.end(),
@@ -1025,7 +1033,7 @@ private:
 
     std::deque<std::unique_ptr<std::vector<T>>> m_bytes;
     std::deque<std::unique_ptr<std::vector<Node<T*>>>> m_nodes;
-    mutable std::mutex m_mutex;
+    mutable SpinLock m_spin;
 };
 
 } // namespace splicer
