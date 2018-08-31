@@ -45,7 +45,9 @@ void Laz::write(
 
     ShallowPointTable table(schema, data);
     pdal::BufferReader reader;
-    reader.addView(std::make_shared<pdal::PointView>(table));
+    auto view(std::make_shared<pdal::PointView>(table));
+    for (std::size_t i(0); i < table.size(); ++i) view->getOrAddPoint(i);
+    reader.addView(view);
 
     const auto offset(bounds.mid().apply([](double d) {
         return std::floor(d);

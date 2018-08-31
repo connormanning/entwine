@@ -136,7 +136,6 @@ public:
         push(other.m_tail);
         m_head = other.head();
         m_size += other.size() - 1; // Tail has already been accounted for.
-        other.clear();
     }
 
     void pushBack(Node<T>* node)
@@ -158,7 +157,6 @@ public:
             m_tail->setNext(other.head());
             m_tail = other.tail();
             m_size += other.size();
-            other.clear();
         }
         else
         {
@@ -713,6 +711,9 @@ public:
     Stack<T>& stack() { return m_stack; }
     const Stack<T>& stack() const { return m_stack; }
 
+    Stack<T>& get() { return m_stack; }
+    const Stack<T>& get() const { return m_stack; }
+
 private:
     UniqueStack(const UniqueStack&) = delete;
     UniqueStack& operator=(UniqueStack&) = delete;
@@ -807,6 +808,7 @@ public:
 
             SpinGuard lock(m_spin);
             m_stack.push(other);
+            other.clear();
         }
     }
 

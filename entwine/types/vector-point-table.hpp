@@ -43,12 +43,16 @@ public:
 
     virtual pdal::PointId addPoint() override
     {
-        throw std::runtime_error("Cannot add points to ShallowPointTable");
+        // throw std::runtime_error("Cannot add points to ShallowPointTable");
+        return m_index++;
     }
 
+    std::size_t size() const { return m_stack.size(); }
+
 private:
-    Data::RawStack m_stack;
+    Data::RawStack& m_stack;
     std::vector<char*> m_refs;
+    std::size_t m_index = 0;
 };
 
 // For reading.
@@ -57,13 +61,14 @@ class VectorPointTable : public pdal::StreamPointTable
     using Process = std::function<void()>;
 
 public:
-    VectorPointTable(const Schema& schema, std::size_t initialNumPoints = 0)
+    VectorPointTable(const Schema& schema, std::size_t np)
         : pdal::StreamPointTable(schema.pdalLayout())
         , m_pointSize(schema.pointSize())
     {
-        resize(initialNumPoints);
+        m_data.resize(this->pointsToBytes(np), 0);
     }
 
+    /*
     VectorPointTable(const Schema& schema,  const std::vector<char>& data)
         : pdal::StreamPointTable(schema.pdalLayout())
         , m_pointSize(schema.pointSize())
@@ -77,9 +82,11 @@ public:
         , m_data(std::move(data))
         , m_size(m_data.size() / m_pointSize)
     { }
+    */
 
     std::size_t size() const { return m_size; }
-    pdal::point_count_t capacity() const override { return size(); }
+    pdal::point_count_t capacity() const override { return m_data.size() /
+        m_pointSize; }
 
     pdal::PointRef at(pdal::PointId index)
     {
@@ -111,12 +118,6 @@ public:
     const std::vector<char>& data() const { return m_data; }
 
     std::vector<char>&& acquire() { return std::move(m_data); }
-
-    void resize(std::size_t numPoints)
-    {
-        m_data.resize(this->pointsToBytes(numPoints), 0);
-        m_size = numPoints;
-    }
 
     void setProcess(Process f) { m_f =f; }
     void reset() override { m_f(); }
@@ -160,10 +161,17 @@ public:
     std::size_t pointSize() const { return m_pointSize; }
 
 private:
+    /*
     virtual pdal::PointId addPoint() override
     {
-        m_data.insert(m_data.end(), m_pointSize, 0);
+        // m_data.insert(m_data.end(), m_pointSize, 0);
         return m_size++;
+    }
+    */
+
+    virtual void setSize(pdal::PointId s) override
+    {
+        m_size = s;
     }
 
     VectorPointTable(const VectorPointTable&);

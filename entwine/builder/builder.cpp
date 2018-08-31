@@ -302,26 +302,6 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
 
     Clipper clipper(*m_registry, originId);
 
-    /*
-    auto inserter([this, &clipper, &inserted]
-    (Cell::PooledStack cells)
-    {
-        inserted += cells.size();
-
-        if (inserted > m_sleepCount)
-        {
-            inserted = 0;
-            const float available(m_pointPool->dataPool().available());
-            const float allocated(m_pointPool->dataPool().allocated());
-            if (available / allocated < 0.5) clipper.clip();
-        }
-
-        return insertData(std::move(cells), clipper);
-    });
-    */
-
-    // auto table(makeUnique<PooledPointTable>(*m_pointPool, inserter, origin));
-
     VectorPointTable table(m_metadata->schema(), 4096);
     table.setProcess([this, &table, &clipper, &inserted, &pointId, &originId]()
     {
@@ -347,18 +327,14 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
         for (auto it(table.begin()); it != table.end(); ++it)
         {
             auto& ref(it.pointRef());
-            if (originId != invalidOrigin)
-            {
-                ref.setField(pdal::Dimension::Id::PointId, pointId);
-                ref.setField(pdal::Dimension::Id::OriginId, originId);
-                ++pointId;
-            }
+            ref.setField(pdal::Dimension::Id::OriginId, originId);
+            ref.setField(pdal::Dimension::Id::PointId, pointId);
+            ++pointId;
 
             *node = it.data();
-            voxel.point() = Point(
-                    ref.getFieldAs<double>(pdal::Dimension::Id::X),
-                    ref.getFieldAs<double>(pdal::Dimension::Id::Y),
-                    ref.getFieldAs<double>(pdal::Dimension::Id::Z));
+            point.x = ref.getFieldAs<double>(pdal::Dimension::Id::X);
+            point.y = ref.getFieldAs<double>(pdal::Dimension::Id::Y);
+            point.z = ref.getFieldAs<double>(pdal::Dimension::Id::Z);
 
             if (boundsConforming.contains(point) &&
                     (!boundsSubset || boundsSubset->contains(point)))
@@ -367,7 +343,11 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
                 m_registry->addPoint(voxel, key, clipper);
                 pointStats.addInsert();
             }
-            else pointStats.addOutOfBounds();
+            else
+            {
+                std::cout << "OOB " << point << std::endl;
+                pointStats.addOutOfBounds();
+            }
         }
 
         if (originId != invalidOrigin)
@@ -376,9 +356,7 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
         }
     });
 
-    std::cout << "Running" << std::endl;
     if (!Executor::get().run(
-                // *table,
                 table,
                 localPath,
                 reprojection,
@@ -387,58 +365,6 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
         throw std::runtime_error("Failed to execute: " + rawPath);
     }
 }
-
-/*
-Cells Builder::insertData(Cells cells, Clipper& clipper)
-{
-    PointStats pointStats;
-    Cells rejected(m_pointPool->cellPool());
-
-    auto reject([&rejected](Cell::PooledNode& cell)
-    {
-        rejected.push(std::move(cell));
-    });
-
-    const Bounds& boundsConforming(m_metadata->boundsConforming());
-    const Bounds* boundsSubset(m_metadata->boundsSubset());
-
-    Key key(*m_metadata);
-
-    while (!cells.empty())
-    {
-        Cell::PooledNode cell(cells.popOne());
-        const Point& point(cell->point());
-
-        if (boundsConforming.contains(point))
-        {
-            if (!boundsSubset || boundsSubset->contains(point))
-            {
-                key.init(point);
-                m_registry->addPoint(cell, key, clipper);
-                pointStats.addInsert();
-            }
-            else
-            {
-                reject(cell);
-                std::cout << "J " << point << " " << boundsConforming << std::endl;
-            }
-        }
-        else
-        {
-            std::cout << "R " << point << " " << boundsConforming << std::endl;
-            reject(cell);
-            pointStats.addOutOfBounds();
-        }
-    }
-
-    if (clipper.origin() != invalidOrigin)
-    {
-        m_metadata->mutableFiles().add(clipper.origin(), pointStats);
-    }
-
-    return rejected;
-}
-*/
 
 void Builder::save()
 {

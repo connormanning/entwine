@@ -51,17 +51,6 @@ ReffedChunk::ReffedChunk(const ReffedChunk& o)
 
 ReffedChunk::~ReffedChunk() { }
 
-/*
-bool ReffedChunk::insert(
-        Cell::PooledNode& cell,
-        const Key& key,
-        Clipper& clipper)
-{
-    if (clipper.insert(*this)) ref(clipper);
-    return m_chunk->insert(key, cell, clipper);
-}
-*/
-
 void ReffedChunk::insert(Voxel& voxel, Key& key, Clipper& clipper)
 {
     if (clipper.insert(*this)) ref(clipper);
@@ -97,6 +86,8 @@ void ReffedChunk::ref(Clipper& clipper)
                     ++info.read;
                 }
 
+                // TODO We should read directly into our Chunk's DataPool to
+                // avoid an initial copy.
                 Cells cells = m_metadata.dataIo().read(
                         m_out,
                         m_tmp,
@@ -120,14 +111,6 @@ void ReffedChunk::ref(Clipper& clipper)
                     voxel.point() = cell->point();
 
                     insert(voxel, pk, clipper);
-
-                    /*
-                    if (!insert(voxel, pk, clipper))
-                    {
-                        throw std::runtime_error(
-                                "Invalid wakeup: " + m_key.toString());
-                    }
-                    */
                 }
             }
         }
@@ -158,7 +141,7 @@ void ReffedChunk::unref(const Origin o)
                     m_metadata,
                     m_key.toString() + m_metadata.postfix(m_key.depth()),
                     m_key.bounds(),
-                    std::move(data));
+                    data);
 
             SpinGuard lock(spin);
             ++info.written;
@@ -188,47 +171,6 @@ ReffedChunk::Info ReffedChunk::latchInfo()
     Info result(info);
     info.clear();
     return result;
-}
-
-void Chunk::doOverflow(Clipper& clipper)
-{
-    m_hasChildren = true;
-
-    for (std::size_t i(0); i < m_overflow.size(); ++i)
-    {
-        Voxel& voxel(m_overflow[i]);
-        Key& key((*m_keys)[i]);
-        const auto dir(getDirection(key.bounds().mid(), voxel.point()));
-        key.step(dir);
-        m_children[toIntegral(dir)].insert(voxel, key, clipper);
-    }
-
-    m_keys.reset();
-    m_overflow.clear(); // TODO reset.
-    m_overflowStack.reset();
-
-    /*
-    while (!m_overflow.empty())
-    {
-        auto cell(m_overflow.popOne());
-        Key& key(m_keys->back());
-        key.step(cell->point());
-
-        if (!step(cell->point()).insert(cell, key, clipper))
-        {
-            throw std::runtime_error("Invalid overflow");
-        }
-
-        m_keys->pop_back();
-        assert(m_overflow.size() == m_keys->size());
-    }
-
-    assert(m_overflow.empty());
-    assert(m_keys->empty());
-    */
-
-    m_keys.reset();
-    // m_overflowCount = 0;
 }
 
 } // namespace entwine

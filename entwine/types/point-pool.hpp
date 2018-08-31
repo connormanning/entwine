@@ -41,40 +41,39 @@ public:
 class Voxel
 {
 public:
-    /*
-    Voxel() { }
-
-    Voxel(const Point& p, const char* data)
-        : m_point(p)
-        , m_data(data)
-    { }
-    */
-
-    /*
-    void set(const Point& p, Data::RawNode& node) // const char* data)
-    {
-        m_point = p;
-        // m_data = data;
-        m_stack.push(&node);
-    }
-    */
-    // const char* data() const { return m_data; }
-
     Point& point() { return m_point; }
     Data::RawStack& stack() { return m_stack; }
 
     const Point& point() const { return m_point; }
     const Data::RawStack& stack() const { return m_stack; }
+    uint64_t size() const { return m_stack.size(); }
 
     bool accepts(const Voxel& other) const
     {
         return m_stack.empty() || point() == other.point();
     }
 
+    Data::PooledStack push(Voxel& other, Data::Pool& pool)
+    {
+        if (m_stack.empty()) m_point = other.point();
+        else assert(m_point == other.point());
+
+        Data::PooledStack stack(pool.acquire(other.size()));
+        Data::RawNode* src(other.stack().head());
+        for (char* dst : stack)
+        {
+            const char* a(src->get());
+            std::copy(a, a + pool.bufferSize(), dst);
+            src = src->next();
+        }
+
+        m_stack.push(stack.get());
+        return stack;
+    }
+
 private:
     Point m_point;
     Data::RawStack m_stack;
-    // const char* m_data = nullptr;
 };
 
 class Cell
