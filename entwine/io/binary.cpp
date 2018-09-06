@@ -15,6 +15,7 @@
 #include <entwine/types/binary-point-table.hpp>
 #include <entwine/util/executor.hpp>
 
+/*
 namespace entwine
 {
 
@@ -202,4 +203,5 @@ Cell::PooledStack Binary::getCells(
 }
 
 } // namespace entwine
+*/
 

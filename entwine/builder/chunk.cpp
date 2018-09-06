@@ -26,13 +26,11 @@ ReffedChunk::ReffedChunk(
         const ChunkKey& key,
         const arbiter::Endpoint& out,
         const arbiter::Endpoint& tmp,
-        PointPool& pointPool,
         Hierarchy& hierarchy)
     : m_key(key)
     , m_metadata(m_key.metadata())
     , m_out(out)
     , m_tmp(tmp)
-    , m_pointPool(pointPool)
     , m_hierarchy(hierarchy)
 { }
 
@@ -41,7 +39,6 @@ ReffedChunk::ReffedChunk(const ReffedChunk& o)
             o.key(),
             o.out(),
             o.tmp(),
-            o.pointPool(),
             o.hierarchy())
 {
     // This happens only during the constructor of the chunk.
@@ -86,32 +83,23 @@ void ReffedChunk::ref(Clipper& clipper)
                     ++info.read;
                 }
 
-                // TODO We should read directly into our Chunk's DataPool to
-                // avoid an initial copy.
-                Cells cells = m_metadata.dataIo().read(
-                        m_out,
-                        m_tmp,
-                        m_pointPool,
-                        m_key.toString() + m_metadata.postfix(m_key.depth()));
-
-                assert(cells.size() == np);
-
-                Key pk(m_metadata);
-
-                Voxel voxel;
-                Data::RawNode node;
-                voxel.stack().push(&node);
-
-                while (!cells.empty())
+                VectorPointTable table(m_metadata.schema());
+                table.setProcess([this, &table, &clipper]()
                 {
-                    auto cell(cells.popOne());
-                    pk.init(cell->point(), m_key.depth());
+                    Voxel voxel;
+                    Key pk(m_metadata);
 
-                    *node = cell->uniqueData();
-                    voxel.point() = cell->point();
+                    for (auto it(table.begin()); it != table.end(); ++it)
+                    {
+                        voxel.initShallow(it.pointRef(), it.data());
+                        pk.init(voxel.point(), m_key.depth());
+                        insert(voxel, pk, clipper);
+                    }
+                });
 
-                    insert(voxel, pk, clipper);
-                }
+                const auto filename(
+                        m_key.toString() + m_metadata.postfix(m_key.depth()));
+                m_metadata.dataIo().read(m_out, m_tmp, filename, table);
             }
         }
     }
@@ -130,18 +118,22 @@ void ReffedChunk::unref(const Origin o)
         m_refs.erase(o);
         if (m_refs.empty())
         {
-            Data::RawStack data(m_chunk->acquireBinary());
-            const uint64_t np(data.size());
+            BlockPointTable table(
+                    m_metadata.schema(),
+                    m_chunk->gridBlock(),
+                    m_chunk->overflowBlock());
 
-            m_hierarchy.set(m_key.get(), np);
+            m_hierarchy.set(m_key.get(), table.size());
 
-            reinterpret_cast<const Laz&>(m_metadata.dataIo()).write(
+            static_cast<const Laz&>(m_metadata.dataIo()).write(
                     m_out,
                     m_tmp,
                     m_metadata,
                     m_key.toString() + m_metadata.postfix(m_key.depth()),
                     m_key.bounds(),
-                    data);
+                    table);
+
+            m_chunk->reset();
 
             SpinGuard lock(spin);
             ++info.written;

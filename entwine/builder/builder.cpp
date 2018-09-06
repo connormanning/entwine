@@ -48,12 +48,12 @@ namespace
     std::size_t reawakened(0);
 }
 
-Builder::Builder(const Config& config, OuterScope os)
+Builder::Builder(const Config& config, std::shared_ptr<arbiter::Arbiter> a)
     : m_config(entwine::merge(
                 Config::defaults(),
                 Config::defaultBuildParams(),
                 config.prepare().json()))
-    , m_arbiter(os.getArbiter(m_config["arbiter"]))
+    , m_arbiter(a ? a : std::make_shared<arbiter::Arbiter>(m_config["arbiter"]))
     , m_out(makeUnique<Endpoint>(m_arbiter->getEndpoint(m_config.output())))
     , m_tmp(makeUnique<Endpoint>(m_arbiter->getEndpoint(m_config.tmp())))
     , m_threadPools(
@@ -65,12 +65,10 @@ Builder::Builder(const Config& config, OuterScope os)
     , m_metadata(m_isContinuation ?
             makeUnique<Metadata>(*m_out, m_config) :
             makeUnique<Metadata>(m_config))
-    , m_pointPool(os.getPointPool(m_metadata->schema()))
     , m_registry(makeUnique<Registry>(
                 *m_metadata,
                 *m_out,
                 *m_tmp,
-                *m_pointPool,
                 *m_threadPools,
                 m_isContinuation))
     , m_sequence(makeUnique<Sequence>(*m_metadata, m_mutex))
@@ -105,7 +103,7 @@ void Builder::go(std::size_t max)
     p.add([this, &done, &files, alreadyInserted]()
     {
         using ms = std::chrono::milliseconds;
-        const std::size_t interval(10);
+        const std::size_t interval(2);
         std::size_t last(0);
 
         const double totalPoints(files.totalPoints());
@@ -125,11 +123,6 @@ void Builder::go(std::size_t max)
                         (files.pointStats().inserts() + alreadyInserted) /
                         totalPoints);
 
-                const auto& d(pointPool().dataPool());
-
-                const std::size_t used(
-                        100.0 - 100.0 * d.available() / (double)d.allocated());
-
                 const auto info(ReffedChunk::latchInfo());
                 reawakened += info.read;
 
@@ -139,10 +132,8 @@ void Builder::go(std::size_t max)
                         " T: " << commify(s) << "s" <<
                         " R: " << commify(inserts * 3600.0 / s / 1000000.0) <<
                             "(" << commify((inserts - last) *
-                                        3600.0 / 10.0 / 1000000.0) << ")" <<
+                                        3600.0 / interval / 1000000.0) << ")" <<
                             "M/h" <<
-                        " A: " << commify(d.allocated()) <<
-                        " U: " << used << "%"  <<
                         " I: " << commify(inserts) <<
                         " P: " << std::round(progress * 100.0) << "%" <<
                         " W: " << info.written <<
@@ -162,7 +153,6 @@ void Builder::cycle()
 {
     if (verbose()) std::cout << "\tCycling memory pool" << std::endl;
     m_threadPools->cycle();
-    m_pointPool->clear();
     m_reset = now();
     if (verbose()) std::cout << "\tCycled" << std::endl;
 }
@@ -176,6 +166,7 @@ void Builder::doRun(const std::size_t max)
 
     while (auto o = m_sequence->next(max))
     {
+        /*
         if (
                 (m_resetFiles && m_sequence->added() > m_resetFiles &&
                      (m_sequence->added() - 1) % m_resetFiles == 0) ||
@@ -183,6 +174,7 @@ void Builder::doRun(const std::size_t max)
         {
             cycle();
         }
+        */
 
         const Origin origin(*o);
         FileInfo& info(m_metadata->mutableFiles().get(origin));
@@ -314,9 +306,6 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
         }
 
         Voxel voxel;
-        Point& point(voxel.point());
-        Data::RawNode node;
-        voxel.stack().push(&node);
 
         PointStats pointStats;
         const Bounds& boundsConforming(m_metadata->boundsConforming());
@@ -326,15 +315,13 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
 
         for (auto it(table.begin()); it != table.end(); ++it)
         {
-            auto& ref(it.pointRef());
-            ref.setField(pdal::Dimension::Id::OriginId, originId);
-            ref.setField(pdal::Dimension::Id::PointId, pointId);
+            auto& pr(it.pointRef());
+            pr.setField(pdal::Dimension::Id::OriginId, originId);
+            pr.setField(pdal::Dimension::Id::PointId, pointId);
             ++pointId;
 
-            *node = it.data();
-            point.x = ref.getFieldAs<double>(pdal::Dimension::Id::X);
-            point.y = ref.getFieldAs<double>(pdal::Dimension::Id::Y);
-            point.z = ref.getFieldAs<double>(pdal::Dimension::Id::Z);
+            voxel.initShallow(it.pointRef(), it.data());
+            const Point& point(voxel.point());
 
             if (boundsConforming.contains(point) &&
                     (!boundsSubset || boundsSubset->contains(point)))
@@ -345,7 +332,6 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
             }
             else
             {
-                std::cout << "OOB " << point << std::endl;
                 pointStats.addOutOfBounds();
             }
         }
@@ -381,7 +367,6 @@ void Builder::save(const arbiter::Endpoint& ep)
     m_threadPools->join();
     m_threadPools->workPool().resize(m_threadPools->size());
     m_threadPools->go();
-    m_pointPool->clear();
 
     if (verbose()) std::cout << "Reawakened: " << reawakened << std::endl;
 
@@ -457,12 +442,6 @@ Sequence& Builder::sequence() { return *m_sequence; }
 const Sequence& Builder::sequence() const { return *m_sequence; }
 
 ThreadPools& Builder::threadPools() const { return *m_threadPools; }
-
-PointPool& Builder::pointPool() const { return *m_pointPool; }
-std::shared_ptr<PointPool> Builder::sharedPointPool() const
-{
-    return m_pointPool;
-}
 
 const arbiter::Endpoint& Builder::outEndpoint() const { return *m_out; }
 const arbiter::Endpoint& Builder::tmpEndpoint() const { return *m_tmp; }

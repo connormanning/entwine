@@ -46,8 +46,6 @@ class Node
     friend class Stack<T>;
 
 public:
-    explicit Node(Node* next = nullptr) : m_next(next) { }
-
     template<class... Args>
     void construct(Args&&... args)
     {
@@ -69,14 +67,19 @@ public:
     T* operator->() { return &m_val; }
     const T* operator->() const { return &m_val; }
 
+    Node* prev() { return m_prev; }
+    const Node* prev() const { return m_prev; }
+
     Node* next() { return m_next; }
     const Node* next() const { return m_next; }
 
 private:
+    void setPrev(Node* node) { m_prev = node; }
     void setNext(Node* node) { m_next = node; }
 
     T m_val;
-    Node* m_next;
+    Node* m_prev = nullptr;
+    Node* m_next = nullptr;
 };
 
 template<typename T>
@@ -85,39 +88,6 @@ class Stack
     friend class UniqueStack<T>;
 
 public:
-    Stack() : m_tail(nullptr), m_head(nullptr), m_size(0) { }
-
-    Stack(const Stack& other)
-        : m_tail(other.m_tail)
-        , m_head(other.m_head)
-        , m_size(other.m_size)
-    { }
-
-    Stack& operator=(const Stack& other)
-    {
-        m_tail = other.m_tail;
-        m_head = other.m_head;
-        m_size = other.m_size;
-        return *this;
-    }
-
-    Stack(Stack&& other)
-        : m_tail(other.m_tail)
-        , m_head(other.m_head)
-        , m_size(other.m_size)
-    {
-        other.clear();
-    }
-
-    Stack& operator=(Stack&& other)
-    {
-        m_tail = other.m_tail;
-        m_head = other.m_head;
-        m_size = other.m_size;
-        other.clear();
-        return *this;
-    }
-
     void push(Node<T>* node)
     {
         assert(!m_tail || m_size);
@@ -136,158 +106,6 @@ public:
         push(other.m_tail);
         m_head = other.head();
         m_size += other.size() - 1; // Tail has already been accounted for.
-    }
-
-    void pushBack(Node<T>* node)
-    {
-        // The incoming node will be our new tail - make sure it ends the chain.
-        node->setNext(nullptr);
-
-        if (empty()) m_head = node;
-        else m_tail->setNext(node);
-
-        m_tail = node;
-        ++m_size;
-    }
-
-    void pushBack(Stack& other)
-    {
-        if (!empty())
-        {
-            m_tail->setNext(other.head());
-            m_tail = other.tail();
-            m_size += other.size();
-        }
-        else
-        {
-            push(other);
-        }
-    }
-
-    template <typename Compare>
-    bool sortedBy(Compare compare)
-    {
-        Node<T>* node(m_head);
-
-        while (node)
-        {
-            if (node->next() && compare(**node->next(), **node))
-            {
-                return false;
-            }
-
-            node = node->next();
-        }
-
-        return true;
-    }
-
-    // Preconditions: this stack is sorted according to this comparator.
-    //
-    // This operation has complexity O(n), n being the stack size.
-    template <typename Compare>
-    void push(Node<T>* node, Compare compare)
-    {
-        assert(sortedBy(compare));
-
-        if (empty() || compare(**node, **m_head))
-        {
-            push(node);
-        }
-        else
-        {
-            Node<T>* before(m_head);
-
-            while (before->next() && compare(**before->next(), **node))
-            {
-                before = before->next();
-            }
-
-            node->setNext(before->next());
-            before->setNext(node);
-
-            ++m_size;
-        }
-    }
-
-    // Preconditions: both this stack, and the incoming stack, are sorted
-    // according to this comparator.
-    //
-    // This operation has complexity O(m * n), where m and n are the sizes of
-    // the stacks.  It is intended only for stacks known to be small.
-    template <typename Compare>
-    void push(Stack& other, Compare compare)
-    {
-        assert(sortedBy(compare));
-        assert(other.sortedBy(compare));
-
-        Node<T>* a(m_head);
-        Node<T>* b(other.head());
-
-        if (!a)
-        {
-            *this = other;
-            return;
-        }
-        else if (!b)
-        {
-            return;
-        }
-
-        // Insert whatever we can from B prior to the start of A.
-        if (compare(**b, **a))
-        {
-            while (b->next() && compare(**b->next(), **a))
-            {
-                b = b->next();
-            }
-
-            Node<T>* nextB(b->next());
-            b->setNext(m_head);
-            b = nextB;
-
-            m_head = other.head();
-        }
-
-        // At the top of this loop, the position of B needs to be inserted
-        // somewhere (but not necessarily immediately) after the position of A.
-        while (a && b)
-        {
-            // Either A < B, or !(B < A), i.e. A <= B.
-            assert(compare(**a, **b) || !compare(**b, **a));
-
-            // First, progress A to the point at which B should be inserted
-            // immediately after A.
-            while (a->next() && compare(**a->next(), **b))
-            {
-                a = a->next();
-            }
-
-            // Then, insert the range starting with B, to the position ahead of
-            // B (e.g. B + n) such that compare(*(B + n), A.next()) == true.
-            Node<T>* nextA(a->next());
-            a->setNext(b);
-            a = nextA;
-
-            if (a)
-            {
-                // Splice the applicable range from B into A.
-                while (b->next() && compare(**b->next(), **a))
-                {
-                    b = b->next();
-                }
-
-                Node<T>* nextB(b->next());
-                b->setNext(a);
-                b = nextB;
-            }
-        }
-
-        // If B is at the end, then the insertion is complete.  Otherwise,
-        // the rest of B needs to be appended to our tail.
-        if (b) m_tail = other.tail();
-
-        m_size += other.size();
     }
 
     Node<T>* pop()
@@ -454,9 +272,9 @@ private:
     Node<T>* tail() { return m_tail; }
     const Node<T>* tail() const { return m_tail; }
 
-    Node<T>* m_tail;
-    Node<T>* m_head;
-    std::size_t m_size;
+    Node<T>* m_tail = nullptr;
+    Node<T>* m_head = nullptr;
+    std::size_t m_size = 0;
 };
 
 template<typename T>
@@ -620,46 +438,6 @@ public:
     {
         Stack<T> pushing(other.release());
         m_stack.pushBack(pushing);
-    }
-
-    // Push sorted.
-    template <typename Compare>
-    void push(Node<T>* node, Compare compare)
-    {
-        m_stack.push(node, compare);
-    }
-
-    template <typename Compare>
-    void push(Stack<T>& other, Compare compare)
-    {
-        m_stack.push(other, compare);
-    }
-
-    template <typename Compare>
-    void push(Stack<T>&& other, Compare compare)
-    {
-        m_stack.push(other, compare);
-        other.clear();
-    }
-
-    template <typename Compare>
-    void push(UniqueNodeType&& node, Compare compare)
-    {
-        Node<T>* pushing(node.release());
-        m_stack.push(pushing, compare);
-    }
-
-    template <typename Compare>
-    void push(UniqueStack&& other, Compare compare)
-    {
-        Stack<T> pushing(other.release());
-        m_stack.push(pushing, compare);
-    }
-
-    template <typename Compare>
-    bool sortedBy(Compare compare)
-    {
-        return m_stack.sortedBy(compare);
     }
 
     UniqueNodeType popOne()

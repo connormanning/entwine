@@ -9,6 +9,7 @@
 ******************************************************************************/
 
 #pragma once
+/*
 
 #include <algorithm>
 #include <cstddef>
@@ -63,4 +64,5 @@ public:
 };
 
 } // namespace entwine
+*/
 

@@ -15,6 +15,7 @@
 
 #include <entwine/formats/cesium/tileset.hpp>
 #include <entwine/types/key.hpp>
+#include <entwine/types/vector-point-table.hpp>
 
 namespace entwine
 {
@@ -34,9 +35,9 @@ public:
     std::vector<char> build();
 
 private:
-    Xyz buildXyz(const Cell::PooledStack& cells) const;
-    Rgb buildRgb(const Cell::PooledStack& cells) const;
-    Normals buildNormals(const Cell::PooledStack& cells) const;
+    Xyz buildXyz(const VectorPointTable& table) const;
+    Rgb buildRgb(const VectorPointTable& table) const;
+    Normals buildNormals(const VectorPointTable& table) const;
 
     std::vector<char> buildFile(
             const Xyz& xyz,

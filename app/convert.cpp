@@ -69,6 +69,7 @@ void Convert::addArgs()
 
 void Convert::run()
 {
+    /*
     cesium::Tileset tileset(m_json);
 
     std::cout << "Converting:" << std::endl;
@@ -83,6 +84,7 @@ void Convert::run()
     std::cout << "Running..." << std::endl;
     tileset.build();
     std::cout << "\tDone." << std::endl;
+    */
 }
 
 } // namespace app

@@ -9,6 +9,7 @@
 ******************************************************************************/
 
 #pragma once
+/*
 
 #include <cstddef>
 #include <cstdint>
@@ -104,4 +105,5 @@ private:
 };
 
 } // namespace entwine
+*/
 

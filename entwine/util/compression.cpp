@@ -8,6 +8,7 @@
 *
 ******************************************************************************/
 
+/*
 #include <entwine/util/compression.hpp>
 
 #include <cassert>
@@ -149,4 +150,5 @@ Cell::PooledStack Compression::decompress(
 }
 
 } // namespace entwine
+*/
 

@@ -24,16 +24,67 @@
 namespace entwine
 {
 
-// For writing.
-class ShallowPointTable : public pdal::SimplePointTable
+class MemBlock
 {
 public:
-    ShallowPointTable(const Schema& schema, Data::RawStack& stack)
-        : SimplePointTable(schema.pdalLayout())
-        , m_stack(stack)
+    using Block = std::vector<char>;
+
+    MemBlock(uint64_t pointSize, uint64_t pointsPerBlock)
+        : m_pointSize(pointSize)
+        , m_pointsPerBlock(pointsPerBlock)
+        , m_bytesPerBlock(m_pointsPerBlock * m_pointSize)
     {
-        m_refs.reserve(m_stack.size());
-        for (char* p : stack) m_refs.push_back(p);
+        m_blocks.reserve(8);
+        m_refs.reserve(m_pointsPerBlock);
+    }
+
+    char* next()
+    {
+        if (m_pos == m_end)
+        {
+            m_blocks.emplace_back(Block(m_bytesPerBlock));
+            m_pos = m_blocks.back().data();
+            m_end = m_pos + m_bytesPerBlock;
+        }
+
+        char* result(m_pos);
+        m_refs.push_back(m_pos);
+        m_pos += m_pointSize;
+        return result;
+    }
+
+    uint64_t size() const { return m_refs.size(); }
+    const std::vector<char*>& refs() const { return m_refs; }
+    void clear()
+    {
+        m_blocks.clear();
+        m_pos = nullptr;
+        m_end = nullptr;
+        m_refs.clear();
+    }
+
+private:
+    const uint64_t m_pointSize;
+    const uint64_t m_pointsPerBlock;
+    const uint64_t m_bytesPerBlock;
+
+    std::vector<Block> m_blocks;
+    char* m_pos = nullptr;
+    char* m_end = nullptr;
+
+    std::vector<char*> m_refs;
+};
+
+// For writing.
+class BlockPointTable : public pdal::SimplePointTable
+{
+public:
+    BlockPointTable(const Schema& schema, MemBlock& a, MemBlock& b)
+        : SimplePointTable(schema.pdalLayout())
+    {
+        m_refs.reserve(a.size() + b.size());
+        m_refs.insert(m_refs.end(), a.refs().begin(), a.refs().end());
+        m_refs.insert(m_refs.end(), b.refs().begin(), b.refs().end());
     }
 
     virtual char* getPoint(pdal::PointId index) override
@@ -41,18 +92,13 @@ public:
         return m_refs[index];
     }
 
-    virtual pdal::PointId addPoint() override
-    {
-        // throw std::runtime_error("Cannot add points to ShallowPointTable");
-        return m_index++;
-    }
-
-    std::size_t size() const { return m_stack.size(); }
+    virtual pdal::PointId addPoint() override { return m_index++; }
+    virtual bool supportsView() const override { return true; }
+    uint64_t size() const { return m_refs.size(); }
 
 private:
-    Data::RawStack& m_stack;
     std::vector<char*> m_refs;
-    std::size_t m_index = 0;
+    uint64_t m_index = 0;
 };
 
 // For reading.
@@ -61,20 +107,12 @@ class VectorPointTable : public pdal::StreamPointTable
     using Process = std::function<void()>;
 
 public:
-    VectorPointTable(const Schema& schema, std::size_t np)
+    VectorPointTable(const Schema& schema, std::size_t np = 4096)
         : pdal::StreamPointTable(schema.pdalLayout())
         , m_pointSize(schema.pointSize())
     {
         m_data.resize(this->pointsToBytes(np), 0);
     }
-
-    /*
-    VectorPointTable(const Schema& schema,  const std::vector<char>& data)
-        : pdal::StreamPointTable(schema.pdalLayout())
-        , m_pointSize(schema.pointSize())
-        , m_data(data)
-        , m_size(m_data.size() / m_pointSize)
-    { }
 
     VectorPointTable(const Schema& schema, std::vector<char>&& data)
         : pdal::StreamPointTable(schema.pdalLayout())
@@ -82,11 +120,13 @@ public:
         , m_data(std::move(data))
         , m_size(m_data.size() / m_pointSize)
     { }
-    */
 
     std::size_t size() const { return m_size; }
-    pdal::point_count_t capacity() const override { return m_data.size() /
-        m_pointSize; }
+
+    pdal::point_count_t capacity() const override
+    {
+        return m_data.size() / m_pointSize;
+    }
 
     pdal::PointRef at(pdal::PointId index)
     {
@@ -164,7 +204,7 @@ private:
     /*
     virtual pdal::PointId addPoint() override
     {
-        // m_data.insert(m_data.end(), m_pointSize, 0);
+        m_data.insert(m_data.end(), m_pointSize, 0);
         return m_size++;
     }
     */

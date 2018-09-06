@@ -24,8 +24,10 @@ namespace entwine
 std::unique_ptr<DataIo> DataIo::create(const Metadata& m, std::string type)
 {
     if (type == "laszip") return makeUnique<Laz>(m);
+    /*
     if (type == "binary") return makeUnique<Binary>(m);
     if (type == "zstandard") return makeUnique<Zstandard>(m);
+    */
     throw std::runtime_error("Invalid data IO type: " + type);
 }
 

@@ -10,6 +10,7 @@
 
 #pragma once
 
+/*
 #include <array>
 #include <cassert>
 
@@ -223,4 +224,5 @@ private:
 };
 
 } // namespace entwine
+*/
 

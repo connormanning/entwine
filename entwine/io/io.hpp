@@ -19,6 +19,7 @@
 #include <entwine/io/ensure.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/point-pool.hpp>
+#include <entwine/types/vector-point-table.hpp>
 
 namespace entwine
 {
@@ -36,16 +37,18 @@ public:
     virtual void write(
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
-            PointPool& pointPool,
+            const Metadata& metadata,
             const std::string& filename,
-            Cell::PooledStack&& cells,
-            uint64_t np) const = 0;
+            const Bounds& bounds,
+            BlockPointTable& table) const
+    { }
 
-    virtual Cell::PooledStack read(
+    virtual void read(
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
-            PointPool& pointPool,
-            const std::string& filename) const = 0;
+            const std::string& filename,
+            VectorPointTable& table) const
+    { }
 
 protected:
     const Metadata& m_metadata;

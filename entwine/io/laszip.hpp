@@ -22,27 +22,19 @@ public:
 
     virtual std::string type() const override { return "laszip"; }
 
-    void write(
+    virtual void write(
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
             const Metadata& metadata,
             const std::string& filename,
             const Bounds& bounds,
-            Data::RawStack data) const;
+            BlockPointTable& table) const override;
 
-    virtual void write(
+    virtual void read(
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
-            PointPool& pointPool,
             const std::string& filename,
-            Cell::PooledStack&& cells,
-            uint64_t np) const override;
-
-    virtual Cell::PooledStack read(
-            const arbiter::Endpoint& out,
-            const arbiter::Endpoint& tmp,
-            PointPool& pointPool,
-            const std::string& filename) const override;
+            VectorPointTable& table) const override;
 };
 
 } // namespace entwine

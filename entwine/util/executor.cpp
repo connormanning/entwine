@@ -19,6 +19,7 @@
 #include <pdal/io/BufferReader.hpp>
 #include <pdal/io/LasReader.hpp>
 
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/util/unique.hpp>
@@ -150,6 +151,9 @@ std::unique_ptr<Preview> Executor::preview(
     }
     else
     {
+        // TODO.
+        //
+        /*
         using D = pdal::Dimension::Id;
         const Schema xyzSchema({ { D::X }, { D::Y }, { D::Z } });
         PointPool pointPool(xyzSchema);
@@ -174,6 +178,7 @@ std::unique_ptr<Preview> Executor::preview(
                 p.dimNames.push_back(d.first);
             }
         }
+        */
     }
 
     if (!p.numPoints) p.bounds = Bounds();

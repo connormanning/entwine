@@ -172,6 +172,8 @@ void Scan::add(FileInfo& f, const std::string localPath)
         m_scale = Point::min(m_scale, scale);
     }
 
+    std::cout << "TODO Scan::add" << std::endl;
+    /*
     if (!m_in.trustHeaders())
     {
         Bounds bounds(Bounds::expander());
@@ -198,6 +200,7 @@ void Scan::add(FileInfo& f, const std::string localPath)
             f.bounds(bounds);
         }
     }
+    */
 }
 
 Config Scan::aggregate()

@@ -27,24 +27,27 @@ Pnts::Pnts(const Tileset& tileset, const ChunkKey& ck)
 
 std::vector<char> Pnts::build()
 {
-    auto cells = m_tileset.metadata().dataIo().read(
-            m_tileset.in(),
-            m_tileset.tmp(),
-            m_tileset.pointPool(),
-            m_key.get().toString());
+    VectorPointTable table(m_tileset.metadata().schema());
+    /*
+            m_tileset.metadata().dataIo().read(
+                m_tileset.in(),
+                m_tileset.tmp(),
+                m_tileset.metadata().schema(),
+                m_key.get().toString()));
+                */
 
-    m_np = cells.size();
+    m_np = table.size();
 
-    const auto xyz(buildXyz(cells));
-    const auto rgb(buildRgb(cells));
-    const auto normals(buildNormals(cells));
-    m_tileset.pointPool().release(std::move(cells));
+    const auto xyz(buildXyz(table));
+    const auto rgb(buildRgb(table));
+    const auto normals(buildNormals(table));
     return buildFile(xyz, rgb, normals);
 }
 
-Pnts::Xyz Pnts::buildXyz(const Cell::PooledStack& cells) const
+Pnts::Xyz Pnts::buildXyz(const VectorPointTable& table) const
 {
     Xyz xyz;
+    /*
     xyz.reserve(m_np * 3);
 
     for (const auto& cell : cells)
@@ -54,13 +57,15 @@ Pnts::Xyz Pnts::buildXyz(const Cell::PooledStack& cells) const
         xyz.push_back(p.y - m_mid.y);
         xyz.push_back(p.z - m_mid.z);
     }
+    */
 
     return xyz;
 }
 
-Pnts::Rgb Pnts::buildRgb(const Cell::PooledStack& cells) const
+Pnts::Rgb Pnts::buildRgb(const VectorPointTable& table) const
 {
     Rgb rgb;
+    /*
     if (!m_tileset.hasColor()) return rgb;
     rgb.reserve(m_np * 3);
 
@@ -101,13 +106,15 @@ Pnts::Rgb Pnts::buildRgb(const Cell::PooledStack& cells) const
         rgb.push_back(g);
         rgb.push_back(b);
     }
+    */
 
     return rgb;
 }
 
-Pnts::Normals Pnts::buildNormals(const Cell::PooledStack& cells) const
+Pnts::Normals Pnts::buildNormals(const VectorPointTable& table) const
 {
     Normals normals;
+    /*
     if (!m_tileset.hasNormals()) return normals;
     normals.reserve(m_np * 3);
 
@@ -121,6 +128,7 @@ Pnts::Normals Pnts::buildNormals(const Cell::PooledStack& cells) const
         normals.push_back(table.ref().getFieldAs<float>(DimId::NormalY));
         normals.push_back(table.ref().getFieldAs<float>(DimId::NormalZ));
     }
+    */
 
     return normals;
 }

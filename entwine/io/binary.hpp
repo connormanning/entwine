@@ -14,6 +14,7 @@
 
 #include <entwine/types/binary-point-table.hpp>
 
+/*
 namespace entwine
 {
 
@@ -44,13 +45,13 @@ public:
             PointPool& pointPool,
             const std::string& filename,
             Cell::PooledStack&& cells,
-            uint64_t np) const override;
+            uint64_t np) const;
 
     virtual Cell::PooledStack read(
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
             PointPool& pointPool,
-            const std::string& filename) const override;
+            const std::string& filename) const;
 
 protected:
     std::vector<char> getBuffer(
@@ -86,4 +87,5 @@ protected:
 };
 
 } // namespace entwine
+*/
 

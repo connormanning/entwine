@@ -21,6 +21,8 @@
 #include <entwine/types/subset.hpp>
 #include <entwine/util/unique.hpp>
 
+#include <entwine/io/laszip.hpp>
+
 namespace entwine
 {
 
@@ -28,16 +30,14 @@ Registry::Registry(
         const Metadata& metadata,
         const arbiter::Endpoint& out,
         const arbiter::Endpoint& tmp,
-        PointPool& pointPool,
         ThreadPools& threadPools,
         const bool exists)
     : m_metadata(metadata)
     , m_out(out)
     , m_tmp(tmp)
-    , m_pointPool(pointPool)
     , m_threadPools(threadPools)
     , m_hierarchy(m_metadata, out, exists)
-    , m_root(ChunkKey(metadata), out, tmp, pointPool, m_hierarchy)
+    , m_root(ChunkKey(metadata), out, tmp, m_hierarchy)
 { }
 
 void Registry::save(const arbiter::Endpoint& endpoint) const
@@ -47,7 +47,6 @@ void Registry::save(const arbiter::Endpoint& endpoint) const
 
 void Registry::merge(const Registry& other, Clipper& clipper)
 {
-    /*
     for (const auto& p : other.hierarchy().map())
     {
         const Dxyz& dxyz(p.first);
@@ -55,31 +54,31 @@ void Registry::merge(const Registry& other, Clipper& clipper)
 
         if (dxyz.d < m_metadata.sharedDepth())
         {
-            auto cells(m_metadata.dataIo().read(
-                        m_out,
-                        m_tmp,
-                        m_pointPool,
-                        dxyz.toString() + other.metadata().postfix(dxyz.d)));
-
-            Key pk(m_metadata);
-
-            while (!cells.empty())
+            VectorPointTable table(m_metadata.schema());
+            table.setProcess([this, &table, &clipper, &dxyz]()
             {
-                auto cell(cells.popOne());
-                pk.init(cell->point(), dxyz.d);
+                Voxel voxel;
+                Key pk(m_metadata);
 
-                ReffedChunk* rc(&m_root);
-                for (std::size_t d(0); d < dxyz.d; ++d)
+                for (auto it(table.begin()); it != table.end(); ++it)
                 {
-                    rc = &rc->chunk().step(cell->point());
-                }
+                    voxel.initShallow(it.pointRef(), it.data());
+                    const Point point(voxel.point());
+                    pk.init(point, dxyz.d);
 
-                if (!rc->insert(cell, pk, clipper))
-                {
-                    std::cout << "Invalid merge insert: " <<  dxyz.toString() <<
-                        std::endl;
+                    ReffedChunk* rc(&m_root);
+                    for (uint64_t d(0); d < dxyz.d; ++d)
+                    {
+                        rc = &rc->chunk().step(point);
+                    }
+
+                    rc->insert(voxel, pk, clipper);
                 }
-            }
+            });
+
+            const auto filename(
+                    dxyz.toString() + other.metadata().postfix(dxyz.d));
+            m_metadata.dataIo().read(m_out, m_tmp, filename, table);
         }
         else
         {
@@ -87,7 +86,6 @@ void Registry::merge(const Registry& other, Clipper& clipper)
             m_hierarchy.set(dxyz, np);
         }
     }
-    */
 }
 
 } // namespace entwine

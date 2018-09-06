@@ -44,25 +44,11 @@ public:
             const Metadata& metadata,
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
-            PointPool& pointPool,
             ThreadPools& threadPools,
             bool exists = false);
 
     void save(const arbiter::Endpoint& endpoint) const;
     void merge(const Registry& other, Clipper& clipper);
-
-    /*
-    void addPoint(Cell::PooledNode& cell, Key& key, Clipper& clipper)
-    {
-        ReffedChunk* rc = &m_root;
-
-        while (!rc->insert(cell, key, clipper))
-        {
-            key.step(cell->point());
-            rc = &rc->chunk().step(cell->point());
-        }
-    }
-    */
 
     void addPoint(Voxel& voxel, Key& key, Clipper& clipper)
     {
@@ -81,7 +67,6 @@ private:
     const Metadata& m_metadata;
     const arbiter::Endpoint& m_out;
     const arbiter::Endpoint& m_tmp;
-    PointPool& m_pointPool;
     ThreadPools& m_threadPools;
     Hierarchy m_hierarchy;
 

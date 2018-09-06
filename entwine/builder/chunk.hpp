@@ -31,13 +31,6 @@
 namespace entwine
 {
 
-struct CountedCells
-{
-    CountedCells(Cell::Pool& pool) : stack(pool) { }
-    Cells stack;
-    uint64_t np = 0;
-};
-
 class Chunk;
 
 class ReffedChunk
@@ -47,7 +40,6 @@ public:
             const ChunkKey& key,
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
-            PointPool& pointPool,
             Hierarchy& hierarchy);
 
     ReffedChunk(const ReffedChunk& o);
@@ -60,7 +52,6 @@ public:
         void clear() { written = 0; read = 0; }
     };
 
-    // bool insert(Cell::PooledNode& cell, const Key& key, Clipper& clipper);
     void insert(Voxel& voxel, Key& key, Clipper& clipper);
 
     void ref(Clipper& clipper);
@@ -73,7 +64,6 @@ public:
     const Metadata& metadata() const { return m_metadata; }
     const arbiter::Endpoint& out() const { return m_out; }
     const arbiter::Endpoint& tmp() const { return m_tmp; }
-    PointPool& pointPool() const { return m_pointPool; }
     Hierarchy& hierarchy() const { return m_hierarchy; }
 
     static Info latchInfo();
@@ -83,39 +73,11 @@ private:
     const Metadata& m_metadata;
     const arbiter::Endpoint& m_out;
     const arbiter::Endpoint& m_tmp;
-    PointPool& m_pointPool;
     Hierarchy& m_hierarchy;
 
     SpinLock m_spin;
     std::unique_ptr<Chunk> m_chunk;
     std::map<Origin, std::size_t> m_refs;
-};
-
-class ShallowVoxel
-{
-public:
-    bool insert(const Point& p, const char* data)
-    {
-        if (m_list.empty() || m_point == p)
-        {
-            m_point = p;
-            m_list.push_front(data);
-            return true;
-        }
-        return false;
-    }
-
-private:
-    Point m_point;
-    std::forward_list<const char*> m_list;
-};
-
-struct ShallowVoxelTube
-{
-    ShallowVoxelTube() { }
-
-    SpinLock spin;
-    std::map<uint64_t, ShallowVoxel> map;
 };
 
 struct VoxelTube
@@ -130,10 +92,9 @@ public:
     Chunk(const ReffedChunk& ref)
         : m_ref(ref)
         , m_ticks(m_ref.metadata().ticks())
-        , m_dataPool(m_ref.metadata().schema().pointSize(), 4096)
-        , m_dataStack(m_dataPool)
-        , m_overflowPool(m_ref.metadata().schema().pointSize(), 1024)
-        , m_overflowStack(m_overflowPool)
+        , m_pointSize(m_ref.metadata().schema().pointSize())
+        , m_gridBlock(m_pointSize, 4096)
+        , m_overflowBlock(m_pointSize, 1024)
     {
         init();
 
@@ -145,7 +106,6 @@ public:
                     key,
                     m_ref.out(),
                     m_ref.tmp(),
-                    m_ref.pointPool(),
                     m_ref.hierarchy());
 
             m_hasChildren = m_hasChildren || m_ref.hierarchy().get(key.get());
@@ -169,17 +129,14 @@ public:
         return result;
     }
 
-    Data::RawStack acquireBinary()
+    void reset()
     {
         m_grid.reset();
         m_overflow.reset();
-
         m_remote = true;
 
-        Data::RawStack stack(m_dataStack.get());
-        stack.push(m_overflowStack.get());
-
-        return stack;
+        m_gridBlock.clear();
+        m_overflowBlock.clear();
     }
 
     bool remote() const { return m_remote; }
@@ -192,15 +149,19 @@ public:
 
     void insert(Voxel& voxel, Key& key, Clipper& clipper)
     {
-        if (!insertNative(voxel, key) && !insertOverflow(voxel, key, clipper))
+        if (!insertNative(voxel, key, clipper) &&
+                !insertOverflow(voxel, key, clipper))
         {
             key.step(voxel.point());
             step(voxel.point()).insert(voxel, key, clipper);
         }
     }
 
+    MemBlock& gridBlock() { return m_gridBlock; }
+    MemBlock& overflowBlock() { return m_overflowBlock; }
+
 private:
-    bool insertNative(Voxel& voxel, Key& key)
+    bool insertNative(Voxel& voxel, Key& key, Clipper& clipper)
     {
         const Xyz& pos(key.position());
         const std::size_t i((pos.y % m_ticks) * m_ticks + (pos.x % m_ticks));
@@ -209,9 +170,28 @@ private:
         UniqueSpin tubeLock(tube.spin);
         Voxel& dst(tube.map[pos.z]);
 
-        if (dst.accepts(voxel))
+        if (dst.data())
         {
-            m_dataStack.push(dst.push(voxel, m_dataPool));
+            const Point& mid(key.bounds().mid());
+            if (voxel.point().sqDist3d(mid) < dst.point().sqDist3d(mid))
+            {
+                if (!insertOverflow(dst, key, clipper))
+                {
+                    key.step(dst.point());
+                    step(dst.point()).insert(dst, key, clipper);
+                }
+
+                dst.initDeep(voxel.point(), voxel.data(), m_pointSize);
+                return true;
+            }
+        }
+        else
+        {
+            {
+                SpinGuard lock(m_spin);
+                dst.setData(m_gridBlock.next());
+            }
+            dst.initDeep(voxel.point(), voxel.data(), m_pointSize);
             return true;
         }
         return false;
@@ -230,10 +210,11 @@ private:
         assert(m_overflow);
 
         Overflow overflow(key);
-        m_overflowStack.push(overflow.voxel.push(voxel, m_overflowPool));
+        overflow.voxel.setData(m_overflowBlock.next());
+        overflow.voxel.initDeep(voxel.point(), voxel.data(), m_pointSize);
         m_overflow->push_back(overflow);
 
-        if (m_overflowStack.size() > m_ref.metadata().overflowThreshold())
+        if (m_overflowBlock.size() > m_ref.metadata().overflowThreshold())
         {
             doOverflow(clipper);
         }
@@ -253,22 +234,21 @@ private:
         }
 
         m_overflow.reset();
-        m_overflowStack.reset();
+        m_overflowBlock.clear();
     }
 
     const ReffedChunk& m_ref;
-    bool m_remote = false;
     const uint64_t m_ticks;
+    const uint64_t m_pointSize;
+    bool m_remote = false;
 
     SpinLock m_spin;
-    Data::Pool m_dataPool;
-    Data::PooledStack m_dataStack;
     std::unique_ptr<std::vector<VoxelTube>> m_grid;
+    MemBlock m_gridBlock;
 
     SpinLock m_overflowSpin;
     bool m_hasChildren = false;
-    Data::Pool m_overflowPool;
-    Data::PooledStack m_overflowStack;
+    MemBlock m_overflowBlock;
 
     struct Overflow
     {

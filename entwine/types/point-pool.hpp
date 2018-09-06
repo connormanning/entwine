@@ -41,41 +41,30 @@ public:
 class Voxel
 {
 public:
-    Point& point() { return m_point; }
-    Data::RawStack& stack() { return m_stack; }
-
     const Point& point() const { return m_point; }
-    const Data::RawStack& stack() const { return m_stack; }
-    uint64_t size() const { return m_stack.size(); }
+    const char* const data() const { return m_data; }
+    void setData(char* pos) { m_data = pos; }
 
-    bool accepts(const Voxel& other) const
+    void initDeep(const Point& point, const char* const pos, std::size_t size)
     {
-        return m_stack.empty() || point() == other.point();
+        m_point = point;
+        std::copy(pos, pos + size, m_data);
     }
 
-    Data::PooledStack push(Voxel& other, Data::Pool& pool)
+    void initShallow(const pdal::PointRef& pr, char* pos)
     {
-        if (m_stack.empty()) m_point = other.point();
-        else assert(m_point == other.point());
-
-        Data::PooledStack stack(pool.acquire(other.size()));
-        Data::RawNode* src(other.stack().head());
-        for (char* dst : stack)
-        {
-            const char* a(src->get());
-            std::copy(a, a + pool.bufferSize(), dst);
-            src = src->next();
-        }
-
-        m_stack.push(stack.get());
-        return stack;
+        m_point.x = pr.getFieldAs<double>(pdal::Dimension::Id::X);
+        m_point.y = pr.getFieldAs<double>(pdal::Dimension::Id::Y);
+        m_point.z = pr.getFieldAs<double>(pdal::Dimension::Id::Z);
+        m_data = pos;
     }
 
 private:
     Point m_point;
-    Data::RawStack m_stack;
+    char* m_data = nullptr;
 };
 
+/*
 class Cell
 {
 public:
@@ -96,12 +85,9 @@ public:
     {
         assert(point() == other->point());
         auto adding(other->acquire());
-        m_dataStack.push(
-                adding,
-                [pointSize](const char* a, const char* b)
-                {
-                    return std::memcmp(a, b, pointSize) < 0;
-                });
+        m_dataStack.push(adding);
+                // [pointSize](const char* a, const char* b)
+                // { return std::memcmp(a, b, pointSize) < 0; });
     }
 
     void push(Data::PooledNode&& node)
@@ -182,6 +168,7 @@ private:
     Data::Pool m_dataPool;
     Cell::Pool m_cellPool;
 };
+*/
 
 } // namespace entwine
 

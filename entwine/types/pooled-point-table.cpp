@@ -8,6 +8,7 @@
 *
 ******************************************************************************/
 
+/*
 #include <entwine/types/pooled-point-table.hpp>
 
 #include <entwine/types/binary-point-table.hpp>
@@ -61,4 +62,5 @@ void PooledPointTable::allocate()
 }
 
 } // namespace entwine
+*/
 
