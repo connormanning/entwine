@@ -48,10 +48,10 @@ ReffedChunk::ReffedChunk(const ReffedChunk& o)
 
 ReffedChunk::~ReffedChunk() { }
 
-void ReffedChunk::insert(Voxel& voxel, Key& key, Clipper& clipper)
+bool ReffedChunk::insert(Voxel& voxel, Key& key, Clipper& clipper)
 {
     if (clipper.insert(*this)) ref(clipper);
-    m_chunk->insert(voxel, key, clipper);
+    return m_chunk->insert(voxel, key, clipper);
 }
 
 void ReffedChunk::ref(Clipper& clipper)
@@ -93,7 +93,11 @@ void ReffedChunk::ref(Clipper& clipper)
                     {
                         voxel.initShallow(it.pointRef(), it.data());
                         pk.init(voxel.point(), m_key.depth());
-                        insert(voxel, pk, clipper);
+                        if (!insert(voxel, pk, clipper))
+                        {
+                            std::cout << "Unexpected wakeup: " << m_key.get() <<
+                                std::endl;
+                        }
                     }
                 });
 

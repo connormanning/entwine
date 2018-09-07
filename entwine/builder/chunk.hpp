@@ -51,7 +51,7 @@ public:
         void clear() { written = 0; read = 0; }
     };
 
-    void insert(Voxel& voxel, Key& key, Clipper& clipper);
+    bool insert(Voxel& voxel, Key& key, Clipper& clipper);
 
     void ref(Clipper& clipper);
     void unref(Origin o);
@@ -146,13 +146,18 @@ public:
         return m_children[toIntegral(dir)];
     }
 
-    void insert(Voxel& voxel, Key& key, Clipper& clipper)
+    bool insert(Voxel& voxel, Key& key, Clipper& clipper)
     {
-        if (!insertNative(voxel, key, clipper) &&
-                !insertOverflow(voxel, key, clipper))
+        if (insertNative(voxel, key, clipper) ||
+                insertOverflow(voxel, key, clipper))
+        {
+            return true;
+        }
+        else
         {
             key.step(voxel.point());
             step(voxel.point()).insert(voxel, key, clipper);
+            return false;
         }
     }
 
