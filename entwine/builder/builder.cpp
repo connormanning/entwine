@@ -139,6 +139,7 @@ void Builder::go(std::size_t max)
                         " P: " << std::round(progress * 100.0) << "%" <<
                         " W: " << info.written <<
                         " R: " << info.read <<
+                        " A: " << commify(info.alive) <<
                         std::endl;
                 }
 

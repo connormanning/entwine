@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y \
 ENV CC gcc
 ENV CXX g++
 
-ADD https://api.github.com/repos/connormanning/entwine/commits?sha=master \
+ADD https://api.github.com/repos/connormanning/entwine/commits?sha=optimize \
     /tmp/bust-cache
 
 RUN git clone https://github.com/connormanning/entwine.git /var/entwine && \

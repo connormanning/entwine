@@ -48,7 +48,7 @@ public:
     {
         std::size_t written = 0;
         std::size_t read = 0;
-        void clear() { written = 0; read = 0; }
+        std::size_t alive = 0;
     };
 
     bool insert(Voxel& voxel, Key& key, Clipper& clipper);

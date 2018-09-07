@@ -32,7 +32,10 @@ ReffedChunk::ReffedChunk(
     , m_out(out)
     , m_tmp(tmp)
     , m_hierarchy(hierarchy)
-{ }
+{
+    SpinGuard lock(spin);
+    ++info.alive;
+}
 
 ReffedChunk::ReffedChunk(const ReffedChunk& o)
     : ReffedChunk(
@@ -46,7 +49,11 @@ ReffedChunk::ReffedChunk(const ReffedChunk& o)
     assert(o.m_refs.empty());
 }
 
-ReffedChunk::~ReffedChunk() { }
+ReffedChunk::~ReffedChunk()
+{
+    SpinGuard lock(spin);
+    --info.alive;
+}
 
 bool ReffedChunk::insert(Voxel& voxel, Key& key, Clipper& clipper)
 {
@@ -165,7 +172,8 @@ ReffedChunk::Info ReffedChunk::latchInfo()
     SpinGuard lock(spin);
 
     Info result(info);
-    info.clear();
+    info.written = 0;
+    info.read = 0;
     return result;
 }
 
