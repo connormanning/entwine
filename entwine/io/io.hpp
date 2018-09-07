@@ -18,7 +18,6 @@
 
 #include <entwine/io/ensure.hpp>
 #include <entwine/types/metadata.hpp>
-#include <entwine/types/point-pool.hpp>
 #include <entwine/types/vector-point-table.hpp>
 
 namespace entwine

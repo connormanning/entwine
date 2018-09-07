@@ -20,7 +20,6 @@
 #include <pdal/io/LasReader.hpp>
 
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/util/unique.hpp>
 

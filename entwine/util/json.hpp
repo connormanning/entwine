@@ -88,82 +88,6 @@ inline Json::Value merge(
     return merge(merge(a, b), c);
 }
 
-// Assumptions here are that s contains a quotation-delimited number, possibly
-// with whitespace outside of the quotations.
-inline Id parseElement(const std::string& s)
-{
-    std::size_t pos(s.find_first_of('"'));
-    const std::size_t end(s.find_last_of('"'));
-
-    if (
-            pos == std::string::npos ||
-            end == std::string::npos ||
-            pos == end)
-    {
-        throw std::runtime_error("Element is not a string: " + s);
-    }
-
-    if (!std::all_of(s.data(), s.data() + pos, ::isspace))
-    {
-        throw std::runtime_error("Invalid leading characters");
-    }
-    if (
-            end + 1 < s.size() &&
-            !std::all_of(s.data() + end + 1, s.data() + s.size(), ::isspace))
-    {
-        throw std::runtime_error("Invalid trailing characters");
-    }
-
-    ++pos;
-    return Id(s.substr(pos, end - pos));
-}
-
-inline std::vector<Id> extractIds(const std::string& s)
-{
-    std::vector<Id> ids;
-    ids.reserve(std::count(s.begin(), s.end(), ',') + 1);
-
-    std::size_t pos(s.find_first_of('['));
-    std::size_t end(0);
-
-    if (
-            pos != std::string::npos &&
-            !std::all_of(s.data(), s.data() + pos, ::isspace))
-    {
-        throw std::runtime_error("Invalid characters before opening bracket");
-    }
-
-    while (pos != std::string::npos && ++pos < s.size())
-    {
-        end = s.find_first_of(",]", pos);
-
-        if (end == std::string::npos)
-        {
-            throw std::runtime_error("Missing token");
-        }
-        else if (end != pos)
-        {
-            ids.push_back(parseElement(s.substr(pos, end - pos)));
-            pos = s.find_first_of(',', pos);
-        }
-        else pos = std::string::npos;
-    }
-
-    if (ids.size() && s.at(end) != ']')
-    {
-        throw std::runtime_error("Missing final bracket");
-    }
-    else if (
-            ids.size() &&
-            end + 1 < s.size() &&
-            !std::all_of(s.data() + end + 1, s.data() + s.size(), ::isspace))
-    {
-        throw std::runtime_error("Invalid trailing characters");
-    }
-
-    return ids;
-}
-
 inline std::string toFastString(const Json::Value& json)
 {
     Json::FastWriter writer;
@@ -285,17 +209,6 @@ namespace extraction
             return doExtract<std::string>(
                     json,
                     [](const Json::Value& v) { return v.asString(); });
-        }
-    };
-
-    template<>
-    struct E<Id>
-    {
-        static std::vector<Id> go(const Json::Value& json)
-        {
-            return doExtract<Id>(
-                    json,
-                    [](const Json::Value& v) { return Id(v.asString()); });
         }
     };
 }

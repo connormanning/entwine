@@ -22,11 +22,9 @@
 #include <entwine/builder/sequence.hpp>
 #include <entwine/builder/thread-pools.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/third/splice-pool/splice-pool.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/file-info.hpp>
 #include <entwine/types/metadata.hpp>
-#include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/subset.hpp>
@@ -319,8 +317,8 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
         for (auto it(table.begin()); it != table.end(); ++it)
         {
             auto& pr(it.pointRef());
-            pr.setField(pdal::Dimension::Id::OriginId, originId);
-            pr.setField(pdal::Dimension::Id::PointId, pointId);
+            pr.setField(DimId::OriginId, originId);
+            pr.setField(DimId::PointId, pointId);
             ++pointId;
 
             voxel.initShallow(it.pointRef(), it.data());

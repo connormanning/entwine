@@ -23,7 +23,6 @@
 #include <entwine/builder/hierarchy.hpp>
 #include <entwine/builder/thread-pools.hpp>
 #include <entwine/types/key.hpp>
-#include <entwine/types/point-pool.hpp>
 #include <entwine/util/pool.hpp>
 #include <entwine/util/unique.hpp>
 

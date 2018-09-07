@@ -13,7 +13,6 @@
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/key.hpp>
 #include <entwine/types/metadata.hpp>
-#include <entwine/types/point-pool.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/pool.hpp>
 

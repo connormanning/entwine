@@ -13,7 +13,6 @@
 #include <memory>
 
 #include <entwine/types/key.hpp>
-#include <entwine/types/point-pool.hpp>
 
 namespace entwine
 {

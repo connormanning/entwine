@@ -21,12 +21,11 @@
 #include <entwine/builder/hierarchy.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/metadata.hpp>
-#include <entwine/types/point-pool.hpp>
-#include <entwine/types/tube.hpp>
+#include <entwine/types/vector-point-table.hpp>
+#include <entwine/types/voxel.hpp>
+#include <entwine/util/spin-lock.hpp>
 #include <entwine/util/unique.hpp>
 
-#include <entwine/types/vector-point-table.hpp>
-#include <entwine/util/spin-lock.hpp>
 
 namespace entwine
 {

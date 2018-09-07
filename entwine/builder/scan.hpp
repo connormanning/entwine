@@ -23,7 +23,6 @@
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/delta.hpp>
 #include <entwine/types/file-info.hpp>
-#include <entwine/types/point-pool.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/pool.hpp>

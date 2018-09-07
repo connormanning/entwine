@@ -63,9 +63,9 @@ Config Config::prepare() const
     if (allowOriginId())
     {
         Schema s(result["schema"]);
-        if (!s.contains(pdal::Dimension::Id::OriginId))
+        if (!s.contains(DimId::OriginId))
         {
-            s = s.append(DimInfo(pdal::Dimension::Id::OriginId));
+            s = s.append(DimInfo(DimId::OriginId));
         }
         result["schema"] = s.toJson();
     }

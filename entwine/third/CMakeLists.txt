@@ -1,7 +1,6 @@
 set(MODULE third)
 
 add_subdirectory(arbiter)
-add_subdirectory(bigint)
 
 if (NOT ENTWINE_HAVE_JSONCPP)
     MESSAGE("Including bundled JsonCpp")
@@ -11,8 +10,6 @@ if (NOT ENTWINE_HAVE_JSONCPP)
 else()
     MESSAGE("Skipping bundled JsonCpp")
 endif()
-
-add_subdirectory(splice-pool)
 
 add_library(${MODULE} OBJECT ${THIRD_SOURCES})
 

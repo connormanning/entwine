@@ -18,8 +18,6 @@
 #include <stdexcept>
 #include <vector>
 
-#include <entwine/types/point-pool.hpp>
-
 namespace entwine
 {
 

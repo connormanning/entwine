@@ -14,7 +14,7 @@
 
 #include <entwine/builder/thread-pools.hpp>
 #include <entwine/types/reprojection.hpp>
-#include <entwine/types/pooled-point-table.hpp>
+#include <entwine/types/vector-point-table.hpp>
 #include <entwine/util/executor.hpp>
 #include <entwine/util/unique.hpp>
 
@@ -29,12 +29,6 @@ namespace
         h["Range"] = "bytes=0-16384";
         return h;
     })());
-
-    const Schema xyzSchema({
-        { pdal::Dimension::Id::X },
-        { pdal::Dimension::Id::Y },
-        { pdal::Dimension::Id::Z }
-    });
 }
 
 Scan::Scan(const Config config)
@@ -150,8 +144,8 @@ void Scan::add(FileInfo& f, const std::string localPath)
         DimList dims;
         for (const std::string name : preview->dimNames)
         {
-            const pdal::Dimension::Id id(pdal::Dimension::id(name));
-            pdal::Dimension::Type t(pdal::Dimension::Type::Double);
+            const DimId id(pdal::Dimension::id(name));
+            DimType t(DimType::Double);
 
             try { t = pdal::Dimension::defaultType(id); }
             catch (pdal::pdal_error&) { }
@@ -172,27 +166,25 @@ void Scan::add(FileInfo& f, const std::string localPath)
         m_scale = Point::min(m_scale, scale);
     }
 
-    std::cout << "TODO Scan::add" << std::endl;
-    /*
     if (!m_in.trustHeaders())
     {
         Bounds bounds(Bounds::expander());
         std::size_t np(0);
 
-        auto tracker([&bounds, &np](Cell::PooledStack cells)
+        const Schema xyz({ { DimId::X }, { DimId::Y }, { DimId::Z } });
+        VectorPointTable table(xyz, 1024);
+        table.setProcess([&table, &bounds, &np]()
         {
-            np += cells.size();
-            for (const auto& cell : cells) bounds.grow(cell.point());
-            return cells;
+            np += table.size();
+            Point p;
+            for (const auto it : table)
+            {
+                p.x = it.getFieldAs<double>(DimId::X);
+                p.y = it.getFieldAs<double>(DimId::Y);
+                p.z = it.getFieldAs<double>(DimId::Z);
+                bounds.grow(p);
+            }
         });
-
-        const Schema xyz({
-            { pdal::Dimension::Id::X },
-            { pdal::Dimension::Id::Y },
-            { pdal::Dimension::Id::Z }
-        });
-        PointPool pointPool(xyz);
-        PooledPointTable table(pointPool, tracker, invalidOrigin);
 
         if (Executor::get().run(table, localPath, m_re.get()) && np)
         {
@@ -200,7 +192,6 @@ void Scan::add(FileInfo& f, const std::string localPath)
             f.bounds(bounds);
         }
     }
-    */
 }
 
 Config Scan::aggregate()
@@ -264,9 +255,9 @@ Config Scan::aggregate()
     {
         DimList dims
         {
-            DimInfo(pdal::Dimension::Id::X, pdal::Dimension::Type::Signed32),
-            DimInfo(pdal::Dimension::Id::Y, pdal::Dimension::Type::Signed32),
-            DimInfo(pdal::Dimension::Id::Z, pdal::Dimension::Type::Signed32)
+            DimInfo(DimId::X, DimType::Signed32),
+            DimInfo(DimId::Y, DimType::Signed32),
+            DimInfo(DimId::Z, DimType::Signed32)
         };
 
         for (const auto& d : m_schema.dims())

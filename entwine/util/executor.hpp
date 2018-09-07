@@ -19,7 +19,6 @@
 #include <pdal/Reader.hpp>
 
 #include <entwine/types/bounds.hpp>
-#include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/util/unique.hpp>
 

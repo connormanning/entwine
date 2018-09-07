@@ -23,7 +23,6 @@
 #include <entwine/builder/config.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/file-info.hpp>
-#include <entwine/types/point-pool.hpp>
 #include <entwine/util/time.hpp>
 
 namespace Json

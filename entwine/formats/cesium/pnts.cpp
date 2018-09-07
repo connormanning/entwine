@@ -69,7 +69,6 @@ Pnts::Rgb Pnts::buildRgb(const VectorPointTable& table) const
     if (!m_tileset.hasColor()) return rgb;
     rgb.reserve(m_np * 3);
 
-    using DimId = pdal::Dimension::Id;
     BinaryPointTable table(m_tileset.metadata().schema());
 
     auto getByte([this, &table](DimId id) -> uint8_t
@@ -118,7 +117,6 @@ Pnts::Normals Pnts::buildNormals(const VectorPointTable& table) const
     if (!m_tileset.hasNormals()) return normals;
     normals.reserve(m_np * 3);
 
-    using DimId = pdal::Dimension::Id;
     BinaryPointTable table(m_tileset.metadata().schema());
 
     for (const auto& cell : cells)

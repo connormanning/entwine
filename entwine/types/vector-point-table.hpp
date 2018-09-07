@@ -19,8 +19,6 @@
 
 #include <entwine/types/schema.hpp>
 
-#include <entwine/types/point-pool.hpp>
-
 namespace entwine
 {
 
