@@ -1787,12 +1787,12 @@ S3::Config::Config(
     , m_baseUrl(extractBaseUrl(json, m_region))
     , m_precheck(json["precheck"].asBool())
 {
-    if (json["sse"].asBool())
+    if (json["sse"].asBool() || env("AWS_SSE"))
     {
         m_baseHeaders["x-amz-server-side-encryption"] = "AES256";
     }
 
-    if (json["requesterPays"].asBool())
+    if (json["requesterPays"].asBool() || env("AWS_REQUESTER_PAYS"))
     {
         m_baseHeaders["x-amz-request-payer"] = "requester";
     }
@@ -1961,6 +1961,9 @@ std::unique_ptr<std::size_t> S3::tryGetSize(std::string rawPath) const
 {
     std::unique_ptr<std::size_t> size;
 
+    Headers headers(m_config->baseHeaders());
+    headers.erase("x-amz-server-side-encryption");
+
     const Resource resource(m_config->baseUrl(), rawPath);
     const ApiV4 apiV4(
             "HEAD",
@@ -1968,7 +1971,7 @@ std::unique_ptr<std::size_t> S3::tryGetSize(std::string rawPath) const
             resource,
             m_auth->fields(),
             Query(),
-            Headers(),
+            headers,
             empty);
 
     drivers::Http http(m_pool);
@@ -2746,24 +2749,24 @@ std::string Google::Auth::sign(
 
     EVP_PKEY* key(loadKey(pkey, false));
 
-    EVP_MD_CTX ctx;
-    EVP_MD_CTX_init(&ctx);
-    EVP_DigestSignInit(&ctx, nullptr, EVP_sha256(), nullptr, key);
+    EVP_MD_CTX* ctx(EVP_MD_CTX_new());
+    EVP_MD_CTX_init(ctx);
+    EVP_DigestSignInit(ctx, nullptr, EVP_sha256(), nullptr, key);
 
-    if (EVP_DigestSignUpdate(&ctx, data.data(), data.size()) == 1)
+    if (EVP_DigestSignUpdate(ctx, data.data(), data.size()) == 1)
     {
         std::size_t size(0);
-        if (EVP_DigestSignFinal(&ctx, nullptr, &size) == 1)
+        if (EVP_DigestSignFinal(ctx, nullptr, &size) == 1)
         {
             std::vector<unsigned char> v(size, 0);
-            if (EVP_DigestSignFinal(&ctx, v.data(), &size) == 1)
+            if (EVP_DigestSignFinal(ctx, v.data(), &size) == 1)
             {
                 signature.assign(reinterpret_cast<const char*>(v.data()), size);
             }
         }
     }
 
-    EVP_MD_CTX_cleanup(&ctx);
+    EVP_MD_CTX_free(ctx);
     if (signature.empty()) throw ArbiterError("Could not sign JWT");
     return signature;
 #else
@@ -3189,6 +3192,12 @@ std::vector<std::string> Dropbox::glob(std::string path, bool verbose) const
 #include <arbiter/util/curl.hpp>
 #include <arbiter/util/http.hpp>
 #include <arbiter/util/util.hpp>
+
+
+#ifdef ARBITER_ZLIB
+#include <arbiter/third/gzip/decompress.hpp>
+#endif
+
 #endif
 
 #ifdef ARBITER_CURL
@@ -3489,6 +3498,24 @@ Response Curl::get(
 
     // Run the command.
     const int httpCode(perform());
+
+    for (auto& h : receivedHeaders)
+    {
+        std::string& v(h.second);
+        while (v.size() && v.front() == ' ') v = v.substr(1);
+        while (v.size() && v.back() == ' ') v.pop_back();
+    }
+
+    if (receivedHeaders["Content-Encoding"] == "gzip")
+    {
+#ifdef ARBITER_ZLIB
+        std::string s(gzip::decompress(data.data(), data.size()));
+        data.assign(s.begin(), s.end());
+#else
+        throw ArbiterError("Cannot decompress zlib");
+#endif
+    }
+
     return Response(httpCode, data, receivedHeaders);
 #else
     throw ArbiterError(fail);

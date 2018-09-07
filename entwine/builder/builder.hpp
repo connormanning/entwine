@@ -129,6 +129,7 @@ private:
     //
 
     const Config m_config;
+    const uint64_t m_interval;
 
     std::shared_ptr<arbiter::Arbiter> m_arbiter;
     std::unique_ptr<arbiter::Endpoint> m_out;

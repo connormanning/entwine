@@ -28,8 +28,6 @@ if (${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU" OR
     add_definitions(${CMAKE_CXX_FLAGS} "-fPIC")
 endif()
 
-add_definitions("-DPDAL_HAVE_LAZPERF")
-
 if (MSVC)
     # prevents clashes between macros min\max and std::min\std::max
     add_definitions(${CMAKE_CXX_FLAGS} "/DNOMINMAX" "/DJSON_DLL")
@@ -59,7 +57,6 @@ set(PDAL_FIND_VERSION 1.2)
 find_package(PDAL ${PDAL_FIND_VERSION} REQUIRED CONFIG NO_POLICY_SCOPE)
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 find_package(Threads REQUIRED)
-find_package(LazPerf REQUIRED)
 
 if (WIN32)
     find_library(WS2_32_LIBRARY ws2_32)
@@ -74,10 +71,7 @@ else()
     endif()
 endif()
 
-find_package(LibLZMA)
 find_package(Curl)
-find_package(OpenSSL)
-
 if (CURL_FOUND)
     message("Found curl")
     set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
@@ -90,6 +84,7 @@ else()
     message("Curl NOT found")
 endif()
 
+find_package(OpenSSL 1.1)
 if (OPENSSL_FOUND)
     message("Found OpenSSL ${OPENSSL_VERSION}")
     include_directories(${OPENSSL_INCLUDE_DIR})
@@ -98,7 +93,7 @@ if (OPENSSL_FOUND)
     add_definitions("-DARBITER_OPENSSL")
     add_definitions("-DENTWINE_OPENSSL")
 else()
-    # For me this is /usr/local/opt/openssl
+    # For me this is /usr/local/opt/openssl\@1.1
     message("OpenSSL NOT found - `export OPENSSL_ROOT_DIR=___`")
     message("Google storage IO will not be available")
 endif()
@@ -114,10 +109,8 @@ else()
 endif()
 
 mark_as_advanced(CLEAR PDAL_INCLUDE_DIRS)
-mark_as_advanced(CLEAR LazPerf_INCLUDE_DIR)
 mark_as_advanced(CLEAR PDAL_LIBRARIES)
 include_directories(${PDAL_INCLUDE_DIRS})
-include_directories(${LAZPERF_INCLUDE_DIR})
 
 if (CMAKE_MAJOR_VERSION GREATER 2)
     cmake_policy(SET CMP0042 NEW) # osx rpath

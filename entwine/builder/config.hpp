@@ -181,6 +181,15 @@ public:
         return m_json.isMember("absolute") && m_json["absolute"].asBool();
     }
 
+    uint64_t progressInterval() const
+    {
+        if (m_json.isMember("progressInterval"))
+        {
+            return m_json["progressInterval"].asUInt64();
+        }
+        return 10;
+    }
+
 private:
     Scale scale() const
     {

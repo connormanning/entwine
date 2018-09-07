@@ -53,6 +53,7 @@ Builder::Builder(const Config& config, std::shared_ptr<arbiter::Arbiter> a)
                 Config::defaults(),
                 Config::defaultBuildParams(),
                 config.prepare().json()))
+    , m_interval(config.progressInterval())
     , m_arbiter(a ? a : std::make_shared<arbiter::Arbiter>(m_config["arbiter"]))
     , m_out(makeUnique<Endpoint>(m_arbiter->getEndpoint(m_config.output())))
     , m_tmp(makeUnique<Endpoint>(m_arbiter->getEndpoint(m_config.tmp())))
@@ -102,11 +103,13 @@ void Builder::go(std::size_t max)
 
     p.add([this, &done, &files, alreadyInserted]()
     {
+        if (!m_interval) return;
+
         using ms = std::chrono::milliseconds;
-        const std::size_t interval(2);
         std::size_t last(0);
 
         const double totalPoints(files.totalPoints());
+        const double megsPerHour(3600.0 / 1000000.0);
 
         while (!done)
         {
@@ -114,7 +117,7 @@ void Builder::go(std::size_t max)
             std::this_thread::sleep_for(ms(1000 - t % 1000));
             const auto s(since<std::chrono::seconds>(m_start));
 
-            if (s % interval == 0)
+            if (s % m_interval == 0)
             {
                 const double inserts(
                         files.pointStats().inserts() - alreadyInserted);
@@ -130,9 +133,9 @@ void Builder::go(std::size_t max)
                 {
                     std::cout <<
                         " T: " << commify(s) << "s" <<
-                        " R: " << commify(inserts * 3600.0 / s / 1000000.0) <<
-                            "(" << commify((inserts - last) *
-                                        3600.0 / interval / 1000000.0) << ")" <<
+                        " R: " << commify(inserts / s * megsPerHour) <<
+                            "(" << commify((inserts - last) / m_interval *
+                                        megsPerHour) << ")" <<
                             "M/h" <<
                         " I: " << commify(inserts) <<
                         " P: " << std::round(progress * 100.0) << "%" <<

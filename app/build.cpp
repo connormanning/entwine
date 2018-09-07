@@ -172,6 +172,12 @@ void Build::addArgs()
             "Count (per-thread) after which idle nodes are serialized.",
             [this](Json::Value v) { m_json["sleepCount"] = extract(v); });
 
+    m_ap.add(
+            "--progress",
+            "Interval in seconds at which to log build stats.  0 for no "
+            " logging (default: 10).",
+            [this](Json::Value v) { m_json["progressInterval"] = extract(v); });
+
     addArbiter();
 }
 

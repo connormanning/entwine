@@ -201,15 +201,7 @@ public:
     std::size_t pointSize() const { return m_pointSize; }
 
 private:
-    /*
-    virtual pdal::PointId addPoint() override
-    {
-        m_data.insert(m_data.end(), m_pointSize, 0);
-        return m_size++;
-    }
-    */
-
-    virtual void setSize(pdal::PointId s) override
+    virtual void setNumPoints(pdal::PointId s) override
     {
         m_size = s;
     }
