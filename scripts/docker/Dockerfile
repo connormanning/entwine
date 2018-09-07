@@ -21,8 +21,6 @@ ENV CXX g++
 ADD https://api.github.com/repos/connormanning/entwine/commits?sha=master \
     /tmp/bust-cache
 
-RUN apt-get install libcurl4-openssl-dev
-
 RUN git clone https://github.com/connormanning/entwine.git /var/entwine && \
     cd /var/entwine && \
     git checkout optimize && \
