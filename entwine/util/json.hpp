@@ -11,6 +11,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cctype>
 #include <sstream>
 #include <string>
 
@@ -44,6 +45,75 @@ inline Json::Value parse(const char* input)
 {
     if (input) return parse(std::string(input));
     else return Json::nullValue;
+}
+
+// Same as Json::Value::toStyledString but with fixed precision for doubles.
+inline std::string toPreciseString(
+        const Json::Value& v,
+        bool styled = true,
+        uint64_t precision = 12,
+        uint64_t depth = 0)
+{
+    const std::string indent(depth, '\t');
+
+    if (v.type() == Json::realValue)
+    {
+        std::ostringstream oss;
+        oss << std::setprecision(precision) << v.asDouble();
+        return oss.str();
+    }
+    else if (v.isObject())
+    {
+        std::string s;
+        s += '{';
+        uint64_t i(0);
+        for (const std::string key : v.getMemberNames())
+        {
+            if (i++) s += ',';
+            s += '\n';
+            s += indent + '\t';
+            s += '"' + key + "\" : ";
+            if (v[key].isObject() || v[key].isArray())
+            {
+                s += '\n' + indent + '\t';
+            }
+            s += toPreciseString(v[key], styled, precision, depth + 1);
+        }
+        s += '\n';
+        s += indent;
+        s += '}';
+        if (!styled)
+        {
+            s.erase(std::remove_if(s.begin(), s.end(), ::isspace), s.end());
+        }
+        return s;
+    }
+    else if (v.isArray())
+    {
+        std::string s;
+        s += '[';
+        for (Json::ArrayIndex i(0); i < v.size(); ++i)
+        {
+            if (i) s += ',';
+            s += '\n';
+            s += indent + '\t';
+            s += toPreciseString(v[i], styled, precision, depth + 1);
+        }
+        s += '\n';
+        s += indent;
+        s += ']';
+        if (!styled)
+        {
+            s.erase(std::remove_if(s.begin(), s.end(), ::isspace), s.end());
+        }
+        return s;
+    }
+    else
+    {
+        std::ostringstream oss;
+        oss << v;
+        return oss.str();
+    }
 }
 
 // Not really JSON-related, but fine for now...

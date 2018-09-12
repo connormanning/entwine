@@ -87,9 +87,9 @@ Config Scan::go()
             std::cout << "Writing details to " << path << "...";
         }
 
-        arbiter.put(path,
-                m_fileInfo.size() <= 100 ?
-                    out.json().toStyledString() : toFastString(out.json()));
+        arbiter.put(
+                path,
+                toPreciseString(out.json(), m_fileInfo.size() <= 100));
 
         if (m_in.verbose())
         {
@@ -182,6 +182,7 @@ void Scan::add(FileInfo& f, const std::string localPath)
                 p.x = it.getFieldAs<double>(DimId::X);
                 p.y = it.getFieldAs<double>(DimId::Y);
                 p.z = it.getFieldAs<double>(DimId::Z);
+
                 bounds.grow(p);
             }
         });
@@ -214,31 +215,6 @@ Config Scan::aggregate()
     }
 
     if (!np) throw std::runtime_error("No points found!");
-
-    m_scale = m_scale.apply([](double d)->double
-    {
-        const double epsilon(1e-6);
-        double mult(10);
-        while (std::round(d * mult) < 1.0) mult *= 10;
-
-        if (d * mult - 1.0 < epsilon)
-        {
-            switch (static_cast<int>(mult))
-            {
-                case int(1e1): return 1e-1;
-                case int(1e2): return 1e-2;
-                case int(1e3): return 1e-3;
-                case int(1e4): return 1e-4;
-                case int(1e5): return 1e-5;
-                case int(1e6): return 1e-6;
-                case int(1e7): return 1e-7;
-                case int(1e8): return 1e-8;
-                case int(1e9): return 1e-9;
-                default: break;
-            }
-        }
-        return d;
-    });
 
     if (out["bounds"].isNull()) out["bounds"] = bounds.toJson();
 

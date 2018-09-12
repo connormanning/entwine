@@ -12,6 +12,7 @@
 
 #include <pdal/filters/SortFilter.hpp>
 #include <pdal/io/BufferReader.hpp>
+#include <pdal/io/LasReader.hpp>
 #include <pdal/io/LasWriter.hpp>
 
 #include <entwine/util/executor.hpp>
@@ -76,15 +77,24 @@ void Laz::write(
 
     auto lock(Executor::getLock());
 
-    pdal::SortFilter sort;
-    pdal::Options so;
-    so.add("dimension", "GpsTime");
-    sort.setOptions(so);
-    sort.setInput(reader);
+    pdal::Stage* prev(&reader);
+
+    std::unique_ptr<pdal::SortFilter> sort;
+    if (m_metadata.schema().contains("GpsTime"))
+    {
+        sort = makeUnique<pdal::SortFilter>();
+
+        pdal::Options so;
+        so.add("dimension", "GpsTime");
+        sort->setOptions(so);
+        sort->setInput(*prev);
+
+        prev = sort.get();
+    }
 
     pdal::LasWriter writer;
     writer.setOptions(options);
-    writer.setInput(sort);
+    writer.setInput(*prev);
     writer.prepare(table);
 
     lock.unlock();
@@ -104,25 +114,21 @@ void Laz::read(
         const std::string& filename,
         VectorPointTable& table) const
 {
-    const std::string basename(filename + ".laz");
-    std::string localFile(out.prefixedRoot() + basename);
-    bool copied(false);
+    auto handle(out.getLocalHandle(filename + ".laz"));
 
-    if (!out.isLocal() && out.tryGetSize(basename))
+    pdal::Options o;
+    o.add("filename", handle->localPath());
+    o.add("use_eb_vlr", true);
+
+    pdal::LasReader reader;
+    reader.setOptions(o);
+
     {
-        localFile = arbiter::util::join(
-                tmp.prefixedRoot(),
-                arbiter::crypto::encodeAsHex(
-                    out.prefixedRoot()) + "-" + basename);
-        copied = true;
-
-        static const arbiter::drivers::Fs fs;
-        fs.put(localFile, *ensureGet(out, basename));
+        auto lock(Executor::getLock());
+        reader.prepare(table);
     }
 
-    const bool good(Executor::get().run(table, localFile));
-    if (copied) arbiter::fs::remove(localFile);
-    if (!good) throw std::runtime_error("Laszip read failure: " + localFile);
+    reader.execute(table);
 }
 
 } // namespace entwine

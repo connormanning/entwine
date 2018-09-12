@@ -148,25 +148,6 @@ public:
 
     bool insert(Voxel& voxel, Key& key, Clipper& clipper)
     {
-        if (insertNative(voxel, key, clipper) ||
-                insertOverflow(voxel, key, clipper))
-        {
-            return true;
-        }
-        else
-        {
-            key.step(voxel.point());
-            step(voxel.point()).insert(voxel, key, clipper);
-            return false;
-        }
-    }
-
-    MemBlock& gridBlock() { return m_gridBlock; }
-    MemBlock& overflowBlock() { return m_overflowBlock; }
-
-private:
-    bool insertNative(Voxel& voxel, Key& key, Clipper& clipper)
-    {
         const Xyz& pos(key.position());
         const std::size_t i((pos.y % m_ticks) * m_ticks + (pos.x % m_ticks));
         VoxelTube& tube((*m_grid)[i]);
@@ -198,9 +179,23 @@ private:
             dst.initDeep(voxel.point(), voxel.data(), m_pointSize);
             return true;
         }
-        return false;
+
+        if (insertOverflow(voxel, key, clipper))
+        {
+            return true;
+        }
+        else
+        {
+            key.step(voxel.point());
+            step(voxel.point()).insert(voxel, key, clipper);
+            return false;
+        }
     }
 
+    MemBlock& gridBlock() { return m_gridBlock; }
+    MemBlock& overflowBlock() { return m_overflowBlock; }
+
+private:
     bool insertOverflow(Voxel& voxel, Key& key, Clipper& clipper)
     {
         if (m_ref.key().depth() < m_ref.metadata().overflowDepth())

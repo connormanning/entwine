@@ -160,13 +160,13 @@ void Metadata::save(const arbiter::Endpoint& endpoint) const
     {
         const auto json(toJson());
         const std::string f("entwine" + postfix() + ".json");
-        ensurePut(endpoint, f, json.toStyledString());
+        ensurePut(endpoint, f, toPreciseString(json));
     }
 
     {
         const auto json(toBuildParamsJson());
         const std::string f("entwine-build" + postfix() + ".json");
-        ensurePut(endpoint, f, json.toStyledString());
+        ensurePut(endpoint, f, toPreciseString(json));
     }
 
     m_files->save(endpoint, postfix());

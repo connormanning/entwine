@@ -27,7 +27,7 @@ namespace entwine
 void Files::save(const arbiter::Endpoint& ep, const std::string& postfix) const
 {
     const Json::Value json(toJson(m_files));
-    ensurePut(ep, "entwine-files" + postfix + ".json", json.toStyledString());
+    ensurePut(ep, "entwine-files" + postfix + ".json", toPreciseString(json));
 }
 
 void Files::append(const FileInfoList& fileInfo)
