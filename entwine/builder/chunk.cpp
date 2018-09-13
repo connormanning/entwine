@@ -11,7 +11,6 @@
 #include <entwine/builder/chunk.hpp>
 
 #include <entwine/io/io.hpp>
-#include <entwine/io/laszip.hpp>
 
 namespace entwine
 {
@@ -103,7 +102,7 @@ void ReffedChunk::ref(Clipper& clipper)
                         if (!insert(voxel, pk, clipper))
                         {
                             std::cout << "Unexpected wakeup: " << m_key.get() <<
-                                std::endl;
+                                " " << voxel.point() << std::endl;
                         }
                     }
                 });
@@ -136,10 +135,9 @@ void ReffedChunk::unref(const Origin o)
 
             m_hierarchy.set(m_key.get(), table.size());
 
-            static_cast<const Laz&>(m_metadata.dataIo()).write(
+            m_metadata.dataIo().write(
                     m_out,
                     m_tmp,
-                    m_metadata,
                     m_key.toString() + m_metadata.postfix(m_key.depth()),
                     m_key.bounds(),
                     table);

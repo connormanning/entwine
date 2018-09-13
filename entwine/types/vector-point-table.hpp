@@ -108,18 +108,28 @@ public:
     VectorPointTable(const Schema& schema, std::size_t np = 4096)
         : pdal::StreamPointTable(schema.pdalLayout())
         , m_pointSize(schema.pointSize())
-    {
-        m_data.resize(this->pointsToBytes(np), 0);
-    }
+        , m_data(np * m_pointSize, 0)
+        , m_size(np)
+    { }
 
     VectorPointTable(const Schema& schema, std::vector<char>&& data)
         : pdal::StreamPointTable(schema.pdalLayout())
         , m_pointSize(schema.pointSize())
         , m_data(std::move(data))
         , m_size(m_data.size() / m_pointSize)
-    { }
+    {
+        if (m_data.size() % m_pointSize != 0)
+        {
+            throw std::runtime_error("Invalid VectorPointTable data");
+        }
+    }
 
     std::size_t size() const { return m_size; }
+    void resize(std::size_t np)
+    {
+        m_data.resize(np * m_pointSize, 0);
+        m_size = np;
+    }
 
     pdal::point_count_t capacity() const override
     {
@@ -149,7 +159,7 @@ public:
 
     virtual char* getPoint(pdal::PointId index) override
     {
-        return m_data.data() + this->pointsToBytes(index);
+        return m_data.data() + index * m_pointSize;
     }
 
     std::vector<char>& data() { return m_data; }
@@ -157,7 +167,7 @@ public:
 
     std::vector<char>&& acquire() { return std::move(m_data); }
 
-    void setProcess(Process f) { m_f =f; }
+    void setProcess(Process f) { m_f = f; }
     void reset() override { m_f(); }
 
     class Iterator

@@ -294,7 +294,7 @@ void Build::log(const Builder& b) const
         "\tData type: " << metadata.dataIo().type() << "\n" <<
         "\tHierarchy type: " << "json" << "\n" <<
         "\tHierarchy step: " << (hs ? std::to_string(hs) : "auto") << "\n" <<
-        "\tSleep count: " << b.sleepCount() <<
+        "\tSleep count: " << commify(b.sleepCount()) <<
         std::endl;
 
     if (const auto* delta = metadata.delta())

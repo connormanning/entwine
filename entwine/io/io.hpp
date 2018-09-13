@@ -36,7 +36,6 @@ public:
     virtual void write(
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
-            const Metadata& metadata,
             const std::string& filename,
             const Bounds& bounds,
             BlockPointTable& table) const
