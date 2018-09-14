@@ -35,18 +35,19 @@ public:
     std::vector<char> build();
 
 private:
-    Xyz buildXyz(const VectorPointTable& table) const;
-    Rgb buildRgb(const VectorPointTable& table) const;
-    Normals buildNormals(const VectorPointTable& table) const;
+    void buildXyz(VectorPointTable& table);
+    void buildRgb(VectorPointTable& table);
+    void buildNormals(VectorPointTable& table);
 
-    std::vector<char> buildFile(
-            const Xyz& xyz,
-            const Rgb& rgb,
-            const Normals& normals) const;
+    std::vector<char> buildFile() const;
 
     const Tileset& m_tileset;
     const ChunkKey m_key;
     Point m_mid;
+
+    Xyz m_xyz;
+    Rgb m_rgb;
+    Normals m_normals;
 
     std::size_t m_np = 0;
 };

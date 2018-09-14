@@ -41,7 +41,6 @@ Tileset::Tileset(const Json::Value& config)
             m_metadata.boundsCubic().width() /
             (config.isMember("geometricErrorDivisor") ?
                 config["geometricErrorDivisor"].asDouble() : 32.0))
-    , m_pointPool(m_metadata.schema())
     , m_threadPool(std::max<uint64_t>(4, config["threads"].asUInt64()))
 {
     arbiter::fs::mkdirp(m_out.root());

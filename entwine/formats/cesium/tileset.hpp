@@ -56,7 +56,6 @@ public:
         return m_rootGeometricError / std::pow(2.0, depth);
     }
 
-    // PointPool& pointPool() const { return m_pointPool; }
     Pool& threadPool() const { return m_threadPool; }
 
 private:
@@ -82,7 +81,6 @@ private:
     const bool m_hasNormals;
     const double m_rootGeometricError;
 
-    // mutable PointPool m_pointPool;
     mutable Pool m_threadPool;
 };
 
