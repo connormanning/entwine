@@ -29,7 +29,6 @@
 #include <entwine/types/schema.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/types/vector-point-table.hpp>
-#include <entwine/util/compression.hpp>
 #include <entwine/util/executor.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/pool.hpp>

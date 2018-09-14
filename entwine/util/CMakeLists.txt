@@ -3,13 +3,11 @@ set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 set(
     SOURCES
-    "${BASE}/compression.cpp"
     "${BASE}/executor.cpp"
 )
 
 set(
     HEADERS
-    "${BASE}/compression.hpp"
     "${BASE}/env.hpp"
     "${BASE}/executor.hpp"
     "${BASE}/json.hpp"
