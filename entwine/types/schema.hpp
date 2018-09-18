@@ -297,7 +297,8 @@ inline std::ostream& operator<<(std::ostream& os, const Schema& schema)
         os << "\n\t";
         os <<
             "{ \"name\": \"" << d.name() << "\"" <<
-            ", \"type\": \"" << d.typeString() << " }";
+            "{ \"type\": \"" << d.typeString() << "\"" <<
+            ", \"size\": \"" << d.size() << " }";
         if (i != schema.dims().size() - 1) os << ",";
     }
 

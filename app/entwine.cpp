@@ -243,7 +243,7 @@ std::string App::getDimensionString(const Schema& schema) const
     for (std::size_t i(0); i < dims.size(); ++i)
     {
         const auto name(dims[i].name());
-        const auto type(dims[i].typeString());
+        const auto type(dims[i].typeName());
         const bool last(i == dims.size() - 1);
 
         if (prefix.size() + line.size() + name.size() + 1 >= width)

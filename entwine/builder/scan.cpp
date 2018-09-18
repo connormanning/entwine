@@ -150,7 +150,7 @@ void Scan::add(FileInfo& f, const std::string localPath)
             try { t = pdal::Dimension::defaultType(id); }
             catch (pdal::pdal_error&) { }
 
-            dims.emplace_back(name, id, t);
+            dims.emplace_back(name, t, id);
         }
 
         const Scale scale(preview->scale ? *preview->scale : 1);
