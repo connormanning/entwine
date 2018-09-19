@@ -21,8 +21,6 @@ Query::Query(const Reader& r, const Json::Value& j)
     , m_hierarchy(r.hierarchy())
     , m_params(j)
     , m_filter(m_metadata, m_params)
-    , m_table(m_metadata.schema())
-    , m_pointRef(m_table, 0)
     , m_overlaps(overlaps())
 { }
 
@@ -63,24 +61,26 @@ void Query::run()
 
         for (auto& chunk : block)
         {
-            for (const auto& cell : chunk->cells())
+            for (const auto& pr: chunk->table())
             {
-                maybeProcess(cell);
+                maybeProcess(pr);
             }
         }
     }
 }
 
-void Query::maybeProcess(const Cell& cell)
+void Query::maybeProcess(const pdal::PointRef& pr)
 {
-    if (!m_params.bounds().contains(cell.point())) return;
-    m_table.setPoint(cell.uniqueData());
-    if (!m_filter.check(m_pointRef)) return;
-    process(cell);
+    const Point point(
+            pr.getFieldAs<double>(DimId::X),
+            pr.getFieldAs<double>(DimId::Y),
+            pr.getFieldAs<double>(DimId::Z));
+    if (!m_params.bounds().contains(point) || !m_filter.check(pr)) return;
+    process(pr);
     ++m_numPoints;
 }
 
-void ReadQuery::process(const Cell& cell)
+void ReadQuery::process(const pdal::PointRef& pr)
 {
     m_data.resize(m_data.size() + m_schema.pointSize(), 0);
     char* pos(m_data.data() + m_data.size() - m_schema.pointSize());
@@ -95,7 +95,7 @@ void ReadQuery::process(const Cell& cell)
         if (dimNum < 3 && m_delta.exists())
         {
             d = Point::scale(
-                    m_pointRef.getFieldAs<double>(dimInfo.id()),
+                    pr.getFieldAs<double>(dimInfo.id()),
                     m_delta.scale()[dimNum],
                     m_delta.offset()[dimNum]);
 
@@ -103,7 +103,7 @@ void ReadQuery::process(const Cell& cell)
         }
         else
         {
-            m_pointRef.getField(pos, dimInfo.id(), dimInfo.type());
+            pr.getField(pos, dimInfo.id(), dimInfo.type());
         }
 
         pos += dimInfo.size();

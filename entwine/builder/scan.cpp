@@ -144,13 +144,7 @@ void Scan::add(FileInfo& f, const std::string localPath)
         DimList dims;
         for (const std::string name : preview->dimNames)
         {
-            const DimId id(pdal::Dimension::id(name));
-            DimType t(DimType::Double);
-
-            try { t = pdal::Dimension::defaultType(id); }
-            catch (pdal::pdal_error&) { }
-
-            dims.emplace_back(name, t, id);
+            dims.emplace_back(name);
         }
 
         const Scale scale(preview->scale ? *preview->scale : 1);

@@ -13,6 +13,7 @@
 #include <memory>
 
 #include <entwine/types/key.hpp>
+#include <entwine/types/vector-point-table.hpp>
 
 namespace entwine
 {
@@ -23,18 +24,12 @@ class ChunkReader
 {
 public:
     ChunkReader(const Reader& reader, const Dxyz& id);
-    ~ChunkReader()
-    {
-        m_pointPool.release(std::move(m_cells));
-    }
 
-    const Cell::PooledStack& cells() const { return m_cells; }
-    uint64_t pointSize() const { return m_pointSize; }
+    VectorPointTable& table() { return m_table; }
+    std::size_t bytes() const { return m_table.size() + m_table.pointSize(); }
 
 private:
-    PointPool m_pointPool;
-    Cell::PooledStack m_cells;
-    uint64_t m_pointSize;
+    VectorPointTable m_table;
 };
 
 using SharedChunkReader = std::shared_ptr<ChunkReader>;

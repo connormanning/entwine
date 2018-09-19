@@ -29,41 +29,52 @@ class DimInfo
     friend class Schema;
 
 public:
-    DimInfo(std::string name)
-        : DimInfo(pdal::Dimension::id(name))
-    { }
-
     DimInfo(DimId id)
         : DimInfo(id, pdal::Dimension::defaultType(id))
     { }
 
     DimInfo(DimId id, DimType type)
-        : DimInfo(pdal::Dimension::name(id), type, id)
+        : DimInfo(pdal::Dimension::name(id), type)
     { }
 
-    DimInfo(std::string name, DimType type, DimId id = DimId::Unknown)
-        : m_name(name)
-        , m_type(type)
-        , m_id(id)
+    explicit DimInfo(std::string name)
+        : DimInfo(pdal::Dimension::id(name))
     { }
 
     DimInfo(std::string name, std::string type, uint64_t size = 0)
         : DimInfo(name, getType(type, size))
     { }
 
-    DimInfo(const Json::Value& json)
+    explicit DimInfo(const Json::Value& json)
         : DimInfo(
                 json["name"].asString(),
                 json["type"].asString(),
                 json["size"].asUInt64())
     { }
 
+    // All constructor overloads end up here.
+    DimInfo(std::string name, DimType type)
+        : m_name(name)
+        , m_type(type)
+        , m_id(pdal::Dimension::id(name))
+    {
+        if (m_name.empty())
+        {
+            throw std::runtime_error("Unnamed dimensions are not allowed");
+        }
+
+        if (m_type == DimType::None)
+        {
+            throw std::runtime_error("Typeless dimensions are not allowed");
+        }
+    }
+
     std::string name() const { return m_name; }
     std::string typeString() const
     {
         switch (base())
         {
-            case pdal::Dimension::BaseType::Signed: return "signed";
+            case pdal::Dimension::BaseType::Signed:   return "signed";
             case pdal::Dimension::BaseType::Unsigned: return "unsigned";
             case pdal::Dimension::BaseType::Floating: return "float";
             default: return "unknown";
@@ -113,15 +124,22 @@ public:
 
     static bool isXyz(DimId id)
     {
-        return
-            id == DimId::X ||
-            id == DimId::Y ||
-            id == DimId::Z;
+        return id == DimId::X || id == DimId::Y || id == DimId::Z;
     }
 
 private:
     // May be unknown until PDAL registration.
     void setId(DimId id) const { m_id = id; }
+
+    DimType defaultType(DimId id) const
+    {
+        DimType t(DimType::Double);
+
+        try { t = pdal::Dimension::defaultType(id); }
+        catch (pdal::pdal_error&) { }
+
+        return t;
+    }
 
     DimType getType(const std::string type, uint64_t size)
         const
@@ -168,7 +186,7 @@ private:
 
     std::string m_name;
     DimType m_type;
-    mutable DimId m_id;
+    mutable DimId m_id = DimId::Unknown;
 };
 
 using DimList = std::vector<DimInfo>;

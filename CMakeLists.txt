@@ -123,7 +123,7 @@ add_subdirectory(app)
 
 set(OBJS
     $<TARGET_OBJECTS:formats>
-    # $<TARGET_OBJECTS:reader>
+    $<TARGET_OBJECTS:reader>
     $<TARGET_OBJECTS:io>
     $<TARGET_OBJECTS:third>
     $<TARGET_OBJECTS:builder>
@@ -178,9 +178,9 @@ install(
     FILES "${PROJECT_BINARY_DIR}/entwine-config.cmake"
     DESTINATION lib/cmake/entwine)
 
-# add_subdirectory(test/gtest-1.8.0)
-# include_directories(entwine test/gtest-1.8.0/include test/gtest-1.8.0)
-# add_subdirectory(test)
+add_subdirectory(test/gtest-1.8.0)
+include_directories(entwine test/gtest-1.8.0/include test/gtest-1.8.0)
+add_subdirectory(test)
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/cpack.cmake")
 add_custom_target(dist COMMAND ${CMAKE_MAKE_PROGRAM} package_source)

@@ -35,7 +35,7 @@ public:
     uint64_t numPoints() const { return m_numPoints; }
 
 protected:
-    virtual void process(const Cell& cell) { }
+    virtual void process(const pdal::PointRef& pr) { }
 
     const Reader& m_reader;
     const Metadata& m_metadata;
@@ -43,14 +43,11 @@ protected:
     const QueryParams m_params;
     const Filter m_filter;
 
-    BinaryPointTable m_table;
-    pdal::PointRef m_pointRef;
-
 private:
     HierarchyReader::Keys overlaps() const;
     void overlaps(HierarchyReader::Keys& keys, const ChunkKey& c) const;
 
-    void maybeProcess(const Cell& cell);
+    void maybeProcess(const pdal::PointRef& pr);
 
     HierarchyReader::Keys m_overlaps;
     uint64_t m_numPoints = 0;
@@ -79,7 +76,7 @@ public:
     const std::vector<char>& data() const { return m_data; }
 
 protected:
-    virtual void process(const Cell& cell) override;
+    virtual void process(const pdal::PointRef& pr) override;
 
 private:
     void setAs(char* dst, double d, pdal::Dimension::Type t)
