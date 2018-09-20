@@ -69,8 +69,6 @@ public:
         : Query(reader, json)
         , m_schema(json.isMember("schema") ?
                 Schema(json["schema"]) : m_metadata.outSchema())
-        , m_delta(Delta::existsIn(json) ?
-                Delta(json) : Delta(m_metadata.delta()))
     { }
 
     const std::vector<char>& data() const { return m_data; }
@@ -116,7 +114,6 @@ private:
     }
 
     const Schema m_schema;
-    const Delta m_delta;
 
     std::vector<char> m_data;
 };

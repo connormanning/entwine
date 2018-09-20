@@ -27,11 +27,6 @@ void Laz::write(
         const Bounds& bounds,
         BlockPointTable& table) const
 {
-    if (!m_metadata.delta())
-    {
-        throw std::runtime_error("Laszip storage requires scaling.");
-    }
-
     const bool local(out.isLocal());
     const std::string localDir(
             local ? out.prefixedRoot() : tmp.prefixedRoot());
@@ -39,22 +34,16 @@ void Laz::write(
             (local ? filename : arbiter::crypto::encodeAsHex(filename)) +
             ".laz");
 
-    const Schema& schema(m_metadata.schema());
-    const Delta& delta(*m_metadata.delta());
+    const Schema& outSchema(m_metadata.outSchema());
 
-    // ShallowPointTable table(schema, data);
     pdal::BufferReader reader;
     auto view(std::make_shared<pdal::PointView>(table));
     for (std::size_t i(0); i < table.size(); ++i) view->getOrAddPoint(i);
     reader.addView(view);
 
-    const auto offset(bounds.mid().apply([](double d) {
-        return std::floor(d);
-    }));
-
     // See https://www.pdal.io/stages/writers.las.html
-    const uint64_t timeMask(schema.hasTime() ? 1 : 0);
-    const uint64_t colorMask(schema.hasColor() ? 2 : 0);
+    const uint64_t timeMask(outSchema.hasTime() ? 1 : 0);
+    const uint64_t colorMask(outSchema.hasColor() ? 2 : 0);
 
     pdal::Options options;
     options.add("filename", localDir + localFile);
@@ -64,13 +53,13 @@ void Laz::write(
     options.add("compression", "laszip");
     options.add("dataformat_id", timeMask | colorMask);
 
-    options.add("scale_x", delta.scale().x);
-    options.add("scale_y", delta.scale().y);
-    options.add("scale_z", delta.scale().z);
+    options.add("scale_x", outSchema.scale().x);
+    options.add("scale_y", outSchema.scale().y);
+    options.add("scale_z", outSchema.scale().z);
 
-    options.add("offset_x", offset.x);
-    options.add("offset_y", offset.y);
-    options.add("offset_z", offset.z);
+    options.add("offset_x", outSchema.offset().x);
+    options.add("offset_y", outSchema.offset().y);
+    options.add("offset_z", outSchema.offset().z);
 
     if (m_metadata.srs().size()) options.add("a_srs", m_metadata.srs());
 
@@ -79,7 +68,7 @@ void Laz::write(
     pdal::Stage* prev(&reader);
 
     std::unique_ptr<pdal::SortFilter> sort;
-    if (m_metadata.schema().contains("GpsTime"))
+    if (outSchema.contains("GpsTime"))
     {
         sort = makeUnique<pdal::SortFilter>();
 

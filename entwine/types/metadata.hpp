@@ -29,7 +29,6 @@ namespace entwine
 namespace arbiter { class Endpoint; }
 
 class DataIo;
-class Delta;
 class Files;
 class Point;
 class Reprojection;
@@ -68,7 +67,6 @@ public:
 
     const Reprojection* reprojection() const { return m_reprojection.get(); }
     const Subset* subset() const { return m_subset.get(); }
-    const Delta* delta() const { return m_delta.get(); }
     const Transformation* transformation() const
     {
         return m_transformation.get();
@@ -99,19 +97,18 @@ private:
     void setHierarchyStep(uint64_t v) { m_hierarchyStep = v; }
 
     Bounds makeConformingBounds(const Bounds& b) const;
-    Bounds makeCube(const Bounds& b, const Delta* d) const;
+    Bounds makeCube(const Bounds& b) const;
 
     // These are aggregated as the Builder runs.
     Files& mutableFiles() { return *m_files; }
     std::string& srs() { return m_srs; }
 
-    std::unique_ptr<Delta> m_delta;
+    std::unique_ptr<Schema> m_outSchema;
+    std::unique_ptr<Schema> m_schema;
 
     std::unique_ptr<Bounds> m_boundsConforming;
     std::unique_ptr<Bounds> m_boundsCubic;
 
-    std::unique_ptr<Schema> m_schema;
-    std::unique_ptr<Schema> m_outSchema;
     std::unique_ptr<Files> m_files;
     std::unique_ptr<DataIo> m_dataIo;
     std::unique_ptr<Reprojection> m_reprojection;

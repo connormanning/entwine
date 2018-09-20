@@ -74,18 +74,18 @@ void Scan::run()
         std::endl;
 
     const Config out(scan.go());
+    const Schema schema(out.schema());
     std::cout << std::endl;
 
     std::cout << "Results:" << std::endl;
-    std::cout << "\tSchema: " << getDimensionString(Schema(out["schema"])) <<
-        std::endl;
+    std::cout << "\tSchema: " << getDimensionString(schema) << std::endl;
     std::cout << "\tPoints: " << commify(out.numPoints()) << std::endl;
     std::cout << "\tBounds: " << Bounds(out["bounds"]) << std::endl;
 
     std::cout << "\tScale: ";
-    if (out.json().isMember("scale"))
+    if (schema.isScaled())
     {
-        Scale s(out["scale"]);
+        Scale s(schema.scale());
         if (s.x == s.y && s.x == s.z) std::cout << s.x;
         else std::cout << s;
     }

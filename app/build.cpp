@@ -297,10 +297,10 @@ void Build::log(const Builder& b) const
         "\tSleep count: " << commify(b.sleepCount()) <<
         std::endl;
 
-    if (const auto* delta = metadata.delta())
+    if (schema.isScaled())
     {
         std::cout << "\tScale: ";
-        const auto& scale(delta->scale());
+        const Scale scale(schema.scale());
         if (scale.x == scale.y && scale.x == scale.z)
         {
             std::cout << scale.x << std::endl;
@@ -309,12 +309,12 @@ void Build::log(const Builder& b) const
         {
             std::cout << scale << std::endl;
         }
-        std::cout << "\tOffset: " << delta->offset() << std::endl;
+        std::cout << "\tOffset: " << schema.offset() << std::endl;
     }
     else
     {
         std::cout << "\tScale: (absolute)" << std::endl;
-        std::cout << "\tOffset: (0, 0, 0)" << std::endl;
+        std::cout << "\tOffset: (none)" << std::endl;
     }
 
     std::cout <<

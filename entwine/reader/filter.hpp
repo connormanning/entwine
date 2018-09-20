@@ -17,7 +17,6 @@
 #include <entwine/reader/comparison.hpp>
 #include <entwine/reader/logic-gate.hpp>
 #include <entwine/reader/query-params.hpp>
-#include <entwine/types/delta.hpp>
 #include <entwine/types/metadata.hpp>
 
 namespace entwine
@@ -27,19 +26,18 @@ class Filter
 {
 public:
     Filter(const Metadata& m, const QueryParams& p)
-        : Filter(m, p.bounds(), p.filter(), &p.delta())
+        : Filter(m, p.bounds(), p.filter())
     { }
 
     Filter(
             const Metadata& metadata,
             const Bounds& queryBounds,
-            const Json::Value& json,
-            const Delta* delta)
+            const Json::Value& json)
         : m_metadata(metadata)
         , m_queryBounds(queryBounds)
         , m_root()
     {
-        if (json.isObject()) build(m_root, json, delta);
+        if (json.isObject()) build(m_root, json);
         else if (!json.isNull())
         {
             throw std::runtime_error("Invalid filter type");
@@ -62,7 +60,7 @@ public:
     }
 
 private:
-    void build(LogicGate& gate, const Json::Value& json, const Delta* delta)
+    void build(LogicGate& gate, const Json::Value& json)
     {
         if (json.isObject())
         {
@@ -83,14 +81,13 @@ private:
                 if (isLogicalOperator(key))
                 {
                     auto inner(LogicGate::create(key));
-                    build(*inner, val, delta);
+                    build(*inner, val);
                     active->push(std::move(inner));
                 }
                 else if (!val.isObject() || val.size() == 1)
                 {
                     // a comparison query object.
-                    active->push(
-                            Comparison::create(m_metadata, key, val, delta));
+                    active->push(Comparison::create(m_metadata, key, val));
                 }
                 else
                 {
@@ -107,12 +104,7 @@ private:
                     {
                         Json::Value next;
                         next[innerKey] = val[innerKey];
-                        active->push(
-                                Comparison::create(
-                                    m_metadata,
-                                    key,
-                                    next,
-                                    delta));
+                        active->push(Comparison::create(m_metadata, key, next));
                     }
                 }
             }
@@ -121,7 +113,7 @@ private:
         }
         else if (json.isArray())
         {
-            for (const Json::Value& val : json) build(gate, val, delta);
+            for (const Json::Value& val : json) build(gate, val);
         }
         else
         {

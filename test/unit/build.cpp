@@ -44,13 +44,10 @@ TEST(build, basic)
     const auto numPoints(info["numPoints"].asUInt64());
     EXPECT_EQ(numPoints, v.numPoints());
 
-    const Scale scale(info["scale"]);
-    const Offset offset(info["offset"]);
-    EXPECT_EQ(scale, v.scale());
-    EXPECT_EQ(offset, bounds.mid());
-
     const Schema schema(info["schema"]);
-    EXPECT_EQ(schema, v.schema().append(DimId::OriginId));
+    Schema verifySchema(v.schema().append(DimId::OriginId));
+    verifySchema.setOffset(bounds.mid().round());
+    EXPECT_EQ(schema, verifySchema);
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
     EXPECT_EQ(info["hierarchyStep"].asUInt64(), v.hierarchyStep());

@@ -59,16 +59,34 @@ Config Config::prepare() const
     // path of the scan or the string paths.
     if (!scan.isNull()) result["input"] = scan["input"];
 
-    // If necessary, add the OriginId dimension to the schema prior to building.
-    if (allowOriginId())
+    // Prepare the schema, adding OriginId and determining a proper offset, if
+    // necessary.
+    Schema s(result["schema"]);
+
+    if (allowOriginId() && !s.contains(DimId::OriginId))
     {
-        Schema s(result["schema"]);
-        if (!s.contains(DimId::OriginId))
-        {
-            s = s.append(DimInfo(DimId::OriginId));
-        }
-        result["schema"] = s.toJson();
+        s = s.append(DimInfo(DimId::OriginId));
     }
+
+    if (absolute())
+    {
+        s.setScale(1);
+        s.setOffset(0);
+    }
+    else if (!s.isScaled())
+    {
+        s.setScale(
+                result.isMember("scale") ?
+                    Scale(result["scale"]) : Scale(0.01));
+    }
+
+    if (s.isScaled() && s.offset() == Offset(0))
+    {
+        const Bounds bounds(result["bounds"]);
+        s.setOffset(bounds.mid().round());
+    }
+
+    result["schema"] = s.toJson();
 
     return result;
 }

@@ -170,12 +170,6 @@ public:
         return "";
     }
 
-    std::unique_ptr<Delta> delta() const
-    {
-        if (scale() != Scale(1)) return makeUnique<Delta>(scale(), offset());
-        else return std::unique_ptr<Delta>();
-    }
-
     bool absolute() const
     {
         return m_json.isMember("absolute") && m_json["absolute"].asBool();
@@ -191,21 +185,6 @@ public:
     }
 
 private:
-    Scale scale() const
-    {
-        if (m_json["absolute"].asBool()) return Scale(1);
-        else if (!m_json["scale"].isNull()) return Scale(m_json["scale"]);
-        else return Scale(0.01);
-    }
-    Offset offset() const
-    {
-        if (!m_json["offset"].isNull()) return Offset(m_json["offset"]);
-        return Bounds(m_json["bounds"]).mid().apply([](double d)
-        {
-            return std::llround(d);
-        });
-    }
-
     Json::Value m_json;
 };
 

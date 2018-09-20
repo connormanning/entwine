@@ -50,7 +50,7 @@ Builder::Builder(const Config& config, std::shared_ptr<arbiter::Arbiter> a)
                 Config::defaults(),
                 Config::defaultBuildParams(),
                 config.prepare().json()))
-    , m_interval(config.progressInterval())
+    , m_interval(m_config.progressInterval())
     , m_arbiter(a ? a : std::make_shared<arbiter::Arbiter>(m_config["arbiter"]))
     , m_out(makeUnique<Endpoint>(m_arbiter->getEndpoint(m_config.output())))
     , m_tmp(makeUnique<Endpoint>(m_arbiter->getEndpoint(m_config.tmp())))

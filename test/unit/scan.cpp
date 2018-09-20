@@ -38,12 +38,9 @@ TEST(scan, single)
     ASSERT_FALSE(out.json().isNull());
 
     const Bounds bounds(out["bounds"]);
-    const auto delta(out.delta());
     const Schema schema(out.schema());
 
     EXPECT_EQ(bounds, v.bounds());
-    ASSERT_TRUE(delta);
-    EXPECT_EQ(delta->scale(), v.scale());
     EXPECT_EQ(out.numPoints(), v.numPoints());
     ASSERT_EQ(schema, v.schema());
 
@@ -72,12 +69,9 @@ TEST(scan, multi)
     ASSERT_FALSE(out.json().isNull());
 
     const Bounds bounds(out["bounds"]);
-    const auto delta(out.delta());
     const Schema schema(out.schema());
 
     EXPECT_EQ(bounds, v.bounds());
-    ASSERT_TRUE(delta);
-    EXPECT_EQ(delta->scale(), v.scale());
     EXPECT_EQ(out.numPoints(), v.numPoints());
     ASSERT_EQ(schema, v.schema());
 
@@ -124,7 +118,6 @@ TEST(scan, reprojection)
     ASSERT_FALSE(out.json().isNull());
 
     const Bounds bounds(out["bounds"]);
-    const auto delta(out.delta());
     const Schema schema(out.schema());
 
     for (std::size_t i(0); i < 6; ++i)
@@ -132,8 +125,6 @@ TEST(scan, reprojection)
         ASSERT_NEAR(bounds[i], v.boundsUtm()[i], 1.0);
     }
 
-    ASSERT_TRUE(delta);
-    EXPECT_EQ(delta->scale(), v.scale());
     EXPECT_EQ(out.numPoints(), v.numPoints());
     ASSERT_EQ(schema, v.schema());
 
@@ -165,7 +156,6 @@ TEST(scan, reprojectionHammer)
     ASSERT_FALSE(out.json().isNull());
 
     const Bounds bounds(out["bounds"]);
-    const auto delta(out.delta());
     const Schema schema(out.schema());
 
     for (std::size_t i(0); i < 6; ++i)
@@ -173,8 +163,6 @@ TEST(scan, reprojectionHammer)
         ASSERT_NEAR(bounds[i], v.boundsUtm()[i], 1.0);
     }
 
-    ASSERT_TRUE(delta);
-    EXPECT_EQ(delta->scale(), v.scale());
     EXPECT_EQ(out.numPoints(), v.numPoints());
     ASSERT_EQ(schema, v.schema());
 
@@ -205,12 +193,9 @@ TEST(scan, outputFile)
     ASSERT_FALSE(out.json().isNull());
 
     const Bounds bounds(out["bounds"]);
-    const auto delta(out.delta());
     const Schema schema(out.schema());
 
     EXPECT_EQ(bounds, v.bounds());
-    ASSERT_TRUE(delta);
-    EXPECT_EQ(delta->scale(), v.scale());
     EXPECT_EQ(out.numPoints(), v.numPoints());
     ASSERT_EQ(schema, v.schema());
 

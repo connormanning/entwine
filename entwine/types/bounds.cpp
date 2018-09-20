@@ -144,6 +144,11 @@ Bounds Bounds::growBy(double ratio) const
     return Bounds(m_min - delta, m_max + delta);
 }
 
+Bounds Bounds::applyScaleOffset(const Scale& s, const Offset& o) const
+{
+    return Bounds(Point::scale(min(), s, o), Point::scale(max(), s, o));
+}
+
 Bounds Bounds::deltify(const Delta* delta) const
 {
     if (delta) return deltify(*delta);

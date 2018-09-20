@@ -67,11 +67,7 @@ TEST(read, data)
     EXPECT_EQ(m.ticks(), v.ticks());
     EXPECT_EQ(m.hierarchyStep(), v.hierarchyStep());
 
-    const Schema schema(DimList {
-        pdal::Dimension::Id::X,
-        pdal::Dimension::Id::Y,
-        pdal::Dimension::Id::Z
-    });
+    const Schema schema(DimList { DimId::X, DimId::Y, DimId::Z });
 
     auto append([&r](std::vector<char>& v, Json::Value j)
     {

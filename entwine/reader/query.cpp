@@ -61,7 +61,7 @@ void Query::run()
 
         for (auto& chunk : block)
         {
-            for (const auto& pr: chunk->table())
+            for (const auto& pr : chunk->table())
             {
                 maybeProcess(pr);
             }
@@ -85,27 +85,9 @@ void ReadQuery::process(const pdal::PointRef& pr)
     m_data.resize(m_data.size() + m_schema.pointSize(), 0);
     char* pos(m_data.data() + m_data.size() - m_schema.pointSize());
 
-    std::size_t dimNum(0);
-    double d(0);
-
     for (const auto& dimInfo : m_schema.dims())
     {
-        dimNum = pdal::Utils::toNative(dimInfo.id()) - 1;
-
-        if (dimNum < 3 && m_delta.exists())
-        {
-            d = Point::scale(
-                    pr.getFieldAs<double>(dimInfo.id()),
-                    m_delta.scale()[dimNum],
-                    m_delta.offset()[dimNum]);
-
-            setAs(pos, d, dimInfo.type());
-        }
-        else
-        {
-            pr.getField(pos, dimInfo.id(), dimInfo.type());
-        }
-
+        pr.getField(pos, dimInfo.id(), dimInfo.type());
         pos += dimInfo.size();
     }
 }

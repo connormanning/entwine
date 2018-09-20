@@ -212,24 +212,19 @@ Config Scan::aggregate()
 
     if (out["bounds"].isNull()) out["bounds"] = bounds.toJson();
 
-    if (m_scale != 1 && !m_in.absolute())
+    if (!m_in.absolute())
     {
-        if (m_scale.x == m_scale.y && m_scale.x == m_scale.z)
-        {
-            out["scale"] = m_scale.x;
-        }
-        else out["scale"] = m_scale.toJson();
-    }
+        if (m_scale == 1) m_scale = 0.01;
 
-    if (out.delta() && !m_in.absolute())
-    {
-        DimList dims
-        {
-            DimInfo(DimId::X, DimType::Signed32),
-            DimInfo(DimId::Y, DimType::Signed32),
-            DimInfo(DimId::Z, DimType::Signed32)
-        };
+        DimInfo x(DimId::X, DimType::Signed32);
+        DimInfo y(DimId::Y, DimType::Signed32);
+        DimInfo z(DimId::Z, DimType::Signed32);
 
+        x.setScale(m_scale.x);
+        y.setScale(m_scale.y);
+        z.setScale(m_scale.z);
+
+        DimList dims { x, y, z };
         for (const auto& d : m_schema.dims())
         {
             if (!DimInfo::isXyz(d.id())) dims.emplace_back(d);

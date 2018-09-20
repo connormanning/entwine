@@ -33,8 +33,8 @@ public:
         : DimInfo(id, pdal::Dimension::defaultType(id))
     { }
 
-    DimInfo(DimId id, DimType type)
-        : DimInfo(pdal::Dimension::name(id), type)
+    DimInfo(DimId id, DimType type, double scale = 1.0, double offset = 0.0)
+        : DimInfo(pdal::Dimension::name(id), type, scale, offset)
     { }
 
     explicit DimInfo(std::string name)
@@ -50,13 +50,22 @@ public:
                 json["name"].asString(),
                 json["type"].asString(),
                 json["size"].asUInt64())
-    { }
+    {
+        if (json.isMember("scale"))  m_scale = json["scale"].asDouble();
+        if (json.isMember("offset")) m_offset = json["offset"].asDouble();
+    }
 
     // All constructor overloads end up here.
-    DimInfo(std::string name, DimType type)
+    DimInfo(
+            std::string name,
+            DimType type,
+            double scale = 1.0,
+            double offset = 0.0)
         : m_name(name)
         , m_type(type)
         , m_id(pdal::Dimension::id(name))
+        , m_scale(scale)
+        , m_offset(offset)
     {
         if (m_name.empty())
         {
@@ -89,12 +98,27 @@ public:
         return pdal::Dimension::base(m_type);
     }
 
+    double scale() const { return m_scale; }
+    double offset() const { return m_offset; }
+    bool isScaled() const { return m_scale != 1.0; }
+    void setScale(double scale) { m_scale = scale; }
+    void setOffset(double offset) { m_offset = offset; }
+    void setScaleOffset(double scale, double offset)
+    {
+        m_scale = scale;
+        m_offset = offset;
+    }
+
     Json::Value toJson() const
     {
         Json::Value json;
         json["name"] = name();
         json["type"] = typeString();
         json["size"] = static_cast<Json::UInt64>(size());
+
+        if (m_scale != 1.0)  json["scale"] = m_scale;
+        if (m_offset != 0.0) json["offset"] = m_offset;
+
         return json;
     }
 
@@ -187,13 +211,19 @@ private:
     std::string m_name;
     DimType m_type;
     mutable DimId m_id = DimId::Unknown;
+
+    double m_scale = 1.0;
+    double m_offset = 0.0;
 };
 
 using DimList = std::vector<DimInfo>;
 
-inline bool operator==(const DimInfo& lhs, const DimInfo& rhs)
+inline bool operator==(const DimInfo& a, const DimInfo& b)
 {
-    return lhs.name() == rhs.name() && lhs.type() == rhs.type();
+    return a.name() == b.name() &&
+        a.type() == b.type() &&
+        a.scale() == b.scale() &&
+        a.offset() == b.offset();
 }
 
 inline bool operator!=(const DimInfo& lhs, const DimInfo& rhs)

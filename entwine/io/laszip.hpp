@@ -18,7 +18,14 @@ namespace entwine
 class Laz : public DataIo
 {
 public:
-    Laz(const Metadata& m) : DataIo(m) { }
+    Laz(const Metadata& m)
+        : DataIo(m)
+    {
+        if (!m.outSchema().isScaled())
+        {
+            throw std::runtime_error("Laszip output requires scaling.");
+        }
+    }
 
     virtual std::string type() const override { return "laszip"; }
 

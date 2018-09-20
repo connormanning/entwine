@@ -1,7 +1,6 @@
 #pragma once
 
 #include <entwine/types/bounds.hpp>
-#include <entwine/types/delta.hpp>
 #include <entwine/types/schema.hpp>
 
 using namespace entwine;
@@ -25,9 +24,9 @@ public:
     Schema schema() const
     {
         return Schema(DimList {
-            { DimId::X, DimType::Signed32 },
-            { DimId::Y, DimType::Signed32 },
-            { DimId::Z, DimType::Signed32 },
+            { DimId::X, DimType::Signed32, 0.01 },
+            { DimId::Y, DimType::Signed32, 0.01 },
+            { DimId::Z, DimType::Signed32, 0.01 },
             DimId::Intensity,
             DimId::ReturnNumber,
             DimId::NumberOfReturns,
@@ -44,7 +43,6 @@ public:
         });
     }
 
-    Scale scale() const { return Scale(0.01); }
     uint64_t numPoints() const { return 100000; }
 
     uint64_t ticks() const { return 32; }

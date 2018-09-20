@@ -11,7 +11,6 @@
 #include <cassert>
 
 #include <entwine/io/io.hpp>
-#include <entwine/types/delta.hpp>
 #include <entwine/types/files.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
@@ -24,7 +23,8 @@ namespace entwine
 {
 
 Metadata::Metadata(const Config& config, const bool exists)
-    : m_delta(config.delta())
+    : m_outSchema(makeUnique<Schema>(config.schema()))
+    , m_schema(makeUnique<Schema>(Schema::makeAbsolute(*m_outSchema)))
     , m_boundsConforming(makeUnique<Bounds>(
                 exists ?
                     Bounds(config["boundsConforming"]) :
@@ -32,9 +32,7 @@ Metadata::Metadata(const Config& config, const bool exists)
     , m_boundsCubic(makeUnique<Bounds>(
                 exists ?
                     Bounds(config["bounds"]) :
-                    makeCube(*m_boundsConforming, m_delta.get())))
-    , m_schema(makeUnique<Schema>(Schema::normalize(config.schema())))
-    , m_outSchema(makeUnique<Schema>(config.schema()))
+                    makeCube(*m_boundsConforming)))
     , m_files(makeUnique<Files>(config.input()))
     , m_dataIo(DataIo::create(*this, config.dataType()))
     , m_reprojection(Reprojection::create(config["reprojection"]))
@@ -55,8 +53,11 @@ Metadata::Metadata(const Config& config, const bool exists)
         throw std::runtime_error("Invalid 'ticks' setting");
     }
 
-    if (m_delta)
+    if (m_outSchema->isScaled())
     {
+        const Scale scale(m_outSchema->scale());
+        const Offset offset(m_outSchema->offset());
+
         const uint64_t size = std::min(
                 m_outSchema->find("X").size(),
                 std::min(
@@ -77,7 +78,7 @@ Metadata::Metadata(const Config& config, const bool exists)
         }
 
         const Bounds extents(mn, mx);
-        const Bounds request(m_boundsCubic->deltify(*m_delta));
+        const Bounds request(m_boundsCubic->applyScaleOffset(scale, offset));
 
         if (!extents.contains(request))
         {
@@ -87,11 +88,6 @@ Metadata::Metadata(const Config& config, const bool exists)
             throw std::runtime_error(
                     "Bounds are too large for the selected scale");
         }
-    }
-
-    if (m_dataIo->type() == "laszip" && !m_delta)
-    {
-        throw std::runtime_error("Laszip output needs scaling.");
     }
 }
 
@@ -125,7 +121,6 @@ Json::Value Metadata::toJson() const
 
     if (m_srs.size()) json["srs"] = m_srs;
     if (m_reprojection) json["reprojection"] = m_reprojection->toJson();
-    if (m_delta) json = entwine::merge(json, m_delta->toJson());
 
     if (m_transformation)
     {
@@ -209,35 +204,26 @@ Bounds Metadata::makeConformingBounds(const Bounds& b) const
 
     pmin = pmin.apply([](double d)
     {
-        if (static_cast<double>(static_cast<int64_t>(d)) == d) return d - 1.0;
+        if (std::floor(d) == d) return d - 1.0;
         else return std::floor(d);
     });
 
     pmax = pmax.apply([](double d)
     {
-        if (static_cast<double>(static_cast<int64_t>(d)) == d) return d + 1.0;
+        if (std::ceil(d) == d) return d + 1.0;
         else return std::ceil(d);
     });
 
     return Bounds(pmin, pmax);
 }
 
-Bounds Metadata::makeCube(const Bounds& b, const Delta* d) const
+Bounds Metadata::makeCube(const Bounds& b) const
 {
-    const Offset offset(
-            d ?
-                d->offset() :
-                b.mid().apply([](double d) { return std::round(d); }));
+    double diam(std::max(std::max(b.width(), b.depth()), b.height()));
+    double r(std::ceil(diam / 2.0) + 1.0);
 
-    const double maxDist(std::max(std::max(b.width(), b.depth()), b.height()));
-    double r(maxDist / 2.0);
-
-    if (static_cast<double>(static_cast<uint64_t>(r)) == r) r += 1.0;
-    else r = std::ceil(r);
-
-    while (!Bounds(offset - r, offset + r).contains(b)) r += 1.0;
-
-    return Bounds(offset - r, offset + r);
+    const Point mid(b.mid().apply([](double d) { return std::round(d); }));
+    return Bounds(mid - r, mid + r);
 }
 
 } // namespace entwine

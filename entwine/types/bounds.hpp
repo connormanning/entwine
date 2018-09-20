@@ -254,6 +254,7 @@ public:
         return width() == depth() && (!is3d() || width() == height());
     }
 
+    Bounds applyScaleOffset(const Scale& scale, const Offset& offset) const;
     Bounds deltify(const Delta* delta) const;
     Bounds deltify(const Delta& delta) const;
     Bounds undeltify(const Delta* delta) const;

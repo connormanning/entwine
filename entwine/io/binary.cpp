@@ -20,6 +20,20 @@
 namespace entwine
 {
 
+namespace
+{
+    struct ScaleOffset
+    {
+        ScaleOffset(Scale scale, Offset offset)
+            : scale(scale)
+            , offset(offset)
+        { }
+
+        const Scale scale;
+        const Offset offset;
+    };
+}
+
 void Binary::write(
         const arbiter::Endpoint& out,
         const arbiter::Endpoint& tmp,
@@ -48,6 +62,12 @@ void Binary::write(
 
     Point p;
 
+    std::unique_ptr<ScaleOffset> so;
+    if (outSchema.isScaled())
+    {
+        so = makeUnique<ScaleOffset>(outSchema.scale(), outSchema.offset());
+    }
+
     for (uint64_t i(0); i < np; ++i)
     {
         srcPr.setPointId(i);
@@ -59,10 +79,7 @@ void Binary::write(
         p.y = srcPr.getFieldAs<double>(DimId::Y);
         p.z = srcPr.getFieldAs<double>(DimId::Z);
 
-        if (const Delta* d = m_metadata.delta())
-        {
-            p = Point::scale(p, d->scale(), d->offset());
-        }
+        if (so) p = Point::scale(p, so->scale, so->offset);
 
         dstPr.setField(DimId::X, p.x);
         dstPr.setField(DimId::Y, p.y);
@@ -104,6 +121,13 @@ void Binary::read(
 
     Point p;
 
+    const Schema& outSchema(m_metadata.outSchema());
+    std::unique_ptr<ScaleOffset> so;
+    if (outSchema.isScaled())
+    {
+        so = makeUnique<ScaleOffset>(outSchema.scale(), outSchema.offset());
+    }
+
     for (uint64_t i(0); i < np; ++i)
     {
         srcPr.setPointId(i);
@@ -118,13 +142,13 @@ void Binary::read(
                     dim.m_type);
         }
 
-        if (const Delta* d = m_metadata.delta())
+        if (so)
         {
             p.x = dstPr.getFieldAs<double>(DimId::X);
             p.y = dstPr.getFieldAs<double>(DimId::Y);
             p.z = dstPr.getFieldAs<double>(DimId::Z);
 
-            p = Point::unscale(p, d->scale(), d->offset());
+            p = Point::unscale(p, so->scale, so->offset);
 
             dstPr.setField(DimId::X, p.x);
             dstPr.setField(DimId::Y, p.y);
