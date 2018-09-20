@@ -423,7 +423,7 @@ void Builder::prepareEndpoints()
                 throw std::runtime_error("Couldn't create " + rootDir);
             }
 
-            if (!arbiter::fs::mkdirp(rootDir + "h"))
+            if (!arbiter::fs::mkdirp(rootDir + "ept-hierarchy"))
             {
                 throw std::runtime_error("Couldn't create hierarchy directory");
             }

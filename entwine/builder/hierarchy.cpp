@@ -24,7 +24,7 @@ Hierarchy::Hierarchy(
 {
     if (exists)
     {
-        const arbiter::Endpoint ep(top.getSubEndpoint("h"));
+        const arbiter::Endpoint ep(top.getSubEndpoint("ept-hierarchy"));
         load(m, ep);
     }
 }
@@ -58,7 +58,7 @@ void Hierarchy::save(
         const arbiter::Endpoint& top,
         Pool& pool) const
 {
-    const arbiter::Endpoint ep(top.getSubEndpoint("h"));
+    const arbiter::Endpoint ep(top.getSubEndpoint("ept-hierarchy"));
 
     Json::Value json;
     const ChunkKey k(m);

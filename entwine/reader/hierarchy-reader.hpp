@@ -32,7 +32,7 @@ public:
 
     HierarchyReader(const Metadata& metadata, const arbiter::Endpoint& out)
         : m_metadata(metadata)
-        , m_ep(out.getSubEndpoint("h"))
+        , m_ep(out.getSubEndpoint("ept-hierarchy"))
         , m_step(m_metadata.hierarchyStep())
     {
         load();
