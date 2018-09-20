@@ -129,7 +129,7 @@ public:
             arbiter::Arbiter(m_json["arbiter"]).tryGetSize(
                     arbiter::util::join(
                         output(),
-                        "entwine" + postfix() + ".json"));
+                        "ept" + postfix() + ".json"));
     }
 
     bool verbose() const { return m_json["verbose"].asBool(); }

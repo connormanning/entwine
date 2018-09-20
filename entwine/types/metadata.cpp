@@ -96,13 +96,11 @@ Metadata::Metadata(const arbiter::Endpoint& ep, const Config& config)
             entwine::merge(
                 config.json(),
                 entwine::merge(
-                    parse(ep.get("entwine" +
-                            config.postfix() + ".json")),
-                    parse(ep.get("entwine-build" +
-                            config.postfix() + ".json")))),
+                    parse(ep.get("ept" + config.postfix() + ".json")),
+                    parse(ep.get("ept-build" + config.postfix() + ".json")))),
             true)
 {
-    Files files(parse(ep.get("entwine-files" + postfix() + ".json")));
+    Files files(parse(ep.get("ept-files" + postfix() + ".json")));
     files.append(m_files->list());
     m_files = makeUnique<Files>(files.list());
 }
@@ -113,6 +111,7 @@ Json::Value Metadata::toJson() const
 {
     Json::Value json;
 
+    json["version"] = m_version->toString();
     json["bounds"] = boundsCubic().toJson();
     json["boundsConforming"] = boundsConforming().toJson();
     json["schema"] = m_outSchema->toJson();
@@ -141,7 +140,6 @@ Json::Value Metadata::toBuildParamsJson() const
 {
     Json::Value json;
 
-    json["version"] = m_version->toString();
     json["trustHeaders"] = m_trustHeaders;
     json["overflowDepth"] = (Json::UInt64)m_overflowDepth;
     json["overflowThreshold"] = (Json::UInt64)m_overflowThreshold;
@@ -154,13 +152,13 @@ void Metadata::save(const arbiter::Endpoint& endpoint) const
 {
     {
         const auto json(toJson());
-        const std::string f("entwine" + postfix() + ".json");
+        const std::string f("ept" + postfix() + ".json");
         ensurePut(endpoint, f, toPreciseString(json));
     }
 
     {
         const auto json(toBuildParamsJson());
-        const std::string f("entwine-build" + postfix() + ".json");
+        const std::string f("ept-build" + postfix() + ".json");
         ensurePut(endpoint, f, toPreciseString(json));
     }
 
