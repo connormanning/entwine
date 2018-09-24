@@ -21,7 +21,7 @@
 #include <entwine/builder/config.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/bounds.hpp>
-#include <entwine/types/file-info.hpp>
+#include <entwine/types/files.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/pool.hpp>
@@ -40,7 +40,9 @@ public:
     const Config& inConfig() const { return m_in; }
 
     std::size_t index() const { return m_index; }
-    std::size_t total() const { return m_fileInfo.size(); }
+    std::size_t total() const { return m_files.size(); }
+
+    const Files& files() const { return m_files; }
 
 private:
     void add(FileInfo& f);
@@ -58,7 +60,7 @@ private:
     mutable std::mutex m_mutex;
 
     // These are the portions we build during go().
-    FileInfoList m_fileInfo;
+    Files m_files;
     Schema m_schema;
     Scale m_scale = 1;
 };

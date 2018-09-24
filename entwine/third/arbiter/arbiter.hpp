@@ -4415,7 +4415,7 @@ namespace util
 #ifdef ARBITER_WINDOWS
             sep = "\\";
 #else
-            sep = "/";   
+            sep = "/";
 #endif
         }
         else if (next.empty() && currentIsDir)
@@ -4427,7 +4427,7 @@ namespace util
 #ifdef ARBITER_WINDOWS
                 sep = "\\";
 #else
-                sep = "/";   
+                sep = "/";
 #endif
 
             }

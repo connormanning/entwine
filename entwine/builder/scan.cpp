@@ -36,6 +36,7 @@ Scan::Scan(const Config config)
     , m_arbiter(m_in["arbiter"])
     , m_tmp(m_arbiter.getEndpoint(m_in.tmp()))
     , m_re(m_in.reprojection())
+    , m_files(m_in.input())
 {
     arbiter::fs::mkdirp(m_tmp.root());
 }
@@ -47,37 +48,36 @@ Config Scan::go()
         throw std::runtime_error("Cannot call Scan::go twice");
     }
     m_pool = makeUnique<Pool>(m_in.totalThreads(), 1, m_in.verbose());
-    m_fileInfo = m_in.input();
 
-    const std::size_t size(m_fileInfo.size());
+    const std::size_t size(m_files.size());
     for (std::size_t i(0); i < size; ++i)
     {
         m_index = i;
-        FileInfo& f(m_fileInfo.at(i));
+        FileInfo& f(m_files.get(i));
         if (m_in.verbose())
         {
-            std::cout << i + 1 << " / " << size << ": " << f.path() << std::endl;
+            std::cout << i + 1 << " / " << size << ": " << f.path() <<
+                std::endl;
         }
         add(f);
     }
 
-    m_pool->join();
+    m_pool->cycle();
 
     Config out(aggregate());
 
     std::string path(m_in.output());
     if (path.size())
     {
-        if (arbiter::Arbiter::getExtension(path) != "json") path += ".json";
-
         arbiter::Arbiter arbiter(m_in["arbiter"]);
-        if (arbiter.getEndpoint(path).isLocal())
+        arbiter::Endpoint ep(arbiter.getEndpoint(path));
+        const std::string filename("ept-scan.json");
+
+        if (ep.isLocal())
         {
-            const auto dir(arbiter::util::getNonBasename(path));
-            if (dir.size() && !arbiter::fs::mkdirp(dir))
+            if (!arbiter::fs::mkdirp(ep.root()))
             {
-                std::cout << "Could not mkdir: " <<
-                    arbiter::util::getNonBasename(path) << std::endl;
+                std::cout << "Could not mkdir: " << path << std::endl;
             }
         }
 
@@ -87,14 +87,22 @@ Config Scan::go()
             std::cout << "Writing details to " << path << "...";
         }
 
-        arbiter.put(
-                path,
-                toPreciseString(out.json(), m_fileInfo.size() <= 100));
+        ep.put(filename, toPreciseString(out.json(), m_files.size() <= 100));
+        for (Origin o(0); o < m_files.size(); ++o)
+        {
+            m_pool->add([this, o, &ep]()
+            {
+                const Json::Value& meta(m_files.get(o).metadata());
+                ep.put(std::to_string(o) + ".json", toPreciseString(meta));
+            });
+        }
 
         if (m_in.verbose())
         {
             std::cout << " written." << std::endl;
         }
+
+        m_pool->cycle();
     }
 
     return out;
@@ -110,13 +118,15 @@ void Scan::add(FileInfo& f)
             {
                 const auto data(m_arbiter.getBinary(f.path(), range));
 
-                std::string name(f.path());
-                std::replace(name.begin(), name.end(), '/', '-');
-                std::replace(name.begin(), name.end(), '\\', '-');
+                const std::string ext(arbiter::Arbiter::getExtension(f.path()));
+                const std::string basename(
+                        arbiter::crypto::encodeAsHex(arbiter::crypto::sha256(
+                                arbiter::Arbiter::stripExtension(f.path()))) +
+                        (ext.size() ? "." + ext : ""));
 
-                m_tmp.put(name, data);
-                add(f, m_tmp.fullPath(name));
-                arbiter::fs::remove(m_tmp.fullPath(name));
+                m_tmp.put(basename, data);
+                add(f, m_tmp.fullPath(basename));
+                arbiter::fs::remove(m_tmp.fullPath(basename));
             });
         }
         else
@@ -198,7 +208,7 @@ Config Scan::aggregate()
 
     if (m_re) out["srs"] = m_re->out();
 
-    for (const auto& f : m_fileInfo)
+    for (const auto& f : m_files.list())
     {
         if (f.numPoints())
         {
@@ -235,7 +245,7 @@ Config Scan::aggregate()
 
     if (out["schema"].isNull()) out["schema"] = m_schema.toJson();
     out["numPoints"] = std::max<Json::UInt64>(np, out.numPoints());
-    out["input"] = toJson(m_fileInfo);
+    out["input"] = m_files.toJson();
     if (m_re) out["reprojection"] = m_re->toJson();
 
     return out;

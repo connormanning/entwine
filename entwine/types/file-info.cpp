@@ -74,7 +74,7 @@ FileInfo::FileInfo(const Json::Value& json)
     }
 }
 
-Json::Value FileInfo::toJson(const bool everything) const
+Json::Value FileInfo::toJson() const
 {
     Json::Value json;
 
@@ -82,18 +82,12 @@ Json::Value FileInfo::toJson(const bool everything) const
 
     if (m_status != Status::Outstanding) json["status"] = toString(m_status);
     if (!m_pointStats.empty()) json["pointStats"] = m_pointStats.toJson();
-
     if (m_origin != invalidOrigin) json["origin"] = (Json::UInt64)m_origin;
-
     if (m_bounds.exists()) json["bounds"] = m_bounds.toJson();
     if (m_numPoints) json["numPoints"] = (Json::UInt64)m_numPoints;
     if (!m_srs.empty()) json["srs"] = m_srs.getWKT();
-
-    if (everything)
-    {
-        if (!m_message.empty()) json["message"] = m_message;
-        if (!m_metadata.isNull()) json["metadata"] = m_metadata;
-    }
+    if (!m_message.empty()) json["message"] = m_message;
+    if (!m_metadata.isNull()) json["metadata"] = m_metadata;
 
     return json;
 }

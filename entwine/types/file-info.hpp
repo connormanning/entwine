@@ -44,7 +44,7 @@ public:
     explicit FileInfo(std::string path, Status status = Status::Outstanding);
     explicit FileInfo(const Json::Value& json);
 
-    Json::Value toJson(bool everything = true) const;
+    Json::Value toJson() const;
 
     const std::string& path() const             { return m_path; }
     Status status() const                       { return m_status; }
@@ -110,12 +110,14 @@ inline FileInfoList toFileInfo(const Json::Value& json)
     return f;
 }
 
+/*
 inline Json::Value toJson(const FileInfoList& fileInfo)
 {
     Json::Value json;
     for (const auto& f : fileInfo) json.append(f.toJson());
     return json;
 }
+*/
 
 double densityLowerBound(const FileInfoList& files);
 double areaUpperBound(const FileInfoList& files);

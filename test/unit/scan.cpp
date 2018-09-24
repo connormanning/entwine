@@ -76,7 +76,7 @@ TEST(scan, multi)
     ASSERT_EQ(schema, v.schema());
 
     const FileInfoList input(out.input());
-    ASSERT_EQ(input.size(), 8u);
+    ASSERT_EQ(input.size(), 9u);
 
     std::map<std::string, bool> basenames {
         { "ned.laz", false },
@@ -86,11 +86,13 @@ TEST(scan, multi)
         { "sed.laz", false },
         { "seu.laz", false },
         { "swd.laz", false },
-        { "swu.laz", false }
+        { "swu.laz", false },
+        { "zzz.txt", false }
     };
 
-    for (const auto file : input)
+    for (uint64_t i(0); i < 8u; ++i)
     {
+        const auto& file(input.at(i));
         const auto path(file.path());
         const auto basename(arbiter::util::getBasename(path));
         const auto expFile(Executor::get().preview(file.path()));
@@ -187,9 +189,10 @@ TEST(scan, outputFile)
 {
     Json::Value in;
     in["input"] = test::dataPath() + "ellipsoid.laz";
-    in["output"] = test::dataPath() + "out/scan.json";
+    in["output"] = test::dataPath() + "out/scan/";
     Scan(in).go();
-    const Config out(parse(arbiter::Arbiter().get(in["output"].asString())));
+    const std::string path(test::dataPath() + "out/scan/ept-scan.json");
+    const Config out(parse(arbiter::Arbiter().get(path)));
     ASSERT_FALSE(out.json().isNull());
 
     const Bounds bounds(out["bounds"]);

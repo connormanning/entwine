@@ -49,7 +49,7 @@ public:
     ~Metadata();
 
     void merge(const Metadata& other);
-    void save(const arbiter::Endpoint& endpoint) const;
+    void save(const arbiter::Endpoint& endpoint, const Config& config) const;
 
     const Bounds& boundsConforming() const { return *m_boundsConforming; }
     const Bounds& boundsCubic() const { return *m_boundsCubic; }
@@ -76,6 +76,7 @@ public:
     const std::string& srs() const { return m_srs; }
 
     bool trustHeaders() const { return m_trustHeaders; }
+    bool primary() const { return !m_subset || m_subset->primary(); }
 
     uint64_t ticks() const { return m_ticks; }
     uint64_t startDepth() const { return m_startDepth; }
@@ -127,6 +128,8 @@ private:
     const uint64_t m_overflowThreshold;
 
     uint64_t m_hierarchyStep;
+
+    bool m_merged = false;
 };
 
 } // namespace entwine

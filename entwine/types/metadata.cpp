@@ -148,7 +148,8 @@ Json::Value Metadata::toBuildParamsJson() const
     return json;
 }
 
-void Metadata::save(const arbiter::Endpoint& endpoint) const
+void Metadata::save(const arbiter::Endpoint& endpoint, const Config& config)
+    const
 {
     {
         const auto json(toJson());
@@ -162,7 +163,8 @@ void Metadata::save(const arbiter::Endpoint& endpoint) const
         ensurePut(endpoint, f, toPreciseString(json));
     }
 
-    m_files->save(endpoint, postfix());
+    const bool detailed(!m_merged && primary());
+    m_files->save(endpoint, postfix(), config, detailed);
 }
 
 void Metadata::merge(const Metadata& other)
@@ -173,6 +175,7 @@ void Metadata::merge(const Metadata& other)
 
 void Metadata::makeWhole()
 {
+    m_merged = true;
     m_subset.reset();
 }
 

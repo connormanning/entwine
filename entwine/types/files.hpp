@@ -19,6 +19,7 @@
 
 #include <json/json.h>
 
+#include <entwine/builder/config.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/file-info.hpp>
@@ -46,7 +47,13 @@ public:
 
     Files(const Json::Value& json) : Files(toFileInfo(json)) { }
 
-    void save(const arbiter::Endpoint& ep, const std::string& postfix) const;
+    Json::Value toJson() const;
+
+    void save(
+            const arbiter::Endpoint& ep,
+            const std::string& postfix,
+            const Config& config,
+            bool primary) const;
 
     std::size_t size() const { return m_files.size(); }
 
@@ -100,6 +107,14 @@ public:
     void merge(const Files& other);
 
 private:
+    // Write per-file detailed metadata.  This might need to be copied from an
+    // input scan location, or might be in-process for a build from a file
+    // input list.  It could also be a combination of both for continued builds.
+    void writeDetails(
+            const arbiter::Endpoint& ep,
+            const std::string& postfix,
+            const Config& config) const;
+
     void addStatus(FileInfo::Status status)
     {
         switch (status)

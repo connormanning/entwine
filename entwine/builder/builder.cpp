@@ -324,17 +324,16 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
             voxel.initShallow(it.pointRef(), it.data());
             const Point& point(voxel.point());
 
-            if (boundsConforming.contains(point) &&
-                    (!boundsSubset || boundsSubset->contains(point)))
+            if (boundsConforming.contains(point))
             {
-                key.init(point);
-                m_registry->addPoint(voxel, key, clipper);
-                pointStats.addInsert();
+                if (!boundsSubset || boundsSubset->contains(point))
+                {
+                    key.init(point);
+                    m_registry->addPoint(voxel, key, clipper);
+                    pointStats.addInsert();
+                }
             }
-            else
-            {
-                pointStats.addOutOfBounds();
-            }
+            else if (m_metadata->primary()) pointStats.addOutOfBounds();
         }
 
         if (originId != invalidOrigin)
@@ -392,7 +391,7 @@ void Builder::save(const arbiter::Endpoint& ep)
     m_registry->save(*m_out);
 
     if (verbose()) std::cout << "Saving metadata..." << std::endl;
-    m_metadata->save(*m_out);
+    m_metadata->save(*m_out, m_config);
 }
 
 void Builder::merge(Builder& other, Clipper& clipper)
@@ -426,6 +425,11 @@ void Builder::prepareEndpoints()
             if (!arbiter::fs::mkdirp(rootDir + "ept-hierarchy"))
             {
                 throw std::runtime_error("Couldn't create hierarchy directory");
+            }
+
+            if (!arbiter::fs::mkdirp(rootDir + "ept-metadata"))
+            {
+                throw std::runtime_error("Couldn't create metadata directory");
             }
         }
     }

@@ -100,9 +100,6 @@ bool Sequence::checkBounds(
     {
         const Subset* subset(m_metadata.subset());
         const bool primary(!subset || subset->primary());
-        std::cout << "Sequence::checkBounds failed!!!!!!!!!!!!!!" << std::endl;
-        std::cout << m_metadata.boundsCubic() << std::endl;
-        std::cout << bounds << std::endl;
         m_files.addOutOfBounds(origin, numPoints, primary);
         return false;
     }

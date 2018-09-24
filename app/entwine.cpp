@@ -53,7 +53,7 @@ namespace entwine
 namespace app
 {
 
-void App::addInput(std::string description, bool asDefault)
+void App::addInput(std::string description, const bool asDefault)
 {
     auto f([this](Json::Value v)
     {
@@ -71,13 +71,12 @@ void App::addInput(std::string description, bool asDefault)
     else m_ap.add("--input", "-i", description, f);
 }
 
-void App::addOutput(std::string description)
+void App::addOutput(std::string description, const bool asDefault)
 {
-    m_ap.add(
-            "--output",
-            "-o",
-            description,
-            [this](Json::Value v) { m_json["output"] = v.asString(); });
+    auto f([this](Json::Value v) { m_json["output"] = v.asString(); });
+
+    if (asDefault) m_ap.addDefault("--output", "-o", description, f);
+    else m_ap.add("--output", "-o", description, f);
 }
 
 void App::addConfig()

@@ -24,10 +24,73 @@
 namespace entwine
 {
 
-void Files::save(const arbiter::Endpoint& ep, const std::string& postfix) const
+Json::Value Files::toJson() const
 {
-    const Json::Value json(toJson(m_files));
-    ensurePut(ep, "ept-files" + postfix + ".json", toPreciseString(json));
+    Json::Value json;
+    for (const FileInfo& f : list()) json.append(f.toJson());
+    return json;
+}
+
+void Files::save(
+        const arbiter::Endpoint& ep,
+        const std::string& postfix,
+        const Config& config,
+        const bool detailed) const
+{
+    if (detailed)
+    {
+        writeDetails(ep.getSubEndpoint("ept-metadata"), postfix, config);
+    }
+
+    Json::Value json;
+    Json::Value removed;
+    for (const FileInfo& f : list())
+    {
+        Json::Value entry(f.toJson());
+        entry.removeMember("metadata", &removed);
+        json.append(entry);
+    }
+
+    const bool styled(size() <= 1000);
+    ensurePut(
+            ep,
+            "ept-files" + postfix + ".json",
+            toPreciseString(json, styled));
+}
+
+void Files::writeDetails(
+        const arbiter::Endpoint& out,
+        const std::string& postfix,
+        const Config& config) const
+{
+    arbiter::Arbiter a(config["arbiter"]);
+    std::unique_ptr<arbiter::Endpoint> scanEp;
+    if (config["scanDir"].isString())
+    {
+        scanEp = makeUnique<arbiter::Endpoint>(
+                a.getEndpoint(config["scanDir"].asString()));
+
+        if (config.verbose())
+        {
+            std::cout << "Copying metadata from scan at " << scanEp->root() <<
+                std::endl;
+        }
+    }
+
+    const bool styled(size() <= 1000);
+    for (Origin o(0); o < size(); ++o)
+    {
+        const std::string filename(std::to_string(o) + ".json");
+
+        Json::Value meta;
+        if (scanEp) meta = parse(scanEp->get(filename));
+        meta = entwine::merge(meta, get(o).metadata());
+
+        ensurePut(
+                out,
+                filename,
+                toPreciseString(meta, styled));
+    }
 }
 
 void Files::append(const FileInfoList& fileInfo)
