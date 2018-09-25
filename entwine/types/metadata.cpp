@@ -15,6 +15,7 @@
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/srs.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/unique.hpp>
@@ -37,8 +38,7 @@ Metadata::Metadata(const Config& config, const bool exists)
     , m_dataIo(DataIo::create(*this, config.dataType()))
     , m_reprojection(Reprojection::create(config["reprojection"]))
     , m_version(makeUnique<Version>(currentVersion()))
-    , m_srs(config.srs().empty() && m_reprojection ?
-            m_reprojection->out() : config.srs())
+    , m_srs(makeUnique<Srs>(config.srs()))
     , m_subset(Subset::create(*this, config["subset"]))
     , m_trustHeaders(config.trustHeaders())
     , m_ticks(config.ticks())
@@ -117,20 +117,10 @@ Json::Value Metadata::toJson() const
     json["schema"] = m_outSchema->toJson();
     json["ticks"] = (Json::UInt64)m_ticks;
     json["numPoints"] = (Json::UInt64)m_files->totalPoints();
-
-    if (m_srs.size()) json["srs"] = m_srs;
-    if (m_reprojection) json["reprojection"] = m_reprojection->toJson();
-
-    if (m_transformation)
-    {
-        for (const double v : *m_transformation)
-        {
-            json["transformation"].append(v);
-        }
-    }
-
     json["dataType"] = m_dataIo->type();
     json["hierarchyType"] = "json"; // TODO.
+
+    if (m_srs->exists()) json["srs"] = m_srs->toJson();
     if (m_hierarchyStep) json["hierarchyStep"] = (Json::UInt64)m_hierarchyStep;
 
     return json;
@@ -144,6 +134,7 @@ Json::Value Metadata::toBuildParamsJson() const
     json["overflowDepth"] = (Json::UInt64)m_overflowDepth;
     json["overflowThreshold"] = (Json::UInt64)m_overflowThreshold;
     if (m_subset) json["subset"] = m_subset->toJson();
+    if (m_reprojection) json["reprojection"] = m_reprojection->toJson();
 
     return json;
 }
@@ -169,7 +160,6 @@ void Metadata::save(const arbiter::Endpoint& endpoint, const Config& config)
 
 void Metadata::merge(const Metadata& other)
 {
-    if (m_srs.empty()) m_srs = other.srs();
     m_files->merge(other.files());
 }
 

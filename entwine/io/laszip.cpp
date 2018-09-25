@@ -61,7 +61,7 @@ void Laz::write(
     options.add("offset_y", outSchema.offset().y);
     options.add("offset_z", outSchema.offset().z);
 
-    if (m_metadata.srs().size()) options.add("a_srs", m_metadata.srs());
+    if (m_metadata.srs().exists()) options.add("a_srs", m_metadata.srs().wkt());
 
     auto lock(Executor::getLock());
 

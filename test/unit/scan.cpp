@@ -57,7 +57,7 @@ TEST(scan, single)
     EXPECT_EQ(file.numPoints(), v.numPoints());
     EXPECT_EQ(file.srs().getWKT(), expFile->srs);
 
-    EXPECT_EQ(out.srs(), expFile->srs);
+    EXPECT_EQ(out.srs().wkt(), expFile->srs);
 }
 
 TEST(scan, multi)
@@ -106,7 +106,7 @@ TEST(scan, multi)
         ASSERT_EQ(*file.bounds(), expFile->bounds) << path;
         ASSERT_EQ(file.numPoints(), expFile->numPoints) << path;
         ASSERT_EQ(file.srs().getWKT(), expFile->srs) << path;
-        ASSERT_EQ(out.srs(), expFile->srs) << path;
+        ASSERT_EQ(out.srs().wkt(), expFile->srs) << path;
     }
 }
 
@@ -143,7 +143,7 @@ TEST(scan, reprojection)
     EXPECT_EQ(file.numPoints(), v.numPoints());
     EXPECT_NE(file.srs().getWKT(), expFile->srs);
 
-    EXPECT_EQ(out.srs(), in["reprojection"]["out"].asString());
+    EXPECT_EQ(out.srs().codeString(), in["reprojection"]["out"].asString());
 }
 
 TEST(scan, reprojectionHammer)
@@ -182,7 +182,7 @@ TEST(scan, reprojectionHammer)
     EXPECT_EQ(file.numPoints(), v.numPoints());
     EXPECT_NE(file.srs().getWKT(), expFile->srs);
 
-    EXPECT_EQ(out.srs(), in["reprojection"]["out"].asString());
+    EXPECT_EQ(out.srs().codeString(), in["reprojection"]["out"].asString());
 }
 
 TEST(scan, outputFile)
@@ -215,6 +215,6 @@ TEST(scan, outputFile)
     EXPECT_EQ(file.numPoints(), v.numPoints());
     EXPECT_EQ(file.srs().getWKT(), expFile->srs);
 
-    EXPECT_EQ(out.srs(), expFile->srs);
+    EXPECT_EQ(out.srs().wkt(), expFile->srs);
 }
 

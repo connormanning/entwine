@@ -14,6 +14,7 @@
 
 #include <entwine/builder/thread-pools.hpp>
 #include <entwine/types/reprojection.hpp>
+#include <entwine/types/srs.hpp>
 #include <entwine/types/vector-point-table.hpp>
 #include <entwine/util/executor.hpp>
 #include <entwine/util/unique.hpp>
@@ -202,20 +203,55 @@ void Scan::add(FileInfo& f, const std::string localPath)
 Config Scan::aggregate()
 {
     Config out;
+    Srs srs;
 
     std::size_t np(0);
     Bounds bounds(Bounds::expander());
 
-    if (m_re) out["srs"] = m_re->out();
+    if (m_re)
+    {
+        srs = m_re->out();
+    }
+    else if (m_in.json().isMember("srs"))
+    {
+        const Json::Value& inSrs(m_in.json()["srs"]);
+        if (inSrs.isString()) srs = inSrs.asString();
+        else srs = inSrs;
+    }
 
+    bool srsLogged(false);
     for (const auto& f : m_files.list())
     {
-        if (f.numPoints())
+        if (!f.numPoints()) continue;
+
+        np += f.numPoints();
+        if (const Bounds* b = f.bounds()) bounds.grow(*b);
+
+        if (f.srs().empty()) continue;
+
+        const pdal::SpatialReference& fileSrs(f.srs());
+
+        if (srs.empty())
         {
-            np += f.numPoints();
-            if (const Bounds* b = f.bounds()) bounds.grow(*b);
-            if (out.srs().empty()) out["srs"] = f.srs().getWKT();
+            if (m_in.verbose())
+            {
+                std::cout << "Determined SRS from an input file" << std::endl;
+            }
+            srs = fileSrs.getWKT();
         }
+        else if (srs.wkt() != fileSrs.getWKT() && !srsLogged && m_in.verbose())
+        {
+            srsLogged = true;
+            std::cout << "Found potentially conflicting SRS values " <<
+                std::endl;
+            std::cout << "Setting SRS manually is recommended" << std::endl;
+        }
+    }
+
+    if (srs.empty())
+    {
+        std::cout << "SRS could not be determined" << std::endl;
+        std::cout << "Setting SRS manually is recommended" << std::endl;
     }
 
     if (!np) throw std::runtime_error("No points found!");
@@ -247,6 +283,7 @@ Config Scan::aggregate()
     out["numPoints"] = std::max<Json::UInt64>(np, out.numPoints());
     out["input"] = m_files.toJson();
     if (m_re) out["reprojection"] = m_re->toJson();
+    out["srs"] = srs.toJson();
 
     return out;
 }

@@ -21,6 +21,7 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/vector-point-table.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -150,24 +151,24 @@ std::unique_ptr<Preview> Executor::preview(
     }
     else
     {
-        // TODO.
-        //
-        /*
-        using D = pdal::Dimension::Id;
-        const Schema xyzSchema({ { D::X }, { D::Y }, { D::Z } });
-        PointPool pointPool(xyzSchema);
-
+        const Schema xyzSchema({ { DimId::X }, { DimId::Y }, { DimId::Z } });
         p.bounds = Bounds::expander();
 
-        // We'll pick up the number of points and bounds here.
-        auto counter([&p](Cell::PooledStack stack)
+        VectorPointTable table(xyzSchema);
+        table.setProcess([&p, &table]()
         {
-            p.numPoints += stack.size();
-            for (const auto& cell : stack) p.bounds.grow(cell.point());
-            return stack;
+            // We'll pick up the number of points and bounds here.
+            Point point;
+            p.numPoints += table.size();
+            for (auto it(table.begin()); it != table.end(); ++it)
+            {
+                auto& pr(it.pointRef());
+                point.x = pr.getFieldAs<double>(DimId::X);
+                point.y = pr.getFieldAs<double>(DimId::Y);
+                point.z = pr.getFieldAs<double>(DimId::Z);
+                p.bounds.grow(point);
+            }
         });
-
-        PooledPointTable table(pointPool, counter);
 
         if (Executor::get().run(table, path))
         {
@@ -177,7 +178,6 @@ std::unique_ptr<Preview> Executor::preview(
                 p.dimNames.push_back(d.first);
             }
         }
-        */
     }
 
     if (!p.numPoints) p.bounds = Bounds();

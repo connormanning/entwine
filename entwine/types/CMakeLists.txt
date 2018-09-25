@@ -7,6 +7,7 @@ set(
     "${BASE}/file-info.cpp"
     "${BASE}/files.cpp"
     "${BASE}/metadata.cpp"
+    "${BASE}/srs.cpp"
     "${BASE}/subset.cpp"
 )
 
@@ -25,6 +26,7 @@ set(
     "${BASE}/point.hpp"
     "${BASE}/reprojection.hpp"
     "${BASE}/schema.hpp"
+    "${BASE}/srs.hpp"
     "${BASE}/stats.hpp"
     "${BASE}/subset.hpp"
     "${BASE}/vector-point-table.hpp"

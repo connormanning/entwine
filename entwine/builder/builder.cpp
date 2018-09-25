@@ -272,30 +272,13 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
     const std::string& localPath(localHandle->localPath());
 
     const Reprojection* reprojection(m_metadata->reprojection());
-    const Transformation* transformation(m_metadata->transformation());
-
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        std::string& srs(m_metadata->srs());
-
-        if (srs.empty())
-        {
-            auto preview(Executor::get().preview(localPath, nullptr));
-            if (preview) srs = preview->srs;
-
-            if (verbose() && srs.size())
-            {
-                std::cout << "Found an SRS" << std::endl;
-            }
-        }
-    }
 
     uint64_t inserted(0);
     uint64_t pointId(0);
 
     Clipper clipper(*m_registry, originId);
 
-    VectorPointTable table(m_metadata->schema(), 4096);
+    VectorPointTable table(m_metadata->schema());
     table.setProcess([this, &table, &clipper, &inserted, &pointId, &originId]()
     {
         inserted += table.size();
@@ -342,11 +325,7 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
         }
     });
 
-    if (!Executor::get().run(
-                table,
-                localPath,
-                reprojection,
-                transformation))
+    if (!Executor::get().run(table, localPath, reprojection))
     {
         throw std::runtime_error("Failed to execute: " + rawPath);
     }

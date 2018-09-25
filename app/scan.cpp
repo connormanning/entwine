@@ -16,6 +16,7 @@
 #include <entwine/builder/config.hpp>
 #include <entwine/builder/scan.hpp>
 #include <entwine/types/reprojection.hpp>
+#include <entwine/types/srs.hpp>
 #include <entwine/util/matrix.hpp>
 
 namespace entwine
@@ -95,6 +96,11 @@ void Scan::run()
     const double density(densityLowerBound(out.input()));
     std::cout << "\tDensity estimate (per square unit): " << density <<
         std::endl;
+
+    std::cout << "\tSpatial reference: ";
+    const Srs srs(out.srs());
+    if (srs.hasCode()) std::cout << srs.codeString() << std::endl;
+    else std::cout << srs.wkt() << std::endl;
 
     std::cout << std::endl;
 }

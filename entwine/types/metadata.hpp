@@ -33,6 +33,7 @@ class Files;
 class Point;
 class Reprojection;
 class Schema;
+class Srs;
 class Version;
 
 class Metadata
@@ -67,13 +68,9 @@ public:
 
     const Reprojection* reprojection() const { return m_reprojection.get(); }
     const Subset* subset() const { return m_subset.get(); }
-    const Transformation* transformation() const
-    {
-        return m_transformation.get();
-    }
 
     const Version& version() const { return *m_version; }
-    const std::string& srs() const { return m_srs; }
+    const Srs& srs() const { return *m_srs; }
 
     bool trustHeaders() const { return m_trustHeaders; }
     bool primary() const { return !m_subset || m_subset->primary(); }
@@ -102,7 +99,6 @@ private:
 
     // These are aggregated as the Builder runs.
     Files& mutableFiles() { return *m_files; }
-    std::string& srs() { return m_srs; }
 
     std::unique_ptr<Schema> m_outSchema;
     std::unique_ptr<Schema> m_schema;
@@ -113,9 +109,8 @@ private:
     std::unique_ptr<Files> m_files;
     std::unique_ptr<DataIo> m_dataIo;
     std::unique_ptr<Reprojection> m_reprojection;
-    std::unique_ptr<Transformation> m_transformation;
     std::unique_ptr<Version> m_version;
-    std::string m_srs;
+    std::unique_ptr<Srs> m_srs;
     std::unique_ptr<Subset> m_subset;
 
     const bool m_trustHeaders = true;

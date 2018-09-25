@@ -26,6 +26,7 @@
 #include <entwine/types/file-info.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/srs.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/unique.hpp>
 
@@ -160,7 +161,12 @@ public:
         return m_json["hierarchyStep"].asUInt64();
     }
 
-    std::string srs() const { return m_json["srs"].asString(); }
+    Srs srs() const
+    {
+        if (m_json["srs"].isObject()) return Srs(m_json["srs"]);
+        else return Srs(m_json["srs"].asString());
+    }
+
     std::string postfix() const
     {
         if (!m_json["subset"].isNull())

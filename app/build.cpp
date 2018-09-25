@@ -348,12 +348,6 @@ void Build::log(const Builder& b) const
         std::cout << "\tSubset: " << s->id() << " of " << s->of() << "\n";
     }
 
-    if (metadata.transformation())
-    {
-        std::cout << "\tTransformation: ";
-        matrix::print(*metadata.transformation(), 0, "\t");
-    }
-
     std::cout << std::endl;
 }
 
