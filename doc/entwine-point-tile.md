@@ -6,7 +6,7 @@ TODO - add links to sample data.
 
 ## Metadata files
 
-### entwine.json
+### ept.json
 
 The core metadata required to interpret the contents of an EPT dataset.  An example file might look like this:
 ```json
@@ -17,12 +17,10 @@ The core metadata required to interpret the contents of an EPT dataset.  An exam
     "hierarchyStep": 6,
     "hierarchyType": "json",
     "numPoints": 10653336,
-    "offset": [637291.0, 851210.0, 511.0],
-    "scale": 0.01,
     "schema": [
-        { "name": "X", "type": "int32" },
-        { "name": "Y", "type": "int32" },
-        { "name": "Z", "type": "int32" },
+        { "name": "X", "type": "int32", "scale": 0.01, "offset": 637291.0 },
+        { "name": "Y", "type": "int32", "scale": 0.01, "offset": 851210.0 },
+        { "name": "Z", "type": "int32", "scale": 0.01, "offset": 511.0 },
         { "name": "Intensity", "type": "uint16" },
         { "name": "ReturnNumber", "type": "uint8" },
         { "name": "NumberOfReturns", "type": "uint8" },
@@ -37,9 +35,14 @@ The core metadata required to interpret the contents of an EPT dataset.  An exam
         { "name": "Green", "type": "uint16" },
         { "name": "Blue", "type": "uint16" }
     ],
-    "reprojection": { "out": "EPSG:3857" },
-    "srs" : "EPSG:3857",
-    "ticks" : 256
+    "srs" : {
+        "authority": "EPSG",
+        "horizontal": "3857",
+        "vertical": "5703",
+        "wkt":
+    },
+    "ticks" : 256,
+    "version" : "2.0.0"
 }
 ```
 
@@ -70,9 +73,6 @@ A number indicating the total number of points indexed into this EPT dataset.
 #### offset
 The offset at which this data was indexed - an array of length 3.  This value will not exist for absolutely positioned data.  If `offset` is present, then absolutely positioned values for spatial coordinates can be determined as `absolutelyPositionedValue = serializedValue * scale + offset`.  Note that for a `dataType` of `laszip`, offset information must be read from the LAZ header since individual files may be serialized with a local offset.
 
-#### reprojection
-An optional value representing reprojection performed during the indexing step.  If present, this value is a JSON object with required string value `out`, representing the output spatial reference system.  Optional value `in` represents the input coordinate system used, which may be omitted if input coordinate systems are inferred from file headers.
-
 #### scale
 The scale factor for this data.  May be either a number, an array of length 3, or may not be present at all in the case of absolutely positioned data.  If `scale` is present, then absolutely positioned values for spatial coordinates can be determined as `absolutelyPositionedValue = serializedValue * scale + offset`.
 
@@ -82,18 +82,41 @@ An array of objects that represent the indexed dimensions - every dimension has 
 For a `dataType` of `binary`, the `schema` provides information on the binary contents of each file.  However for `laszip` data, the file should be parsed according to its header, as individual [LASzip formats](https://www.asprs.org/wp-content/uploads/2010/12/LAS_1_4_r13.pdf) may combine dimension values.  For example, for point format IDs 0-4, `ReturnNumber`, `NumberOfReturns`, `ScanDirectionFlag`, and `EdgeOfFlightLine` dimensions are bit-packed into a single byte.
 
 #### srs
-A string describing the spatial reference system for this indexed dataset.  May be empty or missing if no output coordinate system was set and none could be inferred from the input data file headers.  If a `reprojection` is specified, then this value must match the value of `reprojection.out`.  All spatial information throughout all tileset metadata is presented in the coordinate system of this `srs`.
+An object describing the spatial reference system for this indexed dataset, or may not exist if a spatial reference could not be determined and was not set manually.  In this object there are string keys with string values of the following descriptions:
+    - `authority`: Typically `"EPSG"` (if present), this value represents the authority for the horizontal and vertical codes.
+    - `horizontal`: Horizontal coordinate system code with respect to the given `authority`.  If present, `authority` must exist.
+    - `vertical`: Vertical coordinate system code with respect to the given `authority`.  If present, `authority` must exist.
+    - `wkt`: A WKT specification of the spatial reference.
 
 #### ticks
 This value represents the number of ticks in one dimension for the grid size used for the octree.  For example, a `ticks` value of `256` means that the root volume of the octree is the `bounds` cube at a resolution of `256 * 256 * 256`.
 
 For aerial LiDAR data which tends to be mostly flat in the Z-range, for example, this would loosely correspond to a practical resolution of `256 * 256` points per volume.  Each subsequent depth bisects this volume, leading to 8 sub-volumes with the same grid size, which corresponds to double the resolution in each dimension.
 
-### entwine-files.json
-TODO.  Describe the storage of the metadata for each input file.
+#### version
+Version string.
 
-### entwine-build.json
-This file may be ignored by EPT reader clients, and is used to store builder-specific information which may be necessary specify parameters required to continue an existing build at a later time.
+### ept-files.json
+This file is a JSON array with an object entry for each point cloud source file indexed as input.  The length of this array specifies the total number of input files.  Each entry contains sparse metrics about each input file and its status in the EPT build process.  An example might look like:
+```json
+[
+    {
+		"path" : "non-point-cloud-file.txt",
+		"status" : "omitted"
+    },
+	{
+		"bounds": [635577.79, 848882.15, 406.14, 639003.73, 853537.66, 615.26],
+		"numPoints": 10653336,
+		"path" : "https://entwine.io/data/autzen.laz",
+		"pointStats" : { "inserts" : 10653336, "outOfBounds" : 0 },
+		"srs" : "wkt-here...",
+		"status" : "inserted"
+	}
+]
+```
+
+### ept-build.json
+This file may be ignored by EPT reader clients, and is used to store builder-specific information which may be necessary to specify parameters required to continue an existing build at a later time.
 
 ## Point cloud data
 The point data itself is arranged in a 3D analogous manner to [slippy map](https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames) tiling schemes.  The filename scheme `Zoom-X-Y` is expanded to three dimensions as `Depth-X-Y-Z`.  As opposed to raster tiling schemes where coarser-resolution data is replaced as its sub-tiles are traversed, the point cloud data is instead additive, meaning that full-resolution is obtained by the accumulated traversal from depth `0` to the last depth containing a positive point count for the selected area.
@@ -107,7 +130,7 @@ In web-mercator, for example, where `X` increases going eastward and `Y` increas
 There is no fixed maximum resolution depth, instead the tiles must be traversed until no more data exists.  For look-ahead capability, see `Hierarchy`.
 
 ## Hierarchy
-The hierarchy section contains information about what nodes exist and how many points they contain.  The file format is simple JSON object, with string keys of `D-X-Y-Z` mapping to a point count for the corresponding file.  The root file of the hierarchy data exists at `h/0-0-0-0.json`.  For example:
+The hierarchy section contains information about what nodes exist and how many points they contain.  The file format is simple JSON object, with string keys of `D-X-Y-Z` mapping to a point count for the corresponding file.  The root file of the hierarchy data exists at `ept-hierarchy/0-0-0-0.json`.  For example:
 ```json
 {
     "0-0-0-0": 65341,
@@ -131,7 +154,7 @@ Note that this sample is visually arranged hierarchically for clarity, which is 
 
 Furthermore, if `entwine.json` contains a `hierarchyStep` key, then the hierarchy is split into multiple files whenever `D % hierarchyStep == 0`.  The next filename corresponds to the `D-X-Y-Z` value of the local root node at this depth.  The above example, with a `hierarchyStep` of `3`, would look like:
 
-`h/0-0-0-0.json`
+`ept-hierarchy/0-0-0-0.json`
 ```json
 {
     "0-0-0-0": 65341,
@@ -149,7 +172,7 @@ Furthermore, if `entwine.json` contains a `hierarchyStep` key, then the hierarch
 }
 ```
 
-`h/3-2-3-6.json`
+`ept-hierarchy/3-2-3-6.json`
 ```json
 {
     "3-2-3-6": 32004,
@@ -158,7 +181,7 @@ Furthermore, if `entwine.json` contains a `hierarchyStep` key, then the hierarch
 }
 ```
 
-`h/3-3-3-7.json`
+`ept-hierarchy/3-3-3-7.json`
 ```json
 {
     "3-3-3-7": 542
@@ -166,4 +189,13 @@ Furthermore, if `entwine.json` contains a `hierarchyStep` key, then the hierarch
 ```
 
 The local root node of each subfile is duplicated in its parent file so that child hierarchy files can be guaranteed to exist during traversal if their key exists in the parent file.
+
+## Source file metadata
+To be lossless and facilitate a full reconstitution of original source data files from an EPT index, the full metadata for each input file is retained.  The contents of `entwine-files.json` give the total number `N` of input files, and full file metadata can be found in the structure:
+```
+ept-metadata/0.json
+ept-metadata/1.json
+...
+ept-metadata/<N-1>.json
+```
 

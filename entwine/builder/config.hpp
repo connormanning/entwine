@@ -144,7 +144,12 @@ public:
     }
 
     uint64_t ticks() const { return m_json["ticks"].asUInt64(); }
-    uint64_t overflowDepth() const { return m_json["overflowDepth"].asUInt64(); }
+
+    uint64_t overflowDepth() const
+    {
+        return m_json["overflowDepth"].asUInt64();
+    }
+
     uint64_t overflowThreshold() const
     {
         if (m_json.isMember("overflowThreshold"))
