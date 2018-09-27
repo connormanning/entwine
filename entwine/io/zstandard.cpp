@@ -10,7 +10,7 @@
 
 #include <entwine/io/zstandard.hpp>
 
-#include <pdal/compression/ZstdCompression.hpp>
+// #include <pdal/compression/ZstdCompression.hpp>
 
 namespace entwine
 {
