@@ -50,7 +50,7 @@ Metadata::Metadata(const Config& config, const bool exists)
     , m_overflowThreshold(config.overflowThreshold())
     , m_hierarchyStep(config.hierarchyStep())
 {
-    if (1UL << m_startDepth != m_ticks)
+    if (1ULL << m_startDepth != m_ticks)
     {
         throw std::runtime_error("Invalid 'ticks' setting");
     }
