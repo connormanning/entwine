@@ -77,20 +77,27 @@ void Files::writeDetails(
         }
     }
 
+    Pool pool(config.totalThreads());
+
     const bool styled(size() <= 1000);
     for (Origin o(0); o < size(); ++o)
     {
-        const std::string filename(std::to_string(o) + ".json");
+        pool.add([this, &scanEp, &out, styled, o]()
+        {
+            const std::string filename(std::to_string(o) + ".json");
 
-        Json::Value meta;
-        if (scanEp) meta = parse(scanEp->get(filename));
-        meta = entwine::merge(meta, get(o).metadata());
+            Json::Value meta;
+            if (scanEp) meta = parse(scanEp->get(filename));
+            meta = entwine::merge(meta, get(o).metadata());
 
-        ensurePut(
-                out,
-                filename,
-                toPreciseString(meta, styled));
+            ensurePut(
+                    out,
+                    filename,
+                    toPreciseString(meta, styled));
+        });
     }
+
+    pool.await();
 }
 
 void Files::append(const FileInfoList& fileInfo)
