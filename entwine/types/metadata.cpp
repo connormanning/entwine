@@ -154,7 +154,11 @@ void Metadata::save(const arbiter::Endpoint& endpoint, const Config& config)
         ensurePut(endpoint, f, toPreciseString(json));
     }
 
-    const bool detailed(!m_merged && primary());
+    const bool detailed(
+            !m_merged &&
+            primary() &&
+            (!config.json().isMember("writeDetails") ||
+                config["writeDetails"].asBool()));
     m_files->save(endpoint, postfix(), config, detailed);
 }
 
