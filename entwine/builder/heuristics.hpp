@@ -27,7 +27,7 @@ const std::size_t clipCacheSize(64);
 // more expensive than actually doing tree work, we'll allocate more threads to
 // the "clip" task than to the "work" task.  This parameter tunes the ratio of
 // work threads to clip threads.
-const float defaultWorkToClipRatio(0.33);
+const float defaultWorkToClipRatio(0.33f);
 
 // Max number of nodes to store in a single hierarchy file.
 const std::size_t maxHierarchyNodesPerFile(65536);

@@ -31,6 +31,19 @@ endif()
 if (MSVC)
     # prevents clashes between macros min\max and std::min\std::max
     add_definitions(${CMAKE_CXX_FLAGS} "/DNOMINMAX" "/DJSON_DLL")
+    add_definitions(
+        -D_CRT_SECURE_NO_DEPRECATE
+        -D_CRT_SECURE_NO_WARNINGS
+        -D_CRT_NONSTDC_NO_WARNING
+        -D_SCL_SECURE_NO_WARNINGS
+    )
+    add_compile_options(
+        /wd4267
+        /wd4244
+        /wd4275
+        /wd4251
+        /wd4250
+        /wd4800)
 endif(MSVC)
 
 set(entwine_defs_hpp_in
