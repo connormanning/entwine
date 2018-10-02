@@ -60,6 +60,37 @@ TEST(scan, single)
     EXPECT_EQ(out.srs().wkt(), expFile->srs);
 }
 
+TEST(scan, deepScan)
+{
+    Json::Value in;
+    in["input"] = test::dataPath() + "ellipsoid.laz";
+    in["trustHeaders"] = false;
+    const Config out(Scan(in).go());
+    ASSERT_FALSE(out.json().isNull());
+
+    const Bounds bounds(out["bounds"]);
+    const Schema schema(out.schema());
+
+    EXPECT_EQ(bounds, v.bounds());
+    EXPECT_EQ(out.numPoints(), v.numPoints());
+    ASSERT_EQ(schema, v.schema());
+
+    const FileInfoList input(out.input());
+    ASSERT_EQ(input.size(), 1u);
+
+    const FileInfo file(input.at(0));
+    const auto expFile(Executor::get().preview(file.path()));
+    ASSERT_TRUE(expFile);
+
+    EXPECT_EQ(arbiter::util::getBasename(file.path()), "ellipsoid.laz");
+    ASSERT_TRUE(file.bounds());
+    EXPECT_EQ(*file.bounds(), v.bounds());
+    EXPECT_EQ(file.numPoints(), v.numPoints());
+    EXPECT_EQ(file.srs().getWKT(), expFile->srs);
+
+    EXPECT_EQ(out.srs().wkt(), expFile->srs);
+}
+
 TEST(scan, multi)
 {
     Json::Value in;
@@ -114,6 +145,43 @@ TEST(scan, reprojection)
 {
     Json::Value in;
     in["input"] = test::dataPath() + "ellipsoid.laz";
+    in["reprojection"]["out"] = "EPSG:26918";
+
+    const Config out(Scan(in).go());
+    ASSERT_FALSE(out.json().isNull());
+
+    const Bounds bounds(out["bounds"]);
+    const Schema schema(out.schema());
+
+    for (std::size_t i(0); i < 6; ++i)
+    {
+        ASSERT_NEAR(bounds[i], v.boundsUtm()[i], 1.0);
+    }
+
+    EXPECT_EQ(out.numPoints(), v.numPoints());
+    ASSERT_EQ(schema, v.schema());
+
+    const FileInfoList input(out.input());
+    ASSERT_EQ(input.size(), 1u);
+
+    const FileInfo file(input.at(0));
+    const auto expFile(Executor::get().preview(file.path()));
+    ASSERT_TRUE(expFile);
+
+    EXPECT_EQ(arbiter::util::getBasename(file.path()), "ellipsoid.laz");
+    ASSERT_TRUE(file.bounds());
+    EXPECT_EQ(*file.bounds(), bounds);
+    EXPECT_EQ(file.numPoints(), v.numPoints());
+    EXPECT_NE(file.srs().getWKT(), expFile->srs);
+
+    EXPECT_EQ(out.srs().codeString(), in["reprojection"]["out"].asString());
+}
+
+TEST(scan, deepScanReprojection)
+{
+    Json::Value in;
+    in["input"] = test::dataPath() + "ellipsoid.laz";
+    in["trustHeaders"] = false;
     in["reprojection"]["out"] = "EPSG:26918";
 
     const Config out(Scan(in).go());

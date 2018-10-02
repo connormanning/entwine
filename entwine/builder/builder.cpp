@@ -271,7 +271,7 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
 
     const std::string& localPath(localHandle->localPath());
 
-    const Reprojection* reprojection(m_metadata->reprojection());
+    // const Reprojection* reprojection(m_metadata->reprojection());
 
     uint64_t inserted(0);
     uint64_t pointId(0);
@@ -325,7 +325,9 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
         }
     });
 
-    if (!Executor::get().run(table, localPath, reprojection))
+    const Json::Value pipeline(m_config.pipeline(localPath));
+
+    if (!Executor::get().run(table, pipeline))
     {
         throw std::runtime_error("Failed to execute: " + rawPath);
     }

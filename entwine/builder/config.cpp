@@ -157,5 +157,47 @@ FileInfoList Config::input() const
     return f;
 }
 
+Json::Value Config::pipeline(std::string filename) const
+{
+    const auto r(reprojection());
+
+    Json::Value p(m_json["pipeline"]);
+    if (!p.isArray() || p.size() < 1)
+    {
+        throw std::runtime_error("Invalid pipeline: " + p.toStyledString());
+    }
+
+    Json::Value& reader(p[0]);
+    reader["filename"] = filename;
+
+    // TODO This doesn't work yet.  Pending resolution of:
+    //      https://github.com/PDAL/PDAL/issues/2194
+    //      https://github.com/PDAL/PDAL/issues/2195
+    if (r)
+    {
+        // First set the input SRS on the reader if necessary.
+        if (!r->in().empty())
+        {
+            if (r->hammer()) reader["override_srs"] = r->in();
+            else reader["default_srs"] = r->in();
+        }
+
+        // Now set up the output.  If there's already a filters.reprojection in
+        // the pipeline, we'll fill it in.  Otherwise, we'll add one to the end.
+        auto it = std::find_if(p.begin(), p.end(), [](const Json::Value& s)
+        {
+            return s["type"] == "filters.reprojection";
+        });
+
+        Json::Value* repPtr(nullptr);
+        if (it != p.end()) repPtr = &*it;
+        else repPtr = &p.append(Json::objectValue);
+
+        (*repPtr)["out_srs"] = r->out();
+    }
+
+    return p;
+}
+
 } // namespace entwine
 

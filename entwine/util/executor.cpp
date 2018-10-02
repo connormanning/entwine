@@ -91,176 +91,6 @@ bool Executor::good(const std::string path) const
     return !m_stageFactory->inferReaderDriver(path).empty();
 }
 
-std::vector<std::string> Executor::dims(const std::string path) const
-{
-    std::vector<std::string> list;
-    UniqueStage scopedReader(createReader(path));
-    pdal::Stage* reader(scopedReader->get());
-    pdal::PointTable table;
-    { auto lock(getLock()); reader->prepare(table); }
-    for (const auto& id : table.layout()->dims())
-    {
-        list.push_back(table.layout()->dimName(id));
-    }
-    return list;
-}
-
-std::unique_ptr<Preview> Executor::preview(
-        const std::string path,
-        const Reprojection* reprojection)
-{
-    UniqueStage scopedReader(createReader(path));
-    if (!scopedReader) return nullptr;
-
-    auto result(makeUnique<Preview>());
-    auto& p(*result);
-
-    pdal::Stage* reader(scopedReader->get());
-    const pdal::QuickInfo qi(([this, reader]()
-    {
-        auto lock(getLock());
-        return reader->preview();
-    })());
-
-    if (qi.valid())
-    {
-        if (!qi.m_bounds.empty())
-        {
-            p.bounds = Bounds(
-                    qi.m_bounds.minx, qi.m_bounds.miny, qi.m_bounds.minz,
-                    qi.m_bounds.maxx, qi.m_bounds.maxy, qi.m_bounds.maxz);
-        }
-
-        { auto lock(getLock()); p.srs = qi.m_srs.getWKT(); }
-        p.numPoints = qi.m_pointCount;
-        p.dimNames = qi.m_dimNames;
-
-        if (const auto las = dynamic_cast<pdal::LasReader*>(reader))
-        {
-            const auto& h(las->header());
-            p.scale = makeUnique<Scale>(h.scaleX(), h.scaleY(), h.scaleZ());
-        }
-
-        p.metadata = ([this, reader]()
-        {
-            auto lock(getLock());
-            const auto s(pdal::Utils::toJSON(reader->getMetadata()));
-            try { return parse(s); }
-            catch (...) { return Json::Value(s); }
-        })();
-    }
-    else
-    {
-        const Schema xyzSchema({ { DimId::X }, { DimId::Y }, { DimId::Z } });
-        p.bounds = Bounds::expander();
-
-        VectorPointTable table(xyzSchema);
-        table.setProcess([&p, &table]()
-        {
-            // We'll pick up the number of points and bounds here.
-            Point point;
-            p.numPoints += table.size();
-            for (auto it(table.begin()); it != table.end(); ++it)
-            {
-                auto& pr(it.pointRef());
-                point.x = pr.getFieldAs<double>(DimId::X);
-                point.y = pr.getFieldAs<double>(DimId::Y);
-                point.z = pr.getFieldAs<double>(DimId::Z);
-                p.bounds.grow(point);
-            }
-        });
-
-        if (Executor::get().run(table, path))
-        {
-            // And we'll pick up added dimensions here.
-            for (const auto& d : xyzSchema.fixedLayout().added())
-            {
-                p.dimNames.push_back(d.first);
-            }
-        }
-    }
-
-    if (!p.numPoints) p.bounds = Bounds();
-
-    // Now we have all of our info in native format.  If a reprojection has
-    // been set, then we'll need to transform our bounds and SRS values.
-    if (p.numPoints && reprojection)
-    {
-        using DimId = pdal::Dimension::Id;
-
-        BufferState bufferState(p.bounds);
-
-        const auto selectedSrs(
-                srsFoundOrDefault(qi.m_srs, *reprojection));
-
-        UniqueStage scopedFilter(createReprojectionFilter(selectedSrs));
-        if (!scopedFilter) return result;
-
-        pdal::Stage& filter(*scopedFilter->get());
-
-        filter.setInput(bufferState.getBuffer());
-        { auto lock(getLock()); filter.prepare(bufferState.getTable()); }
-        filter.execute(bufferState.getTable());
-
-        p.bounds = Bounds::expander();
-        for (std::size_t i(0); i < bufferState.getView().size(); ++i)
-        {
-            const Point point(
-                    bufferState.getView().getFieldAs<double>(DimId::X, i),
-                    bufferState.getView().getFieldAs<double>(DimId::Y, i),
-                    bufferState.getView().getFieldAs<double>(DimId::Z, i));
-
-            p.bounds.grow(point);
-        }
-
-        auto lock(getLock());
-        p.srs = pdal::SpatialReference(reprojection->out()).getWKT();
-    }
-
-    return result;
-}
-
-
-Bounds Executor::transform(
-        const Bounds& bounds,
-        const std::vector<double>& t) const
-{
-    BufferState bufferState(bounds);
-    UniqueStage scopedFilter(createTransformationFilter(t));
-    if (!scopedFilter)
-    {
-        throw std::runtime_error("Could not create transformation filter");
-    }
-
-    pdal::Stage& filter(*scopedFilter->get());
-
-    filter.setInput(bufferState.getBuffer());
-    { auto lock(getLock()); filter.prepare(bufferState.getTable()); }
-    filter.execute(bufferState.getTable());
-
-    Bounds b(Bounds::expander());
-
-    using DimId = pdal::Dimension::Id;
-
-    for (std::size_t i(0); i < bufferState.getView().size(); ++i)
-    {
-        const Point p(
-                bufferState.getView().getFieldAs<double>(DimId::X, i),
-                bufferState.getView().getFieldAs<double>(DimId::Y, i),
-                bufferState.getView().getFieldAs<double>(DimId::Z, i));
-
-        b.grow(p);
-    }
-
-    return b;
-}
-
-std::string Executor::getSrsString(const std::string input) const
-{
-    auto lock(getLock());
-    return pdal::SpatialReference(input).getWKT();
-}
-
 UniqueStage Executor::createReader(const std::string path) const
 {
     UniqueStage result;
@@ -286,97 +116,175 @@ UniqueStage Executor::createReader(const std::string path) const
     return result;
 }
 
-UniqueStage Executor::createFerryFilter(const std::vector<std::string>& p) const
+/*
+std::vector<std::string> Executor::dims(const std::string path) const
 {
-    UniqueStage result;
+    std::vector<std::string> list;
+    UniqueStage scopedReader(createReader(path));
+    pdal::Stage* reader(scopedReader->get());
+    pdal::PointTable table;
+    { auto lock(getLock()); reader->prepare(table); }
+    for (const auto& id : table.layout()->dims())
+    {
+        list.push_back(table.layout()->dimName(id));
+    }
+    return list;
+}
+*/
 
-    if (p.empty()) throw std::runtime_error("No preservation option supplied");
-    if (p.size() > 3) throw std::runtime_error("Too many preservation options");
+Preview::Preview(pdal::Stage& reader, const pdal::QuickInfo& qi)
+{
+    if (!qi.m_bounds.empty())
+    {
+        bounds = Bounds(
+                qi.m_bounds.minx, qi.m_bounds.miny, qi.m_bounds.minz,
+                qi.m_bounds.maxx, qi.m_bounds.maxy, qi.m_bounds.maxz);
+    }
+
+    srs = qi.m_srs.getWKT();
+    numPoints = qi.m_pointCount;
+    dimNames = qi.m_dimNames;
+
+    if (const auto las = dynamic_cast<pdal::LasReader*>(&reader))
+    {
+        const auto& h(las->header());
+        scale = makeUnique<Scale>(h.scaleX(), h.scaleY(), h.scaleZ());
+    }
+
+    metadata = ([this, &reader]()
+    {
+        const auto s(pdal::Utils::toJSON(reader.getMetadata()));
+        try { return parse(s); }
+        catch (...) { return Json::Value(s); }
+    })();
+}
+
+std::unique_ptr<Preview> Preview::create(pdal::Stage& reader)
+{
+    const pdal::QuickInfo qi(reader.preview());
+    if (qi.valid()) return makeUnique<Preview>(reader, qi);
+    return std::unique_ptr<Preview>();
+}
+
+bool Executor::run(pdal::StreamPointTable& table, const Json::Value& pipeline)
+{
+    std::istringstream iss(pipeline.toStyledString());
 
     auto lock(getLock());
+    pdal::PipelineManager pm;
+    pm.readPipeline(iss);
 
-    if (pdal::Stage* filter = m_stageFactory->createStage("filters.ferry"))
+    if (pm.pipelineStreamable())
     {
-        std::size_t d(1);
-        pdal::Options options;
-        std::string s;
-        for (const auto name : p)
+        pm.validateStageOptions();
+        pdal::Stage *s = pm.getStage();
+        if (!s) return false;
+        s->prepare(table);
+
+        lock.unlock();
+        s->execute(table);
+    }
+    else
+    {
+        // TODO.
+        throw std::runtime_error("Only streaming for now...");
+    }
+
+    return true;
+}
+
+std::unique_ptr<Preview> Executor::preview(
+        const Json::Value& pipeline,
+        const bool trustHeaders) const
+{
+    Json::Value readerOnlyPipeline;
+    readerOnlyPipeline.append(pipeline[0]);
+    std::istringstream iss(readerOnlyPipeline.toStyledString());
+
+    auto lock(getLock());
+    pdal::PipelineManager pm;
+    pm.readPipeline(iss);
+    pdal::Stage* reader(pm.getStage());
+
+    std::unique_ptr<Preview> p(Preview::create(*reader));
+    lock.unlock();
+
+    if (p)
+    {
+        // TODO Transform the corners of our QuickInfo's bounds for extrema.
+        /*
+        if (reprojection)
         {
-            s += (s.size() ? "," : "") +
-                    pdal::Dimension::name(static_cast<pdal::Dimension::Id>(d)) +
-                    "=" + name;
-            ++d;
         }
-        options.add("dimensions", s);
-        filter->setOptions(options);
+        */
 
-        lock.unlock();
-
-        result.reset(new ScopedStage(filter, *m_stageFactory, mutex()));
+        if (trustHeaders) return p;
+    }
+    else
+    {
+        p = makeUnique<Preview>();
     }
 
-    return result;
+    const Schema xyzSchema({ { DimId::X }, { DimId::Y }, { DimId::Z } });
+
+    // We'll aggregate these from a deep scan of the file instead.
+    p->bounds = Bounds::expander();
+    p->numPoints = 0;
+
+    VectorPointTable table(xyzSchema);
+    table.setProcess([&p, &table]()
+    {
+        Point point;
+        p->numPoints += table.size();
+
+        for (auto it(table.begin()); it != table.end(); ++it)
+        {
+            auto& pr(it.pointRef());
+            point.x = pr.getFieldAs<double>(DimId::X);
+            point.y = pr.getFieldAs<double>(DimId::Y);
+            point.z = pr.getFieldAs<double>(DimId::Z);
+            p->bounds.grow(point);
+        }
+    });
+
+    if (Executor::get().run(table, pipeline))
+    {
+        p->dimNames.clear();
+        for (const auto& d : xyzSchema.fixedLayout().added())
+        {
+            p->dimNames.push_back(d);
+        }
+    }
+
+    return p;
 }
 
-UniqueStage Executor::createReprojectionFilter(const Reprojection& reproj) const
+std::unique_ptr<Preview> Executor::preview(
+        const std::string path,
+        const Reprojection* reprojection) const
 {
-    UniqueStage result;
+    Json::Value pipeline;
 
-    if (reproj.in().empty())
+    Json::Value reader;
+    reader["filename"] = path;
+    pipeline.append(reader);
+
+    if (reprojection)
     {
-        throw std::runtime_error("No default SRS supplied, and none inferred");
+        Json::Value filter;
+        filter["type"] = "filters.reprojection";
+        if (!reprojection->in().empty()) filter["in_srs"] = reprojection->in();
+        filter["out_srs"] = reprojection->out();
+        pipeline.append(filter);
     }
 
-    auto lock(getLock());
-
-    if (pdal::Stage* filter =
-            m_stageFactory->createStage("filters.reprojection"))
-    {
-        pdal::Options options;
-        options.add(pdal::Option("in_srs", reproj.in()));
-        options.add(pdal::Option("out_srs", reproj.out()));
-        filter->setOptions(options);
-
-        // Unlock before creating the ScopedStage, in case of a throw we can't
-        // hold the lock during its destructor.
-        lock.unlock();
-
-        result.reset(new ScopedStage(filter, *m_stageFactory, mutex()));
-    }
-
-    return result;
+    return preview(pipeline, true);
 }
 
-UniqueStage Executor::createTransformationFilter(
-        const std::vector<double>& matrix) const
+std::string Executor::getSrsString(const std::string input) const
 {
-    UniqueStage result;
-
-    if (matrix.size() != 16)
-    {
-        throw std::runtime_error(
-                "Invalid matrix length " + std::to_string(matrix.size()));
-    }
-
     auto lock(getLock());
-
-    if (pdal::Stage* filter =
-            m_stageFactory->createStage("filters.transformation"))
-    {
-        std::ostringstream ss;
-        ss << std::setprecision(std::numeric_limits<double>::digits10);
-        for (const double d : matrix) ss << d << " ";
-
-        pdal::Options options;
-        options.add(pdal::Option("matrix", ss.str()));
-        filter->setOptions(options);
-
-        lock.unlock();
-
-        result = makeUnique<ScopedStage>(filter, *m_stageFactory, mutex());
-    }
-
-    return result;
+    return pdal::SpatialReference(input).getWKT();
 }
 
 std::unique_lock<std::mutex> Executor::getLock()

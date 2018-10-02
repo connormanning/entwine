@@ -20,6 +20,7 @@
 
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/reprojection.hpp>
+#include <entwine/types/vector-point-table.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace pdal
@@ -29,9 +30,6 @@ namespace pdal
 
 namespace entwine
 {
-
-class Reprojection;
-class Schema;
 
 class ScopedStage
 {
@@ -57,21 +55,8 @@ class Preview
 {
 public:
     Preview() = default;
-
-    Preview(
-            const Bounds& bounds,
-            std::size_t numPoints,
-            const std::string& srs,
-            const std::vector<std::string>& dimNames,
-            const Scale* scale,
-            const Json::Value& metadata)
-        : bounds(bounds)
-        , numPoints(numPoints)
-        , srs(srs)
-        , dimNames(dimNames)
-        , scale(maybeClone(scale))
-        , metadata(metadata)
-    { }
+    Preview(pdal::Stage& reader, const pdal::QuickInfo& qi);
+    static std::unique_ptr<Preview> create(pdal::Stage& reader);
 
     Bounds bounds;
     std::size_t numPoints = 0;
@@ -98,32 +83,23 @@ public:
     // True if this path is recognized as a point cloud file.
     bool good(std::string path) const;
 
-    // Returns true if no errors occurred during insertion.
-    template<typename T>
-    bool run(
-            T& table,
-            std::string path,
-            const Reprojection* reprojection = nullptr,
-            const std::vector<double>* transform = nullptr,
-            std::vector<std::string> preserve = std::vector<std::string>());
+    bool run(pdal::StreamPointTable& table, const Json::Value& pipeline);
 
-    // If available, return the bounds specified in the file header without
-    // reading the whole file.
+    std::unique_ptr<Preview> preview(
+            const Json::Value& pipeline,
+            bool trustHeaders) const;
+
+    // This is only used for testing and probably removable.
     std::unique_ptr<Preview> preview(
             std::string path,
-            const Reprojection* reprojection = nullptr);
+            const Reprojection* reprojection = nullptr) const;
 
     std::string getSrsString(std::string input) const;
-
-    Bounds transform(
-            const Bounds& bounds,
-            const Transformation& transformation) const;
-
-    std::vector<std::string> dims(std::string path) const;
 
     static std::unique_lock<std::mutex> getLock();
 
 private:
+    UniqueStage createReader(std::string path) const;
     std::unique_ptr<Preview> slowPreview(
             std::string path,
             const Reprojection* reprojection) const;
@@ -138,134 +114,9 @@ private:
             const pdal::SpatialReference& found,
             const Reprojection& given);
 
-    UniqueStage createReader(std::string path) const;
-    UniqueStage createFerryFilter(const std::vector<std::string>& s) const;
-    UniqueStage createReprojectionFilter(const Reprojection& r) const;
-    UniqueStage createTransformationFilter(const std::vector<double>& m) const;
-
     mutable std::mutex m_mutex;
     std::unique_ptr<pdal::StageFactory> m_stageFactory;
 };
-
-template<typename T>
-bool Executor::run(
-        T& table,
-        const std::string path,
-        const Reprojection* reprojection,
-        const std::vector<double>* transform,
-        const std::vector<std::string> preserve)
-{
-    UniqueStage scopedReader(createReader(path));
-    if (!scopedReader) return false;
-
-    pdal::Stage* reader(scopedReader->get());
-    pdal::Stage* executor(reader);
-
-    // Needed so that the SRS has been initialized.
-    { auto lock(getLock()); reader->prepare(table); }
-
-    UniqueStage scopedFerry;
-
-    if (preserve.size())
-    {
-        scopedFerry = createFerryFilter(preserve);
-        if (!scopedFerry) return false;
-
-        pdal::Stage* filter(scopedFerry->get());
-
-        filter->setInput(*executor);
-        executor = filter;
-    }
-
-    UniqueStage scopedReproj;
-
-    if (reprojection)
-    {
-        const auto srs(
-                srsFoundOrDefault(
-                    reader->getSpatialReference(), *reprojection));
-
-        scopedReproj = createReprojectionFilter(srs);
-        if (!scopedReproj) return false;
-
-        pdal::Stage* filter(scopedReproj->get());
-
-        filter->setInput(*executor);
-        executor = filter;
-    }
-
-    UniqueStage scopedTransform;
-
-    if (transform)
-    {
-        scopedTransform = createTransformationFilter(*transform);
-        if (!scopedTransform) return false;
-
-        pdal::Stage* filter(scopedTransform->get());
-
-        filter->setInput(*executor);
-        executor = filter;
-    }
-
-    { auto lock(getLock()); executor->prepare(table); }
-
-    try
-    {
-        executor->execute(table);
-    }
-    catch (pdal::pdal_error& e)
-    {
-        const std::string nostream("Point streaming not supported for stage");
-        if (std::string(e.what()).find(nostream) == std::string::npos)
-        {
-            // If the error was from lack of streaming support, then we'll
-            // fall back to the non-streaming API.  Otherwise, return false
-            // indicating we couldn't successfully execute this file.
-            return false;
-        }
-
-        static bool logged(false);
-        if (!logged)
-        {
-            logged = true;
-            std::cout <<
-                "Streaming execution error - falling back to non-streaming: " <<
-                e.what() << std::endl;
-        }
-
-        pdal::PointTable pdalTable;
-        executor->prepare(pdalTable);
-        auto views = executor->execute(pdalTable);
-
-        pdal::PointView pooledView(table);
-        auto& layout(*table.layout());
-        const auto dimTypes(layout.dimTypes());
-
-        std::vector<char> point(layout.pointSize(), 0);
-        char* pos(point.data());
-
-        std::size_t current(0);
-
-        for (auto& view : views)
-        {
-            for (std::size_t i(0); i < view->size(); ++i)
-            {
-                view->getPackedPoint(dimTypes, i, pos);
-                pooledView.setPackedPoint(dimTypes, current, pos);
-
-                if (++current == table.capacity())
-                {
-                    table.reset();
-                    current = 0;
-                }
-            }
-        }
-
-        if (current) table.reset();
-    }
-
-    return true;
-}
 
 } // namespace entwine
 

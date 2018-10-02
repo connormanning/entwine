@@ -1,4 +1,4 @@
-FROM pdal/ubuntu:master
+FROM connormanning/pdal
 MAINTAINER Connor Manning <connor@hobu.co>
 
 RUN apt-get update && apt-get install -y \
@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y \
 ENV CC gcc
 ENV CXX g++
 
-ADD https://api.github.com/repos/connormanning/entwine/commits?sha=optimize \
+ADD https://api.github.com/repos/connormanning/entwine/commits?sha=format \
     /tmp/bust-cache
 
 RUN git clone https://github.com/connormanning/entwine.git /var/entwine && \

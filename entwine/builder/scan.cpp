@@ -143,61 +143,31 @@ void Scan::add(FileInfo& f)
 
 void Scan::add(FileInfo& f, const std::string localPath)
 {
-    if (auto preview = Executor::get().preview(localPath, m_re.get()))
+    const Json::Value pipeline(m_in.pipeline(localPath));
+
+    auto preview(Executor::get().preview(pipeline, m_in.trustHeaders()));
+    if (!preview) return;
+
+    f.numPoints(preview->numPoints);
+    f.metadata(preview->metadata);
+    f.srs(preview->srs);
+    if (!preview->numPoints) return;
+    f.bounds(preview->bounds);
+
+    DimList dims;
+    for (const std::string name : preview->dimNames) dims.emplace_back(name);
+
+    const Scale scale(preview->scale ? *preview->scale : 1);
+    if (!scale.x || !scale.y || !scale.z)
     {
-        f.numPoints(preview->numPoints);
-        f.metadata(preview->metadata);
-        f.srs(preview->srs);
-        if (!preview->numPoints) return;
-
-        f.bounds(preview->bounds);
-
-        DimList dims;
-        for (const std::string name : preview->dimNames)
-        {
-            dims.emplace_back(name);
-        }
-
-        const Scale scale(preview->scale ? *preview->scale : 1);
-        if (!scale.x || !scale.y || !scale.z)
-        {
-            throw std::runtime_error(
-                    "Invalid scale " + f.path() + ": " +
-                    scale.toJson().toStyledString());
-        }
-
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_schema = m_schema.merge(Schema(dims));
-        m_scale = Point::min(m_scale, scale);
+        throw std::runtime_error(
+                "Invalid scale " + f.path() + ": " +
+                scale.toJson().toStyledString());
     }
 
-    if (!m_in.trustHeaders())
-    {
-        Bounds bounds(Bounds::expander());
-        std::size_t np(0);
-
-        const Schema xyz({ { DimId::X }, { DimId::Y }, { DimId::Z } });
-        VectorPointTable table(xyz, 1024);
-        table.setProcess([&table, &bounds, &np]()
-        {
-            np += table.size();
-            Point p;
-            for (const auto it : table)
-            {
-                p.x = it.getFieldAs<double>(DimId::X);
-                p.y = it.getFieldAs<double>(DimId::Y);
-                p.z = it.getFieldAs<double>(DimId::Z);
-
-                bounds.grow(p);
-            }
-        });
-
-        if (Executor::get().run(table, localPath, m_re.get()) && np)
-        {
-            f.numPoints(np);
-            f.bounds(bounds);
-        }
-    }
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_schema = m_schema.merge(Schema(dims));
+    m_scale = Point::min(m_scale, scale);
 }
 
 Config Scan::aggregate()
@@ -248,10 +218,9 @@ Config Scan::aggregate()
         }
     }
 
-    if (srs.empty())
+    if (srs.empty() && m_in.verbose())
     {
         std::cout << "SRS could not be determined" << std::endl;
-        std::cout << "Setting SRS manually is recommended" << std::endl;
     }
 
     if (!np) throw std::runtime_error("No points found!");
@@ -284,6 +253,7 @@ Config Scan::aggregate()
     out["input"] = m_files.toJson();
     if (m_re) out["reprojection"] = m_re->toJson();
     out["srs"] = srs.toJson();
+    out["pipeline"] = m_in.pipeline("...");
 
     return out;
 }

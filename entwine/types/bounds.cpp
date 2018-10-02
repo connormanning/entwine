@@ -101,11 +101,11 @@ Json::Value Bounds::toJson() const
 
     json.append(m_min.x);
     json.append(m_min.y);
-    if (is3d()) json.append(m_min.z);
+    json.append(m_min.z);
 
     json.append(m_max.x);
     json.append(m_max.y);
-    if (is3d()) json.append(m_max.z);
+    json.append(m_max.z);
 
     return json;
 }

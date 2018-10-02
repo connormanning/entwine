@@ -51,6 +51,7 @@ public:
         json["tmp"] = arbiter::fs::getTempPath();
         json["trustHeaders"] = true;
         json["threads"] = 8;
+        json["pipeline"].append(Json::objectValue);
 
         return json;
     }
@@ -68,6 +69,8 @@ public:
 
         return json;
     }
+
+    Json::Value pipeline(std::string filename) const;
 
     FileInfoList input() const;
     std::string output() const { return m_json["output"].asString(); }
