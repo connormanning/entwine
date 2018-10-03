@@ -177,11 +177,22 @@ public:
             : m_table(table)
             , m_index(index)
             , m_pointRef(m_table, m_index)
-        { }
+        {
+            while (m_index < m_table.size() && m_table.skips().at(m_index))
+            {
+                ++m_index;
+            }
+            m_pointRef.setPointId(m_index);
+        }
 
         Iterator& operator++()
         {
-            m_pointRef.setPointId(++m_index);
+            do
+            {
+                m_pointRef.setPointId(++m_index);
+            }
+            while (m_index < m_table.size() && m_table.skips().at(m_index));
+
             return *this;
         }
 
@@ -207,11 +218,13 @@ public:
     Iterator end() { return Iterator(*this, size()); }
 
     std::size_t pointSize() const { return m_pointSize; }
+    const std::vector<bool>& skips() const { return m_skips; }
 
 private:
-    virtual void setNumPoints(pdal::PointId s) override
+    virtual void setNumPoints(pdal::PointId s) override { m_size = s; }
+    virtual void setSkips(const std::vector<bool>& skips) override
     {
-        m_size = s;
+        m_skips = skips;
     }
 
     VectorPointTable(const VectorPointTable&);
@@ -220,6 +233,7 @@ private:
     const std::size_t m_pointSize;
     std::vector<char> m_data;
     std::size_t m_size = 0;
+    std::vector<bool> m_skips;
 
     Process m_f = []() { };
 };

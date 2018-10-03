@@ -271,8 +271,6 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
 
     const std::string& localPath(localHandle->localPath());
 
-    // const Reprojection* reprojection(m_metadata->reprojection());
-
     uint64_t inserted(0);
     uint64_t pointId(0);
 
