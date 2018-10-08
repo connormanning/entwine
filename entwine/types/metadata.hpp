@@ -94,7 +94,7 @@ private:
     Metadata& operator=(const Metadata& other);
     void setHierarchyStep(uint64_t v) { m_hierarchyStep = v; }
 
-    Bounds makeConformingBounds(const Bounds& b) const;
+    Bounds makeConformingBounds(Bounds b) const;
     Bounds makeCube(const Bounds& b) const;
 
     // These are aggregated as the Builder runs.

@@ -155,7 +155,7 @@ TEST(scan, reprojection)
 
     for (std::size_t i(0); i < 6; ++i)
     {
-        ASSERT_NEAR(bounds[i], v.boundsUtm()[i], 1.0);
+        ASSERT_NEAR(bounds[i], v.boundsUtm()[i], 2.0);
     }
 
     EXPECT_EQ(out.numPoints(), v.numPoints());
@@ -172,7 +172,7 @@ TEST(scan, reprojection)
     ASSERT_TRUE(file.bounds());
     EXPECT_EQ(*file.bounds(), bounds);
     EXPECT_EQ(file.numPoints(), v.numPoints());
-    EXPECT_NE(file.srs().getWKT(), expFile->srs);
+    EXPECT_EQ(file.srs().getWKT(), expFile->srs);
 
     EXPECT_EQ(out.srs().codeString(), in["reprojection"]["out"].asString());
 }
@@ -192,7 +192,7 @@ TEST(scan, deepScanReprojection)
 
     for (std::size_t i(0); i < 6; ++i)
     {
-        ASSERT_NEAR(bounds[i], v.boundsUtm()[i], 1.0);
+        ASSERT_NEAR(bounds[i], v.boundsUtm()[i], 2.0);
     }
 
     EXPECT_EQ(out.numPoints(), v.numPoints());
@@ -209,7 +209,7 @@ TEST(scan, deepScanReprojection)
     ASSERT_TRUE(file.bounds());
     EXPECT_EQ(*file.bounds(), bounds);
     EXPECT_EQ(file.numPoints(), v.numPoints());
-    EXPECT_NE(file.srs().getWKT(), expFile->srs);
+    EXPECT_EQ(file.srs().getWKT(), expFile->srs);
 
     EXPECT_EQ(out.srs().codeString(), in["reprojection"]["out"].asString());
 }
@@ -230,7 +230,7 @@ TEST(scan, reprojectionHammer)
 
     for (std::size_t i(0); i < 6; ++i)
     {
-        ASSERT_NEAR(bounds[i], v.boundsUtm()[i], 1.0);
+        ASSERT_NEAR(bounds[i], v.boundsUtm()[i], 2.0);
     }
 
     EXPECT_EQ(out.numPoints(), v.numPoints());
@@ -248,7 +248,7 @@ TEST(scan, reprojectionHammer)
     ASSERT_TRUE(file.bounds());
     EXPECT_EQ(*file.bounds(), bounds);
     EXPECT_EQ(file.numPoints(), v.numPoints());
-    EXPECT_NE(file.srs().getWKT(), expFile->srs);
+    EXPECT_EQ(file.srs().getWKT(), expFile->srs);
 
     EXPECT_EQ(out.srs().codeString(), in["reprojection"]["out"].asString());
 }

@@ -25,6 +25,7 @@ set(
     "${BASE}/metadata.hpp"
     "${BASE}/point.hpp"
     "${BASE}/reprojection.hpp"
+    "${BASE}/scale-offset.hpp"
     "${BASE}/schema.hpp"
     "${BASE}/srs.hpp"
     "${BASE}/stats.hpp"

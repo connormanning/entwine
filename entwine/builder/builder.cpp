@@ -26,6 +26,7 @@
 #include <entwine/types/file-info.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
+#include <entwine/types/scale-offset.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/types/vector-point-table.hpp>
@@ -287,6 +288,8 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
             clipper.clip();
         }
 
+        std::unique_ptr<ScaleOffset> so(m_metadata->outSchema().scaleOffset());
+
         Voxel voxel;
 
         PointStats pointStats;
@@ -303,6 +306,7 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
             ++pointId;
 
             voxel.initShallow(it.pointRef(), it.data());
+            if (so) voxel.clip(*so);
             const Point& point(voxel.point());
 
             if (boundsConforming.contains(point))

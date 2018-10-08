@@ -192,10 +192,16 @@ std::string Metadata::postfix(const uint64_t depth) const
     return "";
 }
 
-Bounds Metadata::makeConformingBounds(const Bounds& b) const
+Bounds Metadata::makeConformingBounds(Bounds b) const
 {
     Point pmin(b.min());
     Point pmax(b.max());
+
+    if (auto so = m_outSchema->scaleOffset())
+    {
+        pmin = so->clip(pmin);
+        pmax = so->clip(pmax);
+    }
 
     pmin = pmin.apply([](double d)
     {

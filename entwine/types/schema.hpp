@@ -23,6 +23,7 @@
 #include <entwine/types/delta.hpp>
 #include <entwine/types/dim-info.hpp>
 #include <entwine/types/fixed-point-layout.hpp>
+#include <entwine/types/scale-offset.hpp>
 #include <entwine/util/json.hpp>
 
 namespace entwine
@@ -152,6 +153,12 @@ public:
                 find(DimId::X).offset(),
                 find(DimId::Y).offset(),
                 find(DimId::Z).offset());
+    }
+
+    std::unique_ptr<ScaleOffset> scaleOffset() const
+    {
+        if (isScaled()) return makeUnique<ScaleOffset>(scale(), offset());
+        else return std::unique_ptr<ScaleOffset>();
     }
 
     bool hasColor() const

@@ -67,7 +67,7 @@ TEST(build, basic)
     {
         const auto path(metaPath + std::to_string(o) + ".json");
         const auto meta(parse(a.get(path)));
-        ASSERT_GT(meta["count"].asUInt64(), 0u) << meta;
+        ASSERT_FALSE(meta.isNull());
         ASSERT_EQ(files[o]["pointStats"]["outOfBounds"].asUInt64(), 0u) <<
             files[o];
     }
@@ -140,7 +140,7 @@ TEST(build, fromScan)
     {
         const auto path(metaPath + std::to_string(o) + ".json");
         const auto meta(parse(a.get(path)));
-        ASSERT_GT(meta["count"].asUInt64(), 0u) << meta;
+        ASSERT_FALSE(meta.isNull());
         ASSERT_EQ(files[o]["pointStats"]["outOfBounds"].asUInt64(), 0u) <<
             files[o];
     }
@@ -214,7 +214,7 @@ TEST(build, subset)
     {
         const auto path(metaPath + std::to_string(o) + ".json");
         const auto meta(parse(a.get(path)));
-        ASSERT_GT(meta["count"].asUInt64(), 0u) << meta;
+        ASSERT_FALSE(meta.isNull());
         ASSERT_EQ(files[o]["pointStats"]["outOfBounds"].asUInt64(), 0u) <<
             files[o];
     }
@@ -300,7 +300,7 @@ TEST(build, subsetFromScan)
     {
         const auto path(metaPath + std::to_string(o) + ".json");
         const auto meta(parse(a.get(path)));
-        ASSERT_GT(meta["count"].asUInt64(), 0u) << meta;
+        ASSERT_FALSE(meta.isNull());
         ASSERT_EQ(files[o]["pointStats"]["outOfBounds"].asUInt64(), 0u) <<
             files[o];
     }
@@ -338,7 +338,6 @@ TEST(build, reprojected)
             "\n" << boundsConforming << "\n!=\n" << v.boundsUtm() << std::endl;
     }
 
-
     const auto dataType(info["dataType"].asString());
     EXPECT_EQ(dataType, "laszip");
 
@@ -365,7 +364,7 @@ TEST(build, reprojected)
     {
         const auto path(metaPath + std::to_string(o) + ".json");
         const auto meta(parse(a.get(path)));
-        ASSERT_GT(meta["count"].asUInt64(), 0u) << meta;
+        ASSERT_FALSE(meta.isNull());
         ASSERT_EQ(files[o]["pointStats"]["outOfBounds"].asUInt64(), 0u) <<
             files[o];
     }

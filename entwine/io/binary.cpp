@@ -15,24 +15,11 @@
 #include <pdal/PointRef.hpp>
 
 #include <entwine/types/binary-point-table.hpp>
+#include <entwine/types/scale-offset.hpp>
 #include <entwine/util/executor.hpp>
 
 namespace entwine
 {
-
-namespace
-{
-    struct ScaleOffset
-    {
-        ScaleOffset(Scale scale, Offset offset)
-            : scale(scale)
-            , offset(offset)
-        { }
-
-        const Scale scale;
-        const Offset offset;
-    };
-}
 
 void Binary::write(
         const arbiter::Endpoint& out,
@@ -62,11 +49,7 @@ void Binary::write(
 
     Point p;
 
-    std::unique_ptr<ScaleOffset> so;
-    if (outSchema.isScaled())
-    {
-        so = makeUnique<ScaleOffset>(outSchema.scale(), outSchema.offset());
-    }
+    std::unique_ptr<ScaleOffset> so(outSchema.scaleOffset());
 
     for (uint64_t i(0); i < np; ++i)
     {
@@ -79,7 +62,7 @@ void Binary::write(
         p.y = srcPr.getFieldAs<double>(DimId::Y);
         p.z = srcPr.getFieldAs<double>(DimId::Z);
 
-        if (so) p = Point::scale(p, so->scale, so->offset);
+        if (so) p = Point::scale(p, so->scale(), so->offset()).round();
 
         dstPr.setField(DimId::X, p.x);
         dstPr.setField(DimId::Y, p.y);
@@ -122,11 +105,7 @@ void Binary::read(
     Point p;
 
     const Schema& outSchema(m_metadata.outSchema());
-    std::unique_ptr<ScaleOffset> so;
-    if (outSchema.isScaled())
-    {
-        so = makeUnique<ScaleOffset>(outSchema.scale(), outSchema.offset());
-    }
+    std::unique_ptr<ScaleOffset> so(outSchema.scaleOffset());
 
     for (uint64_t i(0); i < np; ++i)
     {
@@ -148,7 +127,7 @@ void Binary::read(
             p.y = dstPr.getFieldAs<double>(DimId::Y);
             p.z = dstPr.getFieldAs<double>(DimId::Z);
 
-            p = Point::unscale(p, so->scale, so->offset);
+            p = Point::unscale(p, so->scale(), so->offset());
 
             dstPr.setField(DimId::X, p.x);
             dstPr.setField(DimId::Y, p.y);

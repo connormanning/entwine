@@ -51,19 +51,20 @@ private:
 
 typedef std::unique_ptr<ScopedStage> UniqueStage;
 
-class Preview
+class ScanInfo
 {
 public:
-    Preview() = default;
-    Preview(pdal::Stage& reader, const pdal::QuickInfo& qi);
-    static std::unique_ptr<Preview> create(pdal::Stage& reader);
+    ScanInfo() = default;
+    ScanInfo(pdal::Stage& reader, const pdal::QuickInfo& qi);
+    static std::unique_ptr<ScanInfo> create(pdal::Stage& reader);
+
+    std::string srs;
+    std::unique_ptr<Scale> scale;
+    Json::Value metadata;
 
     Bounds bounds;
     std::size_t numPoints = 0;
-    std::string srs;
     std::vector<std::string> dimNames;
-    std::unique_ptr<Scale> scale;
-    Json::Value metadata;
 };
 
 class Executor
@@ -85,34 +86,22 @@ public:
 
     bool run(pdal::StreamPointTable& table, const Json::Value& pipeline);
 
-    std::unique_ptr<Preview> preview(
-            const Json::Value& pipeline,
-            bool trustHeaders) const;
+    std::unique_ptr<ScanInfo> preview(
+            Json::Value pipeline,
+            bool trustHeaders = true) const;
 
-    // This is only used for testing and probably removable.
-    std::unique_ptr<Preview> preview(
-            std::string path,
-            const Reprojection* reprojection = nullptr) const;
+    std::unique_ptr<ScanInfo> deepScan(Json::Value pipeline) const;
 
-    std::string getSrsString(std::string input) const;
+    // std::unique_ptr<ScanInfo> preview(std::string path) const;
 
     static std::unique_lock<std::mutex> getLock();
 
 private:
-    UniqueStage createReader(std::string path) const;
-    std::unique_ptr<Preview> slowPreview(
-            std::string path,
-            const Reprojection* reprojection) const;
-
     Executor();
     ~Executor();
 
     Executor(const Executor&) = delete;
     Executor& operator=(const Executor&) = delete;
-
-    Reprojection srsFoundOrDefault(
-            const pdal::SpatialReference& found,
-            const Reprojection& given);
 
     mutable std::mutex m_mutex;
     std::unique_ptr<pdal::StageFactory> m_stageFactory;

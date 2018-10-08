@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2016, Connor Manning (connor@hobu.co)
+* Copyright (c) 2018, Connor Manning (connor@hobu.co)
 *
 * Entwine -- Point cloud indexing
 *
@@ -9,6 +9,13 @@
 ******************************************************************************/
 
 #pragma once
+
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+
+#include <entwine/types/point.hpp>
+#include <entwine/types/scale-offset.hpp>
 
 namespace entwine
 {
@@ -32,6 +39,11 @@ public:
         m_point.y = pr.getFieldAs<double>(pdal::Dimension::Id::Y);
         m_point.z = pr.getFieldAs<double>(pdal::Dimension::Id::Z);
         m_data = pos;
+    }
+
+    void clip(const ScaleOffset& so)
+    {
+        m_point = so.clip(m_point);
     }
 
 private:

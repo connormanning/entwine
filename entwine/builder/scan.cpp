@@ -111,33 +111,32 @@ Config Scan::go()
 
 void Scan::add(FileInfo& f)
 {
-    if (Executor::get().good(f.path()))
+    if (!Executor::get().good(f.path())) return;
+
+    if (m_in.trustHeaders() && m_arbiter.isHttpDerived(f.path()))
     {
-        if (m_in.trustHeaders() && m_arbiter.isHttpDerived(f.path()))
+        m_pool->add([this, &f]()
         {
-            m_pool->add([this, &f]()
-            {
-                const auto data(m_arbiter.getBinary(f.path(), range));
+            const auto data(m_arbiter.getBinary(f.path(), range));
 
-                const std::string ext(arbiter::Arbiter::getExtension(f.path()));
-                const std::string basename(
-                        arbiter::crypto::encodeAsHex(arbiter::crypto::sha256(
-                                arbiter::Arbiter::stripExtension(f.path()))) +
-                        (ext.size() ? "." + ext : ""));
+            const std::string ext(arbiter::Arbiter::getExtension(f.path()));
+            const std::string basename(
+                    arbiter::crypto::encodeAsHex(arbiter::crypto::sha256(
+                            arbiter::Arbiter::stripExtension(f.path()))) +
+                    (ext.size() ? "." + ext : ""));
 
-                m_tmp.put(basename, data);
-                add(f, m_tmp.fullPath(basename));
-                arbiter::fs::remove(m_tmp.fullPath(basename));
-            });
-        }
-        else
+            m_tmp.put(basename, data);
+            add(f, m_tmp.fullPath(basename));
+            arbiter::fs::remove(m_tmp.fullPath(basename));
+        });
+    }
+    else
+    {
+        m_pool->add([&f, this]()
         {
-            m_pool->add([&f, this]()
-            {
-                auto localHandle(m_arbiter.getLocalHandle(f.path(), m_tmp));
-                add(f, localHandle->localPath());
-            });
-        }
+            auto localHandle(m_arbiter.getLocalHandle(f.path(), m_tmp));
+            add(f, localHandle->localPath());
+        });
     }
 }
 

@@ -22,61 +22,11 @@
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/vector-point-table.hpp>
+#include <entwine/util/json.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
 {
-
-namespace
-{
-    class BufferState
-    {
-    public:
-        BufferState(const Bounds& bounds)
-            : m_table()
-            , m_view(makeUnique<pdal::PointView>(m_table))
-            , m_buffer()
-        {
-            using DimId = pdal::Dimension::Id;
-
-            auto layout(m_table.layout());
-            layout->registerDim(DimId::X);
-            layout->registerDim(DimId::Y);
-            layout->registerDim(DimId::Z);
-            layout->finalize();
-
-            std::size_t i(0);
-
-            auto insert([this, &i, &bounds](int x, int y, int z)
-            {
-                m_view->setField(DimId::X, i, bounds[x ? 0 : 3]);
-                m_view->setField(DimId::Y, i, bounds[y ? 1 : 4]);
-                m_view->setField(DimId::Z, i, bounds[z ? 2 : 5]);
-                ++i;
-            });
-
-            insert(0, 0, 0);
-            insert(0, 0, 1);
-            insert(0, 1, 0);
-            insert(0, 1, 1);
-            insert(1, 0, 0);
-            insert(1, 0, 1);
-            insert(1, 1, 0);
-            insert(1, 1, 1);
-
-            m_buffer.addView(m_view);
-        }
-
-        pdal::PointTable& getTable() { return m_table; }
-        pdal::PointView& getView() { return *m_view; }
-        pdal::BufferReader& getBuffer() { return m_buffer; }
-
-    private:
-        pdal::PointTable m_table;
-        pdal::PointViewPtr m_view;
-        pdal::BufferReader m_buffer;
-    };
-}
 
 Executor::Executor()
     : m_stageFactory(makeUnique<pdal::StageFactory>())
@@ -88,51 +38,10 @@ Executor::~Executor()
 bool Executor::good(const std::string path) const
 {
     auto ext(arbiter::Arbiter::getExtension(path));
-    return !m_stageFactory->inferReaderDriver(path).empty();
+    return ext != "txt" && !m_stageFactory->inferReaderDriver(path).empty();
 }
 
-UniqueStage Executor::createReader(const std::string path) const
-{
-    UniqueStage result;
-
-    const std::string driver(m_stageFactory->inferReaderDriver(path));
-    if (driver.empty()) return result;
-
-    auto lock(getLock());
-
-    if (pdal::Stage* reader = m_stageFactory->createStage(driver))
-    {
-        pdal::Options options;
-        options.add(pdal::Option("filename", path));
-        reader->setOptions(options);
-
-        // Unlock before creating the ScopedStage, in case of a throw we can't
-        // hold the lock during its destructor.
-        lock.unlock();
-
-        result.reset(new ScopedStage(reader, *m_stageFactory, mutex()));
-    }
-
-    return result;
-}
-
-/*
-std::vector<std::string> Executor::dims(const std::string path) const
-{
-    std::vector<std::string> list;
-    UniqueStage scopedReader(createReader(path));
-    pdal::Stage* reader(scopedReader->get());
-    pdal::PointTable table;
-    { auto lock(getLock()); reader->prepare(table); }
-    for (const auto& id : table.layout()->dims())
-    {
-        list.push_back(table.layout()->dimName(id));
-    }
-    return list;
-}
-*/
-
-Preview::Preview(pdal::Stage& reader, const pdal::QuickInfo& qi)
+ScanInfo::ScanInfo(pdal::Stage& reader, const pdal::QuickInfo& qi)
 {
     if (!qi.m_bounds.empty())
     {
@@ -159,11 +68,169 @@ Preview::Preview(pdal::Stage& reader, const pdal::QuickInfo& qi)
     })();
 }
 
-std::unique_ptr<Preview> Preview::create(pdal::Stage& reader)
+std::unique_ptr<ScanInfo> ScanInfo::create(pdal::Stage& reader)
 {
     const pdal::QuickInfo qi(reader.preview());
-    if (qi.valid()) return makeUnique<Preview>(reader, qi);
-    return std::unique_ptr<Preview>();
+    if (qi.valid()) return makeUnique<ScanInfo>(reader, qi);
+    return std::unique_ptr<ScanInfo>();
+}
+
+class StreamReader : public pdal::Reader, public pdal::Streamable
+{
+public:
+    StreamReader(pdal::StreamPointTable& table) : m_table(table) { }
+
+    std::string getName() const { return "readers.stream"; }
+
+private:
+    virtual bool processOne(pdal::PointRef&)
+    {
+        return ++m_index <= m_table.capacity();
+    }
+
+    pdal::point_count_t m_index = 0;
+    pdal::StreamPointTable& m_table;
+};
+
+std::unique_ptr<ScanInfo> Executor::preview(
+        Json::Value pipeline,
+        const bool trustHeaders) const
+{
+    if (!trustHeaders) return deepScan(pipeline);
+
+    pipeline = ensureArray(pipeline);
+
+    std::unique_ptr<ScanInfo> result;
+
+    auto lock(getLock());
+    auto pm = makeUnique<pdal::PipelineManager>();
+
+    Json::Value readerJson(ensureArray(pipeline[0]));
+
+    pdal::SpatialReference activeSrs;
+    {
+        pdal::FixedPointTable table(0);
+        std::istringstream readStream(readerJson.toStyledString());
+        pm->readPipeline(readStream);
+        pdal::Stage* reader(pm->getStage());
+        reader->prepare(table);
+        result = ScanInfo::create(*reader);
+        if (result) activeSrs = result->srs;
+    }
+
+    {
+        pm = makeUnique<pdal::PipelineManager>();
+        if (readerJson[0].isObject()) readerJson[0] = readerJson[0]["filename"];
+        std::istringstream readStream(readerJson.toStyledString());
+        pm->readPipeline(readStream);
+        pdal::Stage* reader(pm->getStage());
+        if (auto s = ScanInfo::create(*reader)) result->srs = s->srs;
+    }
+
+    lock.unlock();
+
+    if (!result) return result;
+
+    const Json::Value filters(slice(pipeline, 1));
+    if (filters.isNull()) return result;
+
+    lock.lock();
+
+    // We've gotten our initial ScanInfo - but our bounds might not be accurate
+    // to the output.  For example, a reprojection filter will mean our bounds
+    // are in the wrong SRS.  We'll run the 8 corners of our extents through
+    // the entire pipeline and take the resulting extents.  For user-supplied
+    // pipelines where this assumption does not hold, the onus is on the user
+    // to specify a deep scan which will pipeline every point.
+
+    pm = makeUnique<pdal::PipelineManager>();
+    std::istringstream filterStream(filters.toStyledString());
+    pm->readPipeline(filterStream);
+    pdal::Stage* last(pm->getStage());
+    pdal::Stage* first(last);
+    while (first->getInputs().size())
+    {
+        if (first->getInputs().size() > 1)
+        {
+            throw std::runtime_error("Invalid pipeline - must be linear");
+        }
+
+        first = first->getInputs().at(0);
+    }
+
+    const Schema xyzSchema({ { DimId::X }, { DimId::Y }, { DimId::Z } });
+    VectorPointTable table(xyzSchema, 8);
+    table.setProcess([&table, &result]()
+    {
+        Point point;
+        for (auto it(table.begin()); it != table.end(); ++it)
+        {
+            auto& pr(it.pointRef());
+            point.x = pr.getFieldAs<double>(DimId::X);
+            point.y = pr.getFieldAs<double>(DimId::Y);
+            point.z = pr.getFieldAs<double>(DimId::Z);
+            result->bounds.grow(point);
+        }
+    });
+
+    for (int i(0); i < 8; ++i)
+    {
+        auto pr(table.at(i));
+        pr.setField(DimId::X, result->bounds[0 + (i & 1 ? 0 : 3)]);
+        pr.setField(DimId::Y, result->bounds[1 + (i & 2 ? 0 : 3)]);
+        pr.setField(DimId::Z, result->bounds[2 + (i & 4 ? 0 : 3)]);
+    }
+    result->bounds = Bounds::expander();
+
+    StreamReader streamReader(table);
+    streamReader.setSpatialReference(activeSrs);
+    first->setInput(streamReader);
+    last->prepare(table);
+    last->execute(table);
+
+    return result;
+}
+
+std::unique_ptr<ScanInfo> Executor::deepScan(Json::Value pipeline) const
+{
+    pipeline = ensureArray(pipeline);
+
+    // Start with a shallow scan to get SRS, scale, and metadata.
+    std::unique_ptr<ScanInfo> result(preview(pipeline, true));
+    if (!result) result = makeUnique<ScanInfo>();
+
+    const Schema xyzSchema({ { DimId::X }, { DimId::Y }, { DimId::Z } });
+
+    // Reset the values we're going to aggregate from the deep scan.
+    result->bounds = Bounds::expander();
+    result->numPoints = 0;
+    result->dimNames.clear();
+
+    VectorPointTable table(xyzSchema);
+    table.setProcess([&result, &table]()
+    {
+        Point point;
+        result->numPoints += table.size();
+
+        for (auto it(table.begin()); it != table.end(); ++it)
+        {
+            auto& pr(it.pointRef());
+            point.x = pr.getFieldAs<double>(DimId::X);
+            point.y = pr.getFieldAs<double>(DimId::Y);
+            point.z = pr.getFieldAs<double>(DimId::Z);
+            result->bounds.grow(point);
+        }
+    });
+
+    if (Executor::get().run(table, pipeline))
+    {
+        for (const auto& d : xyzSchema.fixedLayout().added())
+        {
+            result->dimNames.push_back(d);
+        }
+        return result;
+    }
+    else return std::unique_ptr<ScanInfo>();
 }
 
 bool Executor::run(pdal::StreamPointTable& table, const Json::Value& pipeline)
@@ -193,111 +260,9 @@ bool Executor::run(pdal::StreamPointTable& table, const Json::Value& pipeline)
     return true;
 }
 
-std::unique_ptr<Preview> Executor::preview(
-        const Json::Value& pipeline,
-        const bool trustHeaders) const
-{
-    Json::Value readerOnlyPipeline;
-    readerOnlyPipeline.append(pipeline[0]);
-    std::istringstream iss(readerOnlyPipeline.toStyledString());
-
-    auto lock(getLock());
-    pdal::PipelineManager pm;
-    pm.readPipeline(iss);
-    pdal::Stage* reader(pm.getStage());
-
-    std::unique_ptr<Preview> p(Preview::create(*reader));
-    lock.unlock();
-
-    if (p)
-    {
-        // TODO Transform the corners of our QuickInfo's bounds for extrema.
-        /*
-        if (reprojection)
-        {
-        }
-        */
-
-        if (trustHeaders) return p;
-    }
-    else
-    {
-        p = makeUnique<Preview>();
-    }
-
-    const Schema xyzSchema({ { DimId::X }, { DimId::Y }, { DimId::Z } });
-
-    // We'll aggregate these from a deep scan of the file instead.
-    p->bounds = Bounds::expander();
-    p->numPoints = 0;
-
-    VectorPointTable table(xyzSchema);
-    table.setProcess([&p, &table]()
-    {
-        Point point;
-        p->numPoints += table.size();
-
-        for (auto it(table.begin()); it != table.end(); ++it)
-        {
-            auto& pr(it.pointRef());
-            point.x = pr.getFieldAs<double>(DimId::X);
-            point.y = pr.getFieldAs<double>(DimId::Y);
-            point.z = pr.getFieldAs<double>(DimId::Z);
-            p->bounds.grow(point);
-        }
-    });
-
-    if (Executor::get().run(table, pipeline))
-    {
-        p->dimNames.clear();
-        for (const auto& d : xyzSchema.fixedLayout().added())
-        {
-            p->dimNames.push_back(d);
-        }
-    }
-
-    return p;
-}
-
-std::unique_ptr<Preview> Executor::preview(
-        const std::string path,
-        const Reprojection* reprojection) const
-{
-    Json::Value pipeline;
-
-    Json::Value reader;
-    reader["filename"] = path;
-    pipeline.append(reader);
-
-    if (reprojection)
-    {
-        Json::Value filter;
-        filter["type"] = "filters.reprojection";
-        if (!reprojection->in().empty()) filter["in_srs"] = reprojection->in();
-        filter["out_srs"] = reprojection->out();
-        pipeline.append(filter);
-    }
-
-    return preview(pipeline, true);
-}
-
-std::string Executor::getSrsString(const std::string input) const
-{
-    auto lock(getLock());
-    return pdal::SpatialReference(input).getWKT();
-}
-
 std::unique_lock<std::mutex> Executor::getLock()
 {
     return std::unique_lock<std::mutex>(mutex());
-}
-
-Reprojection Executor::srsFoundOrDefault(
-        const pdal::SpatialReference& found,
-        const Reprojection& given)
-{
-    if (given.hammer() || found.empty()) return given;
-    else return Reprojection(found.getWKT(), given.out());
 }
 
 ScopedStage::ScopedStage(

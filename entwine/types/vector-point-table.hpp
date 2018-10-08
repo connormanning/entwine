@@ -110,6 +110,7 @@ public:
         , m_pointSize(schema.pointSize())
         , m_data(np * m_pointSize, 0)
         , m_size(np)
+        , m_skips(m_size, false)
     { }
 
     VectorPointTable(const Schema& schema, std::vector<char>&& data)
@@ -117,6 +118,7 @@ public:
         , m_pointSize(schema.pointSize())
         , m_data(std::move(data))
         , m_size(m_data.size() / m_pointSize)
+        , m_skips(m_size, false)
     {
         if (m_data.size() % m_pointSize != 0)
         {
@@ -129,6 +131,14 @@ public:
     {
         m_data.resize(np * m_pointSize, 0);
         m_size = np;
+        m_skips.resize(m_size, false);
+    }
+
+    void assign(std::vector<char>&& data)
+    {
+        m_data = std::move(data);
+        m_size = m_data.size() / m_pointSize;
+        m_skips.resize(m_size, false);
     }
 
     pdal::point_count_t capacity() const override
@@ -144,12 +154,6 @@ public:
         }
 
         return pdal::PointRef(*this, index);
-    }
-
-    void assign(std::vector<char>&& data)
-    {
-        m_data = std::move(data);
-        m_size = m_data.size() / m_pointSize;
     }
 
     pdal::PointRef append()
@@ -178,7 +182,7 @@ public:
             , m_index(index)
             , m_pointRef(m_table, m_index)
         {
-            while (m_index < m_table.size() && m_table.skips().at(m_index))
+            while (m_index < m_table.size() && m_table.skip(m_index))
             {
                 ++m_index;
             }
@@ -191,7 +195,7 @@ public:
             {
                 m_pointRef.setPointId(++m_index);
             }
-            while (m_index < m_table.size() && m_table.skips().at(m_index));
+            while (m_index < m_table.size() && m_table.skip(m_index));
 
             return *this;
         }
@@ -218,14 +222,11 @@ public:
     Iterator end() { return Iterator(*this, size()); }
 
     std::size_t pointSize() const { return m_pointSize; }
-    const std::vector<bool>& skips() const { return m_skips; }
+    virtual bool skip(pdal::PointId n) const override { return m_skips.at(n); }
 
 private:
     virtual void setNumPoints(pdal::PointId s) override { m_size = s; }
-    virtual void setSkips(const std::vector<bool>& skips) override
-    {
-        m_skips = skips;
-    }
+    virtual void setSkip(pdal::PointId n) override { m_skips.at(n) = true; }
 
     VectorPointTable(const VectorPointTable&);
     VectorPointTable& operator=(const VectorPointTable&);
