@@ -93,8 +93,7 @@ Tileset::HierarchyTree Tileset::getHierarchyTree(const ChunkKey& root) const
 
     for (const std::string& key : fetched.getMemberNames())
     {
-        if (fetched[key].isBool()) h[Dxyz(key)] = 0;
-        else h[Dxyz(key)] = fetched[key].asUInt64();
+        h[Dxyz(key)] = fetched[key].asInt64();
     }
 
     return h;
@@ -132,17 +131,13 @@ Json::Value Tileset::build(
 {
     if (!hier.count(ck.get())) return Json::nullValue;
 
-    uint64_t n(hier.at(ck.get()));
-
-    if (!n)
+    if (hier.at(ck.get()) < 0)
     {
         // We're at a hierarchy leaf - start a new subtree for this node.
         build(ck);
 
         // Write the pointer node to that external tileset.
-        Tile tile(*this, ck, true);
-        const Json::Value json(tile.toJson());
-        return json;
+        return Tile(*this, ck, true).toJson();
     }
 
     m_threadPool.add([this, ck]()

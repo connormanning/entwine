@@ -39,10 +39,11 @@ void Hierarchy::load(
     for (const auto s : json.getMemberNames())
     {
         const Dxyz k(s);
-        assert(!m_map.count(k) || m_map.at(k) == json[s].asUInt64());
+        assert(!m_map.count(k));
 
-        if (json[s].isBool()) load(m, ep, k);
-        else m_map[k] = json[s].asUInt64();
+        int64_t n(json[s].asInt64());
+        if (n < 0) load(m, ep, k);
+        else m_map[k] = static_cast<uint64_t>(n);
     }
 }
 
@@ -75,7 +76,7 @@ void Hierarchy::save(
 
     if (m_step && k.depth() && (k.depth() % m_step == 0))
     {
-        curr[k.toString()] = true;
+        curr[k.toString()] = -1;
 
         Json::Value next;
         next[k.toString()] = static_cast<Json::UInt64>(n);

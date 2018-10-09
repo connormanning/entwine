@@ -33,7 +33,7 @@ enum class ColorType
 // https://github.com/AnalyticalGraphicsInc/3d-tiles#tilesetjson
 class Tileset
 {
-    using HierarchyTree = std::map<Dxyz, uint64_t>;
+    using HierarchyTree = std::map<Dxyz, int64_t>;
 
 public:
     Tileset(const Json::Value& config);

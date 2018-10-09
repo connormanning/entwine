@@ -53,8 +53,9 @@ private:
         for (const auto str : json.getMemberNames())
         {
             const Dxyz key(str);
-            if (json[str].isBool()) load(key);
-            else m_keys[key] = json[str].asUInt64();
+            const int64_t n(json[str].asInt64());
+            if (n < 0) load(key);
+            else m_keys[key] = static_cast<uint64_t>(n);
         }
     }
 
