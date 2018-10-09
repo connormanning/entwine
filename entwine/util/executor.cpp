@@ -97,34 +97,45 @@ std::unique_ptr<ScanInfo> Executor::preview(
         const bool trustHeaders) const
 {
     if (!trustHeaders) return deepScan(pipeline);
-
     pipeline = ensureArray(pipeline);
-
     std::unique_ptr<ScanInfo> result;
+    Json::Value readerJson(pipeline[0]);
 
     auto lock(getLock());
-    auto pm = makeUnique<pdal::PipelineManager>();
-
-    Json::Value readerJson(ensureArray(pipeline[0]));
 
     pdal::SpatialReference activeSrs;
     {
+        // First get the active SRS from a fully-specified reader - it may be
+        // overridden or defaulted here.  We'll need this SRS result to
+        // reproject our extents later.
+        pdal::PipelineManager pm;
+        std::istringstream readStream(ensureArray(readerJson).toStyledString());
+        pm.readPipeline(readStream);
+        pdal::Stage* reader(pm.getStage());
+
         pdal::FixedPointTable table(0);
-        std::istringstream readStream(readerJson.toStyledString());
-        pm->readPipeline(readStream);
-        pdal::Stage* reader(pm->getStage());
-        // reader->prepare(table);
-        result = ScanInfo::create(*reader);
-        if (result) activeSrs = result->srs;
+        reader->prepare(table);
+        activeSrs = reader->getSpatialReference();
     }
 
     {
-        pm = makeUnique<pdal::PipelineManager>();
-        if (readerJson[0].isObject()) readerJson[0] = readerJson[0]["filename"];
-        std::istringstream readStream(readerJson.toStyledString());
-        pm->readPipeline(readStream);
-        pdal::Stage* reader(pm->getStage());
-        if (auto s = ScanInfo::create(*reader)) result->srs = s->srs;
+        // Now remove the SRS overrides so we store the true SRS of this file
+        // in our metadata.  We still want any other options though - they may
+        // be necessary for a proper preview - for example CSV or GDAL column
+        // mappings.
+        if (readerJson.isObject())
+        {
+            readerJson.removeMember("override_srs");
+            readerJson.removeMember("default_srs");
+            readerJson.removeMember("spatialreference");
+        }
+
+        pdal::PipelineManager pm;
+        std::istringstream readStream(ensureArray(readerJson).toStyledString());
+        pm.readPipeline(readStream);
+        pdal::Stage* reader(pm.getStage());
+
+        result = ScanInfo::create(*reader);
     }
 
     lock.unlock();
@@ -143,10 +154,10 @@ std::unique_ptr<ScanInfo> Executor::preview(
     // pipelines where this assumption does not hold, the onus is on the user
     // to specify a deep scan which will pipeline every point.
 
-    pm = makeUnique<pdal::PipelineManager>();
+    pdal::PipelineManager pm;
     std::istringstream filterStream(filters.toStyledString());
-    pm->readPipeline(filterStream);
-    pdal::Stage* last(pm->getStage());
+    pm.readPipeline(filterStream);
+    pdal::Stage* last(pm.getStage());
     pdal::Stage* first(last);
     while (first->getInputs().size())
     {

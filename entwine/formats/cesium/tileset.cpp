@@ -30,7 +30,6 @@ Tileset::Tileset(const Json::Value& config)
                 config.isMember("tmp") ?
                     config["tmp"].asString() : arbiter::fs::getTempPath()))
     , m_metadata(m_in)
-    , m_hierarchyStep(m_metadata.hierarchyStep())
     , m_colorType(getColorType(config))
     , m_truncate(config["truncate"].asBool())
     , m_hasNormals(
@@ -94,7 +93,8 @@ Tileset::HierarchyTree Tileset::getHierarchyTree(const ChunkKey& root) const
 
     for (const std::string& key : fetched.getMemberNames())
     {
-        h[Dxyz(key)] = fetched[key].asUInt64();
+        if (fetched[key].isBool()) h[Dxyz(key)] = 0;
+        else h[Dxyz(key)] = fetched[key].asUInt64();
     }
 
     return h;
@@ -130,17 +130,13 @@ Json::Value Tileset::build(
         const ChunkKey& ck,
         const HierarchyTree& hier) const
 {
-    uint64_t n(hier.count(ck.get()) ? hier.at(ck.get()) : 0);
-    if (!n) return Json::nullValue;
+    if (!hier.count(ck.get())) return Json::nullValue;
 
-    const bool leaf(
-            m_hierarchyStep &&
-            ck.depth() != startDepth &&
-            ck.depth() % m_hierarchyStep == 0);
+    uint64_t n(hier.at(ck.get()));
 
-    if (leaf)
+    if (!n)
     {
-        // Start a new subtree for this node.
+        // We're at a hierarchy leaf - start a new subtree for this node.
         build(ck);
 
         // Write the pointer node to that external tileset.
@@ -161,10 +157,7 @@ Json::Value Tileset::build(
     for (std::size_t i(0); i < 8; ++i)
     {
         const auto child(build(startDepth, ck.getStep(toDir(i)), hier));
-        if (!child.isNull())
-        {
-            json["children"].append(child);
-        }
+        if (!child.isNull()) json["children"].append(child);
     }
 
     return json;

@@ -75,7 +75,6 @@ private:
     const arbiter::Endpoint m_tmp;
 
     const Metadata m_metadata;
-    const uint64_t m_hierarchyStep;
     const ColorType m_colorType;
     const bool m_truncate;
     const bool m_hasNormals;

@@ -353,21 +353,16 @@ void Builder::save(const arbiter::Endpoint& ep)
 
     if (verbose()) std::cout << "Reawakened: " << reawakened << std::endl;
 
-    const auto& h(m_registry->hierarchy());
-    if (
-            !m_metadata->subset() &&
-            !m_metadata->hierarchyStep() &&
-            h.map().size() > heuristics::maxHierarchyNodesPerFile)
+    if (!m_metadata->subset())
     {
-        const auto analysis(h.analyze(*m_metadata));
-        for (const auto& a : analysis) a.summarize();
-        const auto& chosen(*analysis.begin());
-
-        if (verbose())
+        if (m_config.hierarchyStep())
         {
-            std::cout << "Setting hierarchy step: " << chosen.step << std::endl;
+            m_registry->hierarchy().setStep(m_config.hierarchyStep());
         }
-        m_metadata->setHierarchyStep(chosen.step);
+        else
+        {
+            m_registry->hierarchy().analyze(*m_metadata, verbose());
+        }
     }
 
     if (verbose()) std::cout << "Saving registry..." << std::endl;

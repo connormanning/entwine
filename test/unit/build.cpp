@@ -45,9 +45,7 @@ TEST(build, basic)
     EXPECT_EQ(dataType, "laszip");
 
     const auto hierarchyType(info["hierarchyType"].asString());
-    const auto hierarchyStep(info["hierarchyStep"].asUInt64());
     EXPECT_EQ(hierarchyType, "json");
-    EXPECT_EQ(hierarchyStep, 2u);
 
     const auto numPoints(info["numPoints"].asUInt64());
     EXPECT_EQ(numPoints, v.numPoints());
@@ -58,7 +56,6 @@ TEST(build, basic)
     EXPECT_EQ(schema, verifySchema);
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
-    EXPECT_EQ(info["hierarchyStep"].asUInt64(), v.hierarchyStep());
 
     const auto files(parse(a.get(outPath + "ept-files.json")));
     ASSERT_EQ(files.size(), 9u);
@@ -68,6 +65,7 @@ TEST(build, basic)
         const auto path(metaPath + std::to_string(o) + ".json");
         const auto meta(parse(a.get(path)));
         ASSERT_FALSE(meta.isNull());
+        ASSERT_TRUE(meta["count"].isNumeric()) << meta["count"] << std::endl;
         ASSERT_EQ(files[o]["pointStats"]["outOfBounds"].asUInt64(), 0u) <<
             files[o];
     }
@@ -118,9 +116,7 @@ TEST(build, fromScan)
     EXPECT_EQ(dataType, "laszip");
 
     const auto hierarchyType(info["hierarchyType"].asString());
-    const auto hierarchyStep(info["hierarchyStep"].asUInt64());
     EXPECT_EQ(hierarchyType, "json");
-    EXPECT_EQ(hierarchyStep, 2u);
 
     const auto numPoints(info["numPoints"].asUInt64());
     EXPECT_EQ(numPoints, v.numPoints());
@@ -131,7 +127,6 @@ TEST(build, fromScan)
     EXPECT_EQ(schema, verifySchema);
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
-    EXPECT_EQ(info["hierarchyStep"].asUInt64(), v.hierarchyStep());
 
     const auto files(parse(a.get(outPath + "ept-files.json")));
     ASSERT_EQ(files.size(), 9u);
@@ -192,9 +187,7 @@ TEST(build, subset)
     EXPECT_EQ(dataType, "laszip");
 
     const auto hierarchyType(info["hierarchyType"].asString());
-    const auto hierarchyStep(info["hierarchyStep"].asUInt64());
     EXPECT_EQ(hierarchyType, "json");
-    EXPECT_EQ(hierarchyStep, 2u);
 
     const auto numPoints(info["numPoints"].asUInt64());
     EXPECT_EQ(numPoints, v.numPoints());
@@ -205,7 +198,6 @@ TEST(build, subset)
     EXPECT_EQ(schema, verifySchema);
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
-    EXPECT_EQ(info["hierarchyStep"].asUInt64(), v.hierarchyStep());
 
     const auto files(parse(a.get(outPath + "ept-files.json")));
     ASSERT_EQ(files.size(), 9u);
@@ -278,9 +270,7 @@ TEST(build, subsetFromScan)
     EXPECT_EQ(dataType, "laszip");
 
     const auto hierarchyType(info["hierarchyType"].asString());
-    const auto hierarchyStep(info["hierarchyStep"].asUInt64());
     EXPECT_EQ(hierarchyType, "json");
-    EXPECT_EQ(hierarchyStep, 2u);
 
     const auto numPoints(info["numPoints"].asUInt64());
     EXPECT_EQ(numPoints, v.numPoints());
@@ -291,7 +281,6 @@ TEST(build, subsetFromScan)
     EXPECT_EQ(schema, verifySchema);
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
-    EXPECT_EQ(info["hierarchyStep"].asUInt64(), v.hierarchyStep());
 
     const auto files(parse(a.get(outPath + "ept-files.json")));
     ASSERT_EQ(files.size(), 9u);
@@ -342,9 +331,7 @@ TEST(build, reprojected)
     EXPECT_EQ(dataType, "laszip");
 
     const auto hierarchyType(info["hierarchyType"].asString());
-    const auto hierarchyStep(info["hierarchyStep"].asUInt64());
     EXPECT_EQ(hierarchyType, "json");
-    EXPECT_EQ(hierarchyStep, 2u);
 
     const auto numPoints(info["numPoints"].asUInt64());
     EXPECT_EQ(numPoints, v.numPoints());
@@ -355,7 +342,6 @@ TEST(build, reprojected)
     EXPECT_EQ(schema, verifySchema);
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
-    EXPECT_EQ(info["hierarchyStep"].asUInt64(), v.hierarchyStep());
 
     const auto files(parse(a.get(outPath + "ept-files.json")));
     ASSERT_EQ(files.size(), 9u);

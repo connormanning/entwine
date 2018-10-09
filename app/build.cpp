@@ -287,13 +287,11 @@ void Build::log(const Builder& b) const
         std::cout << "\tReset files: " << rf << std::endl;
     }
 
-    const auto hs(metadata.hierarchyStep());
     std::cout <<
         "Output:\n" <<
         "\tPath: " << outPath << "\n" <<
         "\tData type: " << metadata.dataIo().type() << "\n" <<
         "\tHierarchy type: " << "json" << "\n" <<
-        "\tHierarchy step: " << (hs ? std::to_string(hs) : "auto") << "\n" <<
         "\tSleep count: " << commify(b.sleepCount()) <<
         std::endl;
 

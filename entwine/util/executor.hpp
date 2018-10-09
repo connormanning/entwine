@@ -90,13 +90,11 @@ public:
             Json::Value pipeline,
             bool trustHeaders = true) const;
 
-    std::unique_ptr<ScanInfo> deepScan(Json::Value pipeline) const;
-
-    // std::unique_ptr<ScanInfo> preview(std::string path) const;
-
     static std::unique_lock<std::mutex> getLock();
 
 private:
+    std::unique_ptr<ScanInfo> deepScan(Json::Value pipeline) const;
+
     Executor();
     ~Executor();
 

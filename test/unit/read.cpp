@@ -30,7 +30,6 @@ TEST(read, count)
     Reader r(out);
     const Metadata& m(r.metadata());
     EXPECT_EQ(m.ticks(), v.ticks());
-    EXPECT_EQ(m.hierarchyStep(), v.hierarchyStep());
 
     uint64_t np(0);
     for (std::size_t i(0); i < 8; ++i)
@@ -65,7 +64,6 @@ TEST(read, data)
     Reader r(out);
     const Metadata& m(r.metadata());
     EXPECT_EQ(m.ticks(), v.ticks());
-    EXPECT_EQ(m.hierarchyStep(), v.hierarchyStep());
 
     const Schema schema(DimList { DimId::X, DimId::Y, DimId::Z });
 

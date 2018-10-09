@@ -80,7 +80,6 @@ public:
     uint64_t sharedDepth() const { return m_sharedDepth; }
     uint64_t overflowDepth() const { return m_overflowDepth; }
     uint64_t overflowThreshold() const { return m_overflowThreshold; }
-    uint64_t hierarchyStep() const { return m_hierarchyStep; }
 
     void makeWhole();
 
@@ -92,7 +91,6 @@ public:
 
 private:
     Metadata& operator=(const Metadata& other);
-    void setHierarchyStep(uint64_t v) { m_hierarchyStep = v; }
 
     Bounds makeConformingBounds(Bounds b) const;
     Bounds makeCube(const Bounds& b) const;
@@ -121,8 +119,6 @@ private:
 
     const uint64_t m_overflowDepth;
     const uint64_t m_overflowThreshold;
-
-    uint64_t m_hierarchyStep;
 
     bool m_merged = false;
 };

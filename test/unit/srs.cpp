@@ -12,7 +12,9 @@ TEST(srs, empty)
     EXPECT_TRUE(srs.horizontal().empty());
     EXPECT_TRUE(srs.vertical().empty());
     EXPECT_TRUE(srs.wkt().empty());
-    EXPECT_TRUE(srs.toJson().isNull());
+    const Json::Value json(srs.toJson());
+    EXPECT_TRUE(json.isObject());
+    EXPECT_TRUE(json.getMemberNames().empty());
 }
 
 TEST(srs, emptyString)
@@ -23,7 +25,9 @@ TEST(srs, emptyString)
     EXPECT_TRUE(srs.horizontal().empty());
     EXPECT_TRUE(srs.vertical().empty());
     EXPECT_TRUE(srs.wkt().empty());
-    EXPECT_TRUE(srs.toJson().isNull());
+    const Json::Value json(srs.toJson());
+    EXPECT_TRUE(json.isObject());
+    EXPECT_TRUE(json.getMemberNames().empty());
 }
 
 TEST(srs, fromHorizontalCode)
