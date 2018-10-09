@@ -264,8 +264,34 @@ bool Executor::run(pdal::StreamPointTable& table, const Json::Value& pipeline)
     }
     else
     {
-        // TODO.
-        throw std::runtime_error("Only streaming for now...");
+        static bool logged(false);
+        if (!logged)
+        {
+            logged = true;
+            std::cout << "Using non-streaming mode" << std::endl;
+        }
+        pm.prepare();
+        lock.unlock();
+
+        pm.execute();
+
+        pdal::PointRef pr(table, 0);
+
+        uint64_t current(0);
+        for (auto& view : pm.views())
+        {
+            pr.setPointId(current);
+            for (uint64_t i(0); i < view->size(); ++i)
+            {
+                pr.setPackedData(view->dimTypes(), view->getPoint(i));
+
+                if (++current == table.capacity())
+                {
+                    table.reset();
+                    current = 0;
+                }
+            }
+        }
     }
 
     return true;
