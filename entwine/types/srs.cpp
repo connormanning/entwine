@@ -69,7 +69,7 @@ Srs::Srs(const Json::Value& json)
 
 Json::Value Srs::toJson() const
 {
-    Json::Value json;
+    Json::Value json(Json::objectValue);
     if (m_authority.size()) json["authority"] = m_authority;
     if (m_horizontal.size()) json["horizontal"] = m_horizontal;
     if (m_vertical.size()) json["vertical"] = m_vertical;

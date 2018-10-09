@@ -111,7 +111,7 @@ Json::Value Metadata::toJson() const
 {
     Json::Value json;
 
-    json["version"] = m_version->toString();
+    json["version"] = "1.0.0";  // TODO EPT version.
     json["bounds"] = boundsCubic().toJson();
     json["boundsConforming"] = boundsConforming().toJson();
     json["schema"] = m_outSchema->toJson();
@@ -119,9 +119,8 @@ Json::Value Metadata::toJson() const
     json["numPoints"] = (Json::UInt64)m_files->totalPoints();
     json["dataType"] = m_dataIo->type();
     json["hierarchyType"] = "json"; // TODO.
-
-    if (m_srs->exists()) json["srs"] = m_srs->toJson();
-    if (m_hierarchyStep) json["hierarchyStep"] = (Json::UInt64)m_hierarchyStep;
+    json["srs"] = m_srs->toJson();
+    json["hierarchyStep"] = (Json::UInt64)m_hierarchyStep;
 
     return json;
 }
@@ -133,6 +132,8 @@ Json::Value Metadata::toBuildParamsJson() const
     json["trustHeaders"] = m_trustHeaders;
     json["overflowDepth"] = (Json::UInt64)m_overflowDepth;
     json["overflowThreshold"] = (Json::UInt64)m_overflowThreshold;
+    json["software"] = "Entwine";
+    json["version"] = currentVersion().toString();
     if (m_subset) json["subset"] = m_subset->toJson();
     if (m_reprojection) json["reprojection"] = m_reprojection->toJson();
 

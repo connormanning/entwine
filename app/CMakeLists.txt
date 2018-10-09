@@ -7,6 +7,7 @@ set(
     "${BASE}/entwine.cpp"
     "${BASE}/merge.cpp"
     "${BASE}/scan.cpp"
+    "${BASE}/update.cpp"
 )
 
 add_executable(app ${SOURCES})

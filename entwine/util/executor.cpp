@@ -113,7 +113,7 @@ std::unique_ptr<ScanInfo> Executor::preview(
         std::istringstream readStream(readerJson.toStyledString());
         pm->readPipeline(readStream);
         pdal::Stage* reader(pm->getStage());
-        reader->prepare(table);
+        // reader->prepare(table);
         result = ScanInfo::create(*reader);
         if (result) activeSrs = result->srs;
     }

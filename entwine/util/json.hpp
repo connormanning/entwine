@@ -100,21 +100,27 @@ inline std::string toPreciseString(
         for (const std::string key : v.getMemberNames())
         {
             if (i++) s += ',';
-            s += '\n';
-            s += indent + '\t';
-            s += '"' + key + "\" : ";
-            if (v[key].isObject() || v[key].isArray())
+            if (styled)
             {
-                s += '\n' + indent + '\t';
+                s += '\n';
+                s += indent + '\t';
+            }
+            s += '"' + key + "\"";
+            s += std::string(styled ? " " : "") + ":" + (styled ? " " : "");
+            if (styled)
+            {
+                if (v[key].isObject() || v[key].isArray())
+                {
+                    s += '\n' + indent + '\t';
+                }
             }
             s += toPreciseString(v[key], styled, precision, depth + 1);
         }
-        s += '\n';
-        s += indent;
-        s += '}';
-        if (!styled)
+        if (styled)
         {
-            s.erase(std::remove_if(s.begin(), s.end(), ::isspace), s.end());
+            s += '\n';
+            s += indent;
+            s += '}';
         }
         return s;
     }
@@ -125,17 +131,19 @@ inline std::string toPreciseString(
         for (Json::ArrayIndex i(0); i < v.size(); ++i)
         {
             if (i) s += ',';
-            s += '\n';
-            s += indent + '\t';
+            if (styled)
+            {
+                s += '\n';
+                s += indent + '\t';
+            }
             s += toPreciseString(v[i], styled, precision, depth + 1);
         }
-        s += '\n';
-        s += indent;
-        s += ']';
-        if (!styled)
+        if (styled)
         {
-            s.erase(std::remove_if(s.begin(), s.end(), ::isspace), s.end());
+            s += '\n';
+            s += indent;
         }
+        s += ']';
         return s;
     }
     else
