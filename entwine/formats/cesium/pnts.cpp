@@ -29,7 +29,7 @@ std::vector<char> Pnts::build()
     VectorPointTable table(m_tileset.metadata().schema());
     table.setProcess([this, &table]()
     {
-        m_np += table.size();
+        m_np += table.numPoints();
         buildXyz(table);
         buildRgb(table);
         buildNormals(table);
@@ -46,7 +46,7 @@ std::vector<char> Pnts::build()
 
 void Pnts::buildXyz(VectorPointTable& table)
 {
-    m_xyz.reserve(m_xyz.size() + table.size() * 3);
+    m_xyz.reserve(m_xyz.size() + table.numPoints() * 3);
 
     for (const auto& pr : table)
     {
@@ -59,7 +59,7 @@ void Pnts::buildXyz(VectorPointTable& table)
 void Pnts::buildRgb(VectorPointTable& table)
 {
     if (!m_tileset.hasColor()) return;
-    m_rgb.reserve(m_rgb.size() + table.size() * 3);
+    m_rgb.reserve(m_rgb.size() + table.numPoints() * 3);
 
     auto getByte([this](const pdal::PointRef& pr, DimId id) -> uint8_t
     {
@@ -99,7 +99,7 @@ void Pnts::buildRgb(VectorPointTable& table)
 void Pnts::buildNormals(VectorPointTable& table)
 {
     if (!m_tileset.hasNormals()) return;
-    m_normals.reserve(m_normals.size() + table.size() * 3);
+    m_normals.reserve(m_normals.size() + table.numPoints() * 3);
 
     for (const auto& pr : table)
     {

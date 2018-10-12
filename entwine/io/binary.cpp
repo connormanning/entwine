@@ -90,8 +90,8 @@ void Binary::read(
     VectorPointTable src(
             m_metadata.outSchema(),
             std::move(*ensureGet(out, filename + ".bin")));
-    const uint64_t np(src.size());
-    dst.resize(np);
+    const uint64_t np(src.capacity());
+    assert(np == table.capacity());
 
     // For reading, our destination schema will always be normalized (i.e. XYZ
     // as doubles).  So we can just copy the full dimension list and then
@@ -135,7 +135,7 @@ void Binary::read(
         }
     }
 
-    dst.reset();
+    dst.clear(np);
 }
 
 } // namespace entwine

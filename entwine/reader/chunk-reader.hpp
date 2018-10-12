@@ -14,6 +14,7 @@
 
 #include <entwine/types/key.hpp>
 #include <entwine/types/vector-point-table.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
@@ -25,11 +26,14 @@ class ChunkReader
 public:
     ChunkReader(const Reader& reader, const Dxyz& id);
 
-    VectorPointTable& table() { return m_table; }
-    std::size_t bytes() const { return m_table.size() + m_table.pointSize(); }
+    VectorPointTable& table() { return *m_table; }
+    std::size_t bytes() const
+    {
+        return m_table->capacity() + m_table->pointSize();
+    }
 
 private:
-    VectorPointTable m_table;
+    std::unique_ptr<VectorPointTable> m_table;
 };
 
 using SharedChunkReader = std::shared_ptr<ChunkReader>;

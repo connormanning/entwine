@@ -221,7 +221,7 @@ std::unique_ptr<ScanInfo> Executor::deepScan(Json::Value pipeline) const
     table.setProcess([&result, &table]()
     {
         Point point;
-        result->points += table.size();
+        result->points += table.numPoints();
 
         for (auto it(table.begin()); it != table.end(); ++it)
         {
@@ -287,11 +287,12 @@ bool Executor::run(pdal::StreamPointTable& table, const Json::Value& pipeline)
 
                 if (++current == table.capacity())
                 {
-                    table.reset();
+                    table.clear(table.capacity());
                     current = 0;
                 }
             }
         }
+        if (current) table.clear(current);
     }
 
     return true;

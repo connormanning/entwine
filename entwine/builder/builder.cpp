@@ -280,7 +280,7 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
     VectorPointTable table(m_metadata->schema());
     table.setProcess([this, &table, &clipper, &inserted, &pointId, &originId]()
     {
-        inserted += table.size();
+        inserted += table.numPoints();
 
         if (inserted > m_sleepCount)
         {

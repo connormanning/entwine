@@ -89,7 +89,7 @@ void ReffedChunk::ref(Clipper& clipper)
                     ++info.read;
                 }
 
-                VectorPointTable table(m_metadata.schema());
+                VectorPointTable table(m_metadata.schema(), np);
                 table.setProcess([this, &table, &clipper]()
                 {
                     Voxel voxel;

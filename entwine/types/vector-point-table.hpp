@@ -106,19 +106,17 @@ class VectorPointTable : public pdal::StreamPointTable
 
 public:
     VectorPointTable(const Schema& schema, std::size_t np = 4096)
-        : pdal::StreamPointTable(schema.pdalLayout())
+        : pdal::StreamPointTable(schema.pdalLayout(), np)
         , m_pointSize(schema.pointSize())
         , m_data(np * m_pointSize, 0)
-        , m_size(np)
-        , m_skips(m_size, false)
     { }
 
     VectorPointTable(const Schema& schema, std::vector<char>&& data)
-        : pdal::StreamPointTable(schema.pdalLayout())
+        : pdal::StreamPointTable(
+                schema.pdalLayout(),
+                data.size() / schema.pointSize())
         , m_pointSize(schema.pointSize())
         , m_data(std::move(data))
-        , m_size(m_data.size() / m_pointSize)
-        , m_skips(m_size, false)
     {
         if (m_data.size() % m_pointSize != 0)
         {
@@ -126,39 +124,14 @@ public:
         }
     }
 
-    std::size_t size() const { return m_size; }
-    void resize(std::size_t np)
-    {
-        m_data.resize(np * m_pointSize, 0);
-        m_size = np;
-        m_skips.resize(m_size, false);
-    }
-
-    void assign(std::vector<char>&& data)
-    {
-        m_data = std::move(data);
-        m_size = m_data.size() / m_pointSize;
-        m_skips.resize(m_size, false);
-    }
-
-    pdal::point_count_t capacity() const override
-    {
-        return m_data.size() / m_pointSize;
-    }
-
     pdal::PointRef at(pdal::PointId index)
     {
-        if (index >= size())
+        if (index >= capacity())
         {
             throw std::out_of_range("Invalid index to VectorPointTable::at");
         }
 
         return pdal::PointRef(*this, index);
-    }
-
-    pdal::PointRef append()
-    {
-        return pdal::PointRef(*this, addPoint());
     }
 
     virtual char* getPoint(pdal::PointId index) override
@@ -182,7 +155,7 @@ public:
             , m_index(index)
             , m_pointRef(m_table, m_index)
         {
-            while (m_index < m_table.size() && m_table.skip(m_index))
+            while (m_index < m_table.numPoints() && m_table.skip(m_index))
             {
                 ++m_index;
             }
@@ -195,7 +168,7 @@ public:
             {
                 m_pointRef.setPointId(++m_index);
             }
-            while (m_index < m_table.size() && m_table.skip(m_index));
+            while (m_index < m_table.numPoints() && m_table.skip(m_index));
 
             return *this;
         }
@@ -219,22 +192,17 @@ public:
     };
 
     Iterator begin() { return Iterator(*this); }
-    Iterator end() { return Iterator(*this, size()); }
+    Iterator end() { return Iterator(*this, numPoints()); }
 
     std::size_t pointSize() const { return m_pointSize; }
-    virtual bool skip(pdal::PointId n) const override { return m_skips.at(n); }
 
 private:
-    virtual void setNumPoints(pdal::PointId s) override { m_size = s; }
-    virtual void setSkip(pdal::PointId n) override { m_skips.at(n) = true; }
-
     VectorPointTable(const VectorPointTable&);
     VectorPointTable& operator=(const VectorPointTable&);
 
     const std::size_t m_pointSize;
     std::vector<char> m_data;
     std::size_t m_size = 0;
-    std::vector<bool> m_skips;
 
     Process m_f = []() { };
 };
