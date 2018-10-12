@@ -65,12 +65,12 @@ TEST(build, basic)
         const auto path(metaPath + std::to_string(o) + ".json");
         const auto meta(parse(a.get(path)));
         ASSERT_FALSE(meta.isNull());
-        ASSERT_GT(meta["points"].asUInt64(), 0);
+        ASSERT_GT(meta["points"].asUInt64(), 0u);
     }
 
     const auto path(metaPath + "8.json");
     const auto meta(parse(a.get(path)));
-    ASSERT_EQ(meta["points"].asUInt64(), 0);
+    ASSERT_EQ(meta["points"].asUInt64(), 0u);
 }
 
 TEST(build, fromScan)
@@ -134,12 +134,12 @@ TEST(build, fromScan)
         const auto path(metaPath + std::to_string(o) + ".json");
         const auto meta(parse(a.get(path)));
         ASSERT_FALSE(meta.isNull());
-        ASSERT_GT(meta["points"].asUInt64(), 0);
+        ASSERT_GT(meta["points"].asUInt64(), 0u);
     }
 
     const auto path(metaPath + "8.json");
     const auto meta(parse(a.get(path)));
-    ASSERT_EQ(meta["points"].asUInt64(), 0);
+    ASSERT_EQ(meta["points"].asUInt64(), 0u);
 }
 
 TEST(build, subset)
@@ -204,12 +204,12 @@ TEST(build, subset)
         const auto path(metaPath + std::to_string(o) + ".json");
         const auto meta(parse(a.get(path)));
         ASSERT_FALSE(meta.isNull());
-        ASSERT_GT(meta["points"].asUInt64(), 0);
+        ASSERT_GT(meta["points"].asUInt64(), 0u);
     }
 
     const auto path(metaPath + "8.json");
     const auto meta(parse(a.get(path)));
-    ASSERT_EQ(meta["points"].asUInt64(), 0);
+    ASSERT_EQ(meta["points"].asUInt64(), 0u);
 }
 
 
@@ -286,12 +286,12 @@ TEST(build, subsetFromScan)
         const auto path(metaPath + std::to_string(o) + ".json");
         const auto meta(parse(a.get(path)));
         ASSERT_FALSE(meta.isNull());
-        ASSERT_GT(meta["points"].asUInt64(), 0);
+        ASSERT_GT(meta["points"].asUInt64(), 0u);
     }
 
     const auto path(metaPath + "8.json");
     const auto meta(parse(a.get(path)));
-    ASSERT_EQ(meta["points"].asUInt64(), 0);
+    ASSERT_EQ(meta["points"].asUInt64(), 0u);
 }
 
 TEST(build, reprojected)
@@ -346,11 +346,11 @@ TEST(build, reprojected)
         const auto path(metaPath + std::to_string(o) + ".json");
         const auto meta(parse(a.get(path)));
         ASSERT_FALSE(meta.isNull());
-        ASSERT_GT(meta["points"].asUInt64(), 0);
+        ASSERT_GT(meta["points"].asUInt64(), 0u);
     }
 
     const auto path(metaPath + "8.json");
     const auto meta(parse(a.get(path)));
-    ASSERT_EQ(meta["points"].asUInt64(), 0);
+    ASSERT_EQ(meta["points"].asUInt64(), 0u);
 }
 
