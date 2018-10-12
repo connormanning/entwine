@@ -111,6 +111,13 @@ public:
         return n;
     }
 
+    std::size_t totalOutOfBounds() const
+    {
+        std::size_t n(0);
+        for (const auto& f : m_files) n += f.pointStats().outOfBounds();
+        return n;
+    }
+
     void merge(const Files& other);
 
 
