@@ -99,7 +99,7 @@ Metadata::Metadata(const arbiter::Endpoint& ep, const Config& config)
                     parse(ep.get("ept-build" + config.postfix() + ".json")))),
             true)
 {
-    Files files(parse(ep.get("ept-files" + postfix() + ".json")));
+    Files files(parse(ep.get("ept-input" + postfix() + ".json")));
     files.append(m_files->list());
     m_files = makeUnique<Files>(files.list());
 }
@@ -115,7 +115,8 @@ Json::Value Metadata::toJson() const
     json["boundsConforming"] = boundsConforming().toJson();
     json["schema"] = m_outSchema->toJson();
     json["ticks"] = (Json::UInt64)m_ticks;
-    json["numPoints"] = (Json::UInt64)m_files->totalPoints();
+    json["points"] = (Json::UInt64)m_files->totalInserts();
+    json["sources"] = (Json::UInt64)m_files->size();
     json["dataType"] = m_dataIo->type();
     json["hierarchyType"] = "json"; // TODO.
     json["srs"] = m_srs->toJson();
@@ -153,11 +154,7 @@ void Metadata::save(const arbiter::Endpoint& endpoint, const Config& config)
         ensurePut(endpoint, f, toPreciseString(json));
     }
 
-    const bool detailed(
-            !m_merged &&
-            primary() &&
-            (!config.json().isMember("writeDetails") ||
-                config["writeDetails"].asBool()));
+    const bool detailed(!m_merged && primary());
     m_files->save(endpoint, postfix(), config, detailed);
 }
 

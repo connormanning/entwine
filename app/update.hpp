@@ -28,7 +28,7 @@ private:
     virtual void addArgs() override;
     virtual void run() override;
 
-    void copyHierarchy(const Dxyz& key = Dxyz()) const;
+    void copyHierarchy() const;
     void copyFileMetadata() const;
 
     std::unique_ptr<arbiter::Arbiter> m_arbiter;

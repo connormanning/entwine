@@ -24,10 +24,17 @@
 namespace entwine
 {
 
-Json::Value Files::toJson() const
+Json::Value Files::toPrivateJson() const
 {
     Json::Value json;
-    for (const FileInfo& f : list()) json.append(f.toJson());
+    for (const FileInfo& f : list()) json.append(f.toPrivateJson());
+    return json;
+}
+
+Json::Value Files::toSourcesJson() const
+{
+    Json::Value json;
+    for (const FileInfo& f : list()) json.append(f.toSourcesJson());
     return json;
 }
 
@@ -37,28 +44,33 @@ void Files::save(
         const Config& config,
         const bool detailed) const
 {
+    writePrivate(ep, postfix);
+
     if (detailed)
     {
-        writeDetails(ep.getSubEndpoint("ept-metadata"), postfix, config);
+        writeSources(ep.getSubEndpoint("ept-sources"), postfix, config);
     }
-
-    Json::Value json;
-    Json::Value removed;
-    for (const FileInfo& f : list())
-    {
-        Json::Value entry(f.toJson());
-        entry.removeMember("metadata", &removed);
-        json.append(entry);
-    }
-
-    const bool styled(size() <= 1000);
-    ensurePut(
-            ep,
-            "ept-files" + postfix + ".json",
-            toPreciseString(json, styled));
 }
 
-void Files::writeDetails(
+void Files::writePrivate(
+        const arbiter::Endpoint& ep,
+        const std::string& postfix) const
+{
+    Json::Value json;
+    for (const FileInfo& f : list()) json.append(f.toPrivateJson());
+
+    const std::string filename("ept-input" + postfix + ".json");
+    const bool styled(size() <= 1000);
+    ensurePut(ep, filename, toPreciseString(json, styled));
+}
+
+void Files::writeSources(const arbiter::Endpoint& out, const Config& config)
+    const
+{
+    writeSources(out, "", config);
+}
+
+void Files::writeSources(
         const arbiter::Endpoint& out,
         const std::string& postfix,
         const Config& config) const
@@ -86,14 +98,11 @@ void Files::writeDetails(
         {
             const std::string filename(std::to_string(o) + ".json");
 
-            Json::Value meta;
-            if (scanEp) meta = parse(scanEp->get(filename));
-            meta = entwine::merge(meta, get(o).metadata());
+            Json::Value json;
+            if (scanEp) json = parse(scanEp->get(filename));
+            json = entwine::merge(json, get(o).toSourcesJson());
 
-            ensurePut(
-                    out,
-                    filename,
-                    toPreciseString(meta, styled));
+            ensurePut(out, filename, toPreciseString(json, styled));
         });
     }
 

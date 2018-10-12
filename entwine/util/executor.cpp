@@ -51,7 +51,7 @@ ScanInfo::ScanInfo(pdal::Stage& reader, const pdal::QuickInfo& qi)
     }
 
     srs = qi.m_srs.getWKT();
-    numPoints = qi.m_pointCount;
+    points = qi.m_pointCount;
     dimNames = qi.m_dimNames;
 
     if (const auto las = dynamic_cast<pdal::LasReader*>(&reader))
@@ -214,14 +214,14 @@ std::unique_ptr<ScanInfo> Executor::deepScan(Json::Value pipeline) const
 
     // Reset the values we're going to aggregate from the deep scan.
     result->bounds = Bounds::expander();
-    result->numPoints = 0;
+    result->points = 0;
     result->dimNames.clear();
 
     VectorPointTable table(xyzSchema);
     table.setProcess([&result, &table]()
     {
         Point point;
-        result->numPoints += table.size();
+        result->points += table.size();
 
         for (auto it(table.begin()); it != table.end(); ++it)
         {

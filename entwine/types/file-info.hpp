@@ -19,7 +19,9 @@
 #include <pdal/SpatialReference.hpp>
 
 #include <entwine/types/bounds.hpp>
+#include <entwine/types/srs.hpp>
 #include <entwine/types/stats.hpp>
+#include <entwine/util/executor.hpp>
 
 namespace entwine
 {
@@ -44,15 +46,20 @@ public:
     explicit FileInfo(std::string path, Status status = Status::Outstanding);
     explicit FileInfo(const Json::Value& json);
 
-    Json::Value toJson() const;
+    // Data required specifically for Entwine indexing - not necessarily related
+    // to EPT output itself.
+    Json::Value toPrivateJson() const;
 
-    const std::string& path() const             { return m_path; }
-    Status status() const                       { return m_status; }
-    std::size_t numPoints() const               { return m_numPoints; }
-    const pdal::SpatialReference& srs() const   { return m_srs; }
-    const PointStats& pointStats() const        { return m_pointStats; }
-    const Json::Value& metadata() const         { return m_metadata; }
-    Origin origin() const { return m_origin; }
+    // EPT per-file metadata.
+    Json::Value toSourcesJson() const;
+
+    const std::string& path() const         { return m_path; }
+    Status status() const                   { return m_status; }
+    std::size_t points() const              { return m_points; }
+    const Srs& srs() const                  { return m_srs; }
+    const PointStats& pointStats() const    { return m_pointStats; }
+    const Json::Value& metadata() const     { return m_metadata; }
+    Origin origin() const                   { return m_origin; }
     const Bounds* bounds() const
     {
         return m_bounds.exists() ? &m_bounds : nullptr;
@@ -63,15 +70,17 @@ public:
         return m_bounds.exists() ? &m_boundsEpsilon : nullptr;
     }
 
-    void bounds(const Bounds& bounds)
+    void set(const ScanInfo& scan)
     {
-        m_bounds = bounds;
-        m_boundsEpsilon = bounds.growBy(.005);
+        m_metadata = scan.metadata;
+
+        if (!scan.points) return;
+
+        m_srs = scan.srs;
+        m_points = scan.points;
+        m_bounds = scan.bounds;
+        m_boundsEpsilon = m_bounds.growBy(0.005);
     }
-    void numPoints(std::size_t n) { m_numPoints = n; }
-    void srs(const pdal::SpatialReference& s) { m_srs = s; }
-    void metadata(const Json::Value& json) { m_metadata = json; }
-    void origin(Origin o) { m_origin = o; }
 
     void add(const PointStats& stats) { m_pointStats.add(stats); }
 
@@ -92,8 +101,8 @@ private:
     // the bounds and number of points in this file from the header.
     Bounds m_bounds;    // Represented in the output projection.
     Bounds m_boundsEpsilon;
-    std::size_t m_numPoints = 0;
-    pdal::SpatialReference m_srs;
+    std::size_t m_points = 0;
+    Srs m_srs;
     Json::Value m_metadata;
     Origin m_origin = invalidOrigin;
 
@@ -109,15 +118,6 @@ inline FileInfoList toFileInfo(const Json::Value& json)
     for (const auto& j : json) f.emplace_back(j);
     return f;
 }
-
-/*
-inline Json::Value toJson(const FileInfoList& fileInfo)
-{
-    Json::Value json;
-    for (const auto& f : fileInfo) json.append(f.toJson());
-    return json;
-}
-*/
 
 double densityLowerBound(const FileInfoList& files);
 double areaUpperBound(const FileInfoList& files);

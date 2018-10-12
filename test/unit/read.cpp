@@ -39,10 +39,10 @@ TEST(read, count)
 
         auto countQuery = r.count(q);
         countQuery->run();
-        np += countQuery->numPoints();
+        np += countQuery->points();
     }
 
-    EXPECT_EQ(np, v.numPoints());
+    EXPECT_EQ(np, v.points());
 }
 
 TEST(read, data)
@@ -117,7 +117,7 @@ TEST(read, data)
 
     const Counts counts(count(bin));
 
-    ASSERT_EQ(counts.size(), v.numPoints());
+    ASSERT_EQ(counts.size(), v.points());
 }
 
 TEST(read, filter)

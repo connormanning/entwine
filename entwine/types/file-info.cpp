@@ -51,43 +51,65 @@ FileInfo::FileInfo(const Json::Value& json)
         throw std::runtime_error("Empty path found in file-info");
     }
 
-    if (json.isObject())
+    if (!json.isObject()) return;
+
+    if (json.isMember("status"))
     {
-        if (json.isMember("status"))
-        {
-            m_status = toStatus(json["status"].asString());
-        }
-
-        if (json.isMember("bounds")) bounds(Bounds(json["bounds"]));
-
-        m_numPoints = json["numPoints"].asUInt64();
-        m_metadata = json["metadata"];
-        m_pointStats = PointStats(json["pointStats"]);
-        m_message = json["message"].asString();
-
-        if (json.isMember("srs"))
-        {
-            m_srs = pdal::SpatialReference(json["srs"].asString());
-        }
-
-        if (json.isMember("origin")) m_origin = json["origin"].asUInt64();
+        m_status = toStatus(json["status"].asString());
     }
+
+    if (json.isMember("bounds"))
+    {
+        m_bounds = Bounds(json["bounds"]);
+        m_boundsEpsilon = m_bounds.growBy(0.005);
+    }
+
+    m_points = json["points"].asUInt64();
+    m_metadata = json["metadata"];
+    m_pointStats = PointStats(
+            json["inserts"].asUInt64(),
+            json["outOfBounds"].asUInt64());
+    m_message = json["message"].asString();
+
+    if (json.isMember("srs")) m_srs = json["srs"];
+    if (json.isMember("origin")) m_origin = json["origin"].asUInt64();
 }
 
-Json::Value FileInfo::toJson() const
+Json::Value FileInfo::toPrivateJson() const
 {
     Json::Value json;
-
     json["path"] = m_path;
+    if (m_points)
+    {
+        if (m_bounds.exists()) json["bounds"] = m_bounds.toJson();
+        json["points"] = (Json::UInt64)m_points;
+    }
 
     if (m_status != Status::Outstanding) json["status"] = toString(m_status);
-    if (!m_pointStats.empty()) json["pointStats"] = m_pointStats.toJson();
-    if (m_origin != invalidOrigin) json["origin"] = (Json::UInt64)m_origin;
-    if (m_bounds.exists()) json["bounds"] = m_bounds.toJson();
-    if (m_numPoints) json["numPoints"] = (Json::UInt64)m_numPoints;
-    if (!m_srs.empty()) json["srs"] = m_srs.getWKT();
+    if (m_pointStats.inserts())
+    {
+        json["inserts"] = (Json::UInt64)m_pointStats.inserts();
+    }
+    if (m_pointStats.outOfBounds())
+    {
+        json["outOfBounds"] = (Json::UInt64)m_pointStats.outOfBounds();
+    }
+
     if (!m_message.empty()) json["message"] = m_message;
+
+    return json;
+}
+
+Json::Value FileInfo::toSourcesJson() const
+{
+    Json::Value json;
+    json["path"] = m_path;
+    if (m_bounds.exists()) json["bounds"] = m_bounds.toJson();
+
     if (!m_metadata.isNull()) json["metadata"] = m_metadata;
+    if (m_origin != invalidOrigin) json["origin"] = (Json::UInt64)m_origin;
+    if (m_points) json["points"] = (Json::UInt64)m_points;
+    if (!m_srs.empty()) json["srs"] = m_srs.toJson();
 
     return json;
 }
@@ -115,9 +137,9 @@ double densityLowerBound(const FileInfoList& files)
     {
         if (const auto b = f.bounds())
         {
-            if (b->area() > 0 && f.numPoints())
+            if (b->area() > 0 && f.points())
             {
-                points += f.numPoints();
+                points += f.points();
             }
         }
     }

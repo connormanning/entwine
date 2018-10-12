@@ -77,7 +77,7 @@ void Query::maybeProcess(const pdal::PointRef& pr)
             pr.getFieldAs<double>(DimId::Z));
     if (!m_params.bounds().contains(point) || !m_filter.check(pr)) return;
     process(pr);
-    ++m_numPoints;
+    ++m_points;
 }
 
 void ReadQuery::process(const pdal::PointRef& pr)

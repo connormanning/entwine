@@ -18,7 +18,7 @@ namespace
 TEST(build, basic)
 {
     const std::string outPath(test::dataPath() + "out/ellipsoid/");
-    const std::string metaPath(outPath + "ept-metadata/");
+    const std::string metaPath(outPath + "ept-sources/");
 
     Config c;
     c["input"] = test::dataPath() + "ellipsoid-multi/";
@@ -47,8 +47,8 @@ TEST(build, basic)
     const auto hierarchyType(info["hierarchyType"].asString());
     EXPECT_EQ(hierarchyType, "json");
 
-    const auto numPoints(info["numPoints"].asUInt64());
-    EXPECT_EQ(numPoints, v.numPoints());
+    const auto points(info["points"].asUInt64());
+    EXPECT_EQ(points, v.points());
 
     const Schema schema(info["schema"]);
     Schema verifySchema(v.schema().append(DimId::OriginId));
@@ -57,22 +57,20 @@ TEST(build, basic)
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
 
-    const auto files(parse(a.get(outPath + "ept-files.json")));
-    ASSERT_EQ(files.size(), 9u);
+    const uint64_t sources(info["sources"].asUInt64());
+    EXPECT_EQ(sources, 9u);
 
     for (Json::ArrayIndex o(0); o < 8; ++o)
     {
         const auto path(metaPath + std::to_string(o) + ".json");
         const auto meta(parse(a.get(path)));
         ASSERT_FALSE(meta.isNull());
-        ASSERT_TRUE(meta["count"].isNumeric()) << meta["count"] << std::endl;
-        ASSERT_EQ(files[o]["pointStats"]["outOfBounds"].asUInt64(), 0u) <<
-            files[o];
+        ASSERT_GT(meta["points"].asUInt64(), 0);
     }
 
     const auto path(metaPath + "8.json");
     const auto meta(parse(a.get(path)));
-    EXPECT_TRUE(meta.isNull()) << meta;
+    ASSERT_EQ(meta["points"].asUInt64(), 0);
 }
 
 TEST(build, fromScan)
@@ -89,7 +87,7 @@ TEST(build, fromScan)
     }
 
     const std::string outPath(test::dataPath() + "out/from-scan/");
-    const std::string metaPath(outPath + "ept-metadata/");
+    const std::string metaPath(outPath + "ept-sources/");
 
     Config c;
     c["input"] = scanPath + "ept-scan.json";
@@ -118,8 +116,8 @@ TEST(build, fromScan)
     const auto hierarchyType(info["hierarchyType"].asString());
     EXPECT_EQ(hierarchyType, "json");
 
-    const auto numPoints(info["numPoints"].asUInt64());
-    EXPECT_EQ(numPoints, v.numPoints());
+    const auto points(info["points"].asUInt64());
+    EXPECT_EQ(points, v.points());
 
     const Schema schema(info["schema"]);
     Schema verifySchema(v.schema().append(DimId::OriginId));
@@ -128,27 +126,26 @@ TEST(build, fromScan)
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
 
-    const auto files(parse(a.get(outPath + "ept-files.json")));
-    ASSERT_EQ(files.size(), 9u);
+    const uint64_t sources(info["sources"].asUInt64());
+    EXPECT_EQ(sources, 9u);
 
     for (Json::ArrayIndex o(0); o < 8; ++o)
     {
         const auto path(metaPath + std::to_string(o) + ".json");
         const auto meta(parse(a.get(path)));
         ASSERT_FALSE(meta.isNull());
-        ASSERT_EQ(files[o]["pointStats"]["outOfBounds"].asUInt64(), 0u) <<
-            files[o];
+        ASSERT_GT(meta["points"].asUInt64(), 0);
     }
 
     const auto path(metaPath + "8.json");
     const auto meta(parse(a.get(path)));
-    EXPECT_TRUE(meta.isNull()) << meta;
+    ASSERT_EQ(meta["points"].asUInt64(), 0);
 }
 
 TEST(build, subset)
 {
     const std::string outPath(test::dataPath() + "out/subset/");
-    const std::string metaPath(outPath + "ept-metadata/");
+    const std::string metaPath(outPath + "ept-sources/");
 
     for (Json::UInt64 i(0); i < 4u; ++i)
     {
@@ -189,8 +186,8 @@ TEST(build, subset)
     const auto hierarchyType(info["hierarchyType"].asString());
     EXPECT_EQ(hierarchyType, "json");
 
-    const auto numPoints(info["numPoints"].asUInt64());
-    EXPECT_EQ(numPoints, v.numPoints());
+    const auto points(info["points"].asUInt64());
+    EXPECT_EQ(points, v.points());
 
     const Schema schema(info["schema"]);
     Schema verifySchema(v.schema().append(DimId::OriginId));
@@ -199,21 +196,20 @@ TEST(build, subset)
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
 
-    const auto files(parse(a.get(outPath + "ept-files.json")));
-    ASSERT_EQ(files.size(), 9u);
+    const uint64_t sources(info["sources"].asUInt64());
+    EXPECT_EQ(sources, 9u);
 
-    for (Json::ArrayIndex o(0); o < 8u; ++o)
+    for (Json::ArrayIndex o(0); o < 8; ++o)
     {
         const auto path(metaPath + std::to_string(o) + ".json");
         const auto meta(parse(a.get(path)));
         ASSERT_FALSE(meta.isNull());
-        ASSERT_EQ(files[o]["pointStats"]["outOfBounds"].asUInt64(), 0u) <<
-            files[o];
+        ASSERT_GT(meta["points"].asUInt64(), 0);
     }
 
     const auto path(metaPath + "8.json");
     const auto meta(parse(a.get(path)));
-    EXPECT_TRUE(meta.isNull()) << meta;
+    ASSERT_EQ(meta["points"].asUInt64(), 0);
 }
 
 
@@ -231,7 +227,7 @@ TEST(build, subsetFromScan)
     }
 
     const std::string outPath(test::dataPath() + "out/from-scan-subset/");
-    const std::string metaPath(outPath + "ept-metadata/");
+    const std::string metaPath(outPath + "ept-sources/");
 
     for (Json::UInt64 i(0); i < 4u; ++i)
     {
@@ -272,8 +268,8 @@ TEST(build, subsetFromScan)
     const auto hierarchyType(info["hierarchyType"].asString());
     EXPECT_EQ(hierarchyType, "json");
 
-    const auto numPoints(info["numPoints"].asUInt64());
-    EXPECT_EQ(numPoints, v.numPoints());
+    const auto points(info["points"].asUInt64());
+    EXPECT_EQ(points, v.points());
 
     const Schema schema(info["schema"]);
     Schema verifySchema(v.schema().append(DimId::OriginId));
@@ -282,27 +278,26 @@ TEST(build, subsetFromScan)
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
 
-    const auto files(parse(a.get(outPath + "ept-files.json")));
-    ASSERT_EQ(files.size(), 9u);
+    const uint64_t sources(info["sources"].asUInt64());
+    EXPECT_EQ(sources, 9u);
 
     for (Json::ArrayIndex o(0); o < 8; ++o)
     {
         const auto path(metaPath + std::to_string(o) + ".json");
         const auto meta(parse(a.get(path)));
         ASSERT_FALSE(meta.isNull());
-        ASSERT_EQ(files[o]["pointStats"]["outOfBounds"].asUInt64(), 0u) <<
-            files[o];
+        ASSERT_GT(meta["points"].asUInt64(), 0);
     }
 
     const auto path(metaPath + "8.json");
     const auto meta(parse(a.get(path)));
-    EXPECT_TRUE(meta.isNull()) << meta;
+    ASSERT_EQ(meta["points"].asUInt64(), 0);
 }
 
 TEST(build, reprojected)
 {
     const std::string outPath(test::dataPath() + "out/ellipsoid-re/");
-    const std::string metaPath(outPath + "ept-metadata/");
+    const std::string metaPath(outPath + "ept-sources/");
 
     Config c;
     c["input"] = test::dataPath() + "ellipsoid-multi/";
@@ -333,8 +328,8 @@ TEST(build, reprojected)
     const auto hierarchyType(info["hierarchyType"].asString());
     EXPECT_EQ(hierarchyType, "json");
 
-    const auto numPoints(info["numPoints"].asUInt64());
-    EXPECT_EQ(numPoints, v.numPoints());
+    const auto points(info["points"].asUInt64());
+    EXPECT_EQ(points, v.points());
 
     const Schema schema(info["schema"]);
     Schema verifySchema(v.schema().append(DimId::OriginId));
@@ -343,20 +338,19 @@ TEST(build, reprojected)
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
 
-    const auto files(parse(a.get(outPath + "ept-files.json")));
-    ASSERT_EQ(files.size(), 9u);
+    const uint64_t sources(info["sources"].asUInt64());
+    EXPECT_EQ(sources, 9u);
 
     for (Json::ArrayIndex o(0); o < 8; ++o)
     {
         const auto path(metaPath + std::to_string(o) + ".json");
         const auto meta(parse(a.get(path)));
         ASSERT_FALSE(meta.isNull());
-        ASSERT_EQ(files[o]["pointStats"]["outOfBounds"].asUInt64(), 0u) <<
-            files[o];
+        ASSERT_GT(meta["points"].asUInt64(), 0);
     }
 
     const auto path(metaPath + "8.json");
     const auto meta(parse(a.get(path)));
-    EXPECT_TRUE(meta.isNull()) << meta;
+    ASSERT_EQ(meta["points"].asUInt64(), 0);
 }
 

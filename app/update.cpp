@@ -34,7 +34,7 @@ void Update::run()
     m_arbiter = makeUnique<arbiter::Arbiter>(m_config["arbiter"]);
     m_ep = makeUnique<arbiter::Endpoint>(
             m_arbiter->getEndpoint(m_config.output()));
-    m_pool = makeUnique<Pool>(m_config.totalThreads());
+    m_pool = makeUnique<Pool>(std::max<uint64_t>(4, m_config.totalThreads()));
 
     m_metadata = parse(m_ep->get("entwine.json"));
 
@@ -44,9 +44,8 @@ void Update::run()
         arbiter::fs::mkdirp(m_ep->root() + "ept-metadata");
     }
 
-    std::cout << "Updating hierarchy... " << std::flush;
+    std::cout << "Updating hierarchy..." << std::endl;
     copyHierarchy();
-    m_pool->await();
     std::cout << "done." << std::endl;
 
     std::cout << "Updating per-file metadata... " << std::flush;
@@ -64,12 +63,12 @@ void Update::run()
     // Main metadata.
     Schema schema(m_metadata["schema"]);
 
+    Json::Value removed;
     if (m_metadata.isMember("scale"))
     {
         Scale scale(m_metadata["scale"]);
         Offset offset(m_metadata["offset"]);
 
-        Json::Value removed;
         m_metadata.removeMember("scale", &removed);
         m_metadata.removeMember("offset", &removed);
 
@@ -80,6 +79,7 @@ void Update::run()
 
     Srs srs(m_metadata["srs"].asString());
     m_metadata["srs"] = srs.toJson();
+    m_metadata.removeMember("hierarchyStep", &removed);
 
     m_ep->put("ept.json", toPreciseString(m_metadata));
     std::cout << "done." << std::endl;
@@ -87,29 +87,64 @@ void Update::run()
     std::cout << "Update complete." << std::endl;
 }
 
-void Update::copyHierarchy(const Dxyz& root) const
+void Update::copyHierarchy() const
 {
-    const auto fromEp(m_ep->getSubEndpoint("h/"));
+    const std::string from(m_ep->prefixedRoot() + "h/*");
+    const std::vector<std::string> files(m_arbiter->resolve(from));
     const auto toEp(m_ep->getSubEndpoint("ept-hierarchy"));
-
     const uint64_t hierarchyStep(m_metadata["hierarchyStep"].asUInt64());
 
-    const auto json(parse(fromEp.get(root.toString() + ".json")));
-    toEp.put(
-            root.toString() + ".json",
-            root.depth() ? toFastString(json) : json.toStyledString());
+    uint64_t i(0);
 
-    for (const auto str : json.getMemberNames())
+    for (const auto file : files)
     {
-        const Dxyz key(str);
-        if (
-                hierarchyStep &&
-                key.depth() > root.depth() &&
-                key.depth() % hierarchyStep == 0)
+        if (i % 1000 == 0)
         {
-            m_pool->add([this, key]() { copyHierarchy(key); });
+            std::cout << "\t" << i << " / " << files.size() << std::endl;
+        }
+        ++i;
+
+        Dxyz root;
+        bool copy(false);
+
+        try
+        {
+            // If this is a subset hierarchy, it will be formatted as
+            // D-X-Y-Z-S, we don't want to copy it.
+            root = Dxyz(arbiter::Arbiter::stripExtension(
+                        arbiter::util::getBasename(file)));
+            copy = true;
+        }
+        catch (...) { }
+
+        if (copy)
+        {
+            m_pool->add([this, &toEp, file, root, hierarchyStep]()
+            {
+                Json::Value json(parse(m_arbiter->get(file)));
+
+                for (const auto str : json.getMemberNames())
+                {
+                    const Dxyz key(str);
+
+                    if (
+                            hierarchyStep &&
+                            key.depth() > root.depth() &&
+                            key.depth() % hierarchyStep == 0)
+                    {
+                        json[str] = -1;
+                    }
+                }
+
+                toEp.put(
+                        root.toString() + ".json",
+                        root.depth() ?
+                            toFastString(json) : json.toStyledString());
+            });
         }
     }
+
+    m_pool->await();
 }
 
 void Update::copyFileMetadata() const

@@ -76,7 +76,7 @@ public:
     std::string output() const { return m_json["output"].asString(); }
     std::string tmp() const { return m_json["tmp"].asString(); }
 
-    std::size_t numPoints() const { return m_json["numPoints"].asUInt64(); }
+    std::size_t points() const { return m_json["points"].asUInt64(); }
     Schema schema() const { return Schema(m_json["schema"]); }
 
     std::size_t totalThreads() const

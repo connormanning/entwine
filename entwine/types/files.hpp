@@ -41,13 +41,13 @@ public:
         {
             m_pointStats += f.pointStats();
             addStatus(f.status());
-            m_totalPoints += f.numPoints();
         }
     }
 
     Files(const Json::Value& json) : Files(toFileInfo(json)) { }
 
-    Json::Value toJson() const;
+    Json::Value toPrivateJson() const;
+    Json::Value toSourcesJson() const;
 
     void save(
             const arbiter::Endpoint& ep,
@@ -100,17 +100,34 @@ public:
     std::size_t totalPoints() const
     {
         std::size_t n(0);
-        for (const auto& f : m_files) n += f.numPoints();
+        for (const auto& f : m_files) n += f.points();
+        return n;
+    }
+
+    std::size_t totalInserts() const
+    {
+        std::size_t n(0);
+        for (const auto& f : m_files) n += f.pointStats().inserts();
         return n;
     }
 
     void merge(const Files& other);
 
-private:
+
     // Write per-file detailed metadata.  This might need to be copied from an
     // input scan location, or might be in-process for a build from a file
     // input list.  It could also be a combination of both for continued builds.
-    void writeDetails(
+    void writeSources(const arbiter::Endpoint& ep, const Config& config) const;
+
+private:
+    // Write a single file with our private indexing metadata.
+    void writePrivate(const arbiter::Endpoint& ep, const std::string& postfix)
+        const;
+
+    // Write per-file detailed metadata.  This might need to be copied from an
+    // input scan location, or might be in-process for a build from a file
+    // input list.  It could also be a combination of both for continued builds.
+    void writeSources(
             const arbiter::Endpoint& ep,
             const std::string& postfix,
             const Config& config) const;
@@ -127,7 +144,6 @@ private:
     }
 
     FileInfoList m_files;
-    uint64_t m_totalPoints = 0;
 
     mutable std::mutex m_mutex;
     PointStats m_pointStats;

@@ -93,6 +93,13 @@ struct Dxyz
         assert(toString() == v);
     }
 
+    Dxyz& operator=(const Dxyz& other)
+    {
+        d = other.d;
+        p = other.p;
+        return *this;
+    }
+
     std::string toString() const { return p.toString(d); }
     uint64_t depth() const { return d; }
 

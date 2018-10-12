@@ -32,7 +32,7 @@ public:
 
     void run();
 
-    uint64_t numPoints() const { return m_numPoints; }
+    uint64_t points() const { return m_points; }
 
 protected:
     virtual void process(const pdal::PointRef& pr) { }
@@ -50,7 +50,7 @@ private:
     void maybeProcess(const pdal::PointRef& pr);
 
     HierarchyReader::Keys m_overlaps;
-    uint64_t m_numPoints = 0;
+    uint64_t m_points = 0;
     std::deque<SharedChunkReader> m_chunks;
 };
 

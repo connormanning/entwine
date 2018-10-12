@@ -72,7 +72,6 @@ Config Scan::go()
     {
         arbiter::Arbiter arbiter(m_in["arbiter"]);
         arbiter::Endpoint ep(arbiter.getEndpoint(path));
-        const std::string filename("ept-scan.json");
 
         if (ep.isLocal())
         {
@@ -85,25 +84,19 @@ Config Scan::go()
         if (m_in.verbose())
         {
             std::cout << std::endl;
-            std::cout << "Writing details to " << path << "...";
+            std::cout << "Writing details to " << path << "..." << std::flush;
         }
 
+        m_files.writeSources(ep, m_in);
+        out["input"] = Files(out["input"]).toPrivateJson();
+
+        const std::string filename("ept-scan.json");
         ep.put(filename, toPreciseString(out.json(), m_files.size() <= 100));
-        for (Origin o(0); o < m_files.size(); ++o)
-        {
-            m_pool->add([this, o, &ep]()
-            {
-                const Json::Value& meta(m_files.get(o).metadata());
-                ep.put(std::to_string(o) + ".json", toPreciseString(meta));
-            });
-        }
 
         if (m_in.verbose())
         {
             std::cout << " written." << std::endl;
         }
-
-        m_pool->cycle();
     }
 
     return out;
@@ -147,11 +140,7 @@ void Scan::add(FileInfo& f, const std::string localPath)
     auto preview(Executor::get().preview(pipeline, m_in.trustHeaders()));
     if (!preview) return;
 
-    f.numPoints(preview->numPoints);
-    f.metadata(preview->metadata);
-    f.srs(preview->srs);
-    if (!preview->numPoints) return;
-    f.bounds(preview->bounds);
+    f.set(*preview);
 
     DimList dims;
     for (const std::string name : preview->dimNames) dims.emplace_back(name);
@@ -191,14 +180,14 @@ Config Scan::aggregate()
     bool srsLogged(false);
     for (const auto& f : m_files.list())
     {
-        if (!f.numPoints()) continue;
+        if (!f.points()) continue;
 
-        np += f.numPoints();
+        np += f.points();
         if (const Bounds* b = f.bounds()) bounds.grow(*b);
 
         if (f.srs().empty()) continue;
 
-        const pdal::SpatialReference& fileSrs(f.srs());
+        const pdal::SpatialReference& fileSrs(f.srs().ref());
 
         if (srs.empty())
         {
@@ -248,8 +237,8 @@ Config Scan::aggregate()
     }
 
     if (out["schema"].isNull()) out["schema"] = m_schema.toJson();
-    out["numPoints"] = std::max<Json::UInt64>(np, out.numPoints());
-    out["input"] = m_files.toJson();
+    out["points"] = std::max<Json::UInt64>(np, out.points());
+    out["input"] = m_files.toSourcesJson();
     if (m_re) out["reprojection"] = m_re->toJson();
     out["srs"] = srs.toJson();
     out["pipeline"] = m_in.pipeline("...");

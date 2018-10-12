@@ -80,7 +80,7 @@ void Scan::run()
 
     std::cout << "Results:" << std::endl;
     std::cout << "\tSchema: " << getDimensionString(schema) << std::endl;
-    std::cout << "\tPoints: " << commify(out.numPoints()) << std::endl;
+    std::cout << "\tPoints: " << commify(out.points()) << std::endl;
     std::cout << "\tBounds: " << Bounds(out["bounds"]) << std::endl;
 
     std::cout << "\tScale: ";

@@ -63,7 +63,7 @@ public:
     Json::Value metadata;
 
     Bounds bounds;
-    std::size_t numPoints = 0;
+    std::size_t points = 0;
     std::vector<std::string> dimNames;
 };
 

@@ -405,9 +405,9 @@ void Builder::prepareEndpoints()
                 throw std::runtime_error("Couldn't create hierarchy directory");
             }
 
-            if (!arbiter::fs::mkdirp(rootDir + "ept-metadata"))
+            if (!arbiter::fs::mkdirp(rootDir + "ept-sources"))
             {
-                throw std::runtime_error("Couldn't create metadata directory");
+                throw std::runtime_error("Couldn't create sources directory");
             }
         }
     }
