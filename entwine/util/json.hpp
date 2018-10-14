@@ -120,8 +120,8 @@ inline std::string toPreciseString(
         {
             s += '\n';
             s += indent;
-            s += '}';
         }
+        s += '}';
         return s;
     }
     else if (v.isArray())
