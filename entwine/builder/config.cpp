@@ -92,11 +92,13 @@ Config Config::prepare() const
         s.setScale(1);
         s.setOffset(0);
     }
+    else if (result.isMember("scale"))
+    {
+        s.setScale(Scale(result["scale"]));
+    }
     else if (!s.isScaled())
     {
-        s.setScale(
-                result.isMember("scale") ?
-                    Scale(result["scale"]) : Scale(0.01));
+        s.setScale(Scale(0.01));
     }
 
     if (s.isScaled() && s.offset() == Offset(0))
