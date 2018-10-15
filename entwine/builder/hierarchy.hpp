@@ -40,7 +40,7 @@ public:
 
     Hierarchy(
             const Metadata& metadata,
-            const arbiter::Endpoint& top,
+            const arbiter::Endpoint& ep,
             bool exists);
 
     void set(const Dxyz& key, uint64_t val)

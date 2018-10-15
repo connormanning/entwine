@@ -19,14 +19,10 @@ namespace entwine
 
 Hierarchy::Hierarchy(
         const Metadata& m,
-        const arbiter::Endpoint& top,
+        const arbiter::Endpoint& ep,
         const bool exists)
 {
-    if (exists)
-    {
-        const arbiter::Endpoint ep(top.getSubEndpoint("ept-hierarchy"));
-        load(m, ep);
-    }
+    if (exists) load(m, ep);
 }
 
 void Hierarchy::load(
@@ -49,11 +45,9 @@ void Hierarchy::load(
 
 void Hierarchy::save(
         const Metadata& m,
-        const arbiter::Endpoint& top,
+        const arbiter::Endpoint& ep,
         Pool& pool) const
 {
-    const arbiter::Endpoint ep(top.getSubEndpoint("ept-hierarchy"));
-
     Json::Value json(Json::objectValue);
     const ChunkKey k(m);
     save(m, ep, pool, k, json);

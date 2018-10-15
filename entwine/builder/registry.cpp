@@ -33,16 +33,17 @@ Registry::Registry(
         ThreadPools& threadPools,
         const bool exists)
     : m_metadata(metadata)
-    , m_out(out)
+    , m_dataEp(out.getSubEndpoint("ept-data"))
+    , m_hierEp(out.getSubEndpoint("ept-hierarchy"))
     , m_tmp(tmp)
     , m_threadPools(threadPools)
-    , m_hierarchy(m_metadata, out, exists)
-    , m_root(ChunkKey(metadata), out, tmp, m_hierarchy)
+    , m_hierarchy(m_metadata, m_hierEp, exists)
+    , m_root(ChunkKey(metadata), m_dataEp, tmp, m_hierarchy)
 { }
 
-void Registry::save(const arbiter::Endpoint& endpoint) const
+void Registry::save() const
 {
-    m_hierarchy.save(m_metadata, endpoint, m_threadPools.workPool());
+    m_hierarchy.save(m_metadata, m_hierEp, m_threadPools.workPool());
 }
 
 void Registry::merge(const Registry& other, Clipper& clipper)
@@ -78,7 +79,7 @@ void Registry::merge(const Registry& other, Clipper& clipper)
 
             const auto filename(
                     dxyz.toString() + other.metadata().postfix(dxyz.d));
-            m_metadata.dataIo().read(m_out, m_tmp, filename, table);
+            m_metadata.dataIo().read(m_dataEp, m_tmp, filename, table);
         }
         else
         {

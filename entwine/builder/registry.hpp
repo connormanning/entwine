@@ -46,7 +46,7 @@ public:
             ThreadPools& threadPools,
             bool exists = false);
 
-    void save(const arbiter::Endpoint& endpoint) const;
+    void save() const;
     void merge(const Registry& other, Clipper& clipper);
 
     void addPoint(Voxel& voxel, Key& key, Clipper& clipper)
@@ -64,7 +64,8 @@ public:
 
 private:
     const Metadata& m_metadata;
-    const arbiter::Endpoint& m_out;
+    const arbiter::Endpoint m_dataEp;
+    const arbiter::Endpoint m_hierEp;
     const arbiter::Endpoint& m_tmp;
     ThreadPools& m_threadPools;
     Hierarchy m_hierarchy;

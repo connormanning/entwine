@@ -29,7 +29,8 @@ ChunkReader::ChunkReader(const Reader& r, const Dxyz& id)
                 tmp.data().data() + tmp.numPoints() * tmp.pointSize());
     });
 
-    r.metadata().dataIo().read(r.ep(), r.tmp(), id.toString(), tmp);
+    const auto dataEp(r.ep().getSubEndpoint("ept-data"));
+    r.metadata().dataIo().read(dataEp, r.tmp(), id.toString(), tmp);
 
     m_table = makeUnique<VectorPointTable>(
             r.metadata().schema(),

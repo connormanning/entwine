@@ -366,7 +366,7 @@ void Builder::save(const arbiter::Endpoint& ep)
     }
 
     if (verbose()) std::cout << "Saving registry..." << std::endl;
-    m_registry->save(*m_out);
+    m_registry->save();
 
     if (verbose()) std::cout << "Saving metadata..." << std::endl;
     m_metadata->save(*m_out, m_config);
@@ -398,6 +398,11 @@ void Builder::prepareEndpoints()
             if (!arbiter::fs::mkdirp(rootDir))
             {
                 throw std::runtime_error("Couldn't create " + rootDir);
+            }
+
+            if (!arbiter::fs::mkdirp(rootDir + "ept-data"))
+            {
+                throw std::runtime_error("Couldn't create data directory");
             }
 
             if (!arbiter::fs::mkdirp(rootDir + "ept-hierarchy"))
