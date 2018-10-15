@@ -57,8 +57,7 @@ TEST(build, basic)
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
 
-    const uint64_t sources(info["sources"].asUInt64());
-    EXPECT_EQ(sources, 9u);
+    EXPECT_EQ(parse(a.get(outPath + "ept-sources/list.json")).size(), 9u);
 
     for (Json::ArrayIndex o(0); o < 8; ++o)
     {
@@ -126,8 +125,7 @@ TEST(build, fromScan)
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
 
-    const uint64_t sources(info["sources"].asUInt64());
-    EXPECT_EQ(sources, 9u);
+    EXPECT_EQ(parse(a.get(outPath + "ept-sources/list.json")).size(), 9u);
 
     for (Json::ArrayIndex o(0); o < 8; ++o)
     {
@@ -196,8 +194,7 @@ TEST(build, subset)
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
 
-    const uint64_t sources(info["sources"].asUInt64());
-    EXPECT_EQ(sources, 9u);
+    EXPECT_EQ(parse(a.get(outPath + "ept-sources/list.json")).size(), 9u);
 
     for (Json::ArrayIndex o(0); o < 8; ++o)
     {
@@ -212,6 +209,44 @@ TEST(build, subset)
     ASSERT_EQ(meta["points"].asUInt64(), 0u);
 }
 
+TEST(build, invalidSubset)
+{
+    const std::string outPath(test::dataPath() + "out/subset/");
+
+    Config c;
+    c["input"] = test::dataPath() + "ellipsoid-multi/";
+    c["output"] = outPath;
+    c["force"] = true;
+    c["ticks"] = static_cast<Json::UInt64>(v.ticks());
+    c["hierarchyStep"] = static_cast<Json::UInt64>(v.hierarchyStep());
+    c["subset"]["id"] = 1;
+
+    // Invalid subset range - must be more than one subset.
+    c["subset"]["of"] = 1;
+    EXPECT_ANY_THROW(Builder(c).go());
+
+    // Invalid subset range - must be a perfect square.
+    c["subset"]["of"] = 8;
+    EXPECT_ANY_THROW(Builder(c).go());
+
+    // Invalid subset range - must be a power of 2.
+    c["subset"]["of"] = 9;
+    EXPECT_ANY_THROW(Builder(c).go());
+
+    // Invalid subset range.
+    c["subset"]["of"] = 3320;
+    EXPECT_ANY_THROW(Builder(c).go());
+
+    c["subset"]["of"] = 4;
+
+    // Invalid subset ID - must be 1-based.
+    c["subset"]["id"] = 0;
+    EXPECT_ANY_THROW(Builder(c).go());
+
+    // Invalid subset ID - must be less than or equal to total subsets.
+    c["subset"]["id"] = 5;
+    EXPECT_ANY_THROW(Builder(c).go());
+}
 
 TEST(build, subsetFromScan)
 {
@@ -278,8 +313,7 @@ TEST(build, subsetFromScan)
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
 
-    const uint64_t sources(info["sources"].asUInt64());
-    EXPECT_EQ(sources, 9u);
+    EXPECT_EQ(parse(a.get(outPath + "ept-sources/list.json")).size(), 9u);
 
     for (Json::ArrayIndex o(0); o < 8; ++o)
     {
@@ -338,8 +372,7 @@ TEST(build, reprojected)
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
 
-    const uint64_t sources(info["sources"].asUInt64());
-    EXPECT_EQ(sources, 9u);
+    EXPECT_EQ(parse(a.get(outPath + "ept-sources/list.json")).size(), 9u);
 
     for (Json::ArrayIndex o(0); o < 8; ++o)
     {
