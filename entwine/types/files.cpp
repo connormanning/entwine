@@ -59,7 +59,7 @@ void Files::writePrivate(
     Json::Value json;
     for (const FileInfo& f : list()) json.append(f.toPrivateJson());
 
-    const std::string filename("ept-input" + postfix + ".json");
+    const std::string filename("ept-sources/list" + postfix + ".json");
     const bool styled(size() <= 1000);
     ensurePut(ep, filename, toPreciseString(json, styled));
 }
