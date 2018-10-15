@@ -205,13 +205,13 @@ Hierarchy nodes must always contain a positive value with the sole exception of 
 If a positive value for `sources` exists in the EPT metadata (`S`), then there shall also exist the file `ept-sources/list.json`.  This file shall contain an array of length `S`, whose entries are JSON objects containing an `path` and `bounds` (if one exists) for each source file.  The `path` must be an identifier which is unique among the other entries, for example a file's absolute path or basename.  For example:
 ```json
 [
-	{
-		"path": "not-a-point-cloud.txt"
-	},
-	{
-		"path": "autzen.laz",
+    {
+        "path": "not-a-point-cloud.txt"
+    },
+    {
+        "path": "autzen.laz",
         "bounds": [635577.0, 848882.0, 406.0, 639004.0, 853538.0, 616.0]
-	}
+    }
 ]
 ```
 
@@ -229,16 +229,16 @@ In addition to the well-known keys described above, this file can also contain a
 
 ```
 {
-	"bounds": [-8242746, 4966506, -50, -8242446, 4966706, 50],
+    "bounds": [-8242746, 4966506, -50, -8242446, 4966706, 50],
     "path": "autzen.laz",
-	"points" : 100000,
-	"srs" :
-	{
-		"authority" : "EPSG",
-		"horizontal" : "3857",
+    "points" : 100000,
+    "srs" :
+    {
+        "authority" : "EPSG",
+        "horizontal" : "3857",
         "wkt": "PROJCS[\"WGS 84 ... AUTHORITY[\"EPSG\",\"3857\"]]"
-	}
-	"metadata" : {
+    }
+    "metadata" : {
         "key": "value",
         "version": 42,
         "something": "I am arbitrary metadata related to this source"
