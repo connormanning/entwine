@@ -26,12 +26,12 @@ Subset::Subset(const Metadata& m, const Json::Value& json)
     if (m_of <= 1) throw std::runtime_error("Invalid subset range");
     if (m_id > m_of) throw std::runtime_error("Invalid subset ID - too large.");
 
-    if (static_cast<uint64_t>(std::pow(2, std::log2(m_of))) != m_of)
+    if (std::pow(2, static_cast<uint64_t>(std::log2(m_of))) != m_of)
     {
         throw std::runtime_error("Subset range must be a power of 2");
     }
 
-    if (std::pow(std::sqrt(m_of), 2) != m_of)
+    if (std::pow(static_cast<uint64_t>(std::sqrt(m_of)), 2) != m_of)
     {
         throw std::runtime_error("Subset range must be a perfect square");
     }
