@@ -73,6 +73,11 @@ Config Config::prepare() const
     // specification that should override scan results.
     Json::Value result = merge(json(), input, false);
 
+    // If our input SRS existed, we might potentially overwrite missing fields
+    // there with ones we've found from the scan.  Vertical EPSG code, for
+    // example.  In this case accept the input without merging.
+    if (json().isMember("srs")) result["srs"] = json()["srs"];
+
     // Then, always make sure we use the "input" from the scan, which
     // represents the expanded input files and their meta-info rather than the
     // path of the scan or the string paths.
