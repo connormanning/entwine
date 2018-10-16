@@ -108,6 +108,14 @@ void Build::addArgs()
                 }
             });
 
+    m_ap.add(
+            "--srs",
+            "Set the `srs` metadata entry of the output.",
+            [this](Json::Value v)
+            {
+                m_json["srs"] = Srs(v.asString()).toJson();
+            });
+
     addNoTrustHeaders();
     addAbsolute();
 
