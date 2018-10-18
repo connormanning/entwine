@@ -44,8 +44,7 @@ public:
     }
 
     uint64_t points() const { return 100000; }
-
-    uint64_t ticks() const { return 32; }
     uint64_t hierarchyStep() const { return 2; }
+    uint64_t ticks() const { return 32; }
 };
 

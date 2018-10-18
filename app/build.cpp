@@ -74,8 +74,8 @@ void Build::addArgs()
 
     m_ap.add(
             "--ticks",
-            "Number of grid ticks in each spatial dimensions for data nodes.  "
-            "For example, a \"ticks\" value of 256 will result in a cube of "
+            "Number of voxels in each spatial dimension for data nodes.  "
+            "For example, a ticks setting of 256 will result in a cube of "
             "256*256*256 resolution.  Default: 256.\n"
             "Example: --ticks 128",
             [this](Json::Value v) { m_json["ticks"] = extract(v); });

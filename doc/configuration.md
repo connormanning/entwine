@@ -190,9 +190,9 @@ acceptable values are `json` and `gzip`.
 
 ### ticks
 
-The number of ticks in one dimension for the nominal grid size of the octree.
-For example, a `ticks` value of `256` results in a `256 * 256 * 256` cubic
-resolution.
+Number of voxels in each spatial dimension which defines the grid size of the
+octree.  For example, a `ticks` value of `256` results in a `256 * 256 * 256`
+cubic resolution.
 
 ### allowOriginId
 

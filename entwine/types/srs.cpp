@@ -51,9 +51,12 @@ Srs::Srs(const std::string full)
 
 Srs::Srs(const Json::Value& json)
 {
+    if (json.isNull()) return;
+
     if (json.isString())
     {
-        throw std::runtime_error("Invalid SRS JSON - must be object");
+        *this = Srs(json.asString());
+        return;
     }
 
     m_authority = json["authority"].asString();

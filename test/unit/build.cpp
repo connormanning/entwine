@@ -57,7 +57,7 @@ TEST(build, basic)
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
 
-    EXPECT_EQ(parse(a.get(outPath + "ept-sources/list.json")).size(), 9u);
+    EXPECT_EQ(parse(a.get(outPath + "ept-sources/list.json")).size(), 8u);
 
     for (Json::ArrayIndex o(0); o < 8; ++o)
     {
@@ -66,10 +66,69 @@ TEST(build, basic)
         ASSERT_FALSE(meta.isNull());
         ASSERT_GT(meta["points"].asUInt64(), 0u);
     }
+}
 
-    const auto path(metaPath + "8.json");
-    const auto meta(parse(a.get(path)));
-    ASSERT_EQ(meta["points"].asUInt64(), 0u);
+TEST(build, continued)
+{
+    const std::string outPath(test::dataPath() + "out/ellipsoid/");
+    const std::string metaPath(outPath + "ept-sources/");
+
+    {
+        Config c;
+        c["input"] = test::dataPath() + "ellipsoid-multi/";
+        c["output"] = outPath;
+        c["force"] = true;
+        c["ticks"] = static_cast<Json::UInt64>(v.ticks());
+        c["hierarchyStep"] = static_cast<Json::UInt64>(v.hierarchyStep());
+        c["run"] = 4;
+
+        Builder(c).go();
+    }
+
+    {
+        Config c;
+        c["output"] = outPath;
+
+        Builder(c).go();
+    }
+
+    const auto info(parse(a.get(outPath + "ept.json")));
+
+    const Bounds bounds(info["bounds"]);
+    const Bounds boundsConforming(info["boundsConforming"]);
+    EXPECT_TRUE(bounds.isCubic());
+    EXPECT_TRUE(bounds.contains(boundsConforming));
+    for (std::size_t i(0); i < 6; ++i)
+    {
+        ASSERT_NEAR(boundsConforming[i], v.bounds()[i], 2.0) << "At: " << i <<
+            "\n" << boundsConforming << "\n!=\n" << v.bounds() << std::endl;
+    }
+
+    const auto dataType(info["dataType"].asString());
+    EXPECT_EQ(dataType, "laszip");
+
+    const auto hierarchyType(info["hierarchyType"].asString());
+    EXPECT_EQ(hierarchyType, "json");
+
+    const auto points(info["points"].asUInt64());
+    EXPECT_EQ(points, v.points());
+
+    const Schema schema(info["schema"]);
+    Schema verifySchema(v.schema().append(DimId::OriginId));
+    verifySchema.setOffset(bounds.mid().round());
+    EXPECT_EQ(schema, verifySchema);
+
+    EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
+
+    EXPECT_EQ(parse(a.get(outPath + "ept-sources/list.json")).size(), 8u);
+
+    for (Json::ArrayIndex o(0); o < 8; ++o)
+    {
+        const auto path(metaPath + std::to_string(o) + ".json");
+        const auto meta(parse(a.get(path)));
+        ASSERT_FALSE(meta.isNull());
+        ASSERT_GT(meta["points"].asUInt64(), 0u);
+    }
 }
 
 TEST(build, fromScan)
@@ -125,7 +184,7 @@ TEST(build, fromScan)
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
 
-    EXPECT_EQ(parse(a.get(outPath + "ept-sources/list.json")).size(), 9u);
+    EXPECT_EQ(parse(a.get(outPath + "ept-sources/list.json")).size(), 8u);
 
     for (Json::ArrayIndex o(0); o < 8; ++o)
     {
@@ -134,10 +193,6 @@ TEST(build, fromScan)
         ASSERT_FALSE(meta.isNull());
         ASSERT_GT(meta["points"].asUInt64(), 0u);
     }
-
-    const auto path(metaPath + "8.json");
-    const auto meta(parse(a.get(path)));
-    ASSERT_EQ(meta["points"].asUInt64(), 0u);
 }
 
 TEST(build, subset)
@@ -194,7 +249,7 @@ TEST(build, subset)
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
 
-    EXPECT_EQ(parse(a.get(outPath + "ept-sources/list.json")).size(), 9u);
+    EXPECT_EQ(parse(a.get(outPath + "ept-sources/list.json")).size(), 8u);
 
     for (Json::ArrayIndex o(0); o < 8; ++o)
     {
@@ -203,10 +258,6 @@ TEST(build, subset)
         ASSERT_FALSE(meta.isNull());
         ASSERT_GT(meta["points"].asUInt64(), 0u);
     }
-
-    const auto path(metaPath + "8.json");
-    const auto meta(parse(a.get(path)));
-    ASSERT_EQ(meta["points"].asUInt64(), 0u);
 }
 
 TEST(build, invalidSubset)
@@ -313,7 +364,7 @@ TEST(build, subsetFromScan)
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
 
-    EXPECT_EQ(parse(a.get(outPath + "ept-sources/list.json")).size(), 9u);
+    EXPECT_EQ(parse(a.get(outPath + "ept-sources/list.json")).size(), 8u);
 
     for (Json::ArrayIndex o(0); o < 8; ++o)
     {
@@ -322,10 +373,6 @@ TEST(build, subsetFromScan)
         ASSERT_FALSE(meta.isNull());
         ASSERT_GT(meta["points"].asUInt64(), 0u);
     }
-
-    const auto path(metaPath + "8.json");
-    const auto meta(parse(a.get(path)));
-    ASSERT_EQ(meta["points"].asUInt64(), 0u);
 }
 
 TEST(build, reprojected)
@@ -372,7 +419,7 @@ TEST(build, reprojected)
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
 
-    EXPECT_EQ(parse(a.get(outPath + "ept-sources/list.json")).size(), 9u);
+    EXPECT_EQ(parse(a.get(outPath + "ept-sources/list.json")).size(), 8u);
 
     for (Json::ArrayIndex o(0); o < 8; ++o)
     {
@@ -381,9 +428,5 @@ TEST(build, reprojected)
         ASSERT_FALSE(meta.isNull());
         ASSERT_GT(meta["points"].asUInt64(), 0u);
     }
-
-    const auto path(metaPath + "8.json");
-    const auto meta(parse(a.get(path)));
-    ASSERT_EQ(meta["points"].asUInt64(), 0u);
 }
 

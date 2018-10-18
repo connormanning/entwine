@@ -49,7 +49,7 @@ Metadata::Metadata(const Config& config, const bool exists)
 {
     if (1UL << m_startDepth != m_ticks)
     {
-        throw std::runtime_error("Invalid 'ticks' setting");
+        throw std::runtime_error("Invalid ticks");
     }
 
     if (m_outSchema->isScaled())

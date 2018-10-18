@@ -127,7 +127,7 @@ FileInfoList Config::input() const
     {
         if (j.isObject())
         {
-            f.emplace_back(j);
+            if (Executor::get().good(j["path"].asString())) f.emplace_back(j);
             return;
         }
 
@@ -154,7 +154,10 @@ FileInfoList Config::input() const
 
         Paths current(arbiter.resolve(p, verbose()));
         std::sort(current.begin(), current.end());
-        for (const auto& c : current) f.emplace_back(c);
+        for (const auto& c : current)
+        {
+            if (Executor::get().good(c)) f.emplace_back(c);
+        }
     });
 
     const auto& i(m_json["input"]);

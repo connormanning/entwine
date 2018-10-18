@@ -123,7 +123,7 @@ For a valid `srs` specification: if one of either `authority` or `horizontal` ex
 The `srs` specification may be an empty object.
 
 #### ticks
-This value represents the number of ticks in one dimension for the grid size used for the octree.  For example, a `ticks` value of `256` means that the root volume of the octree is the `bounds` cube at a resolution of `256 * 256 * 256`.
+This value represents the number of voxels in each spatial dimension defining the grid size used for the octree.  For example, a `ticks` value of `256` means that the root volume of the octree is the `bounds` cube at a resolution of `256 * 256 * 256`.
 
 For aerial LiDAR data which tends to be mostly flat in the Z-range, for example, this would loosely correspond to a practical resolution of `256 * 256` points per volume.  Each subsequent depth bisects this volume, leading to 8 sub-volumes with the same grid size, which corresponds to double the resolution in each dimension.
 

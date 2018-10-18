@@ -105,7 +105,7 @@ TEST(scan, multi)
     ASSERT_EQ(schema, v.schema());
 
     const FileInfoList input(out.input());
-    ASSERT_EQ(input.size(), 9u);
+    ASSERT_EQ(input.size(), 8u);
 
     std::map<std::string, bool> basenames {
         { "ned.laz", false },
