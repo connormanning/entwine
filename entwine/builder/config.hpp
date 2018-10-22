@@ -81,7 +81,7 @@ public:
 
     std::size_t totalThreads() const
     {
-        const auto& j(m_json["threads"]);
+        const auto& t(m_json["threads"]);
         const std::size_t result = t.isNumeric() ?
             t.asUInt64() : t[0].asUInt64() + t[1].asUInt64();
         return std::max<std::size_t>(4u, result);
