@@ -2,8 +2,6 @@
 
 Entwine Point Tile (EPT) is a simple and flexible octree-based storage format for point cloud data.  This document is a working draft of the format.
 
-TODO - add links to sample data.
-
 ## Metadata files
 
 The organization of and EPT dataset contains JSON metadata portions as well as binary point data.  This structure for a small dataset may look like this:
