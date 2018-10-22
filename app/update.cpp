@@ -25,6 +25,7 @@ void Update::addArgs()
     addConfig();
     addSimpleThreads();
     addArbiter();
+    m_json["verbose"] = true;
 }
 
 void Update::run()

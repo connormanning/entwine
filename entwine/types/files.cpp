@@ -94,6 +94,11 @@ void Files::writeSources(
     const bool styled(size() <= 1000);
     for (Origin o(0); o < size(); ++o)
     {
+        if (config.verbose() && o % 1000 == 0)
+        {
+            std::cout << o << " / " << size() << std::endl;
+        }
+
         pool.add([this, &scanEp, &out, styled, o]()
         {
             const std::string filename(std::to_string(o) + ".json");
