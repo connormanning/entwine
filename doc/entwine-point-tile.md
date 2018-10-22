@@ -241,5 +241,6 @@ In addition to the well-known keys described above, this file can also contain a
         "version": 42,
         "something": "I am arbitrary metadata related to this source"
     }
+}
 ```
 
