@@ -66,6 +66,11 @@ void FeatureTable::appendBinary(std::vector<char>& data) const
     const char* pos(reinterpret_cast<const char*>(&f));
     const char* end(reinterpret_cast<const char*>(&f + 1));
 
+    std::size_t size =
+        m_tileData.points.size() * 3 * sizeof(float) +
+        m_tileData.colors.size() * 3 * sizeof(uint8_t) +
+        m_tileData.normals.size() * 3 * sizeof(float);
+
     for (const Point& p : points())
     {
         f = p.x;
@@ -96,14 +101,28 @@ void FeatureTable::appendBinary(std::vector<char>& data) const
         f = p.z;
         data.insert(data.end(), pos, end);
     }
+
+    // Pad remaining space so that batch table will start at 8-byte boundary
+    if ((28 + size) % 8)
+    {
+        data.insert(data.end(), 8 - ((28 + size) % 8), 'X');
+    }
 }
 
 std::size_t FeatureTable::bytes() const
 {
-    return
+    std::size_t size =
         m_tileData.points.size() * 3 * sizeof(float) +
         m_tileData.colors.size() * 3 * sizeof(uint8_t) +
         m_tileData.normals.size() * 3 * sizeof(float);
+
+    // Reserve extra bytes including header for padding to 8-byte boundary
+    if ((28 + size) % 8)
+    {
+        size += 8 - (28 + size) % 8;
+    }
+
+    return size;
 }
 
 const std::vector<Point>& FeatureTable::points() const
