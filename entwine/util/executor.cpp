@@ -169,8 +169,10 @@ std::unique_ptr<ScanInfo> Executor::preview(
         first = first->getInputs().at(0);
     }
 
-    const Schema xyzSchema({ { DimId::X }, { DimId::Y }, { DimId::Z } });
-    VectorPointTable table(xyzSchema, 8);
+    DimList dims;
+    for (const std::string name : result->dimNames) dims.emplace_back(name);
+    const Schema schema(dims);
+    VectorPointTable table(schema, 8);
     table.setProcess([&table, &result]()
     {
         Point point;
@@ -210,21 +212,25 @@ std::unique_ptr<ScanInfo> Executor::deepScan(Json::Value pipeline) const
     std::unique_ptr<ScanInfo> result(preview(pipeline, true));
     if (!result) result = makeUnique<ScanInfo>();
 
-    const Schema xyzSchema({ { DimId::X }, { DimId::Y }, { DimId::Z } });
+    DimList dims;
+    for (const std::string name : result->dimNames) dims.emplace_back(name);
+    const Schema schema(dims);
 
     // Reset the values we're going to aggregate from the deep scan.
     result->bounds = Bounds::expander();
     result->points = 0;
     result->dimNames.clear();
 
-    VectorPointTable table(xyzSchema);
+    VectorPointTable table(schema);
     table.setProcess([&result, &table]()
     {
         Point point;
-        result->points += table.numPoints();
 
         for (auto it(table.begin()); it != table.end(); ++it)
         {
+            // Don't use table.numPoints since that includes skipped points.
+            ++result->points;
+
             auto& pr(it.pointRef());
             point.x = pr.getFieldAs<double>(DimId::X);
             point.y = pr.getFieldAs<double>(DimId::Y);
@@ -235,7 +241,7 @@ std::unique_ptr<ScanInfo> Executor::deepScan(Json::Value pipeline) const
 
     if (Executor::get().run(table, pipeline))
     {
-        for (const auto& d : xyzSchema.fixedLayout().added())
+        for (const auto& d : schema.fixedLayout().added())
         {
             result->dimNames.push_back(d);
         }

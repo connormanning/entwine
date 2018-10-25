@@ -59,7 +59,11 @@ void Scan::run()
 
     std::cout << "Scanning:" << std::endl;
 
-    if (in["input"].size() == 1)
+    if (in["input"].isString())
+    {
+        std::cout << "\tInput: " << in["input"].asString() << std::endl;
+    }
+    else if (in["input"].size() == 1)
     {
         std::cout << "\tInput: " << in["input"][0].asString() << std::endl;
     }
