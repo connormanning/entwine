@@ -48,7 +48,6 @@ The core metadata required to interpret the contents of an EPT dataset.  An exam
         { "name": "Blue", "type": "unsigned", "size": 2 },
         { "name": "OriginId", "type": "unsigned", "size": 4 }
     ],
-    "sources": 1,
     "srs": {
         "authority": "EPSG",
         "horizontal": "3857",
@@ -105,10 +104,7 @@ Attributes of other application-defined types (e.g. `string`) are possible as lo
 
 For a `dataType` of `binary`, the `schema` provides information on the binary contents of each file.  However for `laszip` data, the file should be parsed according to its header, as individual [LASzip formats](https://www.asprs.org/wp-content/uploads/2010/12/LAS_1_4_r13.pdf) may combine dimension values.  For example, for point format IDs 0-4, `ReturnNumber`, `NumberOfReturns`, `ScanDirectionFlag`, and `EdgeOfFlightLine` dimensions are bit-packed into a single byte.
 
-In addition to the required `name`, `type`, and `size` specifications, attributes may also contain optional `scale` and/or `offset` values.  These options specify that the absolutely positioned value of a given attribute should be computed as `read_value * scale + offset`.  If `scale` does not exist then it is implicitly `1.0`.  If `offset` not exist it is implicitly `0.0`.  This is commonly used to provide a fixed precision to the `X`, `Y`, and `Z` spatial dimensions.
-
-#### sources
-An optional value indicating the number of input sources for this EPT resource whose metadata is stored with this EPT resource.  See `ept-sources`.  If no source information is available, the value for this key may be `0` or the key may not be present at all.
+In addition to the required `name`, `type`, and `size` specifications, attributes may also contain optional `scale` and/or `offset` values.  These options specify that the absolutely positioned value of a given attribute should be computed as `read_value * scale + offset`.  If `scale` does not exist then it is implicitly `1.0`.  If `offset` does not exist it is implicitly `0.0`.  This is commonly used to provide a fixed precision to the `X`, `Y`, and `Z` spatial dimensions.
 
 #### srs
 An object describing the spatial reference system for this indexed dataset, or may not exist if a spatial reference could not be determined and was not set manually.  In this object there are string keys with string values of the following descriptions:
@@ -201,46 +197,79 @@ Hierarchy nodes must always contain a positive value with the sole exception of 
 ```
 
 ### ept-sources
-If a positive value for `sources` exists in the EPT metadata (`S`), then there shall also exist the file `ept-sources/list.json`.  This file shall contain an array of length `S`, whose entries are JSON objects containing an `path` and `bounds` (if one exists) for each source file.  The `path` must be an identifier which is unique among the other entries, for example a file's absolute path or basename.  For example:
+Sparse input data source information is stored in an array at `ept-sources/list.json`.  This contains an array of JSON objects representing sparse metadata for each input source.  This array may potentially be an empty array if this information is not stored.  If an `OriginId` dimension exists in the `schema`, then each item's position in this array maps to its `OriginId` value in the EPT dataset, starting from `0` at the first position in the array.  An sample `list.json` file may look like this:
+
 ```json
 [
     {
-        "path": "not-a-point-cloud.txt"
+        "id": "not-a-point-cloud.txt"
     },
     {
-        "path": "autzen.laz",
-        "bounds": [635577.0, 848882.0, 406.0, 639004.0, 853538.0, 616.0]
+        "id": "autzen-low.laz",
+        "bounds": [635577.0, 848882.0, 406.0, 639004.0, 853538.0, 511.0],
+        "url": "autzen.json"
+    },
+    {
+        "id": "autzen-high.laz",
+        "bounds": [635577.0, 848882.0, 511.0, 639004.0, 853538.0, 616.0],
+        "url": "autzen.json"
     }
 ]
 ```
 
-To be lossless and facilitate a full reconstitution of original source data files from an EPT index, the full metadata for each input file is also retained.  The contents of `ept-sources.json` give the total number `N` of input files, and full file metadata can be found in the structure:
-```
-ept-metadata/0.json
-ept-metadata/1.json
-...
-ept-metadata/<N-1>.json
-```
+#### id
+For each object in the list, this is a field of string type which must uniquely identify this source among all other sources.  A typical `id` value would be a file path, but could potentially be something else like a data stream identifier or an arbitrary unique ID.
 
-Each of these files is a JSON object containing some well-defined keys like `bounds`, `path`, `points`, and `srs` which are defined in the `ept.json` section.  These keys have the same meanings and range of values described above, but are expressed here on a per-source basis rather than per-EPT dataset.
+#### bounds
+A source object may optionally contain a bounds which, if existing, is an array of 6 numbers of the format `[xmin, ymin, zmin, xmax, ymax, zmax]`.
 
-In addition to the well-known keys described above, this file can also contain a `metadata` key, which may contain arbitrary metadata for its source.
+#### url
+A source object may optionally contain a string URL which points to a file, relative to the `ept-sources/` location, which contains more thorough metadata for this source.  If present, this URL must end in `.json` and this file must exist in JSON format.  Additionally, the JSON contained in this file must a) represent a JSON object and b) contain a string key matching the `id` of this source entry.  The format of this metadata file is discussed more fully in the *Source metadata* section, below.
 
-```
+
+
+### Source metadata
+To be lossless and facilitate a full reconstitution of original source data files from an EPT index, the full metadata for each input file may be retained.  For each listed source in `ept-sources/list.json` containing a `url` path, this URL points to a JSON file containing the associated metadata for that source (and potentially other sources as well, discussed below).
+
+Each of these files is a JSON object containing metadata information for one or more sources from `ept-sources/list.json`.  For each file, the JSON object must contain keys that match the `id` values from the source list, for each source entry pointing to this metadata file.
+
+Within each of these ID sub-keys, an object must exist which may contain the previously-defined keys `bounds`, `points`, and `srs` which are defined in the `ept.json` section.  These keys have the same meanings and range of values described above, but are expressed here on a per-source basis rather than per-EPT dataset.
+
+In addition to the well-known keys described above, each metadata object can also contain a `metadata` key, which maps to a JSON object representing arbitrary metadata for this source.
+
+```json
 {
-    "bounds": [-8242746, 4966506, -50, -8242446, 4966706, 50],
-    "path": "autzen.laz",
-    "points" : 100000,
-    "srs" :
-    {
-        "authority" : "EPSG",
-        "horizontal" : "3857",
-        "wkt": "PROJCS[\"WGS 84 ... AUTHORITY[\"EPSG\",\"3857\"]]"
-    }
-    "metadata" : {
-        "key": "value",
-        "version": 42,
-        "something": "I am arbitrary metadata related to this source"
+    "autzen-low.laz": {
+        "bounds": [635577.0, 848882.0, 406.0, 639004.0, 853538.0, 511.0],
+        "points" : 180000,
+        "srs" :
+        {
+            "authority" : "EPSG",
+            "horizontal" : "3857",
+            "wkt": "PROJCS[\"WGS 84 ... AUTHORITY[\"EPSG\",\"3857\"]]"
+        },
+        "metadata" : {
+            "key": "value",
+            "sofware_id": "PDAL",
+            "version": 42,
+            "something": "I am arbitrary metadata related to this source"
+        }
+    },
+    "autzen-high.laz": {
+        "bounds": [635577.0, 848882.0, 511.0, 639004.0, 853538.0, 616.0],
+        "points" : 120000,
+        "srs" :
+        {
+            "authority" : "EPSG",
+            "horizontal" : "3857",
+            "wkt": "PROJCS[\"WGS 84 ... AUTHORITY[\"EPSG\",\"3857\"]]"
+        },
+        "metadata" : {
+            "key": "value",
+            "sofware_id": "PDAL",
+            "version": 58,
+            "something_else": -1
+        }
     }
 }
 ```
