@@ -37,7 +37,9 @@ Metadata::Metadata(const Config& config, const bool exists)
     , m_files(makeUnique<Files>(config.input()))
     , m_dataIo(DataIo::create(*this, config.dataType()))
     , m_reprojection(Reprojection::create(config["reprojection"]))
-    , m_version(makeUnique<Version>(currentVersion()))
+    , m_eptVersion(exists ?
+            makeUnique<Version>(config["version"].asString()) :
+            makeUnique<Version>(currentEptVersion()))
     , m_srs(makeUnique<Srs>(config.srs()))
     , m_subset(Subset::create(*this, config["subset"]))
     , m_trustHeaders(config.trustHeaders())
@@ -110,13 +112,12 @@ Json::Value Metadata::toJson() const
 {
     Json::Value json;
 
-    json["version"] = "1.0.0";  // TODO EPT version.
+    json["version"] = eptVersion().toString();
     json["bounds"] = boundsCubic().toJson();
     json["boundsConforming"] = boundsConforming().toJson();
     json["schema"] = m_outSchema->toJson();
     json["ticks"] = (Json::UInt64)m_ticks;
     json["points"] = (Json::UInt64)m_files->totalInserts();
-    json["sources"] = (Json::UInt64)m_files->size();
     json["dataType"] = m_dataIo->type();
     json["hierarchyType"] = "json"; // TODO.
     json["srs"] = m_srs->toJson();
@@ -128,11 +129,11 @@ Json::Value Metadata::toBuildParamsJson() const
 {
     Json::Value json;
 
+    json["version"] = currentEntwineVersion().toString();
     json["trustHeaders"] = m_trustHeaders;
     json["overflowDepth"] = (Json::UInt64)m_overflowDepth;
     json["overflowThreshold"] = (Json::UInt64)m_overflowThreshold;
     json["software"] = "Entwine";
-    json["version"] = currentVersion().toString();
     if (m_subset) json["subset"] = m_subset->toJson();
     if (m_reprojection) json["reprojection"] = m_reprojection->toJson();
 

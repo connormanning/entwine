@@ -58,7 +58,7 @@ void Update::run()
     // Build metadata.
     Json::Value buildMeta(parse(m_ep->get("entwine-build.json")));
     buildMeta["software"] = "Entwine";
-    buildMeta["version"] = currentVersion().toString();
+    buildMeta["version"] = currentEptVersion().toString();
     m_ep->put("ept-build.json", toPreciseString(buildMeta));
 
     // Main metadata.

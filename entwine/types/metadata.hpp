@@ -69,7 +69,7 @@ public:
     const Reprojection* reprojection() const { return m_reprojection.get(); }
     const Subset* subset() const { return m_subset.get(); }
 
-    const Version& version() const { return *m_version; }
+    const Version& eptVersion() const { return *m_eptVersion; }
     const Srs& srs() const { return *m_srs; }
 
     bool trustHeaders() const { return m_trustHeaders; }
@@ -107,7 +107,7 @@ private:
     std::unique_ptr<Files> m_files;
     std::unique_ptr<DataIo> m_dataIo;
     std::unique_ptr<Reprojection> m_reprojection;
-    std::unique_ptr<Version> m_version;
+    std::unique_ptr<Version> m_eptVersion;
     std::unique_ptr<Srs> m_srs;
     std::unique_ptr<Subset> m_subset;
 

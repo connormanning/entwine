@@ -33,7 +33,8 @@ namespace
     std::string getUsageString()
     {
         return
-            t(1) + "Version: " + entwine::currentVersion().toString() + "\n" +
+            t(1) + "Version: " + entwine::currentEntwineVersion().toString() +
+                "\n" +
             t(1) + "Usage: entwine <app> <options>\n" +
             t(1) + "Apps:\n" +
             t(2) + "build\n" +

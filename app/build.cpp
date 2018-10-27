@@ -254,7 +254,8 @@ void Build::log(const Builder& b) const
 
     std::cout << std::endl;
     std::cout <<
-        "Version: " << currentVersion().toString() << "\n" <<
+        "Entwine Version: " << currentEntwineVersion().toString() << "\n" <<
+        "EPT Version: " << currentEptVersion().toString() << "\n" <<
         "Input:\n\t";
 
     if (files.size() == 1)

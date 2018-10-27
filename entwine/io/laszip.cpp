@@ -49,7 +49,7 @@ void Laz::write(
     options.add("filename", localDir + localFile);
     options.add("minor_version", 2);
     options.add("extra_dims", "all");
-    options.add("software_id", "Entwine " + currentVersion().toString());
+    options.add("software_id", "Entwine " + currentEntwineVersion().toString());
     options.add("compression", "laszip");
     options.add("dataformat_id", timeMask | colorMask);
 
