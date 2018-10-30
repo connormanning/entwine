@@ -43,23 +43,25 @@ public:
         Error       // An error occurred during insertion.
     };
 
-    explicit FileInfo(std::string path, Status status = Status::Outstanding);
+    explicit FileInfo(std::string path);
     explicit FileInfo(const Json::Value& json);
 
-    // Data required specifically for Entwine indexing - not necessarily related
-    // to EPT output itself.
-    Json::Value toPrivateJson() const;
-
-    // EPT per-file metadata.
-    Json::Value toSourcesJson() const;
-
+    // Path from which this file may be read.
     const std::string& path() const         { return m_path; }
-    Status status() const                   { return m_status; }
+
+    // ID indicating a unique key for this file within source metadata.
+    const std::string& id() const           { return m_id; }
+
+    // Source metadata file within which metadata for this file is stored at
+    // the key indicated by `id`.
+    const std::string& url() const          { return m_url; }
+
+    // These remain constant throughout.
     std::size_t points() const              { return m_points; }
     const Srs& srs() const                  { return m_srs; }
-    const PointStats& pointStats() const    { return m_pointStats; }
     const Json::Value& metadata() const     { return m_metadata; }
     Origin origin() const                   { return m_origin; }
+
     const Bounds* bounds() const
     {
         return m_bounds.exists() ? &m_bounds : nullptr;
@@ -69,6 +71,11 @@ public:
     {
         return m_bounds.exists() ? &m_boundsEpsilon : nullptr;
     }
+
+    // Status information.
+    Status status() const                   { return m_status; }
+    const PointStats& pointStats() const    { return m_pointStats; }
+    const std::string& message() const      { return m_message; }
 
     void set(const ScanInfo& scan)
     {
@@ -82,10 +89,20 @@ public:
         m_boundsEpsilon = m_bounds.growBy(0.005);
     }
 
+    void setOrigin(uint64_t o) { m_origin = o; }
+
     void add(const PointStats& stats) { m_pointStats.add(stats); }
 
 private:
-    void merge(const FileInfo& b);
+    void setId(std::string id) const { m_id = id; }
+    void setUrl(std::string url) const { m_url = url; }
+    void add(const FileInfo& other);
+
+    // For use in ept-sources/list.json.
+    Json::Value toListJson() const;
+
+    // EPT per-file metadata.
+    Json::Value toFullJson() const;
 
     PointStats& pointStats() { return m_pointStats; }
     void status(Status status, std::string message = "")
@@ -95,7 +112,9 @@ private:
     }
 
     std::string m_path;
-    Status m_status;
+    mutable std::string m_id;
+    mutable std::string m_url;
+    Status m_status = Status::Outstanding;
 
     // If Bounds is set while the Status is Outstanding, then we have scanned
     // the bounds and number of points in this file from the header.

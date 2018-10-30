@@ -79,6 +79,11 @@ Config Scan::go()
             {
                 std::cout << "Could not mkdir: " << path << std::endl;
             }
+
+            if (!arbiter::fs::mkdirp(ep.getSubEndpoint("ept-sources").root()))
+            {
+                std::cout << "Could not mkdir: " << path << std::endl;
+            }
         }
 
         if (m_in.verbose())
@@ -87,11 +92,8 @@ Config Scan::go()
             std::cout << "Writing details to " << path << "..." << std::flush;
         }
 
-        m_files.writeSources(ep, m_in);
-        out["input"] = Files(out["input"]).toPrivateJson();
-
-        const std::string filename("ept-scan.json");
-        ep.put(filename, toPreciseString(out.json(), m_files.size() <= 100));
+        m_files.save(ep, "", m_in, true);
+        ep.put("ept-scan.json", toPreciseString(out.json(), true));
 
         if (m_in.verbose())
         {
@@ -238,10 +240,9 @@ Config Scan::aggregate()
 
     if (out["schema"].isNull()) out["schema"] = m_schema.toJson();
     out["points"] = std::max<Json::UInt64>(np, out.points());
-    out["input"] = m_files.toSourcesJson();
     if (m_re) out["reprojection"] = m_re->toJson();
     out["srs"] = srs.toJson();
-    out["pipeline"] = m_in.pipeline("...");
+    out["pipeline"] = m_in.pipeline("");
 
     return out;
 }

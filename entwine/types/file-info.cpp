@@ -38,19 +38,19 @@ namespace
     }
 }
 
-FileInfo::FileInfo(const std::string path, const Status status)
+FileInfo::FileInfo(const std::string path)
     : m_path(path)
-    , m_status(status)
-{ }
-
-FileInfo::FileInfo(const Json::Value& json)
-    : FileInfo(json.isObject() ? json["path"].asString() : json.asString())
+    , m_id(path)
 {
     if (m_path.empty())
     {
         throw std::runtime_error("Empty path found in file-info");
     }
+}
 
+FileInfo::FileInfo(const Json::Value& json)
+    : FileInfo(json.isObject() ? json["path"].asString() : json.asString())
+{
     if (!json.isObject()) return;
 
     if (json.isMember("status"))
@@ -58,13 +58,14 @@ FileInfo::FileInfo(const Json::Value& json)
         m_status = toStatus(json["status"].asString());
     }
 
-    if (json.isMember("bounds"))
+    m_points = json["points"].asUInt64();
+
+    if (m_points && json.isMember("bounds"))
     {
         m_bounds = Bounds(json["bounds"]);
         m_boundsEpsilon = m_bounds.growBy(0.005);
     }
 
-    m_points = json["points"].asUInt64();
     m_metadata = json["metadata"];
     m_pointStats = PointStats(
             json["inserts"].asUInt64(),
@@ -75,10 +76,13 @@ FileInfo::FileInfo(const Json::Value& json)
     if (json.isMember("origin")) m_origin = json["origin"].asUInt64();
 }
 
-Json::Value FileInfo::toPrivateJson() const
+Json::Value FileInfo::toListJson() const
 {
     Json::Value json;
+    json["id"] = m_id;
     json["path"] = m_path;
+    if (!m_url.empty()) json["url"] = m_url;
+
     if (m_points)
     {
         if (m_bounds.exists()) json["bounds"] = m_bounds.toJson();
@@ -100,7 +104,7 @@ Json::Value FileInfo::toPrivateJson() const
     return json;
 }
 
-Json::Value FileInfo::toSourcesJson() const
+Json::Value FileInfo::toFullJson() const
 {
     Json::Value json;
     json["path"] = m_path;
@@ -114,19 +118,18 @@ Json::Value FileInfo::toSourcesJson() const
     return json;
 }
 
-void FileInfo::merge(const FileInfo& b)
+void FileInfo::add(const FileInfo& b)
 {
-    if (path() != b.path())
-    {
-        throw std::runtime_error("Invalid paths to merge");
-    }
+    if (path() != b.path()) throw std::runtime_error("Invalid paths to merge");
+    if (m_message.empty() && !b.message().empty()) m_message = b.message();
 
     if (status() == Status::Outstanding && status() != Status::Outstanding)
     {
         status(b.status());
     }
 
-    pointStats().add(b.pointStats());
+
+    add(b.pointStats());
 }
 
 double densityLowerBound(const FileInfoList& files)

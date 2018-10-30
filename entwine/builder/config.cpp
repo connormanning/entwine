@@ -160,7 +160,7 @@ FileInfoList Config::input() const
         }
     });
 
-    const auto& i(m_json["input"]);
+    const Json::Value& i(m_json["input"]);
     if (i.isString()) insert(i);
     else if (i.isArray()) for (const auto& j : i) insert(j);
 
@@ -178,7 +178,7 @@ Json::Value Config::pipeline(std::string filename) const
     }
 
     Json::Value& reader(p[0]);
-    reader["filename"] = filename;
+    if (!filename.empty()) reader["filename"] = filename;
 
     if (r)
     {

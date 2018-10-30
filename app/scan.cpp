@@ -97,7 +97,7 @@ void Scan::run()
     else std::cout << "(absolute)";
     std::cout << std::endl;
 
-    const double density(densityLowerBound(out.input()));
+    const double density(densityLowerBound(scan.files().list()));
     std::cout << "\tDensity estimate (per square unit): " << density <<
         std::endl;
 

@@ -101,7 +101,7 @@ public:
     double width()  const { return m_max.x - m_min.x; } // Length in X.
     double depth()  const { return m_max.y - m_min.y; } // Length in Y.
     double height() const { return m_max.z - m_min.z; } // Length in Z.
-    explicit operator bool() const { return width() && depth() && height(); }
+    explicit operator bool() const { return exists(); }
 
     double area() const { return width() * depth(); }
     double volume() const { return width() * depth() * height(); }
