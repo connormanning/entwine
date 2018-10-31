@@ -93,7 +93,9 @@ Config Scan::go()
         }
 
         m_files.save(ep, "", m_in, true);
-        ep.put("ept-scan.json", toPreciseString(out.json(), true));
+        Json::Value json(out.json());
+        json.removeMember("input");
+        ep.put("scan.json", toPreciseString(json, true));
 
         if (m_in.verbose())
         {
@@ -240,6 +242,7 @@ Config Scan::aggregate()
 
     if (out["schema"].isNull()) out["schema"] = m_schema.toJson();
     out["points"] = std::max<Json::UInt64>(np, out.points());
+    out["input"] = m_files.toJson();
     if (m_re) out["reprojection"] = m_re->toJson();
     out["srs"] = srs.toJson();
     out["pipeline"] = m_in.pipeline("");

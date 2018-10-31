@@ -37,6 +37,11 @@ public:
     Files(const FileInfoList& files);
     Files(const Json::Value& json) : Files(toFileInfo(json)) { }
 
+    static FileInfoList extract(
+            const arbiter::Endpoint& ep,
+            bool primary,
+            std::string postfix = "");
+
     void save(
             const arbiter::Endpoint& ep,
             const std::string& postfix,
@@ -107,6 +112,16 @@ public:
     }
 
     void merge(const Files& other);
+
+    Json::Value toJson() const
+    {
+        Json::Value json;
+        for (const auto& f : list())
+        {
+            json.append(f.toJson());
+        }
+        return json;
+    }
 
 private:
     void writeList(const arbiter::Endpoint& ep, const std::string& postfix)

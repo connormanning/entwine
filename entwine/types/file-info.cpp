@@ -53,19 +53,17 @@ FileInfo::FileInfo(const Json::Value& json)
 {
     if (!json.isObject()) return;
 
-    if (json.isMember("status"))
-    {
-        m_status = toStatus(json["status"].asString());
-    }
+    if (json.isMember("id")) m_id = json["id"].asString();
+    if (json.isMember("status")) m_status = toStatus(json["status"].asString());
 
     m_points = json["points"].asUInt64();
-
     if (m_points && json.isMember("bounds"))
     {
         m_bounds = Bounds(json["bounds"]);
         m_boundsEpsilon = m_bounds.growBy(0.005);
     }
 
+    m_url = json["url"].asString();
     m_metadata = json["metadata"];
     m_pointStats = PointStats(
             json["inserts"].asUInt64(),

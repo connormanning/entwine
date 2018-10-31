@@ -93,6 +93,11 @@ public:
 
     void add(const PointStats& stats) { m_pointStats.add(stats); }
 
+    Json::Value toJson() const
+    {
+        return merge(toListJson(), toFullJson());
+    }
+
 private:
     void setId(std::string id) const { m_id = id; }
     void setUrl(std::string url) const { m_url = url; }

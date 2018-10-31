@@ -48,7 +48,13 @@ Files::Files(const FileInfoList& files)
     // Initialize origin info for detailed metadata storage purposes.
     for (uint64_t i(0); i < m_files.size(); ++i)
     {
-        m_files[i].setOrigin(i);
+        auto& f(m_files[i]);
+        if (f.origin() != i && f.origin() != invalidOrigin)
+        {
+            throw std::runtime_error("Unexpected origin ID at " +
+                    std::to_string(i) + ": " + f.toFullJson().toStyledString());
+        }
+        f.setOrigin(i);
     }
 
     // If the basenames of all files are unique amongst one-another, then use
@@ -75,10 +81,46 @@ Files::Files(const FileInfoList& files)
         {
             const FileInfo& f(m_files[i]);
             f.setId(idFrom(f.path()));
-            f.setUrl(std::to_string(i / sourcesStep * sourcesStep) +
-                    ".json");
+            f.setUrl(std::to_string(i / sourcesStep * sourcesStep) + ".json");
         }
     }
+}
+
+FileInfoList Files::extract(
+        const arbiter::Endpoint& top,
+        const bool primary,
+        const std::string postfix)
+{
+    const auto ep(top.getSubEndpoint("ept-sources"));
+    const std::string filename("list" + postfix + ".json");
+    FileInfoList list(toFileInfo(parse(ensureGetString(ep, filename))));
+
+    if (!primary) return list;
+
+    std::set<std::string> urls;
+    std::map<std::string, Origin> idMap;
+
+    for (Origin i(0); i < list.size(); ++i)
+    {
+        const FileInfo& f(list[i]);
+        if (!f.url().empty()) urls.insert(f.url());
+        idMap[f.id()] = i;
+    }
+
+    for (const auto url : urls)
+    {
+        const auto meta(parse(ensureGetString(ep, url)));
+        for (const std::string id : meta.getMemberNames())
+        {
+            const Origin o(idMap.at(id));
+            FileInfo& f(list[o]);
+
+            Json::Value current(f.toJson());
+            f = FileInfo(entwine::merge(current, meta[id]));
+        }
+    }
+
+    return list;
 }
 
 void Files::save(

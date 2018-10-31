@@ -253,7 +253,7 @@ TEST(scan, outputFile)
     in["input"] = test::dataPath() + "ellipsoid.laz";
     in["output"] = test::dataPath() + "out/scan/";
     Scan(in).go();
-    const std::string path(test::dataPath() + "out/scan/ept-scan.json");
+    const std::string path(test::dataPath() + "out/scan/scan.json");
     const Config out(parse(arbiter::Arbiter().get(path)));
     ASSERT_FALSE(out.json().isNull());
 
@@ -264,10 +264,15 @@ TEST(scan, outputFile)
     EXPECT_EQ(out.points(), v.points());
     ASSERT_EQ(schema, v.schema());
 
-    const FileInfoList input(out.input());
-    ASSERT_EQ(input.size(), 1u);
+    // File information is stored in ept-sources, not the top-level scan JSON.
+    EXPECT_TRUE(out.json()["input"].isNull());
 
-    const FileInfo file(input.at(0));
+    arbiter::Arbiter a;
+    auto ep(a.getEndpoint(test::dataPath() + "out/scan/"));
+    const FileInfoList files(Files::extract(ep, true));
+    ASSERT_EQ(files.size(), 1u);
+
+    const FileInfo file(files.at(0));
     const auto expFile(Executor::get().preview(file.path()));
     ASSERT_TRUE(expFile);
 

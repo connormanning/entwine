@@ -39,9 +39,9 @@ void Build::addArgs()
 
     addInput(
             "File paths or directory entries.  For a recursive directory "
-            "search, the notation is 'directory**'.  May also be the path "
-            "to an `entwine scan` output file\n"
-            "Example: --input path.laz, -i pointclouds/, -i scan.json");
+            "search, the notation is \"directory**\".  May also be the path "
+            "to an `entwine scan` output file.\n"
+            "Example: -i path.laz, -i pointclouds/, -i autzen/scan.json");
 
     addOutput(
             "Output directory.\n"
@@ -54,7 +54,7 @@ void Build::addArgs()
     m_ap.add(
             "--threads",
             "-t",
-            "The number of threads\n"
+            "The number of threads.\n"
             "Example: --threads 12",
             [this](Json::Value v) { m_json["threads"] = parse(v.asString()); });
 

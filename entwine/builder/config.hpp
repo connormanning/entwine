@@ -42,6 +42,10 @@ public:
         : m_json(json)
     { }
 
+    // Used by the builder to normalize the input, this utility ensures:
+    //      - Input data is scanned prior to input.
+    //      - If the input is already a scan, that the scan is parsed properly
+    //        and has its configuration merged in.
     Config prepare() const;
 
     static Json::Value defaults()
@@ -73,6 +77,7 @@ public:
     Json::Value pipeline(std::string filename) const;
 
     FileInfoList input() const;
+
     std::string output() const { return m_json["output"].asString(); }
     std::string tmp() const { return m_json["tmp"].asString(); }
 
@@ -178,7 +183,7 @@ public:
 
     std::string postfix() const
     {
-        if (!m_json["subset"].isNull())
+        if (m_json.isMember("subset"))
         {
             return "-" + std::to_string(m_json["subset"]["id"].asUInt64());
         }
@@ -200,6 +205,14 @@ public:
     }
 
 private:
+    bool primary() const
+    {
+        return !m_json.isMember("subset") ||
+            m_json["subset"]["id"].asUInt64() == 1;
+    }
+
+    Config fromScan(std::string file) const;
+
     Json::Value m_json;
 };
 

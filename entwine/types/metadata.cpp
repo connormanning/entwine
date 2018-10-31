@@ -101,7 +101,7 @@ Metadata::Metadata(const arbiter::Endpoint& ep, const Config& config)
                     parse(ep.get("ept-build" + config.postfix() + ".json")))),
             true)
 {
-    Files files(parse(ep.get("ept-sources/list" + postfix() + ".json")));
+    Files files(Files::extract(ep, primary(), config.postfix()));
     files.append(m_files->list());
     m_files = makeUnique<Files>(files.list());
 }
