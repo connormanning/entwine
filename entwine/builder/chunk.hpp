@@ -12,9 +12,6 @@
 
 #include <cassert>
 #include <cstddef>
-#include <forward_list>
-#include <stack>
-#include <unordered_map>
 #include <utility>
 
 #include <entwine/builder/clipper.hpp>
