@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <iostream>
 #include <limits>
+#include <set>
 
 #include <entwine/io/ensure.hpp>
 #include <entwine/types/bounds.hpp>
@@ -24,90 +25,147 @@
 namespace entwine
 {
 
-Json::Value Files::toPrivateJson() const
+namespace
 {
-    Json::Value json;
-    for (const FileInfo& f : list()) json.append(f.toPrivateJson());
-    return json;
+
+std::string idFrom(std::string path)
+{
+    return arbiter::util::getBasename(path);
 }
 
-Json::Value Files::toSourcesJson() const
+} // unnamed namespace
+
+Files::Files(const FileInfoList& files)
+    : m_files(files)
 {
-    Json::Value json;
-    for (const FileInfo& f : list()) json.append(f.toSourcesJson());
-    return json;
+    // Aggregate statuses.
+    for (const auto& f : m_files)
+    {
+        m_pointStats += f.pointStats();
+        addStatus(f.status());
+    }
+
+    // Initialize origin info for detailed metadata storage purposes.
+    for (uint64_t i(0); i < m_files.size(); ++i)
+    {
+        auto& f(m_files[i]);
+        if (f.origin() != i && f.origin() != invalidOrigin)
+        {
+            throw std::runtime_error("Unexpected origin ID at " +
+                    std::to_string(i) + ": " + f.toFullJson().toStyledString());
+        }
+        f.setOrigin(i);
+    }
+
+    // If the basenames of all files are unique amongst one-another, then use
+    // the basename as the ID for detailed metadata storage.  Otherwise use the
+    // full file path.
+    const uint64_t sourcesStep(100);
+
+    bool unique(true);
+    std::set<std::string> basenames;
+    for (const FileInfo& f : list())
+    {
+        const auto id(idFrom(f.path()));
+        if (basenames.count(id))
+        {
+            unique = false;
+            break;
+        }
+        else basenames.insert(id);
+    }
+
+    if (unique)
+    {
+        for (uint64_t i(0); i < m_files.size(); ++i)
+        {
+            const FileInfo& f(m_files[i]);
+            f.setId(idFrom(f.path()));
+            f.setUrl(std::to_string(i / sourcesStep * sourcesStep) + ".json");
+        }
+    }
+}
+
+FileInfoList Files::extract(
+        const arbiter::Endpoint& top,
+        const bool primary,
+        const std::string postfix)
+{
+    const auto ep(top.getSubEndpoint("ept-sources"));
+    const std::string filename("list" + postfix + ".json");
+    FileInfoList list(toFileInfo(parse(ensureGetString(ep, filename))));
+
+    if (!primary) return list;
+
+    std::set<std::string> urls;
+    std::map<std::string, Origin> idMap;
+
+    for (Origin i(0); i < list.size(); ++i)
+    {
+        const FileInfo& f(list[i]);
+        if (!f.url().empty()) urls.insert(f.url());
+        idMap[f.id()] = i;
+    }
+
+    for (const auto url : urls)
+    {
+        const auto meta(parse(ensureGetString(ep, url)));
+        for (const std::string id : meta.getMemberNames())
+        {
+            const Origin o(idMap.at(id));
+            FileInfo& f(list[o]);
+
+            Json::Value current(f.toJson());
+            f = FileInfo(entwine::merge(current, meta[id]));
+        }
+    }
+
+    return list;
 }
 
 void Files::save(
-        const arbiter::Endpoint& ep,
+        const arbiter::Endpoint& top,
         const std::string& postfix,
         const Config& config,
         const bool detailed) const
 {
-    writePrivate(ep, postfix);
-
-    if (detailed)
-    {
-        writeSources(ep.getSubEndpoint("ept-sources"), postfix, config);
-    }
+    const auto ep(top.getSubEndpoint("ept-sources"));
+    writeList(ep, postfix);
+    if (detailed) writeFull(ep, config);
 }
 
-void Files::writePrivate(
+void Files::writeList(
         const arbiter::Endpoint& ep,
         const std::string& postfix) const
 {
     Json::Value json;
-    for (const FileInfo& f : list()) json.append(f.toPrivateJson());
+    for (const FileInfo& f : list()) json.append(f.toListJson());
 
-    const std::string filename("ept-sources/list" + postfix + ".json");
     const bool styled(size() <= 1000);
-    ensurePut(ep, filename, toPreciseString(json, styled));
+    ensurePut(ep, "list" + postfix + ".json", toPreciseString(json, styled));
 }
 
-void Files::writeSources(const arbiter::Endpoint& out, const Config& config)
-    const
-{
-    writeSources(out, "", config);
-}
-
-void Files::writeSources(
-        const arbiter::Endpoint& out,
-        const std::string& postfix,
+void Files::writeFull(
+        const arbiter::Endpoint& ep,
         const Config& config) const
 {
-    arbiter::Arbiter a(config["arbiter"]);
-    std::unique_ptr<arbiter::Endpoint> scanEp;
-    if (config["scanDir"].isString())
-    {
-        scanEp = makeUnique<arbiter::Endpoint>(
-                a.getEndpoint(config["scanDir"].asString()));
-
-        if (config.verbose())
-        {
-            std::cout << "Copying metadata from scan at " << scanEp->root() <<
-                std::endl;
-        }
-    }
-
     Pool pool(config.totalThreads());
 
-    const bool styled(size() <= 1000);
-    for (Origin o(0); o < size(); ++o)
+    std::map<std::string, Json::Value> meta;
+    for (const auto& f : m_files)
     {
-        if (config.verbose() && o % 1000 == 0)
+        meta[f.url()][f.id()] = f.toFullJson();
+    }
+
+    const bool styled(size() <= 1000);
+
+    for (const auto& p : meta)
+    {
+        pool.add([this, &ep, &p, styled]()
         {
-            std::cout << o << " / " << size() << std::endl;
-        }
-
-        pool.add([this, &scanEp, &out, styled, o]()
-        {
-            const std::string filename(std::to_string(o) + ".json");
-
-            Json::Value json;
-            if (scanEp) json = parse(scanEp->get(filename));
-            json = entwine::merge(json, get(o).toSourcesJson());
-
-            ensurePut(out, filename, toPreciseString(json, styled));
+            const std::string& filename(p.first);
+            const Json::Value& json(p.second);
+            ensurePut(ep, filename, toPreciseString(json, styled));
         });
     }
 
@@ -145,7 +203,7 @@ void Files::merge(const Files& other)
 
     for (std::size_t i(0); i < size(); ++i)
     {
-        m_files[i].merge(other.list()[i]);
+        m_files[i].add(other.list()[i]);
     }
 }
 

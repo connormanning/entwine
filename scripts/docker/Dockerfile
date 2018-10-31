@@ -1,4 +1,4 @@
-FROM connormanning/pdal
+FROM connormanning/pdal:master
 MAINTAINER Connor Manning <connor@hobu.co>
 
 RUN apt-get update && apt-get install -y \
@@ -7,9 +7,8 @@ RUN apt-get update && apt-get install -y \
     git \
     liblzma-dev \
     libjsoncpp-dev \
-    libcurl4-openssl-dev \
-    curl \
     libssl-dev \
+    libcurl4-openssl-dev \
     python-numpy \
     python-pip \
     vim && \

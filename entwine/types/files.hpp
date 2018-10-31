@@ -34,20 +34,13 @@ class Pool;
 class Files
 {
 public:
-    Files(const FileInfoList& files)
-        : m_files(files)
-    {
-        for (const auto& f : m_files)
-        {
-            m_pointStats += f.pointStats();
-            addStatus(f.status());
-        }
-    }
-
+    Files(const FileInfoList& files);
     Files(const Json::Value& json) : Files(toFileInfo(json)) { }
 
-    Json::Value toPrivateJson() const;
-    Json::Value toSourcesJson() const;
+    static FileInfoList extract(
+            const arbiter::Endpoint& ep,
+            bool primary,
+            std::string postfix = "");
 
     void save(
             const arbiter::Endpoint& ep,
@@ -120,24 +113,21 @@ public:
 
     void merge(const Files& other);
 
-
-    // Write per-file detailed metadata.  This might need to be copied from an
-    // input scan location, or might be in-process for a build from a file
-    // input list.  It could also be a combination of both for continued builds.
-    void writeSources(const arbiter::Endpoint& ep, const Config& config) const;
+    Json::Value toJson() const
+    {
+        Json::Value json;
+        for (const auto& f : list())
+        {
+            json.append(f.toJson());
+        }
+        return json;
+    }
 
 private:
-    // Write a single file with our private indexing metadata.
-    void writePrivate(const arbiter::Endpoint& ep, const std::string& postfix)
+    void writeList(const arbiter::Endpoint& ep, const std::string& postfix)
         const;
 
-    // Write per-file detailed metadata.  This might need to be copied from an
-    // input scan location, or might be in-process for a build from a file
-    // input list.  It could also be a combination of both for continued builds.
-    void writeSources(
-            const arbiter::Endpoint& ep,
-            const std::string& postfix,
-            const Config& config) const;
+    void writeFull(const arbiter::Endpoint& ep, const Config& config) const;
 
     void addStatus(FileInfo::Status status)
     {

@@ -135,14 +135,6 @@ void App::addReprojection()
             "Example: --reprojection EPSG:3857, -r EPSG:26915 EPSG:3857",
             [this](Json::Value v)
             {
-            /*
-                if (!m_json.isMember("pipeline"))
-                {
-                    // Add a reader.
-                    m_json["pipeline"].append(Json::objectValue);
-                }
-                */
-
                 if (v.isString())
                 {
                     m_json["reprojection"]["out"] = v.asString();

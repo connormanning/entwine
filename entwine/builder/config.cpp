@@ -17,71 +17,108 @@
 namespace entwine
 {
 
+namespace
+{
+
+const std::string scanFile("scan.json");
+
+bool isScan(std::string s)
+{
+    return s.rfind(scanFile) == s.size() - scanFile.size();
+}
+
+} // unnamed namespace
+
+Config Config::fromScan(const std::string file) const
+{
+    if (verbose())
+    {
+        std::cout << "Using existing scan " << file << std::endl;
+    }
+
+    // First grab the configuration portion, which contains things like the
+    // pipeline/reprojection used to run this scan, and its results like the
+    // scale/schema/SRS/bounds.
+    arbiter::Arbiter a(m_json["arbiter"]);
+    Config c(entwine::parse(ensureGet(a, file)));
+
+    // Now we'll pluck out the file information.  Mirroring the EPT source
+    // metadata format, we have a sparse list at `ept-sources/list.json` which
+    // may point to more detailed metadata information.  Only the primary
+    // builder should wake up the detailed metadata to transit it to the final
+    // EPT output.
+    //
+    // The primary builder is a) the sole builder if this is not a subset build
+    // or b) the subset with ID 1.
+    const std::string dir(file.substr(0, file.rfind(scanFile)));
+    arbiter::Endpoint ep(a.getEndpoint(dir));
+
+    FileInfoList list(Files::extract(ep, primary()));
+    c["input"] = Files(list).toJson();
+
+    return c;
+}
+
 Config Config::prepare() const
 {
-    Json::Value input;
-    Json::Value scanDir;
-
-    // If our input is a Scan, extract it and return the result without redoing
-    // the scan.
     Json::Value from(m_json["input"]);
-
-    // Our kernel always builds the input as an array.
-    if (from.isArray() && from[0].isString()) from = from[0];
 
     // For a continuation build, we might just have an output.
     if (from.isNull()) return json();
 
+    // Make sure we have an array.
     if (from.isString())
     {
-        const std::string file(from.asString());
-        const std::string scanFile("ept-scan.json");
-        if (file.rfind(scanFile) == file.size() - scanFile.size())
-        {
-            if (verbose())
-            {
-                std::cout << "Using existing scan " << file << std::endl;
-            }
-
-            arbiter::Arbiter a(m_json["arbiter"]);
-            input = entwine::parse(ensureGet(a, file));
-            const std::string dir(file.substr(0, file.rfind(scanFile)));
-
-            scanDir = dir;
-        }
+        const Json::Value prev(from);
+        from = Json::arrayValue;
+        from.append(prev);
     }
 
-    if (input.isNull() && (!from.isObject() || (
-                from.isArray() && std::any_of(
+    if (!from.isArray())
+    {
+        throw std::runtime_error(
+                "Unexpected 'input': " + from.toStyledString());
+    }
+
+    Json::Value scan;
+
+    // If our input is a Scan, extract it without redoing the scan.
+    if (from.size() == 1 && isScan(from[0].asString()))
+    {
+        scan = fromScan(from[0].asString()).json();
+        from = scan["input"];
+    }
+
+    if (std::any_of(
                     from.begin(),
                     from.end(),
-                    [](Json::Value j) { return !j.isObject(); }))))
+                    [](Json::Value j) { return !j.isObject(); }))
     {
+        // TODO If this is a continued build with files added, we shouldn't be
+        // re-scanning everything.  This should be filtered by only the entries
+        // which are not objects and then the result intelligently merged.
         if (verbose()) std::cout << "Scanning input" << std::endl;
 
         // Remove the output from the Scan config - this path is the output
         // path for the subsequent 'build' step.
         Json::Value scanConfig(json());
         scanConfig.removeMember("output");
-        Scan scan(scanConfig);
-        Config config(scan.go());
-        input = config.json();
+        scan = Scan(scanConfig).go().json();
     }
 
     // First, soft-merge our scan results over the config without overwriting
     // anything, for example we might have an explicit scale factor or bounds
     // specification that should override scan results.
-    Json::Value result = merge(json(), input, false);
+    Json::Value result = merge(json(), scan, false);
+
+    // If we've just completed a scan or extracted an existing scan, make sure
+    // our input represents the scanned data rather than raw paths.
+    if (!scan.isNull()) result["input"] = scan["input"];
 
     // If our input SRS existed, we might potentially overwrite missing fields
     // there with ones we've found from the scan.  Vertical EPSG code, for
     // example.  In this case accept the input without merging.
     if (json().isMember("srs")) result["srs"] = json()["srs"];
-
-    // Then, always make sure we use the "input" from the scan, which
-    // represents the expanded input files and their meta-info rather than the
-    // path of the scan or the string paths.
-    if (!input.isNull()) result["input"] = input["input"];
 
     // Prepare the schema, adding OriginId and determining a proper offset, if
     // necessary.
@@ -113,7 +150,6 @@ Config Config::prepare() const
     }
 
     result["schema"] = s.toJson();
-    result["scanDir"] = scanDir;
 
     return result;
 }
@@ -160,7 +196,7 @@ FileInfoList Config::input() const
         }
     });
 
-    const auto& i(m_json["input"]);
+    const Json::Value& i(m_json["input"]);
     if (i.isString()) insert(i);
     else if (i.isArray()) for (const auto& j : i) insert(j);
 
@@ -178,7 +214,7 @@ Json::Value Config::pipeline(std::string filename) const
     }
 
     Json::Value& reader(p[0]);
-    reader["filename"] = filename;
+    if (!filename.empty()) reader["filename"] = filename;
 
     if (r)
     {

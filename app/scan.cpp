@@ -83,6 +83,7 @@ void Scan::run()
     std::cout << std::endl;
 
     std::cout << "Results:" << std::endl;
+    std::cout << "\tFiles: " << out.input().size() << std::endl;
     std::cout << "\tSchema: " << getDimensionString(schema) << std::endl;
     std::cout << "\tPoints: " << commify(out.points()) << std::endl;
     std::cout << "\tBounds: " << Bounds(out["bounds"]) << std::endl;
@@ -97,7 +98,7 @@ void Scan::run()
     else std::cout << "(absolute)";
     std::cout << std::endl;
 
-    const double density(densityLowerBound(out.input()));
+    const double density(densityLowerBound(scan.files().list()));
     std::cout << "\tDensity estimate (per square unit): " << density <<
         std::endl;
 

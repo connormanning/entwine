@@ -13,6 +13,34 @@ namespace
 {
     const arbiter::Arbiter a;
     const Verify v;
+
+    void checkSources(std::string outPath)
+    {
+        const auto list(parse(a.get(outPath + "ept-sources/list.json")));
+        EXPECT_EQ(list.size(), 8u);
+
+        for (Json::ArrayIndex o(0); o < 8; ++o)
+        {
+            const auto entry(list[o]);
+            const auto id(entry["id"].asString());
+            const auto url(entry["url"].asString());
+            const Bounds bounds(entry["bounds"]);
+
+            ASSERT_TRUE(bounds.exists());
+            ASSERT_GT(id.size(), 0);
+            ASSERT_GT(url.size(), 0);
+
+            const auto full(parse(a.get(outPath + "ept-sources/" + url)));
+            ASSERT_FALSE(full.isNull());
+            ASSERT_TRUE(full.isMember(id));
+
+            const auto meta(full[id]);
+            ASSERT_FALSE(meta.isNull());
+            ASSERT_GT(meta["points"].asUInt64(), 0u);
+            ASSERT_EQ(meta["origin"].asUInt64(), (Origin)o);
+            ASSERT_TRUE(meta["metadata"].isObject());
+        }
+    }
 }
 
 TEST(build, basic)
@@ -57,15 +85,7 @@ TEST(build, basic)
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
 
-    EXPECT_EQ(parse(a.get(outPath + "ept-sources/list.json")).size(), 8u);
-
-    for (Json::ArrayIndex o(0); o < 8; ++o)
-    {
-        const auto path(metaPath + std::to_string(o) + ".json");
-        const auto meta(parse(a.get(path)));
-        ASSERT_FALSE(meta.isNull());
-        ASSERT_GT(meta["points"].asUInt64(), 0u);
-    }
+    checkSources(outPath);
 }
 
 TEST(build, continued)
@@ -120,15 +140,7 @@ TEST(build, continued)
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
 
-    EXPECT_EQ(parse(a.get(outPath + "ept-sources/list.json")).size(), 8u);
-
-    for (Json::ArrayIndex o(0); o < 8; ++o)
-    {
-        const auto path(metaPath + std::to_string(o) + ".json");
-        const auto meta(parse(a.get(path)));
-        ASSERT_FALSE(meta.isNull());
-        ASSERT_GT(meta["points"].asUInt64(), 0u);
-    }
+    checkSources(outPath);
 }
 
 TEST(build, fromScan)
@@ -148,7 +160,7 @@ TEST(build, fromScan)
     const std::string metaPath(outPath + "ept-sources/");
 
     Config c;
-    c["input"] = scanPath + "ept-scan.json";
+    c["input"] = scanPath + "scan.json";
     c["output"] = outPath;
     c["force"] = true;
     c["ticks"] = static_cast<Json::UInt64>(v.ticks());
@@ -184,15 +196,7 @@ TEST(build, fromScan)
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
 
-    EXPECT_EQ(parse(a.get(outPath + "ept-sources/list.json")).size(), 8u);
-
-    for (Json::ArrayIndex o(0); o < 8; ++o)
-    {
-        const auto path(metaPath + std::to_string(o) + ".json");
-        const auto meta(parse(a.get(path)));
-        ASSERT_FALSE(meta.isNull());
-        ASSERT_GT(meta["points"].asUInt64(), 0u);
-    }
+    checkSources(outPath);
 }
 
 TEST(build, subset)
@@ -249,15 +253,7 @@ TEST(build, subset)
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
 
-    EXPECT_EQ(parse(a.get(outPath + "ept-sources/list.json")).size(), 8u);
-
-    for (Json::ArrayIndex o(0); o < 8; ++o)
-    {
-        const auto path(metaPath + std::to_string(o) + ".json");
-        const auto meta(parse(a.get(path)));
-        ASSERT_FALSE(meta.isNull());
-        ASSERT_GT(meta["points"].asUInt64(), 0u);
-    }
+    checkSources(outPath);
 }
 
 TEST(build, invalidSubset)
@@ -318,7 +314,7 @@ TEST(build, subsetFromScan)
     for (Json::UInt64 i(0); i < 4u; ++i)
     {
         Config c;
-        c["input"] = scanPath + "ept-scan.json";
+        c["input"] = scanPath + "scan.json";
         c["output"] = outPath;
         c["force"] = true;
         c["ticks"] = static_cast<Json::UInt64>(v.ticks());
@@ -364,15 +360,7 @@ TEST(build, subsetFromScan)
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
 
-    EXPECT_EQ(parse(a.get(outPath + "ept-sources/list.json")).size(), 8u);
-
-    for (Json::ArrayIndex o(0); o < 8; ++o)
-    {
-        const auto path(metaPath + std::to_string(o) + ".json");
-        const auto meta(parse(a.get(path)));
-        ASSERT_FALSE(meta.isNull());
-        ASSERT_GT(meta["points"].asUInt64(), 0u);
-    }
+    checkSources(outPath);
 }
 
 TEST(build, reprojected)
@@ -419,14 +407,6 @@ TEST(build, reprojected)
 
     EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
 
-    EXPECT_EQ(parse(a.get(outPath + "ept-sources/list.json")).size(), 8u);
-
-    for (Json::ArrayIndex o(0); o < 8; ++o)
-    {
-        const auto path(metaPath + std::to_string(o) + ".json");
-        const auto meta(parse(a.get(path)));
-        ASSERT_FALSE(meta.isNull());
-        ASSERT_GT(meta["points"].asUInt64(), 0u);
-    }
+    checkSources(outPath);
 }
 
