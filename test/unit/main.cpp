@@ -20,6 +20,7 @@ int main(int argc, char** argv)
             "ellipsoid-multi/seu.laz",
             "ellipsoid-multi/swd.laz",
             "ellipsoid-multi/swu.laz",
+            "ellipsoid-multi/zzz.txt",
             "ellipsoid-wrong-srs.laz",
             "ellipsoid.laz"
         };

@@ -26,6 +26,7 @@
 #include <entwine/types/file-info.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/srs.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/unique.hpp>
 
@@ -41,6 +42,10 @@ public:
         : m_json(json)
     { }
 
+    // Used by the builder to normalize the input, this utility ensures:
+    //      - Input data is scanned prior to input.
+    //      - If the input is already a scan, that the scan is parsed properly
+    //        and has its configuration merged in.
     Config prepare() const;
 
     static Json::Value defaults()
@@ -50,6 +55,7 @@ public:
         json["tmp"] = arbiter::fs::getTempPath();
         json["trustHeaders"] = true;
         json["threads"] = 8;
+        json["pipeline"].append(Json::objectValue);
 
         return json;
     }
@@ -68,18 +74,22 @@ public:
         return json;
     }
 
+    Json::Value pipeline(std::string filename) const;
+
     FileInfoList input() const;
+
     std::string output() const { return m_json["output"].asString(); }
     std::string tmp() const { return m_json["tmp"].asString(); }
 
-    std::size_t numPoints() const { return m_json["numPoints"].asUInt64(); }
+    std::size_t points() const { return m_json["points"].asUInt64(); }
     Schema schema() const { return Schema(m_json["schema"]); }
 
     std::size_t totalThreads() const
     {
         const auto& t(m_json["threads"]);
-        if (t.isNumeric()) return t.asUInt64();
-        else return t[0].asUInt64() + t[1].asUInt64();
+        const std::size_t result = t.isNumeric() ?
+            t.asUInt64() : t[0].asUInt64() + t[1].asUInt64();
+        return std::max<std::size_t>(4u, result);
     }
 
     std::size_t workThreads() const
@@ -129,7 +139,7 @@ public:
             arbiter::Arbiter(m_json["arbiter"]).tryGetSize(
                     arbiter::util::join(
                         output(),
-                        "entwine" + postfix() + ".json"));
+                        "ept" + postfix() + ".json"));
     }
 
     bool verbose() const { return m_json["verbose"].asBool(); }
@@ -143,7 +153,12 @@ public:
     }
 
     uint64_t ticks() const { return m_json["ticks"].asUInt64(); }
-    uint64_t overflowDepth() const { return m_json["overflowDepth"].asUInt64(); }
+
+    uint64_t overflowDepth() const
+    {
+        return m_json["overflowDepth"].asUInt64();
+    }
+
     uint64_t overflowThreshold() const
     {
         if (m_json.isMember("overflowThreshold"))
@@ -160,20 +175,19 @@ public:
         return m_json["hierarchyStep"].asUInt64();
     }
 
-    std::string srs() const { return m_json["srs"].asString(); }
+    Srs srs() const
+    {
+        if (m_json["srs"].isObject()) return Srs(m_json["srs"]);
+        else return Srs(m_json["srs"].asString());
+    }
+
     std::string postfix() const
     {
-        if (!m_json["subset"].isNull())
+        if (m_json.isMember("subset"))
         {
             return "-" + std::to_string(m_json["subset"]["id"].asUInt64());
         }
         return "";
-    }
-
-    std::unique_ptr<Delta> delta() const
-    {
-        if (scale() != Scale(1)) return makeUnique<Delta>(scale(), offset());
-        else return std::unique_ptr<Delta>();
     }
 
     bool absolute() const
@@ -181,21 +195,23 @@ public:
         return m_json.isMember("absolute") && m_json["absolute"].asBool();
     }
 
-private:
-    Scale scale() const
+    uint64_t progressInterval() const
     {
-        if (m_json["absolute"].asBool()) return Scale(1);
-        else if (!m_json["scale"].isNull()) return Scale(m_json["scale"]);
-        else return Scale(0.01);
-    }
-    Offset offset() const
-    {
-        if (!m_json["offset"].isNull()) return Offset(m_json["offset"]);
-        return Bounds(m_json["bounds"]).mid().apply([](double d)
+        if (m_json.isMember("progressInterval"))
         {
-            return std::llround(d);
-        });
+            return m_json["progressInterval"].asUInt64();
+        }
+        return 10;
     }
+
+private:
+    bool primary() const
+    {
+        return !m_json.isMember("subset") ||
+            m_json["subset"]["id"].asUInt64() == 1;
+    }
+
+    Config fromScan(std::string file) const;
 
     Json::Value m_json;
 };

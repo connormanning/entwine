@@ -39,9 +39,9 @@ void Build::addArgs()
 
     addInput(
             "File paths or directory entries.  For a recursive directory "
-            "search, the notation is 'directory**'.  May also be the path "
-            "to an `entwine scan` output file\n"
-            "Example: --input path.laz, -i pointclouds/, -i scan.json");
+            "search, the notation is \"directory**\".  May also be the path "
+            "to an `entwine scan` output file.\n"
+            "Example: -i path.laz, -i pointclouds/, -i autzen/scan.json");
 
     addOutput(
             "Output directory.\n"
@@ -54,7 +54,7 @@ void Build::addArgs()
     m_ap.add(
             "--threads",
             "-t",
-            "The number of threads\n"
+            "The number of threads.\n"
             "Example: --threads 12",
             [this](Json::Value v) { m_json["threads"] = parse(v.asString()); });
 
@@ -74,8 +74,8 @@ void Build::addArgs()
 
     m_ap.add(
             "--ticks",
-            "Number of grid ticks in each spatial dimensions for data nodes.  "
-            "For example, a \"ticks\" value of 256 will result in a cube of "
+            "Number of voxels in each spatial dimension for data nodes.  "
+            "For example, a ticks setting of 256 will result in a cube of "
             "256*256*256 resolution.  Default: 256.\n"
             "Example: --ticks 128",
             [this](Json::Value v) { m_json["ticks"] = extract(v); });
@@ -106,6 +106,14 @@ void Build::addArgs()
                     }
                     m_json["bounds"] = v;
                 }
+            });
+
+    m_ap.add(
+            "--srs",
+            "Set the `srs` metadata entry of the output.",
+            [this](Json::Value v)
+            {
+                m_json["srs"] = Srs(v.asString()).toJson();
             });
 
     addNoTrustHeaders();
@@ -166,6 +174,17 @@ void Build::addArgs()
             "Hierarchy step size - recommended to be set for testing only as "
             "entwine will determine it heuristically.",
             [this](Json::Value v) { m_json["hierarchyStep"] = extract(v); });
+
+    m_ap.add(
+            "--sleepCount",
+            "Count (per-thread) after which idle nodes are serialized.",
+            [this](Json::Value v) { m_json["sleepCount"] = extract(v); });
+
+    m_ap.add(
+            "--progress",
+            "Interval in seconds at which to log build stats.  0 for no "
+            "logging (default: 10).",
+            [this](Json::Value v) { m_json["progressInterval"] = extract(v); });
 
     addArbiter();
 }
@@ -235,7 +254,8 @@ void Build::log(const Builder& b) const
 
     std::cout << std::endl;
     std::cout <<
-        "Version: " << currentVersion().toString() << "\n" <<
+        "Entwine Version: " << currentEntwineVersion().toString() << "\n" <<
+        "EPT Version: " << currentEptVersion().toString() << "\n" <<
         "Input:\n\t";
 
     if (files.size() == 1)
@@ -276,20 +296,18 @@ void Build::log(const Builder& b) const
         std::cout << "\tReset files: " << rf << std::endl;
     }
 
-    const auto hs(metadata.hierarchyStep());
     std::cout <<
         "Output:\n" <<
         "\tPath: " << outPath << "\n" <<
         "\tData type: " << metadata.dataIo().type() << "\n" <<
         "\tHierarchy type: " << "json" << "\n" <<
-        "\tHierarchy step: " << (hs ? std::to_string(hs) : "auto") << "\n" <<
-        "\tSleep count: " << b.sleepCount() <<
+        "\tSleep count: " << commify(b.sleepCount()) <<
         std::endl;
 
-    if (const auto* delta = metadata.delta())
+    if (schema.isScaled())
     {
         std::cout << "\tScale: ";
-        const auto& scale(delta->scale());
+        const Scale scale(schema.scale());
         if (scale.x == scale.y && scale.x == scale.z)
         {
             std::cout << scale.x << std::endl;
@@ -298,12 +316,12 @@ void Build::log(const Builder& b) const
         {
             std::cout << scale << std::endl;
         }
-        std::cout << "\tOffset: " << delta->offset() << std::endl;
+        std::cout << "\tOffset: " << schema.offset() << std::endl;
     }
     else
     {
         std::cout << "\tScale: (absolute)" << std::endl;
-        std::cout << "\tOffset: (0, 0, 0)" << std::endl;
+        std::cout << "\tOffset: (none)" << std::endl;
     }
 
     std::cout <<
@@ -335,12 +353,6 @@ void Build::log(const Builder& b) const
     if (const Subset* s = metadata.subset())
     {
         std::cout << "\tSubset: " << s->id() << " of " << s->of() << "\n";
-    }
-
-    if (metadata.transformation())
-    {
-        std::cout << "\tTransformation: ";
-        matrix::print(*metadata.transformation(), 0, "\t");
     }
 
     std::cout << std::endl;

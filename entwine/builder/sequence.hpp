@@ -50,11 +50,7 @@ private:
     }
 
     bool checkInfo(Origin origin);
-
-    bool checkBounds(
-            Origin origin,
-            const Bounds& bounds,
-            std::size_t numPoints);
+    bool checkBounds(Origin origin, const Bounds& bounds, std::size_t points);
 
     const Metadata& m_metadata;
     Files& m_files;

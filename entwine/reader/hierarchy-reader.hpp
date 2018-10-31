@@ -30,10 +30,8 @@ class HierarchyReader
 public:
     using Keys = std::map<Dxyz, uint64_t>;
 
-    HierarchyReader(const Metadata& metadata, const arbiter::Endpoint& out)
-        : m_metadata(metadata)
-        , m_ep(out.getSubEndpoint("h"))
-        , m_step(m_metadata.hierarchyStep())
+    HierarchyReader(const arbiter::Endpoint& out)
+        : m_ep(out.getSubEndpoint("ept-hierarchy"))
     {
         load();
     }
@@ -52,41 +50,16 @@ private:
     {
         const auto json(parse(m_ep.get(root.toString() + ".json")));
 
-        for (const auto s : json.getMemberNames())
+        for (const auto str : json.getMemberNames())
         {
-            const Dxyz key(s);
-            assert(key == root || resident(key) == root);
-            m_keys[key] = json[s].asUInt64();
-
-            if (
-                    m_step &&
-                    key.depth() > root.depth() &&
-                    key.depth() % m_step == 0)
-            {
-                load(key);
-            }
+            const Dxyz key(str);
+            const int64_t n(json[str].asInt64());
+            if (n < 0) load(key);
+            else m_keys[key] = static_cast<uint64_t>(n);
         }
     }
 
-    Dxyz resident(const Dxyz& node)
-    {
-        if (!m_step || node.depth() <= m_step) return Dxyz();
-
-        // Subtract 1 since nodes which are at the stepped depths are duplicated
-        // in their parent resident, so use the upper one.
-        const uint64_t residentDepth((node.depth() - 1) / m_step * m_step);
-        const uint64_t offset(node.depth() - residentDepth);
-        return Dxyz(
-                residentDepth,
-                node.x >> offset,
-                node.y >> offset,
-                node.z >> offset);
-    }
-
-    const Metadata& m_metadata;
     const arbiter::Endpoint m_ep;
-    const uint64_t m_step;
-
     Keys m_keys;
 };
 

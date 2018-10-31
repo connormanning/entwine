@@ -25,22 +25,19 @@ namespace entwine
 
 Merger::Merger(const Config& config)
     : m_config(merge(Config::defaults(), config.json()))
+    , m_arbiter(std::make_shared<arbiter::Arbiter>(config["arbiter"]))
     , m_verbose(m_config.verbose())
     , m_threads(m_config.totalThreads())
     , m_pool(m_threads)
 {
-    m_outerScope.setArbiter(
-            std::make_shared<arbiter::Arbiter>(config["arbiter"]));
-
     Config first(m_config);
     first["subset"]["id"] = 1;
 
-    m_builder = makeUnique<Builder>(first, m_outerScope);
+    m_builder = makeUnique<Builder>(first, m_arbiter);
 
     if (!m_builder) throw std::runtime_error("Path not mergeable");
 
     m_builder->verbose(m_verbose);
-    m_outerScope.setPointPool(m_builder->sharedPointPool());
 
     if (const Subset* subset = m_builder->metadata().subset())
     {
@@ -84,7 +81,7 @@ void Merger::go()
             {
                 try
                 {
-                    v[i] = makeUnique<Builder>(current, m_outerScope);
+                    v[i] = makeUnique<Builder>(current, m_arbiter);
                 }
                 catch (std::exception& e)
                 {

@@ -10,6 +10,9 @@
 
 #pragma once
 
+#include <string>
+#include <vector>
+
 #include <pdal/PointLayout.hpp>
 #include <pdal/util/Utils.hpp>
 
@@ -19,7 +22,7 @@ namespace entwine
 class FixedPointLayout : public pdal::PointLayout
 {
 public:
-    using Added = std::map<std::string, pdal::Dimension::Detail>;
+    using Added = std::vector<std::string>;
     const Added& added() const { return m_added; }
 
 private:
@@ -27,7 +30,10 @@ private:
             pdal::Dimension::Detail dimDetail,
             const std::string& name) override
     {
-        m_added[name] = dimDetail;
+        if (std::find(m_added.begin(), m_added.end(), name) == m_added.end())
+        {
+            m_added.push_back(name);
+        }
 
         if (!m_finalized)
         {

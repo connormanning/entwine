@@ -25,22 +25,22 @@ ReffedChunk::ReffedChunk(
         const ChunkKey& key,
         const arbiter::Endpoint& out,
         const arbiter::Endpoint& tmp,
-        PointPool& pointPool,
         Hierarchy& hierarchy)
     : m_key(key)
     , m_metadata(m_key.metadata())
     , m_out(out)
     , m_tmp(tmp)
-    , m_pointPool(pointPool)
     , m_hierarchy(hierarchy)
-{ }
+{
+    SpinGuard lock(spin);
+    ++info.alive;
+}
 
 ReffedChunk::ReffedChunk(const ReffedChunk& o)
     : ReffedChunk(
             o.key(),
             o.out(),
             o.tmp(),
-            o.pointPool(),
             o.hierarchy())
 {
     // This happens only during the constructor of the chunk.
@@ -48,15 +48,16 @@ ReffedChunk::ReffedChunk(const ReffedChunk& o)
     assert(o.m_refs.empty());
 }
 
-ReffedChunk::~ReffedChunk() { }
+ReffedChunk::~ReffedChunk()
+{
+    SpinGuard lock(spin);
+    --info.alive;
+}
 
-bool ReffedChunk::insert(
-        Cell::PooledNode& cell,
-        const Key& key,
-        Clipper& clipper)
+bool ReffedChunk::insert(Voxel& voxel, Key& key, Clipper& clipper)
 {
     if (clipper.insert(*this)) ref(clipper);
-    return m_chunk->insert(key, cell, clipper);
+    return m_chunk->insert(voxel, key, clipper);
 }
 
 void ReffedChunk::ref(Clipper& clipper)
@@ -88,27 +89,27 @@ void ReffedChunk::ref(Clipper& clipper)
                     ++info.read;
                 }
 
-                Cells cells = m_metadata.dataIo().read(
-                        m_out,
-                        m_tmp,
-                        m_pointPool,
-                        m_key.toString() + m_metadata.postfix(m_key.depth()));
-
-                assert(cells.size() == np);
-
-                Key pk(m_metadata);
-
-                while (!cells.empty())
+                VectorPointTable table(m_metadata.schema(), np);
+                table.setProcess([this, &table, &clipper]()
                 {
-                    auto cell(cells.popOne());
-                    pk.init(cell->point(), m_key.depth());
+                    Voxel voxel;
+                    Key pk(m_metadata);
 
-                    if (!insert(cell, pk, clipper))
+                    for (auto it(table.begin()); it != table.end(); ++it)
                     {
-                        throw std::runtime_error(
-                                "Invalid wakeup: " + m_key.toString());
+                        voxel.initShallow(it.pointRef(), it.data());
+                        pk.init(voxel.point(), m_key.depth());
+                        if (!insert(voxel, pk, clipper))
+                        {
+                            std::cout << "Unexpected wakeup: " << m_key.get() <<
+                                " " << voxel.point() << std::endl;
+                        }
                     }
-                }
+                });
+
+                const auto filename(
+                        m_key.toString() + m_metadata.postfix(m_key.depth()));
+                m_metadata.dataIo().read(m_out, m_tmp, filename, table);
             }
         }
     }
@@ -127,17 +128,21 @@ void ReffedChunk::unref(const Origin o)
         m_refs.erase(o);
         if (m_refs.empty())
         {
-            CountedCells cells(m_chunk->acquire());
+            BlockPointTable table(
+                    m_metadata.schema(),
+                    m_chunk->gridBlock(),
+                    m_chunk->overflowBlock());
 
-            m_hierarchy.set(m_key.get(), cells.np);
+            m_hierarchy.set(m_key.get(), table.size());
 
             m_metadata.dataIo().write(
                     m_out,
                     m_tmp,
-                    m_pointPool,
                     m_key.toString() + m_metadata.postfix(m_key.depth()),
-                    std::move(cells.stack),
-                    cells.np);
+                    m_key.bounds(),
+                    table);
+
+            m_chunk->reset();
 
             SpinGuard lock(spin);
             ++info.written;
@@ -165,34 +170,9 @@ ReffedChunk::Info ReffedChunk::latchInfo()
     SpinGuard lock(spin);
 
     Info result(info);
-    info.clear();
+    info.written = 0;
+    info.read = 0;
     return result;
-}
-
-void Chunk::doOverflow(Clipper& clipper)
-{
-    m_hasChildren = true;
-
-    while (!m_overflow.empty())
-    {
-        auto cell(m_overflow.popOne());
-        Key& key(m_keys->back());
-        key.step(cell->point());
-
-        if (!step(cell->point()).insert(cell, key, clipper))
-        {
-            throw std::runtime_error("Invalid overflow");
-        }
-
-        m_keys->pop_back();
-        assert(m_overflow.size() == m_keys->size());
-    }
-
-    assert(m_overflow.empty());
-    assert(m_keys->empty());
-
-    m_keys.reset();
-    m_overflowCount = 0;
 }
 
 } // namespace entwine

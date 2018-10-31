@@ -22,14 +22,14 @@
 #include <entwine/builder/sequence.hpp>
 #include <entwine/builder/thread-pools.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/third/splice-pool/splice-pool.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/file-info.hpp>
 #include <entwine/types/metadata.hpp>
-#include <entwine/types/pooled-point-table.hpp>
 #include <entwine/types/reprojection.hpp>
+#include <entwine/types/scale-offset.hpp>
 #include <entwine/types/schema.hpp>
 #include <entwine/types/subset.hpp>
+#include <entwine/types/vector-point-table.hpp>
 #include <entwine/util/executor.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/pool.hpp>
@@ -46,12 +46,13 @@ namespace
     std::size_t reawakened(0);
 }
 
-Builder::Builder(const Config& config, OuterScope os)
+Builder::Builder(const Config& config, std::shared_ptr<arbiter::Arbiter> a)
     : m_config(entwine::merge(
                 Config::defaults(),
                 Config::defaultBuildParams(),
                 config.prepare().json()))
-    , m_arbiter(os.getArbiter(m_config["arbiter"]))
+    , m_interval(m_config.progressInterval())
+    , m_arbiter(a ? a : std::make_shared<arbiter::Arbiter>(m_config["arbiter"]))
     , m_out(makeUnique<Endpoint>(m_arbiter->getEndpoint(m_config.output())))
     , m_tmp(makeUnique<Endpoint>(m_arbiter->getEndpoint(m_config.tmp())))
     , m_threadPools(
@@ -63,12 +64,10 @@ Builder::Builder(const Config& config, OuterScope os)
     , m_metadata(m_isContinuation ?
             makeUnique<Metadata>(*m_out, m_config) :
             makeUnique<Metadata>(m_config))
-    , m_pointPool(os.getPointPool(m_metadata->schema()))
     , m_registry(makeUnique<Registry>(
                 *m_metadata,
                 *m_out,
                 *m_tmp,
-                *m_pointPool,
                 *m_threadPools,
                 m_isContinuation))
     , m_sequence(makeUnique<Sequence>(*m_metadata, m_mutex))
@@ -102,11 +101,13 @@ void Builder::go(std::size_t max)
 
     p.add([this, &done, &files, alreadyInserted]()
     {
+        if (!m_interval) return;
+
         using ms = std::chrono::milliseconds;
-        const std::size_t interval(10);
         std::size_t last(0);
 
         const double totalPoints(files.totalPoints());
+        const double megsPerHour(3600.0 / 1000000.0);
 
         while (!done)
         {
@@ -114,7 +115,7 @@ void Builder::go(std::size_t max)
             std::this_thread::sleep_for(ms(1000 - t % 1000));
             const auto s(since<std::chrono::seconds>(m_start));
 
-            if (s % interval == 0)
+            if (s % m_interval == 0)
             {
                 const double inserts(
                         files.pointStats().inserts() - alreadyInserted);
@@ -123,11 +124,6 @@ void Builder::go(std::size_t max)
                         (files.pointStats().inserts() + alreadyInserted) /
                         totalPoints);
 
-                const auto& d(pointPool().dataPool());
-
-                const std::size_t used(
-                        100.0 - 100.0 * d.available() / (double)d.allocated());
-
                 const auto info(ReffedChunk::latchInfo());
                 reawakened += info.read;
 
@@ -135,16 +131,15 @@ void Builder::go(std::size_t max)
                 {
                     std::cout <<
                         " T: " << commify(s) << "s" <<
-                        " R: " << commify(inserts * 3600.0 / s / 1000000.0) <<
-                            "(" << commify((inserts - last) *
-                                        3600.0 / 10.0 / 1000000.0) << ")" <<
+                        " R: " << commify(inserts / s * megsPerHour) <<
+                            "(" << commify((inserts - last) / m_interval *
+                                        megsPerHour) << ")" <<
                             "M/h" <<
-                        " A: " << commify(d.allocated()) <<
-                        " U: " << used << "%"  <<
                         " I: " << commify(inserts) <<
                         " P: " << std::round(progress * 100.0) << "%" <<
                         " W: " << info.written <<
                         " R: " << info.read <<
+                        " A: " << commify(info.alive) <<
                         std::endl;
                 }
 
@@ -160,7 +155,6 @@ void Builder::cycle()
 {
     if (verbose()) std::cout << "\tCycling memory pool" << std::endl;
     m_threadPools->cycle();
-    m_pointPool->clear();
     m_reset = now();
     if (verbose()) std::cout << "\tCycled" << std::endl;
 }
@@ -174,6 +168,7 @@ void Builder::doRun(const std::size_t max)
 
     while (auto o = m_sequence->next(max))
     {
+        /*
         if (
                 (m_resetFiles && m_sequence->added() > m_resetFiles &&
                      (m_sequence->added() - 1) % m_resetFiles == 0) ||
@@ -181,6 +176,7 @@ void Builder::doRun(const std::size_t max)
         {
             cycle();
         }
+        */
 
         const Origin origin(*o);
         FileInfo& info(m_metadata->mutableFiles().get(origin));
@@ -237,7 +233,7 @@ void Builder::doRun(const std::size_t max)
     save();
 }
 
-void Builder::insertPath(const Origin origin, FileInfo& info)
+void Builder::insertPath(const Origin originId, FileInfo& info)
 {
     const std::string rawPath(info.path());
     std::size_t tries(0);
@@ -276,103 +272,67 @@ void Builder::insertPath(const Origin origin, FileInfo& info)
 
     const std::string& localPath(localHandle->localPath());
 
-    const Reprojection* reprojection(m_metadata->reprojection());
-    const Transformation* transformation(m_metadata->transformation());
+    uint64_t inserted(0);
+    uint64_t pointId(0);
 
+    Clipper clipper(*m_registry, originId);
+
+    VectorPointTable table(m_metadata->schema());
+    table.setProcess([this, &table, &clipper, &inserted, &pointId, &originId]()
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        std::string& srs(m_metadata->srs());
-
-        if (srs.empty())
-        {
-            auto preview(Executor::get().preview(localPath, nullptr));
-            if (preview) srs = preview->srs;
-
-            if (verbose() && srs.size())
-            {
-                std::cout << "Found an SRS" << std::endl;
-            }
-        }
-    }
-
-    std::size_t inserted(0);
-
-    Clipper clipper(*m_registry, origin);
-
-    auto inserter([this, &clipper, &inserted]
-    (Cell::PooledStack cells)
-    {
-        inserted += cells.size();
+        inserted += table.numPoints();
 
         if (inserted > m_sleepCount)
         {
             inserted = 0;
-            const float available(m_pointPool->dataPool().available());
-            const float allocated(m_pointPool->dataPool().allocated());
-            if (available / allocated < 0.5) clipper.clip();
+            clipper.clip();
         }
 
-        return insertData(std::move(cells), clipper);
+        std::unique_ptr<ScaleOffset> so(m_metadata->outSchema().scaleOffset());
+
+        Voxel voxel;
+
+        PointStats pointStats;
+        const Bounds& boundsConforming(m_metadata->boundsConforming());
+        const Bounds* boundsSubset(m_metadata->boundsSubset());
+
+        Key key(*m_metadata);
+
+        for (auto it(table.begin()); it != table.end(); ++it)
+        {
+            auto& pr(it.pointRef());
+            pr.setField(DimId::OriginId, originId);
+            pr.setField(DimId::PointId, pointId);
+            ++pointId;
+
+            voxel.initShallow(it.pointRef(), it.data());
+            if (so) voxel.clip(*so);
+            const Point& point(voxel.point());
+
+            if (boundsConforming.contains(point))
+            {
+                if (!boundsSubset || boundsSubset->contains(point))
+                {
+                    key.init(point);
+                    m_registry->addPoint(voxel, key, clipper);
+                    pointStats.addInsert();
+                }
+            }
+            else if (m_metadata->primary()) pointStats.addOutOfBounds();
+        }
+
+        if (originId != invalidOrigin)
+        {
+            m_metadata->mutableFiles().add(clipper.origin(), pointStats);
+        }
     });
 
-    auto table(makeUnique<PooledPointTable>(*m_pointPool, inserter, origin));
+    const Json::Value pipeline(m_config.pipeline(localPath));
 
-    if (!Executor::get().run(
-                *table,
-                localPath,
-                reprojection,
-                transformation))
+    if (!Executor::get().run(table, pipeline))
     {
         throw std::runtime_error("Failed to execute: " + rawPath);
     }
-}
-
-Cells Builder::insertData(Cells cells, Clipper& clipper)
-{
-    PointStats pointStats;
-    Cells rejected(m_pointPool->cellPool());
-
-    auto reject([&rejected](Cell::PooledNode& cell)
-    {
-        rejected.push(std::move(cell));
-    });
-
-    const Bounds& boundsConforming(m_metadata->boundsConforming());
-    const Bounds* boundsSubset(m_metadata->boundsSubset());
-
-    Key key(*m_metadata);
-
-    while (!cells.empty())
-    {
-        Cell::PooledNode cell(cells.popOne());
-        const Point& point(cell->point());
-
-        if (boundsConforming.contains(point))
-        {
-            if (!boundsSubset || boundsSubset->contains(point))
-            {
-                key.init(point);
-                m_registry->addPoint(cell, key, clipper);
-                pointStats.addInsert();
-            }
-            else
-            {
-                reject(cell);
-            }
-        }
-        else
-        {
-            reject(cell);
-            pointStats.addOutOfBounds();
-        }
-    }
-
-    if (clipper.origin() != invalidOrigin)
-    {
-        m_metadata->mutableFiles().add(clipper.origin(), pointStats);
-    }
-
-    return rejected;
 }
 
 void Builder::save()
@@ -390,32 +350,26 @@ void Builder::save(const arbiter::Endpoint& ep)
     m_threadPools->join();
     m_threadPools->workPool().resize(m_threadPools->size());
     m_threadPools->go();
-    m_pointPool->clear();
 
     if (verbose()) std::cout << "Reawakened: " << reawakened << std::endl;
 
-    const auto& h(m_registry->hierarchy());
-    if (
-            !m_metadata->subset() &&
-            !m_metadata->hierarchyStep() &&
-            h.map().size() > heuristics::maxHierarchyNodesPerFile)
+    if (!m_metadata->subset())
     {
-        const auto analysis(h.analyze(*m_metadata));
-        for (const auto& a : analysis) a.summarize();
-        const auto& chosen(*analysis.begin());
-
-        if (verbose())
+        if (m_config.hierarchyStep())
         {
-            std::cout << "Setting hierarchy step: " << chosen.step << std::endl;
+            m_registry->hierarchy().setStep(m_config.hierarchyStep());
         }
-        m_metadata->setHierarchyStep(chosen.step);
+        else
+        {
+            m_registry->hierarchy().analyze(*m_metadata, verbose());
+        }
     }
 
     if (verbose()) std::cout << "Saving registry..." << std::endl;
-    m_registry->save(*m_out);
+    m_registry->save();
 
     if (verbose()) std::cout << "Saving metadata..." << std::endl;
-    m_metadata->save(*m_out);
+    m_metadata->save(*m_out, m_config);
 }
 
 void Builder::merge(Builder& other, Clipper& clipper)
@@ -446,9 +400,19 @@ void Builder::prepareEndpoints()
                 throw std::runtime_error("Couldn't create " + rootDir);
             }
 
-            if (!arbiter::fs::mkdirp(rootDir + "h"))
+            if (!arbiter::fs::mkdirp(rootDir + "ept-data"))
+            {
+                throw std::runtime_error("Couldn't create data directory");
+            }
+
+            if (!arbiter::fs::mkdirp(rootDir + "ept-hierarchy"))
             {
                 throw std::runtime_error("Couldn't create hierarchy directory");
+            }
+
+            if (!arbiter::fs::mkdirp(rootDir + "ept-sources"))
+            {
+                throw std::runtime_error("Couldn't create sources directory");
             }
         }
     }
@@ -466,12 +430,6 @@ Sequence& Builder::sequence() { return *m_sequence; }
 const Sequence& Builder::sequence() const { return *m_sequence; }
 
 ThreadPools& Builder::threadPools() const { return *m_threadPools; }
-
-PointPool& Builder::pointPool() const { return *m_pointPool; }
-std::shared_ptr<PointPool> Builder::sharedPointPool() const
-{
-    return m_pointPool;
-}
 
 const arbiter::Endpoint& Builder::outEndpoint() const { return *m_out; }
 const arbiter::Endpoint& Builder::tmpEndpoint() const { return *m_tmp; }

@@ -32,10 +32,10 @@ public:
 
     void run();
 
-    uint64_t numPoints() const { return m_numPoints; }
+    uint64_t points() const { return m_points; }
 
 protected:
-    virtual void process(const Cell& cell) { }
+    virtual void process(const pdal::PointRef& pr) { }
 
     const Reader& m_reader;
     const Metadata& m_metadata;
@@ -43,17 +43,14 @@ protected:
     const QueryParams m_params;
     const Filter m_filter;
 
-    BinaryPointTable m_table;
-    pdal::PointRef m_pointRef;
-
 private:
     HierarchyReader::Keys overlaps() const;
     void overlaps(HierarchyReader::Keys& keys, const ChunkKey& c) const;
 
-    void maybeProcess(const Cell& cell);
+    void maybeProcess(const pdal::PointRef& pr);
 
     HierarchyReader::Keys m_overlaps;
-    uint64_t m_numPoints = 0;
+    uint64_t m_points = 0;
     std::deque<SharedChunkReader> m_chunks;
 };
 
@@ -72,14 +69,12 @@ public:
         : Query(reader, json)
         , m_schema(json.isMember("schema") ?
                 Schema(json["schema"]) : m_metadata.outSchema())
-        , m_delta(Delta::existsIn(json) ?
-                Delta(json) : Delta(m_metadata.delta()))
     { }
 
     const std::vector<char>& data() const { return m_data; }
 
 protected:
-    virtual void process(const Cell& cell) override;
+    virtual void process(const pdal::PointRef& pr) override;
 
 private:
     void setAs(char* dst, double d, pdal::Dimension::Type t)
@@ -119,7 +114,6 @@ private:
     }
 
     const Schema m_schema;
-    const Delta m_delta;
 
     std::vector<char> m_data;
 };

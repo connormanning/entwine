@@ -29,11 +29,11 @@ namespace entwine
 namespace arbiter { class Endpoint; }
 
 class DataIo;
-class Delta;
 class Files;
 class Point;
 class Reprojection;
 class Schema;
+class Srs;
 class Version;
 
 class Metadata
@@ -50,7 +50,7 @@ public:
     ~Metadata();
 
     void merge(const Metadata& other);
-    void save(const arbiter::Endpoint& endpoint) const;
+    void save(const arbiter::Endpoint& endpoint, const Config& config) const;
 
     const Bounds& boundsConforming() const { return *m_boundsConforming; }
     const Bounds& boundsCubic() const { return *m_boundsCubic; }
@@ -68,23 +68,18 @@ public:
 
     const Reprojection* reprojection() const { return m_reprojection.get(); }
     const Subset* subset() const { return m_subset.get(); }
-    const Delta* delta() const { return m_delta.get(); }
-    const Transformation* transformation() const
-    {
-        return m_transformation.get();
-    }
 
-    const Version& version() const { return *m_version; }
-    const std::string& srs() const { return m_srs; }
+    const Version& eptVersion() const { return *m_eptVersion; }
+    const Srs& srs() const { return *m_srs; }
 
     bool trustHeaders() const { return m_trustHeaders; }
+    bool primary() const { return !m_subset || m_subset->primary(); }
 
     uint64_t ticks() const { return m_ticks; }
     uint64_t startDepth() const { return m_startDepth; }
     uint64_t sharedDepth() const { return m_sharedDepth; }
     uint64_t overflowDepth() const { return m_overflowDepth; }
     uint64_t overflowThreshold() const { return m_overflowThreshold; }
-    uint64_t hierarchyStep() const { return m_hierarchyStep; }
 
     void makeWhole();
 
@@ -96,28 +91,24 @@ public:
 
 private:
     Metadata& operator=(const Metadata& other);
-    void setHierarchyStep(uint64_t v) { m_hierarchyStep = v; }
 
-    Bounds makeConformingBounds(const Bounds& b) const;
-    Bounds makeCube(const Bounds& b, const Delta* d) const;
+    Bounds makeConformingBounds(Bounds b) const;
+    Bounds makeCube(const Bounds& b) const;
 
     // These are aggregated as the Builder runs.
     Files& mutableFiles() { return *m_files; }
-    std::string& srs() { return m_srs; }
 
-    std::unique_ptr<Delta> m_delta;
+    std::unique_ptr<Schema> m_outSchema;
+    std::unique_ptr<Schema> m_schema;
 
     std::unique_ptr<Bounds> m_boundsConforming;
     std::unique_ptr<Bounds> m_boundsCubic;
 
-    std::unique_ptr<Schema> m_schema;
-    std::unique_ptr<Schema> m_outSchema;
     std::unique_ptr<Files> m_files;
     std::unique_ptr<DataIo> m_dataIo;
     std::unique_ptr<Reprojection> m_reprojection;
-    std::unique_ptr<Transformation> m_transformation;
-    std::unique_ptr<Version> m_version;
-    std::string m_srs;
+    std::unique_ptr<Version> m_eptVersion;
+    std::unique_ptr<Srs> m_srs;
     std::unique_ptr<Subset> m_subset;
 
     const bool m_trustHeaders = true;
@@ -129,7 +120,7 @@ private:
     const uint64_t m_overflowDepth;
     const uint64_t m_overflowThreshold;
 
-    uint64_t m_hierarchyStep;
+    bool m_merged = false;
 };
 
 } // namespace entwine

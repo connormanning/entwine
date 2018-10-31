@@ -47,7 +47,7 @@ protected:
     ArgParser m_ap;
 
     void addInput(std::string description, bool asDefault = false);
-    void addOutput(std::string description);
+    void addOutput(std::string description, bool asDefault = false);
     void addConfig();
     void addTmp();
     void addSimpleThreads();

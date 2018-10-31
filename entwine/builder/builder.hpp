@@ -23,8 +23,6 @@
 #include <entwine/builder/config.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/file-info.hpp>
-#include <entwine/types/outer-scope.hpp>
-#include <entwine/types/point-pool.hpp>
 #include <entwine/util/time.hpp>
 
 namespace Json
@@ -62,7 +60,9 @@ class Builder
     friend class Sequence;
 
 public:
-    Builder(const Config& config, OuterScope os = OuterScope());
+    Builder(
+            const Config& config,
+            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
     ~Builder();
 
     // Perform indexing.  A _maxFileInsertions_ of zero inserts all files.
@@ -79,9 +79,6 @@ public:
     const arbiter::Arbiter& arbiter() const;
     const Sequence& sequence() const;
     Sequence& sequence();
-
-    PointPool& pointPool() const;
-    std::shared_ptr<PointPool> sharedPointPool() const;
 
     bool isContinuation() const { return m_isContinuation; }
     std::size_t sleepCount() const { return m_sleepCount; }
@@ -119,7 +116,7 @@ private:
     void insertPath(Origin origin, FileInfo& info);
 
     // Returns a stack of rejected info nodes so that they may be reused.
-    Cells insertData(Cells cells, Clipper& clipper);
+    // Cells insertData(Cells cells, Clipper& clipper);
 
     // Validate sources.
     void prepareEndpoints();
@@ -131,6 +128,7 @@ private:
     //
 
     const Config m_config;
+    const uint64_t m_interval;
 
     std::shared_ptr<arbiter::Arbiter> m_arbiter;
     std::unique_ptr<arbiter::Endpoint> m_out;
@@ -143,7 +141,6 @@ private:
     std::unique_ptr<Metadata> m_metadata;
 
     mutable std::mutex m_mutex;
-    mutable std::shared_ptr<PointPool> m_pointPool;
 
     std::unique_ptr<Registry> m_registry;
     std::unique_ptr<Sequence> m_sequence;

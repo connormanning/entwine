@@ -38,13 +38,10 @@ TEST(scan, single)
     ASSERT_FALSE(out.json().isNull());
 
     const Bounds bounds(out["bounds"]);
-    const auto delta(out.delta());
     const Schema schema(out.schema());
 
     EXPECT_EQ(bounds, v.bounds());
-    ASSERT_TRUE(delta);
-    EXPECT_EQ(delta->scale(), v.scale());
-    EXPECT_EQ(out.numPoints(), v.numPoints());
+    EXPECT_EQ(out.points(), v.points());
     ASSERT_EQ(schema, v.schema());
 
     const FileInfoList input(out.input());
@@ -57,10 +54,39 @@ TEST(scan, single)
     EXPECT_EQ(arbiter::util::getBasename(file.path()), "ellipsoid.laz");
     ASSERT_TRUE(file.bounds());
     EXPECT_EQ(*file.bounds(), v.bounds());
-    EXPECT_EQ(file.numPoints(), v.numPoints());
-    EXPECT_EQ(file.srs().getWKT(), expFile->srs);
+    EXPECT_EQ(file.points(), v.points());
 
-    EXPECT_EQ(out.srs(), expFile->srs);
+    EXPECT_EQ(out.srs().wkt(), expFile->srs);
+}
+
+TEST(scan, deepScan)
+{
+    Json::Value in;
+    in["input"] = test::dataPath() + "ellipsoid.laz";
+    in["trustHeaders"] = false;
+    const Config out(Scan(in).go());
+    ASSERT_FALSE(out.json().isNull());
+
+    const Bounds bounds(out["bounds"]);
+    const Schema schema(out.schema());
+
+    EXPECT_EQ(bounds, v.bounds());
+    EXPECT_EQ(out.points(), v.points());
+    ASSERT_EQ(schema, v.schema());
+
+    const FileInfoList input(out.input());
+    ASSERT_EQ(input.size(), 1u);
+
+    const FileInfo file(input.at(0));
+    const auto expFile(Executor::get().preview(file.path()));
+    ASSERT_TRUE(expFile);
+
+    EXPECT_EQ(arbiter::util::getBasename(file.path()), "ellipsoid.laz");
+    ASSERT_TRUE(file.bounds());
+    EXPECT_EQ(*file.bounds(), v.bounds());
+    EXPECT_EQ(file.points(), v.points());
+
+    EXPECT_EQ(out.srs().wkt(), expFile->srs);
 }
 
 TEST(scan, multi)
@@ -72,13 +98,10 @@ TEST(scan, multi)
     ASSERT_FALSE(out.json().isNull());
 
     const Bounds bounds(out["bounds"]);
-    const auto delta(out.delta());
     const Schema schema(out.schema());
 
     EXPECT_EQ(bounds, v.bounds());
-    ASSERT_TRUE(delta);
-    EXPECT_EQ(delta->scale(), v.scale());
-    EXPECT_EQ(out.numPoints(), v.numPoints());
+    EXPECT_EQ(out.points(), v.points());
     ASSERT_EQ(schema, v.schema());
 
     const FileInfoList input(out.input());
@@ -92,11 +115,13 @@ TEST(scan, multi)
         { "sed.laz", false },
         { "seu.laz", false },
         { "swd.laz", false },
-        { "swu.laz", false }
+        { "swu.laz", false },
+        { "zzz.txt", false }
     };
 
-    for (const auto file : input)
+    for (uint64_t i(0); i < 8u; ++i)
     {
+        const auto& file(input.at(i));
         const auto path(file.path());
         const auto basename(arbiter::util::getBasename(path));
         const auto expFile(Executor::get().preview(file.path()));
@@ -108,9 +133,8 @@ TEST(scan, multi)
 
         ASSERT_TRUE(file.bounds()) << path;
         ASSERT_EQ(*file.bounds(), expFile->bounds) << path;
-        ASSERT_EQ(file.numPoints(), expFile->numPoints) << path;
-        ASSERT_EQ(file.srs().getWKT(), expFile->srs) << path;
-        ASSERT_EQ(out.srs(), expFile->srs) << path;
+        ASSERT_EQ(file.points(), expFile->points) << path;
+        ASSERT_EQ(out.srs().wkt(), expFile->srs) << path;
     }
 }
 
@@ -124,17 +148,14 @@ TEST(scan, reprojection)
     ASSERT_FALSE(out.json().isNull());
 
     const Bounds bounds(out["bounds"]);
-    const auto delta(out.delta());
     const Schema schema(out.schema());
 
     for (std::size_t i(0); i < 6; ++i)
     {
-        ASSERT_NEAR(bounds[i], v.boundsUtm()[i], 1.0);
+        ASSERT_NEAR(bounds[i], v.boundsUtm()[i], 2.0);
     }
 
-    ASSERT_TRUE(delta);
-    EXPECT_EQ(delta->scale(), v.scale());
-    EXPECT_EQ(out.numPoints(), v.numPoints());
+    EXPECT_EQ(out.points(), v.points());
     ASSERT_EQ(schema, v.schema());
 
     const FileInfoList input(out.input());
@@ -147,10 +168,45 @@ TEST(scan, reprojection)
     EXPECT_EQ(arbiter::util::getBasename(file.path()), "ellipsoid.laz");
     ASSERT_TRUE(file.bounds());
     EXPECT_EQ(*file.bounds(), bounds);
-    EXPECT_EQ(file.numPoints(), v.numPoints());
-    EXPECT_NE(file.srs().getWKT(), expFile->srs);
+    EXPECT_EQ(file.points(), v.points());
 
-    EXPECT_EQ(out.srs(), in["reprojection"]["out"].asString());
+    EXPECT_EQ(out.srs().codeString(), in["reprojection"]["out"].asString());
+}
+
+TEST(scan, deepScanReprojection)
+{
+    Json::Value in;
+    in["input"] = test::dataPath() + "ellipsoid.laz";
+    in["trustHeaders"] = false;
+    in["reprojection"]["out"] = "EPSG:26918";
+
+    const Config out(Scan(in).go());
+    ASSERT_FALSE(out.json().isNull());
+
+    const Bounds bounds(out["bounds"]);
+    const Schema schema(out.schema());
+
+    for (std::size_t i(0); i < 6; ++i)
+    {
+        ASSERT_NEAR(bounds[i], v.boundsUtm()[i], 2.0);
+    }
+
+    EXPECT_EQ(out.points(), v.points());
+    ASSERT_EQ(schema, v.schema());
+
+    const FileInfoList input(out.input());
+    ASSERT_EQ(input.size(), 1u);
+
+    const FileInfo file(input.at(0));
+    const auto expFile(Executor::get().preview(file.path()));
+    ASSERT_TRUE(expFile);
+
+    EXPECT_EQ(arbiter::util::getBasename(file.path()), "ellipsoid.laz");
+    ASSERT_TRUE(file.bounds());
+    EXPECT_EQ(*file.bounds(), bounds);
+    EXPECT_EQ(file.points(), v.points());
+
+    EXPECT_EQ(out.srs().codeString(), in["reprojection"]["out"].asString());
 }
 
 TEST(scan, reprojectionHammer)
@@ -165,17 +221,14 @@ TEST(scan, reprojectionHammer)
     ASSERT_FALSE(out.json().isNull());
 
     const Bounds bounds(out["bounds"]);
-    const auto delta(out.delta());
     const Schema schema(out.schema());
 
     for (std::size_t i(0); i < 6; ++i)
     {
-        ASSERT_NEAR(bounds[i], v.boundsUtm()[i], 1.0);
+        ASSERT_NEAR(bounds[i], v.boundsUtm()[i], 2.0);
     }
 
-    ASSERT_TRUE(delta);
-    EXPECT_EQ(delta->scale(), v.scale());
-    EXPECT_EQ(out.numPoints(), v.numPoints());
+    EXPECT_EQ(out.points(), v.points());
     ASSERT_EQ(schema, v.schema());
 
     const FileInfoList input(out.input());
@@ -189,44 +242,45 @@ TEST(scan, reprojectionHammer)
                 file.path()), "ellipsoid-wrong-srs.laz");
     ASSERT_TRUE(file.bounds());
     EXPECT_EQ(*file.bounds(), bounds);
-    EXPECT_EQ(file.numPoints(), v.numPoints());
-    EXPECT_NE(file.srs().getWKT(), expFile->srs);
+    EXPECT_EQ(file.points(), v.points());
 
-    EXPECT_EQ(out.srs(), in["reprojection"]["out"].asString());
+    EXPECT_EQ(out.srs().codeString(), in["reprojection"]["out"].asString());
 }
 
 TEST(scan, outputFile)
 {
     Json::Value in;
     in["input"] = test::dataPath() + "ellipsoid.laz";
-    in["output"] = test::dataPath() + "out/scan.json";
+    in["output"] = test::dataPath() + "out/scan/";
     Scan(in).go();
-    const Config out(parse(arbiter::Arbiter().get(in["output"].asString())));
+    const std::string path(test::dataPath() + "out/scan/scan.json");
+    const Config out(parse(arbiter::Arbiter().get(path)));
     ASSERT_FALSE(out.json().isNull());
 
     const Bounds bounds(out["bounds"]);
-    const auto delta(out.delta());
     const Schema schema(out.schema());
 
     EXPECT_EQ(bounds, v.bounds());
-    ASSERT_TRUE(delta);
-    EXPECT_EQ(delta->scale(), v.scale());
-    EXPECT_EQ(out.numPoints(), v.numPoints());
+    EXPECT_EQ(out.points(), v.points());
     ASSERT_EQ(schema, v.schema());
 
-    const FileInfoList input(out.input());
-    ASSERT_EQ(input.size(), 1u);
+    // File information is stored in ept-sources, not the top-level scan JSON.
+    EXPECT_TRUE(out.json()["input"].isNull());
 
-    const FileInfo file(input.at(0));
+    arbiter::Arbiter a;
+    auto ep(a.getEndpoint(test::dataPath() + "out/scan/"));
+    const FileInfoList files(Files::extract(ep, true));
+    ASSERT_EQ(files.size(), 1u);
+
+    const FileInfo file(files.at(0));
     const auto expFile(Executor::get().preview(file.path()));
     ASSERT_TRUE(expFile);
 
     EXPECT_EQ(arbiter::util::getBasename(file.path()), "ellipsoid.laz");
     ASSERT_TRUE(file.bounds());
     EXPECT_EQ(*file.bounds(), v.bounds());
-    EXPECT_EQ(file.numPoints(), v.numPoints());
-    EXPECT_EQ(file.srs().getWKT(), expFile->srs);
+    EXPECT_EQ(file.points(), v.points());
 
-    EXPECT_EQ(out.srs(), expFile->srs);
+    EXPECT_EQ(out.srs().wkt(), expFile->srs);
 }
 

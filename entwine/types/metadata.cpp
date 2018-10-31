@@ -11,11 +11,11 @@
 #include <cassert>
 
 #include <entwine/io/io.hpp>
-#include <entwine/types/delta.hpp>
 #include <entwine/types/files.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
+#include <entwine/types/srs.hpp>
 #include <entwine/types/subset.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/unique.hpp>
@@ -24,7 +24,8 @@ namespace entwine
 {
 
 Metadata::Metadata(const Config& config, const bool exists)
-    : m_delta(config.delta())
+    : m_outSchema(makeUnique<Schema>(config.schema()))
+    , m_schema(makeUnique<Schema>(Schema::makeAbsolute(*m_outSchema)))
     , m_boundsConforming(makeUnique<Bounds>(
                 exists ?
                     Bounds(config["boundsConforming"]) :
@@ -32,15 +33,14 @@ Metadata::Metadata(const Config& config, const bool exists)
     , m_boundsCubic(makeUnique<Bounds>(
                 exists ?
                     Bounds(config["bounds"]) :
-                    makeCube(*m_boundsConforming, m_delta.get())))
-    , m_schema(makeUnique<Schema>(Schema::normalize(config.schema())))
-    , m_outSchema(makeUnique<Schema>(config.schema()))
+                    makeCube(*m_boundsConforming)))
     , m_files(makeUnique<Files>(config.input()))
     , m_dataIo(DataIo::create(*this, config.dataType()))
     , m_reprojection(Reprojection::create(config["reprojection"]))
-    , m_version(makeUnique<Version>(currentVersion()))
-    , m_srs(config.srs().empty() && m_reprojection ?
-            m_reprojection->out() : config.srs())
+    , m_eptVersion(exists ?
+            makeUnique<Version>(config["version"].asString()) :
+            makeUnique<Version>(currentEptVersion()))
+    , m_srs(makeUnique<Srs>(config.srs()))
     , m_subset(Subset::create(*this, config["subset"]))
     , m_trustHeaders(config.trustHeaders())
     , m_ticks(config.ticks())
@@ -48,15 +48,17 @@ Metadata::Metadata(const Config& config, const bool exists)
     , m_sharedDepth(m_subset ? m_subset->splits() : 0)
     , m_overflowDepth(std::max(config.overflowDepth(), m_sharedDepth))
     , m_overflowThreshold(config.overflowThreshold())
-    , m_hierarchyStep(config.hierarchyStep())
 {
     if (1ULL << m_startDepth != m_ticks)
     {
-        throw std::runtime_error("Invalid 'ticks' setting");
+        throw std::runtime_error("Invalid ticks");
     }
 
-    if (m_delta)
+    if (m_outSchema->isScaled())
     {
+        const Scale scale(m_outSchema->scale());
+        const Offset offset(m_outSchema->offset());
+
         const uint64_t size = std::min(
                 m_outSchema->find("X").size(),
                 std::min(
@@ -77,7 +79,7 @@ Metadata::Metadata(const Config& config, const bool exists)
         }
 
         const Bounds extents(mn, mx);
-        const Bounds request(m_boundsCubic->deltify(*m_delta));
+        const Bounds request(m_boundsCubic->applyScaleOffset(scale, offset));
 
         if (!extents.contains(request))
         {
@@ -88,11 +90,6 @@ Metadata::Metadata(const Config& config, const bool exists)
                     "Bounds are too large for the selected scale");
         }
     }
-
-    if (m_dataIo->type() == "laszip" && !m_delta)
-    {
-        throw std::runtime_error("Laszip output needs scaling.");
-    }
 }
 
 Metadata::Metadata(const arbiter::Endpoint& ep, const Config& config)
@@ -100,13 +97,11 @@ Metadata::Metadata(const arbiter::Endpoint& ep, const Config& config)
             entwine::merge(
                 config.json(),
                 entwine::merge(
-                    parse(ep.get("entwine" +
-                            config.postfix() + ".json")),
-                    parse(ep.get("entwine-build" +
-                            config.postfix() + ".json")))),
+                    parse(ep.get("ept" + config.postfix() + ".json")),
+                    parse(ep.get("ept-build" + config.postfix() + ".json")))),
             true)
 {
-    Files files(parse(ep.get("entwine-files" + postfix() + ".json")));
+    Files files(Files::extract(ep, primary(), config.postfix()));
     files.append(m_files->list());
     m_files = makeUnique<Files>(files.list());
 }
@@ -117,27 +112,15 @@ Json::Value Metadata::toJson() const
 {
     Json::Value json;
 
+    json["version"] = eptVersion().toString();
     json["bounds"] = boundsCubic().toJson();
     json["boundsConforming"] = boundsConforming().toJson();
     json["schema"] = m_outSchema->toJson();
     json["ticks"] = (Json::UInt64)m_ticks;
-    json["numPoints"] = (Json::UInt64)m_files->totalPoints();
-
-    if (m_srs.size()) json["srs"] = m_srs;
-    if (m_reprojection) json["reprojection"] = m_reprojection->toJson();
-    if (m_delta) json = entwine::merge(json, m_delta->toJson());
-
-    if (m_transformation)
-    {
-        for (const double v : *m_transformation)
-        {
-            json["transformation"].append(v);
-        }
-    }
-
+    json["points"] = (Json::UInt64)m_files->totalInserts();
     json["dataType"] = m_dataIo->type();
     json["hierarchyType"] = "json"; // TODO.
-    if (m_hierarchyStep) json["hierarchyStep"] = (Json::UInt64)m_hierarchyStep;
+    json["srs"] = m_srs->toJson();
 
     return json;
 }
@@ -146,40 +129,44 @@ Json::Value Metadata::toBuildParamsJson() const
 {
     Json::Value json;
 
-    json["version"] = m_version->toString();
+    json["version"] = currentEntwineVersion().toString();
     json["trustHeaders"] = m_trustHeaders;
     json["overflowDepth"] = (Json::UInt64)m_overflowDepth;
     json["overflowThreshold"] = (Json::UInt64)m_overflowThreshold;
+    json["software"] = "Entwine";
     if (m_subset) json["subset"] = m_subset->toJson();
+    if (m_reprojection) json["reprojection"] = m_reprojection->toJson();
 
     return json;
 }
 
-void Metadata::save(const arbiter::Endpoint& endpoint) const
+void Metadata::save(const arbiter::Endpoint& endpoint, const Config& config)
+    const
 {
     {
         const auto json(toJson());
-        const std::string f("entwine" + postfix() + ".json");
-        ensurePut(endpoint, f, json.toStyledString());
+        const std::string f("ept" + postfix() + ".json");
+        ensurePut(endpoint, f, toPreciseString(json));
     }
 
     {
         const auto json(toBuildParamsJson());
-        const std::string f("entwine-build" + postfix() + ".json");
-        ensurePut(endpoint, f, json.toStyledString());
+        const std::string f("ept-build" + postfix() + ".json");
+        ensurePut(endpoint, f, toPreciseString(json));
     }
 
-    m_files->save(endpoint, postfix());
+    const bool detailed(!m_merged && primary());
+    m_files->save(endpoint, postfix(), config, detailed);
 }
 
 void Metadata::merge(const Metadata& other)
 {
-    if (m_srs.empty()) m_srs = other.srs();
     m_files->merge(other.files());
 }
 
 void Metadata::makeWhole()
 {
+    m_merged = true;
     m_subset.reset();
 }
 
@@ -202,42 +189,39 @@ std::string Metadata::postfix(const uint64_t depth) const
     return "";
 }
 
-Bounds Metadata::makeConformingBounds(const Bounds& b) const
+Bounds Metadata::makeConformingBounds(Bounds b) const
 {
     Point pmin(b.min());
     Point pmax(b.max());
 
+    if (auto so = m_outSchema->scaleOffset())
+    {
+        pmin = so->clip(pmin);
+        pmax = so->clip(pmax);
+    }
+
     pmin = pmin.apply([](double d)
     {
-        if (static_cast<double>(static_cast<int64_t>(d)) == d) return d - 1.0;
+        if (std::floor(d) == d) return d - 1.0;
         else return std::floor(d);
     });
 
     pmax = pmax.apply([](double d)
     {
-        if (static_cast<double>(static_cast<int64_t>(d)) == d) return d + 1.0;
+        if (std::ceil(d) == d) return d + 1.0;
         else return std::ceil(d);
     });
 
     return Bounds(pmin, pmax);
 }
 
-Bounds Metadata::makeCube(const Bounds& b, const Delta* d) const
+Bounds Metadata::makeCube(const Bounds& b) const
 {
-    const Offset offset(
-            d ?
-                d->offset() :
-                b.mid().apply([](double d) { return std::round(d); }));
+    double diam(std::max(std::max(b.width(), b.depth()), b.height()));
+    double r(std::ceil(diam / 2.0) + 1.0);
 
-    const double maxDist(std::max(std::max(b.width(), b.depth()), b.height()));
-    double r(maxDist / 2.0);
-
-    if (static_cast<double>(static_cast<uint64_t>(r)) == r) r += 1.0;
-    else r = std::ceil(r);
-
-    while (!Bounds(offset - r, offset + r).contains(b)) r += 1.0;
-
-    return Bounds(offset - r, offset + r);
+    const Point mid(b.mid().apply([](double d) { return std::round(d); }));
+    return Bounds(mid - r, mid + r);
 }
 
 } // namespace entwine

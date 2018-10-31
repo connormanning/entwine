@@ -12,28 +12,20 @@
 
 #include <cassert>
 #include <cstddef>
-#include <stack>
-#include <unordered_map>
 #include <utility>
 
 #include <entwine/builder/clipper.hpp>
 #include <entwine/builder/hierarchy.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/metadata.hpp>
-#include <entwine/types/point-pool.hpp>
-#include <entwine/types/tube.hpp>
+#include <entwine/types/vector-point-table.hpp>
+#include <entwine/types/voxel.hpp>
 #include <entwine/util/spin-lock.hpp>
 #include <entwine/util/unique.hpp>
 
+
 namespace entwine
 {
-
-struct CountedCells
-{
-    CountedCells(Cell::Pool& pool) : stack(pool) { }
-    Cells stack;
-    uint64_t np = 0;
-};
 
 class Chunk;
 
@@ -44,7 +36,6 @@ public:
             const ChunkKey& key,
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
-            PointPool& pointPool,
             Hierarchy& hierarchy);
 
     ReffedChunk(const ReffedChunk& o);
@@ -54,10 +45,10 @@ public:
     {
         std::size_t written = 0;
         std::size_t read = 0;
-        void clear() { written = 0; read = 0; }
+        std::size_t alive = 0;
     };
 
-    bool insert(Cell::PooledNode& cell, const Key& key, Clipper& clipper);
+    bool insert(Voxel& voxel, Key& key, Clipper& clipper);
 
     void ref(Clipper& clipper);
     void unref(Origin o);
@@ -69,7 +60,6 @@ public:
     const Metadata& metadata() const { return m_metadata; }
     const arbiter::Endpoint& out() const { return m_out; }
     const arbiter::Endpoint& tmp() const { return m_tmp; }
-    PointPool& pointPool() const { return m_pointPool; }
     Hierarchy& hierarchy() const { return m_hierarchy; }
 
     static Info latchInfo();
@@ -79,7 +69,6 @@ private:
     const Metadata& m_metadata;
     const arbiter::Endpoint& m_out;
     const arbiter::Endpoint& m_tmp;
-    PointPool& m_pointPool;
     Hierarchy& m_hierarchy;
 
     SpinLock m_spin;
@@ -87,13 +76,21 @@ private:
     std::map<Origin, std::size_t> m_refs;
 };
 
+struct VoxelTube
+{
+    SpinLock spin;
+    std::map<uint64_t, Voxel> map;
+};
+
 class Chunk
 {
 public:
     Chunk(const ReffedChunk& ref)
         : m_ref(ref)
-        , m_overflow(m_ref.pointPool().cellPool())
         , m_ticks(m_ref.metadata().ticks())
+        , m_pointSize(m_ref.metadata().schema().pointSize())
+        , m_gridBlock(m_pointSize, 4096)
+        , m_overflowBlock(m_pointSize, 1024)
     {
         init();
 
@@ -105,7 +102,6 @@ public:
                     key,
                     m_ref.out(),
                     m_ref.tmp(),
-                    m_ref.pointPool(),
                     m_ref.hierarchy());
 
             m_hasChildren = m_hasChildren || m_ref.hierarchy().get(key.get());
@@ -114,19 +110,11 @@ public:
 
     void init()
     {
-        assert(!m_tubes);
-        assert(!m_keys);
-        assert(m_overflow.empty());
-        assert(!m_overflowCount);
-        m_tubes = makeUnique<std::vector<Tube>>(m_ticks * m_ticks);
-        m_keys = makeUnique<std::vector<Key>>();
+        assert(!m_grid);
+        m_grid = makeUnique<std::vector<VoxelTube>>(m_ticks * m_ticks);
+        assert(!m_overflow);
+        m_overflow = makeUnique<std::vector<Overflow>>();
         m_remote = false;
-    }
-
-    ReffedChunk& step(const Point& p)
-    {
-        const Dir dir(getDirection(m_ref.key().bounds().mid(), p));
-        return m_children[toIntegral(dir)];
     }
 
     bool terminus()
@@ -137,80 +125,92 @@ public:
         return result;
     }
 
-    CountedCells acquire()
+    void reset()
     {
-        CountedCells cells(m_ref.pointPool().cellPool());
-
-        for (auto& tube : *m_tubes)
-        {
-            for (auto& inner : tube)
-            {
-                cells.np += inner.second->size();
-                cells.stack.pushBack(std::move(inner.second));
-            }
-        }
-
-        m_tubes.reset();
-        m_keys.reset();
-
-        if (m_overflowCount)
-        {
-            assert(!m_overflow.empty());
-            assert(!m_hasChildren);
-            cells.np += m_overflowCount;
-            cells.stack.pushBack(std::move(m_overflow));
-            m_overflowCount = 0;
-        }
-
+        m_grid.reset();
+        m_overflow.reset();
         m_remote = true;
 
-        return cells;
+        m_gridBlock.clear();
+        m_overflowBlock.clear();
     }
 
     bool remote() const { return m_remote; }
 
-    bool insert(const Key& key, Cell::PooledNode& cell, Clipper& clipper)
+    ReffedChunk& step(const Point& p)
     {
-        if (insertNative(key, cell))
-        {
-            return true;
-        }
-
-        if (m_ref.key().depth() >= m_ref.metadata().overflowDepth())
-        {
-            return insertOverflow(key, cell, clipper);
-        }
-
-        return false;
+        const Dir dir(getDirection(m_ref.key().bounds().mid(), p));
+        return m_children[toIntegral(dir)];
     }
 
-private:
-    bool insertNative(const Key& key, Cell::PooledNode& cell)
+    bool insert(Voxel& voxel, Key& key, Clipper& clipper)
     {
         const Xyz& pos(key.position());
         const std::size_t i((pos.y % m_ticks) * m_ticks + (pos.x % m_ticks));
+        VoxelTube& tube((*m_grid)[i]);
 
-        assert(i < m_tubes->size());
-        return (*m_tubes)[i].insert(key, cell);
+        UniqueSpin tubeLock(tube.spin);
+        Voxel& dst(tube.map[pos.z]);
+
+        if (dst.data())
+        {
+            const Point& mid(key.bounds().mid());
+            if (voxel.point().sqDist3d(mid) < dst.point().sqDist3d(mid))
+            {
+                if (!insertOverflow(dst, key, clipper))
+                {
+                    key.step(dst.point());
+                    step(dst.point()).insert(dst, key, clipper);
+                }
+
+                dst.initDeep(voxel.point(), voxel.data(), m_pointSize);
+                return true;
+            }
+        }
+        else
+        {
+            {
+                SpinGuard lock(m_spin);
+                dst.setData(m_gridBlock.next());
+            }
+            dst.initDeep(voxel.point(), voxel.data(), m_pointSize);
+            return true;
+        }
+
+        if (insertOverflow(voxel, key, clipper))
+        {
+            return true;
+        }
+        else
+        {
+            key.step(voxel.point());
+            step(voxel.point()).insert(voxel, key, clipper);
+            return false;
+        }
     }
 
-    bool insertOverflow(
-            const Key& key,
-            Cell::PooledNode& cell,
-            Clipper& clipper)
+    MemBlock& gridBlock() { return m_gridBlock; }
+    MemBlock& overflowBlock() { return m_overflowBlock; }
+
+private:
+    bool insertOverflow(Voxel& voxel, Key& key, Clipper& clipper)
     {
+        if (m_ref.key().depth() < m_ref.metadata().overflowDepth())
+        {
+            return false;
+        }
+
         SpinGuard lock(m_overflowSpin);
         if (m_hasChildren) return false;
 
-        assert(m_keys);
-        m_overflowCount += cell->size();
-        m_overflow.push(std::move(cell));
-        m_keys->push_back(key);
+        assert(m_overflow);
 
-        assert(m_overflowCount >= m_overflow.size());
-        assert(m_overflow.size() == m_keys->size());
+        Overflow overflow(key);
+        overflow.voxel.setData(m_overflowBlock.next());
+        overflow.voxel.initDeep(voxel.point(), voxel.data(), m_pointSize);
+        m_overflow->push_back(overflow);
 
-        if (m_overflowCount > m_ref.metadata().overflowThreshold())
+        if (m_overflowBlock.size() > m_ref.metadata().overflowThreshold())
         {
             doOverflow(clipper);
         }
@@ -218,19 +218,43 @@ private:
         return true;
     }
 
-    void doOverflow(Clipper& clipper);
+    void doOverflow(Clipper& clipper)
+    {
+        m_hasChildren = true;
+
+        for (std::size_t i(0); i < m_overflow->size(); ++i)
+        {
+            Overflow& o((*m_overflow)[i]);
+            o.step();
+            step(o.voxel.point()).insert(o.voxel, o.key, clipper);
+        }
+
+        m_overflow.reset();
+        m_overflowBlock.clear();
+    }
 
     const ReffedChunk& m_ref;
+    const uint64_t m_ticks;
+    const uint64_t m_pointSize;
     bool m_remote = false;
+
+    SpinLock m_spin;
+    std::unique_ptr<std::vector<VoxelTube>> m_grid;
+    MemBlock m_gridBlock;
 
     SpinLock m_overflowSpin;
     bool m_hasChildren = false;
-    uint64_t m_overflowCount = 0;
-    Cell::PooledStack m_overflow;
-    std::unique_ptr<std::vector<Key>> m_keys;
+    MemBlock m_overflowBlock;
 
-    const uint64_t m_ticks;
-    std::unique_ptr<std::vector<Tube>> m_tubes;
+    struct Overflow
+    {
+        Overflow(Key& key) : key(key) { }
+        void step() { key.step(voxel.point()); }
+
+        Key key;
+        Voxel voxel;
+    };
+    std::unique_ptr<std::vector<Overflow>> m_overflow;
 
     std::vector<ReffedChunk> m_children;
 };

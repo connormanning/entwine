@@ -22,18 +22,17 @@ class BinaryPointTable : public pdal::StreamPointTable
 {
 public:
     BinaryPointTable(const Schema& schema)
-        : pdal::StreamPointTable(schema.pdalLayout())
+        : pdal::StreamPointTable(schema.pdalLayout(), 1)
         , m_pos(nullptr)
         , m_ref(*this, 0)
     { }
 
     BinaryPointTable(const Schema& schema, const char* pos)
-        : pdal::StreamPointTable(schema.pdalLayout())
+        : pdal::StreamPointTable(schema.pdalLayout(), 1)
         , m_pos(pos)
         , m_ref(*this, 0)
     { }
 
-    virtual pdal::point_count_t capacity() const override { return 1; }
     virtual char* getPoint(pdal::PointId i) override
     {
         // :(

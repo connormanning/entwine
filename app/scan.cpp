@@ -16,6 +16,7 @@
 #include <entwine/builder/config.hpp>
 #include <entwine/builder/scan.hpp>
 #include <entwine/types/reprojection.hpp>
+#include <entwine/types/srs.hpp>
 #include <entwine/util/matrix.hpp>
 
 namespace entwine
@@ -58,7 +59,11 @@ void Scan::run()
 
     std::cout << "Scanning:" << std::endl;
 
-    if (in["input"].size() == 1)
+    if (in["input"].isString())
+    {
+        std::cout << "\tInput: " << in["input"].asString() << std::endl;
+    }
+    else if (in["input"].size() == 1)
     {
         std::cout << "\tInput: " << in["input"][0].asString() << std::endl;
     }
@@ -74,27 +79,33 @@ void Scan::run()
         std::endl;
 
     const Config out(scan.go());
+    const Schema schema(out.schema());
     std::cout << std::endl;
 
     std::cout << "Results:" << std::endl;
-    std::cout << "\tSchema: " << getDimensionString(Schema(out["schema"])) <<
-        std::endl;
-    std::cout << "\tPoints: " << commify(out.numPoints()) << std::endl;
+    std::cout << "\tFiles: " << out.input().size() << std::endl;
+    std::cout << "\tSchema: " << getDimensionString(schema) << std::endl;
+    std::cout << "\tPoints: " << commify(out.points()) << std::endl;
     std::cout << "\tBounds: " << Bounds(out["bounds"]) << std::endl;
 
     std::cout << "\tScale: ";
-    if (out.json().isMember("scale"))
+    if (schema.isScaled())
     {
-        Scale s(out["scale"]);
+        Scale s(schema.scale());
         if (s.x == s.y && s.x == s.z) std::cout << s.x;
         else std::cout << s;
     }
     else std::cout << "(absolute)";
     std::cout << std::endl;
 
-    const double density(densityLowerBound(out.input()));
+    const double density(densityLowerBound(scan.files().list()));
     std::cout << "\tDensity estimate (per square unit): " << density <<
         std::endl;
+
+    std::cout << "\tSpatial reference: ";
+    const Srs srs(out.srs());
+    if (srs.hasCode()) std::cout << srs.codeString() << std::endl;
+    else std::cout << srs.wkt() << std::endl;
 
     std::cout << std::endl;
 }

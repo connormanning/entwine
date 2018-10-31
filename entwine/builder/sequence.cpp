@@ -81,7 +81,7 @@ bool Sequence::checkInfo(Origin origin)
     }
     else if (const Bounds* infoBounds = info.boundsEpsilon())
     {
-        if (!checkBounds(origin, *infoBounds, info.numPoints()))
+        if (!checkBounds(origin, *infoBounds, info.points()))
         {
             m_files.set(origin, FileInfo::Status::Inserted);
             return false;
@@ -94,13 +94,13 @@ bool Sequence::checkInfo(Origin origin)
 bool Sequence::checkBounds(
         const Origin origin,
         const Bounds& bounds,
-        const std::size_t numPoints)
+        const std::size_t points)
 {
     if (!m_metadata.boundsCubic().overlaps(bounds, true))
     {
         const Subset* subset(m_metadata.subset());
         const bool primary(!subset || subset->primary());
-        m_files.addOutOfBounds(origin, numPoints, primary);
+        m_files.addOutOfBounds(origin, points, primary);
         return false;
     }
     else if (const Subset* subset = m_metadata.subset())

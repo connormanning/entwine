@@ -84,10 +84,7 @@ else()
     endif()
 endif()
 
-find_package(LibLZMA)
 find_package(Curl)
-find_package(OpenSSL)
-
 if (CURL_FOUND)
     message("Found curl")
     set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
@@ -100,6 +97,7 @@ else()
     message("Curl NOT found")
 endif()
 
+find_package(OpenSSL 1.1)
 if (OPENSSL_FOUND)
     message("Found OpenSSL ${OPENSSL_VERSION}")
     include_directories(${OPENSSL_INCLUDE_DIR})
@@ -108,7 +106,7 @@ if (OPENSSL_FOUND)
     add_definitions("-DARBITER_OPENSSL")
     add_definitions("-DENTWINE_OPENSSL")
 else()
-    # For me this is /usr/local/opt/openssl
+    # For me this is /usr/local/opt/openssl\@1.1
     message("OpenSSL NOT found - `export OPENSSL_ROOT_DIR=___`")
     message("Google storage IO will not be available")
 endif()

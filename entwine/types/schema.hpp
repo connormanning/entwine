@@ -23,6 +23,7 @@
 #include <entwine/types/delta.hpp>
 #include <entwine/types/dim-info.hpp>
 #include <entwine/types/fixed-point-layout.hpp>
+#include <entwine/types/scale-offset.hpp>
 #include <entwine/util/json.hpp>
 
 namespace entwine
@@ -41,7 +42,11 @@ public:
 
             auto d(std::find_if(dims.begin(), dims.end(), comp));
 
-            if (d != dims.end())
+            if (d == dims.end())
+            {
+                m_dims.emplace_back(name);
+            }
+            else
             {
                 m_dims.push_back(*d);
                 dims.erase(std::remove_if(dims.begin(), dims.end(), comp));
@@ -95,7 +100,7 @@ public:
         return it != m_dims.end();
     }
 
-    bool contains(pdal::Dimension::Id id) const
+    bool contains(DimId id) const
     {
         const auto it(
                 std::find_if(
@@ -104,6 +109,56 @@ public:
                     [&id](const DimInfo& d) { return d.id() == id; }));
 
         return it != m_dims.end();
+    }
+
+    bool isScaled() const
+    {
+        return
+            find(DimId::X).isScaled() ||
+            find(DimId::Y).isScaled() ||
+            find(DimId::Z).isScaled();
+    }
+
+    void setScale(const Scale& s)
+    {
+        find(DimId::X).setScale(s.x);
+        find(DimId::Y).setScale(s.y);
+        find(DimId::Z).setScale(s.z);
+    }
+
+    void setOffset(const Offset& o)
+    {
+        find(DimId::X).setOffset(o.x);
+        find(DimId::Y).setOffset(o.y);
+        find(DimId::Z).setOffset(o.z);
+    }
+
+    void setScaleOffset(const Scale& s, const Offset& o)
+    {
+        setScale(s);
+        setOffset(o);
+    }
+
+    Scale scale() const
+    {
+        return Scale(
+                find(DimId::X).scale(),
+                find(DimId::Y).scale(),
+                find(DimId::Z).scale());
+    }
+
+    Offset offset() const
+    {
+        return Offset(
+                find(DimId::X).offset(),
+                find(DimId::Y).offset(),
+                find(DimId::Z).offset());
+    }
+
+    std::unique_ptr<ScaleOffset> scaleOffset() const
+    {
+        if (isScaled()) return makeUnique<ScaleOffset>(scale(), offset());
+        else return std::unique_ptr<ScaleOffset>();
     }
 
     bool hasColor() const
@@ -135,7 +190,7 @@ public:
         return Schema(res);
     }
 
-    const DimInfo& find(pdal::Dimension::Id id) const
+    DimInfo& find(DimId id)
     {
         const auto it(
                 std::find_if(
@@ -149,7 +204,21 @@ public:
                 std::to_string(pdal::Utils::toNative(id)));
     }
 
-    pdal::Dimension::Id getId(const std::string& name) const
+    const DimInfo& find(DimId id) const
+    {
+        const auto it(
+                std::find_if(
+                    m_dims.begin(),
+                    m_dims.end(),
+                    [&id](const DimInfo& d) { return d.id() == id; }));
+
+        if (it != m_dims.end()) return *it;
+        else throw std::runtime_error(
+                "Dimension not found: " +
+                std::to_string(pdal::Utils::toNative(id)));
+    }
+
+    DimId getId(const std::string& name) const
     {
         return pdalLayout().findDim(name);
     }
@@ -203,9 +272,9 @@ public:
             pdal::Dimension::base(find("Z").type()) == f;
     }
 
-    static Schema normalize(const Schema& s)
+    static Schema makeAbsolute(const Schema& s)
     {
-        using DimId = pdal::Dimension::Id;
+        using DimId = DimId;
         using DimType = pdal::Dimension::Type;
 
         const Schema xyz({
@@ -217,9 +286,9 @@ public:
         return xyz.merge(s);
     };
 
-    std::vector<pdal::Dimension::Id> ids() const
+    std::vector<DimId> ids() const
     {
-        std::vector<pdal::Dimension::Id> v;
+        std::vector<DimId> v;
         for (const auto& d : m_dims) v.push_back(d.id());
         return v;
     }
@@ -256,12 +325,12 @@ private:
         for (auto& dim : dims)
         {
             dim.setId(layout->registerOrAssignDim(dim.name(), dim.type()));
-            if (dim.id() == pdal::Dimension::Id::Unknown)
+            if (dim.id() == DimId::Unknown)
             {
                 dim.setId(layout->findDim(dim.name()));
             }
 
-            if (dim.id() == pdal::Dimension::Id::Unknown)
+            if (dim.id() == DimId::Unknown)
             {
                 throw std::runtime_error(
                         "Could not register dimension " + dim.name());
@@ -297,7 +366,15 @@ inline std::ostream& operator<<(std::ostream& os, const Schema& schema)
         os << "\n\t";
         os <<
             "{ \"name\": \"" << d.name() << "\"" <<
-            ", \"type\": \"" << d.typeString() << " }";
+            ", \"type\": \"" << d.typeString() << "\"" <<
+            ", \"size\": " << d.size();
+        if (d.isScaled())
+        {
+            os <<
+                ", \"scale\": " << d.scale() <<
+                ", \"offset\": " << d.offset();
+        }
+        os << " }";
         if (i != schema.dims().size() - 1) os << ",";
     }
 

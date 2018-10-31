@@ -16,7 +16,6 @@
 #include <vector>
 
 #include <entwine/builder/config.hpp>
-#include <entwine/types/outer-scope.hpp>
 #include <entwine/util/pool.hpp>
 
 namespace Json { class Value; }
@@ -42,7 +41,7 @@ public:
 private:
     const Config m_config;
     std::unique_ptr<Builder> m_builder;
-    OuterScope m_outerScope;
+    std::shared_ptr<arbiter::Arbiter> m_arbiter;
 
     uint64_t m_id = 1;
     uint64_t m_of = 0;

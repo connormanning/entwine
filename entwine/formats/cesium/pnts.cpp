@@ -21,56 +21,50 @@ namespace cesium
 Pnts::Pnts(const Tileset& tileset, const ChunkKey& ck)
     : m_tileset(tileset)
     , m_key(ck)
-{
-    m_mid = m_key.bounds().mid();
-}
+    , m_mid(m_key.bounds().mid())
+{ }
 
 std::vector<char> Pnts::build()
 {
-    auto cells = m_tileset.metadata().dataIo().read(
+    VectorPointTable table(m_tileset.metadata().schema());
+    table.setProcess([this, &table]()
+    {
+        m_np += table.numPoints();
+        buildXyz(table);
+        buildRgb(table);
+        buildNormals(table);
+    });
+
+    m_tileset.metadata().dataIo().read(
             m_tileset.in(),
             m_tileset.tmp(),
-            m_tileset.pointPool(),
-            m_key.get().toString());
+            m_key.get().toString(),
+            table);
 
-    m_np = cells.size();
-
-    const auto xyz(buildXyz(cells));
-    const auto rgb(buildRgb(cells));
-    const auto normals(buildNormals(cells));
-    m_tileset.pointPool().release(std::move(cells));
-    return buildFile(xyz, rgb, normals);
+    return buildFile();
 }
 
-Pnts::Xyz Pnts::buildXyz(const Cell::PooledStack& cells) const
+void Pnts::buildXyz(VectorPointTable& table)
 {
-    Xyz xyz;
-    xyz.reserve(m_np * 3);
+    m_xyz.reserve(m_xyz.size() + table.numPoints() * 3);
 
-    for (const auto& cell : cells)
+    for (const auto& pr : table)
     {
-        const Point p(cell.point());
-        xyz.push_back(p.x - m_mid.x);
-        xyz.push_back(p.y - m_mid.y);
-        xyz.push_back(p.z - m_mid.z);
+        m_xyz.push_back(pr.getFieldAs<double>(DimId::X) - m_mid.x);
+        m_xyz.push_back(pr.getFieldAs<double>(DimId::Y) - m_mid.y);
+        m_xyz.push_back(pr.getFieldAs<double>(DimId::Z) - m_mid.z);
     }
-
-    return xyz;
 }
 
-Pnts::Rgb Pnts::buildRgb(const Cell::PooledStack& cells) const
+void Pnts::buildRgb(VectorPointTable& table)
 {
-    Rgb rgb;
-    if (!m_tileset.hasColor()) return rgb;
-    rgb.reserve(m_np * 3);
+    if (!m_tileset.hasColor()) return;
+    m_rgb.reserve(m_rgb.size() + table.numPoints() * 3);
 
-    using DimId = pdal::Dimension::Id;
-    BinaryPointTable table(m_tileset.metadata().schema());
-
-    auto getByte([this, &table](DimId id) -> uint8_t
+    auto getByte([this](const pdal::PointRef& pr, DimId id) -> uint8_t
     {
-        if (!m_tileset.truncate()) return table.ref().getFieldAs<uint8_t>(id);
-        else return table.ref().getFieldAs<uint16_t>(id) >> 8;
+        if (!m_tileset.truncate()) return pr.getFieldAs<uint8_t>(id);
+        else return pr.getFieldAs<uint16_t>(id) >> 8;
     });
 
     uint8_t r, g, b;
@@ -83,52 +77,39 @@ Pnts::Rgb Pnts::buildRgb(const Cell::PooledStack& cells) const
     }
 
     assert(m_tileset.colorType() != ColorType::None);
-    for (const auto& cell : cells)
+    for (const auto& pr : table)
     {
-        table.setPoint(cell.uniqueData());
         if (m_tileset.colorType() == ColorType::Rgb)
         {
-            r = getByte(DimId::Red);
-            g = getByte(DimId::Green);
-            b = getByte(DimId::Blue);
+            r = getByte(pr, DimId::Red);
+            g = getByte(pr, DimId::Green);
+            b = getByte(pr, DimId::Blue);
         }
         else if (m_tileset.colorType() == ColorType::Intensity)
         {
-            r = g = b = getByte(DimId::Intensity);
+            r = g = b = getByte(pr, DimId::Intensity);
         }
 
-        rgb.push_back(r);
-        rgb.push_back(g);
-        rgb.push_back(b);
+        m_rgb.push_back(r);
+        m_rgb.push_back(g);
+        m_rgb.push_back(b);
     }
-
-    return rgb;
 }
 
-Pnts::Normals Pnts::buildNormals(const Cell::PooledStack& cells) const
+void Pnts::buildNormals(VectorPointTable& table)
 {
-    Normals normals;
-    if (!m_tileset.hasNormals()) return normals;
-    normals.reserve(m_np * 3);
+    if (!m_tileset.hasNormals()) return;
+    m_normals.reserve(m_normals.size() + table.numPoints() * 3);
 
-    using DimId = pdal::Dimension::Id;
-    BinaryPointTable table(m_tileset.metadata().schema());
-
-    for (const auto& cell : cells)
+    for (const auto& pr : table)
     {
-        table.setPoint(cell.uniqueData());
-        normals.push_back(table.ref().getFieldAs<float>(DimId::NormalX));
-        normals.push_back(table.ref().getFieldAs<float>(DimId::NormalY));
-        normals.push_back(table.ref().getFieldAs<float>(DimId::NormalZ));
+        m_normals.push_back(pr.getFieldAs<float>(DimId::NormalX));
+        m_normals.push_back(pr.getFieldAs<float>(DimId::NormalY));
+        m_normals.push_back(pr.getFieldAs<float>(DimId::NormalZ));
     }
-
-    return normals;
 }
 
-std::vector<char> Pnts::buildFile(
-        const Xyz& xyz,
-        const Rgb& rgb,
-        const Normals& normals) const
+std::vector<char> Pnts::buildFile() const
 {
     Json::Value featureTable;
     featureTable["POINTS_LENGTH"] = static_cast<Json::UInt64>(m_np);
@@ -136,18 +117,18 @@ std::vector<char> Pnts::buildFile(
 
     Json::UInt64 byteOffset(0);
     featureTable["POSITION"]["byteOffset"] = byteOffset;
-    byteOffset += xyz.size() * sizeof(float);
+    byteOffset += m_xyz.size() * sizeof(float);
 
     if (m_tileset.hasColor())
     {
         featureTable["RGB"]["byteOffset"] = byteOffset;
-        byteOffset += rgb.size();
+        byteOffset += m_rgb.size();
     }
 
     if (m_tileset.hasNormals())
     {
         featureTable["NORMAL"]["byteOffset"] = byteOffset;
-        byteOffset += normals.size() * sizeof(float);
+        byteOffset += m_normals.size() * sizeof(float);
     }
 
     std::string featureString = toFastString(featureTable);
@@ -155,9 +136,9 @@ std::vector<char> Pnts::buildFile(
 
     const uint64_t headerSize(28);
     const uint64_t binaryBytes =
-        xyz.size() * sizeof(float) +
-        rgb.size() +
-        normals.size() * sizeof(float);
+        m_xyz.size() * sizeof(float) +
+        m_rgb.size() +
+        m_normals.size() * sizeof(float);
     const uint64_t totalBytes = headerSize + featureString.size() + binaryBytes;
 
     std::vector<char> header;
@@ -188,16 +169,16 @@ std::vector<char> Pnts::buildFile(
     pnts.insert(pnts.end(), featureString.begin(), featureString.end());
     pnts.insert(
             pnts.end(),
-            reinterpret_cast<const char*>(xyz.data()),
-            reinterpret_cast<const char*>(xyz.data() + xyz.size()));
+            reinterpret_cast<const char*>(m_xyz.data()),
+            reinterpret_cast<const char*>(m_xyz.data() + m_xyz.size()));
     pnts.insert(
             pnts.end(),
-            reinterpret_cast<const char*>(rgb.data()),
-            reinterpret_cast<const char*>(rgb.data() + rgb.size()));
+            reinterpret_cast<const char*>(m_rgb.data()),
+            reinterpret_cast<const char*>(m_rgb.data() + m_rgb.size()));
     pnts.insert(
             pnts.end(),
-            reinterpret_cast<const char*>(normals.data()),
-            reinterpret_cast<const char*>(normals.data() + normals.size()));
+            reinterpret_cast<const char*>(m_normals.data()),
+            reinterpret_cast<const char*>(m_normals.data() + m_normals.size()));
 
     return pnts;
 }

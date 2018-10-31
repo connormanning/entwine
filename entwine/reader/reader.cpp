@@ -25,7 +25,7 @@ Reader::Reader(
     , m_tmp(m_arbiter->getEndpoint(
                 tmp.size() ? tmp : arbiter::fs::getTempPath()))
     , m_metadata(m_ep)
-    , m_hierarchy(m_metadata, m_ep)
+    , m_hierarchy(m_ep)
     , m_cache(makeUnique<Cache>())
 { }
 

@@ -242,6 +242,19 @@ public:
         return Point(op(p.x), op(p.y), op(p.z));
     }
 
+    Point floor() const
+    {
+        return apply([](double d) { return std::floor(d); });
+    }
+    Point ceil() const
+    {
+        return apply([](double d) { return std::ceil(d); });
+    }
+    Point round() const
+    {
+        return apply([](double d) { return std::round(d); });
+    }
+
     double& operator[](std::size_t i)
     {
         switch (i)

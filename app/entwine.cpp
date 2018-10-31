@@ -13,6 +13,7 @@
 #include "convert.hpp"
 #include "merge.hpp"
 #include "scan.hpp"
+#include "update.hpp"
 
 #include <csignal>
 #include <cstdio>
@@ -32,7 +33,8 @@ namespace
     std::string getUsageString()
     {
         return
-            t(1) + "Version: " + entwine::currentVersion().toString() + "\n" +
+            t(1) + "Version: " + entwine::currentEntwineVersion().toString() +
+                "\n" +
             t(1) + "Usage: entwine <app> <options>\n" +
             t(1) + "Apps:\n" +
             t(2) + "build\n" +
@@ -42,7 +44,9 @@ namespace
             t(2) + "merge\n" +
             t(3) + "Merge colocated entwine subsets\n" +
             t(2) + "convert\n" +
-            t(3) + "Convert an entwine dataset to a different format\n";
+            t(3) + "Convert an entwine dataset to a different format\n" +
+            t(2) + "update\n" +
+            t(3) + "Update a development EPT dataset to current EPT\n";
     }
 
     std::mutex mutex;
@@ -53,7 +57,7 @@ namespace entwine
 namespace app
 {
 
-void App::addInput(std::string description, bool asDefault)
+void App::addInput(std::string description, const bool asDefault)
 {
     auto f([this](Json::Value v)
     {
@@ -71,13 +75,12 @@ void App::addInput(std::string description, bool asDefault)
     else m_ap.add("--input", "-i", description, f);
 }
 
-void App::addOutput(std::string description)
+void App::addOutput(std::string description, const bool asDefault)
 {
-    m_ap.add(
-            "--output",
-            "-o",
-            description,
-            [this](Json::Value v) { m_json["output"] = v.asString(); });
+    auto f([this](Json::Value v) { m_json["output"] = v.asString(); });
+
+    if (asDefault) m_ap.addDefault("--output", "-o", description, f);
+    else m_ap.add("--output", "-o", description, f);
 }
 
 void App::addConfig()
@@ -243,7 +246,7 @@ std::string App::getDimensionString(const Schema& schema) const
     for (std::size_t i(0); i < dims.size(); ++i)
     {
         const auto name(dims[i].name());
-        const auto type(dims[i].typeString());
+        const auto type(dims[i].typeName());
         const bool last(i == dims.size() - 1);
 
         if (prefix.size() + line.size() + name.size() + 1 >= width)
@@ -306,6 +309,10 @@ int main(int argc, char** argv)
         else if (app == "convert")
         {
             entwine::app::Convert().go(args);
+        }
+        else if (app == "update")
+        {
+            entwine::app::Update().go(args);
         }
         else
         {

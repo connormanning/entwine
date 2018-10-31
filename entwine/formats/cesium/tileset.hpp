@@ -13,7 +13,6 @@
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/key.hpp>
 #include <entwine/types/metadata.hpp>
-#include <entwine/types/point-pool.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/pool.hpp>
 
@@ -34,7 +33,7 @@ enum class ColorType
 // https://github.com/AnalyticalGraphicsInc/3d-tiles#tilesetjson
 class Tileset
 {
-    using HierarchyTree = std::map<Dxyz, uint64_t>;
+    using HierarchyTree = std::map<Dxyz, int64_t>;
 
 public:
     Tileset(const Json::Value& config);
@@ -57,7 +56,6 @@ public:
         return m_rootGeometricError / std::pow(2.0, depth);
     }
 
-    PointPool& pointPool() const { return m_pointPool; }
     Pool& threadPool() const { return m_threadPool; }
 
 private:
@@ -77,13 +75,11 @@ private:
     const arbiter::Endpoint m_tmp;
 
     const Metadata m_metadata;
-    const uint64_t m_hierarchyStep;
     const ColorType m_colorType;
     const bool m_truncate;
     const bool m_hasNormals;
     const double m_rootGeometricError;
 
-    mutable PointPool m_pointPool;
     mutable Pool m_threadPool;
 };
 

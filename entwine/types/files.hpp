@@ -19,6 +19,7 @@
 
 #include <json/json.h>
 
+#include <entwine/builder/config.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/file-info.hpp>
@@ -33,20 +34,19 @@ class Pool;
 class Files
 {
 public:
-    Files(const FileInfoList& files)
-        : m_files(files)
-    {
-        for (const auto& f : m_files)
-        {
-            m_pointStats += f.pointStats();
-            addStatus(f.status());
-            m_totalPoints += f.numPoints();
-        }
-    }
-
+    Files(const FileInfoList& files);
     Files(const Json::Value& json) : Files(toFileInfo(json)) { }
 
-    void save(const arbiter::Endpoint& ep, const std::string& postfix) const;
+    static FileInfoList extract(
+            const arbiter::Endpoint& ep,
+            bool primary,
+            std::string postfix = "");
+
+    void save(
+            const arbiter::Endpoint& ep,
+            const std::string& postfix,
+            const Config& config,
+            bool primary) const;
 
     std::size_t size() const { return m_files.size(); }
 
@@ -93,13 +93,42 @@ public:
     std::size_t totalPoints() const
     {
         std::size_t n(0);
-        for (const auto& f : m_files) n += f.numPoints();
+        for (const auto& f : m_files) n += f.points();
+        return n;
+    }
+
+    std::size_t totalInserts() const
+    {
+        std::size_t n(0);
+        for (const auto& f : m_files) n += f.pointStats().inserts();
+        return n;
+    }
+
+    std::size_t totalOutOfBounds() const
+    {
+        std::size_t n(0);
+        for (const auto& f : m_files) n += f.pointStats().outOfBounds();
         return n;
     }
 
     void merge(const Files& other);
 
+    Json::Value toJson() const
+    {
+        Json::Value json;
+        for (const auto& f : list())
+        {
+            json.append(f.toJson());
+        }
+        return json;
+    }
+
 private:
+    void writeList(const arbiter::Endpoint& ep, const std::string& postfix)
+        const;
+
+    void writeFull(const arbiter::Endpoint& ep, const Config& config) const;
+
     void addStatus(FileInfo::Status status)
     {
         switch (status)
@@ -112,7 +141,6 @@ private:
     }
 
     FileInfoList m_files;
-    uint64_t m_totalPoints = 0;
 
     mutable std::mutex m_mutex;
     PointStats m_pointStats;

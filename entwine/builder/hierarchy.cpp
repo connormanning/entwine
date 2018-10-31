@@ -19,14 +19,10 @@ namespace entwine
 
 Hierarchy::Hierarchy(
         const Metadata& m,
-        const arbiter::Endpoint& top,
+        const arbiter::Endpoint& ep,
         const bool exists)
 {
-    if (exists)
-    {
-        const arbiter::Endpoint ep(top.getSubEndpoint("h"));
-        load(m, ep);
-    }
+    if (exists) load(m, ep);
 }
 
 void Hierarchy::load(
@@ -39,35 +35,27 @@ void Hierarchy::load(
     for (const auto s : json.getMemberNames())
     {
         const Dxyz k(s);
-        assert(!m_map.count(k) || m_map.at(k) == json[s].asUInt64());
+        assert(!m_map.count(k));
 
-        m_map[k] = json[s].asUInt64();
-
-        if (
-                m.hierarchyStep() &&
-                k.depth() > root.depth() &&
-                k.depth() % m.hierarchyStep() == 0)
-        {
-            load(m, ep, k);
-        }
+        int64_t n(json[s].asInt64());
+        if (n < 0) load(m, ep, k);
+        else m_map[k] = static_cast<uint64_t>(n);
     }
 }
 
 void Hierarchy::save(
         const Metadata& m,
-        const arbiter::Endpoint& top,
+        const arbiter::Endpoint& ep,
         Pool& pool) const
 {
-    const arbiter::Endpoint ep(top.getSubEndpoint("h"));
-
-    Json::Value json;
+    Json::Value json(Json::objectValue);
     const ChunkKey k(m);
     save(m, ep, pool, k, json);
 
     const std::string f(filename(m, k));
     pool.add([&ep, f, json]() { ensurePut(ep, f, json.toStyledString()); });
 
-    pool.cycle();
+    pool.await();
 }
 
 void Hierarchy::save(
@@ -80,10 +68,10 @@ void Hierarchy::save(
     const uint64_t n(get(k.dxyz()));
     if (!n) return;
 
-    curr[k.toString()] = static_cast<Json::UInt64>(n);
-
-    if (m.hierarchyStep() && k.depth() && (k.depth() % m.hierarchyStep() == 0))
+    if (m_step && k.depth() && (k.depth() % m_step == 0))
     {
+        curr[k.toString()] = -1;
+
         Json::Value next;
         next[k.toString()] = static_cast<Json::UInt64>(n);
 
@@ -97,6 +85,8 @@ void Hierarchy::save(
     }
     else
     {
+        curr[k.toString()] = static_cast<Json::UInt64>(n);
+
         for (uint64_t dir(0); dir < 8; ++dir)
         {
             save(m, ep, pool, k.getStep(toDir(dir)), curr);
@@ -104,9 +94,12 @@ void Hierarchy::save(
     }
 }
 
-Hierarchy::AnalysisSet Hierarchy::analyze(const Metadata& m) const
+void Hierarchy::analyze(const Metadata& m, const bool verbose) const
 {
-    AnalysisSet result;
+    if (m_step) return;
+    if (m_map.size() <= heuristics::maxHierarchyNodesPerFile) return;
+
+    AnalysisSet analysis;
     std::vector<uint64_t> steps{ 5, 6, 8, 10 };
     for (const uint64_t step : steps)
     {
@@ -115,10 +108,18 @@ Hierarchy::AnalysisSet Hierarchy::analyze(const Metadata& m) const
         analyzed[k.dxyz()] = 1;
         analyze(m, step, k, k.dxyz(), analyzed);
 
-        result.emplace(m_map, analyzed, step);
+        analysis.emplace(m_map, analyzed, step);
     }
 
-    return result;
+    const auto& chosen(*analysis.begin());
+
+    if (verbose)
+    {
+        for (const auto& a : analysis) a.summarize();
+        std::cout << "Setting hierarchy step: " << chosen.step << std::endl;
+    }
+
+    m_step = chosen.step;
 }
 
 void Hierarchy::analyze(

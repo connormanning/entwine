@@ -10,12 +10,12 @@
 
 #include <entwine/io/zstandard.hpp>
 
+/*
 #include <pdal/compression/ZstdCompression.hpp>
 
 namespace entwine
 {
 
-/*
 void Zstandard::write(
         const arbiter::Endpoint& out,
         const arbiter::Endpoint& tmp,
@@ -57,7 +57,7 @@ Cell::PooledStack Zstandard::read(
 
     return getCells(pool, uncompressed);
 }
-*/
 
 } // namespace entwine
+*/
 

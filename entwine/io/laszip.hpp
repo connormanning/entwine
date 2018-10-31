@@ -18,23 +18,29 @@ namespace entwine
 class Laz : public DataIo
 {
 public:
-    Laz(const Metadata& m) : DataIo(m) { }
+    Laz(const Metadata& m)
+        : DataIo(m)
+    {
+        if (!m.outSchema().isScaled())
+        {
+            throw std::runtime_error("Laszip output requires scaling.");
+        }
+    }
 
     virtual std::string type() const override { return "laszip"; }
 
     virtual void write(
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
-            PointPool& pointPool,
             const std::string& filename,
-            Cell::PooledStack&& cells,
-            uint64_t np) const override;
+            const Bounds& bounds,
+            BlockPointTable& table) const override;
 
-    virtual Cell::PooledStack read(
+    virtual void read(
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
-            PointPool& pointPool,
-            const std::string& filename) const override;
+            const std::string& filename,
+            VectorPointTable& table) const override;
 };
 
 } // namespace entwine

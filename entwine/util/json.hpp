@@ -11,6 +11,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cctype>
 #include <sstream>
 #include <string>
 
@@ -44,6 +45,113 @@ inline Json::Value parse(const char* input)
 {
     if (input) return parse(std::string(input));
     else return Json::nullValue;
+}
+
+inline Json::Value ensureArray(const Json::Value& in)
+{
+    if (in.isArray() || in.isNull()) return in;
+    else
+    {
+        Json::Value a(Json::arrayValue);
+        a.append(in);
+        return a;
+    }
+}
+
+// If input is not an array or there are no values in the sliced range, a null
+// value is returned.
+inline Json::Value slice(
+        const Json::Value& in,
+        const Json::ArrayIndex start,
+        const Json::ArrayIndex end =
+            std::numeric_limits<Json::ArrayIndex>::max())
+{
+    Json::Value out;
+    if (in.isArray())
+    {
+        for (Json::ArrayIndex i(start); i < end && i < in.size(); ++i)
+        {
+            out.append(in[i]);
+        }
+    }
+    return out;
+}
+
+// Same as Json::Value::toStyledString but with fixed precision for doubles.
+inline std::string toPreciseString(
+        const Json::Value& v,
+        bool styled = true,
+        uint64_t precision = 12,
+        uint64_t depth = 0)
+{
+    const std::string indent(depth, '\t');
+
+    if (v.type() == Json::realValue)
+    {
+        std::ostringstream oss;
+        oss << std::setprecision(precision) << v.asDouble();
+        return oss.str();
+    }
+    else if (v.isObject())
+    {
+        std::string s;
+        s += '{';
+        uint64_t i(0);
+        for (const std::string key : v.getMemberNames())
+        {
+            if (i++) s += ',';
+            if (styled)
+            {
+                s += '\n';
+                s += indent + '\t';
+            }
+            s += '"' + key + "\"";
+            s += std::string(styled ? " " : "") + ":" + (styled ? " " : "");
+            if (styled)
+            {
+                if (v[key].isObject() || v[key].isArray())
+                {
+                    s += '\n' + indent + '\t';
+                }
+            }
+            s += toPreciseString(v[key], styled, precision, depth + 1);
+        }
+        if (styled)
+        {
+            s += '\n';
+            s += indent;
+        }
+        s += '}';
+        return s;
+    }
+    else if (v.isArray())
+    {
+        std::string s;
+        s += '[';
+        for (Json::ArrayIndex i(0); i < v.size(); ++i)
+        {
+            if (i) s += ',';
+            if (styled)
+            {
+                s += '\n';
+                s += indent + '\t';
+            }
+            s += toPreciseString(v[i], styled, precision, depth + 1);
+        }
+        if (styled)
+        {
+            s += '\n';
+            s += indent;
+        }
+        s += ']';
+        return s;
+    }
+    else
+    {
+        std::ostringstream oss;
+        oss << v;
+        return oss.str();
+    }
 }
 
 // Not really JSON-related, but fine for now...
@@ -86,82 +194,6 @@ inline Json::Value merge(
         const Json::Value& c)
 {
     return merge(merge(a, b), c);
-}
-
-// Assumptions here are that s contains a quotation-delimited number, possibly
-// with whitespace outside of the quotations.
-inline Id parseElement(const std::string& s)
-{
-    std::size_t pos(s.find_first_of('"'));
-    const std::size_t end(s.find_last_of('"'));
-
-    if (
-            pos == std::string::npos ||
-            end == std::string::npos ||
-            pos == end)
-    {
-        throw std::runtime_error("Element is not a string: " + s);
-    }
-
-    if (!std::all_of(s.data(), s.data() + pos, ::isspace))
-    {
-        throw std::runtime_error("Invalid leading characters");
-    }
-    if (
-            end + 1 < s.size() &&
-            !std::all_of(s.data() + end + 1, s.data() + s.size(), ::isspace))
-    {
-        throw std::runtime_error("Invalid trailing characters");
-    }
-
-    ++pos;
-    return Id(s.substr(pos, end - pos));
-}
-
-inline std::vector<Id> extractIds(const std::string& s)
-{
-    std::vector<Id> ids;
-    ids.reserve(std::count(s.begin(), s.end(), ',') + 1);
-
-    std::size_t pos(s.find_first_of('['));
-    std::size_t end(0);
-
-    if (
-            pos != std::string::npos &&
-            !std::all_of(s.data(), s.data() + pos, ::isspace))
-    {
-        throw std::runtime_error("Invalid characters before opening bracket");
-    }
-
-    while (pos != std::string::npos && ++pos < s.size())
-    {
-        end = s.find_first_of(",]", pos);
-
-        if (end == std::string::npos)
-        {
-            throw std::runtime_error("Missing token");
-        }
-        else if (end != pos)
-        {
-            ids.push_back(parseElement(s.substr(pos, end - pos)));
-            pos = s.find_first_of(',', pos);
-        }
-        else pos = std::string::npos;
-    }
-
-    if (ids.size() && s.at(end) != ']')
-    {
-        throw std::runtime_error("Missing final bracket");
-    }
-    else if (
-            ids.size() &&
-            end + 1 < s.size() &&
-            !std::all_of(s.data() + end + 1, s.data() + s.size(), ::isspace))
-    {
-        throw std::runtime_error("Invalid trailing characters");
-    }
-
-    return ids;
 }
 
 inline std::string toFastString(const Json::Value& json)
@@ -285,17 +317,6 @@ namespace extraction
             return doExtract<std::string>(
                     json,
                     [](const Json::Value& v) { return v.asString(); });
-        }
-    };
-
-    template<>
-    struct E<Id>
-    {
-        static std::vector<Id> go(const Json::Value& json)
-        {
-            return doExtract<Id>(
-                    json,
-                    [](const Json::Value& v) { return Id(v.asString()); });
         }
     };
 }

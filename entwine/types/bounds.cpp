@@ -101,11 +101,11 @@ Json::Value Bounds::toJson() const
 
     json.append(m_min.x);
     json.append(m_min.y);
-    if (is3d()) json.append(m_min.z);
+    json.append(m_min.z);
 
     json.append(m_max.x);
     json.append(m_max.y);
-    if (is3d()) json.append(m_max.z);
+    json.append(m_max.z);
 
     return json;
 }
@@ -142,6 +142,11 @@ Bounds Bounds::growBy(double ratio) const
             (m_max.z - m_mid.z) * ratio);
 
     return Bounds(m_min - delta, m_max + delta);
+}
+
+Bounds Bounds::applyScaleOffset(const Scale& s, const Offset& o) const
+{
+    return Bounds(Point::scale(min(), s, o), Point::scale(max(), s, o));
 }
 
 Bounds Bounds::deltify(const Delta* delta) const

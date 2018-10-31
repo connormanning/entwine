@@ -17,14 +17,26 @@ namespace entwine
 {
 
 ChunkReader::ChunkReader(const Reader& r, const Dxyz& id)
-    : m_pointPool(r.metadata().schema(), 1024)
-    , m_cells(r.metadata().dataIo().read(
-                r.ep(),
-                r.tmp(),
-                m_pointPool,
-                id.toString()))
-    , m_pointSize(r.metadata().schema().pointSize())
-{ }
+{
+    std::vector<char> data;
+
+    VectorPointTable tmp(r.metadata().schema());
+    tmp.setProcess([&data, &tmp]()
+    {
+        data.insert(
+                data.end(),
+                tmp.data().data(),
+                tmp.data().data() + tmp.numPoints() * tmp.pointSize());
+    });
+
+    const auto dataEp(r.ep().getSubEndpoint("ept-data"));
+    r.metadata().dataIo().read(dataEp, r.tmp(), id.toString(), tmp);
+
+    m_table = makeUnique<VectorPointTable>(
+            r.metadata().schema(),
+            std::move(data));
+    m_table->clear(m_table->capacity());
+}
 
 } // namespace entwine
 

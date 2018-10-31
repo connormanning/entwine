@@ -1,4 +1,4 @@
-FROM pdal/ubuntu:master
+FROM connormanning/pdal:master
 MAINTAINER Connor Manning <connor@hobu.co>
 
 RUN apt-get update && apt-get install -y \
@@ -7,23 +7,22 @@ RUN apt-get update && apt-get install -y \
     git \
     liblzma-dev \
     libjsoncpp-dev \
-    libcurl4-gnutls-dev \
-    libssl1.0-dev \
+    libssl-dev \
+    libcurl4-openssl-dev \
     python-numpy \
     python-pip \
     vim && \
     pip install numpy
 
-
 ENV CC gcc
 ENV CXX g++
 
-ADD https://api.github.com/repos/connormanning/entwine/commits?sha=master \
+ADD https://api.github.com/repos/connormanning/entwine/commits?sha=format \
     /tmp/bust-cache
 
 RUN git clone https://github.com/connormanning/entwine.git /var/entwine && \
     cd /var/entwine && \
-    git checkout master && \
+    git checkout format && \
     mkdir build && \
     cd build && \
     cmake -G "Unix Makefiles" \

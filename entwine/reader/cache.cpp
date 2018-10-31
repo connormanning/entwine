@@ -47,8 +47,7 @@ SharedChunkReader Cache::get(const Reader& reader, const Dxyz& key)
 
         ChunkReaderInfo& info(it->second);
         info.chunk = std::make_shared<ChunkReader>(reader, key);
-        m_size += info.chunk->cells().size() *
-            reader.metadata().schema().pointSize();
+        m_size += info.chunk->bytes();
     }
     else
     {
@@ -74,7 +73,7 @@ void Cache::purge()
         const ChunkReaderInfo& info(it->second);
 
         std::cout << "\tDel " << id.key << std::endl;
-        m_size -= info.chunk->cells().size() * info.chunk->pointSize();
+        m_size -= info.chunk->bytes();
         m_order.pop_back();
         m_chunks.erase(it);
     }

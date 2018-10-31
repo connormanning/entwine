@@ -22,59 +22,111 @@
 namespace entwine
 {
 
-class VectorPointTable : public pdal::StreamPointTable
+class MemBlock
 {
 public:
-    // Constructible with either an entwine::Schema or a pdal::PointLayout.
-    // The constructors which take a Schema defer to their PointLayout versions.
-    VectorPointTable(const Schema& schema)
-        : VectorPointTable(schema.pdalLayout())
-    { }
+    using Block = std::vector<char>;
 
-    VectorPointTable(const Schema& schema, std::size_t initialNumPoints)
-        : VectorPointTable(schema.pdalLayout(), initialNumPoints)
-    { }
+    MemBlock(uint64_t pointSize, uint64_t pointsPerBlock)
+        : m_pointSize(pointSize)
+        , m_pointsPerBlock(pointsPerBlock)
+        , m_bytesPerBlock(m_pointsPerBlock * m_pointSize)
+    {
+        m_blocks.reserve(8);
+        m_refs.reserve(m_pointsPerBlock);
+    }
 
-    VectorPointTable(const Schema& schema, const std::vector<char>& data)
-        : VectorPointTable(schema.pdalLayout(), data)
+    char* next()
+    {
+        if (m_pos == m_end)
+        {
+            m_blocks.emplace_back(Block(m_bytesPerBlock));
+            m_pos = m_blocks.back().data();
+            m_end = m_pos + m_bytesPerBlock;
+        }
+
+        char* result(m_pos);
+        m_refs.push_back(m_pos);
+        m_pos += m_pointSize;
+        return result;
+    }
+
+    uint64_t size() const { return m_refs.size(); }
+    const std::vector<char*>& refs() const { return m_refs; }
+    void clear()
+    {
+        m_blocks.clear();
+        m_pos = nullptr;
+        m_end = nullptr;
+        m_refs.clear();
+    }
+
+private:
+    const uint64_t m_pointSize;
+    const uint64_t m_pointsPerBlock;
+    const uint64_t m_bytesPerBlock;
+
+    std::vector<Block> m_blocks;
+    char* m_pos = nullptr;
+    char* m_end = nullptr;
+
+    std::vector<char*> m_refs;
+};
+
+// For writing.
+class BlockPointTable : public pdal::SimplePointTable
+{
+public:
+    BlockPointTable(const Schema& schema, MemBlock& a, MemBlock& b)
+        : SimplePointTable(schema.pdalLayout())
+    {
+        m_refs.reserve(a.size() + b.size());
+        m_refs.insert(m_refs.end(), a.refs().begin(), a.refs().end());
+        m_refs.insert(m_refs.end(), b.refs().begin(), b.refs().end());
+    }
+
+    virtual char* getPoint(pdal::PointId index) override
+    {
+        return m_refs[index];
+    }
+
+    virtual pdal::PointId addPoint() override { return m_index++; }
+    virtual bool supportsView() const override { return true; }
+    uint64_t size() const { return m_refs.size(); }
+
+private:
+    std::vector<char*> m_refs;
+    uint64_t m_index = 0;
+};
+
+// For reading.
+class VectorPointTable : public pdal::StreamPointTable
+{
+    using Process = std::function<void()>;
+
+public:
+    VectorPointTable(const Schema& schema, std::size_t np = 4096)
+        : pdal::StreamPointTable(schema.pdalLayout(), np)
+        , m_pointSize(schema.pointSize())
+        , m_data(np * m_pointSize, 0)
     { }
 
     VectorPointTable(const Schema& schema, std::vector<char>&& data)
-        : VectorPointTable(schema.pdalLayout(), std::move(data))
-    { }
-
-    VectorPointTable(pdal::PointLayout layout)
-        : StreamPointTable(m_layout)
-        , m_layout(layout)
-    { }
-
-    VectorPointTable(pdal::PointLayout layout, std::size_t initialNumPoints)
-        : StreamPointTable(m_layout)
-        , m_layout(layout)
-    {
-        resize(initialNumPoints);
-    }
-
-    VectorPointTable(pdal::PointLayout layout, const std::vector<char>& data)
-        : pdal::StreamPointTable(m_layout)
-        , m_layout(layout)
-        , m_data(data)
-        , m_size(m_data.size() / m_layout.pointSize())
-    { }
-
-    VectorPointTable(pdal::PointLayout layout, std::vector<char>&& data)
-        : pdal::StreamPointTable(m_layout)
-        , m_layout(layout)
+        : pdal::StreamPointTable(
+                schema.pdalLayout(),
+                data.size() / schema.pointSize())
+        , m_pointSize(schema.pointSize())
         , m_data(std::move(data))
-        , m_size(m_data.size() / m_layout.pointSize())
-    { }
-
-    std::size_t size() const { return m_size; }
-    pdal::point_count_t capacity() const override { return size(); }
+    {
+        if (m_data.size() % m_pointSize != 0)
+        {
+            throw std::runtime_error("Invalid VectorPointTable data");
+        }
+    }
 
     pdal::PointRef at(pdal::PointId index)
     {
-        if (index >= size())
+        if (index >= capacity())
         {
             throw std::out_of_range("Invalid index to VectorPointTable::at");
         }
@@ -82,20 +134,9 @@ public:
         return pdal::PointRef(*this, index);
     }
 
-    void assign(std::vector<char>&& data)
-    {
-        m_data = std::move(data);
-        m_size = m_data.size() / m_layout.pointSize();
-    }
-
-    pdal::PointRef append()
-    {
-        return pdal::PointRef(*this, addPoint());
-    }
-
     virtual char* getPoint(pdal::PointId index) override
     {
-        return m_data.data() + pointsToBytes(index);
+        return m_data.data() + index * m_pointSize;
     }
 
     std::vector<char>& data() { return m_data; }
@@ -103,11 +144,8 @@ public:
 
     std::vector<char>&& acquire() { return std::move(m_data); }
 
-    void resize(std::size_t numPoints)
-    {
-        m_data.resize(pointsToBytes(numPoints), 0);
-        m_size = numPoints;
-    }
+    void setProcess(Process f) { m_f = f; }
+    void reset() override { m_f(); }
 
     class Iterator
     {
@@ -116,11 +154,22 @@ public:
             : m_table(table)
             , m_index(index)
             , m_pointRef(m_table, m_index)
-        { }
+        {
+            while (m_index < m_table.numPoints() && m_table.skip(m_index))
+            {
+                ++m_index;
+            }
+            m_pointRef.setPointId(m_index);
+        }
 
         Iterator& operator++()
         {
-            m_pointRef.setPointId(++m_index);
+            do
+            {
+                m_pointRef.setPointId(++m_index);
+            }
+            while (m_index < m_table.numPoints() && m_table.skip(m_index));
+
             return *this;
         }
 
@@ -132,6 +181,7 @@ public:
         }
 
         pdal::PointRef& operator*() { return m_pointRef; }
+        pdal::PointRef& pointRef() { return m_pointRef; }
         bool operator!=(const Iterator& rhs) { return m_index != rhs.m_index; }
         char* data() { return m_table.getPoint(m_index); }
 
@@ -142,23 +192,19 @@ public:
     };
 
     Iterator begin() { return Iterator(*this); }
-    Iterator end() { return Iterator(*this, capacity()); }
+    Iterator end() { return Iterator(*this, numPoints()); }
 
-    std::size_t pointSize() const { return m_layout.pointSize(); }
+    std::size_t pointSize() const { return m_pointSize; }
 
 private:
-    virtual pdal::PointId addPoint() override
-    {
-        m_data.insert(m_data.end(), m_layout.pointSize(), 0);
-        return m_size++;
-    }
-
     VectorPointTable(const VectorPointTable&);
     VectorPointTable& operator=(const VectorPointTable&);
 
-    pdal::PointLayout m_layout;
+    const std::size_t m_pointSize;
     std::vector<char> m_data;
     std::size_t m_size = 0;
+
+    Process m_f = []() { };
 };
 
 } // namespace entwine

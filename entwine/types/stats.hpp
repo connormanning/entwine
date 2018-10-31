@@ -24,18 +24,10 @@ class PointStats
 public:
     PointStats() = default;
 
-    explicit PointStats(const Json::Value& json)
-        : m_inserts(json["inserts"].asUInt64())
-        , m_outOfBounds(json["outOfBounds"].asUInt64())
+    PointStats(uint64_t inserts, uint64_t outOfBounds)
+        : m_inserts(inserts)
+        , m_outOfBounds(outOfBounds)
     { }
-
-    Json::Value toJson() const
-    {
-        Json::Value json;
-        json["inserts"] = static_cast<Json::UInt64>(m_inserts);
-        json["outOfBounds"] = static_cast<Json::UInt64>(m_outOfBounds);
-        return json;
-    }
 
     bool empty() const { return !m_inserts && !m_outOfBounds; }
 

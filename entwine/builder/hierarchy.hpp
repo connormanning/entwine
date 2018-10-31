@@ -40,7 +40,7 @@ public:
 
     Hierarchy(
             const Metadata& metadata,
-            const arbiter::Endpoint& top,
+            const arbiter::Endpoint& ep,
             bool exists);
 
     void set(const Dxyz& key, uint64_t val)
@@ -76,6 +76,10 @@ public:
             const arbiter::Endpoint& top,
             Pool& pool) const;
 
+    void analyze(const Metadata& m, bool verbose) const;
+    void setStep(uint64_t step) const { m_step = step; }
+
+private:
     struct Analysis
     {
         Analysis() { }
@@ -97,9 +101,6 @@ public:
 
     using AnalysisSet = std::set<Analysis>;
 
-    AnalysisSet analyze(const Metadata& m) const;
-
-private:
     std::string filename(const Metadata& m, const Dxyz& dxyz) const
     {
         return dxyz.toString() + m.postfix() + ".json";
@@ -131,6 +132,7 @@ private:
 
     mutable SpinLock m_spin;
     Map m_map;
+    mutable uint64_t m_step = 0;
 };
 
 } // namespace entwine

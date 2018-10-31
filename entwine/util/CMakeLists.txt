@@ -4,7 +4,6 @@ set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 set(
     SOURCES
     "${BASE}/executor.cpp"
-    "${BASE}/pool.cpp"
 )
 
 set(

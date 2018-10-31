@@ -23,8 +23,6 @@
 #include <entwine/builder/hierarchy.hpp>
 #include <entwine/builder/thread-pools.hpp>
 #include <entwine/types/key.hpp>
-#include <entwine/types/point-pool.hpp>
-#include <entwine/types/tube.hpp>
 #include <entwine/util/pool.hpp>
 #include <entwine/util/unique.hpp>
 
@@ -45,22 +43,15 @@ public:
             const Metadata& metadata,
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
-            PointPool& pointPool,
             ThreadPools& threadPools,
             bool exists = false);
 
-    void save(const arbiter::Endpoint& endpoint) const;
+    void save() const;
     void merge(const Registry& other, Clipper& clipper);
 
-    void addPoint(Cell::PooledNode& cell, Key& key, Clipper& clipper)
+    void addPoint(Voxel& voxel, Key& key, Clipper& clipper)
     {
-        ReffedChunk* rc = &m_root;
-
-        while (!rc->insert(cell, key, clipper))
-        {
-            key.step(cell->point());
-            rc = &rc->chunk().step(cell->point());
-        }
+        m_root.insert(voxel, key, clipper);
     }
 
     void purge() { m_root.empty(); }
@@ -73,9 +64,9 @@ public:
 
 private:
     const Metadata& m_metadata;
-    const arbiter::Endpoint& m_out;
+    const arbiter::Endpoint m_dataEp;
+    const arbiter::Endpoint m_hierEp;
     const arbiter::Endpoint& m_tmp;
-    PointPool& m_pointPool;
     ThreadPools& m_threadPools;
     Hierarchy m_hierarchy;
 
