@@ -87,9 +87,8 @@ ColorType Tileset::getColorType(const Json::Value& config) const
 Tileset::HierarchyTree Tileset::getHierarchyTree(const ChunkKey& root) const
 {
     HierarchyTree h;
-
-    const Json::Value fetched(
-            parse(m_in.get("h/" + root.get().toString() + ".json")));
+    const std::string file("ept-hierarchy/" + root.get().toString() + ".json");
+    const Json::Value fetched(parse(m_in.get(file)));
 
     for (const std::string& key : fetched.getMemberNames())
     {

@@ -356,7 +356,7 @@ where `n` is the `of` value from the subset specification.
 The `convert` command provides utilities to transform Entwine Point Tile output
 into other formats.  Currently the only conversion provided is to the
 [Cesium 3D Tiles](https://github.com/AnalyticalGraphicsInc/3d-tiles) format.
-For proper positioning, data must be reprojected to `EPSG:3857` during the
+For proper positioning, data must be reprojected to `EPSG:4978` during the
 `entwine build` step.
 
 | Key | Description |
@@ -502,5 +502,5 @@ docker run -it -v ~/entwine/cesium:/var/www -p 8080:8080 \
 ```
 
 And browse the tileset with
-[Cesium](http://cesium.entwine.io/?url=http://localhost:8080/autzen).
+[Cesium](http://cesium.entwine.io/?url=http://localhost:8080/autzen/tileset.json).
 
