@@ -27,8 +27,8 @@ namespace
             const Bounds bounds(entry["bounds"]);
 
             ASSERT_TRUE(bounds.exists());
-            ASSERT_GT(id.size(), 0);
-            ASSERT_GT(url.size(), 0);
+            ASSERT_GT(id.size(), 0u);
+            ASSERT_GT(url.size(), 0u);
 
             const auto full(parse(a.get(outPath + "ept-sources/" + url)));
             ASSERT_FALSE(full.isNull());
