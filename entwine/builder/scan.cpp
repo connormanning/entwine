@@ -170,12 +170,16 @@ Config Scan::aggregate()
     std::size_t np(0);
     Bounds bounds(Bounds::expander());
 
+    bool explicitSrs(false);
     if (m_re)
     {
+        explicitSrs = true;
         srs = m_re->out();
     }
     else if (m_in.json().isMember("srs"))
     {
+        explicitSrs = true;
+
         const Json::Value& inSrs(m_in.json()["srs"]);
         if (inSrs.isString()) srs = inSrs.asString();
         else srs = inSrs;
@@ -189,7 +193,7 @@ Config Scan::aggregate()
         np += f.points();
         if (const Bounds* b = f.bounds()) bounds.grow(*b);
 
-        if (f.srs().empty()) continue;
+        if (explicitSrs || f.srs().empty()) continue;
 
         const pdal::SpatialReference& fileSrs(f.srs().ref());
 

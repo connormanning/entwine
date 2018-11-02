@@ -125,6 +125,17 @@ void App::addSimpleThreads()
 void App::addReprojection()
 {
     m_ap.add(
+            "--srs",
+            "Set the `srs` metadata entry of the output.  If reprojecting, "
+            "this value will be set automatically from the output projection.  "
+            "Typically this value is automatically inferred from the files "
+            "themselves.",
+            [this](Json::Value v)
+            {
+                m_json["srs"] = Srs(v.asString()).toJson();
+            });
+
+    m_ap.add(
             "--reprojection",
             "-r",
             "Set the SRS reprojection.  The input SRS may be omitted to "
