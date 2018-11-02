@@ -17,11 +17,6 @@ namespace entwine
 namespace cesium
 {
 
-namespace
-{
-    using DimId = pdal::Dimension::Id;
-}
-
 Tileset::Tileset(const Json::Value& config)
     : m_arbiter(config["arbiter"])
     , m_in(m_arbiter.getEndpoint(config["input"].asString()))

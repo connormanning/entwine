@@ -7,9 +7,6 @@ using namespace entwine;
 
 class Verify
 {
-    using DimId = pdal::Dimension::Id;
-    using DimType = pdal::Dimension::Type;
-
 public:
     Bounds bounds() const
     {

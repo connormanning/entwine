@@ -6,8 +6,6 @@
 #include <entwine/util/executor.hpp>
 
 using namespace entwine;
-using DimId = pdal::Dimension::Id;
-using DimType = pdal::Dimension::Type;
 
 namespace
 {

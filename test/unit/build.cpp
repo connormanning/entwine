@@ -7,7 +7,6 @@
 #include <entwine/builder/scan.hpp>
 
 using namespace entwine;
-using DimId = pdal::Dimension::Id;
 
 namespace
 {

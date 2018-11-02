@@ -274,9 +274,6 @@ public:
 
     static Schema makeAbsolute(const Schema& s)
     {
-        using DimId = DimId;
-        using DimType = pdal::Dimension::Type;
-
         const Schema xyz({
             { DimId::X, DimType::Double },
             { DimId::Y, DimType::Double },
