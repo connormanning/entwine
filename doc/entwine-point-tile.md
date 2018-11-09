@@ -224,8 +224,7 @@ For each object in the list, this is a field of string type which must uniquely 
 A source object may optionally contain a bounds which, if existing, is an array of 6 numbers of the format `[xmin, ymin, zmin, xmax, ymax, zmax]`.
 
 #### url
-A source object may optionally contain a string URL which points to a file, relative to the `ept-sources/` location, which contains more thorough metadata for this source.  If present, this URL must end in `.json` and this file must exist in JSON format.  Additionally, the JSON contained in this file must a) represent a JSON object and b) contain a string key matching the `id` of this source entry.  The format of this metadata file is discussed more fully in the *Source metadata* section, below.
-
+A source object may optionally contain a string URL which points to a file, relative to the `ept-sources/` location, which contains more thorough metadata for this source.  If present, this URL must end in `.json` and this file must exist in JSON format.  Additionally, the JSON contained in this file must a) represent a JSON object and b) contain a string key matching the `id` of this source entry.  The format of this metadata file is discussed more fully in the *Source metadata* section, below.  More than one source entry may contain the same `url` string, and that file must contain an object with corresponding keys for each `id` that links to it.
 
 
 ### Source metadata
@@ -236,6 +235,8 @@ Each of these files is a JSON object containing metadata information for one or 
 Within each of these ID sub-keys, an object must exist which may contain the previously-defined keys `bounds`, `points`, and `srs` which are defined in the `ept.json` section.  These keys have the same meanings and range of values described above, but are expressed here on a per-source basis rather than per-EPT dataset.
 
 In addition to the well-known keys described above, each metadata object can also contain a `metadata` key, which maps to a JSON object representing arbitrary metadata for this source.
+
+With the `ept-sources/list.json` file described above, a corresponding `ept-sources/autzen.json` file might look something like:
 
 ```json
 {
@@ -273,4 +274,3 @@ In addition to the well-known keys described above, each metadata object can als
     }
 }
 ```
-
