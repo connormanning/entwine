@@ -38,7 +38,7 @@ public:
     Files(const Json::Value& json) : Files(toFileInfo(json)) { }
 
     static FileInfoList extract(
-            const arbiter::Endpoint& ep,
+            const arbiter::Endpoint& top,
             bool primary,
             std::string postfix = "");
 
