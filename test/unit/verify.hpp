@@ -8,6 +8,8 @@ using namespace entwine;
 class Verify
 {
 public:
+    Verify() { }
+
     Bounds bounds() const
     {
         return Bounds(-8242746, 4966506, -50, -8242446, 4966706, 50);
