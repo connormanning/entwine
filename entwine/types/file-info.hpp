@@ -98,16 +98,16 @@ public:
         return merge(toListJson(), toFullJson());
     }
 
-private:
-    void setId(std::string id) const { m_id = id; }
-    void setUrl(std::string url) const { m_url = url; }
-    void add(const FileInfo& other);
-
     // For use in ept-sources/list.json.
     Json::Value toListJson() const;
 
     // EPT per-file metadata.
     Json::Value toFullJson() const;
+
+private:
+    void setId(std::string id) const { m_id = id; }
+    void setUrl(std::string url) const { m_url = url; }
+    void add(const FileInfo& other);
 
     PointStats& pointStats() { return m_pointStats; }
     void status(Status status, std::string message = "")
