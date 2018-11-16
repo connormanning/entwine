@@ -27,7 +27,7 @@ public:
         , m_ref(*this, 0)
     { }
 
-    BinaryPointTable(const Schema& schema, const char* pos)
+    BinaryPointTable(const Schema& schema, char* pos)
         : pdal::StreamPointTable(schema.pdalLayout(), 1)
         , m_pos(pos)
         , m_ref(*this, 0)
@@ -35,16 +35,15 @@ public:
 
     virtual char* getPoint(pdal::PointId i) override
     {
-        // :(
-        return const_cast<char*>(m_pos);
+        return m_pos;
     }
 
-    void setPoint(const char* pos) { m_pos = pos; }
+    void setPoint(char* pos) { m_pos = pos; }
     pdal::PointRef& ref() { return m_ref; }
     const pdal::PointRef& ref() const { return m_ref; }
 
 protected:
-    const char* m_pos;
+    char* m_pos;
     pdal::PointRef m_ref;
 };
 

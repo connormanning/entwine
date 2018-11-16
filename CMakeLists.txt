@@ -66,7 +66,7 @@ else()
     include_directories("${CMAKE_CURRENT_SOURCE_DIR}/entwine/third/json")
 endif()
 
-set(PDAL_FIND_VERSION 1.2)
+set(PDAL_FIND_VERSION 1.8)
 find_package(PDAL ${PDAL_FIND_VERSION} REQUIRED CONFIG NO_POLICY_SCOPE)
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 find_package(Threads REQUIRED)
