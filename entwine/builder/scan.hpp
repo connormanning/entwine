@@ -46,6 +46,10 @@ public:
 
 private:
     void add(FileInfo& f);
+
+    void addLas(FileInfo& f);
+    void addRanged(FileInfo& f);
+
     void add(FileInfo& f, std::string localPath);
     Config aggregate();
 
