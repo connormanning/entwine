@@ -28,6 +28,13 @@
 namespace entwine
 {
 
+Json::Value objectify(Json::Value p)
+{
+    Json::Value o;
+    o["pipeline"] = p;
+    return o;
+}
+
 Executor::Executor()
     : m_stageFactory(makeUnique<pdal::StageFactory>())
 { }
@@ -109,7 +116,8 @@ std::unique_ptr<ScanInfo> Executor::preview(
         // overridden or defaulted here.  We'll need this SRS result to
         // reproject our extents later.
         pdal::PipelineManager pm;
-        std::istringstream readStream(ensureArray(readerJson).toStyledString());
+        std::istringstream readStream(
+                objectify(ensureArray(readerJson)).toStyledString());
         pm.readPipeline(readStream);
         pdal::Stage* reader(pm.getStage());
 
@@ -131,7 +139,8 @@ std::unique_ptr<ScanInfo> Executor::preview(
         }
 
         pdal::PipelineManager pm;
-        std::istringstream readStream(ensureArray(readerJson).toStyledString());
+        std::istringstream readStream(
+                objectify(ensureArray(readerJson)).toStyledString());
         pm.readPipeline(readStream);
         pdal::Stage* reader(pm.getStage());
 
@@ -155,7 +164,7 @@ std::unique_ptr<ScanInfo> Executor::preview(
     // to specify a deep scan which will pipeline every point.
 
     pdal::PipelineManager pm;
-    std::istringstream filterStream(filters.toStyledString());
+    std::istringstream filterStream(objectify(filters).toStyledString());
     pm.readPipeline(filterStream);
     pdal::Stage* last(pm.getStage());
     pdal::Stage* first(last);
@@ -252,7 +261,7 @@ std::unique_ptr<ScanInfo> Executor::deepScan(Json::Value pipeline) const
 
 bool Executor::run(pdal::StreamPointTable& table, const Json::Value& pipeline)
 {
-    std::istringstream iss(pipeline.toStyledString());
+    std::istringstream iss(objectify(pipeline).toStyledString());
 
     auto lock(getLock());
     pdal::PipelineManager pm;
