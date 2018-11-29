@@ -7,6 +7,12 @@ pushd %CONDA_ENVIRO%
 call conda config --set always_yes yes 
 IF ERRORLEVEL 1 GOTO CLEANUP
 
+call conda info --base > condaBase
+set /p CONDA_BASE= < condaBase
+DEL condaBase
+
+ECHO %CONDA_BASE%
+
 call conda remove --name %CONDA_ENVIRO% -y --all
 IF ERRORLEVEL 1 GOTO CLEANUP
 
@@ -14,7 +20,7 @@ call conda create --name %CONDA_ENVIRO% --clone pdal -y
 IF ERRORLEVEL 1  GOTO CLEANUP
 
 
-call %CONDA_PREFIX%\\Scripts\\activate.bat %CONDA_ENVIRO%
+call %CONDA_BASE%\\Scripts\\activate.bat %CONDA_ENVIRO%
 IF ERRORLEVEL 1 GOTO CLEANUP
 
 call conda install jsoncpp
