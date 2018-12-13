@@ -65,55 +65,47 @@ void ReffedChunk::ref(Clipper& clipper)
     const Origin o(clipper.origin());
     SpinGuard lock(m_spin);
 
-    if (!m_refs.count(o))
+    if (m_refs.count(o))
     {
-        m_refs[o] = 1;
+        ++m_refs[o];
+        return;
+    }
 
-        if (!m_chunk || m_chunk->remote())
+    m_refs[o] = 1;
+
+    if (m_chunk && !m_chunk->remote()) return;
+
+    if (!m_chunk) m_chunk = makeUnique<Chunk>(*this);
+    if (m_chunk->remote()) m_chunk->init();
+
+    const uint64_t np = m_hierarchy.get(m_key.get());
+    if (!np) return;
+
+    {
+        SpinGuard lock(spin);
+        ++info.read;
+    }
+
+    VectorPointTable table(m_metadata.schema(), np);
+    table.setProcess([this, &table, &clipper]()
+    {
+        Voxel voxel;
+        Key pk(m_metadata);
+
+        for (auto it(table.begin()); it != table.end(); ++it)
         {
-            if (!m_chunk)
+            voxel.initShallow(it.pointRef(), it.data());
+            pk.init(voxel.point(), m_key.depth());
+            if (!insert(voxel, pk, clipper))
             {
-                m_chunk = makeUnique<Chunk>(*this);
-                assert(!m_chunk->remote());
-            }
-
-            if (m_chunk->remote())
-            {
-                m_chunk->init();
-            }
-
-            if (const uint64_t np = m_hierarchy.get(m_key.get()))
-            {
-                {
-                    SpinGuard lock(spin);
-                    ++info.read;
-                }
-
-                VectorPointTable table(m_metadata.schema(), np);
-                table.setProcess([this, &table, &clipper]()
-                {
-                    Voxel voxel;
-                    Key pk(m_metadata);
-
-                    for (auto it(table.begin()); it != table.end(); ++it)
-                    {
-                        voxel.initShallow(it.pointRef(), it.data());
-                        pk.init(voxel.point(), m_key.depth());
-                        if (!insert(voxel, pk, clipper))
-                        {
-                            std::cout << "Unexpected wakeup: " << m_key.get() <<
-                                " " << voxel.point() << std::endl;
-                        }
-                    }
-                });
-
-                const auto filename(
-                        m_key.toString() + m_metadata.postfix(m_key.depth()));
-                m_metadata.dataIo().read(m_out, m_tmp, filename, table);
+                std::cout << "Unexpected wakeup: " << m_key.get() <<
+                    " " << voxel.point() << std::endl;
             }
         }
-    }
-    else ++m_refs[o];
+    });
+
+    const auto filename(m_key.toString() + m_metadata.postfix(m_key.depth()));
+    m_metadata.dataIo().read(m_out, m_tmp, filename, table);
 }
 
 void ReffedChunk::unref(const Origin o)

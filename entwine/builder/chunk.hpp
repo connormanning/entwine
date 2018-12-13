@@ -23,7 +23,6 @@
 #include <entwine/util/spin-lock.hpp>
 #include <entwine/util/unique.hpp>
 
-
 namespace entwine
 {
 
@@ -176,6 +175,8 @@ public:
             dst.initDeep(voxel.point(), voxel.data(), m_pointSize);
             return true;
         }
+
+        tubeLock.unlock();
 
         if (insertOverflow(voxel, key, clipper))
         {
