@@ -364,6 +364,12 @@ TEST(build, subsetFromScan)
 
 TEST(build, reprojected)
 {
+    if (arbiter::util::env("APPVEYOR"))
+    {
+        std::cout << "Skipping reprojection tests" << std::endl;
+        return;
+    }
+
     const std::string outPath(test::dataPath() + "out/ellipsoid-re/");
     const std::string metaPath(outPath + "ept-sources/");
 

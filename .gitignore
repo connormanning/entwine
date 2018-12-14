@@ -5,6 +5,7 @@ CMakeFiles/
 .DS_Store
 build/*
 dev/*
+doc/build/*
 
 test/data/*
 

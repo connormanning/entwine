@@ -138,6 +138,12 @@ TEST(scan, multi)
 
 TEST(scan, reprojection)
 {
+    if (arbiter::util::env("APPVEYOR"))
+    {
+        std::cout << "Skipping reprojection tests" << std::endl;
+        return;
+    }
+
     Json::Value in;
     in["input"] = test::dataPath() + "ellipsoid.laz";
     in["reprojection"]["out"] = "EPSG:26918";
@@ -173,6 +179,12 @@ TEST(scan, reprojection)
 
 TEST(scan, deepScanReprojection)
 {
+    if (arbiter::util::env("APPVEYOR"))
+    {
+        std::cout << "Skipping reprojection tests" << std::endl;
+        return;
+    }
+
     Json::Value in;
     in["input"] = test::dataPath() + "ellipsoid.laz";
     in["trustHeaders"] = false;
