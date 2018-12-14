@@ -86,7 +86,7 @@ class Chunk
 public:
     Chunk(const ReffedChunk& ref)
         : m_ref(ref)
-        , m_ticks(m_ref.metadata().ticks())
+        , m_span(m_ref.metadata().span())
         , m_pointSize(m_ref.metadata().schema().pointSize())
         , m_gridBlock(m_pointSize, 4096)
         , m_overflowBlock(m_pointSize, 1024)
@@ -110,7 +110,7 @@ public:
     void init()
     {
         assert(!m_grid);
-        m_grid = makeUnique<std::vector<VoxelTube>>(m_ticks * m_ticks);
+        m_grid = makeUnique<std::vector<VoxelTube>>(m_span * m_span);
         assert(!m_overflow);
         m_overflow = makeUnique<std::vector<Overflow>>();
         m_remote = false;
@@ -145,7 +145,7 @@ public:
     bool insert(Voxel& voxel, Key& key, Clipper& clipper)
     {
         const Xyz& pos(key.position());
-        const std::size_t i((pos.y % m_ticks) * m_ticks + (pos.x % m_ticks));
+        const std::size_t i((pos.y % m_span) * m_span + (pos.x % m_span));
         VoxelTube& tube((*m_grid)[i]);
 
         UniqueSpin tubeLock(tube.spin);
@@ -235,7 +235,7 @@ private:
     }
 
     const ReffedChunk& m_ref;
-    const uint64_t m_ticks;
+    const uint64_t m_span;
     const uint64_t m_pointSize;
     bool m_remote = false;
 

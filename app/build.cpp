@@ -73,12 +73,12 @@ void Build::addArgs()
             [this](Json::Value v) { m_json["dataType"] = v.asString(); });
 
     m_ap.add(
-            "--ticks",
+            "--span",
             "Number of voxels in each spatial dimension for data nodes.  "
-            "For example, a ticks setting of 256 will result in a cube of "
-            "256*256*256 resolution.  Default: 256.\n"
-            "Example: --ticks 128",
-            [this](Json::Value v) { m_json["ticks"] = extract(v); });
+            "For example, a span of 256 will result in a cube of 256*256*256 "
+            "resolution.  Default: 256.\n"
+            "Example: --span 128",
+            [this](Json::Value v) { m_json["span"] = extract(v); });
 
     m_ap.add(
             "--noOriginId",
@@ -331,9 +331,9 @@ void Build::log(const Builder& b) const
             (reprojection ? reprojection->toString() : "(none)") << "\n" <<
         "\tStoring dimensions: " << getDimensionString(schema) << std::endl;
 
-    const auto t(metadata.ticks());
+    const auto t(metadata.span());
     std::cout << "Build parameters:\n" <<
-        "\tTicks: " << t << "\n" <<
+        "\tSpan: " << t << "\n" <<
         "\tResolution 2D: " <<
             t << " * " << t << " = " << commify(t * t) << "\n" <<
         "\tResolution 3D: " <<

@@ -21,7 +21,7 @@ TEST(read, count)
         c["output"] = out;
         c["force"] = true;
         c["hierarchyStep"] = static_cast<Json::UInt64>(v.hierarchyStep());
-        c["ticks"] = static_cast<Json::UInt64>(v.ticks());
+        c["span"] = static_cast<Json::UInt64>(v.span());
 
         Builder b(c);
         b.go();
@@ -29,7 +29,7 @@ TEST(read, count)
 
     Reader r(out);
     const Metadata& m(r.metadata());
-    EXPECT_EQ(m.ticks(), v.ticks());
+    EXPECT_EQ(m.span(), v.span());
 
     uint64_t np(0);
     for (std::size_t i(0); i < 8; ++i)
@@ -55,7 +55,7 @@ TEST(read, data)
         c["output"] = out;
         c["force"] = true;
         c["hierarchyStep"] = static_cast<Json::UInt64>(v.hierarchyStep());
-        c["ticks"] = static_cast<Json::UInt64>(v.ticks());
+        c["span"] = static_cast<Json::UInt64>(v.span());
 
         Builder b(c);
         b.go();
@@ -63,7 +63,7 @@ TEST(read, data)
 
     Reader r(out);
     const Metadata& m(r.metadata());
-    EXPECT_EQ(m.ticks(), v.ticks());
+    EXPECT_EQ(m.span(), v.span());
 
     const Schema schema(DimList { DimId::X, DimId::Y, DimId::Z });
 
