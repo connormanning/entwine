@@ -151,7 +151,7 @@ else()
     add_library(entwine SHARED ${OBJS})
 endif()
 
-target_link_libraries(entwine PUBLIC pdalcpp pdal_util ${LZMA_LIBRARY} ${CMAKE_DL_LIBS})
+target_link_libraries(entwine PUBLIC pdalcpp ${LZMA_LIBRARY} ${CMAKE_DL_LIBS})
 
 target_link_libraries(entwine ${JSON_CPP_LINK_TYPE} ${ENTWINE_JSONCPP_LIB_NAME})
 
