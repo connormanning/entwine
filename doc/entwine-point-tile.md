@@ -48,13 +48,13 @@ The core metadata required to interpret the contents of an EPT dataset.  An exam
         { "name": "Blue", "type": "unsigned", "size": 2 },
         { "name": "OriginId", "type": "unsigned", "size": 4 }
     ],
+    "span" : 256,
     "srs": {
         "authority": "EPSG",
         "horizontal": "3857",
         "vertical": "5703",
         "wkt": "PROJCS[\"WGS 84 ... AUTHORITY[\"EPSG\",\"3857\"]]"
     },
-    "ticks" : 256,
     "version" : "1.0.0"
 }
 ```
@@ -106,6 +106,15 @@ For a `dataType` of `binary`, the `schema` provides information on the binary co
 
 In addition to the required `name`, `type`, and `size` specifications, attributes may also contain optional `scale` and/or `offset` values.  These options specify that the absolutely positioned value of a given attribute should be computed as `read_value * scale + offset`.  If `scale` does not exist then it is implicitly `1.0`.  If `offset` does not exist it is implicitly `0.0`.  This is commonly used to provide a fixed precision to the `X`, `Y`, and `Z` spatial dimensions.
 
+#### span
+This value represents the span of voxels in each spatial dimension defining the grid size used for the octree.  This value must be a power of `2`.
+
+For example, a `span` of `256` means that the root volume of the octree consists of the `bounds` cube split into a voxelized resolution of `256 * 256 * 256`.
+
+For aerial LiDAR data which tends to be much denser in its X and Y ranges than the Z range, for example, this would loosely correspond to a practical resolution of `256 * 256` points per volume.
+
+Because the `span` is constant throughout an entire EPT dataset, but each subsequent depth bisects the cubic volume of the previous, each increase in depth effectively doubles the resolution in each spatial dimension.
+
 #### srs
 An object describing the spatial reference system for this indexed dataset, or may not exist if a spatial reference could not be determined and was not set manually.  In this object there are string keys with string values of the following descriptions:
     - `authority`: Typically `"EPSG"` (if present), this value represents the authority for horizontal code as well as the vertical code if one is present.
@@ -117,24 +126,21 @@ For a valid `srs` specification: if one of either `authority` or `horizontal` ex
 
 The `srs` specification may be an empty object.
 
-#### ticks
-This value represents the number of voxels in each spatial dimension defining the grid size used for the octree.  For example, a `ticks` value of `256` means that the root volume of the octree is the `bounds` cube at a resolution of `256 * 256 * 256`.
-
-For aerial LiDAR data which tends to be mostly flat in the Z-range, for example, this would loosely correspond to a practical resolution of `256 * 256` points per volume.  Each subsequent depth bisects this volume, leading to 8 sub-volumes with the same grid size, which corresponds to double the resolution in each dimension.
-
 #### version
 Version string in the form of `<major>.<minor>.<patch>`.
 
 ## ept-data
 The point cloud data itself is arranged in a 3D analogous manner to [slippy map](https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames) tiling schemes.  The filename scheme `Zoom-X-Y` is expanded to three dimensions as `Depth-X-Y-Z`.  As opposed to raster tiling schemes where coarser-resolution data is replaced as its sub-tiles are traversed, the point cloud data is instead additive, meaning that full-resolution is obtained by the accumulated traversal from depth `0` to the last depth containing a positive point count for the selected area.
 
-The root volume is always named `0-0-0-0`.  This volume always represents the volume of the cubic `bounds` value from `ept.json` split in each dimension by `ticks`.  So a `bounds` with a volume of 256 cubic meters, with a `ticks` value of `256`, corresponds to a root node with a resolution of up to 1 point per cubic meter.
+The root volume is always named `0-0-0-0`.  This volume always represents the volume of the cubic `bounds` value from `ept.json` split in each dimension by `span`.  So a `bounds` with a volume of 256 cubic meters, with a `span` value of `256`, corresponds to a root node with a resolution of up to 1 point per cubic meter.
 
 Each node at depth `D` may have up to 8 child nodes at depth `D + 1` which represent bisected sub-volumes.  To zoom in, depth `D` is incremented by one, and each of `X`, `Y`, and `Z` are doubled and then possibly incremented by one.  Coordinates are treated as Cartesian during this bisection, so `X -> 2 * X` represents the sub-volume where the new maximum `X` value is the midpoint from its parent, and `X -> 2 * X + 1` represents the sub-volume where the new minimum `X` value is the midpoint from its parent.
 
 In web-mercator, for example, where `X` increases going eastward and `Y` increases going northward, a traversal from `0-0-0-0` to `1-1-0-1` represents a traversal to the east/south/down sub-volume.
 
 There is no fixed maximum resolution depth, instead the tiles must be traversed until no more data exists.  For look-ahead capability, see `ept-hierarchy`.
+
+Note that unlike raster tiling schemes, where lower-resolution data is replaced by higher-resolution data during traversal, EPT is an additive scheme rather than a replacement scheme.  So data at lower resolution nodes is not duplicated at higher resolution nodes, and full resolution for a given area is found via the aggregation of all the points from the highest resolution leaf node with all overlapping lower resolution nodes.
 
 ## ept-hierarchy
 The hierarchy section contains information about what nodes exist and how many points they contain.  The file format is simple JSON object, with string keys of `D-X-Y-Z` mapping to a point count for the corresponding file.  The root file of the hierarchy data exists at `ept-hierarchy/0-0-0-0.json`.  For example:

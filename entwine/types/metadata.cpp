@@ -43,15 +43,15 @@ Metadata::Metadata(const Config& config, const bool exists)
     , m_srs(makeUnique<Srs>(config.srs()))
     , m_subset(Subset::create(*this, config["subset"]))
     , m_trustHeaders(config.trustHeaders())
-    , m_ticks(config.ticks())
-    , m_startDepth(std::log2(m_ticks))
+    , m_span(config.span())
+    , m_startDepth(std::log2(m_span))
     , m_sharedDepth(m_subset ? m_subset->splits() : 0)
     , m_overflowDepth(std::max(config.overflowDepth(), m_sharedDepth))
     , m_overflowThreshold(config.overflowThreshold())
 {
-    if (1ULL << m_startDepth != m_ticks)
+    if (1ULL << m_startDepth != m_span)
     {
-        throw std::runtime_error("Invalid ticks");
+        throw std::runtime_error("Invalid voxel span");
     }
 
     if (m_outSchema->isScaled())
@@ -116,7 +116,7 @@ Json::Value Metadata::toJson() const
     json["bounds"] = boundsCubic().toJson();
     json["boundsConforming"] = boundsConforming().toJson();
     json["schema"] = m_outSchema->toJson();
-    json["ticks"] = (Json::UInt64)m_ticks;
+    json["span"] = (Json::UInt64)m_span;
     json["points"] = (Json::UInt64)m_files->totalInserts();
     json["dataType"] = m_dataIo->type();
     json["hierarchyType"] = "json"; // TODO.

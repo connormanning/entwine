@@ -67,7 +67,7 @@ public:
         json["dataType"] = "laszip";
         json["hierarchyType"] = "json";
 
-        json["ticks"] = 256;
+        json["span"] = 256;
         json["overflowDepth"] = 0;
         json["overflowRatio"] = 0.5;
 
@@ -152,7 +152,7 @@ public:
             m_json["allowOriginId"].asBool();
     }
 
-    uint64_t ticks() const { return m_json["ticks"].asUInt64(); }
+    uint64_t span() const { return m_json["span"].asUInt64(); }
 
     uint64_t overflowDepth() const
     {
@@ -167,7 +167,7 @@ public:
         }
         else
         {
-            return ticks() * ticks() * m_json["overflowRatio"].asDouble();
+            return span() * span() * m_json["overflowRatio"].asDouble();
         }
     }
     uint64_t hierarchyStep() const
