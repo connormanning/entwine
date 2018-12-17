@@ -221,6 +221,12 @@ TEST(scan, deepScanReprojection)
 
 TEST(scan, reprojectionHammer)
 {
+    if (arbiter::util::env("APPVEYOR"))
+    {
+        std::cout << "Skipping reprojection tests" << std::endl;
+        return;
+    }
+
     Json::Value in;
     in["input"] = test::dataPath() + "ellipsoid-wrong-srs.laz";
     in["reprojection"]["in"] = "EPSG:3857";
