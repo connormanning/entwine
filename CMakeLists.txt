@@ -154,7 +154,7 @@ endif()
 target_link_libraries(
     entwine
     PUBLIC
-    pdal_base pdal_util
+    pdalcpp pdal_util
     ${LZMA_LIBRARY}
     ${CMAKE_DL_LIBS})
 
