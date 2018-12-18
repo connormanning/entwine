@@ -51,7 +51,7 @@ TEST(build, basic)
     c["input"] = test::dataPath() + "ellipsoid-multi/";
     c["output"] = outPath;
     c["force"] = true;
-    c["ticks"] = static_cast<Json::UInt64>(v.ticks());
+    c["span"] = static_cast<Json::UInt64>(v.span());
     c["hierarchyStep"] = static_cast<Json::UInt64>(v.hierarchyStep());
 
     Builder(c).go();
@@ -82,7 +82,7 @@ TEST(build, basic)
     verifySchema.setOffset(bounds.mid().round());
     EXPECT_EQ(schema, verifySchema);
 
-    EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
+    EXPECT_EQ(info["span"].asUInt64(), v.span());
 
     checkSources(outPath);
 }
@@ -97,7 +97,7 @@ TEST(build, continued)
         c["input"] = test::dataPath() + "ellipsoid-multi/";
         c["output"] = outPath;
         c["force"] = true;
-        c["ticks"] = static_cast<Json::UInt64>(v.ticks());
+        c["span"] = static_cast<Json::UInt64>(v.span());
         c["hierarchyStep"] = static_cast<Json::UInt64>(v.hierarchyStep());
         c["run"] = 4;
 
@@ -137,7 +137,7 @@ TEST(build, continued)
     verifySchema.setOffset(bounds.mid().round());
     EXPECT_EQ(schema, verifySchema);
 
-    EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
+    EXPECT_EQ(info["span"].asUInt64(), v.span());
 
     checkSources(outPath);
 }
@@ -162,7 +162,7 @@ TEST(build, fromScan)
     c["input"] = scanPath + "scan.json";
     c["output"] = outPath;
     c["force"] = true;
-    c["ticks"] = static_cast<Json::UInt64>(v.ticks());
+    c["span"] = static_cast<Json::UInt64>(v.span());
     c["hierarchyStep"] = static_cast<Json::UInt64>(v.hierarchyStep());
 
     Builder(c).go();
@@ -193,7 +193,7 @@ TEST(build, fromScan)
     verifySchema.setOffset(bounds.mid().round());
     EXPECT_EQ(schema, verifySchema);
 
-    EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
+    EXPECT_EQ(info["span"].asUInt64(), v.span());
 
     checkSources(outPath);
 }
@@ -209,7 +209,7 @@ TEST(build, subset)
         c["input"] = test::dataPath() + "ellipsoid-multi/";
         c["output"] = outPath;
         c["force"] = true;
-        c["ticks"] = static_cast<Json::UInt64>(v.ticks());
+        c["span"] = static_cast<Json::UInt64>(v.span());
         c["hierarchyStep"] = static_cast<Json::UInt64>(v.hierarchyStep());
         c["subset"]["id"] = i + 1u;
         c["subset"]["of"] = 4u;
@@ -250,7 +250,7 @@ TEST(build, subset)
     verifySchema.setOffset(bounds.mid().round());
     EXPECT_EQ(schema, verifySchema);
 
-    EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
+    EXPECT_EQ(info["span"].asUInt64(), v.span());
 
     checkSources(outPath);
 }
@@ -263,7 +263,7 @@ TEST(build, invalidSubset)
     c["input"] = test::dataPath() + "ellipsoid-multi/";
     c["output"] = outPath;
     c["force"] = true;
-    c["ticks"] = static_cast<Json::UInt64>(v.ticks());
+    c["span"] = static_cast<Json::UInt64>(v.span());
     c["hierarchyStep"] = static_cast<Json::UInt64>(v.hierarchyStep());
     c["subset"]["id"] = 1;
 
@@ -316,7 +316,7 @@ TEST(build, subsetFromScan)
         c["input"] = scanPath + "scan.json";
         c["output"] = outPath;
         c["force"] = true;
-        c["ticks"] = static_cast<Json::UInt64>(v.ticks());
+        c["span"] = static_cast<Json::UInt64>(v.span());
         c["hierarchyStep"] = static_cast<Json::UInt64>(v.hierarchyStep());
         c["subset"]["id"] = i + 1u;
         c["subset"]["of"] = 4u;
@@ -357,7 +357,7 @@ TEST(build, subsetFromScan)
     verifySchema.setOffset(bounds.mid().round());
     EXPECT_EQ(schema, verifySchema);
 
-    EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
+    EXPECT_EQ(info["span"].asUInt64(), v.span());
 
     checkSources(outPath);
 }
@@ -378,7 +378,7 @@ TEST(build, reprojected)
     c["output"] = outPath;
     c["reprojection"]["out"] = "EPSG:26918";
     c["force"] = true;
-    c["ticks"] = static_cast<Json::UInt64>(v.ticks());
+    c["span"] = static_cast<Json::UInt64>(v.span());
     c["hierarchyStep"] = static_cast<Json::UInt64>(v.hierarchyStep());
 
     Builder(c).go();
@@ -410,7 +410,7 @@ TEST(build, reprojected)
     verifySchema.setOffset(bounds.mid().round());
     EXPECT_EQ(schema, verifySchema);
 
-    EXPECT_EQ(info["ticks"].asUInt64(), v.ticks());
+    EXPECT_EQ(info["span"].asUInt64(), v.span());
 
     checkSources(outPath);
 }

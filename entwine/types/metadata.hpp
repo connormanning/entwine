@@ -75,7 +75,7 @@ public:
     bool trustHeaders() const { return m_trustHeaders; }
     bool primary() const { return !m_subset || m_subset->primary(); }
 
-    uint64_t ticks() const { return m_ticks; }
+    uint64_t span() const { return m_span; }
     uint64_t startDepth() const { return m_startDepth; }
     uint64_t sharedDepth() const { return m_sharedDepth; }
     uint64_t overflowDepth() const { return m_overflowDepth; }
@@ -113,7 +113,7 @@ private:
 
     const bool m_trustHeaders = true;
 
-    const uint64_t m_ticks;
+    const uint64_t m_span;
     const uint64_t m_startDepth;
     const uint64_t m_sharedDepth;
 

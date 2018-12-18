@@ -67,7 +67,7 @@ point cloud data.
 | [force](#force) | Force a new build at this output |
 | [dataType](#datatype) | Point cloud data storage type |
 | [hierarchyType](#hierarchytype) | Hierarchy storage type |
-| [ticks](#ticks) | Nominal resolution in one dimension |
+| [span](#span) | Voxel resolution in one dimension |
 | [allowOriginId](#alloworiginid) | Specify per-point source file tracking |
 | [bounds](#bounds) | Dataset bounds |
 | [schema](#schema) | Attributes to store |
@@ -79,7 +79,7 @@ point cloud data.
 | [subset](#subset) | Run a subset portion of a larger build |
 | [overflowDepth](#overflowdepth) | Depth at which nodes may contain overflow |
 | [overflowThreshold](#overflowthreshold) | Threshold for overflowing nodes to split |
-| [hierarchyStep](#hierarchyStep) | Step size at which to split hierarchy files |
+| [hierarchyStep](#hierarchystep) | Step size at which to split hierarchy files |
 
 ### input
 
@@ -188,10 +188,10 @@ acceptable values are `json` and `gzip`.
 { "hierarchyType": "json" }
 ```
 
-### ticks
+### span
 
 Number of voxels in each spatial dimension which defines the grid size of the
-octree.  For example, a `ticks` value of `256` results in a `256 * 256 * 256`
+octree.  For example, a `span` value of `256` results in a `256 * 256 * 256`
 cubic resolution.
 
 ### allowOriginId
