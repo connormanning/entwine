@@ -24,6 +24,7 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/defs.hpp>
+#include <entwine/types/srs.hpp>
 #include <entwine/util/stack-trace.hpp>
 
 namespace
