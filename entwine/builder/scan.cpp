@@ -100,7 +100,7 @@ Config Scan::go()
         m_files.save(ep, "", m_in, true);
         Json::Value json(out.json());
         Json::Value removed;
-        json.removeMember("input",&removed);
+        json.removeMember("input", &removed);
         ep.put("scan.json", toPreciseString(json, true));
 
         if (m_in.verbose())

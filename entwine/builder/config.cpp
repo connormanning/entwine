@@ -103,7 +103,7 @@ Config Config::prepare() const
         // path for the subsequent 'build' step.
         Json::Value scanConfig(json());
         Json::Value removed;
-        scanConfig.removeMember("output",&removed);
+        scanConfig.removeMember("output", &removed);
         scan = Scan(scanConfig).go().json();
     }
 

@@ -134,9 +134,9 @@ std::unique_ptr<ScanInfo> Executor::preview(
         Json::Value removed;
         if (readerJson.isObject())
         {
-            readerJson.removeMember("override_srs",&removed);
-            readerJson.removeMember("default_srs",&removed);
-            readerJson.removeMember("spatialreference",&removed);
+            readerJson.removeMember("override_srs", &removed);
+            readerJson.removeMember("default_srs", &removed);
+            readerJson.removeMember("spatialreference", &removed);
         }
 
         pdal::PipelineManager pm;
