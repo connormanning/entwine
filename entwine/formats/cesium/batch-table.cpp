@@ -77,11 +77,25 @@ Json::Value BatchTable::getJson() const
 void BatchTable::appendBinary(std::vector<char>& data) const
 {
     data.insert(data.end(), m_data.begin(), m_data.end());
+
+    // Pad remaining space so that batch table will end at 8-byte boundary
+    if (m_data.size() % 8)
+    {
+        data.insert(data.end(), 8 - (m_data.size() % 8), 'X');
+    }
 }
 
 std::size_t BatchTable::bytes() const
 {
-    return m_data.size();
+    std::size_t size = m_data.size();
+
+    // Reserve extra bytes for padding to 8-byte boundary
+    if (size % 8)
+    {
+        size += 8 - (size % 8);
+    }
+
+    return size;
 }
 
 const std::vector<Point>& BatchTable::points() const
