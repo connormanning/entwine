@@ -47,6 +47,8 @@ See `Connor Manning`_ present "`Trillions of points - spatial indexing, organiza
    download
    community
    presentations
+   entwine-point-tile
+   configuration
 
 .. _`point cloud data`: http://en.wikipedia.org/wiki/Point_cloud
 

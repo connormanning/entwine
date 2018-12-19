@@ -6,11 +6,10 @@ compiler:
 - clang
 script: docker run -v $TRAVIS_BUILD_DIR:/entwine -t --entrypoint /bin/sh connormanning/entwine -c "/entwine/scripts/ci/build.sh"
 after_success:
-#- echo "secure travis:" "$TRAVIS_SECURE_ENV_VARS"
+- echo "secure travis:" "$TRAVIS_SECURE_ENV_VARS"
   # Update the TRAVIS_BRANCH value as necessary to force the build/deploy of the website
   # if both CXX==g++ and TRAVIS_BRANCH==value
-#- sh -c 'if test "$TRAVIS_SECURE_ENV_VARS" = "true" -a "$CXX" = "g++"; then echo "publish website"; ./scripts/ci/build_docs.sh; ./scripts/ci/deploy_website.sh
-#$TRAVIS_BUILD_DIR/doc/build; fi'
+- sh -c 'if test "$TRAVIS_SECURE_ENV_VARS" = "true" -a "$CXX" = "g++"; then echo "publish website"; ./scripts/ci/build_docs.sh; ./scripts/ci/deploy_website.sh $TRAVIS_BUILD_DIR/doc/build; fi'
 notifications:
   email: false
   on_success: change

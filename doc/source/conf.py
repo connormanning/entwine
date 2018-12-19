@@ -32,6 +32,7 @@
 extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
+    'sphinx_markdown_tables',
 ]
 
 intersphinx_mapping = {'pdal': ('http://pdal.io', None), 'greyhound': ('https://greyhound.io', None)}
@@ -54,8 +55,11 @@ templates_path = ['_templates']
 #
 
 
-#source_suffix = ['.rst', '.md']
-source_suffix = '.rst'
+source_suffix = ['.rst', '.md']
+#source_suffix = '.rst'
+source_parsers = {
+   '.md': 'recommonmark.parser.CommonMarkParser',
+}
 
 # The encoding of source files.
 #
