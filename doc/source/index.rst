@@ -23,13 +23,13 @@ Entwine
 News
 --------------------------------------------------------------------------------
 
-**07-03-2018**
+**2018-12-18**
 ................................................................................
 
-Entwine 1.3 is now released. See :ref:`download` to obtain a copy of the source
+Entwine 2.0 is now released. See :ref:`download` to obtain a copy of the source
 code.
 
-**12-01-2017**
+**2017-12-01**
 ................................................................................
 
 See `Connor Manning`_ present "`Trillions of points - spatial indexing, organization, and exploitation of massive point clouds`_" at `FOSS4G 2017`_ in Boston, MA USA in August 2017.
@@ -43,6 +43,7 @@ See `Connor Manning`_ present "`Trillions of points - spatial indexing, organiza
    :hidden:
 
    quickstart
+   documentation
    download
    community
    presentations
