@@ -131,11 +131,12 @@ std::unique_ptr<ScanInfo> Executor::preview(
         // in our metadata.  We still want any other options though - they may
         // be necessary for a proper preview - for example CSV or GDAL column
         // mappings.
+        Json::Value removed;
         if (readerJson.isObject())
         {
-            readerJson.removeMember("override_srs");
-            readerJson.removeMember("default_srs");
-            readerJson.removeMember("spatialreference");
+            readerJson.removeMember("override_srs", &removed);
+            readerJson.removeMember("default_srs", &removed);
+            readerJson.removeMember("spatialreference", &removed);
         }
 
         pdal::PipelineManager pm;

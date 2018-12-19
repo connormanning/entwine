@@ -13,7 +13,6 @@
 #include "convert.hpp"
 #include "merge.hpp"
 #include "scan.hpp"
-#include "update.hpp"
 
 #include <csignal>
 #include <cstdio>
@@ -25,6 +24,7 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/defs.hpp>
+#include <entwine/types/srs.hpp>
 #include <entwine/util/stack-trace.hpp>
 
 namespace
@@ -44,9 +44,7 @@ namespace
             t(2) + "merge\n" +
             t(3) + "Merge colocated entwine subsets\n" +
             t(2) + "convert\n" +
-            t(3) + "Convert an entwine dataset to a different format\n" +
-            t(2) + "update\n" +
-            t(3) + "Update a development EPT dataset to current EPT\n";
+            t(3) + "Convert an entwine dataset to a different format\n";
     }
 
     std::mutex mutex;
@@ -320,10 +318,6 @@ int main(int argc, char** argv)
         else if (app == "convert")
         {
             entwine::app::Convert().go(args);
-        }
-        else if (app == "update")
-        {
-            entwine::app::Update().go(args);
         }
         else
         {
