@@ -97,8 +97,8 @@ Metadata::Metadata(const arbiter::Endpoint& ep, const Config& config)
             entwine::merge(
                 config.json(),
                 entwine::merge(
-                    parse(ep.get("ept" + config.postfix() + ".json")),
-                    parse(ep.get("ept-build" + config.postfix() + ".json")))),
+                    parse(ep.get("ept-build" + config.postfix() + ".json")),
+                    parse(ep.get("ept" + config.postfix() + ".json")))),
             true)
 {
     Files files(Files::extract(ep, primary(), config.postfix()));
