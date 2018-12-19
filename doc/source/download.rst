@@ -15,7 +15,7 @@ Current Release
 Previous Releases
 ------------------------------------------------------------------------------
 
-- **2018-07-03** `entwine-1.3.0-src.tar.gz`_ (`release notes`_)
+- **2018-07-03** `entwine-1.3.0-src.tar.gz`_
 - **2017-12-04** `entwine-1.2.0-src.tar.gz`_
 - **2017-05-15** `entwine-1.1.0-src.tar.gz`_
 - **2017-05-15** `entwine-1.0.0-src.tar.gz`_
