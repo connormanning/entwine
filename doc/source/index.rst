@@ -1,119 +1,51 @@
 .. _home:
 
-******************************************************************************
-Entwine
-******************************************************************************
-
-.. image:: ../logo/color/entwine_logo_2-color-small.png
+.. image:: ../logo/color/entwine_logo_2-color.png
    :alt: Entwine logo
-   :align: right
 
-Entwine is a data organization library for massive point clouds, designed to
-conquer datasets of hundreds of billions of points as well as desktop-scale
-point clouds.  Entwine can index anything that is `PDAL`_-readable, and can
-read/write to a variety of sources like S3 or Dropbox.  Builds are completely
-lossless, so no points will be discarded even for terabyte-scale datasets.
 
-You can see it in use via the dynamic `Plas.io`_ client at http://speck.ly and
-the `Potree`_ client at http://potree.entwine.io.
+Entwine is a data organization library for massive point clouds, designed to conquer datasets of trillions of points as well as desktop-scale point clouds. Entwine can index anything that is `PDAL`_-readable, and can read/write to a variety of sources like S3 or Dropbox. Builds are completely lossless, so no points, metadata, or precision will be discarded even for terabyte-scale datasets.
 
-License
---------------------------------------------------------------------------------
+Check out the client demos, showcasing Entwine output with `Potree`_, `Plasio`_, and `Cesium`_ clients.
 
 Entwine is available under the `LGPL License`_.
 
 .. _`PDAL`: http://pdal.io
-.. _`Docker`: http://docker.com
-.. _`Greyhound`: https://github.com/hobu/greyhound
-.. _`Plas.io`: http://dev.speck.ly
-.. _`Potree`: http://potree.org
+.. _`Plasio`: http://dev.speck.ly
+.. _`Potree`: http://potree.entwine.io
+.. _`Cesium`: http://cesium.entwine.io
 .. _`LGPL License`: https://github.com/connormanning/entwine/blob/master/LICENSE
+
+******************************************************************************
+Entwine
+******************************************************************************
 
 News
 --------------------------------------------------------------------------------
 
-**12-04-2017**
+**07-03-2018**
 ................................................................................
 
-Entwine 1.2.0 is now released. See :ref:`download` to obtain a copy of the source
+Entwine 1.3 is now released. See :ref:`download` to obtain a copy of the source
 code.
-
-
 
 **12-01-2017**
 ................................................................................
 
-See `Connor Manning`_ present "`Trillions of points - spatial indexing, organization, and exploitation of massive point clouds`_
-Infrastructure`_ at `FOSS4G 2016`_ in Boston, MA USA in August 2017.
+See `Connor Manning`_ present "`Trillions of points - spatial indexing, organization, and exploitation of massive point clouds`_" at `FOSS4G 2017`_ in Boston, MA USA in August 2017.
 
 .. _`Trillions of points - spatial indexing, organization, and exploitation of massive point clouds`: https://vimeo.com/245073446
-.. _`FOSS4G 2016`: http://2016.foss4g.org/conference-programme.html
+.. _`FOSS4G 2017`: http://2017.foss4g.org
 .. _`Connor Manning`: https://github.com/connormanning
-
-
-**03-03-2017**
-................................................................................
-
-Entwine 1.0 is now released. See :ref:`download` to obtain a copy of the source
-code.
-
-
-**08-18-2016**
-................................................................................
-
-See `Connor Manning`_ present "`500+ Billion Points: Organizing Point Clouds as
-Infrastructure`_ at `FOSS4G 2016`_ in Bonn, Germany on August 26th, 2016.
-
-.. _`500+ Billion Points\: Organizing Point Clouds as Infrastructure`: http://2016.foss4g.org/talks.html#204
-.. _`FOSS4G 2016`: http://2016.foss4g.org/conference-programme.html
-.. _`Connor Manning`: https://github.com/connormanning
-
-.. note::
-
-    Catch up with Connor to get a :ref:`PDAL <pdal:home>` or :ref:`Entwine <home>` sticker.
-
-
-Quickstart
---------------------------------------------------------------------------------
 
 .. toctree::
    :maxdepth: 1
+   :hidden:
 
    quickstart
-   configuration
-
-Download
---------------------------------------------------------------------------------
-
-.. toctree::
-   :maxdepth: 2
-
    download
-
-Community
---------------------------------------------------------------------------------
-
-.. toctree::
-   :maxdepth: 2
-
    community
-
-Presentations
---------------------------------------------------------------------------------
-
-.. toctree::
-   :maxdepth: 2
-
    presentations
-
-
-
-
-Indices and tables
---------------------------------------------------------------------------------
-
-* :ref:`genindex`
-* :ref:`search`
 
 .. _`point cloud data`: http://en.wikipedia.org/wiki/Point_cloud
 
