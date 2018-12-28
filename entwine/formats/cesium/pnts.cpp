@@ -67,7 +67,7 @@ void Pnts::buildRgb(VectorPointTable& table)
         else return pr.getFieldAs<uint16_t>(id) >> 8;
     });
 
-    uint8_t r, g, b;
+    uint8_t r(0), g(0), b(0);
 
     if (m_tileset.colorType() == ColorType::Tile)
     {

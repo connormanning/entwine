@@ -18,33 +18,7 @@ if ("${CMAKE_BUILD_TYPE}" STREQUAL "")
     set(CMAKE_BUILD_TYPE "Release")
 endif()
 
-if (${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU" OR
-    ${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
-    add_definitions(${CMAKE_CXX_FLAGS} "-std=c++11")
-    add_definitions(${CMAKE_CXX_FLAGS} "-Wno-deprecated-declarations")
-    add_definitions(${CMAKE_CXX_FLAGS} "-Wall")
-    add_definitions(${CMAKE_CXX_FLAGS} "-pedantic")
-    add_definitions(${CMAKE_CXX_FLAGS} "-fexceptions")
-    add_definitions(${CMAKE_CXX_FLAGS} "-fPIC")
-endif()
-
-if (MSVC)
-    # prevents clashes between macros min\max and std::min\std::max
-    add_definitions(${CMAKE_CXX_FLAGS} "/DNOMINMAX" "/DJSON_DLL")
-    add_definitions(
-        -D_CRT_SECURE_NO_DEPRECATE
-        -D_CRT_SECURE_NO_WARNINGS
-        -D_CRT_NONSTDC_NO_WARNING
-        -D_SCL_SECURE_NO_WARNINGS
-    )
-    add_compile_options(
-        /wd4267
-        /wd4244
-        /wd4275
-        /wd4251
-        /wd4250
-        /wd4800)
-endif(MSVC)
+include(cmake/compiler_options.cmake)
 
 set(entwine_defs_hpp_in
     "${CMAKE_CURRENT_SOURCE_DIR}/entwine/types/defs.hpp.in")

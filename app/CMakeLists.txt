@@ -13,6 +13,7 @@ set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 find_package(Threads REQUIRED)
 
 add_executable(app ${SOURCES})
+compiler_options(app)
 add_dependencies(app entwine)
 
 target_link_libraries(app
