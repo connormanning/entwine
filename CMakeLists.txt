@@ -57,14 +57,7 @@ include_directories("${CMAKE_CURRENT_BINARY_DIR}/include")
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/json.cmake")
 
-if (ENTWINE_JSONCPP_INCLUDE_DIR)
-    MESSAGE("Using system JsonCpp")
-    include_directories(${ENTWINE_JSONCPP_INCLUDE_DIR})
-else()
-    MESSAGE("Using bundled JsonCpp")
-    include_directories("${CMAKE_CURRENT_SOURCE_DIR}/entwine/third")
-    include_directories("${CMAKE_CURRENT_SOURCE_DIR}/entwine/third/json")
-endif()
+include_directories(${ENTWINE_JSONCPP_INCLUDE_DIR})
 
 set(PDAL_FIND_VERSION 1.8)
 find_package(PDAL ${PDAL_FIND_VERSION} REQUIRED CONFIG NO_POLICY_SCOPE)
@@ -151,24 +144,23 @@ else()
     add_library(entwine SHARED ${OBJS})
 endif()
 
-target_link_libraries(
-    entwine
+target_link_libraries(entwine
     PUBLIC
-    pdalcpp pdal_util
-    ${LZMA_LIBRARY}
-    ${CMAKE_DL_LIBS})
+        ${LZMA_LIBRARY}
+        ${CMAKE_DL_LIBS}
+    PRIVATE
+        ${PDAL_LIBRARIES}
+        ${CURL_LIBRARIES}
+        ${OPENSSL_LIBRARIES}
+        ${ENTWINE_JSONCPP_LIB_NAME}
+        ${SHLWAPI}
+)
 
-target_link_libraries(entwine ${JSON_CPP_LINK_TYPE} ${ENTWINE_JSONCPP_LIB_NAME})
-
-if (WIN32)
-    target_link_libraries(entwine PRIVATE ${SHLWAPI})
-endif()
-
-target_link_libraries(entwine PRIVATE ${CURL_LIBRARIES})
-target_include_directories(entwine PRIVATE "${CURL_INCLUDE_DIR}")
-
-target_link_libraries(entwine PRIVATE ${OPENSSL_LIBRARIES})
-target_include_directories(entwine PRIVATE "${OPENSSL_INCLUDE_DIR}")
+target_include_directories(entwine
+    PRIVATE
+        "${CURL_INCLUDE_DIR}"
+        "${OPENSSL_INCLUDE_DIR}"
+)
 
 set_target_properties(
     entwine

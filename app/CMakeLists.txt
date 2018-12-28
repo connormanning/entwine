@@ -16,10 +16,13 @@ add_executable(app ${SOURCES})
 add_dependencies(app entwine)
 
 target_link_libraries(app
-    entwine
-    ${Backtrace_LIBRARIES}
-    ${CMAKE_DL_LIBS}
-    ${CMAKE_THREAD_LIBS_INIT}
+    PRIVATE
+        entwine
+        ${PDAL_LIBRARIES}
+        ${Backtrace_LIBRARIES}
+        ${CMAKE_DL_LIBS}
+        ${CMAKE_THREAD_LIBS_INIT}
+        ${ENTWINE_JSONCPP_LIB_NAME}
 )
 set_target_properties(app PROPERTIES OUTPUT_NAME entwine)
 
