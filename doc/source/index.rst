@@ -43,13 +43,11 @@ See `Connor Manning`_ present "`Trillions of points - spatial indexing, organiza
    :hidden:
 
    quickstart
-   documentation
    download
+   configuration
+   entwine-point-tile
    community
    presentations
-   entwine-point-tile
-   configuration
 
 .. _`point cloud data`: http://en.wikipedia.org/wiki/Point_cloud
-
 

@@ -24,10 +24,11 @@ Now we can statically serve ``~/entwine`` with a simple HTTP server:
 
 And view the data with `Potree`_ and `Plasio`_.
 
-For further information about how to configure Entwine - like reprojecting data, using configuration files and templates, enabling S3 capabilities, and producing `Cesium 3D Tiles`_ output - see the :ref:`Documentation` section.
+For further information about how to configure Entwine - like reprojecting data, using configuration files and templates, enabling S3 capabilities, and producing `Cesium 3D Tiles`_ output - see the `Configuration`_ section.
 
 .. _Docker: http://docker.com
 .. _Potree: http://potree.entwine.io/data/custom.html?r=http://localhost:8080/red-rocks/ept.json
 .. _Plasio: http://dev.speck.ly/?s=0&r=ept://localhost:8080/red-rocks&c0s=local://color
 .. _Cesium 3D Tiles: https://github.com/AnalyticalGraphicsInc/3d-tiles
+.. _Configuration: https://entwine.io/configuration.html
 
