@@ -6,6 +6,8 @@ if [[ ! -z $TRAVIS_BUILD_DIR ]]; then
 buildpath="$TRAVIS_BUILD_DIR"
 fi
 
-docker run -v $buildpath:/data -w /data/doc hobu/entwine-docs make html
+# osgeo/proj-docs contains everything to build the website and
+# it is kept up to date by the PROJ team
+docker run -v $buildpath:/data -w /data/doc osgeo/proj-docs make html
 
 

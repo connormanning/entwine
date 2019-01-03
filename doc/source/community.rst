@@ -4,7 +4,7 @@
 Community
 ******************************************************************************
 
-Entwine's community interacts through `Gitter`_, `GitHub`_, and a `mailing list`.  Please feel welcome to ask questions and participate in all of the venues.  The `Gitter`_ channels are for real-time chat activities.  The `GitHub`_ communication channel is for development activities, bug reports, and testing.  The `mailing list`_ communication channel is for general questions, development discussion, and feedback.  The `mailing list`_ and `Gitter`_ channels are shared with those of `PDAL`_.
+Entwine's community interacts through `Gitter`_, `GitHub`_, and a `mailing list`_.  Please feel welcome to ask questions and participate in all of the venues.  The `Gitter`_ channels are for real-time chat activities.  The `GitHub`_ communication channel is for development activities, bug reports, and testing.  The `mailing list`_ communication channel is for general questions, development discussion, and feedback.  The mailing list and Gitter channels are shared with those of `PDAL`_.
 
 Gitter
 --------------------------------------------------------------------------------
