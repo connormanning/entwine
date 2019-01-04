@@ -34,6 +34,7 @@ And view the data with [Potree](http://potree.entwine.io/data/custom.html?r=http
 Going further
 --------------------------------------------------------------------------------
 
-For detailed information about how to configure your builds, check out the [configuration documentation](doc/configuration.md).  Here, you can find information about reprojecting your data, using configuration files and templates, enabling S3 capabilities, producing [Cesium 3D Tiles](https://github.com/AnalyticalGraphicsInc/3d-tiles) output, and all sorts of other settings.
+For detailed information about how to configure your builds, check out the [configuration documentation](https://entwine.io/configuration.html).  Here, you can find information about reprojecting your data, using configuration files and templates, enabling S3 capabilities, producing [Cesium 3D Tiles](https://github.com/AnalyticalGraphicsInc/3d-tiles) output, and all sorts of other settings.
 
-To learn about the Entwine Point Tile file format produced by Entwine, see the [file format documentation](doc/entwine-point-tile.md).
+To learn about the Entwine Point Tile file format produced by Entwine, see the [file format documentation](https://entwine.io/entwine-point-tile.html).
+
