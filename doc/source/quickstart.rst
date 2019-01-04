@@ -104,7 +104,7 @@ That doesn't give us much to see, so let's create a `hillshade`_ using
 
 ::
 
-   gdaldem hillshade red-rocks-dtm hillshade.png
+   gdaldem hillshade red-rocks-dtm.tif hillshade.png
 
 
 .. figure:: ./images/hillshade.png
