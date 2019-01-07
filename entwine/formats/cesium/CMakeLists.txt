@@ -16,4 +16,4 @@ set(
 
 install(FILES ${HEADERS} DESTINATION include/entwine/formats/cesium)
 add_library(${MODULE} OBJECT ${SOURCES})
-
+compiler_options(${MODULE})

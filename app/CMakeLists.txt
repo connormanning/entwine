@@ -13,13 +13,17 @@ set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 find_package(Threads REQUIRED)
 
 add_executable(app ${SOURCES})
+compiler_options(app)
 add_dependencies(app entwine)
 
 target_link_libraries(app
-    entwine
-    ${Backtrace_LIBRARIES}
-    ${CMAKE_DL_LIBS}
-    ${CMAKE_THREAD_LIBS_INIT}
+    PRIVATE
+        entwine
+        ${PDAL_LIBRARIES}
+        ${Backtrace_LIBRARIES}
+        ${CMAKE_DL_LIBS}
+        ${CMAKE_THREAD_LIBS_INIT}
+        ${JSONCPP_LIBRARY}
 )
 set_target_properties(app PROPERTIES OUTPUT_NAME entwine)
 

@@ -12,4 +12,4 @@ else()
 endif()
 
 add_library(${MODULE} OBJECT ${THIRD_SOURCES})
-
+compiler_options(${MODULE})
