@@ -59,7 +59,7 @@ set(OBJS
 
 if (MSVC)
     add_library(entwine STATIC ${OBJS})
-    target_link_libraries(entwine wsock32 ws2_32)
+    target_link_libraries(entwine PRIVATE wsock32 ws2_32)
 else()
     add_library(entwine SHARED ${OBJS})
 endif()
