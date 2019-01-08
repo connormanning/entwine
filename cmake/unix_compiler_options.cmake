@@ -5,6 +5,6 @@ function(system_compiler_options target)
             -Wall
             -pedantic
             -fexceptions
-            -Werror
     )
 endfunction()
+
