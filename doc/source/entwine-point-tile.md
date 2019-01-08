@@ -2,8 +2,6 @@
 
 Entwine Point Tile (EPT) is a simple and flexible octree-based storage format for point cloud data.  This document is a working draft of the format.
 
-## Metadata files
-
 The organization of and EPT dataset contains JSON metadata portions as well as binary point data.  This structure for a small dataset may look like this:
 
 ```
@@ -19,7 +17,7 @@ The organization of and EPT dataset contains JSON metadata portions as well as b
 
 These files and directories are described below.
 
-### ept.json
+## ept.json
 
 The core metadata required to interpret the contents of an EPT dataset.  An example file might look like this:
 ```json
@@ -59,28 +57,28 @@ The core metadata required to interpret the contents of an EPT dataset.  An exam
 }
 ```
 
-#### bounds
+### bounds
 An array of 6 numbers of the format `[xmin, ymin, zmin, xmax, ymax, zmax]` describing the cubic bounds of the octree indexing structure.  This value is always in native coordinate space, so any `scale` or `offset` values will not have been applied.  This value is presented in the coordinate system matching the `srs` value.
 
-#### boundsConforming
+### boundsConforming
 An array of 6 numbers of the format `[xmin, ymin, zmin, xmax, ymax, zmax]` describing the narrowest bounds conforming to the maximal extents of the data.  This value is always in native coordinate space, so any `scale` or `offset` values will not have been applied.  This value is presented in the coordinate system matching the `srs` value.
 
-#### dataType
+### dataType
 A string describing the binary encoding of the tiled point cloud data.  See the `Point cloud data` section.  Possible values:
 
 - `laszip`: Point cloud files are [LASzip](https://laszip.org/) compressed, with file extension `.laz`.
 - `binary`: Point cloud files are stored as uncompressed binary data in the format matching the `schema`, with file extension `.bin`.
 
-#### hierarchyType
+### hierarchyType
 A string describing the encoding of the hierarchy information.  See the `Hierarchy` section.  The hierarchy itself is always represented as JSON, but this value may indicate a compression method for this JSON.  Possible values:
 
 - `json`: Hierarchy is stored uncompressed with file extension `.json`.
 - `gzip`: Hierarchy is stored as [Gzip](https://www.gnu.org/software/gzip/) compressed JSON with file extension `.json.gz`.
 
-#### points
+### points
 A number indicating the total number of points indexed into this EPT dataset.
 
-#### schema
+### schema
 An array of objects that represent the indexed dimensions - every dimension has a `name`, `type`, and `size`.
 
 Known dimension names are mapped to [PDAL well known dimension list](https://pdal.io/dimensions.html), but arbitrary names may exist in addition to these prescribed dimensions.  Sizes are specified in 8-bit bytes, and all dimension attributes must be of integral byte size.
@@ -106,7 +104,7 @@ For a `dataType` of `binary`, the `schema` provides information on the binary co
 
 In addition to the required `name`, `type`, and `size` specifications, attributes may also contain optional `scale` and/or `offset` values.  These options specify that the absolutely positioned value of a given attribute should be computed as `read_value * scale + offset`.  If `scale` does not exist then it is implicitly `1.0`.  If `offset` does not exist it is implicitly `0.0`.  This is commonly used to provide a fixed precision to the `X`, `Y`, and `Z` spatial dimensions.
 
-#### span
+### span
 This value represents the span of voxels in each spatial dimension defining the grid size used for the octree.  This value must be a power of `2`.
 
 For example, a `span` of `256` means that the root volume of the octree consists of the `bounds` cube split into a voxelized resolution of `256 * 256 * 256`.
@@ -115,7 +113,7 @@ For aerial LiDAR data which tends to be much denser in its X and Y ranges than t
 
 Because the `span` is constant throughout an entire EPT dataset, but each subsequent depth bisects the cubic volume of the previous, each increase in depth effectively doubles the resolution in each spatial dimension.
 
-#### srs
+### srs
 An object describing the spatial reference system for this indexed dataset, or may not exist if a spatial reference could not be determined and was not set manually.  In this object there are string keys with string values of the following descriptions:
     - `authority`: Typically `"EPSG"` (if present), this value represents the authority for horizontal code as well as the vertical code if one is present.
     - `horizontal`: Horizontal coordinate system code with respect to the given `authority`.  If present, `authority` must exist.
@@ -126,7 +124,7 @@ For a valid `srs` specification: if one of either `authority` or `horizontal` ex
 
 The `srs` specification may be an empty object.
 
-#### version
+### version
 Version string in the form of `<major>.<minor>.<patch>`.
 
 ## ept-data
@@ -202,7 +200,7 @@ Hierarchy nodes must always contain a positive value with the sole exception of 
 }
 ```
 
-### ept-sources
+## ept-sources
 Sparse input data source information is stored in an array at `ept-sources/list.json`.  This contains an array of JSON objects representing sparse metadata for each input source.  This array may potentially be an empty array if this information is not stored.  If an `OriginId` dimension exists in the `schema`, then each item's position in this array maps to its `OriginId` value in the EPT dataset, starting from `0` at the first position in the array.  An sample `list.json` file may look like this:
 
 ```json
@@ -223,13 +221,13 @@ Sparse input data source information is stored in an array at `ept-sources/list.
 ]
 ```
 
-#### id
+### id
 For each object in the list, this is a field of string type which must uniquely identify this source among all other sources.  A typical `id` value would be a file path, but could potentially be something else like a data stream identifier or an arbitrary unique ID.
 
-#### bounds
+### bounds
 A source object may optionally contain a bounds which, if existing, is an array of 6 numbers of the format `[xmin, ymin, zmin, xmax, ymax, zmax]`.
 
-#### url
+### url
 A source object may optionally contain a string URL which points to a file, relative to the `ept-sources/` location, which contains more thorough metadata for this source.  If present, this URL must end in `.json` and this file must exist in JSON format.  Additionally, the JSON contained in this file must a) represent a JSON object and b) contain a string key matching the `id` of this source entry.  The format of this metadata file is discussed more fully in the *Source metadata* section, below.  More than one source entry may contain the same `url` string, and that file must contain an object with corresponding keys for each `id` that links to it.
 
 

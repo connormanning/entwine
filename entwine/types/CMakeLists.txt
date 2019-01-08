@@ -37,4 +37,4 @@ set(
 
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})
 add_library(${MODULE} OBJECT ${SOURCES})
-
+compiler_options(${MODULE})

@@ -1,4 +1,4 @@
-# Entwine Configuration
+# Configuration
 
 Entwine provides 4 sub-commands for indexing point cloud data:
 
@@ -458,9 +458,9 @@ Enable IO between multiple S3 buckets with different authentication settings.  P
 
 Setting the S3 profile is also accessible via command line with `--profile <profile>`, and server-side encryption can be enabled by using `--sse`.
 
-# Miscellaneous
+## Miscellaneous
 
-## S3
+### S3
 
 Entwine can read and write S3 paths.  The simplest way to make use of this
 functionality is to install [AWSCLI](https://aws.amazon.com/cli/) and run
@@ -470,7 +470,7 @@ If you're using Docker, you'll need to map that directory as a volume.
 Entwine's Docker container runs as user `root`, so that mapping is as simple as
 adding `-v ~/.aws:/root/.aws` to your `docker run` invocation.
 
-## Cesium
+### Cesium
 
 Creating 3D Tiles point cloud datasets for display in Cesium is a two-step
 process.

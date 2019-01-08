@@ -1,6 +1,3 @@
-add_definitions(${CMAKE_CXX_FLAGS}
-    "/DNOMINMAX" "/DJSON_DLL" "/DGTEST_LINKED_AS_SHARED_LIBRARY=1")
-
 add_executable(entwine-test
     unit/main.cpp
     unit/srs.cpp
@@ -9,11 +6,26 @@ add_executable(entwine-test
     unit/build.cpp
     unit/read.cpp
 )
+compiler_options(entwine-test)
 
 configure_file(unit/config.hpp.in "${CMAKE_CURRENT_BINARY_DIR}/unit/config.hpp")
-include_directories(${CMAKE_CURRENT_BINARY_DIR}/unit)
 
-target_link_libraries(entwine-test entwine gtest gtest_main)
+target_link_libraries(entwine-test
+    PRIVATE
+        entwine
+        gtest
+        gtest_main
+        ${PDAL_LIBRARIES}
+        ${JSONCPP_LIBRARY}
+)
+target_include_directories(entwine-test
+    PRIVATE
+        ${CMAKE_CURRENT_BINARY_DIR}/unit
+)
+target_compile_definitions(entwine-test
+    PRIVATE
+        GTEST_LINKED_AS_SHARED_LIBRARY=1
+)
 
 # We're overriding the test with a custom command for individual test output
 # and colors, which cmake doesn't like.
@@ -23,6 +35,6 @@ add_custom_target(
     test
     COMMAND entwine-test --gtest_color=yes
     DEPENDS entwine-test
-    WORKING_DIRECTORY ${CMAKE_PROJECT_DIR}
+    WORKING_DIRECTORY ${ROOT_DIR}
 )
 

@@ -1,0 +1,8 @@
+find_package(Curl)
+if (CURL_FOUND)
+    set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+    find_package(Threads REQUIRED)
+    set(ENTWINE_CURL TRUE)
+    set(ARBITER_CURL TRUE)
+	set(CURL_DEFS ENTWINE_CURL ARBITER_CURL)
+endif()
