@@ -2159,7 +2159,7 @@ std::vector<std::string> S3::glob(std::string path, bool verbose) const
         {
             xml.parse<0>(data.data());
         }
-        catch (Xml::parse_error)
+        catch (Xml::parse_error&)
         {
             throw ArbiterError("Could not parse S3 response.");
         }
@@ -4625,10 +4625,9 @@ namespace
 {
     std::mutex mutex;
 
-    int64_t utcOffsetSeconds()
+    int64_t utcOffsetSeconds(const std::time_t& now)
     {
         std::lock_guard<std::mutex> lock(mutex);
-        std::time_t now(std::time(nullptr));
         std::tm utc(*std::gmtime(&now));
         std::tm loc(*std::localtime(&now));
         return (int64_t)std::difftime(std::mktime(&utc), std::mktime(&loc));
@@ -4646,8 +4645,6 @@ Time::Time()
 
 Time::Time(const std::string& s, const std::string& format)
 {
-    static const int64_t utcOffset(utcOffsetSeconds());
-
     std::tm tm{};
 
 #ifndef ARBITER_WINDOWS
@@ -4664,6 +4661,8 @@ Time::Time(const std::string& s, const std::string& format)
         throw ArbiterError("Failed to parse " + s + " as time: " + format);
     }
 #endif
+    const int64_t utcOffset(utcOffsetSeconds(std::mktime(&tm)));
+
     if (utcOffset > std::numeric_limits<int>::max())
         throw ArbiterError("Can't convert offset time in seconds to tm type.");
     tm.tm_sec -= (int)utcOffset;

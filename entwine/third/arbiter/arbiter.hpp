@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 1fcc7db0d6967ef68ff3a2517da8f685168f7527
+// Git SHA: 7a497802737cfc956a8802b2efe65f6a72c29463
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -3149,6 +3149,11 @@ inline std::string decompress(const char* data, std::size_t size)
 #  endif
 #endif
 #endif
+
+#ifdef _WIN32
+#pragma warning(disable:4251)// [templated class] needs to have dll-interface...
+#endif
+
 
 // //////////////////////////////////////////////////////////////////////
 // End of content of file: arbiter/util/exports.hpp
