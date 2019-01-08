@@ -24,6 +24,7 @@ const std::string scanFile("scan.json");
 
 bool isScan(std::string s)
 {
+    if (s.size() < scanFile.size()) return false;
     return s.rfind(scanFile) == s.size() - scanFile.size();
 }
 

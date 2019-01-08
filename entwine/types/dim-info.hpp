@@ -30,7 +30,7 @@ class DimInfo
 
 public:
     DimInfo(DimId id)
-        : DimInfo(id, pdal::Dimension::defaultType(id))
+        : DimInfo(id, defaultType(id))
     { }
 
     DimInfo(DimId id, DimType type, double scale = 1.0, double offset = 0.0)
@@ -38,7 +38,7 @@ public:
     { }
 
     explicit DimInfo(std::string name)
-        : DimInfo(pdal::Dimension::id(name))
+        : DimInfo(name, defaultType(pdal::Dimension::id(name)))
     { }
 
     DimInfo(std::string name, std::string type, uint64_t size = 0)
