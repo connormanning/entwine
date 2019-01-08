@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 1fcc7db0d6967ef68ff3a2517da8f685168f7527
+// Git SHA: 7a497802737cfc956a8802b2efe65f6a72c29463
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -3482,13 +3482,13 @@ class ARBITER_DLL Pool
     friend class Resource;
 
 public:
-    Pool(
+    ARBITER_DLL Pool(
             std::size_t concurrent = 4,
             std::size_t retry = 4,
             Json::Value json = Json::Value());
-    ~Pool();
+    ARBITER_DLL ~Pool();
 
-    Resource acquire();
+    ARBITER_DLL Resource acquire();
 
 private:
     void release(std::size_t id);
@@ -4458,7 +4458,7 @@ namespace util
 #ifdef ARBITER_WINDOWS
             sep = "\\";
 #else
-            sep = "/";   
+            sep = "/";
 #endif
         }
         else if (next.empty() && currentIsDir)
@@ -4470,7 +4470,7 @@ namespace util
 #ifdef ARBITER_WINDOWS
                 sep = "\\";
 #else
-                sep = "/";   
+                sep = "/";
 #endif
 
             }
@@ -5376,13 +5376,13 @@ public:
     /** Construct a basic Arbiter with only drivers the don't require
      * external configuration parameters.
      */
-    Arbiter();
+    ARBITER_DLL Arbiter();
 
     /** @brief Construct an Arbiter with driver configurations. */
-    Arbiter(const Json::Value& json);
+    ARBITER_DLL Arbiter(const Json::Value& json);
 
     /** True if a Driver has been registered for this file type. */
-    bool hasDriver(std::string path) const;
+    ARBITER_DLL bool hasDriver(std::string path) const;
 
     /** @brief Add a custom driver for the supplied type.
      *
@@ -5395,63 +5395,66 @@ public:
      *
      * @note This operation is not thread-safe.
      */
-    void addDriver(std::string type, std::unique_ptr<Driver> driver);
+    ARBITER_DLL void addDriver(
+            std::string type,
+            std::unique_ptr<Driver> driver);
 
     /** Get data or throw if inaccessible. */
-    std::string get(std::string path) const;
+    ARBITER_DLL std::string get(std::string path) const;
 
     /** Get data if accessible. */
-    std::unique_ptr<std::string> tryGet(std::string path) const;
+    ARBITER_DLL std::unique_ptr<std::string> tryGet(std::string path) const;
 
     /** Get data in binary form or throw if inaccessible. */
-    std::vector<char> getBinary(std::string path) const;
+    ARBITER_DLL std::vector<char> getBinary(std::string path) const;
 
     /** Get data in binary form if accessible. */
-    std::unique_ptr<std::vector<char>> tryGetBinary(std::string path) const;
+    ARBITER_DLL std::unique_ptr<std::vector<char>> tryGetBinary(
+            std::string path) const;
 
     /** Get file size in bytes or throw if inaccessible. */
-    std::size_t getSize(std::string path) const;
+    ARBITER_DLL std::size_t getSize(std::string path) const;
 
     /** Get file size in bytes if accessible. */
-    std::unique_ptr<std::size_t> tryGetSize(std::string path) const;
+    ARBITER_DLL std::unique_ptr<std::size_t> tryGetSize(std::string path) const;
 
     /** Write data to path. */
-    void put(std::string path, const std::string& data) const;
+    ARBITER_DLL void put(std::string path, const std::string& data) const;
 
     /** Write data to path. */
-    void put(std::string path, const std::vector<char>& data) const;
+    ARBITER_DLL void put(std::string path, const std::vector<char>& data) const;
 
     /** Get data with additional HTTP-specific parameters.  Throws if
      * isHttpDerived is false for this path. */
-    std::string get(
+    ARBITER_DLL std::string get(
             std::string path,
             http::Headers headers,
             http::Query query = http::Query()) const;
 
     /** Get data with additional HTTP-specific parameters.  Throws if
      * isHttpDerived is false for this path. */
-    std::unique_ptr<std::string> tryGet(
+    ARBITER_DLL std::unique_ptr<std::string> tryGet(
             std::string path,
             http::Headers headers,
             http::Query query = http::Query()) const;
 
     /** Get data in binary form with additional HTTP-specific parameters.
      * Throws if isHttpDerived is false for this path. */
-    std::vector<char> getBinary(
+    ARBITER_DLL std::vector<char> getBinary(
             std::string path,
             http::Headers headers,
             http::Query query = http::Query()) const;
 
     /** Get data in binary form with additional HTTP-specific parameters.
      * Throws if isHttpDerived is false for this path. */
-    std::unique_ptr<std::vector<char>> tryGetBinary(
+    ARBITER_DLL std::unique_ptr<std::vector<char>> tryGetBinary(
             std::string path,
             http::Headers headers,
             http::Query query = http::Query()) const;
 
     /** Write data to path with additional HTTP-specific parameters.
      * Throws if isHttpDerived is false for this path. */
-    void put(
+    ARBITER_DLL void put(
             std::string path,
             const std::string& data,
             http::Headers headers,
@@ -5459,7 +5462,7 @@ public:
 
     /** Write data to path with additional HTTP-specific parameters.
      * Throws if isHttpDerived is false for this path. */
-    void put(
+    ARBITER_DLL void put(
             std::string path,
             const std::vector<char>& data,
             http::Headers headers,
@@ -5475,7 +5478,10 @@ public:
      * be repeatedly called during copying to ensure that any nested directories
      * are reproduced.
      */
-    void copy(std::string src, std::string dst, bool verbose = false) const;
+    ARBITER_DLL void copy(
+            std::string src,
+            std::string dst,
+            bool verbose = false) const;
 
     /** Copy the single file @p file to the destination @p to.  If @p to ends
      * with a `/` or '\' character, then @p file will be copied into the
@@ -5485,17 +5491,20 @@ public:
      * If @p to is a local filesystem path, then `fs::mkdirp` will be called
      * prior to copying.
      */
-    void copyFile(std::string file, std::string to, bool verbose = false) const;
+    ARBITER_DLL void copyFile(
+            std::string file,
+            std::string to,
+            bool verbose = false) const;
 
     /** Returns true if this path is a remote path, or false if it is on the
      * local filesystem.
      */
-    bool isRemote(std::string path) const;
+    ARBITER_DLL bool isRemote(std::string path) const;
 
     /** Returns true if this path is on the local filesystem, or false if it is
      * remote.
      */
-    bool isLocal(std::string path) const;
+    ARBITER_DLL bool isLocal(std::string path) const;
 
     /** Returns true if this path exists.  Equivalent to:
      * @code
@@ -5504,13 +5513,13 @@ public:
      *
      * @note This means that an existing file of size zero will return true.
      */
-    bool exists(std::string path) const;
+    ARBITER_DLL bool exists(std::string path) const;
 
     /** Returns true if the protocol for this driver is build on HTTP, like the
      * S3 and Dropbox drivers are.  If this returns true, http::Headers and
      * http::Query parameter methods may be used for this path.
      */
-    bool isHttpDerived(std::string path) const;
+    ARBITER_DLL bool isHttpDerived(std::string path) const;
 
     /** @brief Resolve a possibly globbed path.
      *
@@ -5543,12 +5552,12 @@ public:
      * resulting non-recursive resolution of this path.  Otherwise, the results
      * are a vector of size one containing only @p path itself, unaltered.
      */
-    std::vector<std::string> resolve(
+    ARBITER_DLL std::vector<std::string> resolve(
             std::string path,
             bool verbose = false) const;
 
     /** @brief Get a reusable Endpoint for this root directory. */
-    Endpoint getEndpoint(std::string root) const;
+    ARBITER_DLL Endpoint getEndpoint(std::string root) const;
 
     /** Returns the Driver, if one can be found, for the given @p path.  The
      * driver type is determined from the @p path substring prior to the
@@ -5558,7 +5567,7 @@ public:
      *
      * Optionally, filesystem paths may be explicitly prefixed with `file://`.
      */
-    const Driver& getDriver(std::string path) const;
+    ARBITER_DLL const Driver& getDriver(std::string path) const;
 
     /** @brief Get a fs::LocalHandle to a possibly remote file.
      *
@@ -5580,7 +5589,7 @@ public:
      *
      * @return A fs::LocalHandle for local access to the resulting file.
      */
-    std::unique_ptr<fs::LocalHandle> getLocalHandle(
+    ARBITER_DLL std::unique_ptr<fs::LocalHandle> getLocalHandle(
             std::string path,
             const Endpoint& tempEndpoint) const;
 
@@ -5589,7 +5598,7 @@ public:
      * If @p tempPath is not specified, the environment will be searched for a
      * temporary location.
      */
-    std::unique_ptr<fs::LocalHandle> getLocalHandle(
+    ARBITER_DLL std::unique_ptr<fs::LocalHandle> getLocalHandle(
             std::string path,
             std::string tempPath = "") const;
 
@@ -5612,7 +5621,7 @@ public:
     /** Fetch the common HTTP pool, which may be useful when dynamically
      * constructing adding a Driver via Arbiter::addDriver.
      */
-    http::Pool& httpPool() { return *m_pool; }
+    ARBITER_DLL http::Pool& httpPool() { return *m_pool; }
 
 private:
     const drivers::Http* tryGetHttpDriver(std::string path) const;
