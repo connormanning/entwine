@@ -14,5 +14,5 @@ cmake \
 NUMTHREADS=2
 make -j ${NUMTHREADS} && \
     make install && \
-    ./test/entwine-test
+    make test
 
