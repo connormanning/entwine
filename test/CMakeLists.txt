@@ -21,6 +21,7 @@ macro(ENTWINE_ADD_TEST _name)
     add_test(NAME ${_name} COMMAND ${test-name})
 endmacro(ENTWINE_ADD_TEST)
 
+ENTWINE_ADD_TEST(initialize FILES unit/init.cpp)
 ENTWINE_ADD_TEST(build      FILES unit/build.cpp)
 ENTWINE_ADD_TEST(read       FILES unit/read.cpp)
 ENTWINE_ADD_TEST(scan       FILES unit/scan.cpp)

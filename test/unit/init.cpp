@@ -3,7 +3,7 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 
-int main(int argc, char** argv)
+TEST(init, initializes)
 {
     const entwine::arbiter::Arbiter a;
     if (!a.tryGetSize(test::dataPath() + "ellipsoid.laz"))
@@ -33,7 +33,6 @@ int main(int argc, char** argv)
         }
     }
 
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+    EXPECT_TRUE(a.tryGetSize(test::dataPath() + "ellipsoid.laz"));
 }
 
