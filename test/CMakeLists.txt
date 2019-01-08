@@ -1,40 +1,29 @@
-add_executable(entwine-test
-    unit/main.cpp
-    unit/srs.cpp
-    unit/version.cpp
-    unit/scan.cpp
-    unit/build.cpp
-    unit/read.cpp
-)
-compiler_options(entwine-test)
-
 configure_file(unit/config.hpp.in "${CMAKE_CURRENT_BINARY_DIR}/unit/config.hpp")
 
-target_link_libraries(entwine-test
-    PRIVATE
-        entwine
-        gtest
-        gtest_main
-        ${PDAL_LIBRARIES}
-        ${JSONCPP_LIBRARY}
-)
-target_include_directories(entwine-test
-    PRIVATE
-        ${CMAKE_CURRENT_BINARY_DIR}/unit
-)
-target_compile_definitions(entwine-test
-    PRIVATE
-        GTEST_LINKED_AS_SHARED_LIBRARY=1
-)
+macro(ENTWINE_ADD_TEST _name)
+    set(test-name "${_name}-test")
 
-# We're overriding the test with a custom command for individual test output
-# and colors, which cmake doesn't like.
-set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE INTERNAL "No dev warnings")
+    set(options)
+    set(oneValueArgs)
+    set(multiValueArgs FILES LINK_WITH)
+    cmake_parse_arguments(ENTWINE_ADD_TEST
+        "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
-add_custom_target(
-    test
-    COMMAND entwine-test --gtest_color=yes
-    DEPENDS entwine-test
-    WORKING_DIRECTORY ${ROOT_DIR}
-)
+    add_executable(${test-name} ${ENTWINE_ADD_TEST_FILES})
+    compiler_options(${test-name})
+    target_link_libraries(${test-name}
+        PRIVATE entwine gtest gtest_main ${PDAL_LIBRARIES} ${JSONCPP_LIBRARY})
+    target_include_directories(${test-name}
+        PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/unit)
+    target_compile_definitions(${test-name}
+        PRIVATE GTEST_LINKED_AS_SHARED_LIBRARY=1)
+
+    add_test(NAME ${_name} COMMAND ${test-name})
+endmacro(ENTWINE_ADD_TEST)
+
+ENTWINE_ADD_TEST(build      FILES unit/build.cpp)
+ENTWINE_ADD_TEST(read       FILES unit/read.cpp)
+ENTWINE_ADD_TEST(scan       FILES unit/scan.cpp)
+ENTWINE_ADD_TEST(srs        FILES unit/srs.cpp)
+ENTWINE_ADD_TEST(version    FILES unit/version.cpp)
 

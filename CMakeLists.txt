@@ -86,8 +86,15 @@ set_target_properties(
 #
 # Test
 #
-add_subdirectory(test/gtest-1.8.0)
-add_subdirectory(test)
+option(WITH_TESTS "Choose if Entwine unit tests should be built" TRUE)
+if (WITH_TESTS)
+    message("Configuring with unit tests")
+    enable_testing()
+    add_subdirectory(test/gtest-1.8.0)
+    add_subdirectory(test)
+else()
+    message("Configuring with NO unit tests")
+endif()
 
 #
 # Installation
