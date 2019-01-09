@@ -110,19 +110,19 @@ Metadata::~Metadata() { }
 
 Json::Value Metadata::toJson() const
 {
-    Json::Value json;
+    Json::Value j;
 
-    json["version"] = eptVersion().toString();
-    json["bounds"] = boundsCubic().toJson();
-    json["boundsConforming"] = boundsConforming().toJson();
-    json["schema"] = m_outSchema->toJson();
-    json["span"] = (Json::UInt64)m_span;
-    json["points"] = (Json::UInt64)m_files->totalInserts();
-    json["dataType"] = m_dataIo->type();
-    json["hierarchyType"] = "json"; // TODO.
-    json["srs"] = m_srs->toJson();
+    j["version"] = eptVersion().toString();
+    j["bounds"] = boundsCubic().toJson();
+    j["boundsConforming"] = boundsConforming().toJson();
+    j["schema"] = m_outSchema->toJson();
+    j["span"] = (Json::UInt64)m_span;
+    j["points"] = (Json::UInt64)m_files->totalInserts();
+    j["dataType"] = m_dataIo->type();
+    j["hierarchyType"] = "json"; // TODO.
+    j["srs"] = mjsonToJsoncpp(json(*m_srs));
 
-    return json;
+    return j;
 }
 
 Json::Value Metadata::toBuildParamsJson() const

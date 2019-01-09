@@ -262,10 +262,7 @@ Config Scan::aggregate()
     else if (m_in.json().isMember("srs"))
     {
         explicitSrs = true;
-
-        const Json::Value& inSrs(m_in.json()["srs"]);
-        if (inSrs.isString()) srs = inSrs.asString();
-        else srs = inSrs;
+        srs = jsoncppToMjson(m_in.json()["srs"]);
     }
 
     bool srsLogged(false);
@@ -331,7 +328,7 @@ Config Scan::aggregate()
     out["points"] = std::max<Json::UInt64>(np, out.points());
     out["input"] = m_files.toJson();
     if (m_re) out["reprojection"] = m_re->toJson();
-    out["srs"] = srs.toJson();
+    out["srs"] = mjsonToJsoncpp(json(srs));
     out["pipeline"] = m_in.pipeline("");
 
     return out;

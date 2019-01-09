@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2016, Connor Manning (connor@hobu.co)
+* Copyright (c) 2019, Connor Manning (connor@hobu.co)
 *
 * Entwine -- Point cloud indexing
 *
@@ -17,6 +17,7 @@
 
 #include <json/json.h>
 
+#include <entwine/third/json.hpp>
 #include <entwine/types/defs.hpp>
 
 namespace entwine
@@ -45,6 +46,23 @@ inline Json::Value parse(const char* input)
 {
     if (input) return parse(std::string(input));
     else return Json::nullValue;
+}
+
+inline Json::Value mjsonToJsoncpp(const json& j)
+{
+    return parse(j.dump());
+}
+
+inline json jsoncppToMjson(const Json::Value& j)
+{
+    return json::parse(j.toStyledString());
+}
+
+inline std::vector<std::string> keys(const json& j)
+{
+    std::vector<std::string> result;
+    for (const auto& v : j.items()) result.push_back(v.key());
+    return result;
 }
 
 inline Json::Value ensureArray(const Json::Value& in)

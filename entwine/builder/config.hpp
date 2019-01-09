@@ -177,8 +177,7 @@ public:
 
     Srs srs() const
     {
-        if (m_json["srs"].isObject()) return Srs(m_json["srs"]);
-        else return Srs(m_json["srs"].asString());
+        return Srs(jsoncppToMjson(m_json["srs"]));
     }
 
     std::string postfix() const

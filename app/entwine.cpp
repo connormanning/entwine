@@ -130,7 +130,7 @@ void App::addReprojection()
             "themselves.",
             [this](Json::Value v)
             {
-                m_json["srs"] = Srs(v.asString()).toJson();
+                m_json["srs"] = mjsonToJsoncpp(json(Srs(v.asString())));
             });
 
     m_ap.add(

@@ -70,7 +70,7 @@ FileInfo::FileInfo(const Json::Value& json)
             json["outOfBounds"].asUInt64());
     m_message = json["message"].asString();
 
-    if (json.isMember("srs")) m_srs = json["srs"];
+    if (json.isMember("srs")) m_srs = jsoncppToMjson(json["srs"]);
     if (json.isMember("origin")) m_origin = json["origin"].asUInt64();
 }
 
@@ -104,16 +104,17 @@ Json::Value FileInfo::toListJson() const
 
 Json::Value FileInfo::toFullJson() const
 {
-    Json::Value json;
-    json["path"] = m_path;
-    if (m_bounds.exists()) json["bounds"] = m_bounds.toJson();
+    Json::Value j;
+    j["path"] = m_path;
+    if (m_bounds.exists()) j["bounds"] = m_bounds.toJson();
 
-    if (!m_metadata.isNull()) json["metadata"] = m_metadata;
-    if (m_origin != invalidOrigin) json["origin"] = (Json::UInt64)m_origin;
-    if (m_points) json["points"] = (Json::UInt64)m_points;
-    if (!m_srs.empty()) json["srs"] = m_srs.toJson();
+    if (!m_metadata.isNull()) j["metadata"] = m_metadata;
+    if (m_origin != invalidOrigin) j["origin"] = (Json::UInt64)m_origin;
+    if (m_points) j["points"] = (Json::UInt64)m_points;
 
-    return json;
+    j["srs"] = mjsonToJsoncpp(json(m_srs));
+
+    return j;
 }
 
 void FileInfo::add(const FileInfo& b)
