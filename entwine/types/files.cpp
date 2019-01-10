@@ -175,7 +175,11 @@ void Files::writeFull(
 void Files::append(const FileInfoList& fileInfo)
 {
     FileInfoList adding(diff(fileInfo));
-    for (const auto& f : adding) m_files.emplace_back(f);
+    for (auto& f : adding)
+    {
+        f.setOrigin(m_files.size());
+        m_files.emplace_back(f);
+    }
 }
 
 FileInfoList Files::diff(const FileInfoList& in) const
