@@ -16,6 +16,7 @@
 #include <entwine/builder/heuristics.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/key.hpp>
+#include <entwine/util/json.hpp>
 #include <entwine/util/pool.hpp>
 #include <entwine/util/spin-lock.hpp>
 
@@ -30,13 +31,6 @@ public:
     using Map = std::map<Dxyz, uint64_t>;
 
     Hierarchy() { }
-    Hierarchy(const Json::Value& json)
-    {
-        for (const auto key : json.getMemberNames())
-        {
-            m_map[Dxyz(key)] = json[key].asUInt64();
-        }
-    }
 
     Hierarchy(
             const Metadata& metadata,
@@ -57,16 +51,6 @@ public:
         auto it(m_map.find(key));
         if (it == m_map.end()) return 0;
         else return it->second;
-    }
-
-    Json::Value toJson() const
-    {
-        Json::Value json;
-        for (const auto& p : m_map)
-        {
-            json[p.first.toString()] = (Json::UInt64)p.second;
-        }
-        return json;
     }
 
     const Map& map() const { return m_map; }
@@ -121,7 +105,7 @@ private:
             const arbiter::Endpoint& endpoint,
             Pool& pool,
             const ChunkKey& key,
-            Json::Value& json) const;
+            json& j) const;
 
     void analyze(
             const Metadata& m,
