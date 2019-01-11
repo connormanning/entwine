@@ -14,10 +14,9 @@
 #include <cstdint>
 #include <memory>
 
-#include <json/json.h>
-
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/dir.hpp>
+#include <entwine/util/json.hpp>
 
 namespace entwine
 {
@@ -27,11 +26,8 @@ class Metadata;
 class Subset
 {
 public:
-    Subset(const Metadata& metadata, const Json::Value& json);
-
-    static std::unique_ptr<Subset> create(
-            const Metadata& metadata,
-            const Json::Value& json);
+    Subset(const Metadata& metadata, const json& j);
+    static std::unique_ptr<Subset> create(const Metadata& m, const json& j);
 
     uint64_t id() const { return m_id; }
     uint64_t of() const { return m_of; }
@@ -41,14 +37,6 @@ public:
 
     const Bounds& bounds() const { return m_bounds; }
 
-    Json::Value toJson() const
-    {
-        Json::Value json;
-        json["id"] = (Json::UInt64)m_id;
-        json["of"] = (Json::UInt64)m_of;
-        return json;
-    }
-
 private:
     const uint64_t m_id;
     const uint64_t m_of;
@@ -56,6 +44,11 @@ private:
     const uint64_t m_splits;
     Bounds m_bounds;
 };
+
+inline void to_json(json& j, const Subset& s)
+{
+    j = { { "id", s.id() }, { "of", s.of() } };
+}
 
 } // namespace entwine
 

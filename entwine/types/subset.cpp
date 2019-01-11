@@ -16,9 +16,9 @@
 namespace entwine
 {
 
-Subset::Subset(const Metadata& m, const Json::Value& json)
-    : m_id(json["id"].asUInt64())
-    , m_of(json["of"].asUInt64())
+Subset::Subset(const Metadata& m, const json& j)
+    : m_id(j.at("id").get<uint64_t>())
+    , m_of(j.at("of").get<uint64_t>())
     , m_splits(std::log2(m_of) / std::log2(4))
     , m_bounds(m.boundsCubic())
 {
@@ -45,9 +45,9 @@ Subset::Subset(const Metadata& m, const Json::Value& json)
     }
 }
 
-std::unique_ptr<Subset> Subset::create(const Metadata& m, const Json::Value& j)
+std::unique_ptr<Subset> Subset::create(const Metadata& m, const json& j)
 {
-    if (j.isNull()) return std::unique_ptr<Subset>();
+    if (j.is_null()) return std::unique_ptr<Subset>();
     else return makeUnique<Subset>(m, j);
 }
 
