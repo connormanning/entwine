@@ -20,7 +20,6 @@
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/defs.hpp>
-#include <entwine/types/delta.hpp>
 #include <entwine/types/file-info.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>

@@ -18,13 +18,11 @@
 
 #include <pdal/PointLayout.hpp>
 
-#include <json/json.h>
-
-#include <entwine/types/delta.hpp>
 #include <entwine/types/dim-info.hpp>
 #include <entwine/types/fixed-point-layout.hpp>
 #include <entwine/types/scale-offset.hpp>
 #include <entwine/util/json.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {

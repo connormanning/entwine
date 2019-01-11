@@ -139,7 +139,7 @@ Config Config::prepare() const
     }
     else if (result.isMember("scale"))
     {
-        s.setScale(Scale(result["scale"]));
+        s.setScale(Scale(jsoncppToMjson(result["scale"])));
     }
     else if (!s.isScaled())
     {

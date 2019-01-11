@@ -17,7 +17,7 @@
 #include <vector>
 #include <algorithm>
 
-#include <json/json.h>
+#include <entwine/util/json.hpp>
 
 namespace entwine
 {
@@ -27,58 +27,31 @@ using Transformation = std::vector<double>;
 class Point
 {
 public:
-    Point() noexcept
-        : x(Point::emptyCoord())
-        , y(Point::emptyCoord())
-        , z(Point::emptyCoord())
-    { }
-
+    Point() noexcept { }
     Point(double v) noexcept : x(v), y(v), z(v) { }
     Point(double x, double y) noexcept : x(x), y(y), z(Point::emptyCoord()) { }
     Point(double x, double y, double z) noexcept : x(x), y(y), z(z) { }
 
-    Point(const Json::Value& json)
-        : Point()
+    explicit Point(const json& j)
     {
-        if (!json.isNull())
+        if (j.is_null()) return;
+
+        if (j.is_array())
         {
-            if (json.isArray())
-            {
-                x = json[0].asDouble();
-                y = json[1].asDouble();
-                if (json.size() > 2) z = json[2].asDouble();
-            }
-            else if (json.isNumeric())
-            {
-                x = y = z = json.asDouble();
-            }
-            else if (json.isObject())
-            {
-                x = json["x"].asDouble();
-                y = json["y"].asDouble();
-                z = json["z"].asDouble();
-            }
+            x = j.at(0).get<double>();
+            y = j.at(1).get<double>();
+            if (j.size() == 3) z = j.at(2).get<double>();
         }
-    }
-
-    Json::Value toJson() const { return toJsonArray(); }
-
-    Json::Value toJsonArray() const
-    {
-        Json::Value json;
-        json.append(x);
-        json.append(y);
-        json.append(z);
-        return json;
-    }
-
-    Json::Value toJsonObject() const
-    {
-        Json::Value json;
-        json["x"] = x;
-        json["y"] = y;
-        json["z"] = z;
-        return json;
+        else if (j.is_number())
+        {
+            x = y = z = j.get<double>();
+        }
+        else if (j.is_object())
+        {
+            x = j.at("x").get<double>();
+            y = j.at("y").get<double>();
+            z = j.at("z").get<double>();
+        }
     }
 
     double sqDist2d(const Point& other) const
@@ -112,7 +85,7 @@ public:
             z != Point::emptyCoord();
     }
 
-    static double emptyCoord()
+    static constexpr double emptyCoord()
     {
         return 0;
     }
@@ -282,10 +255,20 @@ public:
         return Point(std::llround(p.x), std::llround(p.y), std::llround(p.z));
     }
 
-    double x;
-    double y;
-    double z;
+    double x = Point::emptyCoord();
+    double y = Point::emptyCoord();
+    double z = Point::emptyCoord();
 };
+
+inline void from_json(const json& j, Point& p)
+{
+    p = Point(j);
+}
+
+inline void to_json(json& j, const Point& p)
+{
+    j = json::array({ p.x, p.y, p.z });
+}
 
 inline bool ltChained(const Point& lhs, const Point& rhs)
 {
@@ -440,7 +423,7 @@ inline std::ostream& operator<<(std::ostream& os, const Point& point)
 class Color
 {
 public:
-    Color() : r(0), g(0), b(0) { }
+    Color() { }
     Color(uint8_t r, uint8_t g, uint8_t b) : r(r), g(g), b(b) { }
 
     static Color min(const Color& a, const Color& b)
@@ -459,7 +442,9 @@ public:
                 std::max(a.b, b.b));
     }
 
-    uint8_t r, g, b;
+    uint8_t r = 0;
+    uint8_t g = 0;
+    uint8_t b = 0;
 };
 
 inline std::ostream& operator<<(std::ostream& os, const Color& c)

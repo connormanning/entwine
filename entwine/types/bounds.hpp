@@ -22,8 +22,6 @@
 namespace entwine
 {
 
-class Delta;
-
 class Bounds
 {
 public:
@@ -255,11 +253,6 @@ public:
     }
 
     Bounds applyScaleOffset(const Scale& scale, const Offset& offset) const;
-    Bounds deltify(const Delta* delta) const;
-    Bounds deltify(const Delta& delta) const;
-    Bounds undeltify(const Delta* delta) const;
-    Bounds undeltify(const Delta& delta) const;
-
     Bounds growBy(double ratio) const;
 
     std::vector<Bounds> explode() const;

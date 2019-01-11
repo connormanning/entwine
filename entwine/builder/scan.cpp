@@ -235,8 +235,7 @@ void Scan::add(FileInfo& f, const std::string localPath)
     if (!scale.x || !scale.y || !scale.z)
     {
         throw std::runtime_error(
-                "Invalid scale " + f.path() + ": " +
-                scale.toJson().toStyledString());
+                "Invalid scale " + f.path() + ": " + json(scale).dump());
     }
 
     std::lock_guard<std::mutex> lock(m_mutex);

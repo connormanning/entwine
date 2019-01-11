@@ -15,7 +15,6 @@ set(
     HEADERS
     "${BASE}/binary-point-table.hpp"
     "${BASE}/bounds.hpp"
-    "${BASE}/delta.hpp"
     "${BASE}/dim-info.hpp"
     "${BASE}/dir.hpp"
     "${BASE}/file-info.hpp"

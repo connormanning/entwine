@@ -15,7 +15,6 @@
 #include <numeric>
 #include <iostream>
 
-#include <entwine/types/delta.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -147,34 +146,6 @@ Bounds Bounds::growBy(double ratio) const
 Bounds Bounds::applyScaleOffset(const Scale& s, const Offset& o) const
 {
     return Bounds(Point::scale(min(), s, o), Point::scale(max(), s, o));
-}
-
-Bounds Bounds::deltify(const Delta* delta) const
-{
-    if (delta) return deltify(*delta);
-    else return *this;
-}
-
-Bounds Bounds::deltify(const Delta& delta) const
-{
-    if (delta.empty()) return *this;
-    return Bounds(
-            Point::scale(min(), delta.scale(), delta.offset()),
-            Point::scale(max(), delta.scale(), delta.offset()));
-}
-
-Bounds Bounds::undeltify(const Delta* delta) const
-{
-    if (delta) return undeltify(*delta);
-    else return *this;
-}
-
-Bounds Bounds::undeltify(const Delta& delta) const
-{
-    if (delta.empty()) return *this;
-    return Bounds(
-            Point::unscale(min(), delta.scale(), delta.offset()),
-            Point::unscale(max(), delta.scale(), delta.offset()));
 }
 
 std::ostream& operator<<(std::ostream& os, const Bounds& bounds)
