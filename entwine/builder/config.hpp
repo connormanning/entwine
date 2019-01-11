@@ -16,8 +16,6 @@
 #include <stdexcept>
 #include <string>
 
-#include <json/json.h>
-
 #include <entwine/builder/thread-pools.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/bounds.hpp>
@@ -115,8 +113,8 @@ public:
     std::string dataType() const { return m_json["dataType"].asString(); }
     std::string hierType() const { return m_json["hierarchyType"].asString(); }
 
-    const Json::Value& json() const { return m_json; }
-    Json::Value& json() { return m_json; }
+    const Json::Value& get() const { return m_json; }
+    Json::Value& get() { return m_json; }
     const Json::Value& operator[](std::string k) const { return m_json[k]; }
     Json::Value& operator[](std::string k) { return m_json[k]; }
 
@@ -217,7 +215,7 @@ private:
 
 inline std::ostream& operator<<(std::ostream& os, const Config& c)
 {
-    os << c.json();
+    os << c.get();
     return os;
 }
 

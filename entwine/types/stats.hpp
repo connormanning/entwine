@@ -12,9 +12,8 @@
 
 #include <cstddef>
 
-#include <json/json.h>
-
 #include <entwine/types/defs.hpp>
+#include <entwine/util/json.hpp>
 
 namespace entwine
 {
@@ -48,6 +47,7 @@ public:
 
     std::size_t inserts() const     { return m_inserts; }
     std::size_t outOfBounds() const { return m_outOfBounds; }
+    std::size_t oob() const { return outOfBounds(); }
 
     void addOutOfBounds(std::size_t n) { m_outOfBounds += n; }
     void clear()

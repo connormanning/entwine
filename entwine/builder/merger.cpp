@@ -24,7 +24,7 @@ namespace entwine
 {
 
 Merger::Merger(const Config& config)
-    : m_config(merge(Config::defaults(), config.json()))
+    : m_config(merge(Config::defaults(), config.get()))
     , m_arbiter(std::make_shared<arbiter::Arbiter>(config["arbiter"]))
     , m_verbose(m_config.verbose())
     , m_threads(m_config.totalThreads())

@@ -55,7 +55,8 @@ Config Config::fromScan(const std::string file) const
     arbiter::Endpoint ep(a.getEndpoint(dir));
 
     FileInfoList list(Files::extract(ep, primary()));
-    c["input"] = Files(list).toJson();
+    // c["input"] = Files(list).toJson();
+    c["input"] = mjsonToJsoncpp(json(list));
 
     return c;
 }
@@ -65,7 +66,7 @@ Config Config::prepare() const
     Json::Value from(m_json["input"]);
 
     // For a continuation build, we might just have an output.
-    if (from.isNull()) return json();
+    if (from.isNull()) return get();
 
     // Make sure we have an array.
     if (from.isString())
@@ -86,7 +87,7 @@ Config Config::prepare() const
     // If our input is a Scan, extract it without redoing the scan.
     if (from.size() == 1 && isScan(from[0].asString()))
     {
-        scan = fromScan(from[0].asString()).json();
+        scan = fromScan(from[0].asString()).get();
         from = scan["input"];
     }
 
@@ -102,16 +103,16 @@ Config Config::prepare() const
 
         // Remove the output from the Scan config - this path is the output
         // path for the subsequent 'build' step.
-        Json::Value scanConfig(json());
+        Json::Value scanConfig(get());
         Json::Value removed;
         scanConfig.removeMember("output", &removed);
-        scan = Scan(scanConfig).go().json();
+        scan = Scan(scanConfig).go().get();
     }
 
     // First, soft-merge our scan results over the config without overwriting
     // anything, for example we might have an explicit scale factor or bounds
     // specification that should override scan results.
-    Json::Value result = merge(json(), scan, false);
+    Json::Value result = merge(get(), scan, false);
 
     // If we've just completed a scan or extracted an existing scan, make sure
     // our input represents the scanned data rather than raw paths.
@@ -120,7 +121,7 @@ Config Config::prepare() const
     // If our input SRS existed, we might potentially overwrite missing fields
     // there with ones we've found from the scan.  Vertical EPSG code, for
     // example.  In this case accept the input without merging.
-    if (json().isMember("srs")) result["srs"] = json()["srs"];
+    if (get().isMember("srs")) result["srs"] = get()["srs"];
 
     // Prepare the schema, adding OriginId and determining a proper offset, if
     // necessary.
@@ -161,21 +162,23 @@ FileInfoList Config::input() const
     FileInfoList f;
     arbiter::Arbiter arbiter(m_json["arbiter"]);
 
-    auto insert([&](const Json::Value& j)
+    auto insert([&](const json& j)
     {
-        if (j.isObject())
+        if (j.is_object())
         {
-            if (Executor::get().good(j["path"].asString())) f.emplace_back(j);
+            if (Executor::get().good(j.at("path").get<std::string>()))
+            {
+                f.emplace_back(j);
+            }
             return;
         }
 
-        if (!j.isString())
+        if (!j.is_string())
         {
-            throw std::runtime_error(
-                    j.toStyledString() + " not convertible to string");
+            throw std::runtime_error(j.dump() + "not convertible to string");
         }
 
-        std::string p(j.asString());
+        std::string p(j.get<std::string>());
 
         if (p.empty()) return;
 
@@ -198,9 +201,9 @@ FileInfoList Config::input() const
         }
     });
 
-    const Json::Value& i(m_json["input"]);
-    if (i.isString()) insert(i);
-    else if (i.isArray()) for (const auto& j : i) insert(j);
+    const json& i(jsoncppToMjson(m_json["input"]));
+    if (i.is_string()) insert(i);
+    else if (i.is_array()) for (const auto& j : i) insert(j);
 
     return f;
 }

@@ -95,7 +95,7 @@ Metadata::Metadata(const Config& config, const bool exists)
 Metadata::Metadata(const arbiter::Endpoint& ep, const Config& config)
     : Metadata(
             entwine::merge(
-                config.json(),
+                config.get(),
                 entwine::merge(
                     parse(ep.get("ept-build" + config.postfix() + ".json")),
                     parse(ep.get("ept" + config.postfix() + ".json")))),

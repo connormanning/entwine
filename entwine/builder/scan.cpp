@@ -38,7 +38,7 @@ namespace
 }
 
 Scan::Scan(const Config config)
-    : m_in(merge(Config::defaults(), config.json()))
+    : m_in(merge(Config::defaults(), config.get()))
     , m_arbiter(m_in["arbiter"])
     , m_tmp(m_arbiter.getEndpoint(m_in.tmp()))
     , m_re(m_in.reprojection())
@@ -98,10 +98,9 @@ Config Scan::go()
         }
 
         m_files.save(ep, "", m_in, true);
-        Json::Value json(out.json());
-        Json::Value removed;
-        json.removeMember("input", &removed);
-        ep.put("scan.json", toPreciseString(json, true));
+        json j(jsoncppToMjson(out.get()));
+        j.erase("input");
+        ep.put("scan.json", j.dump(2));
 
         if (m_in.verbose())
         {
@@ -259,10 +258,10 @@ Config Scan::aggregate()
         explicitSrs = true;
         srs = m_re->out();
     }
-    else if (m_in.json().isMember("srs"))
+    else if (m_in.get().isMember("srs"))
     {
         explicitSrs = true;
-        srs = jsoncppToMjson(m_in.json()["srs"]);
+        srs = jsoncppToMjson(m_in.get()["srs"]);
     }
 
     bool srsLogged(false);
@@ -326,7 +325,7 @@ Config Scan::aggregate()
 
     if (out["schema"].isNull()) out["schema"] = m_schema.toJson();
     out["points"] = std::max<Json::UInt64>(np, out.points());
-    out["input"] = m_files.toJson();
+    out["input"] = mjsonToJsoncpp(json(m_files));
     if (m_re) out["reprojection"] = mjsonToJsoncpp(json(*m_re));
     out["srs"] = mjsonToJsoncpp(json(srs));
     out["pipeline"] = m_in.pipeline("");

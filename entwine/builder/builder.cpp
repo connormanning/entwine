@@ -50,7 +50,7 @@ Builder::Builder(const Config& config, std::shared_ptr<arbiter::Arbiter> a)
     : m_config(entwine::merge(
                 Config::defaults(),
                 Config::defaultBuildParams(),
-                config.prepare().json()))
+                config.prepare().get()))
     , m_interval(m_config.progressInterval())
     , m_arbiter(a ? a : std::make_shared<arbiter::Arbiter>(m_config["arbiter"]))
     , m_out(makeUnique<Endpoint>(m_arbiter->getEndpoint(m_config.output())))

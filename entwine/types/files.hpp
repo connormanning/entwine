@@ -17,13 +17,12 @@
 #include <string>
 #include <vector>
 
-#include <json/json.h>
-
 #include <entwine/builder/config.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/file-info.hpp>
 #include <entwine/types/stats.hpp>
+#include <entwine/util/json.hpp>
 
 namespace entwine
 {
@@ -35,7 +34,7 @@ class Files
 {
 public:
     Files(const FileInfoList& files);
-    Files(const Json::Value& json) : Files(toFileInfo(json)) { }
+    Files(const json& j) : Files(j.get<FileInfoList>()) { }
 
     static FileInfoList extract(
             const arbiter::Endpoint& top,
@@ -113,21 +112,11 @@ public:
 
     void merge(const Files& other);
 
-    Json::Value toJson() const
-    {
-        Json::Value json;
-        for (const auto& f : list())
-        {
-            json.append(f.toJson());
-        }
-        return json;
-    }
-
 private:
     void writeList(const arbiter::Endpoint& ep, const std::string& postfix)
         const;
 
-    void writeFull(const arbiter::Endpoint& ep, const Config& config) const;
+    void writeMeta(const arbiter::Endpoint& ep, const Config& config) const;
 
     void addStatus(FileInfo::Status status)
     {
@@ -146,6 +135,11 @@ private:
     PointStats m_pointStats;
     FileStats m_fileStats;
 };
+
+inline void to_json(json& j, const Files& f)
+{
+    j = f.list();
+}
 
 } // namespace entwine
 

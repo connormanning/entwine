@@ -33,7 +33,7 @@ TEST(scan, single)
     Json::Value in;
     in["input"] = test::dataPath() + "ellipsoid.laz";
     const Config out(Scan(in).go());
-    ASSERT_FALSE(out.json().isNull());
+    ASSERT_FALSE(out.get().isNull());
 
     const Bounds bounds(out["bounds"]);
     const Schema schema(out.schema());
@@ -63,7 +63,7 @@ TEST(scan, deepScan)
     in["input"] = test::dataPath() + "ellipsoid.laz";
     in["trustHeaders"] = false;
     const Config out(Scan(in).go());
-    ASSERT_FALSE(out.json().isNull());
+    ASSERT_FALSE(out.get().isNull());
 
     const Bounds bounds(out["bounds"]);
     const Schema schema(out.schema());
@@ -93,7 +93,7 @@ TEST(scan, multi)
     in["input"] = test::dataPath() + "ellipsoid-multi";
 
     const Config out(Scan(in).go());
-    ASSERT_FALSE(out.json().isNull());
+    ASSERT_FALSE(out.get().isNull());
 
     const Bounds bounds(out["bounds"]);
     const Schema schema(out.schema());
@@ -149,7 +149,7 @@ TEST(scan, reprojection)
     in["reprojection"]["out"] = "EPSG:26918";
 
     const Config out(Scan(in).go());
-    ASSERT_FALSE(out.json().isNull());
+    ASSERT_FALSE(out.get().isNull());
 
     const Bounds bounds(out["bounds"]);
     const Schema schema(out.schema());
@@ -191,7 +191,7 @@ TEST(scan, deepScanReprojection)
     in["reprojection"]["out"] = "EPSG:26918";
 
     const Config out(Scan(in).go());
-    ASSERT_FALSE(out.json().isNull());
+    ASSERT_FALSE(out.get().isNull());
 
     const Bounds bounds(out["bounds"]);
     const Schema schema(out.schema());
@@ -234,7 +234,7 @@ TEST(scan, reprojectionHammer)
     in["reprojection"]["hammer"] = true;
 
     const Config out(Scan(in).go());
-    ASSERT_FALSE(out.json().isNull());
+    ASSERT_FALSE(out.get().isNull());
 
     const Bounds bounds(out["bounds"]);
     const Schema schema(out.schema());
@@ -271,7 +271,7 @@ TEST(scan, outputFile)
     Scan(in).go();
     const std::string path(test::dataPath() + "out/scan/scan.json");
     const Config out(parse(arbiter::Arbiter().get(path)));
-    ASSERT_FALSE(out.json().isNull());
+    ASSERT_FALSE(out.get().isNull());
 
     const Bounds bounds(out["bounds"]);
     const Schema schema(out.schema());
@@ -281,7 +281,7 @@ TEST(scan, outputFile)
     ASSERT_EQ(schema, v.schema());
 
     // File information is stored in ept-sources, not the top-level scan JSON.
-    EXPECT_TRUE(out.json()["input"].isNull());
+    EXPECT_TRUE(out.get()["input"].isNull());
 
     arbiter::Arbiter a;
     auto ep(a.getEndpoint(test::dataPath() + "out/scan/"));
