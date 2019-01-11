@@ -22,6 +22,7 @@
 #include <entwine/types/srs.hpp>
 #include <entwine/types/stats.hpp>
 #include <entwine/util/executor.hpp>
+#include <entwine/util/json.hpp>
 
 namespace entwine
 {
@@ -57,10 +58,10 @@ public:
     const std::string& url() const          { return m_url; }
 
     // These remain constant throughout.
-    std::size_t points() const              { return m_points; }
-    const Srs& srs() const                  { return m_srs; }
-    const Json::Value& metadata() const     { return m_metadata; }
-    Origin origin() const                   { return m_origin; }
+    std::size_t points() const      { return m_points; }
+    const Srs& srs() const          { return m_srs; }
+    const json& metadata() const    { return m_metadata; }
+    Origin origin() const           { return m_origin; }
 
     const Bounds* bounds() const
     {
@@ -127,7 +128,7 @@ private:
     Bounds m_boundsEpsilon;
     std::size_t m_points = 0;
     Srs m_srs;
-    Json::Value m_metadata;
+    json m_metadata;
     Origin m_origin = invalidOrigin;
 
     PointStats m_pointStats;

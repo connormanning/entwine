@@ -64,7 +64,7 @@ FileInfo::FileInfo(const Json::Value& json)
     }
 
     m_url = json["url"].asString();
-    m_metadata = json["metadata"];
+    m_metadata = jsoncppToMjson(json["metadata"]);
     m_pointStats = PointStats(
             json["inserts"].asUInt64(),
             json["outOfBounds"].asUInt64());
@@ -108,7 +108,7 @@ Json::Value FileInfo::toFullJson() const
     j["path"] = m_path;
     if (m_bounds.exists()) j["bounds"] = m_bounds.toJson();
 
-    if (!m_metadata.isNull()) j["metadata"] = m_metadata;
+    if (!m_metadata.is_null()) j["metadata"] = mjsonToJsoncpp(m_metadata);
     if (m_origin != invalidOrigin) j["origin"] = (Json::UInt64)m_origin;
     if (m_points) j["points"] = (Json::UInt64)m_points;
 

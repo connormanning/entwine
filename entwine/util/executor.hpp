@@ -21,6 +21,7 @@
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/vector-point-table.hpp>
+#include <entwine/util/json.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace pdal
@@ -60,7 +61,7 @@ public:
 
     std::string srs;
     std::unique_ptr<Scale> scale;
-    Json::Value metadata;
+    json metadata;
 
     Bounds bounds;
     std::size_t points = 0;

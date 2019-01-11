@@ -184,6 +184,17 @@ inline std::string commify(const std::size_t n)
     return s;
 }
 
+inline void recMerge(json& dst, const json& add, bool hard = true)
+{
+    for (const auto& p : add.items())
+    {
+        const auto& key(p.key());
+        const auto& val(p.value());
+        if (val.is_object()) recMerge(dst[key], val, hard);
+        else if (hard || !dst.count(key)) dst[key] = val;
+    }
+}
+
 inline void recMerge(
         Json::Value& dst,
         const Json::Value& add,
@@ -194,6 +205,13 @@ inline void recMerge(
         if (add[key].isObject()) recMerge(dst[key], add[key], hard);
         else if (hard || !dst.isMember(key)) dst[key] = add[key];
     }
+}
+
+inline json merge(const json& a, const json& b, bool hard = true)
+{
+    json c(a);
+    recMerge(c, b, hard);
+    return c;
 }
 
 inline Json::Value merge(

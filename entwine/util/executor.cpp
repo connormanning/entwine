@@ -70,8 +70,8 @@ ScanInfo::ScanInfo(pdal::Stage& reader, const pdal::QuickInfo& qi)
     metadata = ([this, &reader]()
     {
         const auto s(pdal::Utils::toJSON(reader.getMetadata()));
-        try { return parse(s); }
-        catch (...) { return Json::Value(s); }
+        try { return json::parse(s); }
+        catch (...) { return json(); }
     })();
 }
 

@@ -36,7 +36,7 @@ Metadata::Metadata(const Config& config, const bool exists)
                     makeCube(*m_boundsConforming)))
     , m_files(makeUnique<Files>(config.input()))
     , m_dataIo(DataIo::create(*this, config.dataType()))
-    , m_reprojection(Reprojection::create(config["reprojection"]))
+    , m_reprojection(Reprojection::create(jsoncppToMjson(config["reprojection"])))
     , m_eptVersion(exists ?
             makeUnique<Version>(config["version"].asString()) :
             makeUnique<Version>(currentEptVersion()))
@@ -133,7 +133,7 @@ Json::Value Metadata::toBuildParamsJson() const
     j["overflowThreshold"] = (Json::UInt64)m_overflowThreshold;
     j["software"] = "Entwine";
     if (m_subset) j["subset"] = mjsonToJsoncpp(json(*m_subset));
-    if (m_reprojection) j["reprojection"] = m_reprojection->toJson();
+    if (m_reprojection) j["reprojection"] = mjsonToJsoncpp(json(*m_reprojection));
 
     return j;
 }

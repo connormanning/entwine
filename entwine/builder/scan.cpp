@@ -327,7 +327,7 @@ Config Scan::aggregate()
     if (out["schema"].isNull()) out["schema"] = m_schema.toJson();
     out["points"] = std::max<Json::UInt64>(np, out.points());
     out["input"] = m_files.toJson();
-    if (m_re) out["reprojection"] = m_re->toJson();
+    if (m_re) out["reprojection"] = mjsonToJsoncpp(json(*m_re));
     out["srs"] = mjsonToJsoncpp(json(srs));
     out["pipeline"] = m_in.pipeline("");
 

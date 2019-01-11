@@ -122,7 +122,7 @@ public:
 
     std::unique_ptr<Reprojection> reprojection() const
     {
-        return Reprojection::create(m_json["reprojection"]);
+        return Reprojection::create(jsoncppToMjson(m_json["reprojection"]));
     }
 
     std::size_t sleepCount() const

@@ -326,10 +326,12 @@ void Build::log(const Builder& b) const
         std::cout << "\tSubset bounds: " << s->bounds() << "\n";
     }
 
-    std::cout <<
-        "\tReprojection: " <<
-            (reprojection ? reprojection->toString() : "(none)") << "\n" <<
-        "\tStoring dimensions: " << getDimensionString(schema) << std::endl;
+    if (reprojection)
+    {
+        std::cout << "\tReprojection: " << *reprojection << "\n";
+    }
+
+    std::cout << "\tStoring dimensions: " << getDimensionString(schema) << "\n";
 
     const auto t(metadata.span());
     std::cout << "Build parameters:\n" <<

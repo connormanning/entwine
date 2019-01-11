@@ -73,8 +73,12 @@ void Scan::run()
     }
 
     std::cout << "\tThreads: " << in.totalThreads() << std::endl;
-    std::cout << "\tReprojection: " <<
-        (reprojection ? reprojection->toString() : "(none)") << std::endl;
+
+    if (reprojection)
+    {
+        std::cout << "\tReprojection: " << *reprojection << std::endl;
+    }
+
     std::cout << "\tTrust file headers? " << yesNo(in.trustHeaders()) << "\n" <<
         std::endl;
 
