@@ -118,18 +118,29 @@ void Scan::add(FileInfo& f)
 
     m_pool->add([this, &f]()
     {
-        if (m_in.trustHeaders() && m_arbiter.isHttpDerived(f.path()))
+        try
         {
-            const std::string driver = pdal::StageFactory::inferReaderDriver(
-                    f.path());
+            if (m_in.trustHeaders() && m_arbiter.isHttpDerived(f.path()))
+            {
+                const std::string driver =
+                    pdal::StageFactory::inferReaderDriver(f.path());
 
-            if (driver == "readers.las") addLas(f);
-            else addRanged(f);
+                if (driver == "readers.las") addLas(f);
+                else addRanged(f);
+            }
+            else
+            {
+                auto localHandle(m_arbiter.getLocalHandle(f.path(), m_tmp));
+                add(f, localHandle->localPath());
+            }
         }
-        else
+        catch (std::exception& e)
         {
-            auto localHandle(m_arbiter.getLocalHandle(f.path(), m_tmp));
-            add(f, localHandle->localPath());
+            throw std::runtime_error("During " + f.path() + ": " + e.what());
+        }
+        catch (...)
+        {
+            throw std::runtime_error("During " + f.path() + ": unknown error");
         }
     });
 }
