@@ -38,38 +38,31 @@ Bounds::Bounds(const Point& min, const Point& max)
     }
 }
 
-Bounds::Bounds(const Json::Value& json)
+Bounds::Bounds(const json& j)
 {
-    if (!json.isArray() || (json.size() != 4 && json.size() != 6))
+    if (!j.is_array() || (j.size() != 4 && j.size() != 6))
     {
-        throw std::runtime_error(
-            "Invalid JSON Bounds specification: " + json.toStyledString());
+        throw std::runtime_error("Invalid JSON Bounds: " + j.dump(2));
     }
 
-    const bool is3d(json.size() == 6);
-
-    if (is3d)
+    if (j.size() == 6)
     {
-        m_min = Point(
-                json.get(Json::ArrayIndex(0), 0).asDouble(),
-                json.get(Json::ArrayIndex(1), 0).asDouble(),
-                json.get(Json::ArrayIndex(2), 0).asDouble());
-        m_max = Point(
-                json.get(Json::ArrayIndex(3), 0).asDouble(),
-                json.get(Json::ArrayIndex(4), 0).asDouble(),
-                json.get(Json::ArrayIndex(5), 0).asDouble());
+        *this = Bounds(
+                j.at(0).get<double>(),
+                j.at(1).get<double>(),
+                j.at(2).get<double>(),
+                j.at(3).get<double>(),
+                j.at(4).get<double>(),
+                j.at(5).get<double>());
     }
     else
     {
-        m_min = Point(
-                json.get(Json::ArrayIndex(0), 0).asDouble(),
-                json.get(Json::ArrayIndex(1), 0).asDouble());
-        m_max = Point(
-                json.get(Json::ArrayIndex(2), 0).asDouble(),
-                json.get(Json::ArrayIndex(3), 0).asDouble());
+        *this = Bounds(
+                j.at(0).get<double>(),
+                j.at(1).get<double>(),
+                j.at(2).get<double>(),
+                j.at(3).get<double>());
     }
-
-    setMid();
 }
 
 Bounds::Bounds(const Point& center, const double radius)

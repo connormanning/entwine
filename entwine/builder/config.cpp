@@ -148,7 +148,7 @@ Config Config::prepare() const
 
     if (s.isScaled() && s.offset() == Offset(0))
     {
-        const Bounds bounds(result["bounds"]);
+        const Bounds bounds(jsoncppToMjson(result["bounds"]));
         s.setOffset(bounds.mid().round());
     }
 

@@ -59,7 +59,9 @@ public:
 
     QueryParams(Json::Value q)
         : QueryParams(
-            q.isMember("bounds") ? Bounds(q["bounds"]) : Bounds::everything(),
+            q.isMember("bounds") ?
+                Bounds(jsoncppToMjson(q["bounds"])) :
+                Bounds::everything(),
             q.isMember("depth") ?
                 q["depth"].asUInt64() : q["depthBegin"].asUInt64(),
             q.isMember("depth") ?

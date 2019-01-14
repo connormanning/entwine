@@ -28,11 +28,11 @@ Metadata::Metadata(const Config& config, const bool exists)
     , m_schema(makeUnique<Schema>(Schema::makeAbsolute(*m_outSchema)))
     , m_boundsConforming(makeUnique<Bounds>(
                 exists ?
-                    Bounds(config["boundsConforming"]) :
-                    makeConformingBounds(config["bounds"])))
+                    Bounds(jsoncppToMjson(config["boundsConforming"])) :
+                    makeConformingBounds(Bounds(jsoncppToMjson(config["bounds"])))))
     , m_boundsCubic(makeUnique<Bounds>(
                 exists ?
-                    Bounds(config["bounds"]) :
+                    Bounds(jsoncppToMjson(config["bounds"])) :
                     makeCube(*m_boundsConforming)))
     , m_files(makeUnique<Files>(config.input()))
     , m_dataIo(DataIo::create(*this, config.dataType()))

@@ -35,7 +35,7 @@ TEST(scan, single)
     const Config out(Scan(in).go());
     ASSERT_FALSE(out.get().isNull());
 
-    const Bounds bounds(out["bounds"]);
+    const Bounds bounds(jsoncppToMjson(out["bounds"]));
     const Schema schema(out.schema());
 
     EXPECT_EQ(bounds, v.bounds());
@@ -65,7 +65,7 @@ TEST(scan, deepScan)
     const Config out(Scan(in).go());
     ASSERT_FALSE(out.get().isNull());
 
-    const Bounds bounds(out["bounds"]);
+    const Bounds bounds(jsoncppToMjson(out["bounds"]));
     const Schema schema(out.schema());
 
     EXPECT_EQ(bounds, v.bounds());
@@ -95,7 +95,7 @@ TEST(scan, multi)
     const Config out(Scan(in).go());
     ASSERT_FALSE(out.get().isNull());
 
-    const Bounds bounds(out["bounds"]);
+    const Bounds bounds(jsoncppToMjson(out["bounds"]));
     const Schema schema(out.schema());
 
     EXPECT_EQ(bounds, v.bounds());
@@ -151,7 +151,7 @@ TEST(scan, reprojection)
     const Config out(Scan(in).go());
     ASSERT_FALSE(out.get().isNull());
 
-    const Bounds bounds(out["bounds"]);
+    const Bounds bounds(jsoncppToMjson(out["bounds"]));
     const Schema schema(out.schema());
 
     for (std::size_t i(0); i < 6; ++i)
@@ -193,7 +193,7 @@ TEST(scan, deepScanReprojection)
     const Config out(Scan(in).go());
     ASSERT_FALSE(out.get().isNull());
 
-    const Bounds bounds(out["bounds"]);
+    const Bounds bounds(jsoncppToMjson(out["bounds"]));
     const Schema schema(out.schema());
 
     for (std::size_t i(0); i < 6; ++i)
@@ -236,7 +236,7 @@ TEST(scan, reprojectionHammer)
     const Config out(Scan(in).go());
     ASSERT_FALSE(out.get().isNull());
 
-    const Bounds bounds(out["bounds"]);
+    const Bounds bounds(jsoncppToMjson(out["bounds"]));
     const Schema schema(out.schema());
 
     for (std::size_t i(0); i < 6; ++i)
@@ -273,7 +273,7 @@ TEST(scan, outputFile)
     const Config out(parse(arbiter::Arbiter().get(path)));
     ASSERT_FALSE(out.get().isNull());
 
-    const Bounds bounds(out["bounds"]);
+    const Bounds bounds(jsoncppToMjson(out["bounds"]));
     const Schema schema(out.schema());
 
     EXPECT_EQ(bounds, v.bounds());

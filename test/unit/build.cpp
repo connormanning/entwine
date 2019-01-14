@@ -23,7 +23,7 @@ namespace
             const auto entry(list[o]);
             const auto id(entry["id"].asString());
             const auto url(entry["url"].asString());
-            const Bounds bounds(entry["bounds"]);
+            const Bounds bounds(jsoncppToMjson(entry["bounds"]));
 
             ASSERT_TRUE(bounds.exists());
             ASSERT_GT(id.size(), 0u);
@@ -58,8 +58,8 @@ TEST(build, basic)
 
     const auto info(parse(a.get(outPath + "ept.json")));
 
-    const Bounds bounds(info["bounds"]);
-    const Bounds boundsConforming(info["boundsConforming"]);
+    const Bounds bounds(jsoncppToMjson(info["bounds"]));
+    const Bounds boundsConforming(jsoncppToMjson(info["boundsConforming"]));
     EXPECT_TRUE(bounds.isCubic());
     EXPECT_TRUE(bounds.contains(boundsConforming));
     for (std::size_t i(0); i < 6; ++i)
@@ -113,8 +113,8 @@ TEST(build, continued)
 
     const auto info(parse(a.get(outPath + "ept.json")));
 
-    const Bounds bounds(info["bounds"]);
-    const Bounds boundsConforming(info["boundsConforming"]);
+    const Bounds bounds(jsoncppToMjson(info["bounds"]));
+    const Bounds boundsConforming(jsoncppToMjson(info["boundsConforming"]));
     EXPECT_TRUE(bounds.isCubic());
     EXPECT_TRUE(bounds.contains(boundsConforming));
     for (std::size_t i(0); i < 6; ++i)
@@ -169,8 +169,8 @@ TEST(build, fromScan)
 
     const auto info(parse(a.get(outPath + "ept.json")));
 
-    const Bounds bounds(info["bounds"]);
-    const Bounds boundsConforming(info["boundsConforming"]);
+    const Bounds bounds(jsoncppToMjson(info["bounds"]));
+    const Bounds boundsConforming(jsoncppToMjson(info["boundsConforming"]));
     EXPECT_TRUE(bounds.isCubic());
     EXPECT_TRUE(bounds.contains(boundsConforming));
     for (std::size_t i(0); i < 6; ++i)
@@ -226,8 +226,8 @@ TEST(build, subset)
 
     const auto info(parse(a.get(outPath + "ept.json")));
 
-    const Bounds bounds(info["bounds"]);
-    const Bounds boundsConforming(info["boundsConforming"]);
+    const Bounds bounds(jsoncppToMjson(info["bounds"]));
+    const Bounds boundsConforming(jsoncppToMjson(info["boundsConforming"]));
     EXPECT_TRUE(bounds.isCubic());
     EXPECT_TRUE(bounds.contains(boundsConforming));
     for (std::size_t i(0); i < 6; ++i)
@@ -333,8 +333,8 @@ TEST(build, subsetFromScan)
 
     const auto info(parse(a.get(outPath + "ept.json")));
 
-    const Bounds bounds(info["bounds"]);
-    const Bounds boundsConforming(info["boundsConforming"]);
+    const Bounds bounds(jsoncppToMjson(info["bounds"]));
+    const Bounds boundsConforming(jsoncppToMjson(info["boundsConforming"]));
     EXPECT_TRUE(bounds.isCubic());
     EXPECT_TRUE(bounds.contains(boundsConforming));
     for (std::size_t i(0); i < 6; ++i)
@@ -385,8 +385,8 @@ TEST(build, reprojected)
 
     const auto info(parse(a.get(outPath + "ept.json")));
 
-    const Bounds bounds(info["bounds"]);
-    const Bounds boundsConforming(info["boundsConforming"]);
+    const Bounds bounds(jsoncppToMjson(info["bounds"]));
+    const Bounds boundsConforming(jsoncppToMjson(info["boundsConforming"]));
     EXPECT_TRUE(bounds.isCubic());
     EXPECT_TRUE(bounds.contains(boundsConforming));
     for (std::size_t i(0); i < 6; ++i)

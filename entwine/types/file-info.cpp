@@ -71,7 +71,7 @@ FileInfo::FileInfo(const json& j)
 
     if (m_points && j.count("bounds"))
     {
-        m_bounds = Bounds(mjsonToJsoncpp(j.at("bounds")));
+        m_bounds = Bounds(j.at("bounds"));
         m_boundsEpsilon = m_bounds.growBy(0.005);
     }
 }

@@ -90,7 +90,7 @@ void Scan::run()
     std::cout << "\tFiles: " << out.input().size() << std::endl;
     std::cout << "\tSchema: " << getDimensionString(schema) << std::endl;
     std::cout << "\tPoints: " << commify(out.points()) << std::endl;
-    std::cout << "\tBounds: " << Bounds(out["bounds"]) << std::endl;
+    std::cout << "\tBounds: " << Bounds(jsoncppToMjson(out["bounds"])) << std::endl;
 
     std::cout << "\tScale: ";
     if (schema.isScaled())
