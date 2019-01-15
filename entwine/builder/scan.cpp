@@ -221,7 +221,7 @@ void Scan::addRanged(FileInfo& f)
 
 void Scan::add(FileInfo& f, const std::string localPath)
 {
-    const Json::Value pipeline(m_in.pipeline(localPath));
+    const json pipeline(jsoncppToMjson(m_in.pipeline(localPath)));
 
     auto preview(Executor::get().preview(pipeline, m_in.trustHeaders()));
     if (!preview) return;

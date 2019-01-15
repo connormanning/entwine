@@ -65,36 +65,6 @@ inline std::vector<std::string> keys(const json& j)
     return result;
 }
 
-inline Json::Value ensureArray(const Json::Value& in)
-{
-    if (in.isArray() || in.isNull()) return in;
-    else
-    {
-        Json::Value a(Json::arrayValue);
-        a.append(in);
-        return a;
-    }
-}
-
-// If input is not an array or there are no values in the sliced range, a null
-// value is returned.
-inline Json::Value slice(
-        const Json::Value& in,
-        const Json::ArrayIndex start,
-        const Json::ArrayIndex end =
-            std::numeric_limits<Json::ArrayIndex>::max())
-{
-    Json::Value out;
-    if (in.isArray())
-    {
-        for (Json::ArrayIndex i(start); i < end && i < in.size(); ++i)
-        {
-            out.append(in[i]);
-        }
-    }
-    return out;
-}
-
 // Same as Json::Value::toStyledString but with fixed precision for doubles.
 inline std::string toPreciseString(
         const Json::Value& v,

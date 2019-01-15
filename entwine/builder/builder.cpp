@@ -327,7 +327,7 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
         }
     });
 
-    const Json::Value pipeline(m_config.pipeline(localPath));
+    const json pipeline(jsoncppToMjson(m_config.pipeline(localPath)));
 
     if (!Executor::get().run(table, pipeline))
     {
