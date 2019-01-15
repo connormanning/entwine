@@ -56,7 +56,7 @@ Config Config::fromScan(const std::string file) const
 
     FileInfoList list(Files::extract(ep, primary()));
     // c["input"] = Files(list).toJson();
-    c["input"] = mjsonToJsoncpp(json(list));
+    c["input"] = mjsonToJsoncpp(list);
 
     return c;
 }
@@ -152,7 +152,7 @@ Config Config::prepare() const
         s.setOffset(bounds.mid().round());
     }
 
-    result["schema"] = mjsonToJsoncpp(json(s));
+    result["schema"] = mjsonToJsoncpp(s);
 
     return result;
 }

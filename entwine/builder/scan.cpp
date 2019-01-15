@@ -301,7 +301,7 @@ Config Scan::aggregate()
 
     if (!np) throw std::runtime_error("No points found!");
 
-    if (out["bounds"].isNull()) out["bounds"] = mjsonToJsoncpp(json(bounds));
+    if (out["bounds"].isNull()) out["bounds"] = mjsonToJsoncpp(bounds);
 
     if (!m_in.absolute())
     {
@@ -326,9 +326,9 @@ Config Scan::aggregate()
 
     if (out["schema"].isNull()) out["schema"] = mjsonToJsoncpp(m_schema);
     out["points"] = std::max<Json::UInt64>(np, out.points());
-    out["input"] = mjsonToJsoncpp(json(m_files));
-    if (m_re) out["reprojection"] = mjsonToJsoncpp(json(*m_re));
-    out["srs"] = mjsonToJsoncpp(json(srs));
+    out["input"] = mjsonToJsoncpp(m_files);
+    if (m_re) out["reprojection"] = mjsonToJsoncpp(*m_re);
+    out["srs"] = mjsonToJsoncpp(srs);
     out["pipeline"] = m_in.pipeline("");
 
     return out;

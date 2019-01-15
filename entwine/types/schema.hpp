@@ -221,34 +221,6 @@ public:
         else throw std::runtime_error("Layout is not a FixedPointLayout");
     }
 
-    /*
-    Json::Value toJson() const
-    {
-        return std::accumulate(
-                m_dims.begin(),
-                m_dims.end(),
-                Json::Value(),
-                [](const Json::Value& in, const DimInfo& d)
-                {
-                    Json::Value out(in);
-                    out.append(mjsonToJsoncpp(json(d)));
-                    return out;
-                });
-    }
-
-    std::string toString() const
-    {
-        return std::accumulate(
-                m_dims.begin(),
-                m_dims.end(),
-                std::string(),
-                [](const std::string& s, const DimInfo& d)
-                {
-                    return s + (s.size() ? ", " : "") + d.name();
-                });
-    }
-    */
-
     bool normal() const
     {
         static const auto f(pdal::Dimension::BaseType::Floating);
