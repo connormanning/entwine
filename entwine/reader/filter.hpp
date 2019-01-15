@@ -31,11 +31,6 @@ public:
     Filter(
             const Metadata& metadata,
             const Bounds& queryBounds,
-            const Json::Value& json) = delete;
-
-    Filter(
-            const Metadata& metadata,
-            const Bounds& queryBounds,
             const json& j)
         : m_metadata(metadata)
         , m_queryBounds(queryBounds)
