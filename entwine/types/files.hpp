@@ -21,7 +21,6 @@
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/file-info.hpp>
-#include <entwine/types/stats.hpp>
 #include <entwine/util/json.hpp>
 
 namespace entwine
@@ -64,7 +63,6 @@ public:
 
     void set(Origin o, FileInfo::Status status, std::string message = "")
     {
-        addStatus(status);
         get(o).status(status, message);
     }
 
@@ -84,7 +82,6 @@ public:
 
     const FileInfoList& list() const { return m_files; }
     const PointStats& pointStats() const { return m_pointStats; }
-    const FileStats& fileStats() const { return m_fileStats; }
 
     FileInfoList diff(const FileInfoList& fileInfo) const;
     void append(const FileInfoList& fileInfo);
@@ -118,22 +115,10 @@ private:
 
     void writeMeta(const arbiter::Endpoint& ep, const Config& config) const;
 
-    void addStatus(FileInfo::Status status)
-    {
-        switch (status)
-        {
-            case FileInfo::Status::Inserted:    m_fileStats.addInsert(); break;
-            case FileInfo::Status::Omitted:     m_fileStats.addOmit(); break;
-            case FileInfo::Status::Error:       m_fileStats.addError(); break;
-            default: break;
-        }
-    }
-
     FileInfoList m_files;
 
     mutable std::mutex m_mutex;
     PointStats m_pointStats;
-    FileStats m_fileStats;
 };
 
 inline void to_json(json& j, const Files& f)

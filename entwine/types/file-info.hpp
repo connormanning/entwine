@@ -17,8 +17,8 @@
 #include <pdal/SpatialReference.hpp>
 
 #include <entwine/types/bounds.hpp>
+#include <entwine/types/point-stats.hpp>
 #include <entwine/types/srs.hpp>
-#include <entwine/types/stats.hpp>
 #include <entwine/util/executor.hpp>
 #include <entwine/util/json.hpp>
 

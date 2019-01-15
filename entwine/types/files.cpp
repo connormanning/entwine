@@ -42,7 +42,6 @@ Files::Files(const FileInfoList& files)
     for (const auto& f : m_files)
     {
         m_pointStats += f.pointStats();
-        addStatus(f.status());
     }
 
     // Initialize origin info for detailed metadata storage purposes.
