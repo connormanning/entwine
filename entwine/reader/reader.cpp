@@ -29,12 +29,12 @@ Reader::Reader(
     , m_cache(makeUnique<Cache>())
 { }
 
-std::unique_ptr<CountQuery> Reader::count(const Json::Value& j) const
+std::unique_ptr<CountQuery> Reader::count(const json& j) const
 {
     return makeUnique<CountQuery>(*this, j);
 }
 
-std::unique_ptr<ReadQuery> Reader::read(const Json::Value& j) const
+std::unique_ptr<ReadQuery> Reader::read(const json& j) const
 {
     return makeUnique<ReadQuery>(*this, j);
 }

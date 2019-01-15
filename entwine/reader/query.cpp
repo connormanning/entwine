@@ -15,7 +15,7 @@
 namespace entwine
 {
 
-Query::Query(const Reader& r, const Json::Value& j)
+Query::Query(const Reader& r, const json& j)
     : m_reader(r)
     , m_metadata(r.metadata())
     , m_hierarchy(r.hierarchy())

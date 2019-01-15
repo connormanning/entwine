@@ -12,12 +12,11 @@
 
 #include <string>
 
-#include <json/json.h>
-
 #include <entwine/reader/comparison.hpp>
 #include <entwine/reader/logic-gate.hpp>
 #include <entwine/reader/query-params.hpp>
 #include <entwine/types/metadata.hpp>
+#include <entwine/util/json.hpp>
 
 namespace entwine
 {
@@ -32,16 +31,18 @@ public:
     Filter(
             const Metadata& metadata,
             const Bounds& queryBounds,
-            const Json::Value& json)
+            const Json::Value& json) = delete;
+
+    Filter(
+            const Metadata& metadata,
+            const Bounds& queryBounds,
+            const json& j)
         : m_metadata(metadata)
         , m_queryBounds(queryBounds)
         , m_root()
     {
-        if (json.isObject()) build(m_root, json);
-        else if (!json.isNull())
-        {
-            throw std::runtime_error("Invalid filter type");
-        }
+        if (j.is_object()) build(m_root, j);
+        else if (!j.is_null()) throw std::runtime_error("Invalid filter type");
     }
 
     bool check(const pdal::PointRef& pointRef) const
@@ -60,66 +61,67 @@ public:
     }
 
 private:
-    void build(LogicGate& gate, const Json::Value& json)
+    void build(LogicGate& gate, const json& j)
     {
-        if (json.isObject())
+        if (j.is_array())
         {
-            LogicGate* active(&gate);
+            for (const json& val : j) build(gate, val);
+            return;
+        }
 
-            std::unique_ptr<LogicGate> outer;
+        if (!j.is_object())
+        {
+            throw std::runtime_error("Unexpected filter type: " + j.dump(2));
+        }
 
-            if (json.size() > 1)
+        LogicGate* active(&gate);
+
+        std::unique_ptr<LogicGate> outer;
+
+        if (j.size() > 1)
+        {
+            outer = LogicGate::create(LogicalOperator::lAnd);
+            active = outer.get();
+        }
+
+        for (const auto& p : j.items())
+        {
+            const std::string key(p.key());
+            const json& val(p.value());
+
+            if (isLogicalOperator(key))
             {
-                outer = LogicGate::create(LogicalOperator::lAnd);
-                active = outer.get();
+                auto inner(LogicGate::create(key));
+                build(*inner, val);
+                active->push(std::move(inner));
             }
-
-            for (const std::string& key : json.getMemberNames())
+            else if (!val.is_object() || val.size() == 1)
             {
-                const Json::Value& val(json[key]);
+                // a comparison query object.
+                active->push(Comparison::create(m_metadata, key, val));
+            }
+            else
+            {
+                // key is the name of a dimension, val is an object of
+                // multiple comparison key/val pairs, for example:
+                //
+                // key: "Red"
+                // val: { "$gt": 100, "$lt": 200 }
+                //
+                // There cannot be any further nested logical operators
+                // within val, since we've already selected a dimension.
 
-                if (isLogicalOperator(key))
+                for (const auto& inner : val.items())
                 {
-                    auto inner(LogicGate::create(key));
-                    build(*inner, val);
-                    active->push(std::move(inner));
-                }
-                else if (!val.isObject() || val.size() == 1)
-                {
-                    // a comparison query object.
-                    active->push(Comparison::create(m_metadata, key, val));
-                }
-                else
-                {
-                    // key is the name of a dimension, val is an object of
-                    // multiple comparison key/val pairs, for example:
-                    //
-                    // key: "Red"
-                    // val: { "$gt": 100, "$lt": 200 }
-                    //
-                    // There cannot be any further nested logical operators
-                    // within val, since we've already selected a dimension.
-                    //
-                    for (const std::string& innerKey : val.getMemberNames())
-                    {
-                        Json::Value next;
-                        next[innerKey] = val[innerKey];
-                        active->push(Comparison::create(m_metadata, key, next));
-                    }
+                    const std::string innerKey(inner.key());
+                    const json& innerVal(inner.value());
+                    const json next { { innerKey, innerVal } };
+                    active->push(Comparison::create(m_metadata, key, next));
                 }
             }
+        }
 
-            if (outer) gate.push(std::move(outer));
-        }
-        else if (json.isArray())
-        {
-            for (const Json::Value& val : json) build(gate, val);
-        }
-        else
-        {
-            throw std::runtime_error(
-                    "Unexpected filter type: " + json.toStyledString());
-        }
+        if (outer) gate.push(std::move(outer));
     }
 
     const Metadata& m_metadata;

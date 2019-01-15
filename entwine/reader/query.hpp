@@ -27,7 +27,7 @@ class Reader;
 class Query
 {
 public:
-    Query(const Reader& reader, const Json::Value& params);
+    Query(const Reader& reader, const json& params);
     virtual ~Query() { }
 
     void run();
@@ -57,18 +57,18 @@ private:
 class CountQuery : public Query
 {
 public:
-    CountQuery(const Reader& reader, const Json::Value& json)
-        : Query(reader, json)
+    CountQuery(const Reader& reader, const json& j)
+        : Query(reader, j)
     { }
 };
 
 class ReadQuery : public Query
 {
 public:
-    ReadQuery(const Reader& reader, const Json::Value& json)
-        : Query(reader, json)
-        , m_schema(json.isMember("schema") ?
-                jsoncppToMjson(json["schema"]).get<Schema>() : m_metadata.outSchema())
+    ReadQuery(const Reader& reader, const json& j)
+        : Query(reader, j)
+        , m_schema(j.count("schema") ?
+                Schema(j.at("schema")) : m_metadata.outSchema())
     { }
 
     const std::vector<char>& data() const { return m_data; }
