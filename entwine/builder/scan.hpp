@@ -16,8 +16,6 @@
 #include <set>
 #include <string>
 
-#include <pdal/SpatialReference.hpp>
-
 #include <entwine/builder/config.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/bounds.hpp>

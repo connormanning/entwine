@@ -103,7 +103,7 @@ json FileInfo::toListJson() const
     if (m_points)
     {
         j["points"] = m_points;
-        if (m_bounds.exists()) j["bounds"] = jsoncppToMjson(m_bounds.toJson());
+        if (m_bounds.exists()) j["bounds"] = m_bounds;
     }
 
     if (m_status != Status::Outstanding) j["status"] = toString(m_status);
@@ -131,7 +131,7 @@ json FileInfo::toMetaJson() const
     json j(json::object());
 
     if (m_srs.exists()) j["srs"] = m_srs;
-    if (m_bounds.exists()) j["bounds"] = jsoncppToMjson(m_bounds.toJson());
+    if (m_bounds.exists()) j["bounds"] = m_bounds;
 
     if (!m_metadata.is_null()) j["metadata"] = m_metadata;
     if (m_origin != invalidOrigin) j["origin"] = m_origin;

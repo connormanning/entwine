@@ -87,21 +87,6 @@ Bounds::Bounds(
     : Bounds(Point(xMin, yMin), Point(xMax, yMax))
 { }
 
-Json::Value Bounds::toJson() const
-{
-    Json::Value json;
-
-    json.append(m_min.x);
-    json.append(m_min.y);
-    json.append(m_min.z);
-
-    json.append(m_max.x);
-    json.append(m_max.y);
-    json.append(m_max.z);
-
-    return json;
-}
-
 void Bounds::grow(const Bounds& other)
 {
     grow(other.min());
@@ -135,6 +120,31 @@ Bounds Bounds::growBy(double ratio) const
 
     return Bounds(m_min - delta, m_max + delta);
 }
+
+Bounds Bounds::getNwd(bool force2d) const
+{
+    Bounds b(*this); b.goNwd(force2d); return b;
+}
+
+Bounds Bounds::getNed(bool force2d) const
+{
+    Bounds b(*this); b.goNed(force2d); return b;
+}
+
+Bounds Bounds::getSwd(bool force2d) const
+{
+    Bounds b(*this); b.goSwd(force2d); return b;
+}
+
+Bounds Bounds::getSed(bool force2d) const
+{
+    Bounds b(*this); b.goSed(force2d); return b;
+}
+
+Bounds Bounds::getNwu() const { Bounds b(*this); b.goNwu(); return b; }
+Bounds Bounds::getNeu() const { Bounds b(*this); b.goNeu(); return b; }
+Bounds Bounds::getSwu() const { Bounds b(*this); b.goSwu(); return b; }
+Bounds Bounds::getSeu() const { Bounds b(*this); b.goSeu(); return b; }
 
 Bounds Bounds::applyScaleOffset(const Scale& s, const Offset& o) const
 {

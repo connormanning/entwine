@@ -112,8 +112,8 @@ Json::Value Metadata::toJson() const
 {
     return mjsonToJsoncpp(json {
         { "version", eptVersion().toString() },
-        { "bounds", jsoncppToMjson(boundsCubic().toJson()) },
-        { "boundsConforming", jsoncppToMjson(boundsConforming().toJson()) },
+        { "bounds", boundsCubic() },
+        { "boundsConforming", boundsConforming() },
         { "schema", jsoncppToMjson(m_outSchema->toJson()) },
         { "span", m_span },
         { "points", m_files->totalInserts() },
@@ -125,17 +125,17 @@ Json::Value Metadata::toJson() const
 
 Json::Value Metadata::toBuildParamsJson() const
 {
-    Json::Value j;
+    json j {
+        { "version", currentEntwineVersion().toString() },
+        { "trustHeaders", m_trustHeaders },
+        { "overflowDepth", m_overflowDepth },
+        { "overflowThreshold", m_overflowThreshold },
+        { "software", "Entwine" }
+    };
+    if (m_subset) j["subset"] = *m_subset;
+    if (m_reprojection) j["reprojection"] = *m_reprojection;
 
-    j["version"] = currentEntwineVersion().toString();
-    j["trustHeaders"] = m_trustHeaders;
-    j["overflowDepth"] = (Json::UInt64)m_overflowDepth;
-    j["overflowThreshold"] = (Json::UInt64)m_overflowThreshold;
-    j["software"] = "Entwine";
-    if (m_subset) j["subset"] = mjsonToJsoncpp(json(*m_subset));
-    if (m_reprojection) j["reprojection"] = mjsonToJsoncpp(json(*m_reprojection));
-
-    return j;
+    return mjsonToJsoncpp(j);
 }
 
 void Metadata::save(const arbiter::Endpoint& ep, const Config& config) const

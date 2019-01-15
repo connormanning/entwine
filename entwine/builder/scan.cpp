@@ -12,11 +12,13 @@
 
 #include <limits>
 
+#include <pdal/SpatialReference.hpp>
 #include <pdal/StageFactory.hpp>
 #include <pdal/util/IStream.hpp>
 #include <pdal/util/OStream.hpp>
 
 #include <entwine/builder/thread-pools.hpp>
+#include <entwine/types/bounds.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/srs.hpp>
 #include <entwine/types/vector-point-table.hpp>
@@ -299,7 +301,7 @@ Config Scan::aggregate()
 
     if (!np) throw std::runtime_error("No points found!");
 
-    if (out["bounds"].isNull()) out["bounds"] = bounds.toJson();
+    if (out["bounds"].isNull()) out["bounds"] = mjsonToJsoncpp(json(bounds));
 
     if (!m_in.absolute())
     {
