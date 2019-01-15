@@ -108,48 +108,38 @@ Metadata::Metadata(const arbiter::Endpoint& ep, const Config& config)
 
 Metadata::~Metadata() { }
 
-Json::Value Metadata::toJson() const
-{
-    return mjsonToJsoncpp(json {
-        { "version", eptVersion().toString() },
-        { "bounds", boundsCubic() },
-        { "boundsConforming", boundsConforming() },
-        { "schema", *m_outSchema },
-        { "span", m_span },
-        { "points", m_files->totalInserts() },
-        { "dataType", m_dataIo->type() },
-        { "hierarchyType", "json" }, // TODO
-        { "srs", *m_srs }
-    });
-}
-
-Json::Value Metadata::toBuildParamsJson() const
-{
-    json j {
-        { "version", currentEntwineVersion().toString() },
-        { "trustHeaders", m_trustHeaders },
-        { "overflowDepth", m_overflowDepth },
-        { "overflowThreshold", m_overflowThreshold },
-        { "software", "Entwine" }
-    };
-    if (m_subset) j["subset"] = *m_subset;
-    if (m_reprojection) j["reprojection"] = *m_reprojection;
-
-    return mjsonToJsoncpp(j);
-}
-
 void Metadata::save(const arbiter::Endpoint& ep, const Config& config) const
 {
     {
-        const auto json(toJson());
+        const json meta {
+            { "version", eptVersion().toString() },
+            { "bounds", boundsCubic() },
+            { "boundsConforming", boundsConforming() },
+            { "schema", *m_outSchema },
+            { "span", m_span },
+            { "points", m_files->totalInserts() },
+            { "dataType", m_dataIo->type() },
+            { "hierarchyType", "json" }, // TODO
+            { "srs", *m_srs }
+        };
+
         const std::string f("ept" + postfix() + ".json");
-        ensurePut(ep, f, toPreciseString(json));
+        ensurePut(ep, f, meta.dump(2));
     }
 
     {
-        const auto json(toBuildParamsJson());
+        json buildMeta {
+            { "software", "Entwine" },
+            { "version", currentEntwineVersion().toString() },
+            { "trustHeaders", m_trustHeaders },
+            { "overflowDepth", m_overflowDepth },
+            { "overflowThreshold", m_overflowThreshold }
+        };
+        if (m_subset) buildMeta["subset"] = *m_subset;
+        if (m_reprojection) buildMeta["reprojection"] = *m_reprojection;
+
         const std::string f("ept-build" + postfix() + ".json");
-        ensurePut(ep, f, toPreciseString(json));
+        ensurePut(ep, f, buildMeta.dump(2));
     }
 
     const bool detailed(!m_merged && primary());

@@ -86,9 +86,6 @@ public:
     std::string postfix() const;
     std::string postfix(uint64_t depth) const;
 
-    Json::Value toJson() const;
-    Json::Value toBuildParamsJson() const;
-
 private:
     Metadata& operator=(const Metadata& other);
 

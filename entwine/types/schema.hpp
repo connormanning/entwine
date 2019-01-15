@@ -56,7 +56,6 @@ public:
         m_layout = makePointLayout(m_dims);
     }
 
-    explicit Schema(const Json::Value&) = delete;
     explicit Schema(const json& j)
         : Schema(j.get<DimList>())
     { }
