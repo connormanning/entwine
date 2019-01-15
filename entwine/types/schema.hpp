@@ -65,7 +65,7 @@ public:
                     [](const DimList& in, const Json::Value& d)
                     {
                         DimList out(in);
-                        out.emplace_back(d);
+                        out.emplace_back(jsoncppToMjson(d));
                         return out;
                     }))
     { }
@@ -244,7 +244,7 @@ public:
                 [](const Json::Value& in, const DimInfo& d)
                 {
                     Json::Value out(in);
-                    out.append(d.toJson());
+                    out.append(mjsonToJsoncpp(json(d)));
                     return out;
                 });
     }
