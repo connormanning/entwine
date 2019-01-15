@@ -77,7 +77,7 @@ TEST(build, basic)
     const auto points(info["points"].asUInt64());
     EXPECT_EQ(points, v.points());
 
-    const Schema schema(info["schema"]);
+    const Schema schema(jsoncppToMjson(info["schema"]));
     Schema verifySchema(v.schema().append(DimId::OriginId));
     verifySchema.setOffset(bounds.mid().round());
     EXPECT_EQ(schema, verifySchema);
@@ -132,7 +132,7 @@ TEST(build, continued)
     const auto points(info["points"].asUInt64());
     EXPECT_EQ(points, v.points());
 
-    const Schema schema(info["schema"]);
+    const Schema schema(jsoncppToMjson(info["schema"]));
     Schema verifySchema(v.schema().append(DimId::OriginId));
     verifySchema.setOffset(bounds.mid().round());
     EXPECT_EQ(schema, verifySchema);
@@ -188,7 +188,7 @@ TEST(build, fromScan)
     const auto points(info["points"].asUInt64());
     EXPECT_EQ(points, v.points());
 
-    const Schema schema(info["schema"]);
+    const Schema schema(jsoncppToMjson(info["schema"]));
     Schema verifySchema(v.schema().append(DimId::OriginId));
     verifySchema.setOffset(bounds.mid().round());
     EXPECT_EQ(schema, verifySchema);
@@ -245,7 +245,7 @@ TEST(build, subset)
     const auto points(info["points"].asUInt64());
     EXPECT_EQ(points, v.points());
 
-    const Schema schema(info["schema"]);
+    const Schema schema(jsoncppToMjson(info["schema"]));
     Schema verifySchema(v.schema().append(DimId::OriginId));
     verifySchema.setOffset(bounds.mid().round());
     EXPECT_EQ(schema, verifySchema);
@@ -352,7 +352,7 @@ TEST(build, subsetFromScan)
     const auto points(info["points"].asUInt64());
     EXPECT_EQ(points, v.points());
 
-    const Schema schema(info["schema"]);
+    const Schema schema(jsoncppToMjson(info["schema"]));
     Schema verifySchema(v.schema().append(DimId::OriginId));
     verifySchema.setOffset(bounds.mid().round());
     EXPECT_EQ(schema, verifySchema);
@@ -405,7 +405,7 @@ TEST(build, reprojected)
     const auto points(info["points"].asUInt64());
     EXPECT_EQ(points, v.points());
 
-    const Schema schema(info["schema"]);
+    const Schema schema(jsoncppToMjson(info["schema"]));
     Schema verifySchema(v.schema().append(DimId::OriginId));
     verifySchema.setOffset(bounds.mid().round());
     EXPECT_EQ(schema, verifySchema);

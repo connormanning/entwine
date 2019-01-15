@@ -114,7 +114,7 @@ Json::Value Metadata::toJson() const
         { "version", eptVersion().toString() },
         { "bounds", boundsCubic() },
         { "boundsConforming", boundsConforming() },
-        { "schema", jsoncppToMjson(m_outSchema->toJson()) },
+        { "schema", *m_outSchema },
         { "span", m_span },
         { "points", m_files->totalInserts() },
         { "dataType", m_dataIo->type() },

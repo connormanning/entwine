@@ -68,7 +68,7 @@ public:
     ReadQuery(const Reader& reader, const Json::Value& json)
         : Query(reader, json)
         , m_schema(json.isMember("schema") ?
-                Schema(json["schema"]) : m_metadata.outSchema())
+                jsoncppToMjson(json["schema"]).get<Schema>() : m_metadata.outSchema())
     { }
 
     const std::vector<char>& data() const { return m_data; }

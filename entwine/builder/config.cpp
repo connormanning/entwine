@@ -125,7 +125,7 @@ Config Config::prepare() const
 
     // Prepare the schema, adding OriginId and determining a proper offset, if
     // necessary.
-    Schema s(result["schema"]);
+    Schema s(jsoncppToMjson(result["schema"]));
 
     if (allowOriginId() && !s.contains(DimId::OriginId))
     {
@@ -152,7 +152,7 @@ Config Config::prepare() const
         s.setOffset(bounds.mid().round());
     }
 
-    result["schema"] = s.toJson();
+    result["schema"] = mjsonToJsoncpp(json(s));
 
     return result;
 }

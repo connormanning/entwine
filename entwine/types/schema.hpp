@@ -30,7 +30,7 @@ namespace entwine
 class Schema
 {
 public:
-    Schema() : Schema(DimList()) { }
+    Schema() = default;
 
     explicit Schema(DimList dims)
     {
@@ -56,24 +56,10 @@ public:
         m_layout = makePointLayout(m_dims);
     }
 
-    explicit Schema(const Json::Value& json)
-        : Schema(
-                std::accumulate(
-                    json.begin(),
-                    json.end(),
-                    DimList(),
-                    [](const DimList& in, const Json::Value& d)
-                    {
-                        DimList out(in);
-                        out.emplace_back(jsoncppToMjson(d));
-                        return out;
-                    }))
+    explicit Schema(const Json::Value&) = delete;
+    explicit Schema(const json& j)
+        : Schema(j.get<DimList>())
     { }
-
-    explicit Schema(const std::string& s) : Schema(parse(s)) { }
-
-    template<typename T>
-    Schema(std::initializer_list<T> il) : Schema(DimList(il)) { }
 
     Schema(const Schema& other) : Schema(other.m_dims) { }
     Schema& operator=(const Schema& other)
@@ -235,6 +221,7 @@ public:
         else throw std::runtime_error("Layout is not a FixedPointLayout");
     }
 
+    /*
     Json::Value toJson() const
     {
         return std::accumulate(
@@ -260,6 +247,7 @@ public:
                     return s + (s.size() ? ", " : "") + d.name();
                 });
     }
+    */
 
     bool normal() const
     {
@@ -272,7 +260,7 @@ public:
 
     static Schema makeAbsolute(const Schema& s)
     {
-        const Schema xyz({
+        const Schema xyz(DimList {
             { DimId::X, DimType::Double },
             { DimId::Y, DimType::Double },
             { DimId::Z, DimType::Double }
@@ -304,7 +292,7 @@ public:
 
     Schema merge(const Schema& other) const
     {
-        Schema s(*this);
+        Schema s(dims());
         for (const auto& d : other.dims())
         {
             if (!s.contains(d.name())) s = s.append(d);
@@ -340,6 +328,16 @@ private:
     DimList m_dims;
     std::unique_ptr<pdal::PointLayout> m_layout;
 };
+
+inline void from_json(const json& j, Schema& s)
+{
+    s = Schema(j);
+}
+
+inline void to_json(json& j, const Schema& s)
+{
+    j = s.dims();
+}
 
 inline bool operator==(const Schema& lhs, const Schema& rhs)
 {

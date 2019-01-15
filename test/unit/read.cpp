@@ -35,7 +35,7 @@ TEST(read, count)
     for (std::size_t i(0); i < 8; ++i)
     {
         Json::Value q;
-        q["bounds"] = mjsonToJsoncpp(json(m.boundsCubic().get(toDir(i))));
+        q["bounds"] = mjsonToJsoncpp(m.boundsCubic().get(toDir(i)));
 
         auto countQuery = r.count(q);
         countQuery->run();
@@ -75,12 +75,12 @@ TEST(read, data)
     });
 
     Json::Value j;
-    j["schema"] = schema.toJson();
+    j["schema"] = mjsonToJsoncpp(schema);
 
     std::vector<char> bin;
     for (std::size_t i(0); i < 8; ++i)
     {
-        j["bounds"] = mjsonToJsoncpp(json(m.boundsCubic().get(toDir(i))));
+        j["bounds"] = mjsonToJsoncpp(m.boundsCubic().get(toDir(i)));
         append(bin, j);
     }
 

@@ -28,6 +28,8 @@ class DimInfo
     friend class Schema;
 
 public:
+    DimInfo() = default;
+
     DimInfo(DimId id)
         : DimInfo(id, defaultType(id))
     { }

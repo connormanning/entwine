@@ -324,7 +324,7 @@ Config Scan::aggregate()
         m_schema = Schema(dims);
     }
 
-    if (out["schema"].isNull()) out["schema"] = m_schema.toJson();
+    if (out["schema"].isNull()) out["schema"] = mjsonToJsoncpp(m_schema);
     out["points"] = std::max<Json::UInt64>(np, out.points());
     out["input"] = mjsonToJsoncpp(json(m_files));
     if (m_re) out["reprojection"] = mjsonToJsoncpp(json(*m_re));
