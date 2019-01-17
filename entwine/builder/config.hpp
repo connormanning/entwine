@@ -36,7 +36,6 @@ class Config
 public:
     Config() : m_json(json::object()) { }
     Config(const json& j) : m_json(j) { }
-    Config(const Json::Value& json) = delete;
 
     // Used by the builder to normalize the input, this utility ensures:
     //      - Input data is scanned prior to input.
