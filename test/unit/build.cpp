@@ -142,6 +142,68 @@ TEST(build, continued)
     checkSources(outPath);
 }
 
+TEST(build, addedLater)
+{
+    const std::string outPath(test::dataPath() + "out/ellipsoid/");
+    const std::string metaPath(outPath + "ept-sources/");
+
+    {
+        Config c;
+        c["input"].append(test::dataPath() + "ellipsoid-multi/ned.laz");
+        c["input"].append(test::dataPath() + "ellipsoid-multi/neu.laz");
+        c["input"].append(test::dataPath() + "ellipsoid-multi/nwd.laz");
+        c["input"].append(test::dataPath() + "ellipsoid-multi/nwu.laz");
+        c["output"] = outPath;
+        c["force"] = true;
+        c["span"] = static_cast<Json::UInt64>(v.span());
+        c["hierarchyStep"] = static_cast<Json::UInt64>(v.hierarchyStep());
+        c["bounds"] = v.bounds().toJson();
+
+        Builder(c).go();
+    }
+
+    {
+        Config c;
+        c["input"].append(test::dataPath() + "ellipsoid-multi/sed.laz");
+        c["input"].append(test::dataPath() + "ellipsoid-multi/seu.laz");
+        c["input"].append(test::dataPath() + "ellipsoid-multi/swd.laz");
+        c["input"].append(test::dataPath() + "ellipsoid-multi/swu.laz");
+        c["output"] = outPath;
+
+        Builder(c).go();
+    }
+
+    const auto info(parse(a.get(outPath + "ept.json")));
+
+    const Bounds bounds(info["bounds"]);
+    const Bounds boundsConforming(info["boundsConforming"]);
+    EXPECT_TRUE(bounds.isCubic());
+    EXPECT_TRUE(bounds.contains(boundsConforming));
+    for (std::size_t i(0); i < 6; ++i)
+    {
+        ASSERT_NEAR(boundsConforming[i], v.bounds()[i], 2.0) << "At: " << i <<
+            "\n" << boundsConforming << "\n!=\n" << v.bounds() << std::endl;
+    }
+
+    const auto dataType(info["dataType"].asString());
+    EXPECT_EQ(dataType, "laszip");
+
+    const auto hierarchyType(info["hierarchyType"].asString());
+    EXPECT_EQ(hierarchyType, "json");
+
+    const auto points(info["points"].asUInt64());
+    EXPECT_EQ(points, v.points());
+
+    const Schema schema(info["schema"]);
+    Schema verifySchema(v.schema().append(DimId::OriginId));
+    verifySchema.setOffset(bounds.mid().round());
+    EXPECT_EQ(schema, verifySchema);
+
+    EXPECT_EQ(info["span"].asUInt64(), v.span());
+
+    checkSources(outPath);
+}
+
 TEST(build, fromScan)
 {
     const std::string scanPath(test::dataPath() + "out/prebuild-scan/");

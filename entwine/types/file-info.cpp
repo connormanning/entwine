@@ -150,7 +150,6 @@ void FileInfo::add(const FileInfo& b)
         status(b.status());
     }
 
-
     add(b.pointStats());
 }
 
