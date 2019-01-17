@@ -148,35 +148,41 @@ TEST(build, addedLater)
     const std::string metaPath(outPath + "ept-sources/");
 
     {
-        Config c;
-        c["input"].append(test::dataPath() + "ellipsoid-multi/ned.laz");
-        c["input"].append(test::dataPath() + "ellipsoid-multi/neu.laz");
-        c["input"].append(test::dataPath() + "ellipsoid-multi/nwd.laz");
-        c["input"].append(test::dataPath() + "ellipsoid-multi/nwu.laz");
-        c["output"] = outPath;
-        c["force"] = true;
-        c["span"] = static_cast<Json::UInt64>(v.span());
-        c["hierarchyStep"] = static_cast<Json::UInt64>(v.hierarchyStep());
-        c["bounds"] = v.bounds().toJson();
+        Config c(json {
+            { "input", {
+                test::dataPath() + "ellipsoid-multi/ned.laz",
+                test::dataPath() + "ellipsoid-multi/neu.laz",
+                test::dataPath() + "ellipsoid-multi/nwd.laz",
+                test::dataPath() + "ellipsoid-multi/nwu.laz"
+            } },
+            { "output", outPath },
+            { "force", true },
+            { "span", v.span() },
+            { "hierarchyStep", v.hierarchyStep() },
+            { "bounds", v.bounds() }
+        });
 
         Builder(c).go();
     }
 
     {
-        Config c;
-        c["input"].append(test::dataPath() + "ellipsoid-multi/sed.laz");
-        c["input"].append(test::dataPath() + "ellipsoid-multi/seu.laz");
-        c["input"].append(test::dataPath() + "ellipsoid-multi/swd.laz");
-        c["input"].append(test::dataPath() + "ellipsoid-multi/swu.laz");
-        c["output"] = outPath;
+        Config c(json {
+            { "input", {
+                test::dataPath() + "ellipsoid-multi/sed.laz",
+                test::dataPath() + "ellipsoid-multi/seu.laz",
+                test::dataPath() + "ellipsoid-multi/swd.laz",
+                test::dataPath() + "ellipsoid-multi/swu.laz"
+            } },
+            { "output", outPath }
+        });
 
         Builder(c).go();
     }
 
-    const auto info(parse(a.get(outPath + "ept.json")));
+    const auto info(json::parse(a.get(outPath + "ept.json")));
 
-    const Bounds bounds(info["bounds"]);
-    const Bounds boundsConforming(info["boundsConforming"]);
+    const Bounds bounds(info.at("bounds"));
+    const Bounds boundsConforming(info.at("boundsConforming"));
     EXPECT_TRUE(bounds.isCubic());
     EXPECT_TRUE(bounds.contains(boundsConforming));
     for (std::size_t i(0); i < 6; ++i)
@@ -185,21 +191,21 @@ TEST(build, addedLater)
             "\n" << boundsConforming << "\n!=\n" << v.bounds() << std::endl;
     }
 
-    const auto dataType(info["dataType"].asString());
+    const auto dataType(info.at("dataType").get<std::string>());
     EXPECT_EQ(dataType, "laszip");
 
-    const auto hierarchyType(info["hierarchyType"].asString());
+    const auto hierarchyType(info.at("hierarchyType").get<std::string>());
     EXPECT_EQ(hierarchyType, "json");
 
-    const auto points(info["points"].asUInt64());
+    const auto points(info.at("points").get<uint64_t>());
     EXPECT_EQ(points, v.points());
 
-    const Schema schema(info["schema"]);
+    const Schema schema(info.at("schema"));
     Schema verifySchema(v.schema().append(DimId::OriginId));
     verifySchema.setOffset(bounds.mid().round());
     EXPECT_EQ(schema, verifySchema);
 
-    EXPECT_EQ(info["span"].asUInt64(), v.span());
+    EXPECT_EQ(info.at("span").get<uint64_t>(), v.span());
 
     checkSources(outPath);
 }
