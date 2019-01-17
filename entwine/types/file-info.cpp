@@ -48,72 +48,96 @@ FileInfo::FileInfo(const std::string path)
     }
 }
 
-FileInfo::FileInfo(const Json::Value& json)
-    : FileInfo(json.isObject() ? json["path"].asString() : json.asString())
+FileInfo::FileInfo(const json& j)
+    : FileInfo(j.is_object() ?
+            j.at("path").get<std::string>() :
+            j.get<std::string>())
 {
-    if (!json.isObject()) return;
+    if (!j.is_object()) return;
 
-    if (json.isMember("id")) m_id = json["id"].asString();
-    if (json.isMember("status")) m_status = toStatus(json["status"].asString());
-
-    m_points = json["points"].asUInt64();
-    if (m_points && json.isMember("bounds"))
+    if (j.count("status"))
     {
-        m_bounds = Bounds(json["bounds"]);
-        m_boundsEpsilon = m_bounds.growBy(0.005);
+        m_status = toStatus(j.at("status").get<std::string>());
     }
 
-    m_url = json["url"].asString();
-    m_metadata = json["metadata"];
-    m_pointStats = PointStats(
-            json["inserts"].asUInt64(),
-            json["outOfBounds"].asUInt64());
-    m_message = json["message"].asString();
+    m_id = j.value("id", m_id);
+    m_url = j.value("url", m_url);
+    m_metadata = j.value("metadata", m_metadata);
+    m_points = j.value("points", 0);
+    m_pointStats = PointStats(j.value("inserts", 0), j.value("outOfBounds", 0));
+    m_message = j.value("message", m_message);
+    m_srs = j.value("srs", m_srs);
+    m_origin = j.value("origin", m_origin);
 
-    if (json.isMember("srs")) m_srs = json["srs"];
-    if (json.isMember("origin")) m_origin = json["origin"].asUInt64();
+    if (m_points && j.count("bounds"))
+    {
+        m_bounds = Bounds(j.at("bounds"));
+        m_boundsEpsilon = m_bounds.growBy(0.005);
+    }
 }
 
-Json::Value FileInfo::toListJson() const
+json FileInfo::toListJson() const
 {
-    Json::Value json;
-    json["id"] = m_id;
-    json["path"] = m_path;
-    if (!m_url.empty()) json["url"] = m_url;
+    /*
+    {
+        // Public.
+        id
+        url
+        bounds
+
+        // Private.
+        path
+        status
+        points
+        inserts
+        outOfBounds
+        message
+    }
+    */
+
+    json j;
+    j["id"] = m_id;
+    j["path"] = m_path;
+    if (m_url.size()) j["url"] = m_url;
 
     if (m_points)
     {
-        if (m_bounds.exists()) json["bounds"] = m_bounds.toJson();
-        json["points"] = (Json::UInt64)m_points;
+        j["points"] = m_points;
+        if (m_bounds.exists()) j["bounds"] = m_bounds;
     }
 
-    if (m_status != Status::Outstanding) json["status"] = toString(m_status);
-    if (m_pointStats.inserts())
-    {
-        json["inserts"] = (Json::UInt64)m_pointStats.inserts();
-    }
-    if (m_pointStats.outOfBounds())
-    {
-        json["outOfBounds"] = (Json::UInt64)m_pointStats.outOfBounds();
-    }
+    if (m_status != Status::Outstanding) j["status"] = toString(m_status);
+    if (m_pointStats.inserts()) j["inserts"] = m_pointStats.inserts();
+    if (m_pointStats.outOfBounds()) j["outOfBounds"] = m_pointStats.oob();
+    if (m_message.size()) j["message"] = m_message;
 
-    if (!m_message.empty()) json["message"] = m_message;
-
-    return json;
+    return j;
 }
 
-Json::Value FileInfo::toFullJson() const
+json FileInfo::toMetaJson() const
 {
-    Json::Value json;
-    json["path"] = m_path;
-    if (m_bounds.exists()) json["bounds"] = m_bounds.toJson();
+    /*
+    {
+        // Public.
+        points
+        bounds
+        srs
+        metadata
 
-    if (!m_metadata.isNull()) json["metadata"] = m_metadata;
-    if (m_origin != invalidOrigin) json["origin"] = (Json::UInt64)m_origin;
-    if (m_points) json["points"] = (Json::UInt64)m_points;
-    if (!m_srs.empty()) json["srs"] = m_srs.toJson();
+        // Private.
+        origin
+    }
+    */
+    json j(json::object());
 
-    return json;
+    if (m_srs.exists()) j["srs"] = m_srs;
+    if (m_bounds.exists()) j["bounds"] = m_bounds;
+
+    if (!m_metadata.is_null()) j["metadata"] = m_metadata;
+    if (m_origin != invalidOrigin) j["origin"] = m_origin;
+    if (m_points) j["points"] = m_points;
+
+    return j;
 }
 
 void FileInfo::add(const FileInfo& b)

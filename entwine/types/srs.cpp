@@ -10,41 +10,23 @@
 
 #include <entwine/types/srs.hpp>
 
-//#include <regex>
-
 namespace entwine
 {
 
-/**
 namespace
 {
-    const std::regex authCodeRegex("(\\w+):(\\d+)(\\+\\d+)?");
-}
-**/
+
+const auto isint = [](const std::string s)
+{
+    return s.find_first_not_of("0123456789") == std::string::npos;
+};
+
+} // unnamed namespace
 
 Srs::Srs(const std::string full)
     : m_spatialReference(full)
     , m_wkt(m_spatialReference.getWKT())
 {
-// Our regex is busted on GCC 4.8.
-/**
-    std::smatch match;
-    if (std::regex_match(full, match, authCodeRegex))
-    {
-        m_authority = match[1];
-        m_horizontal = match[2];
-        if (match.size() == 4 && match[3].str().size())
-        {
-            // Remove the leading '+'.
-            m_vertical = match[3].str().substr(1);
-        }
-    }
-**/
-    auto isint = [](const std::string s)
-    {
-        return (s.find_first_not_of("0123456789") == std::string::npos);
-    };
-
     auto pos = full.find(':');
     if (pos != std::string::npos)
     {
@@ -56,15 +38,15 @@ Srs::Srs(const std::string full)
             m_horizontal = code.substr(0, pos);
             m_vertical = code.substr(pos + 1);
         }
-        else
-            m_horizontal = code;
+        else m_horizontal = code;
+
         // Make sure that horizontal and vertical are digits
-        if (!isint(m_horizontal))
-            m_horizontal.clear();
-        if (!isint(m_vertical))
-            m_vertical.clear();
+        if (!isint(m_horizontal)) m_horizontal.clear();
+        if (!isint(m_vertical)) m_vertical.clear();
     }
-//
+
+    // If we were passed WKT instead of a code string, see if we can identify
+    // the corresponding codes from the pdal::SpatialReference.
 
     if (m_horizontal.empty())
     {
@@ -72,42 +54,42 @@ Srs::Srs(const std::string full)
         if (m_horizontal.size() && m_authority.empty()) m_authority = "EPSG";
     }
 
-    if (m_vertical.empty())
+    // Vertical should be populated iff horizontal is populated.
+    if (!m_horizontal.empty() && m_vertical.empty())
     {
         m_vertical = m_spatialReference.identifyVerticalEPSG();
         if (m_vertical.size() && m_authority.empty()) m_authority = "EPSG";
     }
 }
 
-Srs::Srs(const Json::Value& json)
+Srs::Srs(const json& j)
 {
-    if (json.isNull()) return;
+    if (j.is_null()) return;
 
-    if (json.isString())
+    if (j.is_string())
     {
-        *this = Srs(json.asString());
+        *this = Srs(j.get<std::string>());
         return;
     }
 
-    m_authority = json["authority"].asString();
-    m_horizontal = json["horizontal"].asString();
-    m_vertical = json["vertical"].asString();
+    m_authority = j.value("authority", "");
+    m_horizontal = j.value("horizontal", "");
+    m_vertical = j.value("vertical", "");
 
-    if (json.isMember("wkt"))
+    if (j.count("wkt"))
     {
-        m_spatialReference.set(json["wkt"].asString());
-        m_wkt = json["wkt"].asString();
+        m_wkt = j.at("wkt").get<std::string>();
+        m_spatialReference.set(m_wkt);
     }
 }
 
-Json::Value Srs::toJson() const
+void to_json(json& j, const Srs& srs)
 {
-    Json::Value json(Json::objectValue);
-    if (m_authority.size()) json["authority"] = m_authority;
-    if (m_horizontal.size()) json["horizontal"] = m_horizontal;
-    if (m_vertical.size()) json["vertical"] = m_vertical;
-    if (m_wkt.size()) json["wkt"] = m_wkt;
-    return json;
+    j = json::object();
+    if (srs.authority().size()) j["authority"] = srs.authority();
+    if (srs.horizontal().size()) j["horizontal"] = srs.horizontal();
+    if (srs.vertical().size()) j["vertical"] = srs.vertical();
+    if (srs.wkt().size()) j["wkt"] = srs.wkt();
 }
 
 std::string Srs::codeString() const

@@ -17,13 +17,11 @@
 #include <string>
 #include <vector>
 
-#include <json/json.h>
-
 #include <entwine/builder/config.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/file-info.hpp>
-#include <entwine/types/stats.hpp>
+#include <entwine/util/json.hpp>
 
 namespace entwine
 {
@@ -35,7 +33,7 @@ class Files
 {
 public:
     Files(const FileInfoList& files);
-    Files(const Json::Value& json) : Files(toFileInfo(json)) { }
+    Files(const json& j) : Files(j.get<FileInfoList>()) { }
 
     static FileInfoList extract(
             const arbiter::Endpoint& top,
@@ -65,7 +63,6 @@ public:
 
     void set(Origin o, FileInfo::Status status, std::string message = "")
     {
-        addStatus(status);
         get(o).status(status, message);
     }
 
@@ -85,7 +82,6 @@ public:
 
     const FileInfoList& list() const { return m_files; }
     const PointStats& pointStats() const { return m_pointStats; }
-    const FileStats& fileStats() const { return m_fileStats; }
 
     FileInfoList diff(const FileInfoList& fileInfo) const;
     void append(const FileInfoList& fileInfo);
@@ -113,39 +109,22 @@ public:
 
     void merge(const Files& other);
 
-    Json::Value toJson() const
-    {
-        Json::Value json;
-        for (const auto& f : list())
-        {
-            json.append(f.toJson());
-        }
-        return json;
-    }
-
 private:
     void writeList(const arbiter::Endpoint& ep, const std::string& postfix)
         const;
 
-    void writeFull(const arbiter::Endpoint& ep, const Config& config) const;
-
-    void addStatus(FileInfo::Status status)
-    {
-        switch (status)
-        {
-            case FileInfo::Status::Inserted:    m_fileStats.addInsert(); break;
-            case FileInfo::Status::Omitted:     m_fileStats.addOmit(); break;
-            case FileInfo::Status::Error:       m_fileStats.addError(); break;
-            default: break;
-        }
-    }
+    void writeMeta(const arbiter::Endpoint& ep, const Config& config) const;
 
     FileInfoList m_files;
 
     mutable std::mutex m_mutex;
     PointStats m_pointStats;
-    FileStats m_fileStats;
 };
+
+inline void to_json(json& j, const Files& f)
+{
+    j = f.list();
+}
 
 } // namespace entwine
 

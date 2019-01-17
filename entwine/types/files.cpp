@@ -42,7 +42,6 @@ Files::Files(const FileInfoList& files)
     for (const auto& f : m_files)
     {
         m_pointStats += f.pointStats();
-        addStatus(f.status());
     }
 
     // Initialize origin info for detailed metadata storage purposes.
@@ -52,7 +51,7 @@ Files::Files(const FileInfoList& files)
         if (f.origin() != i && f.origin() != invalidOrigin)
         {
             throw std::runtime_error("Unexpected origin ID at " +
-                    std::to_string(i) + ": " + f.toFullJson().toStyledString());
+                    std::to_string(i) + ": " + f.toMetaJson().dump(2));
         }
         f.setOrigin(i);
     }
@@ -93,7 +92,7 @@ FileInfoList Files::extract(
 {
     const auto ep(top.getSubEndpoint("ept-sources"));
     const std::string filename("list" + postfix + ".json");
-    FileInfoList list(toFileInfo(parse(ensureGetString(ep, filename))));
+    auto list(json::parse(ensureGetString(ep, filename)).get<FileInfoList>());
 
     if (!primary) return list;
 
@@ -109,14 +108,15 @@ FileInfoList Files::extract(
 
     for (const auto url : urls)
     {
-        const auto meta(parse(ensureGetString(ep, url)));
-        for (const std::string id : meta.getMemberNames())
+        const auto meta(json::parse(ensureGetString(ep, url)));
+        for (const auto& p : meta.items())
         {
+            const std::string id(p.key());
             const Origin o(idMap.at(id));
             FileInfo& f(list[o]);
 
-            Json::Value current(f.toJson());
-            f = FileInfo(entwine::merge(current, meta[id]));
+            const json current(f);
+            f = FileInfo(entwine::merge(current, meta.at(id)));
         }
     }
 
@@ -131,30 +131,30 @@ void Files::save(
 {
     const auto ep(top.getSubEndpoint("ept-sources"));
     writeList(ep, postfix);
-    if (detailed) writeFull(ep, config);
+    if (detailed) writeMeta(ep, config);
 }
 
 void Files::writeList(
         const arbiter::Endpoint& ep,
         const std::string& postfix) const
 {
-    Json::Value json;
-    for (const FileInfo& f : list()) json.append(f.toListJson());
+    json j;
+    for (const FileInfo& f : list()) j.push_back(f.toListJson());
 
     const bool styled(size() <= 1000);
-    ensurePut(ep, "list" + postfix + ".json", toPreciseString(json, styled));
+    ensurePut(ep, "list" + postfix + ".json", styled ? j.dump(2) : j.dump());
 }
 
-void Files::writeFull(
+void Files::writeMeta(
         const arbiter::Endpoint& ep,
         const Config& config) const
 {
     Pool pool(config.totalThreads());
 
-    std::map<std::string, Json::Value> meta;
+    std::map<std::string, json> meta;
     for (const auto& f : m_files)
     {
-        meta[f.url()][f.id()] = f.toFullJson();
+        meta[f.url()][f.id()] = f.toMetaJson();
     }
 
     const bool styled(size() <= 1000);
@@ -164,8 +164,8 @@ void Files::writeFull(
         pool.add([this, &ep, &p, styled]()
         {
             const std::string& filename(p.first);
-            const Json::Value& json(p.second);
-            ensurePut(ep, filename, toPreciseString(json, styled));
+            const json& j(p.second);
+            ensurePut(ep, filename, j.dump(2));
         });
     }
 

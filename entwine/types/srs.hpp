@@ -34,11 +34,9 @@ public:
 
     // Construct from JSON.  In this case we won't do any inference - just pluck
     // out previously determined values.
-    Srs(const Json::Value& json);
+    Srs(const json& j);
 
     void clear() { *this = Srs(); }
-
-    Json::Value toJson() const;
 
     bool empty() const { return m_spatialReference.empty(); }
     bool exists() const { return !empty(); }
@@ -60,6 +58,8 @@ private:
     std::string m_vertical;
     std::string m_wkt;
 };
+
+void to_json(json& j, const Srs& srs);
 
 } // namespace entwine
 

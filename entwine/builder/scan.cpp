@@ -12,11 +12,13 @@
 
 #include <limits>
 
+#include <pdal/SpatialReference.hpp>
 #include <pdal/StageFactory.hpp>
 #include <pdal/util/IStream.hpp>
 #include <pdal/util/OStream.hpp>
 
 #include <entwine/builder/thread-pools.hpp>
+#include <entwine/types/bounds.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/srs.hpp>
 #include <entwine/types/vector-point-table.hpp>
@@ -38,8 +40,8 @@ namespace
 }
 
 Scan::Scan(const Config config)
-    : m_in(merge(Config::defaults(), config.json()))
-    , m_arbiter(m_in["arbiter"])
+    : m_in(config)
+    , m_arbiter(m_in.arbiter())
     , m_tmp(m_arbiter.getEndpoint(m_in.tmp()))
     , m_re(m_in.reprojection())
     , m_files(m_in.input())
@@ -62,7 +64,7 @@ Config Scan::go()
         FileInfo& f(m_files.get(i));
         if (m_in.verbose())
         {
-            std::cout << i + 1 << " / " << size << ": " << f.path() <<
+            std::cout << i + 1 << "/" << size << ": " << f.path() <<
                 std::endl;
         }
         add(f);
@@ -75,8 +77,7 @@ Config Scan::go()
     std::string path(m_in.output());
     if (path.size())
     {
-        arbiter::Arbiter arbiter(m_in["arbiter"]);
-        arbiter::Endpoint ep(arbiter.getEndpoint(path));
+        arbiter::Endpoint ep(m_arbiter.getEndpoint(path));
 
         if (ep.isLocal())
         {
@@ -98,10 +99,9 @@ Config Scan::go()
         }
 
         m_files.save(ep, "", m_in, true);
-        Json::Value json(out.json());
-        Json::Value removed;
-        json.removeMember("input", &removed);
-        ep.put("scan.json", toPreciseString(json, true));
+        json j(out);
+        j.erase("input");
+        ep.put("scan.json", j.dump(2));
 
         if (m_in.verbose())
         {
@@ -233,7 +233,7 @@ void Scan::addRanged(FileInfo& f)
 
 void Scan::add(FileInfo& f, const std::string localPath)
 {
-    const Json::Value pipeline(m_in.pipeline(localPath));
+    const json pipeline(m_in.pipeline(localPath, nullptr));
 
     auto preview(Executor::get().preview(pipeline, m_in.trustHeaders()));
     if (!preview) return;
@@ -247,8 +247,7 @@ void Scan::add(FileInfo& f, const std::string localPath)
     if (!scale.x || !scale.y || !scale.z)
     {
         throw std::runtime_error(
-                "Invalid scale " + f.path() + ": " +
-                scale.toJson().toStyledString());
+                "Invalid scale " + f.path() + ": " + json(scale).dump());
     }
 
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -270,13 +269,10 @@ Config Scan::aggregate()
         explicitSrs = true;
         srs = m_re->out();
     }
-    else if (m_in.json().isMember("srs"))
+    else if (m_in.srs().exists())
     {
         explicitSrs = true;
-
-        const Json::Value& inSrs(m_in.json()["srs"]);
-        if (inSrs.isString()) srs = inSrs.asString();
-        else srs = inSrs;
+        srs = m_in.srs();
     }
 
     bool srsLogged(false);
@@ -315,7 +311,7 @@ Config Scan::aggregate()
 
     if (!np) throw std::runtime_error("No points found!");
 
-    if (out["bounds"].isNull()) out["bounds"] = bounds.toJson();
+    if (out.bounds().empty()) out.setBounds(bounds);
 
     if (!m_in.absolute())
     {
@@ -338,12 +334,12 @@ Config Scan::aggregate()
         m_schema = Schema(dims);
     }
 
-    if (out["schema"].isNull()) out["schema"] = m_schema.toJson();
-    out["points"] = std::max<Json::UInt64>(np, out.points());
-    out["input"] = m_files.toJson();
-    if (m_re) out["reprojection"] = m_re->toJson();
-    out["srs"] = srs.toJson();
-    out["pipeline"] = m_in.pipeline("");
+    if (out.schema().empty()) out.setSchema(m_schema);
+    out.setPoints(std::max<uint64_t>(np, out.points()));
+    out.setInput(m_files.list());
+    if (m_re) out.setReprojection(*m_re);
+    out.setSrs(srs);
+    out.setPipeline(m_in.pipeline("", nullptr));
 
     return out;
 }

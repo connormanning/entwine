@@ -13,8 +13,7 @@
 #include <stdexcept>
 #include <string>
 
-#include <json/json.h>
-
+#include <entwine/util/json.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -39,48 +38,17 @@ public:
         }
     }
 
-    Reprojection(const Json::Value& json)
+    Reprojection(const json& j)
         : Reprojection(
-                json["in"].asString(),
-                json["out"].asString(),
-                json["hammer"].asBool())
+                j.value("in", ""),
+                j.value("out", ""),
+                j.value("hammer", false))
     { }
 
-    static std::unique_ptr<Reprojection> create(const Json::Value& json)
+    static std::unique_ptr<Reprojection> create(const json& j)
     {
-        if (json.isMember("out")) return makeUnique<Reprojection>(json);
+        if (j.count("out")) return makeUnique<Reprojection>(j);
         else return std::unique_ptr<Reprojection>();
-    }
-
-    Json::Value toJson() const
-    {
-        Json::Value json;
-        json["out"] = out();
-        if (m_in.size()) json["in"] = in();
-        if (m_hammer) json["hammer"] = true;
-        return json;
-    }
-
-    std::string toString() const
-    {
-        std::string s;
-
-        if (hammer())
-        {
-            s += in() + " (OVERRIDING file headers)";
-        }
-        else if (in().size())
-        {
-            s += "(from file headers, or a default of '";
-            s += in() + "')";
-        }
-        else
-        {
-            s += "(from file headers)";
-        }
-
-        s += " -> " + out();
-        return s;
     }
 
     std::string in() const { return m_in; }
@@ -91,13 +59,22 @@ private:
     std::string m_in;
     std::string m_out;
 
-    bool m_hammer;
+    bool m_hammer = false;
 };
+
+inline void to_json(json& j, const Reprojection& r)
+{
+    j["out"] = r.out();
+    if (r.in().size()) j["in"] = r.in();
+    if (r.hammer()) j["hammer"] = true;
+}
 
 inline std::ostream& operator<<(std::ostream& os, const Reprojection& r)
 {
-    os << r.in() << " -> " << r.out();
-    return os;
+    return os <<
+        (r.in().size() ? r.in() : "[headers]") << " " <<
+        (r.hammer() ? "(FORCED)" : "(by default)") << " -> " <<
+        r.out();
 }
 
 } // namespace entwine

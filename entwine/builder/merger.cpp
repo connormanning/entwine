@@ -24,14 +24,14 @@ namespace entwine
 {
 
 Merger::Merger(const Config& config)
-    : m_config(merge(Config::defaults(), config.json()))
-    , m_arbiter(std::make_shared<arbiter::Arbiter>(config["arbiter"]))
+    : m_config(config)
+    , m_arbiter(std::make_shared<arbiter::Arbiter>(config.arbiter()))
     , m_verbose(m_config.verbose())
     , m_threads(m_config.totalThreads())
     , m_pool(m_threads)
 {
     Config first(m_config);
-    first["subset"]["id"] = 1;
+    first.setSubsetId(1);
 
     m_builder = makeUnique<Builder>(first, m_arbiter);
 
@@ -73,9 +73,9 @@ void Merger::go()
         {
             assert(m_id + i <= m_of);
             Config current(m_config);
-            current["subset"]["id"] = Json::UInt64(m_id + i);
-            current["subset"]["of"] = Json::UInt64(m_of);
-            current["threads"] = 1;
+            current.setSubsetId(m_id + i);
+            current.setSubsetOf(m_of);
+            current.setThreads(1);
 
             m_pool.add([this, &v, current, i]()
             {

@@ -18,13 +18,11 @@
 
 #include <pdal/PointLayout.hpp>
 
-#include <json/json.h>
-
-#include <entwine/types/delta.hpp>
 #include <entwine/types/dim-info.hpp>
 #include <entwine/types/fixed-point-layout.hpp>
 #include <entwine/types/scale-offset.hpp>
 #include <entwine/util/json.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
@@ -32,50 +30,17 @@ namespace entwine
 class Schema
 {
 public:
-    Schema() : Schema(DimList()) { }
+    Schema() = default;
 
     explicit Schema(DimList dims)
     {
-        auto push([this, &dims](std::string name)
-        {
-            auto comp([&name](const DimInfo& d) { return d.name() == name; });
-
-            auto d(std::find_if(dims.begin(), dims.end(), comp));
-
-            if (d == dims.end())
-            {
-                m_dims.emplace_back(name);
-            }
-            else
-            {
-                m_dims.push_back(*d);
-                dims.erase(std::remove_if(dims.begin(), dims.end(), comp));
-            }
-        });
-
-        push("X"); push("Y"); push("Z");
         for (const auto& dim : dims) m_dims.push_back(dim);
         m_layout = makePointLayout(m_dims);
     }
 
-    explicit Schema(const Json::Value& json)
-        : Schema(
-                std::accumulate(
-                    json.begin(),
-                    json.end(),
-                    DimList(),
-                    [](const DimList& in, const Json::Value& d)
-                    {
-                        DimList out(in);
-                        out.emplace_back(d);
-                        return out;
-                    }))
+    explicit Schema(const json& j)
+        : Schema(j.get<DimList>())
     { }
-
-    explicit Schema(const std::string& s) : Schema(parse(s)) { }
-
-    template<typename T>
-    Schema(std::initializer_list<T> il) : Schema(DimList(il)) { }
 
     Schema(const Schema& other) : Schema(other.m_dims) { }
     Schema& operator=(const Schema& other)
@@ -86,6 +51,7 @@ public:
     }
 
     bool empty() const { return pointSize() == 0; }
+    bool exists() const { return !empty(); }
     std::size_t pointSize() const { return m_layout->pointSize(); }
     const DimList& dims() const { return m_dims; }
 
@@ -237,32 +203,6 @@ public:
         else throw std::runtime_error("Layout is not a FixedPointLayout");
     }
 
-    Json::Value toJson() const
-    {
-        return std::accumulate(
-                m_dims.begin(),
-                m_dims.end(),
-                Json::Value(),
-                [](const Json::Value& in, const DimInfo& d)
-                {
-                    Json::Value out(in);
-                    out.append(d.toJson());
-                    return out;
-                });
-    }
-
-    std::string toString() const
-    {
-        return std::accumulate(
-                m_dims.begin(),
-                m_dims.end(),
-                std::string(),
-                [](const std::string& s, const DimInfo& d)
-                {
-                    return s + (s.size() ? ", " : "") + d.name();
-                });
-    }
-
     bool normal() const
     {
         static const auto f(pdal::Dimension::BaseType::Floating);
@@ -274,7 +214,7 @@ public:
 
     static Schema makeAbsolute(const Schema& s)
     {
-        const Schema xyz({
+        const Schema xyz(DimList {
             { DimId::X, DimType::Double },
             { DimId::Y, DimType::Double },
             { DimId::Z, DimType::Double }
@@ -306,7 +246,7 @@ public:
 
     Schema merge(const Schema& other) const
     {
-        Schema s(*this);
+        Schema s(dims());
         for (const auto& d : other.dims())
         {
             if (!s.contains(d.name())) s = s.append(d);
@@ -342,6 +282,16 @@ private:
     DimList m_dims;
     std::unique_ptr<pdal::PointLayout> m_layout;
 };
+
+inline void from_json(const json& j, Schema& s)
+{
+    s = Schema(j);
+}
+
+inline void to_json(json& j, const Schema& s)
+{
+    j = s.dims();
+}
 
 inline bool operator==(const Schema& lhs, const Schema& rhs)
 {

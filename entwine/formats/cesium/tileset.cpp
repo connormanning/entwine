@@ -17,25 +17,23 @@ namespace entwine
 namespace cesium
 {
 
-Tileset::Tileset(const Json::Value& config)
-    : m_arbiter(config["arbiter"])
-    , m_in(m_arbiter.getEndpoint(config["input"].asString()))
-    , m_out(m_arbiter.getEndpoint(config["output"].asString()))
+Tileset::Tileset(const json& config)
+    : m_arbiter(mjsonToJsoncpp(config.value("arbiter", json())))
+    , m_in(m_arbiter.getEndpoint(config.at("input").get<std::string>()))
+    , m_out(m_arbiter.getEndpoint(config.at("output").get<std::string>()))
     , m_tmp(m_arbiter.getEndpoint(
-                config.isMember("tmp") ?
-                    config["tmp"].asString() : arbiter::fs::getTempPath()))
+                config.value("tmp", arbiter::fs::getTempPath())))
     , m_metadata(m_in)
     , m_colorType(getColorType(config))
-    , m_truncate(config["truncate"].asBool())
+    , m_truncate(config.value("truncate", false))
     , m_hasNormals(
             m_metadata.schema().contains(DimId::NormalX) &&
             m_metadata.schema().contains(DimId::NormalY) &&
             m_metadata.schema().contains(DimId::NormalZ))
     , m_rootGeometricError(
             m_metadata.boundsCubic().width() /
-            (config.isMember("geometricErrorDivisor") ?
-                config["geometricErrorDivisor"].asDouble() : 32.0))
-    , m_threadPool(std::max<uint64_t>(4, config["threads"].asUInt64()))
+                config.value("geometricErrorDivisor", 32.0))
+    , m_threadPool(std::max<uint64_t>(4, config.value("threads", 4)))
 {
     arbiter::fs::mkdirp(m_out.root());
     arbiter::fs::mkdirp(m_tmp.root());
@@ -53,11 +51,11 @@ std::string Tileset::colorString() const
     }
 }
 
-ColorType Tileset::getColorType(const Json::Value& config) const
+ColorType Tileset::getColorType(const json& config) const
 {
-    if (config.isMember("colorType"))
+    if (config.count("colorType"))
     {
-        const std::string s(config["colorType"].asString());
+        const auto s(config.at("colorType").get<std::string>());
         if (s == "none")        return ColorType::None;
         if (s == "rgb")         return ColorType::Rgb;
         if (s == "intensity")   return ColorType::Intensity;
@@ -83,11 +81,11 @@ Tileset::HierarchyTree Tileset::getHierarchyTree(const ChunkKey& root) const
 {
     HierarchyTree h;
     const std::string file("ept-hierarchy/" + root.get().toString() + ".json");
-    const Json::Value fetched(parse(m_in.get(file)));
+    const auto fetched(json::parse(m_in.get(file)));
 
-    for (const std::string& key : fetched.getMemberNames())
+    for (const auto& p : fetched.items())
     {
-        h[Dxyz(key)] = fetched[key].asInt64();
+        h[Dxyz(p.key())] = p.value().get<int64_t>();
     }
 
     return h;
@@ -96,34 +94,35 @@ Tileset::HierarchyTree Tileset::getHierarchyTree(const ChunkKey& root) const
 void Tileset::build() const
 {
     build(ChunkKey(m_metadata));
-    m_threadPool.join();
+    m_threadPool.await();
 }
 
 void Tileset::build(const ChunkKey& ck) const
 {
     const HierarchyTree hier(getHierarchyTree(ck));
 
-    Json::Value json;
-    json["asset"]["version"] = "0.0";
-    json["geometricError"] = m_rootGeometricError;
-    json["root"] = build(ck.depth(), ck, hier);
+    const json j {
+        { "asset", { "version", "0.0" } },
+        { "geometricError", m_rootGeometricError },
+        { "root", build(ck.depth(), ck, hier) }
+    };
 
     if (!ck.depth())
     {
-        m_out.put("tileset.json", json.toStyledString());
+        m_out.put("tileset.json", j.dump(2));
     }
     else
     {
-        m_out.put("tileset-" + ck.toString() + ".json", toFastString(json));
+        m_out.put("tileset-" + ck.toString() + ".json", j.dump());
     }
 }
 
-Json::Value Tileset::build(
+json Tileset::build(
         uint64_t startDepth,
         const ChunkKey& ck,
         const HierarchyTree& hier) const
 {
-    if (!hier.count(ck.get())) return Json::nullValue;
+    if (!hier.count(ck.get())) return json();
 
     if (hier.at(ck.get()) < 0)
     {
@@ -131,7 +130,7 @@ Json::Value Tileset::build(
         build(ck);
 
         // Write the pointer node to that external tileset.
-        return Tile(*this, ck, true).toJson();
+        return Tile(*this, ck, true);
     }
 
     m_threadPool.add([this, ck]()
@@ -140,16 +139,15 @@ Json::Value Tileset::build(
         m_out.put(ck.get().toString() + ".pnts", pnts.build());
     });
 
-    Tile tile(*this, ck);
-    Json::Value json(tile.toJson());
+    json j(Tile(*this, ck));
 
     for (std::size_t i(0); i < 8; ++i)
     {
-        const auto child(build(startDepth, ck.getStep(toDir(i)), hier));
-        if (!child.isNull()) json["children"].append(child);
+        const json child(build(startDepth, ck.getStep(toDir(i)), hier));
+        if (!child.is_null()) j["children"].push_back(child);
     }
 
-    return json;
+    return j;
 }
 
 } // namespace cesium

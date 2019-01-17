@@ -36,7 +36,7 @@ class Tileset
     using HierarchyTree = std::map<Dxyz, int64_t>;
 
 public:
-    Tileset(const Json::Value& config);
+    Tileset(const json& config);
 
     void build() const;
 
@@ -61,12 +61,12 @@ public:
 private:
     void build(const ChunkKey& ck) const;
 
-    Json::Value build(
+    json build(
             uint64_t startDepth,
             const ChunkKey& ck,
             const HierarchyTree& hier) const;
 
-    ColorType getColorType(const Json::Value& config) const;
+    ColorType getColorType(const json& config) const;
     HierarchyTree getHierarchyTree(const ChunkKey& root) const;
 
     arbiter::Arbiter m_arbiter;

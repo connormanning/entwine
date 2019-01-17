@@ -16,12 +16,13 @@ TEST(read, count)
     const std::string out(test::dataPath() + "out/ellipsoid/ellipsoid");
 
     {
-        Config c;
-        c["input"] = test::dataPath() + "ellipsoid.laz";
-        c["output"] = out;
-        c["force"] = true;
-        c["hierarchyStep"] = static_cast<Json::UInt64>(v.hierarchyStep());
-        c["span"] = static_cast<Json::UInt64>(v.span());
+        Config c(json {
+            { "input", test::dataPath() + "ellipsoid.laz" },
+            { "output", out },
+            { "force", true },
+            { "hierarchyStep", v.hierarchyStep() },
+            { "span", v.span() }
+        });
 
         Builder b(c);
         b.go();
@@ -34,8 +35,7 @@ TEST(read, count)
     uint64_t np(0);
     for (std::size_t i(0); i < 8; ++i)
     {
-        Json::Value q;
-        q["bounds"] = m.boundsCubic().get(toDir(i)).toJson();
+        json q { { "bounds", m.boundsCubic().get(toDir(i)) } };
 
         auto countQuery = r.count(q);
         countQuery->run();
@@ -50,12 +50,13 @@ TEST(read, data)
     const std::string out(test::dataPath() + "out/ellipsoid/ellipsoid");
 
     {
-        Config c;
-        c["input"] = test::dataPath() + "ellipsoid.laz";
-        c["output"] = out;
-        c["force"] = true;
-        c["hierarchyStep"] = static_cast<Json::UInt64>(v.hierarchyStep());
-        c["span"] = static_cast<Json::UInt64>(v.span());
+        Config c(json {
+            { "input", test::dataPath() + "ellipsoid.laz" },
+            { "output", out },
+            { "force", true },
+            { "hierarchyStep", v.hierarchyStep() },
+            { "span", v.span() }
+        });
 
         Builder b(c);
         b.go();
@@ -67,20 +68,19 @@ TEST(read, data)
 
     const Schema schema(DimList { DimId::X, DimId::Y, DimId::Z });
 
-    auto append([&r](std::vector<char>& v, Json::Value j)
+    auto append([&r](std::vector<char>& v, json j)
     {
         auto q(r.read(j));
         q->run();
         v.insert(v.end(), q->data().begin(), q->data().end());
     });
 
-    Json::Value j;
-    j["schema"] = schema.toJson();
+    json j{ {"schema", schema } };
 
     std::vector<char> bin;
     for (std::size_t i(0); i < 8; ++i)
     {
-        j["bounds"] = m.boundsCubic().get(toDir(i)).toJson();
+        j["bounds"] = m.boundsCubic().get(toDir(i));
         append(bin, j);
     }
 

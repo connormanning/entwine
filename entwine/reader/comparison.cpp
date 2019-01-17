@@ -10,15 +10,12 @@
 
 #include <entwine/reader/comparison.hpp>
 
-#include <json/json.h>
-
 #include <pdal/Dimension.hpp>
 #include <pdal/util/Utils.hpp>
 
 #include <entwine/types/files.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
-#include <entwine/util/json.hpp>
 
 namespace entwine
 {
@@ -28,22 +25,22 @@ namespace
 
 double extractComparisonValue(
         const Metadata& metadata,
-        const std::string& dimensionName,
-        const Json::Value& val)
+        const std::string& dimName,
+        const json& val)
 {
     double d(0);
 
-    if (dimensionName == "Path")
+    if (dimName == "Path")
     {
-        if (!val.isString())
+        if (!val.is_string())
         {
             throw std::runtime_error(
-                    "Invalid path - must be string: " + val.toStyledString());
+                    "Invalid path - must be string: " + val.dump(2));
         }
 
         // If this dimension is a path, we need to convert the path
         // string to an Origin.
-        const std::string path(val.asString());
+        const std::string path(val.get<std::string>());
         const Origin origin(metadata.files().find(path));
         if (origin == invalidOrigin)
         {
@@ -54,15 +51,15 @@ double extractComparisonValue(
     }
     else
     {
-        if (!val.isConvertibleTo(Json::ValueType::realValue))
+        if (!val.is_number())
         {
             throw std::runtime_error(
-                    "Invalid comparison value: " + val.toStyledString());
+                    "Invalid comparison value: " + val.dump(2));
         }
 
-        if (dimensionName == "OriginId")
+        if (dimName == "OriginId")
         {
-            const Origin origin(val.asUInt64());
+            const Origin origin(val.get<uint64_t>());
             if (origin > metadata.files().size())
             {
                 throw std::runtime_error(
@@ -70,7 +67,7 @@ double extractComparisonValue(
             }
         }
 
-        d = val.asDouble();
+        d = val.get<double>();
     }
 
     return d;
@@ -78,13 +75,13 @@ double extractComparisonValue(
 
 std::unique_ptr<Bounds> maybeExtractBounds(
         const Metadata& metadata,
-        const std::string& dimensionName,
+        const std::string& dimName,
         const double val,
         const ComparisonType type)
 {
     std::unique_ptr<Bounds> b;
 
-    if (dimensionName == "Path" || dimensionName == "OriginId")
+    if (dimName == "Path" || dimName == "OriginId")
     {
         const Origin origin(val);
         const auto& fileInfo(metadata.files().get(origin));
@@ -104,7 +101,7 @@ std::unique_ptr<Bounds> maybeExtractBounds(
     }
     else
     {
-        pdal::Dimension::Id id(pdal::Dimension::id(dimensionName));
+        pdal::Dimension::Id id(pdal::Dimension::id(dimName));
 
         // Optimize spatial filters if they are inequalities.
         if (DimInfo::isXyz(id))
@@ -140,132 +137,123 @@ std::unique_ptr<Bounds> maybeExtractBounds(
 
 std::unique_ptr<Comparison> Comparison::create(
         const Metadata& metadata,
-        std::string dimensionName,
-        const Json::Value& val)
+        std::string dimName,
+        const json& val)
 {
-    auto op(ComparisonOperator::create(metadata, dimensionName, val));
-    if (dimensionName == "Path") dimensionName = "OriginId";
+    auto op(ComparisonOperator::create(metadata, dimName, val));
+    if (dimName == "Path") dimName = "OriginId";
 
-    const auto id(metadata.schema().getId(dimensionName));
+    const auto id(metadata.schema().getId(dimName));
     if (id == pdal::Dimension::Id::Unknown)
     {
-        throw std::runtime_error("Unknown dimension: " + dimensionName);
+        throw std::runtime_error("Unknown dimension: " + dimName);
     }
 
-    return makeUnique<Comparison>(id, dimensionName, std::move(op));
+    return makeUnique<Comparison>(id, dimName, std::move(op));
 }
 
 std::unique_ptr<ComparisonOperator> ComparisonOperator::create(
         const Metadata& metadata,
-        const std::string& dimensionName,
-        const Json::Value& json)
+        const std::string& dimName,
+        const json& j)
 {
-    if (json.isObject())
+    if (!j.is_object())
     {
-        if (json.size() != 1)
+        return create(metadata, dimName, json { { "$eq", j } });
+    }
+
+    if (j.size() != 1)
+    {
+        throw std::runtime_error("Invalid comparison object: " + j.dump(2));
+    }
+
+    const auto front(j.begin());
+    const auto key(front.key());
+    const ComparisonType co(toComparisonType(key));
+    const auto& val(front.value());
+
+    if (isSingle(co))
+    {
+        const double d(extractComparisonValue(metadata, dimName, val));
+
+        auto ub(maybeExtractBounds(metadata, dimName, d, co));
+        auto b(ub.get());
+
+        if (dimName == "Path" || dimName == "OriginId")
         {
-            throw std::runtime_error(
-                    "Invalid comparison object: " + json.toStyledString());
+            if (co != ComparisonType::eq)
+            {
+                throw std::runtime_error(
+                        toString(co) + " not supported for dimension: " +
+                        dimName);
+            }
         }
 
-        const auto key(json.getMemberNames().at(0));
-        const ComparisonType co(toComparisonType(key));
-        const auto& val(json[key]);
-
-        if (isSingle(co))
+        switch (co)
         {
-            const double d(
-                    extractComparisonValue(metadata, dimensionName, val));
-
-            auto ub(maybeExtractBounds(metadata, dimensionName, d, co));
-            auto b(ub.get());
-
-            if (dimensionName == "Path" || dimensionName == "OriginId")
-            {
-                if (co != ComparisonType::eq)
-                {
-                    throw std::runtime_error(
-                            toString(co) + " not supported for dimension: " +
-                            dimensionName);
-                }
-            }
-
-            switch (co)
-            {
-            case ComparisonType::eq:
-                return createSingle(co, std::equal_to<double>(), d, b);
-                break;
-            case ComparisonType::gt:
-                return createSingle(co, std::greater<double>(), d, b);
-                break;
-            case ComparisonType::gte:
-                return createSingle(co, std::greater_equal<double>(), d, b);
-                break;
-            case ComparisonType::lt:
-                return createSingle(co, std::less<double>(), d, b);
-                break;
-            case ComparisonType::lte:
-                return createSingle(co, std::less_equal<double>(), d, b);
-                break;
-            case ComparisonType::ne:
-                return createSingle(co, std::not_equal_to<double>(), d, b);
-                break;
-            default:
-                throw std::runtime_error("Invalid single comparison operator");
-            }
-        }
-        else
-        {
-            if (!val.isArray())
-            {
-                throw std::runtime_error("Invalid comparison list");
-            }
-
-            std::vector<double> vals;
-            std::vector<Bounds> boundsList;
-
-            for (const Json::Value& single : val)
-            {
-                const double d(
-                        extractComparisonValue(
-                            metadata,
-                            dimensionName,
-                            single));
-
-                vals.push_back(d);
-
-                if (auto b = maybeExtractBounds(metadata, dimensionName, d, co))
-                {
-                    boundsList.push_back(*b);
-                }
-            }
-
-            if (dimensionName == "Path" || dimensionName == "OriginId")
-            {
-                if (co != ComparisonType::in)
-                {
-                    throw std::runtime_error(
-                            toString(co) + " not supported for dimension: " +
-                            dimensionName);
-                }
-            }
-
-            if (co == ComparisonType::in)
-            {
-                return makeUnique<ComparisonAny>(vals, boundsList);
-            }
-            else if (co == ComparisonType::nin)
-            {
-                return makeUnique<ComparisonNone>(vals, boundsList);
-            }
-            else throw std::runtime_error("Invalid multi comparison operator");
+        case ComparisonType::eq:
+            return createSingle(co, std::equal_to<double>(), d, b);
+            break;
+        case ComparisonType::gt:
+            return createSingle(co, std::greater<double>(), d, b);
+            break;
+        case ComparisonType::gte:
+            return createSingle(co, std::greater_equal<double>(), d, b);
+            break;
+        case ComparisonType::lt:
+            return createSingle(co, std::less<double>(), d, b);
+            break;
+        case ComparisonType::lte:
+            return createSingle(co, std::less_equal<double>(), d, b);
+            break;
+        case ComparisonType::ne:
+            return createSingle(co, std::not_equal_to<double>(), d, b);
+            break;
+        default:
+            throw std::runtime_error("Invalid single comparison operator");
         }
     }
     else
     {
-        Json::Value next;
-        next["$eq"] = json;
-        return create(metadata, dimensionName, next);
+        if (!val.is_array())
+        {
+            throw std::runtime_error("Invalid comparison list");
+        }
+
+        std::vector<double> vals;
+        std::vector<Bounds> boundsList;
+
+        for (const auto& single : val)
+        {
+            const double d(extractComparisonValue(metadata, dimName, single));
+
+            vals.push_back(d);
+
+            if (auto b = maybeExtractBounds(metadata, dimName, d, co))
+            {
+                boundsList.push_back(*b);
+            }
+        }
+
+        if (dimName == "Path" || dimName == "OriginId")
+        {
+            if (co != ComparisonType::in)
+            {
+                throw std::runtime_error(
+                        toString(co) + " not supported for dimension: " +
+                        dimName);
+            }
+        }
+
+        if (co == ComparisonType::in)
+        {
+            return makeUnique<ComparisonAny>(vals, boundsList);
+        }
+        else if (co == ComparisonType::nin)
+        {
+            return makeUnique<ComparisonNone>(vals, boundsList);
+        }
+        else throw std::runtime_error("Invalid multi comparison operator");
     }
 }
 

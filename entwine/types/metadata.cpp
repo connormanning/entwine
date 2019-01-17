@@ -28,20 +28,20 @@ Metadata::Metadata(const Config& config, const bool exists)
     , m_schema(makeUnique<Schema>(Schema::makeAbsolute(*m_outSchema)))
     , m_boundsConforming(makeUnique<Bounds>(
                 exists ?
-                    Bounds(config["boundsConforming"]) :
-                    makeConformingBounds(config["bounds"])))
+                    config.boundsConforming() :
+                    makeConformingBounds(config.bounds())))
     , m_boundsCubic(makeUnique<Bounds>(
                 exists ?
-                    Bounds(config["bounds"]) :
+                    config.bounds() :
                     makeCube(*m_boundsConforming)))
     , m_files(makeUnique<Files>(config.input()))
     , m_dataIo(DataIo::create(*this, config.dataType()))
-    , m_reprojection(Reprojection::create(config["reprojection"]))
+    , m_reprojection(config.reprojection())
     , m_eptVersion(exists ?
-            makeUnique<Version>(config["version"].asString()) :
+            makeUnique<Version>(config.version()) :
             makeUnique<Version>(currentEptVersion()))
     , m_srs(makeUnique<Srs>(config.srs()))
-    , m_subset(Subset::create(*this, config["subset"]))
+    , m_subset(Subset::create(boundsCubic(), config.subset()))
     , m_trustHeaders(config.trustHeaders())
     , m_span(config.span())
     , m_startDepth(std::log2(m_span))
@@ -92,71 +92,58 @@ Metadata::Metadata(const Config& config, const bool exists)
     }
 }
 
-Metadata::Metadata(const arbiter::Endpoint& ep, const Config& config)
+Metadata::Metadata(const arbiter::Endpoint& ep, const Config& c)
     : Metadata(
             entwine::merge(
-                config.json(),
+                json(c),
                 entwine::merge(
-                    parse(ep.get("ept-build" + config.postfix() + ".json")),
-                    parse(ep.get("ept" + config.postfix() + ".json")))),
+                    json::parse(ep.get("ept-build" + c.postfix() + ".json")),
+                    json::parse(ep.get("ept" + c.postfix() + ".json")))),
             true)
 {
-    Files files(Files::extract(ep, primary(), config.postfix()));
+    Files files(Files::extract(ep, primary(), c.postfix()));
     files.append(m_files->list());
     m_files = makeUnique<Files>(files.list());
 }
 
 Metadata::~Metadata() { }
 
-Json::Value Metadata::toJson() const
-{
-    Json::Value json;
-
-    json["version"] = eptVersion().toString();
-    json["bounds"] = boundsCubic().toJson();
-    json["boundsConforming"] = boundsConforming().toJson();
-    json["schema"] = m_outSchema->toJson();
-    json["span"] = (Json::UInt64)m_span;
-    json["points"] = (Json::UInt64)m_files->totalInserts();
-    json["dataType"] = m_dataIo->type();
-    json["hierarchyType"] = "json"; // TODO.
-    json["srs"] = m_srs->toJson();
-
-    return json;
-}
-
-Json::Value Metadata::toBuildParamsJson() const
-{
-    Json::Value json;
-
-    json["version"] = currentEntwineVersion().toString();
-    json["trustHeaders"] = m_trustHeaders;
-    json["overflowDepth"] = (Json::UInt64)m_overflowDepth;
-    json["overflowThreshold"] = (Json::UInt64)m_overflowThreshold;
-    json["software"] = "Entwine";
-    if (m_subset) json["subset"] = m_subset->toJson();
-    if (m_reprojection) json["reprojection"] = m_reprojection->toJson();
-
-    return json;
-}
-
-void Metadata::save(const arbiter::Endpoint& endpoint, const Config& config)
-    const
+void Metadata::save(const arbiter::Endpoint& ep, const Config& config) const
 {
     {
-        const auto json(toJson());
+        const json meta {
+            { "version", eptVersion().toString() },
+            { "bounds", boundsCubic() },
+            { "boundsConforming", boundsConforming() },
+            { "schema", *m_outSchema },
+            { "span", m_span },
+            { "points", m_files->totalInserts() },
+            { "dataType", m_dataIo->type() },
+            { "hierarchyType", "json" }, // TODO
+            { "srs", *m_srs }
+        };
+
         const std::string f("ept" + postfix() + ".json");
-        ensurePut(endpoint, f, toPreciseString(json));
+        ensurePut(ep, f, meta.dump(2));
     }
 
     {
-        const auto json(toBuildParamsJson());
+        json buildMeta {
+            { "software", "Entwine" },
+            { "version", currentEntwineVersion().toString() },
+            { "trustHeaders", m_trustHeaders },
+            { "overflowDepth", m_overflowDepth },
+            { "overflowThreshold", m_overflowThreshold }
+        };
+        if (m_subset) buildMeta["subset"] = *m_subset;
+        if (m_reprojection) buildMeta["reprojection"] = *m_reprojection;
+
         const std::string f("ept-build" + postfix() + ".json");
-        ensurePut(endpoint, f, toPreciseString(json));
+        ensurePut(ep, f, buildMeta.dump(2));
     }
 
     const bool detailed(!m_merged && primary());
-    m_files->save(endpoint, postfix(), config, detailed);
+    m_files->save(ep, postfix(), config, detailed);
 }
 
 void Metadata::merge(const Metadata& other)

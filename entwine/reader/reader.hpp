@@ -34,8 +34,8 @@ public:
             std::shared_ptr<arbiter::Arbiter> a =
                 std::shared_ptr<arbiter::Arbiter>());
 
-    std::unique_ptr<CountQuery> count(const Json::Value& json) const;
-    std::unique_ptr<ReadQuery> read(const Json::Value& json) const;
+    std::unique_ptr<CountQuery> count(const json& j) const;
+    std::unique_ptr<ReadQuery> read(const json& j) const;
 
     const Metadata& metadata() const { return m_metadata; }
     const HierarchyReader& hierarchy() const { return m_hierarchy; }

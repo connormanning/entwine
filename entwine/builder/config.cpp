@@ -40,8 +40,8 @@ Config Config::fromScan(const std::string file) const
     // First grab the configuration portion, which contains things like the
     // pipeline/reprojection used to run this scan, and its results like the
     // scale/schema/SRS/bounds.
-    arbiter::Arbiter a(m_json["arbiter"]);
-    Config c(entwine::parse(ensureGet(a, file)));
+    arbiter::Arbiter a(arbiter());
+    Config c(json::parse(ensureGet(a, file)));
 
     // Now we'll pluck out the file information.  Mirroring the EPT source
     // metadata format, we have a sparse list at `ept-sources/list.json` which
@@ -55,45 +55,37 @@ Config Config::fromScan(const std::string file) const
     arbiter::Endpoint ep(a.getEndpoint(dir));
 
     FileInfoList list(Files::extract(ep, primary()));
-    c["input"] = Files(list).toJson();
+    c.setInput(list);
 
     return c;
 }
 
 Config Config::prepare() const
 {
-    Json::Value from(m_json["input"]);
+    json from(m_json.value("input", json()));
 
     // For a continuation build, we might just have an output.
-    if (from.isNull()) return json();
+    if (from.is_null()) return Config(*this);
 
     // Make sure we have an array.
-    if (from.isString())
-    {
-        const Json::Value prev(from);
-        from = Json::arrayValue;
-        from.append(prev);
-    }
+    if (from.is_string()) from = json::array({ from });
+    if (!from.is_array()) throw std::runtime_error("Bad input: " + from.dump());
 
-    if (!from.isArray())
-    {
-        throw std::runtime_error(
-                "Unexpected 'input': " + from.toStyledString());
-    }
-
-    Json::Value scan;
+    json scan;
 
     // If our input is a Scan, extract it without redoing the scan.
-    if (from.size() == 1 && isScan(from[0].asString()))
+    if (from.size() == 1 &&
+            from.front().is_string() &&
+            isScan(from.front().get<std::string>()))
     {
-        scan = fromScan(from[0].asString()).json();
-        from = scan["input"];
+        scan = fromScan(from.front().get<std::string>()).m_json;
+        from = scan.at("input");
     }
 
     if (std::any_of(
                     from.begin(),
                     from.end(),
-                    [](Json::Value j) { return !j.isObject(); }))
+                    [](json j) { return !j.is_object(); }))
     {
         // TODO If this is a continued build with files added, we shouldn't be
         // re-scanning everything.  This should be filtered by only the entries
@@ -102,29 +94,28 @@ Config Config::prepare() const
 
         // Remove the output from the Scan config - this path is the output
         // path for the subsequent 'build' step.
-        Json::Value scanConfig(json());
-        Json::Value removed;
-        scanConfig.removeMember("output", &removed);
-        scan = Scan(scanConfig).go().json();
+        json scanConfig(m_json);
+        scanConfig.erase("output");
+        scan = Scan(scanConfig).go().m_json;
     }
 
     // First, soft-merge our scan results over the config without overwriting
     // anything, for example we might have an explicit scale factor or bounds
     // specification that should override scan results.
-    Json::Value result = merge(json(), scan, false);
+    json result = merge(m_json, scan, false);
 
     // If we've just completed a scan or extracted an existing scan, make sure
     // our input represents the scanned data rather than raw paths.
-    if (!scan.isNull()) result["input"] = scan["input"];
+    if (!scan.is_null()) result["input"] = scan.at("input");
 
     // If our input SRS existed, we might potentially overwrite missing fields
     // there with ones we've found from the scan.  Vertical EPSG code, for
     // example.  In this case accept the input without merging.
-    if (json().isMember("srs")) result["srs"] = json()["srs"];
+    if (m_json.count("srs")) result["srs"] = m_json["srs"];
 
     // Prepare the schema, adding OriginId and determining a proper offset, if
     // necessary.
-    Schema s(result["schema"]);
+    Schema s(result.value("schema", Schema()));
 
     if (allowOriginId() && !s.contains(DimId::OriginId))
     {
@@ -136,9 +127,9 @@ Config Config::prepare() const
         s.setScale(1);
         s.setOffset(0);
     }
-    else if (result.isMember("scale"))
+    else if (result.count("scale"))
     {
-        s.setScale(Scale(result["scale"]));
+        s.setScale(Scale(result.at("scale")));
     }
     else if (!s.isScaled())
     {
@@ -147,11 +138,11 @@ Config Config::prepare() const
 
     if (s.isScaled() && s.offset() == Offset(0))
     {
-        const Bounds bounds(result["bounds"]);
+        const Bounds bounds(result.at("bounds"));
         s.setOffset(bounds.mid().round());
     }
 
-    result["schema"] = s.toJson();
+    result["schema"] = s;
 
     return result;
 }
@@ -159,23 +150,25 @@ Config Config::prepare() const
 FileInfoList Config::input() const
 {
     FileInfoList f;
-    arbiter::Arbiter arbiter(m_json["arbiter"]);
+    arbiter::Arbiter a(arbiter());
 
-    auto insert([&](const Json::Value& j)
+    auto insert([&](const json& j)
     {
-        if (j.isObject())
+        if (j.is_object())
         {
-            if (Executor::get().good(j["path"].asString())) f.emplace_back(j);
+            if (Executor::get().good(j.at("path").get<std::string>()))
+            {
+                f.emplace_back(j);
+            }
             return;
         }
 
-        if (!j.isString())
+        if (!j.is_string())
         {
-            throw std::runtime_error(
-                    j.toStyledString() + " not convertible to string");
+            throw std::runtime_error(j.dump() + "not convertible to string");
         }
 
-        std::string p(j.asString());
+        std::string p(j.get<std::string>());
 
         if (p.empty()) return;
 
@@ -190,7 +183,7 @@ FileInfoList Config::input() const
             }
         }
 
-        Paths current(arbiter.resolve(p, verbose()));
+        Paths current(a.resolve(p, verbose()));
         std::sort(current.begin(), current.end());
         for (const auto& c : current)
         {
@@ -198,24 +191,25 @@ FileInfoList Config::input() const
         }
     });
 
-    const Json::Value& i(m_json["input"]);
-    if (i.isString()) insert(i);
-    else if (i.isArray()) for (const auto& j : i) insert(j);
+    const json i(m_json.value("input", json()));
+    if (i.is_string()) insert(i);
+    else if (i.is_array()) for (const auto& j : i) insert(j);
 
     return f;
 }
 
-Json::Value Config::pipeline(std::string filename) const
+json Config::pipeline(std::string filename, nullptr_t) const
 {
     const auto r(reprojection());
 
-    Json::Value p(m_json["pipeline"]);
-    if (!p.isArray() || p.size() < 1)
+    json p(m_json.value("pipeline", json::array({ json::object() })));
+
+    if (!p.is_array() || p.empty())
     {
-        throw std::runtime_error("Invalid pipeline: " + p.toStyledString());
+        throw std::runtime_error("Invalid pipeline: " + p.dump(2));
     }
 
-    Json::Value& reader(p[0]);
+    json& reader(p.at(0));
     if (!filename.empty()) reader["filename"] = filename;
 
     if (r)
@@ -229,14 +223,18 @@ Json::Value Config::pipeline(std::string filename) const
 
         // Now set up the output.  If there's already a filters.reprojection in
         // the pipeline, we'll fill it in.  Otherwise, we'll add one to the end.
-        auto it = std::find_if(p.begin(), p.end(), [](const Json::Value& s)
+        auto it = std::find_if(p.begin(), p.end(), [](const json& stage)
         {
-            return s["type"].asString() == "filters.reprojection";
+            return stage.value("type", "") == "filters.reprojection";
         });
 
-        Json::Value* repPtr(nullptr);
+        json* repPtr(nullptr);
         if (it != p.end()) repPtr = &*it;
-        else repPtr = &p.append(Json::objectValue);
+        else
+        {
+            p.push_back(json::object());
+            repPtr = &p.back();
+        }
 
         (*repPtr)["type"] = "filters.reprojection";
         (*repPtr)["out_srs"] = r->out();

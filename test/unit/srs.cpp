@@ -12,9 +12,9 @@ TEST(srs, empty)
     EXPECT_TRUE(srs.horizontal().empty());
     EXPECT_TRUE(srs.vertical().empty());
     EXPECT_TRUE(srs.wkt().empty());
-    const Json::Value json(srs.toJson());
-    EXPECT_TRUE(json.isObject());
-    EXPECT_TRUE(json.getMemberNames().empty());
+    const json j(srs);
+    EXPECT_TRUE(j.is_object());
+    EXPECT_TRUE(keys(j).empty());
 }
 
 TEST(srs, emptyString)
@@ -25,9 +25,9 @@ TEST(srs, emptyString)
     EXPECT_TRUE(srs.horizontal().empty());
     EXPECT_TRUE(srs.vertical().empty());
     EXPECT_TRUE(srs.wkt().empty());
-    const Json::Value json(srs.toJson());
-    EXPECT_TRUE(json.isObject());
-    EXPECT_TRUE(json.getMemberNames().empty());
+    const json j(srs);
+    EXPECT_TRUE(j.is_object());
+    EXPECT_TRUE(keys(j).empty());
 }
 
 TEST(srs, fromHorizontalCode)
@@ -42,11 +42,13 @@ TEST(srs, fromHorizontalCode)
     EXPECT_TRUE(srs.vertical().empty());
     EXPECT_EQ(srs.wkt(), ref.getWKT());
 
-    const Json::Value json(srs.toJson());
-    EXPECT_EQ(json["authority"].asString(), "EPSG");
-    EXPECT_EQ(json["horizontal"].asString(), "26915");
-    EXPECT_TRUE(json["vertical"].isNull());
-    EXPECT_EQ(json["wkt"].asString(), ref.getWKT());
+    const json j(srs);
+    const json v {
+        { "authority", "EPSG" },
+        { "horizontal", "26915" },
+        { "wkt", ref.getWKT() }
+    };
+    EXPECT_EQ(j, v) << j.dump(2) << " != " << v.dump(2) << std::endl;
 }
 
 TEST(srs, fromCompoundCode)
@@ -61,11 +63,14 @@ TEST(srs, fromCompoundCode)
     EXPECT_EQ(srs.vertical(), "5703");
     EXPECT_EQ(srs.wkt(), ref.getWKT());
 
-    const Json::Value json(srs.toJson());
-    EXPECT_EQ(json["authority"].asString(), "EPSG");
-    EXPECT_EQ(json["horizontal"].asString(), "26915");
-    EXPECT_EQ(json["vertical"].asString(), "5703");
-    EXPECT_EQ(json["wkt"].asString(), ref.getWKT());
+    const json j(srs);
+    const json v {
+        { "authority", "EPSG" },
+        { "horizontal", "26915" },
+        { "vertical", "5703" },
+        { "wkt", ref.getWKT() }
+    };
+    EXPECT_EQ(j, v) << j.dump(2) << " != " << v.dump(2) << std::endl;
 }
 
 TEST(srs, fromHorizontalWkt)
@@ -80,11 +85,13 @@ TEST(srs, fromHorizontalWkt)
     EXPECT_TRUE(srs.vertical().empty());
     EXPECT_EQ(srs.wkt(), ref.getWKT());
 
-    const Json::Value json(srs.toJson());
-    EXPECT_EQ(json["authority"].asString(), "EPSG");
-    EXPECT_EQ(json["horizontal"].asString(), "26915");
-    EXPECT_TRUE(json["vertical"].isNull());
-    EXPECT_EQ(json["wkt"].asString(), ref.getWKT());
+    const json j(srs);
+    const json v {
+        { "authority", "EPSG" },
+        { "horizontal", "26915" },
+        { "wkt", ref.getWKT() }
+    };
+    EXPECT_EQ(j, v) << j.dump(2) << " != " << v.dump(2) << std::endl;
 }
 
 TEST(srs, fromCompoundWkt)
@@ -101,11 +108,13 @@ TEST(srs, fromCompoundWkt)
     EXPECT_EQ(srs.vertical(), "");
     EXPECT_EQ(srs.wkt(), ref.getWKT());
 
-    const Json::Value json(srs.toJson());
-    EXPECT_EQ(json["authority"].asString(), "EPSG");
-    EXPECT_EQ(json["horizontal"].asString(), "26915");
-    EXPECT_TRUE(json["vertical"].isNull());
-    EXPECT_EQ(json["wkt"].asString(), ref.getWKT());
+    const json j(srs);
+    const json v {
+        { "authority", "EPSG" },
+        { "horizontal", "26915" },
+        { "wkt", ref.getWKT() }
+    };
+    EXPECT_EQ(j, v) << j.dump(2) << " != " << v.dump(2) << std::endl;
 }
 
 TEST(srs, fromJson)
@@ -113,11 +122,12 @@ TEST(srs, fromJson)
     const std::string s("EPSG:26915+5703");
     pdal::SpatialReference ref(s);
 
-    Json::Value in;
-    in["authority"] = "EPSG";
-    in["horizontal"] = "26915";
-    in["vertical"] = "5703";
-    in["wkt"] = ref.getWKT();
+    json in {
+        { "authority", "EPSG" },
+        { "horizontal", "26915" },
+        { "vertical", "5703" },
+        { "wkt", ref.getWKT() }
+    };
 
     Srs srs(in);
 
@@ -127,10 +137,13 @@ TEST(srs, fromJson)
     EXPECT_EQ(srs.vertical(), "5703");
     EXPECT_EQ(srs.wkt(), ref.getWKT());
 
-    const Json::Value json(srs.toJson());
-    EXPECT_EQ(json["authority"].asString(), "EPSG");
-    EXPECT_EQ(json["horizontal"].asString(), "26915");
-    EXPECT_EQ(json["vertical"].asString(), "5703");
-    EXPECT_EQ(json["wkt"].asString(), ref.getWKT());
+    const json j(srs);
+    const json v {
+        { "authority", "EPSG" },
+        { "horizontal", "26915" },
+        { "vertical", "5703" },
+        { "wkt", ref.getWKT() }
+    };
+    EXPECT_EQ(j, v) << j.dump(2) << " != " << v.dump(2) << std::endl;
 }
 

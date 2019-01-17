@@ -56,21 +56,24 @@ void Build::addArgs()
             "-t",
             "The number of threads.\n"
             "Example: --threads 12",
-            [this](Json::Value v) { m_json["threads"] = parse(v.asString()); });
+            [this](json j)
+            {
+                m_json["threads"] = json::parse(j.get<std::string>());
+            });
 
     m_ap.add(
             "--force",
             "-f",
             "Force build overwrite - do not continue a previous build that may "
             "exist at this output location",
-            [this](Json::Value v) { checkEmpty(v); m_json["force"] = true; });
+            [this](json j) { checkEmpty(j); m_json["force"] = true; });
 
     m_ap.add(
             "--dataType",
             "Data type for serialized point cloud data.  Valid values are "
             "\"laszip\" or \"binary\".  Default: \"laszip\".\n"
             "Example: --dataType binary",
-            [this](Json::Value v) { m_json["dataType"] = v.asString(); });
+            [this](json j) { m_json["dataType"] = j; });
 
     m_ap.add(
             "--span",
@@ -78,15 +81,15 @@ void Build::addArgs()
             "For example, a span of 256 will result in a cube of 256*256*256 "
             "resolution.  Default: 256.\n"
             "Example: --span 128",
-            [this](Json::Value v) { m_json["span"] = extract(v); });
+            [this](json j) { m_json["span"] = extract(j); });
 
     m_ap.add(
             "--noOriginId",
             "If present, an OriginId dimension tracking points to their "
             "original source files will *not* be inserted.",
-            [this](Json::Value v)
+            [this](json j)
             {
-                checkEmpty(v);
+                checkEmpty(j);
                 m_json["allowOriginId"] = false;
             });
 
@@ -95,16 +98,19 @@ void Build::addArgs()
             "-b",
             "XYZ bounds specification beyond which points will be discarded\n"
             "Example: --bounds 0 0 0 100 100 100, -b \"[0,0,0,100,100,100]\"",
-            [this](Json::Value v)
+            [this](json j)
             {
-                if (v.isString()) m_json["bounds"] = parse(v.asString());
-                else if (v.isArray())
+                if (j.is_string())
                 {
-                    for (Json::ArrayIndex i(0); i < v.size(); ++i)
+                    m_json["bounds"] = json::parse(j.get<std::string>());
+                }
+                else if (j.is_array())
+                {
+                    for (json& coord : j)
                     {
-                        v[i] = std::stod(v[i].asString());
+                        coord = std::stod(coord.get<std::string>());
                     }
-                    m_json["bounds"] = v;
+                    m_json["bounds"] = j;
                 }
             });
 
@@ -115,7 +121,7 @@ void Build::addArgs()
             "--scale",
             "The scale factor for spatial coordinates.\n"
             "Example: --scale 0.1, --scale \"[0.1, 0.1, 0.025]\"",
-            [this](Json::Value v) { m_json["scale"] = parse(v.asString()); });
+            [this](json j) { m_json["scale"] = extract(j); });
 
     m_ap.add(
             "--run",
@@ -123,27 +129,27 @@ void Build::addArgs()
             "Maximum number of files to insert - the build may be continued "
             "with another `build` invocation\n"
             "Example: --run 20",
-            [this](Json::Value v) { m_json["run"] = extract(v); });
+            [this](json j) { m_json["run"] = extract(j); });
 
     m_ap.add(
             "--resetFiles",
             "Reset the memory pool after \"n\" files\n"
             "Example: --resetFiles 100",
-            [this](Json::Value v) { m_json["resetFiles"] = extract(v); });
+            [this](json j) { m_json["resetFiles"] = extract(j); });
 
     m_ap.add(
             "--subset",
             "-s",
             "A partial task specification for this build\n"
             "Example: --subset 1 4",
-            [this](Json::Value v)
+            [this](json j)
             {
-                if (!v.isArray() || v.size() != 2)
+                if (!j.is_array() || j.size() != 2)
                 {
                     throw std::runtime_error("Invalid subset specification");
                 }
-                const Json::UInt64 id(std::stoul(v[0].asString()));
-                const Json::UInt64 of(std::stoul(v[1].asString()));
+                const uint64_t id(std::stoul(j.at(0).get<std::string>()));
+                const uint64_t of(std::stoul(j.at(1).get<std::string>()));
                 m_json["subset"]["id"] = id;
                 m_json["subset"]["of"] = of;
             });
@@ -151,32 +157,29 @@ void Build::addArgs()
     m_ap.add(
             "--overflowDepth",
             "Depth at which nodes may overflow",
-            [this](Json::Value v) { m_json["overflowDepth"] = extract(v); });
+            [this](json j) { m_json["overflowDepth"] = extract(j); });
 
     m_ap.add(
             "--overflowThreshold",
             "Threshold at which overflowed points are placed into child nodes",
-            [this](Json::Value v)
-            {
-                m_json["overflowThreshold"] = extract(v);
-            });
+            [this](json j) { m_json["overflowThreshold"] = extract(j); });
 
     m_ap.add(
             "--hierarchyStep",
             "Hierarchy step size - recommended to be set for testing only as "
             "entwine will determine it heuristically.",
-            [this](Json::Value v) { m_json["hierarchyStep"] = extract(v); });
+            [this](json j) { m_json["hierarchyStep"] = extract(j); });
 
     m_ap.add(
             "--sleepCount",
             "Count (per-thread) after which idle nodes are serialized.",
-            [this](Json::Value v) { m_json["sleepCount"] = extract(v); });
+            [this](json j) { m_json["sleepCount"] = extract(j); });
 
     m_ap.add(
             "--progress",
             "Interval in seconds at which to log build stats.  0 for no "
             "logging (default: 10).",
-            [this](Json::Value v) { m_json["progressInterval"] = extract(v); });
+            [this](json j) { m_json["progressInterval"] = extract(j); });
 
     addArbiter();
 }
@@ -193,9 +196,9 @@ void Build::run()
     const Files& files(builder->metadata().files());
 
     auto start = now();
-    const std::size_t alreadyInserted(files.pointStats().inserts());
+    const uint64_t alreadyInserted(files.pointStats().inserts());
 
-    const std::size_t runCount(m_json["run"].asUInt64());
+    const uint64_t runCount(m_json.value("run", 0u));
     builder->go(runCount);
 
     std::cout << "\nIndex completed in " <<
@@ -242,7 +245,7 @@ void Build::log(const Builder& b) const
     const Files& files(metadata.files());
     const Reprojection* reprojection(metadata.reprojection());
     const Schema& schema(metadata.outSchema());
-    const std::size_t runCount(m_json["run"].asUInt64());
+    const uint64_t runCount(m_json.value("run", 0u));
 
     std::cout << std::endl;
     std::cout <<
@@ -326,10 +329,12 @@ void Build::log(const Builder& b) const
         std::cout << "\tSubset bounds: " << s->bounds() << "\n";
     }
 
-    std::cout <<
-        "\tReprojection: " <<
-            (reprojection ? reprojection->toString() : "(none)") << "\n" <<
-        "\tStoring dimensions: " << getDimensionString(schema) << std::endl;
+    if (reprojection)
+    {
+        std::cout << "\tReprojection: " << *reprojection << "\n";
+    }
+
+    std::cout << "\tStoring dimensions: " << getDimensionString(schema) << "\n";
 
     const auto t(metadata.span());
     std::cout << "Build parameters:\n" <<

@@ -14,28 +14,24 @@ namespace
 
 TEST(scan, nonexistentDirectory)
 {
-    Json::Value in;
-    in["input"] = test::dataPath() + "not-an-existing-directory";
+    json in { { "input", test::dataPath() + "not-an-existing-directory" } };
     Scan scan(in);
     EXPECT_ANY_THROW(scan.go());
 }
 
 TEST(scan, nonexistentFile)
 {
-    Json::Value in;
-    in["input"] = test::dataPath() + "not-an-existing-file.laz";
+    json in { { "input", test::dataPath() + "not-an-existing-file.laz" } };
     Scan scan(in);
     EXPECT_ANY_THROW(scan.go());
 }
 
 TEST(scan, single)
 {
-    Json::Value in;
-    in["input"] = test::dataPath() + "ellipsoid.laz";
+    json in { { "input", test::dataPath() + "ellipsoid.laz" } };
     const Config out(Scan(in).go());
-    ASSERT_FALSE(out.json().isNull());
 
-    const Bounds bounds(out["bounds"]);
+    const Bounds bounds(out.bounds());
     const Schema schema(out.schema());
 
     EXPECT_EQ(bounds, v.bounds());
@@ -59,13 +55,13 @@ TEST(scan, single)
 
 TEST(scan, deepScan)
 {
-    Json::Value in;
-    in["input"] = test::dataPath() + "ellipsoid.laz";
-    in["trustHeaders"] = false;
+    json in {
+        { "input", test::dataPath() + "ellipsoid.laz" },
+        { "trustHeaders", false }
+    };
     const Config out(Scan(in).go());
-    ASSERT_FALSE(out.json().isNull());
 
-    const Bounds bounds(out["bounds"]);
+    const Bounds bounds(out.bounds());
     const Schema schema(out.schema());
 
     EXPECT_EQ(bounds, v.bounds());
@@ -89,13 +85,11 @@ TEST(scan, deepScan)
 
 TEST(scan, multi)
 {
-    Json::Value in;
-    in["input"] = test::dataPath() + "ellipsoid-multi";
+    json in { { "input", test::dataPath() + "ellipsoid-multi" } };
 
     const Config out(Scan(in).go());
-    ASSERT_FALSE(out.json().isNull());
 
-    const Bounds bounds(out["bounds"]);
+    const Bounds bounds(out.bounds());
     const Schema schema(out.schema());
 
     EXPECT_EQ(bounds, v.bounds());
@@ -144,14 +138,16 @@ TEST(scan, reprojection)
         return;
     }
 
-    Json::Value in;
-    in["input"] = test::dataPath() + "ellipsoid.laz";
-    in["reprojection"]["out"] = "EPSG:26918";
+    json in {
+        { "input", test::dataPath() + "ellipsoid.laz" },
+        { "reprojection", {
+            { "out", "EPSG:26918" }
+        } }
+    };
 
     const Config out(Scan(in).go());
-    ASSERT_FALSE(out.json().isNull());
 
-    const Bounds bounds(out["bounds"]);
+    const Bounds bounds(out.bounds());
     const Schema schema(out.schema());
 
     for (std::size_t i(0); i < 6; ++i)
@@ -174,7 +170,9 @@ TEST(scan, reprojection)
     EXPECT_EQ(*file.bounds(), bounds);
     EXPECT_EQ(file.points(), v.points());
 
-    EXPECT_EQ(out.srs().codeString(), in["reprojection"]["out"].asString());
+    EXPECT_EQ(
+            out.srs().codeString(),
+            in.at("reprojection").at("out").get<std::string>());
 }
 
 TEST(scan, deepScanReprojection)
@@ -185,15 +183,17 @@ TEST(scan, deepScanReprojection)
         return;
     }
 
-    Json::Value in;
-    in["input"] = test::dataPath() + "ellipsoid.laz";
-    in["trustHeaders"] = false;
-    in["reprojection"]["out"] = "EPSG:26918";
+    json in {
+        { "input", test::dataPath() + "ellipsoid.laz" },
+        { "trustHeaders", false },
+        { "reprojection", {
+            { "out", "EPSG:26918" }
+        } }
+    };
 
     const Config out(Scan(in).go());
-    ASSERT_FALSE(out.json().isNull());
 
-    const Bounds bounds(out["bounds"]);
+    const Bounds bounds(out.bounds());
     const Schema schema(out.schema());
 
     for (std::size_t i(0); i < 6; ++i)
@@ -216,7 +216,9 @@ TEST(scan, deepScanReprojection)
     EXPECT_EQ(*file.bounds(), bounds);
     EXPECT_EQ(file.points(), v.points());
 
-    EXPECT_EQ(out.srs().codeString(), in["reprojection"]["out"].asString());
+    EXPECT_EQ(
+            out.srs().codeString(),
+            in.at("reprojection").at("out").get<std::string>());
 }
 
 TEST(scan, reprojectionHammer)
@@ -227,16 +229,19 @@ TEST(scan, reprojectionHammer)
         return;
     }
 
-    Json::Value in;
-    in["input"] = test::dataPath() + "ellipsoid-wrong-srs.laz";
-    in["reprojection"]["in"] = "EPSG:3857";
-    in["reprojection"]["out"] = "EPSG:26918";
-    in["reprojection"]["hammer"] = true;
+    json in {
+        { "input", test::dataPath() + "ellipsoid-wrong-srs.laz" },
+        { "trustHeaders", false },
+        { "reprojection", {
+            { "in", "EPSG:3857" },
+            { "out", "EPSG:26918" },
+            { "hammer", true }
+        } }
+    };
 
     const Config out(Scan(in).go());
-    ASSERT_FALSE(out.json().isNull());
 
-    const Bounds bounds(out["bounds"]);
+    const Bounds bounds(out.bounds());
     const Schema schema(out.schema());
 
     for (std::size_t i(0); i < 6; ++i)
@@ -260,20 +265,22 @@ TEST(scan, reprojectionHammer)
     EXPECT_EQ(*file.bounds(), bounds);
     EXPECT_EQ(file.points(), v.points());
 
-    EXPECT_EQ(out.srs().codeString(), in["reprojection"]["out"].asString());
+    EXPECT_EQ(
+            out.srs().codeString(),
+            in.at("reprojection").at("out").get<std::string>());
 }
 
 TEST(scan, outputFile)
 {
-    Json::Value in;
-    in["input"] = test::dataPath() + "ellipsoid.laz";
-    in["output"] = test::dataPath() + "out/scan/";
+    json in {
+        { "input", test::dataPath() + "ellipsoid.laz" },
+        { "output", test::dataPath() + "out/scan/" }
+    };
     Scan(in).go();
     const std::string path(test::dataPath() + "out/scan/scan.json");
-    const Config out(parse(arbiter::Arbiter().get(path)));
-    ASSERT_FALSE(out.json().isNull());
+    const Config out(json::parse(arbiter::Arbiter().get(path)));
 
-    const Bounds bounds(out["bounds"]);
+    const Bounds bounds(out.bounds());
     const Schema schema(out.schema());
 
     EXPECT_EQ(bounds, v.bounds());
@@ -281,7 +288,7 @@ TEST(scan, outputFile)
     ASSERT_EQ(schema, v.schema());
 
     // File information is stored in ept-sources, not the top-level scan JSON.
-    EXPECT_TRUE(out.json()["input"].isNull());
+    EXPECT_FALSE(json(out).count("input"));
 
     arbiter::Arbiter a;
     auto ep(a.getEndpoint(test::dataPath() + "out/scan/"));

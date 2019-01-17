@@ -24,30 +24,35 @@ class Tile
 public:
     Tile(const Tileset& tileset, const ChunkKey& ck, bool external = false)
         : m_tileset(tileset)
+        , m_json {
+            { "boundingVolume", { "box", toBox(ck.bounds()) } },
+            { "geometricError", m_tileset.geometricErrorAt(ck.depth()) },
+            { "content", { "url", external ?
+                "tileset-" + ck.toString() + ".json" : ck.toString() + ".pnts"
+            } }
+        }
     {
-        m_json["boundingVolume"]["box"] = toBox(ck.bounds());
-        m_json["geometricError"] = m_tileset.geometricErrorAt(ck.depth());
-        m_json["content"]["url"] = external ?
-            "tileset-" + ck.toString() + ".json" :
-            ck.toString() + ".pnts";
         if (!ck.depth()) m_json["refine"] = "ADD";
     }
 
-    Json::Value toJson() const { return m_json; }
+    json get() const { return m_json; }
 
 private:
-    Json::Value toBox(Bounds in) const
+    json toBox(Bounds in) const
     {
-        Json::Value box(in.mid().toJson());
-        box.append(in.width()); box.append(0); box.append(0);
-        box.append(0); box.append(in.depth()); box.append(0);
-        box.append(0); box.append(0); box.append(in.height());
-        return box;
+        return json {
+            in.mid()[0],    in.mid()[1],    in.mid()[2],
+            in.width(),     0,              0,
+            0,              in.depth(),     0,
+            0,              0,              in.height()
+        };
     }
 
     const Tileset& m_tileset;
-    Json::Value m_json;
+    json m_json;
 };
+
+inline void to_json(json& j, const Tile& t) { j = t.get(); }
 
 } // namespace cesium
 } // namespace entwine

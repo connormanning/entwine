@@ -15,9 +15,8 @@
 
 #include <pdal/Dimension.hpp>
 
-#include <json/json.h>
-
 #include <entwine/types/defs.hpp>
+#include <entwine/util/json.hpp>
 
 namespace entwine
 {
@@ -29,6 +28,8 @@ class DimInfo
     friend class Schema;
 
 public:
+    DimInfo() = default;
+
     DimInfo(DimId id)
         : DimInfo(id, defaultType(id))
     { }
@@ -45,14 +46,11 @@ public:
         : DimInfo(name, getType(type, size))
     { }
 
-    explicit DimInfo(const Json::Value& json)
-        : DimInfo(
-                json["name"].asString(),
-                json["type"].asString(),
-                json["size"].asUInt64())
+    explicit DimInfo(const json& j)
+        : DimInfo(j.value("name", ""), j.value("type", ""), j.value("size", 0))
     {
-        if (json.isMember("scale"))  m_scale = json["scale"].asDouble();
-        if (json.isMember("offset")) m_offset = json["offset"].asDouble();
+        if (j.count("scale"))  m_scale  = j.at("scale").get<double>();
+        if (j.count("offset")) m_offset = j.at("offset").get<double>();
     }
 
     // All constructor overloads end up here.
@@ -109,19 +107,6 @@ public:
         m_offset = offset;
     }
 
-    Json::Value toJson() const
-    {
-        Json::Value json;
-        json["name"] = name();
-        json["type"] = typeString();
-        json["size"] = static_cast<Json::UInt64>(size());
-
-        if (m_scale != 1.0)  json["scale"] = m_scale;
-        if (m_offset != 0.0) json["offset"] = m_offset;
-
-        return json;
-    }
-
     std::string typeName() const
     {
         switch (m_type)
@@ -165,8 +150,7 @@ private:
         return t;
     }
 
-    DimType getType(const std::string type, uint64_t size)
-        const
+    DimType getType(const std::string type, uint64_t size) const
     {
         static const std::map<std::string, DimType> dimTypes {
             { "uint8",  DimType::Unsigned8 },
@@ -215,6 +199,23 @@ private:
     double m_scale = 1.0;
     double m_offset = 0.0;
 };
+
+inline void from_json(const json& j, DimInfo& d)
+{
+    d = DimInfo(j);
+}
+
+inline void to_json(json& j, const DimInfo& d)
+{
+    j = json {
+        { "name", d.name() },
+        { "type", d.typeString() },
+        { "size", d.size() }
+    };
+
+    if (d.scale() != 1.0) j["scale"] = d.scale();
+    if (d.offset() != 0.0) j["offset"] = d.offset();
+}
 
 using DimList = std::vector<DimInfo>;
 

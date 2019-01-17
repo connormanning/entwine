@@ -35,13 +35,6 @@ std::unique_ptr<T> maybeClone(const T* t)
 }
 
 template<typename T>
-inline std::unique_ptr<T> maybeCreate(const Json::Value& json)
-{
-    if (!json.isNull()) return makeUnique<T>(json);
-    else return std::unique_ptr<T>();
-}
-
-template<typename T>
 inline std::shared_ptr<T> maybeDefault(std::shared_ptr<T> v)
 {
     return v ? v : std::make_shared<T>();

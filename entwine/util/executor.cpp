@@ -28,12 +28,22 @@
 namespace entwine
 {
 
-Json::Value objectify(Json::Value p)
+namespace
 {
-    Json::Value o;
-    o["pipeline"] = p;
-    return o;
+
+json objectify(json p)
+{
+    return json { { "pipeline", p } };
 }
+
+json ensureArray(json in)
+{
+    if (in.is_array() || in.is_null()) return in;
+    return json::array({ in });
+}
+
+} // unnamed namespace
+
 
 Executor::Executor()
     : m_stageFactory(makeUnique<pdal::StageFactory>())
@@ -70,8 +80,8 @@ ScanInfo::ScanInfo(pdal::Stage& reader, const pdal::QuickInfo& qi)
     metadata = ([this, &reader]()
     {
         const auto s(pdal::Utils::toJSON(reader.getMetadata()));
-        try { return parse(s); }
-        catch (...) { return Json::Value(s); }
+        try { return json::parse(s); }
+        catch (...) { return json(); }
     })();
 }
 
@@ -100,13 +110,15 @@ private:
 };
 
 std::unique_ptr<ScanInfo> Executor::preview(
-        Json::Value pipeline,
-        const bool trustHeaders) const
+        const json rawPipeline,
+        const bool shallow) const
 {
-    if (!trustHeaders) return deepScan(pipeline);
-    pipeline = ensureArray(pipeline);
+    const json pipeline = ensureArray(rawPipeline);
+
+    if (!shallow) return deepScan(pipeline);
+
     std::unique_ptr<ScanInfo> result;
-    Json::Value readerJson(pipeline[0]);
+    json readerJson(pipeline.at(0));
 
     auto lock(getLock());
 
@@ -116,8 +128,7 @@ std::unique_ptr<ScanInfo> Executor::preview(
         // overridden or defaulted here.  We'll need this SRS result to
         // reproject our extents later.
         pdal::PipelineManager pm;
-        std::istringstream readStream(
-                objectify(ensureArray(readerJson)).toStyledString());
+        std::istringstream readStream(objectify(ensureArray(readerJson)).dump());
         pm.readPipeline(readStream);
         pdal::Stage* reader(pm.getStage());
 
@@ -131,17 +142,15 @@ std::unique_ptr<ScanInfo> Executor::preview(
         // in our metadata.  We still want any other options though - they may
         // be necessary for a proper preview - for example CSV or GDAL column
         // mappings.
-        Json::Value removed;
-        if (readerJson.isObject())
+        if (readerJson.is_object())
         {
-            readerJson.removeMember("override_srs", &removed);
-            readerJson.removeMember("default_srs", &removed);
-            readerJson.removeMember("spatialreference", &removed);
+            readerJson.erase("override_srs");
+            readerJson.erase("default_srs");
+            readerJson.erase("spatialreference");
         }
 
         pdal::PipelineManager pm;
-        std::istringstream readStream(
-                objectify(ensureArray(readerJson)).toStyledString());
+        std::istringstream readStream(objectify(ensureArray(readerJson)).dump());
         pm.readPipeline(readStream);
         pdal::Stage* reader(pm.getStage());
 
@@ -152,8 +161,8 @@ std::unique_ptr<ScanInfo> Executor::preview(
 
     if (!result) return result;
 
-    const Json::Value filters(slice(pipeline, 1));
-    if (filters.isNull()) return result;
+    const json filters(pipeline.begin() + 1, pipeline.end());
+    if (filters.empty()) return result;
 
     lock.lock();
 
@@ -165,7 +174,7 @@ std::unique_ptr<ScanInfo> Executor::preview(
     // to specify a deep scan which will pipeline every point.
 
     pdal::PipelineManager pm;
-    std::istringstream filterStream(objectify(filters).toStyledString());
+    std::istringstream filterStream(objectify(filters).dump());
     pm.readPipeline(filterStream);
     pdal::Stage* last(pm.getStage());
     pdal::Stage* first(last);
@@ -214,10 +223,8 @@ std::unique_ptr<ScanInfo> Executor::preview(
     return result;
 }
 
-std::unique_ptr<ScanInfo> Executor::deepScan(Json::Value pipeline) const
+std::unique_ptr<ScanInfo> Executor::deepScan(const json pipeline) const
 {
-    pipeline = ensureArray(pipeline);
-
     // Start with a shallow scan to get SRS, scale, and metadata.
     std::unique_ptr<ScanInfo> result(preview(pipeline, true));
     if (!result) result = makeUnique<ScanInfo>();
@@ -260,9 +267,9 @@ std::unique_ptr<ScanInfo> Executor::deepScan(Json::Value pipeline) const
     else return std::unique_ptr<ScanInfo>();
 }
 
-bool Executor::run(pdal::StreamPointTable& table, const Json::Value& pipeline)
+bool Executor::run(pdal::StreamPointTable& table, const json pipeline)
 {
-    std::istringstream iss(objectify(pipeline).toStyledString());
+    std::istringstream iss(objectify(pipeline).dump());
 
     auto lock(getLock());
     pdal::PipelineManager pm;

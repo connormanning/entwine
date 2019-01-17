@@ -15,7 +15,6 @@
 #include <numeric>
 #include <iostream>
 
-#include <entwine/types/delta.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -39,38 +38,33 @@ Bounds::Bounds(const Point& min, const Point& max)
     }
 }
 
-Bounds::Bounds(const Json::Value& json)
+Bounds::Bounds(const json& j)
 {
-    if (!json.isArray() || (json.size() != 4 && json.size() != 6))
+    if (j.is_null()) return;
+
+    if (!j.is_array() || (j.size() != 4 && j.size() != 6))
     {
-        throw std::runtime_error(
-            "Invalid JSON Bounds specification: " + json.toStyledString());
+        throw std::runtime_error("Invalid JSON Bounds: " + j.dump(2));
     }
 
-    const bool is3d(json.size() == 6);
-
-    if (is3d)
+    if (j.size() == 6)
     {
-        m_min = Point(
-                json.get(Json::ArrayIndex(0), 0).asDouble(),
-                json.get(Json::ArrayIndex(1), 0).asDouble(),
-                json.get(Json::ArrayIndex(2), 0).asDouble());
-        m_max = Point(
-                json.get(Json::ArrayIndex(3), 0).asDouble(),
-                json.get(Json::ArrayIndex(4), 0).asDouble(),
-                json.get(Json::ArrayIndex(5), 0).asDouble());
+        *this = Bounds(
+                j.at(0).get<double>(),
+                j.at(1).get<double>(),
+                j.at(2).get<double>(),
+                j.at(3).get<double>(),
+                j.at(4).get<double>(),
+                j.at(5).get<double>());
     }
     else
     {
-        m_min = Point(
-                json.get(Json::ArrayIndex(0), 0).asDouble(),
-                json.get(Json::ArrayIndex(1), 0).asDouble());
-        m_max = Point(
-                json.get(Json::ArrayIndex(2), 0).asDouble(),
-                json.get(Json::ArrayIndex(3), 0).asDouble());
+        *this = Bounds(
+                j.at(0).get<double>(),
+                j.at(1).get<double>(),
+                j.at(2).get<double>(),
+                j.at(3).get<double>());
     }
-
-    setMid();
 }
 
 Bounds::Bounds(const Point& center, const double radius)
@@ -94,21 +88,6 @@ Bounds::Bounds(
         const double yMax)
     : Bounds(Point(xMin, yMin), Point(xMax, yMax))
 { }
-
-Json::Value Bounds::toJson() const
-{
-    Json::Value json;
-
-    json.append(m_min.x);
-    json.append(m_min.y);
-    json.append(m_min.z);
-
-    json.append(m_max.x);
-    json.append(m_max.y);
-    json.append(m_max.z);
-
-    return json;
-}
 
 void Bounds::grow(const Bounds& other)
 {
@@ -144,37 +123,34 @@ Bounds Bounds::growBy(double ratio) const
     return Bounds(m_min - delta, m_max + delta);
 }
 
+Bounds Bounds::getNwd(bool force2d) const
+{
+    Bounds b(*this); b.goNwd(force2d); return b;
+}
+
+Bounds Bounds::getNed(bool force2d) const
+{
+    Bounds b(*this); b.goNed(force2d); return b;
+}
+
+Bounds Bounds::getSwd(bool force2d) const
+{
+    Bounds b(*this); b.goSwd(force2d); return b;
+}
+
+Bounds Bounds::getSed(bool force2d) const
+{
+    Bounds b(*this); b.goSed(force2d); return b;
+}
+
+Bounds Bounds::getNwu() const { Bounds b(*this); b.goNwu(); return b; }
+Bounds Bounds::getNeu() const { Bounds b(*this); b.goNeu(); return b; }
+Bounds Bounds::getSwu() const { Bounds b(*this); b.goSwu(); return b; }
+Bounds Bounds::getSeu() const { Bounds b(*this); b.goSeu(); return b; }
+
 Bounds Bounds::applyScaleOffset(const Scale& s, const Offset& o) const
 {
     return Bounds(Point::scale(min(), s, o), Point::scale(max(), s, o));
-}
-
-Bounds Bounds::deltify(const Delta* delta) const
-{
-    if (delta) return deltify(*delta);
-    else return *this;
-}
-
-Bounds Bounds::deltify(const Delta& delta) const
-{
-    if (delta.empty()) return *this;
-    return Bounds(
-            Point::scale(min(), delta.scale(), delta.offset()),
-            Point::scale(max(), delta.scale(), delta.offset()));
-}
-
-Bounds Bounds::undeltify(const Delta* delta) const
-{
-    if (delta) return undeltify(*delta);
-    else return *this;
-}
-
-Bounds Bounds::undeltify(const Delta& delta) const
-{
-    if (delta.empty()) return *this;
-    return Bounds(
-            Point::unscale(min(), delta.scale(), delta.offset()),
-            Point::unscale(max(), delta.scale(), delta.offset()));
 }
 
 std::ostream& operator<<(std::ostream& os, const Bounds& bounds)

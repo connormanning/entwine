@@ -111,11 +111,11 @@ void Pnts::buildNormals(VectorPointTable& table)
 
 std::vector<char> Pnts::buildFile() const
 {
-    Json::Value featureTable;
-    featureTable["POINTS_LENGTH"] = static_cast<Json::UInt64>(m_np);
-    featureTable["RTC_CENTER"] = m_mid.toJson();
+    json featureTable;
+    featureTable["POINTS_LENGTH"] = m_np;
+    featureTable["RTC_CENTER"] = m_mid;
 
-    Json::UInt64 byteOffset(0);
+    uint64_t byteOffset(0);
     featureTable["POSITION"]["byteOffset"] = byteOffset;
     byteOffset += m_xyz.size() * sizeof(float);
 
@@ -131,7 +131,7 @@ std::vector<char> Pnts::buildFile() const
         byteOffset += m_normals.size() * sizeof(float);
     }
 
-    std::string featureString = toFastString(featureTable);
+    std::string featureString = featureTable.dump();
     while (featureString.size() % 8) featureString += ' ';
 
     const uint64_t headerSize(28);

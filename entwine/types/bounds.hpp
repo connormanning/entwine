@@ -14,15 +14,12 @@
 #include <iostream>
 #include <limits>
 
-#include <json/json.h>
-
 #include <entwine/types/dir.hpp>
 #include <entwine/types/point.hpp>
+#include <entwine/util/json.hpp>
 
 namespace entwine
 {
-
-class Delta;
 
 class Bounds
 {
@@ -30,7 +27,7 @@ public:
     Bounds() = default;
     Bounds(const Point& min, const Point& max);
     Bounds(const Point& center, double radius);
-    Bounds(const Json::Value& json);
+    explicit Bounds(const json& j);
     Bounds(double xMin, double yMin, double xMax, double yMax);
     Bounds(
             double xMin,
@@ -62,13 +59,10 @@ public:
     bool overlaps(const Bounds& other, bool force2d = false) const
     {
         return
-            // width() > 0 && depth() > 0 &&
-            // other.width() > 0 && other.depth() > 0 &&
             max().x > other.min().x && min().x < other.max().x &&
             max().y > other.min().y && min().y < other.max().y &&
             (force2d || (
                 (!height() && !other.height()) || (
-                    // height() > 0 && other.height() > 0 &&
                     max().z > other.min().z && min().z < other.max().z)));
     }
 
@@ -101,7 +95,6 @@ public:
     double width()  const { return m_max.x - m_min.x; } // Length in X.
     double depth()  const { return m_max.y - m_min.y; } // Length in Y.
     double height() const { return m_max.z - m_min.z; } // Length in Z.
-    explicit operator bool() const { return exists(); }
 
     double area() const { return width() * depth(); }
     double volume() const { return width() * depth() * height(); }
@@ -170,30 +163,14 @@ public:
         setMid();
     }
 
-    Bounds getNwd(bool force2d = false) const
-    {
-        Bounds b(*this); b.goNwd(force2d); return b;
-    }
-
-    Bounds getNed(bool force2d = false) const
-    {
-        Bounds b(*this); b.goNed(force2d); return b;
-    }
-
-    Bounds getSwd(bool force2d = false) const
-    {
-        Bounds b(*this); b.goSwd(force2d); return b;
-    }
-
-    Bounds getSed(bool force2d = false) const
-    {
-        Bounds b(*this); b.goSed(force2d); return b;
-    }
-
-    Bounds getNwu() const { Bounds b(*this); b.goNwu(); return b; }
-    Bounds getNeu() const { Bounds b(*this); b.goNeu(); return b; }
-    Bounds getSwu() const { Bounds b(*this); b.goSwu(); return b; }
-    Bounds getSeu() const { Bounds b(*this); b.goSeu(); return b; }
+    Bounds getNwd(bool force2d = false) const;
+    Bounds getNed(bool force2d = false) const;
+    Bounds getSwd(bool force2d = false) const;
+    Bounds getSed(bool force2d = false) const;
+    Bounds getNwu() const;
+    Bounds getNeu() const;
+    Bounds getSwu() const;
+    Bounds getSeu() const;
 
     Bounds getNw() const { return getNwd(true); }
     Bounds getNe() const { return getNed(true); }
@@ -242,7 +219,6 @@ public:
     bool exists() const { return min().exists() || max().exists(); }
     bool is3d() const { return m_min.z || m_max.z; }
 
-    Json::Value toJson() const;
     Bounds to2d() const { return Bounds(min().x, min().y, max().x, max().y); }
 
     void grow(const Bounds& bounds);
@@ -255,11 +231,6 @@ public:
     }
 
     Bounds applyScaleOffset(const Scale& scale, const Offset& offset) const;
-    Bounds deltify(const Delta* delta) const;
-    Bounds deltify(const Delta& delta) const;
-    Bounds undeltify(const Delta* delta) const;
-    Bounds undeltify(const Delta& delta) const;
-
     Bounds growBy(double ratio) const;
 
     std::vector<Bounds> explode() const;
@@ -330,6 +301,16 @@ private:
         m_mid.z = m_min.z + (m_max.z - m_min.z) / 2.0;
     }
 };
+
+inline void from_json(const json& j, Bounds& b)
+{
+    b = Bounds(j);
+}
+
+inline void to_json(json& j, const Bounds& b)
+{
+    j = json::array({ b[0], b[1], b[2], b[3], b[4], b[5] });
+}
 
 std::ostream& operator<<(std::ostream& os, const Bounds& bounds);
 

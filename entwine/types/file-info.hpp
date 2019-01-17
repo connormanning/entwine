@@ -14,14 +14,13 @@
 #include <string>
 #include <vector>
 
-#include <json/json.h>
-
 #include <pdal/SpatialReference.hpp>
 
 #include <entwine/types/bounds.hpp>
+#include <entwine/types/point-stats.hpp>
 #include <entwine/types/srs.hpp>
-#include <entwine/types/stats.hpp>
 #include <entwine/util/executor.hpp>
+#include <entwine/util/json.hpp>
 
 namespace entwine
 {
@@ -43,8 +42,9 @@ public:
         Error       // An error occurred during insertion.
     };
 
+    FileInfo() { }
     explicit FileInfo(std::string path);
-    explicit FileInfo(const Json::Value& json);
+    explicit FileInfo(const json& j);
 
     // Path from which this file may be read.
     const std::string& path() const         { return m_path; }
@@ -57,10 +57,10 @@ public:
     const std::string& url() const          { return m_url; }
 
     // These remain constant throughout.
-    std::size_t points() const              { return m_points; }
-    const Srs& srs() const                  { return m_srs; }
-    const Json::Value& metadata() const     { return m_metadata; }
-    Origin origin() const                   { return m_origin; }
+    std::size_t points() const      { return m_points; }
+    const Srs& srs() const          { return m_srs; }
+    const json& metadata() const    { return m_metadata; }
+    Origin origin() const           { return m_origin; }
 
     const Bounds* bounds() const
     {
@@ -93,16 +93,11 @@ public:
 
     void add(const PointStats& stats) { m_pointStats.add(stats); }
 
-    Json::Value toJson() const
-    {
-        return merge(toListJson(), toFullJson());
-    }
-
     // For use in ept-sources/list.json.
-    Json::Value toListJson() const;
+    json toListJson() const;
 
     // EPT per-file metadata.
-    Json::Value toFullJson() const;
+    json toMetaJson() const;
 
 private:
     void setId(std::string id) const { m_id = id; }
@@ -127,21 +122,21 @@ private:
     Bounds m_boundsEpsilon;
     std::size_t m_points = 0;
     Srs m_srs;
-    Json::Value m_metadata;
+    json m_metadata;
     Origin m_origin = invalidOrigin;
 
     PointStats m_pointStats;
     std::string m_message;
 };
 
-using FileInfoList = std::vector<FileInfo>;
-
-inline FileInfoList toFileInfo(const Json::Value& json)
+inline void from_json(const json& j, FileInfo& f) { f = FileInfo(j); }
+inline void to_json(json& j, const FileInfo& f)
 {
-    FileInfoList f;
-    for (const auto& j : json) f.emplace_back(j);
-    return f;
+    j.update(f.toListJson());
+    j.update(f.toMetaJson());
 }
+
+using FileInfoList = std::vector<FileInfo>;
 
 double densityLowerBound(const FileInfoList& files);
 double areaUpperBound(const FileInfoList& files);

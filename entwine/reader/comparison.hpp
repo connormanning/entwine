@@ -15,9 +15,8 @@
 #include <entwine/reader/filterable.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/defs.hpp>
+#include <entwine/util/json.hpp>
 #include <entwine/util/unique.hpp>
-
-namespace Json { class Value; }
 
 namespace entwine
 {
@@ -106,7 +105,7 @@ public:
     static std::unique_ptr<ComparisonOperator> create(
             const Metadata& metadata,
             const std::string& dimensionName,
-            const Json::Value& json);
+            const json& j);
 
     virtual bool operator()(double in) const = 0;
     virtual bool operator()(const Bounds& bounds) const { return true; }
@@ -268,7 +267,7 @@ public:
     static std::unique_ptr<Comparison> create(
             const Metadata& metadata,
             std::string dimName,
-            const Json::Value& val);
+            const json& val);
 
     bool check(const pdal::PointRef& pointRef) const override
     {

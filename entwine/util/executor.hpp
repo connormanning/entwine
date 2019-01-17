@@ -21,6 +21,7 @@
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/vector-point-table.hpp>
+#include <entwine/util/json.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace pdal
@@ -60,7 +61,7 @@ public:
 
     std::string srs;
     std::unique_ptr<Scale> scale;
-    Json::Value metadata;
+    json metadata;
 
     Bounds bounds;
     std::size_t points = 0;
@@ -84,16 +85,14 @@ public:
     // True if this path is recognized as a point cloud file.
     bool good(std::string path) const;
 
-    bool run(pdal::StreamPointTable& table, const Json::Value& pipeline);
+    bool run(pdal::StreamPointTable& table, json pipeline);
 
-    std::unique_ptr<ScanInfo> preview(
-            Json::Value pipeline,
-            bool trustHeaders = true) const;
+    std::unique_ptr<ScanInfo> preview(json pipeline, bool shallow = true) const;
 
     static std::unique_lock<std::mutex> getLock();
 
 private:
-    std::unique_ptr<ScanInfo> deepScan(Json::Value pipeline) const;
+    std::unique_ptr<ScanInfo> deepScan(json pipeline) const;
 
     Executor();
     ~Executor();
