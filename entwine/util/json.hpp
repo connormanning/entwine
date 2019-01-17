@@ -23,6 +23,7 @@
 namespace entwine
 {
 
+/*
 inline Json::Value parse(const std::string& input)
 {
     Json::CharReaderBuilder builder;
@@ -47,16 +48,30 @@ inline Json::Value parse(const char* input)
     if (input) return parse(std::string(input));
     else return Json::nullValue;
 }
+*/
 
 inline Json::Value mjsonToJsoncpp(const json& j)
 {
-    return parse(j.dump());
+    Json::CharReaderBuilder builder;
+    Json::Value json;
+
+    std::istringstream ss(j.dump());
+    std::string errors;
+
+    if (!parseFromStream(builder, ss, &json, &errors))
+    {
+        throw std::runtime_error("Error during parsing: " + errors);
+    }
+
+    return json;
 }
 
+/*
 inline json jsoncppToMjson(const Json::Value& j)
 {
     return json::parse(j.toStyledString());
 }
+*/
 
 inline std::vector<std::string> keys(const json& j)
 {
@@ -65,6 +80,7 @@ inline std::vector<std::string> keys(const json& j)
     return result;
 }
 
+/*
 // Same as Json::Value::toStyledString but with fixed precision for doubles.
 inline std::string toPreciseString(
         const Json::Value& v,
@@ -141,6 +157,7 @@ inline std::string toPreciseString(
         return oss.str();
     }
 }
+*/
 
 // Not really JSON-related, but fine for now...
 inline std::string commify(const std::size_t n)
@@ -165,6 +182,7 @@ inline void recMerge(json& dst, const json& add, bool hard = true)
     }
 }
 
+/*
 inline void recMerge(
         Json::Value& dst,
         const Json::Value& add,
@@ -176,6 +194,7 @@ inline void recMerge(
         else if (hard || !dst.isMember(key)) dst[key] = add[key];
     }
 }
+*/
 
 inline json merge(const json& a, const json& b, bool hard = true)
 {
@@ -184,6 +203,7 @@ inline json merge(const json& a, const json& b, bool hard = true)
     return c;
 }
 
+/*
 inline Json::Value merge(
         const Json::Value& a,
         const Json::Value& b,
@@ -332,6 +352,7 @@ std::vector<T> extract(const Json::Value& json)
 {
     return extraction::E<T>::go(json);
 }
+*/
 
 } // namespace entwine
 

@@ -30,6 +30,7 @@ namespace app
 class App
 {
 public:
+    App() : m_json(json::object()) { }
     virtual ~App() { }
 
     void go(Args args)
@@ -43,7 +44,7 @@ protected:
     virtual void addArgs() = 0;
     virtual void run() = 0;
 
-    Json::Value m_json;
+    json m_json;
     ArgParser m_ap;
 
     void addInput(std::string description, bool asDefault = false);
@@ -56,14 +57,14 @@ protected:
     void addAbsolute();
     void addArbiter();
 
-    void checkEmpty(Json::Value v) const
+    void checkEmpty(json j) const
     {
-        if (!v.isNull()) throw std::runtime_error("Invalid specification");
+        if (!j.is_null()) throw std::runtime_error("Invalid specification");
     }
 
-    Json::UInt64 extract(Json::Value v) const
+    uint64_t extract(json j) const
     {
-        return parse(v.asString()).asUInt64();
+        return json::parse(j.get<std::string>()).get<uint64_t>();
     }
 
     std::string yesNo(bool b) const { return b ? "yes" : "no"; }

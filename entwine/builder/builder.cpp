@@ -47,12 +47,9 @@ namespace
 }
 
 Builder::Builder(const Config& config, std::shared_ptr<arbiter::Arbiter> a)
-    : m_config(entwine::merge(
-                Config::defaults(),
-                Config::defaultBuildParams(),
-                config.prepare().get()))
+    : m_config(config.prepare())
     , m_interval(m_config.progressInterval())
-    , m_arbiter(a ? a : std::make_shared<arbiter::Arbiter>(m_config["arbiter"]))
+    , m_arbiter(a ? a : std::make_shared<arbiter::Arbiter>(m_config.arbiter()))
     , m_out(makeUnique<Endpoint>(m_arbiter->getEndpoint(m_config.output())))
     , m_tmp(makeUnique<Endpoint>(m_arbiter->getEndpoint(m_config.tmp())))
     , m_threadPools(
@@ -74,7 +71,7 @@ Builder::Builder(const Config& config, std::shared_ptr<arbiter::Arbiter> a)
     , m_verbose(m_config.verbose())
     , m_start(now())
     , m_reset(now())
-    , m_resetFiles(m_config["resetFiles"].asUInt64())
+    , m_resetFiles(m_config.resetFiles())
 {
     prepareEndpoints();
 }
@@ -327,7 +324,7 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
         }
     });
 
-    const json pipeline(jsoncppToMjson(m_config.pipeline(localPath)));
+    const json pipeline(m_config.pipeline(localPath, nullptr));
 
     if (!Executor::get().run(table, pipeline))
     {

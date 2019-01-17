@@ -59,17 +59,19 @@ void Scan::run()
 
     std::cout << "Scanning:" << std::endl;
 
-    if (in["input"].isString())
+    const json inputJson(json(in).at("input"));
+    if (inputJson.is_string())
     {
-        std::cout << "\tInput: " << in["input"].asString() << std::endl;
+        std::cout << "\tInput: " << inputJson.get<std::string>() << std::endl;
     }
-    else if (in["input"].size() == 1)
+    else if (inputJson.is_array() && inputJson.size() == 1)
     {
-        std::cout << "\tInput: " << in["input"][0].asString() << std::endl;
+        std::cout << "\tInput: " << inputJson.at(0).get<std::string>() <<
+            std::endl;
     }
     else
     {
-        std::cout << "\tInput: " << in["input"].size() << " files" << std::endl;
+        std::cout << "\tInput: " << inputJson.size() << " files" << std::endl;
     }
 
     std::cout << "\tThreads: " << in.totalThreads() << std::endl;
@@ -90,7 +92,7 @@ void Scan::run()
     std::cout << "\tFiles: " << out.input().size() << std::endl;
     std::cout << "\tSchema: " << getDimensionString(schema) << std::endl;
     std::cout << "\tPoints: " << commify(out.points()) << std::endl;
-    std::cout << "\tBounds: " << Bounds(jsoncppToMjson(out["bounds"])) << std::endl;
+    std::cout << "\tBounds: " << out.bounds() << std::endl;
 
     std::cout << "\tScale: ";
     if (schema.isScaled())

@@ -16,12 +16,13 @@ TEST(read, count)
     const std::string out(test::dataPath() + "out/ellipsoid/ellipsoid");
 
     {
-        Config c;
-        c["input"] = test::dataPath() + "ellipsoid.laz";
-        c["output"] = out;
-        c["force"] = true;
-        c["hierarchyStep"] = static_cast<Json::UInt64>(v.hierarchyStep());
-        c["span"] = static_cast<Json::UInt64>(v.span());
+        Config c(json {
+            { "input", test::dataPath() + "ellipsoid.laz" },
+            { "output", out },
+            { "force", true },
+            { "hierarchyStep", v.hierarchyStep() },
+            { "span", v.span() }
+        });
 
         Builder b(c);
         b.go();
@@ -49,12 +50,13 @@ TEST(read, data)
     const std::string out(test::dataPath() + "out/ellipsoid/ellipsoid");
 
     {
-        Config c;
-        c["input"] = test::dataPath() + "ellipsoid.laz";
-        c["output"] = out;
-        c["force"] = true;
-        c["hierarchyStep"] = static_cast<Json::UInt64>(v.hierarchyStep());
-        c["span"] = static_cast<Json::UInt64>(v.span());
+        Config c(json {
+            { "input", test::dataPath() + "ellipsoid.laz" },
+            { "output", out },
+            { "force", true },
+            { "hierarchyStep", v.hierarchyStep() },
+            { "span", v.span() }
+        });
 
         Builder b(c);
         b.go();

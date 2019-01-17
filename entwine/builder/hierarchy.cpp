@@ -29,14 +29,16 @@ void Hierarchy::load(
         const arbiter::Endpoint& ep,
         const Dxyz& root)
 {
-    const auto json(parse(ep.get(filename(m, root))));
+    const json j(json::parse(ep.get(filename(m, root))));
 
-    for (const auto s : json.getMemberNames())
+    for (const auto& p : j.items())
     {
+        const std::string s(p.key());
         const Dxyz k(s);
+
         assert(!m_map.count(k));
 
-        int64_t n(json[s].asInt64());
+        int64_t n(p.value().get<int64_t>());
         if (n < 0) load(m, ep, k);
         else m_map[k] = static_cast<uint64_t>(n);
     }

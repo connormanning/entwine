@@ -16,11 +16,11 @@
 namespace entwine
 {
 
-Subset::Subset(const Metadata& m, const json& j)
+Subset::Subset(const Bounds cube, const json& j)
     : m_id(j.at("id").get<uint64_t>())
     , m_of(j.at("of").get<uint64_t>())
     , m_splits(std::log2(m_of) / std::log2(4))
-    , m_bounds(m.boundsCubic())
+    , m_bounds(cube)
 {
     if (!m_id) throw std::runtime_error("Subset IDs should be 1-based.");
     if (m_of <= 1) throw std::runtime_error("Invalid subset range");
@@ -45,10 +45,10 @@ Subset::Subset(const Metadata& m, const json& j)
     }
 }
 
-std::unique_ptr<Subset> Subset::create(const Metadata& m, const json& j)
+std::unique_ptr<Subset> Subset::create(const Bounds cube, const json& j)
 {
     if (j.is_null()) return std::unique_ptr<Subset>();
-    else return makeUnique<Subset>(m, j);
+    else return makeUnique<Subset>(cube, j);
 }
 
 } // namespace entwine

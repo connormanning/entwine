@@ -40,8 +40,8 @@ namespace
 }
 
 Scan::Scan(const Config config)
-    : m_in(merge(Config::defaults(), config.get()))
-    , m_arbiter(m_in["arbiter"])
+    : m_in(config)
+    , m_arbiter(m_in.arbiter())
     , m_tmp(m_arbiter.getEndpoint(m_in.tmp()))
     , m_re(m_in.reprojection())
     , m_files(m_in.input())
@@ -64,7 +64,7 @@ Config Scan::go()
         FileInfo& f(m_files.get(i));
         if (m_in.verbose())
         {
-            std::cout << i + 1 << " / " << size << ": " << f.path() <<
+            std::cout << i + 1 << "/" << size << ": " << f.path() <<
                 std::endl;
         }
         add(f);
@@ -77,8 +77,7 @@ Config Scan::go()
     std::string path(m_in.output());
     if (path.size())
     {
-        arbiter::Arbiter arbiter(m_in["arbiter"]);
-        arbiter::Endpoint ep(arbiter.getEndpoint(path));
+        arbiter::Endpoint ep(m_arbiter.getEndpoint(path));
 
         if (ep.isLocal())
         {
@@ -100,7 +99,7 @@ Config Scan::go()
         }
 
         m_files.save(ep, "", m_in, true);
-        json j(jsoncppToMjson(out.get()));
+        json j(out);
         j.erase("input");
         ep.put("scan.json", j.dump(2));
 
@@ -223,7 +222,7 @@ void Scan::addRanged(FileInfo& f)
 
 void Scan::add(FileInfo& f, const std::string localPath)
 {
-    const json pipeline(jsoncppToMjson(m_in.pipeline(localPath)));
+    const json pipeline(m_in.pipeline(localPath, nullptr));
 
     auto preview(Executor::get().preview(pipeline, m_in.trustHeaders()));
     if (!preview) return;
@@ -259,10 +258,10 @@ Config Scan::aggregate()
         explicitSrs = true;
         srs = m_re->out();
     }
-    else if (m_in.get().isMember("srs"))
+    else if (m_in.srs().exists())
     {
         explicitSrs = true;
-        srs = jsoncppToMjson(m_in.get()["srs"]);
+        srs = m_in.srs();
     }
 
     bool srsLogged(false);
@@ -301,7 +300,7 @@ Config Scan::aggregate()
 
     if (!np) throw std::runtime_error("No points found!");
 
-    if (out["bounds"].isNull()) out["bounds"] = mjsonToJsoncpp(bounds);
+    if (out.bounds().empty()) out.setBounds(bounds);
 
     if (!m_in.absolute())
     {
@@ -324,12 +323,12 @@ Config Scan::aggregate()
         m_schema = Schema(dims);
     }
 
-    if (out["schema"].isNull()) out["schema"] = mjsonToJsoncpp(m_schema);
-    out["points"] = std::max<Json::UInt64>(np, out.points());
-    out["input"] = mjsonToJsoncpp(m_files);
-    if (m_re) out["reprojection"] = mjsonToJsoncpp(*m_re);
-    out["srs"] = mjsonToJsoncpp(srs);
-    out["pipeline"] = m_in.pipeline("");
+    if (out.schema().empty()) out.setSchema(m_schema);
+    out.setPoints(std::max<uint64_t>(np, out.points()));
+    out.setInput(m_files.list());
+    if (m_re) out.setReprojection(*m_re);
+    out.setSrs(srs);
+    out.setPipeline(m_in.pipeline("", nullptr));
 
     return out;
 }

@@ -40,6 +40,8 @@ Bounds::Bounds(const Point& min, const Point& max)
 
 Bounds::Bounds(const json& j)
 {
+    if (j.is_null()) return;
+
     if (!j.is_array() || (j.size() != 4 && j.size() != 6))
     {
         throw std::runtime_error("Invalid JSON Bounds: " + j.dump(2));

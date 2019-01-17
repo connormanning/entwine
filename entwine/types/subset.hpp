@@ -26,8 +26,8 @@ class Metadata;
 class Subset
 {
 public:
-    Subset(const Metadata& metadata, const json& j);
-    static std::unique_ptr<Subset> create(const Metadata& m, const json& j);
+    Subset(Bounds cube, const json& j);
+    static std::unique_ptr<Subset> create(Bounds cube, const json& j);
 
     uint64_t id() const { return m_id; }
     uint64_t of() const { return m_of; }

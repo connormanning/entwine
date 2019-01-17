@@ -28,20 +28,20 @@ Metadata::Metadata(const Config& config, const bool exists)
     , m_schema(makeUnique<Schema>(Schema::makeAbsolute(*m_outSchema)))
     , m_boundsConforming(makeUnique<Bounds>(
                 exists ?
-                    Bounds(jsoncppToMjson(config["boundsConforming"])) :
-                    makeConformingBounds(Bounds(jsoncppToMjson(config["bounds"])))))
+                    config.boundsConforming() :
+                    makeConformingBounds(config.bounds())))
     , m_boundsCubic(makeUnique<Bounds>(
                 exists ?
-                    Bounds(jsoncppToMjson(config["bounds"])) :
+                    config.bounds() :
                     makeCube(*m_boundsConforming)))
     , m_files(makeUnique<Files>(config.input()))
     , m_dataIo(DataIo::create(*this, config.dataType()))
-    , m_reprojection(Reprojection::create(jsoncppToMjson(config["reprojection"])))
+    , m_reprojection(config.reprojection())
     , m_eptVersion(exists ?
-            makeUnique<Version>(config["version"].asString()) :
+            makeUnique<Version>(config.version()) :
             makeUnique<Version>(currentEptVersion()))
     , m_srs(makeUnique<Srs>(config.srs()))
-    , m_subset(Subset::create(*this, jsoncppToMjson(config["subset"])))
+    , m_subset(Subset::create(boundsCubic(), config.subset()))
     , m_trustHeaders(config.trustHeaders())
     , m_span(config.span())
     , m_startDepth(std::log2(m_span))
@@ -92,16 +92,16 @@ Metadata::Metadata(const Config& config, const bool exists)
     }
 }
 
-Metadata::Metadata(const arbiter::Endpoint& ep, const Config& config)
+Metadata::Metadata(const arbiter::Endpoint& ep, const Config& c)
     : Metadata(
             entwine::merge(
-                config.get(),
+                json(c),
                 entwine::merge(
-                    parse(ep.get("ept-build" + config.postfix() + ".json")),
-                    parse(ep.get("ept" + config.postfix() + ".json")))),
+                    json::parse(ep.get("ept-build" + c.postfix() + ".json")),
+                    json::parse(ep.get("ept" + c.postfix() + ".json")))),
             true)
 {
-    Files files(Files::extract(ep, primary(), config.postfix()));
+    Files files(Files::extract(ep, primary(), c.postfix()));
     files.append(m_files->list());
     m_files = makeUnique<Files>(files.list());
 }

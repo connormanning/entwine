@@ -25,7 +25,7 @@ void Convert::addArgs()
             "--input",
             "-i",
             "Path to a completed entwine build",
-            [this](Json::Value v) { m_json["input"] = v.asString(); });
+            [this](json j) { m_json["input"] = j; });
 
     addOutput("Path for Cesium 3D Tiles output");
     addTmp();
@@ -39,9 +39,9 @@ void Convert::addArgs()
             "to 32.  Smaller values will result in the data being loaded "
             "at higher density\n"
             "Example: --geometricErrorDivisor 16.0",
-            [this](Json::Value v)
+            [this](json j)
             {
-                m_json["geometricErrorDivisor"] = parse(v.asString());
+                m_json["geometricErrorDivisor"] = extract(j);
             });
 
     m_ap.add(
@@ -53,16 +53,16 @@ void Convert::addArgs()
             "'rgb': color by RGB values\n"
             "'intensity': grayscale by intensity values\n"
             "'tile': random color for each tile",
-            [this](Json::Value v) { m_json["colorType"] = v.asString(); });
+            [this](json j) { m_json["colorType"] = j; });
 
     m_ap.add(
             "--truncate",
             "3D Tiles supports 8-bit color values.  If RGB (or Intensity, if "
             "using intensity colorType) values are 16-bit, set this option to "
             "scale them to 8-bit.",
-            [this](Json::Value v)
+            [this](json j)
             {
-                checkEmpty(v);
+                checkEmpty(j);
                 m_json["truncate"] = true;
             });
 }

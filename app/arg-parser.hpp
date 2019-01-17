@@ -14,12 +14,13 @@
 #include <string>
 #include <vector>
 
-#include <json/json.h>
-
 #include <entwine/util/json.hpp>
 
+namespace entwine
+{
+
 using Args = std::vector<std::string>;
-using Handler = std::function<void(Json::Value)>;
+using Handler = std::function<void(json)>;
 
 class ArgParser
 {
@@ -76,13 +77,13 @@ public:
                 throw std::runtime_error("Invalid argument: " + flag);
             }
 
-            Json::Value val;
+            json val;
             while (++i < args.size() && args.at(i).front() != '-')
             {
-                val.append(args.at(i));
+                val.push_back(args.at(i));
             }
 
-            if (!val.isNull() && val.size() == 1) val = val[0];
+            if (!val.is_null() && val.size() == 1) val = val[0];
 
             try
             {
@@ -90,12 +91,9 @@ public:
             }
             catch (std::exception& e)
             {
-                std::string valString(entwine::toFastString(val));
-                valString.pop_back();
-
                 throw std::runtime_error(
                         "Error handling argument '" + flag + "' with value " +
-                        valString + ": " + e.what());
+                        val.dump(2) + ": " + e.what());
             }
         }
 
@@ -201,4 +199,6 @@ private:
     std::map<std::string, Handler> m_handlers;
     std::vector<std::string> m_descriptions;
 };
+
+} // namespace entwine
 

@@ -48,12 +48,13 @@ private:
     // to a caching mechanism.
     void load(const Dxyz& root = Dxyz())
     {
-        const auto json(parse(m_ep.get(root.toString() + ".json")));
+        const json j(json::parse(m_ep.get(root.toString() + ".json")));
 
-        for (const auto str : json.getMemberNames())
+        for (const auto& p : j.items())
         {
+            const std::string str(p.key());
             const Dxyz key(str);
-            const int64_t n(json[str].asInt64());
+            const int64_t n(p.value().get<int64_t>());
             if (n < 0) load(key);
             else m_keys[key] = static_cast<uint64_t>(n);
         }

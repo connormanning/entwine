@@ -57,16 +57,16 @@ namespace app
 
 void App::addInput(std::string description, const bool asDefault)
 {
-    auto f([this](Json::Value v)
+    auto f([this](json j)
     {
-        if (v.isArray())
+        if (j.is_array())
         {
-            for (Json::ArrayIndex i(0); i < v.size(); ++i)
+            for (const json& entry : j)
             {
-                m_json["input"].append(v[i].asString());
+                m_json["input"].push_back(entry);
             }
         }
-        else m_json["input"].append(v.asString());
+        else m_json["input"].push_back(j);
     });
 
     if (asDefault) m_ap.addDefault("--input", "-i", description, f);
@@ -75,7 +75,7 @@ void App::addInput(std::string description, const bool asDefault)
 
 void App::addOutput(std::string description, const bool asDefault)
 {
-    auto f([this](Json::Value v) { m_json["output"] = v.asString(); });
+    auto f([this](json j) { m_json["output"] = j; });
 
     if (asDefault) m_ap.addDefault("--output", "-o", description, f);
     else m_ap.add("--output", "-o", description, f);
@@ -90,10 +90,13 @@ void App::addConfig()
             "configuration file parameters, so it may be used for templating "
             "common options among multiple runs.\n"
             "Example: --config template.json -i in.laz -o out",
-            [this](Json::Value v)
+            [this](json j)
             {
-                arbiter::Arbiter a(m_json["arbiter"]);
-                m_json = merge(m_json, parse(a.get(v.asString())));
+                arbiter::Arbiter a(mjsonToJsoncpp(
+                            m_json.value("arbiter", json())));
+                m_json = merge(
+                        m_json,
+                        json::parse(a.get(j.get<std::string>())));
             });
 }
 
@@ -104,10 +107,7 @@ void App::addTmp()
             "-a",
             "Directory for entwine-generated temporary files\n"
             "Example: --tmp /tmp/entwine",
-            [this](Json::Value v)
-            {
-                m_json["tmp"] = v.asString();
-            });
+            [this](json j) { m_json["tmp"] = j; });
 }
 
 void App::addSimpleThreads()
@@ -117,7 +117,7 @@ void App::addSimpleThreads()
             "-t",
             "Set the number of threads\n"
             "Example: --threads 12",
-            [this](Json::Value v) { m_json["threads"] = extract(v); });
+            [this](json j) { m_json["threads"] = extract(j); });
 }
 
 void App::addReprojection()
@@ -128,10 +128,7 @@ void App::addReprojection()
             "this value will be set automatically from the output projection.  "
             "Typically this value is automatically inferred from the files "
             "themselves.",
-            [this](Json::Value v)
-            {
-                m_json["srs"] = mjsonToJsoncpp(json(Srs(v.asString())));
-            });
+            [this](json j) { m_json["srs"] = Srs(j); });
 
     m_ap.add(
             "--reprojection",
@@ -142,22 +139,21 @@ void App::addReprojection()
             "use the input SRS regardless of file headers, see the "
             "--hammer option\n"
             "Example: --reprojection EPSG:3857, -r EPSG:26915 EPSG:3857",
-            [this](Json::Value v)
+            [this](json j)
             {
-                if (v.isString())
+                if (j.is_string())
                 {
-                    m_json["reprojection"]["out"] = v.asString();
+                    m_json["reprojection"]["out"] = j;
                 }
-                else if (v.isArray())
+                else if (j.is_array() && j.size() == 2)
                 {
-                    if (v.size() != 2)
-                    {
-                        throw std::runtime_error(
-                                "Invalid reprojection specification");
-                    }
-
-                    m_json["reprojection"]["in"] = v[0].asString();
-                    m_json["reprojection"]["out"] = v[1].asString();
+                    m_json["reprojection"]["in"] = j[0];
+                    m_json["reprojection"]["out"] = j[1];
+                }
+                else
+                {
+                    throw std::runtime_error(
+                            "Invalid reprojection: " + j.dump(2));
                 }
             });
 
@@ -168,9 +164,9 @@ void App::addReprojection()
             "always override any SRS found in file headers.  An input "
             "SRS is required if this option is set.\n"
             "Example: --reprojection EPSG:26915 EPSG:3857 --hammer",
-            [this](Json::Value v)
+            [this](json j)
             {
-                checkEmpty(v);
+                checkEmpty(j);
                 m_json["reprojection"]["hammer"] = true;
             });
 }
@@ -182,9 +178,9 @@ void App::addNoTrustHeaders()
             "-x",
             "If set, do not trust file headers when determining bounds, "
             "instead read every point",
-            [this](Json::Value v)
+            [this](json j)
             {
-                checkEmpty(v);
+                checkEmpty(j);
                 m_json["trustHeaders"] = false;
             });
 }
@@ -195,9 +191,9 @@ void App::addAbsolute()
             "--absolute",
             "If set, absolutely positioned XYZ coordinates will be used "
             "instead of scaled values",
-            [this](Json::Value v)
+            [this](json j)
             {
-                checkEmpty(v);
+                checkEmpty(j);
                 m_json["absolute"] = true;
             });
 }
@@ -209,26 +205,23 @@ void App::addArbiter()
             "-p",
             "Specify AWS user profile, if not default\n"
             "Example: --profile john",
-            [this](Json::Value v)
-            {
-                m_json["arbiter"]["s3"]["profile"] = v.asString();
-            });
+            [this](json j) { m_json["arbiter"]["s3"]["profile"] = j; });
 
     m_ap.add(
             "--sse",
             "Enable AWS server-side encryption",
-            [this](Json::Value v)
+            [this](json j)
             {
-                checkEmpty(v);
+                checkEmpty(j);
                 m_json["arbiter"]["s3"]["sse"] = true;
             });
 
     m_ap.add(
             "--requester-pays",
             "Set the requester-pays flag to S3\n",
-            [this](Json::Value v)
+            [this](json j)
             {
-                checkEmpty(v);
+                checkEmpty(j);
                 m_json["arbiter"]["s3"]["requesterPays"] = true;
             });
 
@@ -236,9 +229,9 @@ void App::addArbiter()
             "--verbose",
             "-v",
             "Enable developer-level verbosity",
-            [this](Json::Value v)
+            [this](json j)
             {
-                checkEmpty(v);
+                checkEmpty(j);
                 m_json["arbiter"]["verbose"] = true;
             });
 }

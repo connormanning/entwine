@@ -24,6 +24,7 @@ namespace entwine
 class Version
 {
 public:
+    Version() { }
     Version(int major, int minor = 0, int patch = 0)
         : m_major(major)
         , m_minor(minor)
@@ -70,6 +71,11 @@ public:
             std::to_string(major()) + "." +
             std::to_string(minor()) + "." +
             std::to_string(patch());
+    }
+
+    bool empty() const
+    {
+        return !m_major && !m_minor && !m_patch;
     }
 
 private:
