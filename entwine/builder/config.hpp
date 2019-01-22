@@ -50,7 +50,7 @@ public:
     std::string output() const { return m_json.value("output", ""); }
     std::string tmp() const
     {
-        return m_json.value("tmp", arbiter::fs::getTempPath());
+        return m_json.value("tmp", arbiter::getTempPath());
     }
 
     uint64_t points() const { return m_json.value("points", 0); }
@@ -115,9 +115,9 @@ public:
         return !!a.tryGetSize(path);
     }
 
-    Json::Value arbiter() const
+    std::string arbiter() const
     {
-        return mjsonToJsoncpp(m_json.value("arbiter", json()));
+        return m_json.value("arbiter", json()).dump();
     }
 
     bool verbose() const { return m_json.value("verbose", false); }

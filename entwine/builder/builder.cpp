@@ -234,7 +234,7 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
 {
     const std::string rawPath(info.path());
     std::size_t tries(0);
-    std::unique_ptr<arbiter::fs::LocalHandle> localHandle;
+    std::unique_ptr<arbiter::LocalHandle> localHandle;
 
     do
     {
@@ -384,7 +384,7 @@ void Builder::prepareEndpoints()
             throw std::runtime_error("Tmp path must be local");
         }
 
-        if (!arbiter::fs::mkdirp(m_tmp->root()))
+        if (!arbiter::mkdirp(m_tmp->root()))
         {
             throw std::runtime_error("Couldn't create tmp directory");
         }
@@ -392,22 +392,22 @@ void Builder::prepareEndpoints()
         const std::string rootDir(m_out->root());
         if (!m_out->isRemote())
         {
-            if (!arbiter::fs::mkdirp(rootDir))
+            if (!arbiter::mkdirp(rootDir))
             {
                 throw std::runtime_error("Couldn't create " + rootDir);
             }
 
-            if (!arbiter::fs::mkdirp(rootDir + "ept-data"))
+            if (!arbiter::mkdirp(rootDir + "ept-data"))
             {
                 throw std::runtime_error("Couldn't create data directory");
             }
 
-            if (!arbiter::fs::mkdirp(rootDir + "ept-hierarchy"))
+            if (!arbiter::mkdirp(rootDir + "ept-hierarchy"))
             {
                 throw std::runtime_error("Couldn't create hierarchy directory");
             }
 
-            if (!arbiter::fs::mkdirp(rootDir + "ept-sources"))
+            if (!arbiter::mkdirp(rootDir + "ept-sources"))
             {
                 throw std::runtime_error("Couldn't create sources directory");
             }

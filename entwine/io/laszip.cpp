@@ -92,7 +92,7 @@ void Laz::write(
     if (!local)
     {
         ensurePut(out, filename + ".laz", tmp.getBinary(localFile));
-        arbiter::fs::remove(tmp.prefixedRoot() + localFile);
+        arbiter::remove(tmp.prefixedRoot() + localFile);
     }
 }
 

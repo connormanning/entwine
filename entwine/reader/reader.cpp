@@ -23,7 +23,7 @@ Reader::Reader(
     : m_arbiter(maybeDefault(a))
     , m_ep(m_arbiter->getEndpoint(out))
     , m_tmp(m_arbiter->getEndpoint(
-                tmp.size() ? tmp : arbiter::fs::getTempPath()))
+                tmp.size() ? tmp : arbiter::getTempPath()))
     , m_metadata(m_ep)
     , m_hierarchy(m_ep)
     , m_cache(makeUnique<Cache>())

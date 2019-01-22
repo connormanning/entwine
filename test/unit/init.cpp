@@ -25,8 +25,8 @@ TEST(init, initializes)
             "ellipsoid.laz"
         };
 
-        entwine::arbiter::fs::mkdirp(test::dataPath());
-        entwine::arbiter::fs::mkdirp(test::dataPath() + "ellipsoid-multi");
+        entwine::arbiter::mkdirp(test::dataPath());
+        entwine::arbiter::mkdirp(test::dataPath() + "ellipsoid-multi");
         for (const std::string path : files)
         {
             a.copy(base + path, test::dataPath() + path, true);

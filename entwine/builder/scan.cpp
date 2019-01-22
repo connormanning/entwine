@@ -46,7 +46,7 @@ Scan::Scan(const Config config)
     , m_re(m_in.reprojection())
     , m_files(m_in.input())
 {
-    arbiter::fs::mkdirp(m_tmp.root());
+    arbiter::mkdirp(m_tmp.root());
 }
 
 Config Scan::go()
@@ -81,12 +81,12 @@ Config Scan::go()
 
         if (ep.isLocal())
         {
-            if (!arbiter::fs::mkdirp(ep.root()))
+            if (!arbiter::mkdirp(ep.root()))
             {
                 std::cout << "Could not mkdir: " << path << std::endl;
             }
 
-            if (!arbiter::fs::mkdirp(ep.getSubEndpoint("ept-sources").root()))
+            if (!arbiter::mkdirp(ep.getSubEndpoint("ept-sources").root()))
             {
                 std::cout << "Could not mkdir: " << path << std::endl;
             }
@@ -213,7 +213,7 @@ void Scan::addLas(FileInfo& f)
 
     m_tmp.put(basename, data);
     add(f, m_tmp.fullPath(basename));
-    arbiter::fs::remove(m_tmp.fullPath(basename));
+    arbiter::remove(m_tmp.fullPath(basename));
 }
 
 void Scan::addRanged(FileInfo& f)
@@ -228,7 +228,7 @@ void Scan::addRanged(FileInfo& f)
 
     m_tmp.put(basename, data);
     add(f, m_tmp.fullPath(basename));
-    arbiter::fs::remove(m_tmp.fullPath(basename));
+    arbiter::remove(m_tmp.fullPath(basename));
 }
 
 void Scan::add(FileInfo& f, const std::string localPath)

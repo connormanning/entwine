@@ -18,11 +18,11 @@ namespace cesium
 {
 
 Tileset::Tileset(const json& config)
-    : m_arbiter(mjsonToJsoncpp(config.value("arbiter", json())))
+    : m_arbiter(config.value("arbiter", json()).dump())
     , m_in(m_arbiter.getEndpoint(config.at("input").get<std::string>()))
     , m_out(m_arbiter.getEndpoint(config.at("output").get<std::string>()))
     , m_tmp(m_arbiter.getEndpoint(
-                config.value("tmp", arbiter::fs::getTempPath())))
+                config.value("tmp", arbiter::getTempPath())))
     , m_metadata(m_in)
     , m_colorType(getColorType(config))
     , m_truncate(config.value("truncate", false))
@@ -35,8 +35,8 @@ Tileset::Tileset(const json& config)
                 config.value("geometricErrorDivisor", 32.0))
     , m_threadPool(std::max<uint64_t>(4, config.value("threads", 4)))
 {
-    arbiter::fs::mkdirp(m_out.root());
-    arbiter::fs::mkdirp(m_tmp.root());
+    arbiter::mkdirp(m_out.root());
+    arbiter::mkdirp(m_tmp.root());
 }
 
 std::string Tileset::colorString() const

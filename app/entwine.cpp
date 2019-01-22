@@ -92,8 +92,7 @@ void App::addConfig()
             "Example: --config template.json -i in.laz -o out",
             [this](json j)
             {
-                arbiter::Arbiter a(mjsonToJsoncpp(
-                            m_json.value("arbiter", json())));
+                arbiter::Arbiter a(m_json.value("arbiter", json()).dump());
                 m_json = merge(
                         m_json,
                         json::parse(a.get(j.get<std::string>())));
