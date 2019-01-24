@@ -83,13 +83,37 @@ struct VoxelTube
 
 class Chunk
 {
+    static constexpr uint64_t blockSize = 256;
+
+    struct Overflow
+    {
+        Overflow(Key& key) : key(key) { }
+        void step() { key.step(voxel.point()); }
+
+        Key key;
+        Voxel voxel;
+    };
+
 public:
+    using OverflowBlocks = std::array<MemBlock, 8>;
+    using OverflowList = std::vector<Overflow>;
+    using OverflowListPtr = std::unique_ptr<OverflowList>;
+
     Chunk(const ReffedChunk& ref)
         : m_ref(ref)
         , m_span(m_ref.metadata().span())
         , m_pointSize(m_ref.metadata().schema().pointSize())
         , m_gridBlock(m_pointSize, 4096)
-        , m_overflowBlock(m_pointSize, 1024)
+        , m_overflowBlocks { {
+            MemBlock(m_pointSize, blockSize),
+            MemBlock(m_pointSize, blockSize),
+            MemBlock(m_pointSize, blockSize),
+            MemBlock(m_pointSize, blockSize),
+            MemBlock(m_pointSize, blockSize),
+            MemBlock(m_pointSize, blockSize),
+            MemBlock(m_pointSize, blockSize),
+            MemBlock(m_pointSize, blockSize)
+        } }
     {
         init();
 
@@ -102,8 +126,6 @@ public:
                     m_ref.out(),
                     m_ref.tmp(),
                     m_ref.hierarchy());
-
-            m_hasChildren = m_hasChildren || m_ref.hierarchy().get(key.get());
         }
     }
 
@@ -111,8 +133,17 @@ public:
     {
         assert(!m_grid);
         m_grid = makeUnique<std::vector<VoxelTube>>(m_span * m_span);
-        assert(!m_overflow);
-        m_overflow = makeUnique<std::vector<Overflow>>();
+
+        for (std::size_t d(0); d < dirEnd(); ++d)
+        {
+            assert(!m_overflowLists[d]);
+            const ChunkKey key(m_ref.key().getStep(toDir(d)));
+            if (!m_ref.hierarchy().get(key.get()))
+            {
+                m_overflowLists[d] = makeUnique<OverflowList>();
+            }
+        }
+
         m_remote = false;
     }
 
@@ -127,11 +158,12 @@ public:
     void reset()
     {
         m_grid.reset();
-        m_overflow.reset();
+        m_overflowCount = 0;
+        for (std::size_t d(0); d < dirEnd(); ++d) m_overflowLists[d].reset();
         m_remote = true;
 
         m_gridBlock.clear();
-        m_overflowBlock.clear();
+        for (auto& o : m_overflowBlocks) o.clear();
     }
 
     bool remote() const { return m_remote; }
@@ -191,7 +223,7 @@ public:
     }
 
     MemBlock& gridBlock() { return m_gridBlock; }
-    MemBlock& overflowBlock() { return m_overflowBlock; }
+    OverflowBlocks& overflowBlocks() { return m_overflowBlocks; }
 
 private:
     bool insertOverflow(Voxel& voxel, Key& key, Clipper& clipper)
@@ -201,50 +233,83 @@ private:
             return false;
         }
 
+        const Dir d(getDirection(m_ref.key().bounds().mid(), voxel.point()));
+        const uint64_t i(toIntegral(d));
+
+        OverflowListPtr& o(m_overflowLists[i]);
+        MemBlock& b(m_overflowBlocks[i]);
+
         SpinGuard lock(m_overflowSpin);
-        if (m_hasChildren) return false;
-
-        assert(m_overflow);
-
-        Overflow overflow(key);
-        overflow.voxel.setData(m_overflowBlock.next());
-        overflow.voxel.initDeep(voxel.point(), voxel.data(), m_pointSize);
-        m_overflow->push_back(overflow);
-
-        if (m_overflowBlock.size() > m_ref.metadata().overflowThreshold())
-        {
-            uint64_t gridSize(0);
-            {
-                SpinGuard lock(m_spin);
-                gridSize = m_gridBlock.size();
-            }
-
-            const uint64_t ourSize(gridSize + m_overflowBlock.size());
-            const uint64_t maxSize(
-                    m_span * m_span * 1.25 +
-                    m_ref.metadata().overflowThreshold());
-
-            if (ourSize < maxSize) return true;
-
-            doOverflow(clipper);
-        }
-
+        if (!o) return false;
+        insertOverflow(voxel, key, clipper, o, b);
         return true;
     }
 
-    void doOverflow(Clipper& clipper)
+    void insertOverflow(
+            Voxel& voxel,
+            Key& key,
+            Clipper& clipper,
+            OverflowListPtr& o,
+            MemBlock& b)
     {
-        m_hasChildren = true;
+        // Insert the voxel into the proper overflow.
+        assert(o);
+        Overflow overflow(key);
+        overflow.voxel.setData(b.next());
+        overflow.voxel.initDeep(voxel.point(), voxel.data(), m_pointSize);
+        o->push_back(overflow);
 
-        for (std::size_t i(0); i < m_overflow->size(); ++i)
+        if (++m_overflowCount < m_ref.metadata().overflowThreshold()) return;
+
+        // See if our resident size is big enough to overflow.
+        uint64_t gridSize(0);
         {
-            Overflow& o((*m_overflow)[i]);
-            o.step();
-            step(o.voxel.point()).insert(o.voxel, o.key, clipper);
+            SpinGuard lock(m_spin);
+            gridSize = m_gridBlock.size();
         }
 
-        m_overflow.reset();
-        m_overflowBlock.clear();
+        const uint64_t ourSize(gridSize + m_overflowCount);
+        const uint64_t maxSize(
+                m_span * m_span +
+                m_ref.metadata().overflowThreshold());
+        if (ourSize < maxSize) return;
+
+        // Find the overflow with the largest point count.
+        uint64_t selectedSize = 0;
+        uint64_t selectedIndex = 0;
+        for (uint64_t d(0); d < m_overflowLists.size(); ++d)
+        {
+            auto& current(m_overflowLists[d]);
+            if (current && current->size() > selectedSize)
+            {
+                selectedIndex = d;
+                selectedSize = current->size();
+            }
+        }
+
+        // Make sure our largest overflow is large enough to necessitate a
+        // child node.
+        const uint64_t minSize(m_ref.metadata().overflowThreshold() / 2.0);
+        if (selectedSize < minSize) return;
+
+        doOverflow(clipper, selectedIndex);
+    }
+
+    void doOverflow(Clipper& clipper, const uint64_t index)
+    {
+        OverflowListPtr& olist(m_overflowLists[index]);
+        MemBlock& b(m_overflowBlocks[index]);
+        assert(olist);
+
+        for (Overflow& o : *olist)
+        {
+            o.step();
+            m_children[index].insert(o.voxel, o.key, clipper);
+        }
+
+        m_overflowCount -= olist->size();
+        olist.reset();
+        b.clear();
     }
 
     const ReffedChunk& m_ref;
@@ -257,18 +322,9 @@ private:
     MemBlock m_gridBlock;
 
     SpinLock m_overflowSpin;
-    bool m_hasChildren = false;
-    MemBlock m_overflowBlock;
-
-    struct Overflow
-    {
-        Overflow(Key& key) : key(key) { }
-        void step() { key.step(voxel.point()); }
-
-        Key key;
-        Voxel voxel;
-    };
-    std::unique_ptr<std::vector<Overflow>> m_overflow;
+    OverflowBlocks m_overflowBlocks;
+    std::array<OverflowListPtr, 8> m_overflowLists;
+    uint64_t m_overflowCount = 0;
 
     std::vector<ReffedChunk> m_children;
 };
