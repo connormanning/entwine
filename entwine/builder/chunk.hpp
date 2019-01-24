@@ -213,6 +213,19 @@ private:
 
         if (m_overflowBlock.size() > m_ref.metadata().overflowThreshold())
         {
+            uint64_t gridSize(0);
+            {
+                SpinGuard lock(m_spin);
+                gridSize = m_gridBlock.size();
+            }
+
+            const uint64_t ourSize(gridSize + m_overflowBlock.size());
+            const uint64_t maxSize(
+                    m_span * m_span * 1.25 +
+                    m_ref.metadata().overflowThreshold());
+
+            if (ourSize < maxSize) return true;
+
             doOverflow(clipper);
         }
 
