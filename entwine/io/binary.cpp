@@ -91,7 +91,7 @@ void Binary::read(
             m_metadata.outSchema(),
             std::move(*ensureGet(out, filename + ".bin")));
     const uint64_t np(src.capacity());
-    assert(np == src.capacity());
+    assert(np <= dst.capacity());
 
     // For reading, our destination schema will always be normalized (i.e. XYZ
     // as doubles).  So we can just copy the full dimension list and then
