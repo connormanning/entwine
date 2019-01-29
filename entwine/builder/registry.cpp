@@ -55,7 +55,7 @@ void Registry::merge(const Registry& other, Clipper& clipper)
 
         if (dxyz.d < m_metadata.sharedDepth())
         {
-            VectorPointTable table(m_metadata.schema());
+            VectorPointTable table(m_metadata.schema(), np);
             table.setProcess([this, &table, &clipper, &dxyz]()
             {
                 Voxel voxel;
