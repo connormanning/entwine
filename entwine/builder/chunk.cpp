@@ -120,10 +120,12 @@ void ReffedChunk::unref(const Origin o)
         m_refs.erase(o);
         if (m_refs.empty())
         {
-            BlockPointTable table(
-                    m_metadata.schema(),
-                    m_chunk->gridBlock(),
-                    m_chunk->overflowBlock());
+            BlockPointTable table(m_metadata.schema());
+            uint64_t size(m_chunk->gridBlock().size());
+            for (const auto& mb : m_chunk->overflowBlocks()) size += mb.size();
+            table.reserve(size);
+            table.insert(m_chunk->gridBlock());
+            for (auto& mb : m_chunk->overflowBlocks()) table.insert(mb);
 
             m_hierarchy.set(m_key.get(), table.size());
 

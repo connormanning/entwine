@@ -77,12 +77,14 @@ private:
 class BlockPointTable : public pdal::SimplePointTable
 {
 public:
-    BlockPointTable(const Schema& schema, MemBlock& a, MemBlock& b)
+    BlockPointTable(const Schema& schema)
         : SimplePointTable(schema.pdalLayout())
+    { }
+
+    void reserve(uint64_t size) { m_refs.reserve(size); }
+    void insert(MemBlock& m)
     {
-        m_refs.reserve(a.size() + b.size());
-        m_refs.insert(m_refs.end(), a.refs().begin(), a.refs().end());
-        m_refs.insert(m_refs.end(), b.refs().begin(), b.refs().end());
+        m_refs.insert(m_refs.end(), m.refs().begin(), m.refs().end());
     }
 
     virtual char* getPoint(pdal::PointId index) override
