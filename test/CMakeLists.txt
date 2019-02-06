@@ -12,7 +12,7 @@ macro(ENTWINE_ADD_TEST _name)
     add_executable(${test-name} ${ENTWINE_ADD_TEST_FILES})
     compiler_options(${test-name})
     target_link_libraries(${test-name}
-        PRIVATE entwine gtest gtest_main ${PDAL_LIBRARIES} ${JSONCPP_LIBRARY})
+        PRIVATE entwine gtest gtest_main ${PDAL_LIBRARIES})
     target_include_directories(${test-name}
         PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/unit)
     target_compile_definitions(${test-name}

@@ -14,8 +14,6 @@
 #include <string>
 #include <vector>
 
-#include <json/json.h>
-
 #include "arg-parser.hpp"
 
 #include <entwine/third/arbiter/arbiter.hpp>

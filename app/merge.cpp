@@ -15,8 +15,6 @@
 #include <memory>
 #include <string>
 
-#include <json/json.h>
-
 #include <entwine/builder/config.hpp>
 #include <entwine/builder/merger.hpp>
 
