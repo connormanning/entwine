@@ -38,8 +38,6 @@
 namespace entwine
 {
 
-using namespace arbiter;
-
 namespace
 {
     const std::size_t inputRetryLimit(16);
@@ -50,8 +48,10 @@ Builder::Builder(const Config& config, std::shared_ptr<arbiter::Arbiter> a)
     : m_config(config.prepare())
     , m_interval(m_config.progressInterval())
     , m_arbiter(a ? a : std::make_shared<arbiter::Arbiter>(m_config.arbiter()))
-    , m_out(makeUnique<Endpoint>(m_arbiter->getEndpoint(m_config.output())))
-    , m_tmp(makeUnique<Endpoint>(m_arbiter->getEndpoint(m_config.tmp())))
+    , m_out(makeUnique<arbiter::Endpoint>(
+                m_arbiter->getEndpoint(m_config.output())))
+    , m_tmp(makeUnique<arbiter::Endpoint>(
+                m_arbiter->getEndpoint(m_config.tmp())))
     , m_threadPools(
             makeUnique<ThreadPools>(
                 m_config.workThreads(),

@@ -31,7 +31,6 @@ configure_file(${entwine_defs_hpp_in} ${entwine_defs_hpp})
 
 include(${CMAKE_DIR}/threads.cmake)
 include(${CMAKE_DIR}/backtrace.cmake)
-include(${CMAKE_DIR}/json.cmake)
 include(${CMAKE_DIR}/curl.cmake)
 include(${CMAKE_DIR}/openssl.cmake)
 include(${CMAKE_DIR}/pdal.cmake)
@@ -72,7 +71,6 @@ target_link_libraries(entwine
         ${PDAL_LIBRARIES}
         ${CURL_LIBRARIES}
         ${OPENSSL_LIBRARIES}
-        ${JSONCPP_LIBRARY}
         ${SHLWAPI}
 )
 
