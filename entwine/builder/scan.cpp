@@ -233,7 +233,7 @@ void Scan::addRanged(FileInfo& f)
 
 void Scan::add(FileInfo& f, const std::string localPath)
 {
-    const json pipeline(m_in.pipeline(localPath, nullptr));
+    const json pipeline(m_in.pipeline(localPath));
 
     auto preview(Executor::get().preview(pipeline, m_in.trustHeaders()));
     if (!preview) return;
@@ -339,7 +339,7 @@ Config Scan::aggregate()
     out.setInput(m_files.list());
     if (m_re) out.setReprojection(*m_re);
     out.setSrs(srs);
-    out.setPipeline(m_in.pipeline("", nullptr));
+    out.setPipeline(m_in.pipeline(""));
 
     return out;
 }

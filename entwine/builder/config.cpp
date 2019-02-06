@@ -198,7 +198,7 @@ FileInfoList Config::input() const
     return f;
 }
 
-json Config::pipeline(std::string filename, nullptr_t) const
+json Config::pipeline(std::string filename) const
 {
     const auto r(reprojection());
 

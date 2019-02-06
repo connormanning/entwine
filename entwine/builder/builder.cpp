@@ -324,7 +324,7 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
         }
     });
 
-    const json pipeline(m_config.pipeline(localPath, nullptr));
+    const json pipeline(m_config.pipeline(localPath));
 
     if (!Executor::get().run(table, pipeline))
     {

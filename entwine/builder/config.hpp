@@ -43,7 +43,7 @@ public:
     //        and has its configuration merged in.
     Config prepare() const;
 
-    json pipeline(std::string filename, nullptr_t) const;
+    json pipeline(std::string filename) const;
 
     FileInfoList input() const;
 

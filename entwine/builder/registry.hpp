@@ -16,8 +16,6 @@
 #include <set>
 #include <vector>
 
-#include <json/json.h>
-
 #include <entwine/builder/chunk.hpp>
 #include <entwine/builder/clipper.hpp>
 #include <entwine/builder/hierarchy.hpp>

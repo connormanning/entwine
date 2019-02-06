@@ -15,29 +15,11 @@
 #include <sstream>
 #include <string>
 
-#include <json/json.h>
-
 #include <entwine/third/json.hpp>
 #include <entwine/types/defs.hpp>
 
 namespace entwine
 {
-
-inline Json::Value mjsonToJsoncpp(const json& j)
-{
-    Json::CharReaderBuilder builder;
-    Json::Value json;
-
-    std::istringstream ss(j.dump());
-    std::string errors;
-
-    if (!parseFromStream(builder, ss, &json, &errors))
-    {
-        throw std::runtime_error("Error during parsing: " + errors);
-    }
-
-    return json;
-}
 
 inline std::vector<std::string> keys(const json& j)
 {

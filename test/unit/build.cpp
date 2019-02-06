@@ -273,7 +273,7 @@ TEST(build, subset)
     const std::string outPath(test::dataPath() + "out/subset/");
     const std::string metaPath(outPath + "ept-sources/");
 
-    for (Json::UInt64 i(0); i < 4u; ++i)
+    for (uint64_t i(0); i < 4u; ++i)
     {
         Config c(json {
             { "input", test::dataPath() + "ellipsoid-multi/" },
@@ -385,7 +385,7 @@ TEST(build, subsetFromScan)
     const std::string outPath(test::dataPath() + "out/from-scan-subset/");
     const std::string metaPath(outPath + "ept-sources/");
 
-    for (Json::UInt64 i(0); i < 4u; ++i)
+    for (uint64_t i(0); i < 4u; ++i)
     {
         Config c(json {
             { "input", scanPath + "scan.json" },
