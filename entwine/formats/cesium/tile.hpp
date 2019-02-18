@@ -25,11 +25,11 @@ public:
     Tile(const Tileset& tileset, const ChunkKey& ck, bool external = false)
         : m_tileset(tileset)
         , m_json {
-            { "boundingVolume", { "box", toBox(ck.bounds()) } },
+            { "boundingVolume", { { "box", toBox(ck.bounds()) } } },
             { "geometricError", m_tileset.geometricErrorAt(ck.depth()) },
-            { "content", { "url", external ?
+            { "content", { { "url", external ?
                 "tileset-" + ck.toString() + ".json" : ck.toString() + ".pnts"
-            } }
+            } } }
         }
     {
         if (!ck.depth()) m_json["refine"] = "ADD";
