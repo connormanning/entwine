@@ -96,7 +96,7 @@ void Build::addArgs()
     m_ap.add(
             "--bounds",
             "-b",
-            "XYZ bounds specification beyond which points will be discarded\n"
+            "XYZ bounds specification beyond which points will be discarded. Format is [xmin, ymin, zmin, xmax, ymax, zmax]\n"
             "Example: --bounds 0 0 0 100 100 100, -b \"[0,0,0,100,100,100]\"",
             [this](json j)
             {
