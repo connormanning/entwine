@@ -36,6 +36,10 @@ public:
             const arbiter::Endpoint& tmp,
             const std::string& filename,
             VectorPointTable& table) const override;
+
+protected:
+    std::vector<char> pack(BlockPointTable& src) const;
+    void unpack(VectorPointTable& dst, std::vector<char>&& buffer) const;
 };
 
 } // namespace entwine

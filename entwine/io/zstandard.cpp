@@ -10,7 +10,6 @@
 
 #include <entwine/io/zstandard.hpp>
 
-/*
 #include <pdal/compression/ZstdCompression.hpp>
 
 namespace entwine
@@ -19,45 +18,42 @@ namespace entwine
 void Zstandard::write(
         const arbiter::Endpoint& out,
         const arbiter::Endpoint& tmp,
-        PointPool& pointPool,
         const std::string& filename,
-        Cell::PooledStack&& cells,
-        const uint64_t np) const
+        const Bounds& bounds,
+        BlockPointTable& src) const
 {
-    const auto uncompressed(getBuffer(cells, np));
+    const std::vector<char> uncompressed(pack(src));
 
     std::vector<char> compressed;
     pdal::ZstdCompressor compressor([&compressed](char* pos, std::size_t size)
     {
         compressed.insert(compressed.end(), pos, pos + size);
-    });
+    }, 3 /* ZSTD_CLEVEL_DEFAULT */);
 
     compressor.compress(uncompressed.data(), uncompressed.size());
     compressor.done();
 
-    writeBuffer(out, filename + ".zst", compressed);
+    ensurePut(out, filename + ".zst", compressed);
 }
 
-Cell::PooledStack Zstandard::read(
+void Zstandard::read(
         const arbiter::Endpoint& out,
         const arbiter::Endpoint& tmp,
-        PointPool& pool,
-        const std::string& filename) const
+        const std::string& filename,
+        VectorPointTable& dst) const
 {
-    std::vector<char> uncompressed;
-    const auto compressed(getBuffer(out, filename + ".zst"));
+    auto compressed(*ensureGet(out, filename + ".zst"));
 
+    std::vector<char> uncompressed;
     pdal::ZstdDecompressor dec([&uncompressed](char* pos, std::size_t size)
     {
         uncompressed.insert(uncompressed.end(), pos, pos + size);
     });
 
     dec.decompress(compressed.data(), compressed.size());
-    dec.done();
 
-    return getCells(pool, uncompressed);
+    unpack(dst, std::move(uncompressed));
 }
 
 } // namespace entwine
-*/
 

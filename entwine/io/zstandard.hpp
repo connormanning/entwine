@@ -10,7 +10,6 @@
 
 #include <entwine/io/binary.hpp>
 
-/*
 namespace entwine
 {
 
@@ -24,18 +23,16 @@ public:
     virtual void write(
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
-            PointPool& pointPool,
             const std::string& filename,
-            Cell::PooledStack&& cells,
-            uint64_t np) const override;
+            const Bounds& bounds,
+            BlockPointTable& table) const override;
 
-    virtual Cell::PooledStack read(
+    virtual void read(
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
-            PointPool& pointPool,
-            const std::string& filename) const override;
+            const std::string& filename,
+            VectorPointTable& table) const override;
 };
 
 } // namespace entwine
-*/
 
