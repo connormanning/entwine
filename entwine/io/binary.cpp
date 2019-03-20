@@ -28,6 +28,22 @@ void Binary::write(
         const Bounds& bounds,
         BlockPointTable& src) const
 {
+    const auto packed(pack(src));
+    ensurePut(out, filename + ".bin", packed);
+}
+
+void Binary::read(
+        const arbiter::Endpoint& out,
+        const arbiter::Endpoint& tmp,
+        const std::string& filename,
+        VectorPointTable& dst) const
+{
+    auto packed(*ensureGet(out, filename + ".bin"));
+    unpack(dst, std::move(packed));
+}
+
+std::vector<char> Binary::pack(BlockPointTable& src) const
+{
     const uint64_t np(src.size());
 
     const Schema& outSchema(m_metadata.outSchema());
@@ -78,18 +94,13 @@ void Binary::write(
         }
     }
 
-    ensurePut(out, filename + ".bin", dst.data());
+    return dst.data();
 }
 
-void Binary::read(
-        const arbiter::Endpoint& out,
-        const arbiter::Endpoint& tmp,
-        const std::string& filename,
-        VectorPointTable& dst) const
+void Binary::unpack(VectorPointTable& dst, std::vector<char>&& packed) const
 {
-    VectorPointTable src(
-            m_metadata.outSchema(),
-            std::move(*ensureGet(out, filename + ".bin")));
+    VectorPointTable src(m_metadata.outSchema(), std::move(packed));
+
     const uint64_t np(src.capacity());
     assert(np <= dst.capacity());
 
