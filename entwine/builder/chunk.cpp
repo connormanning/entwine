@@ -96,11 +96,7 @@ void ReffedChunk::ref(Clipper& clipper)
         {
             voxel.initShallow(it.pointRef(), it.data());
             pk.init(voxel.point(), m_key.depth());
-            if (!insert(voxel, pk, clipper))
-            {
-                std::cout << "Unexpected wakeup: " << m_key.get() <<
-                    " " << voxel.point() << std::endl;
-            }
+            insert(voxel, pk, clipper);
         }
     });
 
