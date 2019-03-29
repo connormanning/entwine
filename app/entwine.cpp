@@ -225,6 +225,15 @@ void App::addArbiter()
             });
 
     m_ap.add(
+            "--allow-instance-profile",
+            "Allow EC2 instance profile use for S3 backends\n",
+            [this](json j)
+            {
+                checkEmpty(j);
+                m_json["arbiter"]["s3"]["allowInstanceProfile"] = true;
+            });
+
+    m_ap.add(
             "--verbose",
             "-v",
             "Enable developer-level verbosity",

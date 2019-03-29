@@ -12,6 +12,8 @@
 
 #include <cstdlib>
 
+#include <entwine/util/unique.hpp>
+
 namespace entwine
 {
 
