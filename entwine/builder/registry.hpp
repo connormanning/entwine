@@ -17,6 +17,7 @@
 #include <vector>
 
 #include <entwine/builder/chunk.hpp>
+#include <entwine/builder/chunk-cache.hpp>
 #include <entwine/builder/clipper.hpp>
 #include <entwine/builder/hierarchy.hpp>
 #include <entwine/builder/thread-pools.hpp>
@@ -44,12 +45,17 @@ public:
             ThreadPools& threadPools,
             bool exists = false);
 
-    void save() const;
+    void save();
     void merge(const Registry& other, Clipper& clipper);
 
     void addPoint(Voxel& voxel, Key& key, Clipper& clipper)
     {
         m_root.insert(voxel, key, clipper);
+    }
+
+    void newAddPoint(Voxel& voxel, Key& key, ChunkKey& ck, Pruner& pruner)
+    {
+        m_chunkCache->insert(voxel, key, ck, pruner);
     }
 
     void purge() { m_root.empty(); }
@@ -69,6 +75,7 @@ private:
     Hierarchy m_hierarchy;
 
     ReffedChunk m_root;
+    std::unique_ptr<ChunkCache> m_chunkCache;
 };
 
 } // namespace entwine

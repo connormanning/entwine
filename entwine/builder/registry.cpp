@@ -39,10 +39,14 @@ Registry::Registry(
     , m_threadPools(threadPools)
     , m_hierarchy(m_metadata, m_hierEp, exists)
     , m_root(ChunkKey(metadata), m_dataEp, tmp, m_hierarchy)
+    , m_chunkCache(makeUnique<ChunkCache>(m_hierarchy, m_dataEp, m_tmp))
 { }
 
-void Registry::save() const
+void Registry::save()
 {
+    // TODO This won't be necessary once the clipping logic is hooked up.
+    m_chunkCache.reset();
+
     m_hierarchy.save(m_metadata, m_hierEp, m_threadPools.workPool());
 }
 

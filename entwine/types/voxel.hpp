@@ -46,6 +46,14 @@ public:
         m_point = so.clip(m_point);
     }
 
+    void swapDeep(Voxel& other, uint64_t pointSize)
+    {
+        assert(m_data);
+        assert(other.m_data);
+        std::swap(m_point, other.m_point);
+        std::swap_ranges(m_data, m_data + pointSize, other.m_data);
+    }
+
 private:
     Point m_point;
     char* m_data = nullptr;

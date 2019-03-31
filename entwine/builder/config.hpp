@@ -124,14 +124,14 @@ public:
     bool force() const { return m_json.value("force", false); }
     bool trustHeaders() const { return m_json.value("trustHeaders", true); }
     bool allowOriginId() const { return m_json.value("allowOriginId", true); }
-    uint64_t span() const { return m_json.value("span", 256); }
+    uint64_t span() const { return m_json.value("span", 32); }
 
     uint64_t overflowDepth() const { return m_json.value("overflowDepth", 0); }
     uint64_t overflowThreshold() const
     {
         return m_json.value(
                 "overflowThreshold",
-                span() * span() * m_json.value("overflowRatio", 0.5));
+                span() * span() * span() * m_json.value("overflowRatio", 1.0));
     }
 
     uint64_t hierarchyStep() const { return m_json.value("hierarchyStep", 0); }

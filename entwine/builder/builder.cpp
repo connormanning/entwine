@@ -156,6 +156,8 @@ void Builder::cycle()
     if (verbose()) std::cout << "\tCycled" << std::endl;
 }
 
+
+
 void Builder::doRun(const std::size_t max)
 {
     if (!m_tmp)
@@ -165,16 +167,6 @@ void Builder::doRun(const std::size_t max)
 
     while (auto o = m_sequence->next(max))
     {
-        /*
-        if (
-                (m_resetFiles && m_sequence->added() > m_resetFiles &&
-                     (m_sequence->added() - 1) % m_resetFiles == 0) ||
-                since<std::chrono::minutes>(m_reset) >= m_resetMinutes)
-        {
-            cycle();
-        }
-        */
-
         const Origin origin(*o);
         FileInfo& info(m_metadata->mutableFiles().get(origin));
         const auto path(info.path());
@@ -272,18 +264,21 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
     uint64_t inserted(0);
     uint64_t pointId(0);
 
-    Clipper clipper(*m_registry, originId);
+    ChunkKey ck(*m_metadata);
+    Pruner pruner;
 
     VectorPointTable table(m_metadata->schema());
-    table.setProcess([this, &table, &clipper, &inserted, &pointId, &originId]()
+    table.setProcess([&]()
     {
         inserted += table.numPoints();
 
+        /*
         if (inserted > m_sleepCount)
         {
             inserted = 0;
             clipper.clip();
         }
+        */
 
         std::unique_ptr<ScaleOffset> so(m_metadata->outSchema().scaleOffset());
 
@@ -306,22 +301,26 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
             if (so) voxel.clip(*so);
             const Point& point(voxel.point());
 
+            ck.reset();
+
             if (boundsConforming.contains(point))
             {
                 if (!boundsSubset || boundsSubset->contains(point))
                 {
                     key.init(point);
-                    m_registry->addPoint(voxel, key, clipper);
+                    m_registry->newAddPoint(voxel, key, ck, pruner);
                     pointStats.addInsert();
                 }
             }
             else if (m_metadata->primary()) pointStats.addOutOfBounds();
         }
 
+        /*
         if (originId != invalidOrigin)
         {
             m_metadata->mutableFiles().add(clipper.origin(), pointStats);
         }
+        */
     });
 
     const json pipeline(m_config.pipeline(localPath));

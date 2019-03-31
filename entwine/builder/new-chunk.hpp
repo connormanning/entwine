@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2018, Connor Manning (connor@hobu.co)
+* Copyright (c) 2019, Connor Manning (connor@hobu.co)
 *
 * Entwine -- Point cloud indexing
 *
@@ -23,68 +23,24 @@
 #include <entwine/util/spin-lock.hpp>
 #include <entwine/util/unique.hpp>
 
+#include <entwine/io/laszip.hpp>
+
 namespace entwine
 {
 
-class Chunk;
-
-class ReffedChunk
-{
-public:
-    ReffedChunk(
-            const ChunkKey& key,
-            const arbiter::Endpoint& out,
-            const arbiter::Endpoint& tmp,
-            Hierarchy& hierarchy);
-
-    ReffedChunk(const ReffedChunk& o);
-    ~ReffedChunk();
-
-    struct Info
-    {
-        std::size_t written = 0;
-        std::size_t read = 0;
-        std::size_t alive = 0;
-    };
-
-    bool insert(Voxel& voxel, Key& key, Clipper& clipper);
-
-    void ref(Clipper& clipper);
-    void unref(Origin o);
-    bool empty();
-
-    Chunk& chunk() { assert(m_chunk); return *m_chunk; }
-
-    const ChunkKey& key() const { return m_key; }
-    const Metadata& metadata() const { return m_metadata; }
-    const arbiter::Endpoint& out() const { return m_out; }
-    const arbiter::Endpoint& tmp() const { return m_tmp; }
-    Hierarchy& hierarchy() const { return m_hierarchy; }
-
-    static Info latchInfo();
-
-private:
-    ChunkKey m_key;
-    const Metadata& m_metadata;
-    const arbiter::Endpoint& m_out;
-    const arbiter::Endpoint& m_tmp;
-    Hierarchy& m_hierarchy;
-
-    SpinLock m_spin;
-    std::unique_ptr<Chunk> m_chunk;
-    std::map<Origin, std::size_t> m_refs;
-};
-
-struct VoxelTube
+/*
+struct NewVoxelTube
 {
     SpinLock spin;
     std::map<uint64_t, Voxel> map;
 };
+*/
 
-class Chunk
+class NewChunk
 {
     static constexpr uint64_t blockSize = 256;
 
+    /*
     struct Overflow
     {
         Overflow(Key& key) : key(key) { }
@@ -93,17 +49,23 @@ class Chunk
         Key key;
         Voxel voxel;
     };
+    */
 
 public:
+    /*
     using OverflowBlocks = std::array<MemBlock, 8>;
     using OverflowList = std::vector<Overflow>;
     using OverflowListPtr = std::unique_ptr<OverflowList>;
+    */
 
-    Chunk(const ReffedChunk& ref)
-        : m_ref(ref)
-        , m_span(m_ref.metadata().span())
-        , m_pointSize(m_ref.metadata().schema().pointSize())
-        , m_gridBlock(m_pointSize, 4096)
+    NewChunk(const Metadata& m)
+        : m_metadata(m)
+        , m_span(m.span())
+        , m_pointSize(m.schema().pointSize())
+        , m_grid(m_span * m_span * m_span)
+        , m_gridData(m_grid.size() * m_pointSize)
+        , m_gridSpins(m_grid.size())
+          /*
         , m_overflowBlocks { {
             MemBlock(m_pointSize, blockSize),
             MemBlock(m_pointSize, blockSize),
@@ -114,26 +76,9 @@ public:
             MemBlock(m_pointSize, blockSize),
             MemBlock(m_pointSize, blockSize)
         } }
+        */
     {
-        init();
-
-        m_children.reserve(dirEnd());
-        for (std::size_t d(0); d < dirEnd(); ++d)
-        {
-            const ChunkKey key(m_ref.key().getStep(toDir(d)));
-            m_children.emplace_back(
-                    key,
-                    m_ref.out(),
-                    m_ref.tmp(),
-                    m_ref.hierarchy());
-        }
-    }
-
-    void init()
-    {
-        assert(!m_grid);
-        m_grid = makeUnique<std::vector<VoxelTube>>(m_span * m_span);
-
+        /*
         for (std::size_t d(0); d < dirEnd(); ++d)
         {
             assert(!m_overflowLists[d]);
@@ -145,70 +90,78 @@ public:
         }
 
         m_remote = false;
+        */
     }
 
-    bool terminus()
+    uint64_t save(
+            const arbiter::Endpoint& out,
+            const arbiter::Endpoint& tmp,
+            const ChunkKey& ck)
     {
-        // Make sure we don't early-return here - need to traverse all children.
-        bool result(true);
-        for (auto& c : m_children) if (!c.empty()) result = false;
-        return result;
+        // TODO Update IO methods so we don't have to transform our data.
+        MemBlock block(m_pointSize, 1024);
+        for (uint64_t i(0); i < m_grid.size(); ++i)
+        {
+            if (m_grid[i].data())
+            {
+                std::copy(
+                        m_grid[i].data(),
+                        m_grid[i].data() + m_pointSize,
+                        block.next());
+            }
+        }
+
+        const uint64_t np(block.size());
+
+        BlockPointTable table(m_metadata.schema());
+        table.insert(block);
+
+        std::cout << "Writing " << ck.toString() << " " << np << std::endl;
+        m_metadata.dataIo().write(
+                out,
+                tmp,
+                ck.toString() + m_metadata.postfix(ck.depth()),
+                ck.bounds(),
+                table);
+
+        return np;
+
     }
 
-    void reset()
-    {
-        m_grid.reset();
-        m_overflowCount = 0;
-        for (std::size_t d(0); d < dirEnd(); ++d) m_overflowLists[d].reset();
-        m_remote = true;
-
-        m_gridBlock.clear();
-        for (auto& o : m_overflowBlocks) o.clear();
-    }
-
-    bool remote() const { return m_remote; }
-
-    ReffedChunk& step(const Point& p)
-    {
-        const Dir dir(getDirection(m_ref.key().bounds().mid(), p));
-        return m_children[toIntegral(dir)];
-    }
-
-    bool insert(Voxel& voxel, Key& key, Clipper& clipper)
+    bool insert(Voxel& voxel, Key& key)
     {
         const Xyz& pos(key.position());
-        const std::size_t i((pos.y % m_span) * m_span + (pos.x % m_span));
-        VoxelTube& tube((*m_grid)[i]);
+        const uint64_t i(
+                (pos.z % m_span) * m_span * m_span +
+                (pos.y % m_span) * m_span +
+                (pos.x % m_span));
 
-        UniqueSpin tubeLock(tube.spin);
-        Voxel& dst(tube.map[pos.z]);
+        // TODO Assert.
+        if (i > m_grid.size()) throw std::runtime_error("Invalid grid index");
+
+        SpinGuard voxelSpin(m_gridSpins[i]);
+        Voxel& dst(m_grid[i]);
+        char* data(m_gridData.data() + i * m_pointSize);
 
         if (dst.data())
         {
             const Point& mid(key.bounds().mid());
             if (voxel.point().sqDist3d(mid) < dst.point().sqDist3d(mid))
             {
-                if (!insertOverflow(dst, key, clipper))
-                {
-                    key.step(dst.point());
-                    step(dst.point()).insert(dst, key, clipper);
-                }
-
-                dst.initDeep(voxel.point(), voxel.data(), m_pointSize);
-                return true;
+                voxel.swapDeep(dst, m_pointSize);
             }
         }
         else
         {
-            {
-                SpinGuard lock(m_spin);
-                dst.setData(m_gridBlock.next());
-            }
+            dst.setData(data);
             dst.initDeep(voxel.point(), voxel.data(), m_pointSize);
             return true;
         }
 
-        tubeLock.unlock();
+        return false;
+        // TODO - overflow here.
+        /*
+        voxelSpin.unlock();
 
         if (insertOverflow(voxel, key, clipper))
         {
@@ -220,12 +173,14 @@ public:
             step(voxel.point()).insert(voxel, key, clipper);
             return false;
         }
+        */
     }
 
-    MemBlock& gridBlock() { return m_gridBlock; }
-    OverflowBlocks& overflowBlocks() { return m_overflowBlocks; }
+    // MemBlock& gridBlock() { return m_gridBlock; }
+    // OverflowBlocks& overflowBlocks() { return m_overflowBlocks; }
 
 private:
+    /*
     bool insertOverflow(Voxel& voxel, Key& key, Clipper& clipper)
     {
         if (m_ref.key().depth() < m_ref.metadata().overflowDepth())
@@ -311,22 +266,23 @@ private:
         olist.reset();
         b.clear();
     }
+    */
 
-    const ReffedChunk& m_ref;
+    const Metadata& m_metadata;
     const uint64_t m_span;
     const uint64_t m_pointSize;
-    bool m_remote = false;
 
     SpinLock m_spin;
-    std::unique_ptr<std::vector<VoxelTube>> m_grid;
-    MemBlock m_gridBlock;
+    std::vector<Voxel> m_grid;
+    std::vector<char> m_gridData;
+    std::vector<SpinLock> m_gridSpins;
 
+    /*
     SpinLock m_overflowSpin;
     OverflowBlocks m_overflowBlocks;
     std::array<OverflowListPtr, 8> m_overflowLists;
     uint64_t m_overflowCount = 0;
-
-    std::vector<ReffedChunk> m_children;
+    */
 };
 
 } // namespace entwine

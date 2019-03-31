@@ -54,6 +54,11 @@ inline bool operator==(const Xyz& a, const Xyz& b)
     return a.x == b.x && a.y == b.y && a.z == b.z;
 }
 
+inline bool operator!=(const Xyz& a, const Xyz& b)
+{
+    return !(a == b);
+}
+
 struct Dxyz
 {
     Dxyz() : x(p.x), y(p.y), z(p.z) { }

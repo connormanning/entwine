@@ -95,7 +95,6 @@ void Laz::write(
         arbiter::remove(tmp.prefixedRoot() + localFile);
     }
 }
-
 void Laz::read(
         const arbiter::Endpoint& out,
         const arbiter::Endpoint& tmp,
