@@ -10,6 +10,9 @@
 
 #include <entwine/builder/chunk-cache.hpp>
 
+#include <entwine/builder/hierarchy.hpp>
+#include <entwine/builder/pruner.hpp>
+
 namespace entwine
 {
 
@@ -24,11 +27,14 @@ ChunkCache::ChunkCache(
 
 ChunkCache::~ChunkCache()
 {
-    for (auto& p : m_chunks)
+    for (auto& slice : m_chunks)
     {
-        NewChunk& c(p.second);
-        const uint64_t np = c.save(m_out, m_tmp);
-        m_hierarchy.set(c.chunkKey().get(), np);
+        for (auto& p : slice)
+        {
+            NewChunk& c(p.second);
+            const uint64_t np = c.save(m_out, m_tmp);
+            m_hierarchy.set(c.chunkKey().get(), np);
+        }
     }
 }
 
@@ -36,8 +42,7 @@ void ChunkCache::insert(
         Voxel& voxel,
         Key& key,
         const ChunkKey& ck,
-        Pruner& pruner,
-        bool force)
+        Pruner& pruner)
 {
     // Get from single-threaded cache if we can.
     NewChunk* chunk = pruner.get(ck);
@@ -45,7 +50,7 @@ void ChunkCache::insert(
     // Otherwise, make sure it's initialized and increment its ref count.
     if (!chunk)
     {
-        chunk = &addRef(ck);
+        chunk = &addRef(ck, pruner);
         pruner.set(ck, chunk);
     }
 
@@ -58,17 +63,16 @@ void ChunkCache::insert(
     insert(voxel, key, chunk->childAt(dir), pruner);
 }
 
-NewChunk& ChunkCache::addRef(const ChunkKey& ck)
+NewChunk& ChunkCache::addRef(const ChunkKey& ck, Pruner& pruner)
 {
     // This is the first access of this chunk for a particular thread.
     std::cout << "Creating " << ck.dxyz() << std::endl;
 
-    // TODO This lock is egregious - narrow its scope to the relevant tube,
-    // we need to split our chunk data structure into slices.
-    UniqueSpin cacheLock(m_spin);
+    UniqueSpin sliceLock(m_spins[ck.depth()]);
 
-    auto it(m_chunks.find(ck.dxyz()));
-    if (it != m_chunks.end())
+    auto& slice(m_chunks[ck.depth()]);
+    auto it(slice.find(ck.dxyz()));
+    if (it != slice.end())
     {
         // If we have the chunk, simply increment its ref count.
         NewChunk& chunk = it->second;
@@ -79,20 +83,39 @@ NewChunk& ChunkCache::addRef(const ChunkKey& ck)
 
     // Otherwise, create the chunk and initialize its contents.
     NewChunk& chunk(
-            m_chunks.emplace(
+            slice.emplace(
                 std::piecewise_construct,
                 std::forward_as_tuple(ck.dxyz()),
-                std::forward_as_tuple(ck))
+                std::forward_as_tuple(ck, m_hierarchy))
             .first->second);
 
+    // TODO Do we need to lock this chunk for any reason?  Possibly not...
     // While we are still holding our own lock, grab the lock of this chunk.
-    SpinGuard chunkLock(chunk.spin());
-    cacheLock.unlock();
+    // SpinGuard chunkLock(chunk.spin());
+    sliceLock.unlock();
 
-    // TODO Potentially initialize with remote data, determined by:
-    //      m_hierarchy.get(ck.dxyz()));
+    // Initialize with remote data if we're reawakening this chunk.
+    if (const uint64_t np = m_hierarchy.get(ck.dxyz()))
+    {
+        std::cout << "\tReawaken: " << ck.dxyz() << std::endl;
+        chunk.load(*this, pruner, m_out, m_tmp, np);
+    }
 
     return chunk;
+}
+
+void ChunkCache::prune(uint64_t depth)
+{
+    for (auto& p : m_chunks[depth])
+    {
+        NewChunk& c(p.second);
+        const uint64_t np = c.save(m_out, m_tmp);
+        m_hierarchy.set(c.chunkKey().get(), np);
+    }
+
+    // TODO Only remove entries that have been serialized.  Right now we're
+    // killing everything.
+    m_chunks[depth].clear();
 }
 
 } // namespace entwine

@@ -23,6 +23,7 @@ namespace entwine
 
 namespace arbiter { class Endpoint; }
 
+class Hierarchy;
 class ChunkCache;
 class Pruner;
 
@@ -35,10 +36,16 @@ struct NewVoxelTube
 class NewChunk
 {
 public:
-    NewChunk(const ChunkKey& ck);
+    NewChunk(const ChunkKey& ck, const Hierarchy& hierarchy);
 
     bool insert(ChunkCache& cache, Pruner& pruner, Voxel& voxel, Key& key);
     uint64_t save(const arbiter::Endpoint& out, const arbiter::Endpoint& tmp);
+    void load(
+            ChunkCache& cache,
+            Pruner& pruner,
+            const arbiter::Endpoint& out,
+            const arbiter::Endpoint& tmp,
+            uint64_t np);
 
     const ChunkKey& chunkKey() const { return m_chunkKey; }
     const ChunkKey& childAt(Dir dir) const

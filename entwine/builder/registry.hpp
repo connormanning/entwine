@@ -65,6 +65,7 @@ public:
 
     const Metadata& metadata() const { return m_metadata; }
     const Hierarchy& hierarchy() const { return m_hierarchy; }
+    ChunkCache& cache() const { return *m_chunkCache; }
 
 private:
     const Metadata& m_metadata;

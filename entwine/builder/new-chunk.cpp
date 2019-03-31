@@ -19,7 +19,7 @@
 namespace entwine
 {
 
-NewChunk::NewChunk(const ChunkKey& ck)
+NewChunk::NewChunk(const ChunkKey& ck, const Hierarchy& hierarchy)
     : m_metadata(ck.metadata())
     , m_span(m_metadata.span())
     , m_pointSize(m_metadata.schema().pointSize())
@@ -37,10 +37,14 @@ NewChunk::NewChunk(const ChunkKey& ck)
     , m_grid(m_span * m_span)
     , m_gridBlock(m_pointSize, 4096)
 {
-    // TODO Check hierarchy before we do this.
     for (uint64_t i(0); i < dirEnd(); ++i)
     {
-        m_overflows[i] = makeUnique<Overflow>(ck.getStep(toDir(i)));
+        const Dir dir(toDir(i));
+        // If there are already points at this child, it gets no overflow.
+        if (!hierarchy.get(childAt(dir).dxyz()))
+        {
+            m_overflows[i] = makeUnique<Overflow>(ck.getStep(dir));
+        }
     }
 }
 
@@ -149,12 +153,12 @@ void NewChunk::doOverflow(ChunkCache& cache, Pruner& pruner, uint64_t dir)
     // TODO We could unlock our overflowSpin here - bookkeeping has been
     // fully updated for the removal of this Overflow.
 
-    const ChunkKey& ck(m_childKeys[dir]);
+    const ChunkKey ck(m_childKeys[dir]);
 
     for (auto& entry : active->list())
     {
         entry.key.step(entry.voxel.point());
-        cache.insert(entry.voxel, entry.key, ck, pruner, true);
+        cache.insert(entry.voxel, entry.key, ck, pruner);
     }
 }
 
@@ -170,14 +174,42 @@ uint64_t NewChunk::save(
     table.insert(m_gridBlock);
     for (auto& o : m_overflows) if (o) table.insert(o->block());
 
+    const auto filename(
+            m_chunkKey.toString() + m_metadata.postfix(m_chunkKey.depth()));
     m_metadata.dataIo().write(
             out,
             tmp,
-            m_chunkKey.toString() + m_metadata.postfix(m_chunkKey.depth()),
+            filename,
             m_chunkKey.bounds(),
             table);
 
     return np;
+}
+
+void NewChunk::load(
+        ChunkCache& cache,
+        Pruner& pruner,
+        const arbiter::Endpoint& out,
+        const arbiter::Endpoint& tmp,
+        const uint64_t np)
+{
+    VectorPointTable table(m_metadata.schema(), np);
+    table.setProcess([&]()
+    {
+        Voxel voxel;
+        Key key(m_metadata);
+
+        for (auto it(table.begin()); it != table.end(); ++it)
+        {
+            voxel.initShallow(it.pointRef(), it.data());
+            key.init(voxel.point(), m_chunkKey.depth());
+            cache.insert(voxel, key, m_chunkKey, pruner);
+        }
+    });
+
+    const auto filename(
+            m_chunkKey.toString() + m_metadata.postfix(m_chunkKey.depth()));
+    m_metadata.dataIo().read(out, tmp, filename, table);
 }
 
 } // namespace entwine

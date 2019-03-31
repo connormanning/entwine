@@ -18,6 +18,7 @@
 
 #include <entwine/builder/clipper.hpp>
 #include <entwine/builder/heuristics.hpp>
+#include <entwine/builder/pruner.hpp>
 #include <entwine/builder/registry.hpp>
 #include <entwine/builder/sequence.hpp>
 #include <entwine/builder/thread-pools.hpp>
@@ -265,20 +266,18 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
     uint64_t pointId(0);
 
     ChunkKey ck(*m_metadata);
-    Pruner pruner;
+    Pruner pruner(m_registry->cache());
 
     VectorPointTable table(m_metadata->schema());
     table.setProcess([&]()
     {
         inserted += table.numPoints();
 
-        /*
         if (inserted > m_sleepCount)
         {
             inserted = 0;
-            clipper.clip();
+            pruner.prune();
         }
-        */
 
         std::unique_ptr<ScaleOffset> so(m_metadata->outSchema().scaleOffset());
 
@@ -315,12 +314,10 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
             else if (m_metadata->primary()) pointStats.addOutOfBounds();
         }
 
-        /*
         if (originId != invalidOrigin)
         {
-            m_metadata->mutableFiles().add(clipper.origin(), pointStats);
+            m_metadata->mutableFiles().add(originId, pointStats);
         }
-        */
     });
 
     const json pipeline(m_config.pipeline(localPath));
