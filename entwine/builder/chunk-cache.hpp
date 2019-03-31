@@ -20,8 +20,6 @@
 namespace entwine
 {
 
-class Holder;
-
 struct CachedChunk
 {
     CachedChunk()
@@ -34,7 +32,7 @@ struct CachedChunk
     CachedChunk(const Xyz& xyz) : xyz(xyz) { }
 
     Xyz xyz;
-    Holder* holder = nullptr;
+    NewChunk* chunk = nullptr;
 };
 
 inline bool operator<(const CachedChunk& a, const CachedChunk& b)
@@ -50,11 +48,11 @@ public:
         m_fast.fill(CachedChunk());
     }
 
-    Holder* get(const ChunkKey& ck)
+    NewChunk* get(const ChunkKey& ck)
     {
         CachedChunk& fast(m_fast[ck.depth()]);
 
-        if (fast.xyz == ck.position()) return fast.holder;
+        if (fast.xyz == ck.position()) return fast.chunk;
 
         auto& slow(m_slow[ck.depth()]);
         auto it = slow.find(ck.position());
@@ -62,19 +60,19 @@ public:
         if (it == slow.end()) return nullptr;
 
         fast.xyz = ck.position();
-        return fast.holder = it->second;
+        return fast.chunk = it->second;
     }
 
-    void set(const ChunkKey& ck, Holder* holder)
+    void set(const ChunkKey& ck, NewChunk* chunk)
     {
         CachedChunk& fast(m_fast[ck.depth()]);
 
         fast.xyz = ck.position();
-        fast.holder = holder;
+        fast.chunk = chunk;
 
         auto& slow(m_slow[ck.depth()]);
         assert(!slow.count(ck.position()));
-        slow[ck.position()] = holder;
+        slow[ck.position()] = chunk;
     }
 
     void clear()
@@ -94,9 +92,10 @@ public:
 
 private:
     std::array<CachedChunk, 64> m_fast;
-    std::array<std::map<Xyz, Holder*>, 64> m_slow;
+    std::array<std::map<Xyz, NewChunk*>, 64> m_slow;
 };
 
+/*
 class Holder
 {
 public:
@@ -154,6 +153,7 @@ private:
 
     std::array<ChunkKey, 8> m_children;
 };
+*/
 
 class ChunkCache
 {
@@ -161,95 +161,22 @@ public:
     ChunkCache(
             Hierarchy& hierarchy,
             const arbiter::Endpoint& out,
-            const arbiter::Endpoint& tmp)
-        : m_hierarchy(hierarchy)
-        , m_out(out)
-        , m_tmp(tmp)
-    { }
+            const arbiter::Endpoint& tmp);
 
-    ~ChunkCache()
-    {
-        for (auto& c : m_chunks)
-        {
-            c.second.save(m_hierarchy, m_out, m_tmp);
-        }
-    }
+    ~ChunkCache();
 
-    void insert(Voxel& voxel, Key& key, const ChunkKey& ck, Pruner& pruner)
-    {
-        // Get from single-threaded cache if we can.
-        Holder* holder = pruner.get(ck);
-
-        // Otherwise, make sure it's initialized and increment its ref count.
-        if (!holder)
-        {
-            holder = &addRef(ck);
-            pruner.set(ck, holder);
-        }
-
-        // Try to insert the point into this chunk.
-        if (holder->chunk().insert(voxel, key)) return;
-
-        // TODO
-        if (ck.depth() > 3) return;
-
-        // Failed to insert - need to traverse to the next depth.
-        key.step(voxel.point());
-        const Dir dir(getDirection(ck.bounds().mid(), voxel.point()));
-        insert(voxel, key, holder->childAt(toIntegral(dir)), pruner);
-    }
+    void insert(Voxel& voxel, Key& key, const ChunkKey& ck, Pruner& pruner,
+            bool force = false);
 
 private:
-    // TODO This should be removed, instead using the single-threaded Pruner
-    // for repeated access to a chunk.
-    Holder& at(const ChunkKey& ck)
-    {
-        SpinGuard lock(m_spin);
-        return m_chunks.at(ck.dxyz());
-    }
-
-    Holder& addRef(const ChunkKey& ck)
-    {
-        // This is the first access of this chunk for a particular thread.
-        std::cout << "Creating " << ck.dxyz() << std::endl;
-
-        // TODO This lock is egregious - narrow its scope to the relevant tube,
-        // we need to split our chunk data structure into slices.
-        UniqueSpin cacheLock(m_spin);
-
-        auto it(m_chunks.find(ck.dxyz()));
-        if (it != m_chunks.end())
-        {
-            // If we have the chunk, simply increment its ref count.
-            Holder& holder = it->second;
-            SpinGuard chunkLock(holder.spin());
-            holder.addRef();
-            return holder;
-        }
-
-        // Otherwise, create the chunk and initialize its contents.
-        Holder& holder(
-                m_chunks.emplace(
-                    std::piecewise_construct,
-                    std::forward_as_tuple(ck.dxyz()),
-                    std::forward_as_tuple(ck))
-                .first->second);
-
-        // While we are still holding our own lock, grab the lock of this chunk.
-        SpinGuard chunkLock(holder.spin());
-        cacheLock.unlock();
-
-        // TODO For now we're only serializing at the end.
-        // holder.init(0); // m_hierarchy.get(ck.dxyz()));
-        return holder;
-    }
+    NewChunk& addRef(const ChunkKey& ck);
 
     Hierarchy& m_hierarchy;
     const arbiter::Endpoint& m_out;
     const arbiter::Endpoint& m_tmp;
 
     SpinLock m_spin;
-    std::map<Dxyz, Holder> m_chunks;
+    std::map<Dxyz, NewChunk> m_chunks;
 };
 
 } // namespace entwine
