@@ -137,7 +137,7 @@ void NewChunk::maybeOverflow(ChunkCache& cache, Pruner& pruner)
     // Make sure our largest overflow is large enough to necessitate a
     // child node.
     // TODO Make this ratio configurable.
-    const uint64_t minSize(m_metadata.overflowThreshold() / 4.0);
+    const uint64_t minSize(m_metadata.overflowThreshold() / 2.0);
     if (selectedSize < minSize) return;
 
     doOverflow(cache, pruner, selectedIndex);
@@ -165,7 +165,7 @@ void NewChunk::doOverflow(ChunkCache& cache, Pruner& pruner, uint64_t dir)
 
 uint64_t NewChunk::save(
         const arbiter::Endpoint& out,
-        const arbiter::Endpoint& tmp)
+        const arbiter::Endpoint& tmp) const
 {
     uint64_t np(m_gridBlock.size());
     for (const auto& o : m_overflows) if (o) np += o->size();

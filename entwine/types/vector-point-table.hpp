@@ -82,7 +82,7 @@ public:
     { }
 
     void reserve(uint64_t size) { m_refs.reserve(size); }
-    void insert(MemBlock& m)
+    void insert(const MemBlock& m)
     {
         m_refs.insert(m_refs.end(), m.refs().begin(), m.refs().end());
     }

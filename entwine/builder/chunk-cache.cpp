@@ -53,11 +53,7 @@ void ChunkCache::insert(
     NewChunk* chunk = pruner.get(ck);
 
     // Otherwise, make sure it's initialized and increment its ref count.
-    if (!chunk)
-    {
-        chunk = &addRef(ck, pruner);
-        pruner.set(ck, chunk);
-    }
+    if (!chunk) chunk = &addRef(ck, pruner);
 
     // Try to insert the point into this chunk.
     if (chunk->insert(*this, pruner, voxel, key)) return;
@@ -75,36 +71,49 @@ NewChunk& ChunkCache::addRef(const ChunkKey& ck, Pruner& pruner)
 
     UniqueSpin sliceLock(m_spins[ck.depth()]);
 
-    auto& slice(m_chunks[ck.depth()]);
+    auto& slice(m_reffedChunks[ck.depth()]);
     auto it(slice.find(ck.position()));
     if (it != slice.end())
     {
+        // TODO Remove these - only applies to single-threaded builds for
+        // debugging.
+        std::cout << "Already have: " << ck.dxyz() << std::endl;
+        throw std::runtime_error("Already have this chunk");
+
         // If we have the chunk, simply increment its ref count.
-        NewChunk& chunk = *it->second;
-        SpinGuard chunkLock(chunk.spin());
-        chunk.addRef();
-        return chunk;
+        // TODO Check this logic against our deleting logic.
+        NewReffedChunk& ref = it->second;
+        SpinGuard chunkLock(ref.spin());
+
+        // if (!ref.exists())
+
+        pruner.set(ck, &ref.chunk());
+        ref.add();
+        // TODO Might the chunk be a nullptr here?
+        return ref.chunk();
     }
 
     // Otherwise, create the chunk and initialize its contents.
-    NewChunk& chunk(
-            *slice.emplace(
+    NewReffedChunk& ref(
+            slice.emplace(
                 std::piecewise_construct,
                 std::forward_as_tuple(ck.position()),
-                std::forward_as_tuple(makeUnique<NewChunk>(ck, m_hierarchy)))
+                std::forward_as_tuple(ck, m_hierarchy))
             .first->second);
+    pruner.set(ck, &ref.chunk());
 
     sliceLock.unlock();
 
     // Initialize with remote data if we're reawakening this chunk.  It's ok
-    // if other threads are inserting here concurrently.
+    // if other threads are inserting here concurrently, and we have already
+    // added our reference so it won't be getting deleted.
     if (const uint64_t np = m_hierarchy.get(ck.dxyz()))
     {
-        std::cout << "\tReawaken: " << ck.dxyz() << std::endl;
-        chunk.load(*this, pruner, m_out, m_tmp, np);
+        std::cout << "\tReawaken: " << ck.dxyz() << " " << np << std::endl;
+        ref.chunk().load(*this, pruner, m_out, m_tmp, np);
     }
 
-    return chunk;
+    return ref.chunk();
 }
 
 void ChunkCache::prune(uint64_t depth, const std::map<Xyz, NewChunk*>& stale)
@@ -113,52 +122,80 @@ void ChunkCache::prune(uint64_t depth, const std::map<Xyz, NewChunk*>& stale)
 
     std::cout << "\t\tPruning " << depth << ": " << stale.size() << std::endl;
 
-    auto& slice(m_chunks[depth]);
-    SpinGuard lock(m_spins[depth]);
+    auto& slice(m_reffedChunks[depth]);
 
     for (const auto& p : stale)
     {
+        UniqueSpin sliceLock(m_spins[depth]);
+
         const auto& key(p.first);
         assert(slice.count(key));
 
         // TODO Remove.
         if (!slice.count(key)) throw std::runtime_error("Missing key");
 
-        NewChunk& c(*slice[key]);
+        NewReffedChunk& ref(slice.at(key));
+        UniqueSpin chunkLock(ref.spin());
 
         // TODO Remove.
-        if (c.refs() != 1)
+        if (ref.count() != 1)
         {
             std::cout << "\t\t\tInvalid refs: " <<
-                key.toString(depth) << ": " << c.refs() << std::endl;
+                key.toString(depth) << ": " << ref.count() << std::endl;
             throw std::runtime_error("Invalid refs");
         }
 
-        if (!c.delRef())
+        if (!ref.del())
         {
-            std::cout << "\t\t\tMark: " << key.toString(depth) << std::endl;
-            const uint64_t np = c.save(m_out, m_tmp);
-            m_hierarchy.set(c.chunkKey().get(), np);
-            slice.erase(key);
+            chunkLock.unlock();
+            sliceLock.unlock();
 
-            /*
-            m_pool.addFront([&]()
+            // We've unlocked our locks, now we'll queue an async task to
+            // delete this chunk.  It's possible another thread will show up
+            // in the meantime and add a ref, in which case the async task
+            // needs to atomically no-op.
+            m_pool.add([this, key, depth, &ref, &slice]()
             {
-                SpinGuard lock(m_spins[depth]);
-                if (c.refs())
+                // Reacquire both locks in order and see what we need to do.
+                UniqueSpin sliceLock(m_spins[depth]);
+                UniqueSpin chunkLock(ref.spin());
+
+                if (ref.count())
                 {
-                    std::cout << "Interrupted " << c.chunkKey().dxyz() <<
-                        std::endl;
+                    std::cout << "--- Interrupted " <<
+                        ref.chunk().chunkKey().dxyz() << std::endl;
                     return;
                 }
+
+                std::cout << "\tSaving " << ref.chunk().chunkKey().dxyz() <<
+                    std::endl;
+
+                // TODO Release this lock during IO, making sure we won't break
+                // the addRef logic.
+
+                // The actual IO is expensive, so retain only the chunk lock.
+                // sliceLock.unlock();
+
+                const uint64_t np = ref.chunk().save(m_out, m_tmp);
+                m_hierarchy.set(ref.chunk().chunkKey().get(), np);
+
+                // sliceLock.lock();
+
+                if (ref.count())
+                {
+                    std::cout << "--- Interrupted after save " <<
+                        ref.chunk().chunkKey().dxyz() << std::endl;
+                    return;
+                }
+
+                // Must unlock this before we erase it so the chunkLock
+                // destructor isn't trying to unlock a dangling SpinLock.
+                chunkLock.unlock();
+
+                slice.erase(key);
             });
-            */
         }
     }
-}
-
-void ChunkCache::purge()
-{
 }
 
 } // namespace entwine

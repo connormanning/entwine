@@ -23,6 +23,35 @@ namespace entwine
 class Hierarchy;
 class Pruner;
 
+class NewReffedChunk
+{
+public:
+    NewReffedChunk(const ChunkKey& ck, const Hierarchy& hierarchy)
+        : m_chunk(makeUnique<NewChunk>(ck, hierarchy))
+    { }
+
+    SpinLock& spin() { return m_spin; }
+
+    void add() { ++m_refs; }
+    uint64_t del()
+    {
+        if (!m_refs) throw std::runtime_error("Negative");
+        return --m_refs;
+    }
+    uint64_t count() const { return m_refs; }
+
+    NewChunk& chunk()
+    {
+        if (!m_chunk) throw std::runtime_error("Missing chunk");
+        return *m_chunk;
+    }
+
+private:
+    SpinLock m_spin;
+    uint64_t m_refs = 1;
+    std::unique_ptr<NewChunk> m_chunk;
+};
+
 class ChunkCache
 {
 public:
@@ -36,7 +65,6 @@ public:
 
     void insert(Voxel& voxel, Key& key, const ChunkKey& ck, Pruner& pruner);
     void prune(uint64_t depth, const std::map<Xyz, NewChunk*>& stale);
-    void purge();
 
 private:
     NewChunk& addRef(const ChunkKey& ck, Pruner& pruner);
@@ -48,6 +76,7 @@ private:
 
     std::array<SpinLock, maxDepth> m_spins;
     std::array<std::map<Xyz, std::unique_ptr<NewChunk>>, maxDepth> m_chunks;
+    std::array<std::map<Xyz, NewReffedChunk>, maxDepth> m_reffedChunks;
 };
 
 } // namespace entwine

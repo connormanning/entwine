@@ -39,7 +39,8 @@ public:
     NewChunk(const ChunkKey& ck, const Hierarchy& hierarchy);
 
     bool insert(ChunkCache& cache, Pruner& pruner, Voxel& voxel, Key& key);
-    uint64_t save(const arbiter::Endpoint& out, const arbiter::Endpoint& tmp);
+    uint64_t save(const arbiter::Endpoint& out, const arbiter::Endpoint& tmp)
+        const;
     void load(
             ChunkCache& cache,
             Pruner& pruner,
