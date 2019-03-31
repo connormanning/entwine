@@ -16,16 +16,41 @@
 namespace entwine
 {
 
+Pruner::~Pruner()
+{
+    std::cout << "Pruning ALL" << std::endl;
+    for (
+            uint64_t depth(0);
+            depth < m_slow.size() && m_slow[depth].size();
+            ++depth)
+    {
+        // Purging everything, insert everything into our aged list so we
+        // expire everything.
+        UsedMap& used(m_slow[depth]);
+        UsedMap& aged(m_aged[depth]);
+        aged.insert(used.begin(), used.end());
+    }
+
+    prune();
+}
+
 NewChunk* Pruner::get(const ChunkKey& ck)
 {
     CachedChunk& fast(m_fast[ck.depth()]);
-
     if (fast.xyz == ck.position()) return fast.chunk;
 
     auto& slow(m_slow[ck.depth()]);
     auto it = slow.find(ck.position());
 
-    if (it == slow.end()) return nullptr;
+    if (it == slow.end())
+    {
+        auto& aged(m_aged[ck.depth()]);
+        auto agedIt = aged.find(ck.position());
+        if (agedIt == aged.end()) return nullptr;
+
+        it = slow.insert(std::make_pair(agedIt->first, agedIt->second)).first;
+        aged.erase(agedIt);
+    }
 
     fast.xyz = ck.position();
     return fast.chunk = it->second;
@@ -50,15 +75,27 @@ void Pruner::prune()
 
     for (
             uint64_t depth(0);
-            depth < m_slow.size() && !m_slow[depth].empty();
+            depth < m_slow.size() && (
+                m_slow[depth].size() || m_aged[depth].size()
+            );
             ++depth)
     {
-        std::cout << "\tP " << depth << std::endl;
-        auto& slice(m_slow[depth]);
-        // TODO For now, we're just killing the entire slice.
-        m_cache.prune(depth);
-        slice.clear();
+        UsedMap& used(m_slow[depth]);
+        UsedMap& aged(m_aged[depth]);
+
+        // Whatever is in our aging list hasn't been touched in two iterations,
+        // so deref those chunks.
+        m_cache.prune(depth, aged);
+
+        // Get rid of what we just pruned, and lower our recently touched
+        // list into our aging list.
+        aged.clear();
+
+        // Now clear our "used" list, moving it into "aged".
+        std::swap(used, aged);
     }
+
+    m_cache.purge();
 }
 
 } // namespace entwine

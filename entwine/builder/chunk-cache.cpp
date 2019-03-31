@@ -18,20 +18,25 @@ namespace entwine
 
 ChunkCache::ChunkCache(
         Hierarchy& hierarchy,
+        Pool& ioPool,
         const arbiter::Endpoint& out,
         const arbiter::Endpoint& tmp)
     : m_hierarchy(hierarchy)
+    , m_pool(ioPool)
     , m_out(out)
     , m_tmp(tmp)
 { }
 
 ChunkCache::~ChunkCache()
 {
+    // TODO Remove.  Maybe assert.
     for (auto& slice : m_chunks)
     {
+        if (slice.size()) std::cout << "CHUNKS REMAINING!!!" << std::endl;
+
         for (auto& p : slice)
         {
-            NewChunk& c(p.second);
+            NewChunk& c(*p.second);
             const uint64_t np = c.save(m_out, m_tmp);
             m_hierarchy.set(c.chunkKey().get(), np);
         }
@@ -71,11 +76,11 @@ NewChunk& ChunkCache::addRef(const ChunkKey& ck, Pruner& pruner)
     UniqueSpin sliceLock(m_spins[ck.depth()]);
 
     auto& slice(m_chunks[ck.depth()]);
-    auto it(slice.find(ck.dxyz()));
+    auto it(slice.find(ck.position()));
     if (it != slice.end())
     {
         // If we have the chunk, simply increment its ref count.
-        NewChunk& chunk = it->second;
+        NewChunk& chunk = *it->second;
         SpinGuard chunkLock(chunk.spin());
         chunk.addRef();
         return chunk;
@@ -83,18 +88,16 @@ NewChunk& ChunkCache::addRef(const ChunkKey& ck, Pruner& pruner)
 
     // Otherwise, create the chunk and initialize its contents.
     NewChunk& chunk(
-            slice.emplace(
+            *slice.emplace(
                 std::piecewise_construct,
-                std::forward_as_tuple(ck.dxyz()),
-                std::forward_as_tuple(ck, m_hierarchy))
+                std::forward_as_tuple(ck.position()),
+                std::forward_as_tuple(makeUnique<NewChunk>(ck, m_hierarchy)))
             .first->second);
 
-    // TODO Do we need to lock this chunk for any reason?  Possibly not...
-    // While we are still holding our own lock, grab the lock of this chunk.
-    // SpinGuard chunkLock(chunk.spin());
     sliceLock.unlock();
 
-    // Initialize with remote data if we're reawakening this chunk.
+    // Initialize with remote data if we're reawakening this chunk.  It's ok
+    // if other threads are inserting here concurrently.
     if (const uint64_t np = m_hierarchy.get(ck.dxyz()))
     {
         std::cout << "\tReawaken: " << ck.dxyz() << std::endl;
@@ -104,18 +107,58 @@ NewChunk& ChunkCache::addRef(const ChunkKey& ck, Pruner& pruner)
     return chunk;
 }
 
-void ChunkCache::prune(uint64_t depth)
+void ChunkCache::prune(uint64_t depth, const std::map<Xyz, NewChunk*>& stale)
 {
-    for (auto& p : m_chunks[depth])
-    {
-        NewChunk& c(p.second);
-        const uint64_t np = c.save(m_out, m_tmp);
-        m_hierarchy.set(c.chunkKey().get(), np);
-    }
+    if (stale.empty()) return;
 
-    // TODO Only remove entries that have been serialized.  Right now we're
-    // killing everything.
-    m_chunks[depth].clear();
+    std::cout << "\t\tPruning " << depth << ": " << stale.size() << std::endl;
+
+    auto& slice(m_chunks[depth]);
+    SpinGuard lock(m_spins[depth]);
+
+    for (const auto& p : stale)
+    {
+        const auto& key(p.first);
+        assert(slice.count(key));
+
+        // TODO Remove.
+        if (!slice.count(key)) throw std::runtime_error("Missing key");
+
+        NewChunk& c(*slice[key]);
+
+        // TODO Remove.
+        if (c.refs() != 1)
+        {
+            std::cout << "\t\t\tInvalid refs: " <<
+                key.toString(depth) << ": " << c.refs() << std::endl;
+            throw std::runtime_error("Invalid refs");
+        }
+
+        if (!c.delRef())
+        {
+            std::cout << "\t\t\tMark: " << key.toString(depth) << std::endl;
+            const uint64_t np = c.save(m_out, m_tmp);
+            m_hierarchy.set(c.chunkKey().get(), np);
+            slice.erase(key);
+
+            /*
+            m_pool.addFront([&]()
+            {
+                SpinGuard lock(m_spins[depth]);
+                if (c.refs())
+                {
+                    std::cout << "Interrupted " << c.chunkKey().dxyz() <<
+                        std::endl;
+                    return;
+                }
+            });
+            */
+        }
+    }
+}
+
+void ChunkCache::purge()
+{
 }
 
 } // namespace entwine

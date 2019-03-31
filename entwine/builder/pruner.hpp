@@ -50,7 +50,7 @@ public:
         m_fast.fill(CachedChunk());
     }
 
-    ~Pruner() { prune(); }
+    ~Pruner();
 
     NewChunk* get(const ChunkKey& ck);
     void set(const ChunkKey& ck, NewChunk* chunk);
@@ -59,8 +59,12 @@ public:
 private:
     ChunkCache& m_cache;
 
+    using UsedMap = std::map<Xyz, NewChunk*>;
+    using AgedSet = std::set<Xyz>;
+
     std::array<CachedChunk, maxDepth> m_fast;
     std::array<std::map<Xyz, NewChunk*>, maxDepth> m_slow;
+    std::array<std::map<Xyz, NewChunk*>, maxDepth> m_aged;
 };
 
 } // namespace entwine

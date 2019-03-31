@@ -40,7 +40,8 @@ NewChunk::NewChunk(const ChunkKey& ck, const Hierarchy& hierarchy)
     for (uint64_t i(0); i < dirEnd(); ++i)
     {
         const Dir dir(toDir(i));
-        // If there are already points at this child, it gets no overflow.
+
+        // If there are already points here, it gets no overflow.
         if (!hierarchy.get(childAt(dir).dxyz()))
         {
             m_overflows[i] = makeUnique<Overflow>(ck.getStep(dir));

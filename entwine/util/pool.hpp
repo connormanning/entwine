@@ -12,10 +12,10 @@
 
 #include <condition_variable>
 #include <cstddef>
+#include <deque>
 #include <functional>
 #include <iostream>
 #include <mutex>
-#include <queue>
 #include <string>
 #include <thread>
 #include <vector>
@@ -111,7 +111,30 @@ public:
             return m_tasks.size() < m_queueSize;
         });
 
-        m_tasks.emplace(task);
+        m_tasks.emplace_back(task);
+
+        // Notify worker that a task is available.
+        lock.unlock();
+        m_consumeCv.notify_all();
+    }
+
+    // Add a threaded task, blocking until a thread is available.  If join() is
+    // called, add() may not be called again until go() is called and completes.
+    void addFront(std::function<void()> task)
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        if (!m_running)
+        {
+            throw std::runtime_error(
+                    "Attempted to add a task to a stopped Pool");
+        }
+
+        m_produceCv.wait(lock, [this]()
+        {
+            return m_tasks.size() < m_queueSize;
+        });
+
+        m_tasks.emplace_front(task);
 
         // Notify worker that a task is available.
         lock.unlock();
@@ -139,7 +162,7 @@ private:
             {
                 ++m_outstanding;
                 auto task(std::move(m_tasks.front()));
-                m_tasks.pop();
+                m_tasks.pop_front();
 
                 lock.unlock();
 
@@ -178,7 +201,7 @@ private:
     std::size_t m_numThreads;
     std::size_t m_queueSize;
     std::vector<std::thread> m_threads;
-    std::queue<std::function<void()>> m_tasks;
+    std::deque<std::function<void()>> m_tasks;
 
     std::vector<std::string> m_errors;
     std::mutex m_errorMutex;

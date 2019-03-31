@@ -56,6 +56,7 @@ public:
     SpinLock& spin() { return m_spin; }
     void addRef() { ++m_refs; }
     uint64_t delRef() { return --m_refs; }
+    uint64_t refs() const { return m_refs; }
 
 private:
     bool insertOverflow(
@@ -63,6 +64,7 @@ private:
             Pruner& pruner,
             Voxel& voxel,
             Key& key);
+
     void maybeOverflow(ChunkCache& cache, Pruner& pruner);
     void doOverflow(ChunkCache& cache, Pruner& pruner, uint64_t dir);
 
@@ -73,7 +75,7 @@ private:
     const std::array<ChunkKey, 8> m_childKeys;
 
     SpinLock m_spin;
-    uint64_t m_refs = 0;
+    uint64_t m_refs = 1;
 
     std::vector<NewVoxelTube> m_grid;
     MemBlock m_gridBlock;

@@ -39,7 +39,12 @@ Registry::Registry(
     , m_threadPools(threadPools)
     , m_hierarchy(m_metadata, m_hierEp, exists)
     , m_root(ChunkKey(metadata), m_dataEp, tmp, m_hierarchy)
-    , m_chunkCache(makeUnique<ChunkCache>(m_hierarchy, m_dataEp, m_tmp))
+    , m_chunkCache(
+            makeUnique<ChunkCache>(
+                m_hierarchy,
+                clipPool(),
+                m_dataEp,
+                m_tmp))
 { }
 
 void Registry::save()

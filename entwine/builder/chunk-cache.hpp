@@ -28,24 +28,26 @@ class ChunkCache
 public:
     ChunkCache(
             Hierarchy& hierarchy,
+            Pool& ioPool,
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp);
 
     ~ChunkCache();
 
     void insert(Voxel& voxel, Key& key, const ChunkKey& ck, Pruner& pruner);
-    void prune(uint64_t depth);
+    void prune(uint64_t depth, const std::map<Xyz, NewChunk*>& stale);
+    void purge();
 
 private:
     NewChunk& addRef(const ChunkKey& ck, Pruner& pruner);
 
     Hierarchy& m_hierarchy;
+    Pool& m_pool;
     const arbiter::Endpoint& m_out;
     const arbiter::Endpoint& m_tmp;
 
-    SpinLock m_spin;
     std::array<SpinLock, maxDepth> m_spins;
-    std::array<std::map<Dxyz, NewChunk>, maxDepth> m_chunks;
+    std::array<std::map<Xyz, std::unique_ptr<NewChunk>>, maxDepth> m_chunks;
 };
 
 } // namespace entwine
