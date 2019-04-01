@@ -52,7 +52,6 @@ public:
     {
         assert(!exists());
         assert(!m_refs);
-        m_refs = 0;
         m_chunk = makeUnique<NewChunk>(ck, hierarchy);
     }
 

@@ -104,59 +104,77 @@ NewChunk& ChunkCache::addRef(const ChunkKey& ck, Pruner& pruner)
         // its ref count.
         //
         // It's possible that we started waiting on this chunkLock right after
-        // it started being serialized.  If that's the case, we'll fall through
-        // to the following logic which will pessimistically re-fetch it.
+        // it started being serialized, in which case we have caught it before
+        // it's erased, so our newly added ref will stop that from happening.
         if (ref.exists())
         {
             ref.add();
             pruner.set(ck, &ref.chunk());
-
-            // std::cout << "EXISTS " << ck.dxyz() << std::endl;
-            // std::cout << "REFS " << ck.dxyz() << " " << ref.count() << std::endl;
-            return ref.chunk();
         }
+        else
+        {
+            ref.assign(ck, m_hierarchy);
+            pruner.set(ck, &ref.chunk());
+
+            assert(!ref.count());
+            assert(ref.exists());
+
+            // After we add our ref-count, we know this ref won't be erased
+            // from the slice.
+            ref.add();
+            // TODO.
+            sliceLock.unlock();
+
+            const uint64_t np = m_hierarchy.get(ck.dxyz());
+            assert(np);
+
+            // std::cout << "\tReawaken sneaky: " << ck.dxyz() << " " << np << std::endl;
+            ref.chunk().load(*this, pruner, m_out, m_tmp, np);
+            // std::cout << "Snuck!" << std::endl;
+        }
+
+        // std::cout << "\tRet existing" << std::endl;
+
+        return ref.chunk();
     }
 
     // std::cout << "DNE " << ck.dxyz() << std::endl;
 
-    // At this point, either:
-    //      a) we couldn't find this chunk at all in this slice
-    // or
-    //      b) we found the chunk ref, but it has already been serialized.
-
+    // Couldn't find this chunk, create it.
     auto insertion = slice.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(ck.position()),
             std::forward_as_tuple(ck, m_hierarchy));
-    const bool inserted(insertion.second);
 
     it = insertion.first;
-    assert(inserted || !it->second.exists());
-
-    // If our insertion failed (case B), then the chunk already existed but has
-    // been serialized.  In this case, reinitialize it (since its previously
-    // called 'save' is destructive).
-    if (!inserted) it->second.assign(ck, m_hierarchy);
+    assert(insertion.second);
 
     NewReffedChunk& ref = it->second;
+    SpinGuard chunkLock(ref.spin());
 
-    // We shouldn't have any existing refs yet, but the chunk should exist,
-    // although it might not yet be initialized with remote data (if
-    // applicable).
+    // We shouldn't have any existing refs yet, but the chunk should exist.
     assert(!ref.count());
     assert(ref.exists());
 
+    // Since we're still holding the slice lock, no one else can access this
+    // chunk yet.  Add our ref and then we can release the slice lock.
     ref.add();
     pruner.set(ck, &ref.chunk());
 
+    // TODO.
     sliceLock.unlock();
 
     // Initialize with remote data if we're reawakening this chunk.  It's ok
     // if other threads are inserting here concurrently, and we have already
     // added our reference so it won't be getting deleted.
+    //
+    // Note that this in the case of a continued build, this chunk may have
+    // been serialized prior to the current build process, so we still need to
+    // check this.
     if (const uint64_t np = m_hierarchy.get(ck.dxyz()))
     {
-        std::cout << "\tReawaken: " << ck.dxyz() << " " << np << std::endl;
+        std::cout << "\tReawaken prior: " << ck.dxyz() << " " << np <<
+            std::endl;
         ref.chunk().load(*this, pruner, m_out, m_tmp, np);
     }
 
@@ -187,6 +205,7 @@ void ChunkCache::prune(uint64_t depth, const std::map<Xyz, NewChunk*>& stale)
 
         assert(ref.count());
 
+        // std::cout << "Pruning " << key.toString(depth) << std::endl;
         if (!ref.del())
         {
             chunkLock.unlock();
@@ -204,6 +223,8 @@ void ChunkCache::prune(uint64_t depth, const std::map<Xyz, NewChunk*>& stale)
 
                 if (ref.count())
                 {
+                    // In the time between queueing this serialization and its
+                    // execution, another thread has claimed this chunk.  No-op.
                     std::cout << "--- Interrupted " <<
                         key.toString(depth) << std::endl;
                     return;
@@ -211,6 +232,17 @@ void ChunkCache::prune(uint64_t depth, const std::map<Xyz, NewChunk*>& stale)
 
                 if (!ref.exists())
                 {
+                    // In this time between queueing this serialization and its
+                    // execution, another thread has erased this chunk.  For
+                    // example:
+                    //      Queue for serialization
+                    //      Reclaim before serialization occurs
+                    //      Queue for serialization again
+                    //
+                    // This is ok but should be rare, since we don't search our
+                    // serialization queue and remove entries when they're
+                    // reclaimed.  Instead we just wait for them to execute at
+                    // which time they'll simply no-op here.
                     std::cout << "--- Second interrupt " <<
                         key.toString(depth) << std::endl;
                     return;
@@ -246,6 +278,13 @@ void ChunkCache::prune(uint64_t depth, const std::map<Xyz, NewChunk*>& stale)
                 //
                 // Usually no one will be waiting for this chunk, so it's ok.
                 ref.reset();
+                // std::cout << "\tSAVED" << std::endl;
+
+                if (ref.count())
+                {
+                    std::cout << "COUNT " << key.toString(depth) << std::endl;
+                    throw std::runtime_error("Inv count after save");
+                }
 
                 // TODO.
                 return;
@@ -258,6 +297,12 @@ void ChunkCache::prune(uint64_t depth, const std::map<Xyz, NewChunk*>& stale)
 
                 if (!ref.count())
                 {
+                    if (!ref.exists())
+                    {
+                        std::cout << "Still exists: " << key.toString(depth) <<
+                            std::endl;
+                        throw std::runtime_error("Still exists!!!");
+                    }
                     assert(!ref.exists());
 
                     // Necessary to avoid the chunkLock trying to clear the
