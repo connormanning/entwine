@@ -122,22 +122,26 @@ void Builder::go(std::size_t max)
                         (files.pointStats().inserts() + alreadyInserted) /
                         totalPoints);
 
-                const auto info(ReffedChunk::latchInfo());
+                const ChunkCache::Info info(m_registry->cache().latchInfo());
                 reawakened += info.read;
 
                 if (verbose())
                 {
                     std::cout <<
-                        " T: " << commify(s) << "s" <<
-                        " R: " << commify(inserts / s * megsPerHour) <<
+                        formatTime(s) << " - " <<
+                        std::round(progress * 100.0) << "% - " <<
+                        commify(inserts) << " points - " <<
+                        commify(inserts / s * megsPerHour) <<
                             "(" << commify((inserts - last) / m_interval *
                                         megsPerHour) << ")" <<
-                            "M/h" <<
-                        " I: " << commify(inserts) <<
-                        " P: " << std::round(progress * 100.0) << "%" <<
+                            "M/h - " <<
+                        info.written << "W - " << info.read << "R - " <<
+                        info.alive << "A" <<
+                        /*
                         " W: " << info.written <<
                         " R: " << info.read <<
                         " A: " << commify(info.alive) <<
+                        */
                         std::endl;
                 }
 

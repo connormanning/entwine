@@ -107,6 +107,7 @@ struct Dxyz
 
     std::string toString() const { return p.toString(d); }
     uint64_t depth() const { return d; }
+    const Xyz& position() const { return p; }
 
     Xyz p;
 

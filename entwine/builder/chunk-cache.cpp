@@ -43,21 +43,6 @@ ChunkCache::~ChunkCache()
             }
         }
     }
-
-    // TODO Remove.  Maybe assert.
-    /*
-    for (auto& slice : m_chunks)
-    {
-        if (slice.size()) std::cout << "CHUNKS REMAINING!!!" << std::endl;
-
-        for (auto& p : slice)
-        {
-            NewChunk& c(*p.second);
-            const uint64_t np = c.save(m_out, m_tmp);
-            m_hierarchy.set(c.chunkKey().get(), np);
-        }
-    }
-    */
 }
 
 void ChunkCache::insert(
@@ -84,21 +69,15 @@ void ChunkCache::insert(
 NewChunk& ChunkCache::addRef(const ChunkKey& ck, Pruner& pruner)
 {
     // This is the first access of this chunk for a particular thread.
-    // std::cout << "Creating " << ck.dxyz() << std::endl;
-
-    UniqueSpin sliceLock(m_spins[ck.depth()]);  // TODO Deadlock.
+    UniqueSpin sliceLock(m_spins[ck.depth()]);
 
     auto& slice(m_reffedChunks[ck.depth()]);
     auto it(slice.find(ck.position()));
 
     if (it != slice.end())
     {
-        // std::cout << "Already have: " << ck.dxyz() << std::endl;
-
         NewReffedChunk& ref = it->second;
         SpinGuard chunkLock(ref.spin());
-
-        // std::cout << "FOUND " << ck.dxyz() << std::endl;
 
         // If we have the chunk and it hasn't been serialized, simply increment
         // its ref count.
@@ -122,29 +101,33 @@ NewChunk& ChunkCache::addRef(const ChunkKey& ck, Pruner& pruner)
             // After we add our ref-count, we know this ref won't be erased
             // from the slice.
             ref.add();
-            // TODO.
+
             sliceLock.unlock();
 
             const uint64_t np = m_hierarchy.get(ck.dxyz());
             assert(np);
 
-            // std::cout << "\tReawaken sneaky: " << ck.dxyz() << " " << np << std::endl;
-            ref.chunk().load(*this, pruner, m_out, m_tmp, np);
-            // std::cout << "Snuck!" << std::endl;
-        }
+            {
+                SpinGuard lock(m_infoSpin);
+                ++m_info.read;
+            }
 
-        // std::cout << "\tRet existing" << std::endl;
+            ref.chunk().load(*this, pruner, m_out, m_tmp, np);
+        }
 
         return ref.chunk();
     }
-
-    // std::cout << "DNE " << ck.dxyz() << std::endl;
 
     // Couldn't find this chunk, create it.
     auto insertion = slice.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(ck.position()),
             std::forward_as_tuple(ck, m_hierarchy));
+
+    {
+        SpinGuard lock(m_infoSpin);
+        ++m_info.alive;
+    }
 
     it = insertion.first;
     assert(insertion.second);
@@ -161,7 +144,6 @@ NewChunk& ChunkCache::addRef(const ChunkKey& ck, Pruner& pruner)
     ref.add();
     pruner.set(ck, &ref.chunk());
 
-    // TODO.
     sliceLock.unlock();
 
     // Initialize with remote data if we're reawakening this chunk.  It's ok
@@ -173,12 +155,13 @@ NewChunk& ChunkCache::addRef(const ChunkKey& ck, Pruner& pruner)
     // check this.
     if (const uint64_t np = m_hierarchy.get(ck.dxyz()))
     {
-        std::cout << "\tReawaken prior: " << ck.dxyz() << " " << np <<
-            std::endl;
+        {
+            SpinGuard lock(m_infoSpin);
+            ++m_info.read;
+        }
+
         ref.chunk().load(*this, pruner, m_out, m_tmp, np);
     }
-
-    // std::cout << "LOADED " << ck.dxyz() << std::endl;
 
     return ref.chunk();
 }
@@ -187,136 +170,129 @@ void ChunkCache::prune(uint64_t depth, const std::map<Xyz, NewChunk*>& stale)
 {
     if (stale.empty()) return;
 
-    // std::cout << "\t\tPruning " << depth << ": " << stale.size() << std::endl;
-
     auto& slice(m_reffedChunks[depth]);
+    UniqueSpin sliceLock(m_spins[depth]);
 
     for (const auto& p : stale)
     {
-        UniqueSpin sliceLock(m_spins[depth]);
-
         const auto& key(p.first);
         assert(slice.count(key));
 
         NewReffedChunk& ref(slice.at(key));
         UniqueSpin chunkLock(ref.spin());
 
-        // std::cout << "REFS " << key.toString(depth) << " " << ref.count() << std::endl;
-
         assert(ref.count());
-
-        // std::cout << "Pruning " << key.toString(depth) << std::endl;
         if (!ref.del())
         {
+            // Once we've unreffed this chunk, all bets are off as to its
+            // validity.  It may be recaptured before deletion by an insertion
+            // thread, or may be deleted instantly.
             chunkLock.unlock();
             sliceLock.unlock();
 
-            // We've unlocked our locks, now we'll queue an async task to
-            // delete this chunk.  It's possible another thread will show up
-            // in the meantime and add a ref, in which case the async task
-            // needs to atomically no-op.
-            m_pool.add([this, key, depth, &ref, &slice]()
-            {
-                // Reacquire both locks in order and see what we need to do.
-                UniqueSpin sliceLock(m_spins[depth]);
-                UniqueSpin chunkLock(ref.spin());   // TODO Deadlock.
+            const Dxyz dxyz(depth, key);
+            m_pool.add([this, dxyz]() { maybeSerialize(dxyz); });
 
-                if (ref.count())
-                {
-                    // In the time between queueing this serialization and its
-                    // execution, another thread has claimed this chunk.  No-op.
-                    std::cout << "--- Interrupted " <<
-                        key.toString(depth) << std::endl;
-                    return;
-                }
-
-                if (!ref.exists())
-                {
-                    // In this time between queueing this serialization and its
-                    // execution, another thread has erased this chunk.  For
-                    // example:
-                    //      Queue for serialization
-                    //      Reclaim before serialization occurs
-                    //      Queue for serialization again
-                    //
-                    // This is ok but should be rare, since we don't search our
-                    // serialization queue and remove entries when they're
-                    // reclaimed.  Instead we just wait for them to execute at
-                    // which time they'll simply no-op here.
-                    std::cout << "--- Second interrupt " <<
-                        key.toString(depth) << std::endl;
-                    return;
-                }
-
-                // std::cout << "DEL " << key.toString(depth) << std::endl;
-
-                // std::cout << "\tSaving " << key.toString(depth) << std::endl;
-
-                // The actual IO is expensive, so retain only the chunk lock.
-                // Note: As soon as we let go of the slice lock, another thread
-                // could arrive and be waiting for this chunk lock.
-                //
-                // Once we unlock this, someone could grab this sliceLock and
-                // be waiting on our chunkLock.
-                // TODO.
-                sliceLock.unlock();
-
-                // At this point, another thread could arrive and be waiting on
-                // the chunk lock, which we are holding.
-
-                // TODO Why might ref.chunk() not exist here?
-                const uint64_t np = ref.chunk().save(m_out, m_tmp);
-                m_hierarchy.set(ref.chunk().chunkKey().get(), np);
-
-                // Cannot erase this chunk here, since we haven't been holding
-                // the sliceLock, someone may be waiting for this chunkLock.
-                // Instead we'll just reset the pointer.
-                //
-                // If another thread *is* waiting for this lock, they'll
-                // initialize it and set the ref count to non-zero, in which
-                // case our upcoming locking will be for no reason.
-                //
-                // Usually no one will be waiting for this chunk, so it's ok.
-                ref.reset();
-                // std::cout << "\tSAVED" << std::endl;
-
-                if (ref.count())
-                {
-                    std::cout << "COUNT " << key.toString(depth) << std::endl;
-                    throw std::runtime_error("Inv count after save");
-                }
-
-                // TODO.
-                return;
-
-                chunkLock.unlock();
-
-                // Must acquire these in this order.
-                sliceLock.lock();
-                chunkLock.lock();
-
-                if (!ref.count())
-                {
-                    if (!ref.exists())
-                    {
-                        std::cout << "Still exists: " << key.toString(depth) <<
-                            std::endl;
-                        throw std::runtime_error("Still exists!!!");
-                    }
-                    assert(!ref.exists());
-
-                    // Necessary to avoid the chunkLock trying to clear the
-                    // underlying SpinLock (which we're about to erase) on its
-                    // destruction.
-                    //
-                    // Because we have both locks, we know that no one is
-                    // waiting on this chunkLock.
-                    chunkLock.release();
-                    slice.erase(key);
-                }
-                else std::cout << "Late interrupt!" << std::endl;
-            });
+            sliceLock.lock();
         }
+    }
+}
+
+void ChunkCache::maybeSerialize(const Dxyz& dxyz)
+{
+    // Acquire both locks in order and see what we need to do.
+    UniqueSpin sliceLock(m_spins[dxyz.depth()]);
+    auto& slice(m_reffedChunks[dxyz.depth()]);
+    auto it(slice.find(dxyz.position()));
+
+    if (it == slice.end())
+    {
+        std::cout << "--- Interrupted: erased " << dxyz << std::endl;
+        return;
+    }
+
+    NewReffedChunk& ref = it->second;
+    UniqueSpin chunkLock(ref.spin());
+
+    if (ref.count())
+    {
+        std::cout << "--- Interrupted: reclaimed " << dxyz << std::endl;
+        return;
+    }
+
+    if (!ref.exists())
+    {
+        std::cout << "--- Interrupted: serialized " << dxyz << std::endl;
+        return;
+    }
+
+    // At this point, we have both locks, and we know our chunk exists but has
+    // no refs, so serialize it.
+    //
+    // The actual IO is expensive, so retain only the chunk lock.  Note: As
+    // soon as we let go of the slice lock, another thread could arrive and be
+    // waiting for this chunk lock, so we can't delete the ref from our map
+    // outright after this point without reclaiming the locks.
+    sliceLock.unlock();
+
+    assert(ref.exists());
+
+    {
+        SpinGuard lock(m_infoSpin);
+        ++m_info.written;
+    }
+
+    const uint64_t np = ref.chunk().save(m_out, m_tmp);
+    m_hierarchy.set(ref.chunk().chunkKey().get(), np);
+    assert(np);
+
+    // Cannot erase this chunk here, since we haven't been holding the
+    // sliceLock, someone may be waiting for this chunkLock.  Instead we'll
+    // just reset the pointer.  We'll have to reacquire both locks to attempt
+    // to erase it.
+    ref.reset();
+    chunkLock.unlock();
+
+    maybeErase(dxyz);
+}
+
+void ChunkCache::maybeErase(const Dxyz& dxyz)
+{
+    UniqueSpin sliceLock(m_spins[dxyz.depth()]);
+    auto& slice(m_reffedChunks[dxyz.depth()]);
+    auto it(slice.find(dxyz.position()));
+
+    if (it == slice.end())
+    {
+        std::cout << "--- Interrupted: prior to erase" << dxyz << std::endl;
+        return;
+    }
+
+    NewReffedChunk& ref = it->second;
+    UniqueSpin chunkLock(ref.spin());
+
+    if (ref.count())
+    {
+        std::cout << "--- Erase late interrupt: " << dxyz << std::endl;
+        return;
+    }
+
+    if (ref.exists())
+    {
+        std::cout << "--- Still exists during maybeErase: " << dxyz << std::endl;
+        return;
+    }
+
+    // Because we have both locks, we know that no one is waiting on this chunk.
+    //
+    // Release the chunkLock so the unique_lock doesn't try to unlock a deleted
+    // SpinLock when it destructs.
+    chunkLock.release();
+    slice.erase(it);
+
+    {
+        SpinGuard lock(m_infoSpin);
+        --m_info.alive;
     }
 }
 

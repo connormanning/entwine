@@ -83,6 +83,7 @@ void Pruner::prune()
         UsedMap& used(m_slow[depth]);
         UsedMap& aged(m_aged[depth]);
 
+        // std::cout << "Pruning " << depth << " " << aged.size() << std::endl;
         // Whatever is in our aging list hasn't been touched in two iterations,
         // so deref those chunks.
         m_cache.prune(depth, aged);
