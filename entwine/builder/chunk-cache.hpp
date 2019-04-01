@@ -74,6 +74,7 @@ public:
 
     void insert(Voxel& voxel, Key& key, const ChunkKey& ck, Pruner& pruner);
     void prune(uint64_t depth, const std::map<Xyz, NewChunk*>& stale);
+    void pruned() { maybePurge(m_cacheSize); }
 
     struct Info
     {
@@ -82,19 +83,13 @@ public:
         uint64_t alive = 0;
     };
 
-    Info latchInfo()
-    {
-        SpinGuard lock(m_infoSpin);
-        Info latched = m_info;
-        m_info.written = 0;
-        m_info.read = 0;
-        return latched;
-    }
+    static Info latchInfo();
 
 private:
     NewChunk& addRef(const ChunkKey& ck, Pruner& pruner);
     void maybeSerialize(const Dxyz& dxyz);
     void maybeErase(const Dxyz& dxyz);
+    void maybePurge(uint64_t maxCacheSize);
 
     Hierarchy& m_hierarchy;
     Pool& m_pool;
@@ -104,8 +99,9 @@ private:
     std::array<SpinLock, maxDepth> m_spins;
     std::array<std::map<Xyz, NewReffedChunk>, maxDepth> m_slices;
 
-    SpinLock m_infoSpin;
-    Info m_info;
+    SpinLock m_ownedSpin;
+    std::set<Dxyz> m_owned;
+    const uint64_t m_cacheSize = 256;
 };
 
 } // namespace entwine

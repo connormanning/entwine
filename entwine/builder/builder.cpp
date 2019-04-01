@@ -122,7 +122,7 @@ void Builder::go(std::size_t max)
                         (files.pointStats().inserts() + alreadyInserted) /
                         totalPoints);
 
-                const ChunkCache::Info info(m_registry->cache().latchInfo());
+                const ChunkCache::Info info(ChunkCache::latchInfo());
                 reawakened += info.read;
 
                 if (verbose())
@@ -130,7 +130,7 @@ void Builder::go(std::size_t max)
                     std::cout <<
                         formatTime(s) << " - " <<
                         std::round(progress * 100.0) << "% - " <<
-                        commify(inserts) << " points - " <<
+                        commify(inserts) << "P - " <<
                         commify(inserts / s * megsPerHour) <<
                             "(" << commify((inserts - last) / m_interval *
                                         megsPerHour) << ")" <<

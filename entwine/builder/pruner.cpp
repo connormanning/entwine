@@ -97,6 +97,8 @@ void Pruner::prune()
         // Now clear our "used" list, moving it into "aged".
         std::swap(used, aged);
     }
+
+    m_cache.pruned();
 }
 
 } // namespace entwine

@@ -16,6 +16,21 @@
 namespace entwine
 {
 
+namespace
+{
+    SpinLock infoSpin;
+    ChunkCache::Info info;
+}
+
+ChunkCache::Info ChunkCache::latchInfo()
+{
+    SpinGuard lock(infoSpin);
+    Info latched = info;
+    info.written = 0;
+    info.read = 0;
+    return latched;
+}
+
 ChunkCache::ChunkCache(
         Hierarchy& hierarchy,
         Pool& ioPool,
@@ -29,6 +44,7 @@ ChunkCache::ChunkCache(
 
 ChunkCache::~ChunkCache()
 {
+    maybePurge(0);
     m_pool.join();
 
     assert(
@@ -73,7 +89,7 @@ NewChunk& ChunkCache::addRef(const ChunkKey& ck, Pruner& pruner)
     if (it != slice.end())
     {
         NewReffedChunk& ref = it->second;
-        SpinGuard chunkLock(ref.spin());
+        UniqueSpin chunkLock(ref.spin());
 
         // If we have the chunk and it hasn't been serialized, simply increment
         // its ref count.
@@ -104,11 +120,24 @@ NewChunk& ChunkCache::addRef(const ChunkKey& ck, Pruner& pruner)
             assert(np);
 
             {
-                SpinGuard lock(m_infoSpin);
-                ++m_info.read;
+                SpinGuard lock(infoSpin);
+                ++info.read;
             }
 
             ref.chunk().load(*this, pruner, m_out, m_tmp, np);
+
+            chunkLock.unlock();
+
+            SpinGuard ownedLock(m_ownedSpin);
+            auto it(m_owned.find(ck.dxyz()));
+            if (it != m_owned.end())
+            {
+                std::cout << "+++ Snagging " << ck.dxyz() << std::endl;
+                chunkLock.lock();
+                assert(ref.count() > 1);
+                ref.del();
+                m_owned.erase(it);
+            }
         }
 
         return ref.chunk();
@@ -121,8 +150,8 @@ NewChunk& ChunkCache::addRef(const ChunkKey& ck, Pruner& pruner)
             std::forward_as_tuple(ck, m_hierarchy));
 
     {
-        SpinGuard lock(m_infoSpin);
-        ++m_info.alive;
+        SpinGuard lock(infoSpin);
+        ++info.alive;
     }
 
     it = insertion.first;
@@ -152,8 +181,8 @@ NewChunk& ChunkCache::addRef(const ChunkKey& ck, Pruner& pruner)
     if (const uint64_t np = m_hierarchy.get(ck.dxyz()))
     {
         {
-            SpinGuard lock(m_infoSpin);
-            ++m_info.read;
+            SpinGuard lock(infoSpin);
+            ++info.read;
         }
 
         ref.chunk().load(*this, pruner, m_out, m_tmp, np);
@@ -180,6 +209,23 @@ void ChunkCache::prune(uint64_t depth, const std::map<Xyz, NewChunk*>& stale)
         assert(ref.count());
         if (!ref.del())
         {
+            // Defer erasing here, instead adding taking ownership.
+            ref.add();
+
+            chunkLock.unlock();
+            sliceLock.unlock();
+
+            {
+                SpinGuard ownedLock(m_ownedSpin);
+                const Dxyz dxyz(depth, key);
+                // std::cout << "+++ Owning " << dxyz << std::endl;
+                assert(!m_owned.count(dxyz));
+                m_owned.insert(dxyz);
+            }
+
+            sliceLock.lock();
+
+            /*
             // Once we've unreffed this chunk, all bets are off as to its
             // validity.  It may be recaptured before deletion by an insertion
             // thread, or may be deleted instantly.
@@ -190,8 +236,51 @@ void ChunkCache::prune(uint64_t depth, const std::map<Xyz, NewChunk*>& stale)
             m_pool.add([this, dxyz]() { maybeSerialize(dxyz); });
 
             sliceLock.lock();
+            */
         }
     }
+}
+
+void ChunkCache::maybePurge(const uint64_t maxCacheSize)
+{
+    uint64_t disowned(0);
+    UniqueSpin ownedLock(m_ownedSpin);
+    while (m_owned.size() > maxCacheSize)
+    {
+        ++disowned;
+
+        const Dxyz dxyz(*m_owned.rbegin());
+        // std::cout << "+++ Disowning " << dxyz << std::endl;
+        auto& slice(m_slices[dxyz.depth()]);
+        UniqueSpin sliceLock(m_spins[dxyz.depth()]);
+
+        NewReffedChunk& ref(slice.at(dxyz.position()));
+        UniqueSpin chunkLock(ref.spin());
+
+        m_owned.erase(std::prev(m_owned.end()));
+
+        // If we're destructing and thus purging everything, we should be the
+        // only ref-holder.
+        assert(maxCacheSize || ref.count() == 1);
+
+        if (!ref.del())
+        {
+            // std::cout << "+++ Cache full - del " << dxyz << std::endl;
+            // Once we've unreffed this chunk, all bets are off as to its
+            // validity.  It may be recaptured before deletion by an insertion
+            // thread, or may be deleted instantly.
+            chunkLock.unlock();
+            sliceLock.unlock();
+            ownedLock.unlock();
+
+            m_pool.add([this, dxyz]() { maybeSerialize(dxyz); });
+
+            ownedLock.lock();
+        }
+    }
+
+    if (disowned) std::cout << "Disowned " << disowned << std::endl;
+    else std::cout << "Owned " << m_owned.size() << std::endl;
 }
 
 void ChunkCache::maybeSerialize(const Dxyz& dxyz)
@@ -234,8 +323,8 @@ void ChunkCache::maybeSerialize(const Dxyz& dxyz)
     assert(ref.exists());
 
     {
-        SpinGuard lock(m_infoSpin);
-        ++m_info.written;
+        SpinGuard lock(infoSpin);
+        ++info.written;
     }
 
     const uint64_t np = ref.chunk().save(m_out, m_tmp);
@@ -287,8 +376,8 @@ void ChunkCache::maybeErase(const Dxyz& dxyz)
     slice.erase(it);
 
     {
-        SpinGuard lock(m_infoSpin);
-        --m_info.alive;
+        SpinGuard lock(infoSpin);
+        --info.alive;
     }
 }
 
