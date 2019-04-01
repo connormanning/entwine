@@ -33,8 +33,8 @@ ChunkCache::~ChunkCache()
 
     assert(
             std::all_of(
-                m_reffedChunks.begin(),
-                m_reffedChunks.end(),
+                m_slices.begin(),
+                m_slices.end(),
                 [](const std::map<Xyz, NewReffedChunk>& slice)
                 {
                     return slice.empty();
@@ -67,7 +67,7 @@ NewChunk& ChunkCache::addRef(const ChunkKey& ck, Pruner& pruner)
     // This is the first access of this chunk for a particular thread.
     UniqueSpin sliceLock(m_spins[ck.depth()]);
 
-    auto& slice(m_reffedChunks[ck.depth()]);
+    auto& slice(m_slices[ck.depth()]);
     auto it(slice.find(ck.position()));
 
     if (it != slice.end())
@@ -166,7 +166,7 @@ void ChunkCache::prune(uint64_t depth, const std::map<Xyz, NewChunk*>& stale)
 {
     if (stale.empty()) return;
 
-    auto& slice(m_reffedChunks[depth]);
+    auto& slice(m_slices[depth]);
     UniqueSpin sliceLock(m_spins[depth]);
 
     for (const auto& p : stale)
@@ -198,7 +198,7 @@ void ChunkCache::maybeSerialize(const Dxyz& dxyz)
 {
     // Acquire both locks in order and see what we need to do.
     UniqueSpin sliceLock(m_spins[dxyz.depth()]);
-    auto& slice(m_reffedChunks[dxyz.depth()]);
+    auto& slice(m_slices[dxyz.depth()]);
     auto it(slice.find(dxyz.position()));
 
     if (it == slice.end())
@@ -255,7 +255,7 @@ void ChunkCache::maybeSerialize(const Dxyz& dxyz)
 void ChunkCache::maybeErase(const Dxyz& dxyz)
 {
     UniqueSpin sliceLock(m_spins[dxyz.depth()]);
-    auto& slice(m_reffedChunks[dxyz.depth()]);
+    auto& slice(m_slices[dxyz.depth()]);
     auto it(slice.find(dxyz.position()));
 
     if (it == slice.end())

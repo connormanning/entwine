@@ -18,7 +18,6 @@ namespace entwine
 
 Pruner::~Pruner()
 {
-    // std::cout << "Pruning all" << std::endl;
     for (
             uint64_t depth(0);
             depth < m_slow.size() && m_slow[depth].size();
@@ -70,20 +69,23 @@ void Pruner::set(const ChunkKey& ck, NewChunk* chunk)
 
 void Pruner::prune()
 {
-    // std::cout << "Pruning" << std::endl;
     m_fast.fill(CachedChunk());
 
+    for (uint64_t depth(m_slow.size() - 1); depth < m_slow.size(); --depth)
+    /*
     for (
             uint64_t depth(0);
             depth < m_slow.size() && (
                 m_slow[depth].size() || m_aged[depth].size()
             );
             ++depth)
+    */
     {
+        if (m_slow[depth].empty() && m_aged[depth].empty()) continue;
+
         UsedMap& used(m_slow[depth]);
         UsedMap& aged(m_aged[depth]);
 
-        // std::cout << "Pruning " << depth << " " << aged.size() << std::endl;
         // Whatever is in our aging list hasn't been touched in two iterations,
         // so deref those chunks.
         m_cache.prune(depth, aged);

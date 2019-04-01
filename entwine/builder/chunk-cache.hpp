@@ -102,7 +102,7 @@ private:
     const arbiter::Endpoint& m_tmp;
 
     std::array<SpinLock, maxDepth> m_spins;
-    std::array<std::map<Xyz, NewReffedChunk>, maxDepth> m_reffedChunks;
+    std::array<std::map<Xyz, NewReffedChunk>, maxDepth> m_slices;
 
     SpinLock m_infoSpin;
     Info m_info;
