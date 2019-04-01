@@ -18,7 +18,7 @@ namespace entwine
 
 Pruner::~Pruner()
 {
-    std::cout << "Pruning ALL" << std::endl;
+    // std::cout << "Pruning all" << std::endl;
     for (
             uint64_t depth(0);
             depth < m_slow.size() && m_slow[depth].size();
@@ -70,7 +70,7 @@ void Pruner::set(const ChunkKey& ck, NewChunk* chunk)
 
 void Pruner::prune()
 {
-    std::cout << "Pruning" << std::endl;
+    // std::cout << "Pruning" << std::endl;
     m_fast.fill(CachedChunk());
 
     for (

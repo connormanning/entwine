@@ -46,9 +46,19 @@ public:
         return *m_chunk;
     }
 
+    void reset() { m_chunk.reset(); }
+    bool exists() { return !!m_chunk; }
+    void assign(const ChunkKey& ck, const Hierarchy& hierarchy)
+    {
+        assert(!exists());
+        assert(!m_refs);
+        m_refs = 0;
+        m_chunk = makeUnique<NewChunk>(ck, hierarchy);
+    }
+
 private:
     SpinLock m_spin;
-    uint64_t m_refs = 1;
+    uint64_t m_refs = 0;
     std::unique_ptr<NewChunk> m_chunk;
 };
 
