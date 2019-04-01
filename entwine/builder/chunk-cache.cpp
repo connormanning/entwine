@@ -31,18 +31,14 @@ ChunkCache::~ChunkCache()
 {
     m_pool.join();
 
-    for (auto& slice : m_reffedChunks)
-    {
-        for (auto& p : slice)
-        {
-            NewReffedChunk& c(p.second);
-            if (c.exists())
-            {
-                std::cout << "BAD: " << c.chunk().chunkKey().dxyz() << ": " <<
-                    c.count() << std::endl;
-            }
-        }
-    }
+    assert(
+            std::all_of(
+                m_reffedChunks.begin(),
+                m_reffedChunks.end(),
+                [](const std::map<Xyz, NewReffedChunk>& slice)
+                {
+                    return slice.empty();
+                }));
 }
 
 void ChunkCache::insert(
