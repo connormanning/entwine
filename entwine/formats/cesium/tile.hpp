@@ -41,10 +41,10 @@ private:
     json toBox(Bounds in) const
     {
         return json {
-            in.mid()[0],    in.mid()[1],    in.mid()[2],
-            in.width(),     0,              0,
-            0,              in.depth(),     0,
-            0,              0,              in.height()
+            in.mid()[0],          in.mid()[1],          in.mid()[2],
+            in.width() / 2.0,     0,                    0,
+            0,                    in.depth() / 2.0,     0,
+            0,                    0,                    in.height() / 2.0
         };
     }
 
