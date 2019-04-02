@@ -216,8 +216,7 @@ void Build::run()
     builder->go(runCount);
 
     std::cout << "\nIndex completed in " <<
-        commify(since<std::chrono::seconds>(start)) << " seconds." <<
-        std::endl;
+        formatTime(since<std::chrono::seconds>(start)) << "." << std::endl;
 
     std::cout << "Save complete.\n";
 

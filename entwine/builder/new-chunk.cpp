@@ -11,6 +11,7 @@
 #include <entwine/builder/new-chunk.hpp>
 
 #include <entwine/builder/chunk-cache.hpp>
+#include <entwine/builder/hierarchy.hpp>
 #include <entwine/io/io.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/voxel.hpp>

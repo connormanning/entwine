@@ -27,7 +27,7 @@ class Hierarchy;
 class ChunkCache;
 class Pruner;
 
-struct NewVoxelTube
+struct VoxelTube
 {
     SpinLock spin;
     Voxel& operator[](uint64_t i) { return map[i]; }
@@ -74,7 +74,7 @@ private:
     const std::array<ChunkKey, 8> m_childKeys;
 
     SpinLock m_spin;
-    std::vector<NewVoxelTube> m_grid;
+    std::vector<VoxelTube> m_grid;
     MemBlock m_gridBlock;
 
     SpinLock m_overflowSpin;

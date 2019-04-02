@@ -16,7 +16,6 @@
 #include <random>
 #include <thread>
 
-#include <entwine/builder/clipper.hpp>
 #include <entwine/builder/heuristics.hpp>
 #include <entwine/builder/pruner.hpp>
 #include <entwine/builder/registry.hpp>
@@ -209,8 +208,6 @@ void Builder::doRun(const std::size_t max)
 
             m_metadata->mutableFiles().set(origin, status, message);
             if (verbose()) std::cout << "\tDone " << origin << std::endl;
-
-            m_registry->purge();
         });
     }
 
@@ -364,9 +361,9 @@ void Builder::save(const arbiter::Endpoint& ep)
     m_metadata->save(*m_out, m_config);
 }
 
-void Builder::merge(Builder& other, Clipper& clipper)
+void Builder::merge(Builder& other, Pruner& pruner)
 {
-    m_registry->merge(*other.m_registry, clipper);
+    m_registry->merge(*other.m_registry, pruner);
     m_metadata->merge(*other.m_metadata);
 }
 

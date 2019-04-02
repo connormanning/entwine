@@ -4,10 +4,8 @@ set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 set(
     SOURCES
     "${BASE}/builder.cpp"
-    "${BASE}/chunk.cpp"
     "${BASE}/new-chunk.cpp"
     "${BASE}/chunk-cache.cpp"
-    "${BASE}/clipper.cpp"
     "${BASE}/config.cpp"
     "${BASE}/hierarchy.cpp"
     "${BASE}/merger.cpp"
@@ -21,10 +19,8 @@ set(
 set(
     HEADERS
     "${BASE}/builder.hpp"
-    "${BASE}/chunk.hpp"
     "${BASE}/new-chunk.hpp"
     "${BASE}/chunk-cache.hpp"
-    "${BASE}/clipper.hpp"
     "${BASE}/config.hpp"
     "${BASE}/heuristics.hpp"
     "${BASE}/hierarchy.hpp"

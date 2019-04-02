@@ -207,6 +207,12 @@ struct ChunkKey
         k.reset();
     }
 
+    void init(const Point& g, uint64_t d)
+    {
+        reset();
+        while (depth() < d) step(g);
+    }
+
     Dir step(const Point& g)
     {
         ++d;

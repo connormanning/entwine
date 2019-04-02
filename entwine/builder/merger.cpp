@@ -13,7 +13,8 @@
 #include <cassert>
 
 #include <entwine/builder/builder.hpp>
-#include <entwine/builder/clipper.hpp>
+#include <entwine/builder/pruner.hpp>
+#include <entwine/builder/registry.hpp>
 #include <entwine/builder/thread-pools.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/subset.hpp>
@@ -58,7 +59,7 @@ Merger::~Merger() { }
 
 void Merger::go()
 {
-    auto clipper(makeUnique<Clipper>(m_builder->registry()));
+    auto pruner(makeUnique<Pruner>(m_builder->registry().cache()));
 
     m_id = 2;
     while (m_id <= m_of)
@@ -110,7 +111,7 @@ void Merger::go()
                 throw std::runtime_error("A subset could not be created");
             }
 
-            m_builder->merge(*v.at(i), *clipper);
+            m_builder->merge(*v.at(i), *pruner);
         }
 
         m_id += n;
@@ -124,7 +125,7 @@ void Merger::go()
     m_builder->makeWhole();
 
     if (m_verbose) std::cout << "Merge complete.  Saving..." << std::endl;
-    clipper.reset();
+    pruner.reset();
     m_builder->save();
     m_builder.reset();
     if (m_verbose) std::cout << "\tFinal save complete." << std::endl;

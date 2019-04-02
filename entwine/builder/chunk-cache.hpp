@@ -12,7 +12,6 @@
 
 #include <array>
 
-#include <entwine/builder/chunk.hpp>
 #include <entwine/builder/new-chunk.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/util/spin-lock.hpp>

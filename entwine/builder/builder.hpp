@@ -40,11 +40,11 @@ namespace arbiter
 }
 
 class Bounds;
-class Clipper;
 class Executor;
 class FileInfo;
 class Metadata;
 class Pool;
+class Pruner;
 class Registry;
 class Reprojection;
 class Schema;
@@ -55,7 +55,6 @@ class ThreadPools;
 
 class Builder
 {
-    friend class Clipper;
     friend class Merger;
     friend class Sequence;
 
@@ -69,7 +68,7 @@ public:
     void go(std::size_t maxFileInsertions = 0);
 
     // Aggregate spatially segmented build.
-    void merge(Builder& other, Clipper& clipper);
+    void merge(Builder& other, Pruner& pruner);
 
     // Various getters.
     const Metadata& metadata() const;
@@ -114,9 +113,6 @@ private:
     // Insert points from a file.  Sets any previously unset FileInfo fields
     // based on file contents.
     void insertPath(Origin origin, FileInfo& info);
-
-    // Returns a stack of rejected info nodes so that they may be reused.
-    // Cells insertData(Cells cells, Clipper& clipper);
 
     // Validate sources.
     void prepareEndpoints();
