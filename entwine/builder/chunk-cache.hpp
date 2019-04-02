@@ -51,7 +51,6 @@ public:
     void assign(const ChunkKey& ck, const Hierarchy& hierarchy)
     {
         assert(!exists());
-        assert(!m_refs);
         m_chunk = makeUnique<NewChunk>(ck, hierarchy);
     }
 

@@ -88,56 +88,53 @@ NewChunk& ChunkCache::addRef(const ChunkKey& ck, Pruner& pruner)
 
     if (it != slice.end())
     {
+        // We've found a reffed chunk here.  The chunk itself may not exist,
+        // since the serialization and deletion steps occur asynchronously.
         NewReffedChunk& ref = it->second;
         UniqueSpin chunkLock(ref.spin());
+        ref.add();
 
-        // If we have the chunk and it hasn't been serialized, simply increment
-        // its ref count.
-        //
-        // It's possible that we started waiting on this chunkLock right after
-        // it started being serialized, in which case we have caught it before
-        // it's erased, so our newly added ref will stop that from happening.
-        if (ref.exists())
+        sliceLock.unlock();
+
+        if (!ref.exists())
         {
-            ref.add();
-            pruner.set(ck, &ref.chunk());
-        }
-        else
-        {
+            assert(ref.count() == 1);
+
+            // This chunk has already been serialized, but we've caught hold of
+            // its lock before it was actually erased from our map.  In this
+            // case, we'll need to reinitialize the resident chunk from its
+            // remote source.  Our newly added reference will keep it from
+            // being erased.
             ref.assign(ck, m_hierarchy);
-            pruner.set(ck, &ref.chunk());
-
-            assert(!ref.count());
             assert(ref.exists());
-
-            // After we add our ref-count, we know this ref won't be erased
-            // from the slice.
-            ref.add();
-
-            sliceLock.unlock();
-
-            const uint64_t np = m_hierarchy.get(ck.dxyz());
-            assert(np);
 
             {
                 SpinGuard lock(infoSpin);
                 ++info.read;
             }
 
+            const uint64_t np = m_hierarchy.get(ck.dxyz());
+            assert(np);
+
+            // Need to insert this ref prior to loading the chunk or we'll end
+            // up deadlocked.
+            pruner.set(ck, &ref.chunk());
             ref.chunk().load(*this, pruner, m_out, m_tmp, np);
+        }
+        else pruner.set(ck, &ref.chunk());
 
-            chunkLock.unlock();
+        chunkLock.unlock();
 
-            SpinGuard ownedLock(m_ownedSpin);
-            auto it(m_owned.find(ck.dxyz()));
-            if (it != m_owned.end())
-            {
-                std::cout << "+++ Snagging " << ck.dxyz() << std::endl;
-                chunkLock.lock();
-                assert(ref.count() > 1);
-                ref.del();
-                m_owned.erase(it);
-            }
+        // If we've reclaimed this chunk while it sits in our ownership list,
+        // remove it from that list - it is now communally owned.
+        SpinGuard ownedLock(m_ownedSpin);
+        auto it(m_owned.find(ck.dxyz()));
+        if (it != m_owned.end())
+        {
+            chunkLock.lock();
+            assert(ref.count() > 1);
+            ref.del();
+            m_owned.erase(it);
         }
 
         return ref.chunk();
@@ -218,17 +215,15 @@ void ChunkCache::prune(uint64_t depth, const std::map<Xyz, NewChunk*>& stale)
             {
                 SpinGuard ownedLock(m_ownedSpin);
                 const Dxyz dxyz(depth, key);
-                // std::cout << "+++ Owning " << dxyz << std::endl;
                 assert(!m_owned.count(dxyz));
                 m_owned.insert(dxyz);
             }
 
             sliceLock.lock();
 
+            // TODO Remove this.  This code bypasses the ownership queue and
+            // immediately queues this chunk for deletion.
             /*
-            // Once we've unreffed this chunk, all bets are off as to its
-            // validity.  It may be recaptured before deletion by an insertion
-            // thread, or may be deleted instantly.
             chunkLock.unlock();
             sliceLock.unlock();
 
@@ -250,7 +245,6 @@ void ChunkCache::maybePurge(const uint64_t maxCacheSize)
         ++disowned;
 
         const Dxyz dxyz(*m_owned.rbegin());
-        // std::cout << "+++ Disowning " << dxyz << std::endl;
         auto& slice(m_slices[dxyz.depth()]);
         UniqueSpin sliceLock(m_spins[dxyz.depth()]);
 
@@ -265,7 +259,6 @@ void ChunkCache::maybePurge(const uint64_t maxCacheSize)
 
         if (!ref.del())
         {
-            // std::cout << "+++ Cache full - del " << dxyz << std::endl;
             // Once we've unreffed this chunk, all bets are off as to its
             // validity.  It may be recaptured before deletion by an insertion
             // thread, or may be deleted instantly.
@@ -273,14 +266,14 @@ void ChunkCache::maybePurge(const uint64_t maxCacheSize)
             sliceLock.unlock();
             ownedLock.unlock();
 
+            // Don't hold any locks while we do this, since it may block.  We
+            // only want to block the calling thread in this case, not the
+            // whole system.
             m_pool.add([this, dxyz]() { maybeSerialize(dxyz); });
 
             ownedLock.lock();
         }
     }
-
-    if (disowned) std::cout << "Disowned " << disowned << std::endl;
-    else std::cout << "Owned " << m_owned.size() << std::endl;
 }
 
 void ChunkCache::maybeSerialize(const Dxyz& dxyz)
@@ -290,26 +283,31 @@ void ChunkCache::maybeSerialize(const Dxyz& dxyz)
     auto& slice(m_slices[dxyz.depth()]);
     auto it(slice.find(dxyz.position()));
 
-    if (it == slice.end())
-    {
-        std::cout << "--- Interrupted: erased " << dxyz << std::endl;
-        return;
-    }
+    // This case represents a chunk that has been queued for serialization,
+    // then reclaimed, and then queued for serialization again.  If the first
+    // serialization request doesn't actually run until after these steps,
+    // we'll end up with two serialization requests in the queue at which point
+    // the second one should simply no-op.
+    //
+    // This check keeps us from having to search our serialization queue for
+    // cleanup every time a chunk is reclaimed prior to its async serialization.
+    if (it == slice.end()) return;
 
     NewReffedChunk& ref = it->second;
     UniqueSpin chunkLock(ref.spin());
 
-    if (ref.count())
-    {
-        std::cout << "--- Interrupted: reclaimed " << dxyz << std::endl;
-        return;
-    }
+    // This chunk was queued for serialization, but another thread arrived to
+    // claim it before the serialization occurred.  No-op.
+    if (ref.count()) return;
 
-    if (!ref.exists())
-    {
-        std::cout << "--- Interrupted: serialized " << dxyz << std::endl;
-        return;
-    }
+    // This case occurs during the double-serialization case described above,
+    // when the second serialization shows up to wait on the chunk lock while
+    // the first serialization occurs.  The chunk is serialized and reset by
+    // the first thread, but it has to reacquire both locks in the proper order
+    // to avoid deadlock before it is actually removed.  If we've slipped in
+    // during this reacquisition time, simply no-op.  The first thread will
+    // erase the chunk immediately after we release the lock here.
+    if (!ref.exists()) return;
 
     // At this point, we have both locks, and we know our chunk exists but has
     // no refs, so serialize it.
@@ -347,26 +345,14 @@ void ChunkCache::maybeErase(const Dxyz& dxyz)
     auto& slice(m_slices[dxyz.depth()]);
     auto it(slice.find(dxyz.position()));
 
-    if (it == slice.end())
-    {
-        std::cout << "--- Interrupted: prior to erase" << dxyz << std::endl;
-        return;
-    }
+    // If the chunk has already been erased, no-op.
+    if (it == slice.end()) return;
 
     NewReffedChunk& ref = it->second;
     UniqueSpin chunkLock(ref.spin());
 
-    if (ref.count())
-    {
-        std::cout << "--- Erase late interrupt: " << dxyz << std::endl;
-        return;
-    }
-
-    if (ref.exists())
-    {
-        std::cout << "--- Still exists during maybeErase: " << dxyz << std::endl;
-        return;
-    }
+    if (ref.count()) return;
+    if (ref.exists()) return;
 
     // Because we have both locks, we know that no one is waiting on this chunk.
     //

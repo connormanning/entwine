@@ -49,6 +49,7 @@ Registry::Registry(
 
 void Registry::save()
 {
+    m_chunkCache.reset();
     m_hierarchy.save(m_metadata, m_hierEp, m_threadPools.workPool());
 }
 

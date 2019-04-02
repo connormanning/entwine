@@ -117,8 +117,7 @@ void NewChunk::maybeOverflow(ChunkCache& cache, Pruner& pruner)
 
     const uint64_t ourSize(gridSize + m_overflowCount);
     const uint64_t maxSize(
-            m_span * m_span +   // TODO Make 3D.
-            m_metadata.overflowThreshold());
+            m_span * m_span + m_metadata.overflowThreshold());
     if (ourSize < maxSize) return;
 
     // Find the overflow with the largest point count.
@@ -137,7 +136,7 @@ void NewChunk::maybeOverflow(ChunkCache& cache, Pruner& pruner)
     // Make sure our largest overflow is large enough to necessitate a
     // child node.
     // TODO Make this ratio configurable.
-    const uint64_t minSize(m_metadata.overflowThreshold() / 4.0);
+    const uint64_t minSize(m_metadata.overflowThreshold() / 2.0);
     if (selectedSize < minSize) return;
 
     doOverflow(cache, pruner, selectedIndex);
