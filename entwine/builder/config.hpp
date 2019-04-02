@@ -127,11 +127,17 @@ public:
     uint64_t span() const { return m_json.value("span", 256); }
 
     uint64_t overflowDepth() const { return m_json.value("overflowDepth", 0); }
-    uint64_t overflowThreshold() const
+    uint64_t minNodeSize() const
     {
-        return m_json.value(
-                "overflowThreshold",
-                span() * span() *  m_json.value("overflowRatio", 0.5));
+        return m_json.value("minNodeSize", span() * span() / 4);
+    }
+    uint64_t maxNodeSize() const
+    {
+        return m_json.value("maxNodeSize", span() * span());
+    }
+    uint64_t cacheSize() const
+    {
+        return m_json.value("cacheSize", 64);
     }
 
     uint64_t hierarchyStep() const { return m_json.value("hierarchyStep", 0); }

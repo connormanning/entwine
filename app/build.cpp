@@ -161,9 +161,22 @@ void Build::addArgs()
             [this](json j) { m_json["overflowDepth"] = extract(j); });
 
     m_ap.add(
-            "--overflowThreshold",
-            "Threshold at which overflowed points are placed into child nodes",
-            [this](json j) { m_json["overflowThreshold"] = extract(j); });
+            "--minNodeSize",
+            "Minimum number of overflowed points to be retained in a before "
+            "overflowing into a new node.",
+            [this](json j) { m_json["minNodeSize"] = extract(j); });
+
+    m_ap.add(
+            "--maxNodeSize",
+            "Maximum number of points in a node before an overflow is "
+            "attempted.",
+            [this](json j) { m_json["maxNodeSize"] = extract(j); });
+
+    m_ap.add(
+            "--cacheSize",
+            "Number of nodes to cache in memory before serializing to the "
+            "output.",
+            [this](json j) { m_json["cacheSize"] = extract(j); });
 
     m_ap.add(
             "--hierarchyStep",
@@ -345,8 +358,9 @@ void Build::log(const Builder& b) const
         "\tResolution 3D: " <<
             t << " * " << t << " * " << t << " = " << commify(t * t * t) <<
             "\n" <<
-        "\tOverflow threshold: " << commify(metadata.overflowThreshold()) <<
-            "\n";
+        "\tMaximum node size: " << commify(metadata.maxNodeSize()) << "\n" <<
+        "\tMinimum node size: " << commify(metadata.minNodeSize()) << "\n" <<
+        "\tCache size: " << commify(metadata.cacheSize()) << "\n";
 
     if (const Subset* s = metadata.subset())
     {

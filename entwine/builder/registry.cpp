@@ -44,7 +44,8 @@ Registry::Registry(
                 m_hierarchy,
                 clipPool(),
                 m_dataEp,
-                m_tmp))
+                m_tmp,
+                m_metadata.cacheSize()))
 { }
 
 void Registry::save()

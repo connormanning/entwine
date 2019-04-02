@@ -259,7 +259,7 @@ private:
         overflow.voxel.initDeep(voxel.point(), voxel.data(), m_pointSize);
         o->push_back(overflow);
 
-        if (++m_overflowCount < m_ref.metadata().overflowThreshold()) return;
+        if (++m_overflowCount < 65536 / 2) return;
 
         // See if our resident size is big enough to overflow.
         uint64_t gridSize(0);
@@ -269,9 +269,7 @@ private:
         }
 
         const uint64_t ourSize(gridSize + m_overflowCount);
-        const uint64_t maxSize(
-                m_span * m_span * m_span +
-                m_ref.metadata().overflowThreshold());
+        const uint64_t maxSize(65536 + 65536 / 4);
         if (ourSize < maxSize) return;
 
         // Find the overflow with the largest point count.
@@ -289,7 +287,7 @@ private:
 
         // Make sure our largest overflow is large enough to necessitate a
         // child node.
-        const uint64_t minSize(m_ref.metadata().overflowThreshold() / 2.0);
+        const uint64_t minSize(65536 / 4);
         if (selectedSize < minSize) return;
 
         doOverflow(clipper, selectedIndex);

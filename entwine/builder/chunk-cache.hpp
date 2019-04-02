@@ -67,7 +67,8 @@ public:
             Hierarchy& hierarchy,
             Pool& ioPool,
             const arbiter::Endpoint& out,
-            const arbiter::Endpoint& tmp);
+            const arbiter::Endpoint& tmp,
+            uint64_t cacheSize);
 
     ~ChunkCache();
 
@@ -94,13 +95,13 @@ private:
     Pool& m_pool;
     const arbiter::Endpoint& m_out;
     const arbiter::Endpoint& m_tmp;
+    const uint64_t m_cacheSize = 64;
 
     std::array<SpinLock, maxDepth> m_spins;
     std::array<std::map<Xyz, NewReffedChunk>, maxDepth> m_slices;
 
     SpinLock m_ownedSpin;
     std::set<Dxyz> m_owned;
-    const uint64_t m_cacheSize = 64;
 };
 
 } // namespace entwine

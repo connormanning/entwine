@@ -79,7 +79,10 @@ public:
     uint64_t startDepth() const { return m_startDepth; }
     uint64_t sharedDepth() const { return m_sharedDepth; }
     uint64_t overflowDepth() const { return m_overflowDepth; }
-    uint64_t overflowThreshold() const { return m_overflowThreshold; }
+    uint64_t minNodeSize() const { return m_minNodeSize; }
+    uint64_t maxNodeSize() const { return m_maxNodeSize; }
+    uint64_t cacheSize() const { return m_cacheSize; }
+
 
     void makeWhole();
 
@@ -115,7 +118,9 @@ private:
     const uint64_t m_sharedDepth;
 
     const uint64_t m_overflowDepth;
-    const uint64_t m_overflowThreshold;
+    const uint64_t m_minNodeSize;
+    const uint64_t m_maxNodeSize;
+    const uint64_t m_cacheSize;
 
     bool m_merged = false;
 };

@@ -98,7 +98,7 @@ bool NewChunk::insertOverflow(
     if (!m_overflows[i]->insert(voxel, key)) return false;
 
     // Overflow inserted, update metric and perform overflow if needed.
-    if (++m_overflowCount >= m_metadata.overflowThreshold())
+    if (++m_overflowCount >= m_metadata.minNodeSize())
     {
         maybeOverflow(cache, pruner);
     }
@@ -116,9 +116,7 @@ void NewChunk::maybeOverflow(ChunkCache& cache, Pruner& pruner)
     }
 
     const uint64_t ourSize(gridSize + m_overflowCount);
-    const uint64_t maxSize(
-            m_span * m_span + m_metadata.overflowThreshold());
-    if (ourSize < maxSize) return;
+    if (ourSize < m_metadata.maxNodeSize()) return;
 
     // Find the overflow with the largest point count.
     uint64_t selectedSize = 0;
@@ -133,11 +131,9 @@ void NewChunk::maybeOverflow(ChunkCache& cache, Pruner& pruner)
         }
     }
 
-    // Make sure our largest overflow is large enough to necessitate a
-    // child node.
-    // TODO Make this ratio configurable.
-    const uint64_t minSize(m_metadata.overflowThreshold() / 2.0);
-    if (selectedSize < minSize) return;
+    // Make sure our largest overflow is large enough to necessitate
+    // overflowing into its own node.
+    if (selectedSize < m_metadata.minNodeSize()) return;
 
     doOverflow(cache, pruner, selectedIndex);
 }
