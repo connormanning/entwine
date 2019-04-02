@@ -40,11 +40,11 @@ namespace arbiter
 }
 
 class Bounds;
+class Clipper;
 class Executor;
 class FileInfo;
 class Metadata;
 class Pool;
-class Pruner;
 class Registry;
 class Reprojection;
 class Schema;
@@ -68,7 +68,7 @@ public:
     void go(std::size_t maxFileInsertions = 0);
 
     // Aggregate spatially segmented build.
-    void merge(Builder& other, Pruner& pruner);
+    void merge(Builder& other, Clipper& clipper);
 
     // Various getters.
     const Metadata& metadata() const;

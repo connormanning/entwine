@@ -10,8 +10,8 @@
 
 #include <entwine/builder/chunk-cache.hpp>
 
+#include <entwine/builder/clipper.hpp>
 #include <entwine/builder/hierarchy.hpp>
-#include <entwine/builder/pruner.hpp>
 
 namespace entwine
 {
@@ -53,7 +53,7 @@ ChunkCache::~ChunkCache()
             std::all_of(
                 m_slices.begin(),
                 m_slices.end(),
-                [](const std::map<Xyz, NewReffedChunk>& slice)
+                [](const std::map<Xyz, ReffedChunk>& slice)
                 {
                     return slice.empty();
                 }));
@@ -63,24 +63,24 @@ void ChunkCache::insert(
         Voxel& voxel,
         Key& key,
         const ChunkKey& ck,
-        Pruner& pruner)
+        Clipper& clipper)
 {
     // Get from single-threaded cache if we can.
-    NewChunk* chunk = pruner.get(ck);
+    Chunk* chunk = clipper.get(ck);
 
     // Otherwise, make sure it's initialized and increment its ref count.
-    if (!chunk) chunk = &addRef(ck, pruner);
+    if (!chunk) chunk = &addRef(ck, clipper);
 
     // Try to insert the point into this chunk.
-    if (chunk->insert(*this, pruner, voxel, key)) return;
+    if (chunk->insert(*this, clipper, voxel, key)) return;
 
     // Failed to insert - need to traverse to the next depth.
     key.step(voxel.point());
     const Dir dir(getDirection(ck.bounds().mid(), voxel.point()));
-    insert(voxel, key, chunk->childAt(dir), pruner);
+    insert(voxel, key, chunk->childAt(dir), clipper);
 }
 
-NewChunk& ChunkCache::addRef(const ChunkKey& ck, Pruner& pruner)
+Chunk& ChunkCache::addRef(const ChunkKey& ck, Clipper& clipper)
 {
     // This is the first access of this chunk for a particular thread.
     UniqueSpin sliceLock(m_spins[ck.depth()]);
@@ -92,7 +92,7 @@ NewChunk& ChunkCache::addRef(const ChunkKey& ck, Pruner& pruner)
     {
         // We've found a reffed chunk here.  The chunk itself may not exist,
         // since the serialization and deletion steps occur asynchronously.
-        NewReffedChunk& ref = it->second;
+        ReffedChunk& ref = it->second;
         UniqueSpin chunkLock(ref.spin());
         ref.add();
 
@@ -120,10 +120,10 @@ NewChunk& ChunkCache::addRef(const ChunkKey& ck, Pruner& pruner)
 
             // Need to insert this ref prior to loading the chunk or we'll end
             // up deadlocked.
-            pruner.set(ck, &ref.chunk());
-            ref.chunk().load(*this, pruner, m_out, m_tmp, np);
+            clipper.set(ck, &ref.chunk());
+            ref.chunk().load(*this, clipper, m_out, m_tmp, np);
         }
-        else pruner.set(ck, &ref.chunk());
+        else clipper.set(ck, &ref.chunk());
 
         chunkLock.unlock();
 
@@ -156,7 +156,7 @@ NewChunk& ChunkCache::addRef(const ChunkKey& ck, Pruner& pruner)
     it = insertion.first;
     assert(insertion.second);
 
-    NewReffedChunk& ref = it->second;
+    ReffedChunk& ref = it->second;
     SpinGuard chunkLock(ref.spin());
 
     // We shouldn't have any existing refs yet, but the chunk should exist.
@@ -166,7 +166,7 @@ NewChunk& ChunkCache::addRef(const ChunkKey& ck, Pruner& pruner)
     // Since we're still holding the slice lock, no one else can access this
     // chunk yet.  Add our ref and then we can release the slice lock.
     ref.add();
-    pruner.set(ck, &ref.chunk());
+    clipper.set(ck, &ref.chunk());
 
     sliceLock.unlock();
 
@@ -184,13 +184,13 @@ NewChunk& ChunkCache::addRef(const ChunkKey& ck, Pruner& pruner)
             ++info.read;
         }
 
-        ref.chunk().load(*this, pruner, m_out, m_tmp, np);
+        ref.chunk().load(*this, clipper, m_out, m_tmp, np);
     }
 
     return ref.chunk();
 }
 
-void ChunkCache::prune(uint64_t depth, const std::map<Xyz, NewChunk*>& stale)
+void ChunkCache::clip(uint64_t depth, const std::map<Xyz, Chunk*>& stale)
 {
     if (stale.empty()) return;
 
@@ -202,7 +202,7 @@ void ChunkCache::prune(uint64_t depth, const std::map<Xyz, NewChunk*>& stale)
         const auto& key(p.first);
         assert(slice.count(key));
 
-        NewReffedChunk& ref(slice.at(key));
+        ReffedChunk& ref(slice.at(key));
         UniqueSpin chunkLock(ref.spin());
 
         assert(ref.count());
@@ -238,7 +238,7 @@ void ChunkCache::maybePurge(const uint64_t maxCacheSize)
         auto& slice(m_slices[dxyz.depth()]);
         UniqueSpin sliceLock(m_spins[dxyz.depth()]);
 
-        NewReffedChunk& ref(slice.at(dxyz.position()));
+        ReffedChunk& ref(slice.at(dxyz.position()));
         UniqueSpin chunkLock(ref.spin());
 
         m_owned.erase(std::prev(m_owned.end()));
@@ -283,7 +283,7 @@ void ChunkCache::maybeSerialize(const Dxyz& dxyz)
     // cleanup every time a chunk is reclaimed prior to its async serialization.
     if (it == slice.end()) return;
 
-    NewReffedChunk& ref = it->second;
+    ReffedChunk& ref = it->second;
     UniqueSpin chunkLock(ref.spin());
 
     // This chunk was queued for serialization, but another thread arrived to
@@ -338,7 +338,7 @@ void ChunkCache::maybeErase(const Dxyz& dxyz)
     // If the chunk has already been erased, no-op.
     if (it == slice.end()) return;
 
-    NewReffedChunk& ref = it->second;
+    ReffedChunk& ref = it->second;
     UniqueSpin chunkLock(ref.spin());
 
     if (ref.count()) return;

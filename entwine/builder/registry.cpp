@@ -52,7 +52,7 @@ void Registry::save()
     m_hierarchy.save(m_metadata, m_hierEp, m_threadPools.workPool());
 }
 
-void Registry::merge(const Registry& other, Pruner& pruner)
+void Registry::merge(const Registry& other, Clipper& clipper)
 {
     for (const auto& p : other.hierarchy().map())
     {
@@ -62,7 +62,7 @@ void Registry::merge(const Registry& other, Pruner& pruner)
         if (dxyz.d < m_metadata.sharedDepth())
         {
             VectorPointTable table(m_metadata.schema(), np);
-            table.setProcess([this, &table, &pruner, &dxyz]()
+            table.setProcess([this, &table, &clipper, &dxyz]()
             {
                 Voxel voxel;
                 Key pk(m_metadata);
@@ -75,7 +75,7 @@ void Registry::merge(const Registry& other, Pruner& pruner)
                     pk.init(point, dxyz.d);
                     ck.init(point, dxyz.d);
 
-                    m_chunkCache->insert(voxel, pk, ck, pruner);
+                    m_chunkCache->insert(voxel, pk, ck, clipper);
                 }
             });
 

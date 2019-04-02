@@ -25,7 +25,7 @@ namespace arbiter { class Endpoint; }
 
 class Hierarchy;
 class ChunkCache;
-class Pruner;
+class Clipper;
 
 struct VoxelTube
 {
@@ -34,17 +34,17 @@ struct VoxelTube
     std::map<uint64_t, Voxel> map;
 };
 
-class NewChunk
+class Chunk
 {
 public:
-    NewChunk(const ChunkKey& ck, const Hierarchy& hierarchy);
+    Chunk(const ChunkKey& ck, const Hierarchy& hierarchy);
 
-    bool insert(ChunkCache& cache, Pruner& pruner, Voxel& voxel, Key& key);
+    bool insert(ChunkCache& cache, Clipper& clipper, Voxel& voxel, Key& key);
     uint64_t save(const arbiter::Endpoint& out, const arbiter::Endpoint& tmp)
         const;
     void load(
             ChunkCache& cache,
-            Pruner& pruner,
+            Clipper& clipper,
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
             uint64_t np);
@@ -60,12 +60,12 @@ public:
 private:
     bool insertOverflow(
             ChunkCache& cache,
-            Pruner& pruner,
+            Clipper& clipper,
             Voxel& voxel,
             Key& key);
 
-    void maybeOverflow(ChunkCache& cache, Pruner& pruner);
-    void doOverflow(ChunkCache& cache, Pruner& pruner, uint64_t dir);
+    void maybeOverflow(ChunkCache& cache, Clipper& clipper);
+    void doOverflow(ChunkCache& cache, Clipper& clipper, uint64_t dir);
 
     const Metadata& m_metadata;
     const uint64_t m_span;

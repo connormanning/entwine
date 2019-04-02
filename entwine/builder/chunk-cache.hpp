@@ -12,21 +12,21 @@
 
 #include <array>
 
-#include <entwine/builder/new-chunk.hpp>
+#include <entwine/builder/chunk.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/util/spin-lock.hpp>
 
 namespace entwine
 {
 
+class Clipper;
 class Hierarchy;
-class Pruner;
 
-class NewReffedChunk
+class ReffedChunk
 {
 public:
-    NewReffedChunk(const ChunkKey& ck, const Hierarchy& hierarchy)
-        : m_chunk(makeUnique<NewChunk>(ck, hierarchy))
+    ReffedChunk(const ChunkKey& ck, const Hierarchy& hierarchy)
+        : m_chunk(makeUnique<Chunk>(ck, hierarchy))
     { }
 
     SpinLock& spin() { return m_spin; }
@@ -39,7 +39,7 @@ public:
     }
     uint64_t count() const { return m_refs; }
 
-    NewChunk& chunk()
+    Chunk& chunk()
     {
         if (!m_chunk) throw std::runtime_error("Missing chunk");
         return *m_chunk;
@@ -50,13 +50,13 @@ public:
     void assign(const ChunkKey& ck, const Hierarchy& hierarchy)
     {
         assert(!exists());
-        m_chunk = makeUnique<NewChunk>(ck, hierarchy);
+        m_chunk = makeUnique<Chunk>(ck, hierarchy);
     }
 
 private:
     SpinLock m_spin;
     uint64_t m_refs = 0;
-    std::unique_ptr<NewChunk> m_chunk;
+    std::unique_ptr<Chunk> m_chunk;
 };
 
 class ChunkCache
@@ -71,9 +71,9 @@ public:
 
     ~ChunkCache();
 
-    void insert(Voxel& voxel, Key& key, const ChunkKey& ck, Pruner& pruner);
-    void prune(uint64_t depth, const std::map<Xyz, NewChunk*>& stale);
-    void pruned() { maybePurge(m_cacheSize); }
+    void insert(Voxel& voxel, Key& key, const ChunkKey& ck, Clipper& clipper);
+    void clip(uint64_t depth, const std::map<Xyz, Chunk*>& stale);
+    void clipped() { maybePurge(m_cacheSize); }
 
     struct Info
     {
@@ -85,7 +85,7 @@ public:
     static Info latchInfo();
 
 private:
-    NewChunk& addRef(const ChunkKey& ck, Pruner& pruner);
+    Chunk& addRef(const ChunkKey& ck, Clipper& clipper);
     void maybeSerialize(const Dxyz& dxyz);
     void maybeErase(const Dxyz& dxyz);
     void maybePurge(uint64_t maxCacheSize);
@@ -97,7 +97,7 @@ private:
     const uint64_t m_cacheSize = 64;
 
     std::array<SpinLock, maxDepth> m_spins;
-    std::array<std::map<Xyz, NewReffedChunk>, maxDepth> m_slices;
+    std::array<std::map<Xyz, ReffedChunk>, maxDepth> m_slices;
 
     SpinLock m_ownedSpin;
     std::set<Dxyz> m_owned;

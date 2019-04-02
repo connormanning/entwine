@@ -42,11 +42,11 @@ public:
             bool exists = false);
 
     void save();
-    void merge(const Registry& other, Pruner& pruner);
+    void merge(const Registry& other, Clipper& clipper);
 
-    void newAddPoint(Voxel& voxel, Key& key, ChunkKey& ck, Pruner& pruner)
+    void addPoint(Voxel& voxel, Key& key, ChunkKey& ck, Clipper& clipper)
     {
-        m_chunkCache->insert(voxel, key, ck, pruner);
+        m_chunkCache->insert(voxel, key, ck, clipper);
     }
 
     Pool& workPool() { return m_threadPools.workPool(); }

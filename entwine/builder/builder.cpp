@@ -16,8 +16,8 @@
 #include <random>
 #include <thread>
 
+#include <entwine/builder/clipper.hpp>
 #include <entwine/builder/heuristics.hpp>
-#include <entwine/builder/pruner.hpp>
 #include <entwine/builder/registry.hpp>
 #include <entwine/builder/sequence.hpp>
 #include <entwine/builder/thread-pools.hpp>
@@ -262,7 +262,7 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
     uint64_t pointId(0);
 
     ChunkKey ck(*m_metadata);
-    Pruner pruner(m_registry->cache());
+    Clipper clipper(m_registry->cache());
 
     VectorPointTable table(m_metadata->schema());
     table.setProcess([&]()
@@ -272,7 +272,7 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
         if (inserted > m_sleepCount)
         {
             inserted = 0;
-            pruner.prune();
+            clipper.clip();
         }
 
         std::unique_ptr<ScaleOffset> so(m_metadata->outSchema().scaleOffset());
@@ -303,7 +303,7 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
                 if (!boundsSubset || boundsSubset->contains(point))
                 {
                     key.init(point);
-                    m_registry->newAddPoint(voxel, key, ck, pruner);
+                    m_registry->addPoint(voxel, key, ck, clipper);
                     pointStats.addInsert();
                 }
             }
@@ -361,9 +361,9 @@ void Builder::save(const arbiter::Endpoint& ep)
     m_metadata->save(*m_out, m_config);
 }
 
-void Builder::merge(Builder& other, Pruner& pruner)
+void Builder::merge(Builder& other, Clipper& clipper)
 {
-    m_registry->merge(*other.m_registry, pruner);
+    m_registry->merge(*other.m_registry, clipper);
     m_metadata->merge(*other.m_metadata);
 }
 

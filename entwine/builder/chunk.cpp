@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include <entwine/builder/new-chunk.hpp>
+#include <entwine/builder/chunk.hpp>
 
 #include <entwine/builder/chunk-cache.hpp>
 #include <entwine/builder/hierarchy.hpp>
@@ -20,7 +20,7 @@
 namespace entwine
 {
 
-NewChunk::NewChunk(const ChunkKey& ck, const Hierarchy& hierarchy)
+Chunk::Chunk(const ChunkKey& ck, const Hierarchy& hierarchy)
     : m_metadata(ck.metadata())
     , m_span(m_metadata.span())
     , m_pointSize(m_metadata.schema().pointSize())
@@ -50,7 +50,7 @@ NewChunk::NewChunk(const ChunkKey& ck, const Hierarchy& hierarchy)
     }
 }
 
-bool NewChunk::insert(ChunkCache& cache, Pruner& pruner, Voxel& voxel, Key& key)
+bool Chunk::insert(ChunkCache& cache, Clipper& clipper, Voxel& voxel, Key& key)
 {
     const Xyz& pos(key.position());
     const uint64_t i((pos.y % m_span) * m_span + (pos.x % m_span));
@@ -79,12 +79,12 @@ bool NewChunk::insert(ChunkCache& cache, Pruner& pruner, Voxel& voxel, Key& key)
 
     tubeLock.unlock();
 
-    return insertOverflow(cache, pruner, voxel, key);
+    return insertOverflow(cache, clipper, voxel, key);
 }
 
-bool NewChunk::insertOverflow(
+bool Chunk::insertOverflow(
         ChunkCache& cache,
-        Pruner& pruner,
+        Clipper& clipper,
         Voxel& voxel,
         Key& key)
 {
@@ -101,13 +101,13 @@ bool NewChunk::insertOverflow(
     // Overflow inserted, update metric and perform overflow if needed.
     if (++m_overflowCount >= m_metadata.minNodeSize())
     {
-        maybeOverflow(cache, pruner);
+        maybeOverflow(cache, clipper);
     }
 
     return true;
 }
 
-void NewChunk::maybeOverflow(ChunkCache& cache, Pruner& pruner)
+void Chunk::maybeOverflow(ChunkCache& cache, Clipper& clipper)
 {
     // See if our resident size is big enough to overflow.
     uint64_t gridSize(0);
@@ -136,10 +136,10 @@ void NewChunk::maybeOverflow(ChunkCache& cache, Pruner& pruner)
     // overflowing into its own node.
     if (selectedSize < m_metadata.minNodeSize()) return;
 
-    doOverflow(cache, pruner, selectedIndex);
+    doOverflow(cache, clipper, selectedIndex);
 }
 
-void NewChunk::doOverflow(ChunkCache& cache, Pruner& pruner, uint64_t dir)
+void Chunk::doOverflow(ChunkCache& cache, Clipper& clipper, uint64_t dir)
 {
     assert(m_overflows[dir]);
 
@@ -155,11 +155,11 @@ void NewChunk::doOverflow(ChunkCache& cache, Pruner& pruner, uint64_t dir)
     for (auto& entry : active->list())
     {
         entry.key.step(entry.voxel.point());
-        cache.insert(entry.voxel, entry.key, ck, pruner);
+        cache.insert(entry.voxel, entry.key, ck, clipper);
     }
 }
 
-uint64_t NewChunk::save(
+uint64_t Chunk::save(
         const arbiter::Endpoint& out,
         const arbiter::Endpoint& tmp) const
 {
@@ -183,9 +183,9 @@ uint64_t NewChunk::save(
     return np;
 }
 
-void NewChunk::load(
+void Chunk::load(
         ChunkCache& cache,
-        Pruner& pruner,
+        Clipper& clipper,
         const arbiter::Endpoint& out,
         const arbiter::Endpoint& tmp,
         const uint64_t np)
@@ -200,7 +200,7 @@ void NewChunk::load(
         {
             voxel.initShallow(it.pointRef(), it.data());
             key.init(voxel.point(), m_chunkKey.depth());
-            cache.insert(voxel, key, m_chunkKey, pruner);
+            cache.insert(voxel, key, m_chunkKey, clipper);
         }
     });
 

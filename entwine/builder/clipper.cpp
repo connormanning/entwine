@@ -8,15 +8,15 @@
 *
 ******************************************************************************/
 
-#include <entwine/builder/pruner.hpp>
+#include <entwine/builder/clipper.hpp>
 
-#include <entwine/builder/new-chunk.hpp>
+#include <entwine/builder/chunk.hpp>
 #include <entwine/builder/chunk-cache.hpp>
 
 namespace entwine
 {
 
-Pruner::~Pruner()
+Clipper::~Clipper()
 {
     for (
             uint64_t depth(0);
@@ -30,10 +30,10 @@ Pruner::~Pruner()
         aged.insert(used.begin(), used.end());
     }
 
-    prune();
+    clip();
 }
 
-NewChunk* Pruner::get(const ChunkKey& ck)
+Chunk* Clipper::get(const ChunkKey& ck)
 {
     CachedChunk& fast(m_fast[ck.depth()]);
     if (fast.xyz == ck.position()) return fast.chunk;
@@ -55,7 +55,7 @@ NewChunk* Pruner::get(const ChunkKey& ck)
     return fast.chunk = it->second;
 }
 
-void Pruner::set(const ChunkKey& ck, NewChunk* chunk)
+void Clipper::set(const ChunkKey& ck, Chunk* chunk)
 {
     CachedChunk& fast(m_fast[ck.depth()]);
 
@@ -67,19 +67,16 @@ void Pruner::set(const ChunkKey& ck, NewChunk* chunk)
     slow[ck.position()] = chunk;
 }
 
-void Pruner::prune()
+void Clipper::clip()
 {
     m_fast.fill(CachedChunk());
 
-    for (uint64_t depth(m_slow.size() - 1); depth < m_slow.size(); --depth)
-    /*
     for (
             uint64_t depth(0);
             depth < m_slow.size() && (
                 m_slow[depth].size() || m_aged[depth].size()
             );
             ++depth)
-    */
     {
         if (m_slow[depth].empty() && m_aged[depth].empty()) continue;
 
@@ -88,9 +85,9 @@ void Pruner::prune()
 
         // Whatever is in our aging list hasn't been touched in two iterations,
         // so deref those chunks.
-        m_cache.prune(depth, aged);
+        m_cache.clip(depth, aged);
 
-        // Get rid of what we just pruned, and lower our recently touched
+        // Get rid of what we just clipped, and lower our recently touched
         // list into our aging list.
         aged.clear();
 
@@ -98,7 +95,7 @@ void Pruner::prune()
         std::swap(used, aged);
     }
 
-    m_cache.pruned();
+    m_cache.clipped();
 }
 
 } // namespace entwine

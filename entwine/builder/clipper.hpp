@@ -18,7 +18,7 @@
 namespace entwine
 {
 
-class NewChunk;
+class Chunk;
 class ChunkCache;
 
 struct CachedChunk
@@ -33,7 +33,7 @@ struct CachedChunk
     CachedChunk(const Xyz& xyz) : xyz(xyz) { }
 
     Xyz xyz;
-    NewChunk* chunk = nullptr;
+    Chunk* chunk = nullptr;
 };
 
 inline bool operator<(const CachedChunk& a, const CachedChunk& b)
@@ -41,30 +41,30 @@ inline bool operator<(const CachedChunk& a, const CachedChunk& b)
     return a.xyz < b.xyz;
 }
 
-class Pruner
+class Clipper
 {
 public:
-    Pruner(ChunkCache& cache)
+    Clipper(ChunkCache& cache)
         : m_cache(cache)
     {
         m_fast.fill(CachedChunk());
     }
 
-    ~Pruner();
+    ~Clipper();
 
-    NewChunk* get(const ChunkKey& ck);
-    void set(const ChunkKey& ck, NewChunk* chunk);
-    void prune();
+    Chunk* get(const ChunkKey& ck);
+    void set(const ChunkKey& ck, Chunk* chunk);
+    void clip();
 
 private:
     ChunkCache& m_cache;
 
-    using UsedMap = std::map<Xyz, NewChunk*>;
+    using UsedMap = std::map<Xyz, Chunk*>;
     using AgedSet = std::set<Xyz>;
 
     std::array<CachedChunk, maxDepth> m_fast;
-    std::array<std::map<Xyz, NewChunk*>, maxDepth> m_slow;
-    std::array<std::map<Xyz, NewChunk*>, maxDepth> m_aged;
+    std::array<std::map<Xyz, Chunk*>, maxDepth> m_slow;
+    std::array<std::map<Xyz, Chunk*>, maxDepth> m_aged;
 };
 
 } // namespace entwine
