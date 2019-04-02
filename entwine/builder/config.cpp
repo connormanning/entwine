@@ -60,8 +60,13 @@ Config Config::fromScan(const std::string file) const
     return c;
 }
 
-Config Config::prepare() const
+Config Config::prepareForBuild() const
 {
+    if (!m_json.count("output"))
+    {
+        throw std::runtime_error("Required field 'output' is missing");
+    }
+
     json from(m_json.value("input", json()));
 
     // For a continuation build, we might just have an output.

@@ -41,7 +41,7 @@ public:
     //      - Input data is scanned prior to input.
     //      - If the input is already a scan, that the scan is parsed properly
     //        and has its configuration merged in.
-    Config prepare() const;
+    Config prepareForBuild() const;
 
     json pipeline(std::string filename) const;
 

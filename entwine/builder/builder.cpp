@@ -45,7 +45,7 @@ namespace
 }
 
 Builder::Builder(const Config& config, std::shared_ptr<arbiter::Arbiter> a)
-    : m_config(config.prepare())
+    : m_config(config.prepareForBuild())
     , m_interval(m_config.progressInterval())
     , m_arbiter(a ? a : std::make_shared<arbiter::Arbiter>(m_config.arbiter()))
     , m_out(makeUnique<arbiter::Endpoint>(
