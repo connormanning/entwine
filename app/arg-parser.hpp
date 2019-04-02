@@ -165,7 +165,11 @@ private:
     {
         std::string out;
         std::vector<std::string> lines(split(in, '\n'));
-        for (const auto line : lines) out += formatLine(line) + '\n';
+        for (uint64_t i(0); i < lines.size(); ++i)
+        {
+            out += formatLine(lines[i]);
+            if (i != lines.size() - 1) out += '\n';
+        }
         return out;
     }
 
