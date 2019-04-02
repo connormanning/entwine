@@ -222,18 +222,6 @@ void ChunkCache::prune(uint64_t depth, const std::map<Xyz, NewChunk*>& stale)
             }
 
             sliceLock.lock();
-
-            // TODO Remove this.  This code bypasses the ownership queue and
-            // immediately queues this chunk for deletion.
-            /*
-            chunkLock.unlock();
-            sliceLock.unlock();
-
-            const Dxyz dxyz(depth, key);
-            m_pool.add([this, dxyz]() { maybeSerialize(dxyz); });
-
-            sliceLock.lock();
-            */
         }
     }
 }
