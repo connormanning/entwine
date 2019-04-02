@@ -29,7 +29,7 @@ public:
     VectorPointTable& table() { return *m_table; }
     std::size_t bytes() const
     {
-        return m_table->capacity() + m_table->pointSize();
+        return m_table->capacity() * m_table->pointSize();
     }
 
 private:
