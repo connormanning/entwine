@@ -130,18 +130,13 @@ void Builder::go(std::size_t max)
                     std::cout <<
                         formatTime(s) << " - " <<
                         std::round(progress * 100.0) << "% - " <<
-                        commify(inserts) << "P - " <<
+                        commify(inserts) << " - " <<
                         commify(inserts / s * megsPerHour) <<
                             "(" << commify((inserts - last) / m_interval *
                                         megsPerHour) << ")" <<
                             "M/h - " <<
                         info.written << "W - " << info.read << "R - " <<
                         info.alive << "A" <<
-                        /*
-                        " W: " << info.written <<
-                        " R: " << info.read <<
-                        " A: " << commify(info.alive) <<
-                        */
                         std::endl;
                 }
 

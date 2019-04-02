@@ -30,6 +30,7 @@ class Pruner;
 struct NewVoxelTube
 {
     SpinLock spin;
+    Voxel& operator[](uint64_t i) { return map[i]; }
     std::map<uint64_t, Voxel> map;
 };
 

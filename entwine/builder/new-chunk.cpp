@@ -53,10 +53,10 @@ bool NewChunk::insert(ChunkCache& cache, Pruner& pruner, Voxel& voxel, Key& key)
 {
     const Xyz& pos(key.position());
     const uint64_t i((pos.y % m_span) * m_span + (pos.x % m_span));
-    NewVoxelTube& tube(m_grid[i]);
+    auto& tube(m_grid[i]);
 
     UniqueSpin tubeLock(tube.spin);
-    Voxel& dst(tube.map[pos.z]);
+    Voxel& dst(tube[pos.z]);
 
     if (dst.data())
     {
@@ -137,7 +137,7 @@ void NewChunk::maybeOverflow(ChunkCache& cache, Pruner& pruner)
     // Make sure our largest overflow is large enough to necessitate a
     // child node.
     // TODO Make this ratio configurable.
-    const uint64_t minSize(m_metadata.overflowThreshold() / 2.0);
+    const uint64_t minSize(m_metadata.overflowThreshold() / 4.0);
     if (selectedSize < minSize) return;
 
     doOverflow(cache, pruner, selectedIndex);

@@ -101,7 +101,7 @@ private:
 
     SpinLock m_ownedSpin;
     std::set<Dxyz> m_owned;
-    const uint64_t m_cacheSize = 256;
+    const uint64_t m_cacheSize = 64;
 };
 
 } // namespace entwine

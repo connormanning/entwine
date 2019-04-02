@@ -49,9 +49,6 @@ Registry::Registry(
 
 void Registry::save()
 {
-    // TODO This won't be necessary once the clipping logic is hooked up.
-    m_chunkCache.reset();
-
     m_hierarchy.save(m_metadata, m_hierEp, m_threadPools.workPool());
 }
 
