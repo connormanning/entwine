@@ -33,13 +33,12 @@ public:
         , m_block(m_pointSize, 256)
     { }
 
-    bool insert(Voxel& voxel, Key& key)
+    void insert(Voxel& voxel, Key& key)
     {
         Entry entry(key);
         entry.voxel.setData(m_block.next());
         entry.voxel.initDeep(voxel.point(), voxel.data(), m_pointSize);
         m_list.push_back(entry);
-        return true;
     }
 
     const ChunkKey& chunkKey() const { return m_chunkKey; }

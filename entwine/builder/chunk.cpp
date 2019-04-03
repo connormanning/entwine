@@ -96,7 +96,8 @@ bool Chunk::insertOverflow(
     SpinGuard lock(m_overflowSpin);
 
     if (!m_overflows[i]) return false;
-    if (!m_overflows[i]->insert(voxel, key)) return false;
+
+    m_overflows[i]->insert(voxel, key);
 
     // Overflow inserted, update metric and perform overflow if needed.
     if (++m_overflowCount >= m_metadata.minNodeSize())
