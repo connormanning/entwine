@@ -109,7 +109,7 @@ void Tileset::build(const ChunkKey& ck) const
 
     if (!ck.depth())
     {
-        m_out.put("tileset.json", j.dump(2));
+        m_out.put("tileset.json", j.dump());
     }
     else
     {
