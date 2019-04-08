@@ -83,7 +83,6 @@ public:
     uint64_t maxNodeSize() const { return m_maxNodeSize; }
     uint64_t cacheSize() const { return m_cacheSize; }
 
-
     void makeWhole();
 
     std::string postfix() const;

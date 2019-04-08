@@ -92,7 +92,6 @@ public:
 
     bool verbose() const { return m_verbose; }
     void verbose(bool v) { m_verbose = v; }
-    uint64_t resetFiles() const { return m_resetFiles; }
 
     const Config& inConfig() const { return m_config; }
 
@@ -128,11 +127,10 @@ private:
     std::unique_ptr<arbiter::Endpoint> m_out;
     std::unique_ptr<arbiter::Endpoint> m_tmp;
 
-    std::unique_ptr<ThreadPools> m_threadPools;
-
     const bool m_isContinuation = false;
     const std::size_t m_sleepCount;
     std::unique_ptr<Metadata> m_metadata;
+    std::unique_ptr<ThreadPools> m_threadPools;
 
     mutable std::mutex m_mutex;
 
@@ -142,9 +140,6 @@ private:
     bool m_verbose;
 
     TimePoint m_start;
-    TimePoint m_reset;
-    const int m_resetMinutes = 60;
-    const uint64_t m_resetFiles = 0;
 
     Builder(const Builder&);
     Builder& operator=(const Builder&);

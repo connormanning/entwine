@@ -42,6 +42,26 @@ namespace
 {
     const std::size_t inputRetryLimit(16);
     std::size_t reawakened(0);
+
+    std::size_t workThreads(const Metadata& m, const Config& c)
+    {
+        // Limit worker threads to the number of files.
+        const std::size_t baseWorkThreads(c.workThreads());
+        return std::min(baseWorkThreads, m.files().size());
+    }
+
+    std::size_t clipThreads(const Metadata& m, const Config& c)
+    {
+        const std::size_t baseWorkThreads(c.workThreads());
+        const std::size_t baseClipThreads(c.clipThreads());
+
+        // Actual work threads is <= base work threads.
+        const std::size_t actualWorkThreads(workThreads(m, c));
+        const std::size_t stolenWorkThreads(
+                baseWorkThreads - actualWorkThreads);
+
+        return baseClipThreads + stolenWorkThreads;
+    }
 }
 
 Builder::Builder(const Config& config, std::shared_ptr<arbiter::Arbiter> a)
@@ -52,15 +72,15 @@ Builder::Builder(const Config& config, std::shared_ptr<arbiter::Arbiter> a)
                 m_arbiter->getEndpoint(m_config.output())))
     , m_tmp(makeUnique<arbiter::Endpoint>(
                 m_arbiter->getEndpoint(m_config.tmp())))
-    , m_threadPools(
-            makeUnique<ThreadPools>(
-                m_config.workThreads(),
-                m_config.clipThreads()))
     , m_isContinuation(m_config.isContinuation())
     , m_sleepCount(m_config.sleepCount())
     , m_metadata(m_isContinuation ?
             makeUnique<Metadata>(*m_out, m_config) :
             makeUnique<Metadata>(m_config))
+    , m_threadPools(
+            makeUnique<ThreadPools>(
+                workThreads(*m_metadata, m_config),
+                clipThreads(*m_metadata, m_config)))
     , m_registry(makeUnique<Registry>(
                 *m_metadata,
                 *m_out,
@@ -70,8 +90,6 @@ Builder::Builder(const Config& config, std::shared_ptr<arbiter::Arbiter> a)
     , m_sequence(makeUnique<Sequence>(*m_metadata, m_mutex))
     , m_verbose(m_config.verbose())
     , m_start(now())
-    , m_reset(now())
-    , m_resetFiles(m_config.resetFiles())
 {
     prepareEndpoints();
 }
@@ -82,7 +100,6 @@ Builder::~Builder()
 void Builder::go(std::size_t max)
 {
     m_start = now();
-    m_reset = m_start;
 
     bool done(false);
     const auto& files(m_metadata->files());

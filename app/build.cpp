@@ -293,11 +293,6 @@ void Build::log(const Builder& b) const
             b.threadPools().clipPool().numThreads() << "]" <<
         std::endl;
 
-    if (uint64_t rf = b.resetFiles())
-    {
-        std::cout << "\tReset files: " << rf << std::endl;
-    }
-
     std::cout <<
         "Output:\n" <<
         "\tPath: " << outPath << "\n" <<
