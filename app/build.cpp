@@ -65,7 +65,7 @@ void Build::addArgs()
             "--force",
             "-f",
             "Force build overwrite - do not continue a previous build that may "
-            "exist at this output location",
+            "exist at this output location.",
             [this](json j) { checkEmpty(j); m_json["force"] = true; });
 
     m_ap.add(
@@ -128,20 +128,14 @@ void Build::addArgs()
             "--run",
             "-g",
             "Maximum number of files to insert - the build may be continued "
-            "with another `build` invocation\n"
+            "with another `build` invocation.\n"
             "Example: --run 20",
             [this](json j) { m_json["run"] = extract(j); });
 
     m_ap.add(
-            "--resetFiles",
-            "Reset the memory pool after \"n\" files\n"
-            "Example: --resetFiles 100",
-            [this](json j) { m_json["resetFiles"] = extract(j); });
-
-    m_ap.add(
             "--subset",
             "-s",
-            "A partial task specification for this build\n"
+            "A partial task specification for this build.\n"
             "Example: --subset 1 4",
             [this](json j)
             {
@@ -157,20 +151,20 @@ void Build::addArgs()
 
     m_ap.add(
             "--overflowDepth",
-            "Depth at which nodes may overflow",
+            "Depth at which nodes may overflow.",
             [this](json j) { m_json["overflowDepth"] = extract(j); });
-
-    m_ap.add(
-            "--minNodeSize",
-            "Minimum number of overflowed points to be retained in a before "
-            "overflowing into a new node.",
-            [this](json j) { m_json["minNodeSize"] = extract(j); });
 
     m_ap.add(
             "--maxNodeSize",
             "Maximum number of points in a node before an overflow is "
             "attempted.",
             [this](json j) { m_json["maxNodeSize"] = extract(j); });
+
+    m_ap.add(
+            "--minNodeSize",
+            "Minimum number of overflowed points to be retained in a node "
+            "before overflowing into a new node.",
+            [this](json j) { m_json["minNodeSize"] = extract(j); });
 
     m_ap.add(
             "--cacheSize",

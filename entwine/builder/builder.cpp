@@ -147,16 +147,6 @@ void Builder::go(std::size_t max)
     p.join();
 }
 
-void Builder::cycle()
-{
-    if (verbose()) std::cout << "\tCycling memory pool" << std::endl;
-    m_threadPools->cycle();
-    m_reset = now();
-    if (verbose()) std::cout << "\tCycled" << std::endl;
-}
-
-
-
 void Builder::doRun(const std::size_t max)
 {
     if (!m_tmp)

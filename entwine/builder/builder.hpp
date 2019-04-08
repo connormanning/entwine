@@ -108,8 +108,6 @@ private:
     void save(std::string to);
     void save(const arbiter::Endpoint& to);
 
-    void cycle();
-
     // Insert points from a file.  Sets any previously unset FileInfo fields
     // based on file contents.
     void insertPath(Origin origin, FileInfo& info);
