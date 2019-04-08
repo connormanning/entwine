@@ -41,7 +41,7 @@ public:
             ThreadPools& threadPools,
             bool exists = false);
 
-    void save();
+    void save(uint64_t hierarchyStep, bool verbose);
     void merge(const Registry& other, Clipper& clipper);
 
     void addPoint(Voxel& voxel, Key& key, ChunkKey& ck, Clipper& clipper)

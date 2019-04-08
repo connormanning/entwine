@@ -46,9 +46,16 @@ Registry::Registry(
                 m_metadata.cacheSize()))
 { }
 
-void Registry::save()
+void Registry::save(const uint64_t hierarchyStep, const bool verbose)
 {
     m_chunkCache.reset();
+
+    if (!m_metadata.subset())
+    {
+        if (hierarchyStep) m_hierarchy.setStep(hierarchyStep);
+        else m_hierarchy.analyze(m_metadata, verbose);
+    }
+
     m_hierarchy.save(m_metadata, m_hierEp, m_threadPools.workPool());
 }
 

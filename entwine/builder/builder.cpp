@@ -118,7 +118,8 @@ void Builder::go(std::size_t max)
         if (!m_interval) return;
 
         using ms = std::chrono::milliseconds;
-        std::size_t last(0);
+        uint64_t lastInserts(0);
+        int64_t lastProgress(0);
 
         const double totalPoints(files.totalPoints());
         const double megsPerHour(3600.0 / 1000000.0);
@@ -129,8 +130,10 @@ void Builder::go(std::size_t max)
             std::this_thread::sleep_for(ms(1000 - t % 1000));
             const auto s(since<std::chrono::seconds>(m_start));
 
-            if (s % m_interval == 0)
+            if (s != lastProgress && s % m_interval == 0)
             {
+                lastProgress = s;
+
                 const double inserts(
                         files.pointStats().inserts() - alreadyInserted);
 
@@ -143,20 +146,28 @@ void Builder::go(std::size_t max)
 
                 if (verbose())
                 {
+                    const uint64_t totalPace(
+                            inserts /
+                            static_cast<double>(s) *
+                            megsPerHour);
+
+                    const uint64_t lastIntervalPace(
+                            (inserts - lastInserts) /
+                            static_cast<double>(m_interval) *
+                            megsPerHour);
+
                     std::cout <<
                         formatTime(s) << " - " <<
                         std::round(progress * 100.0) << "% - " <<
                         commify(inserts) << " - " <<
-                        commify(inserts / s * megsPerHour) <<
-                            "(" << commify((inserts - last) / m_interval *
-                                        megsPerHour) << ")" <<
-                            "M/h - " <<
+                        commify(totalPace) <<
+                        "(" << commify(lastIntervalPace) << ")M/h - " <<
                         info.written << "W - " << info.read << "R - " <<
                         info.alive << "A" <<
                         std::endl;
                 }
 
-                last = inserts;
+                lastInserts = inserts;
             }
         }
     });
@@ -349,20 +360,8 @@ void Builder::save(const arbiter::Endpoint& ep)
 
     if (verbose()) std::cout << "Reawakened: " << reawakened << std::endl;
 
-    if (!m_metadata->subset())
-    {
-        if (m_config.hierarchyStep())
-        {
-            m_registry->hierarchy().setStep(m_config.hierarchyStep());
-        }
-        else
-        {
-            m_registry->hierarchy().analyze(*m_metadata, verbose());
-        }
-    }
-
     if (verbose()) std::cout << "Saving registry..." << std::endl;
-    m_registry->save();
+    m_registry->save(m_config.hierarchyStep(), verbose());
 
     if (verbose()) std::cout << "Saving metadata..." << std::endl;
     m_metadata->save(*m_out, m_config);
