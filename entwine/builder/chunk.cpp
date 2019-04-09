@@ -56,7 +56,7 @@ bool Chunk::insert(ChunkCache& cache, Clipper& clipper, Voxel& voxel, Key& key)
     const uint64_t i((pos.y % m_span) * m_span + (pos.x % m_span));
     auto& tube(m_grid[i]);
 
-    UniqueSpin tubeLock(tube.spin);
+    UniqueSpin tubeLock(tube.spin());
     Voxel& dst(tube[pos.z]);
 
     if (dst.data())

@@ -27,11 +27,18 @@ class Hierarchy;
 class ChunkCache;
 class Clipper;
 
-struct VoxelTube
+class VoxelTube
 {
-    SpinLock spin;
-    Voxel& operator[](uint64_t i) { return map[i]; }
-    std::map<uint64_t, Voxel> map;
+public:
+    SpinLock& spin() { return m_spin; }
+    Voxel& operator[](uint32_t i)
+    {
+        return m_map[i];
+    }
+
+private:
+    SpinLock m_spin;
+    std::map<uint32_t, Voxel> m_map;
 };
 
 class Chunk

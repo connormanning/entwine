@@ -11,6 +11,7 @@
 #include <entwine/io/zstandard.hpp>
 
 #include <pdal/compression/ZstdCompression.hpp>
+#include <pdal/filters/SortFilter.hpp>
 
 namespace entwine
 {
@@ -22,15 +23,32 @@ void Zstandard::write(
         const Bounds& bounds,
         BlockPointTable& src) const
 {
-    const std::vector<char> uncompressed(pack(src));
+    const Schema& outSchema(m_metadata.outSchema());
+    VectorPointTable table(outSchema, pack(src));
+
+    pdal::PointView view(table);
+    for (std::size_t i(0); i < table.size(); ++i) view.getOrAddPoint(i);
+    if (outSchema.hasTime())
+    {
+        std::sort(
+                view.begin(),
+                view.end(),
+                [](const pdal::PointIdxRef& a, const pdal::PointIdxRef& b)
+                {
+                    return a.compare(DimId::GpsTime, b);
+                });
+    }
 
     std::vector<char> compressed;
     pdal::ZstdCompressor compressor([&compressed](char* pos, std::size_t size)
     {
         compressed.insert(compressed.end(), pos, pos + size);
-    }, 3 /* ZSTD_CLEVEL_DEFAULT */);
+    }, 8); // ZSTD_CLEVEL_DEFAULT = 3.
 
-    compressor.compress(uncompressed.data(), uncompressed.size());
+    for (std::size_t i(0); i < view.size(); ++i)
+    {
+        compressor.compress(view.getPoint(i), outSchema.pointSize());
+    }
     compressor.done();
 
     ensurePut(out, filename + ".zst", compressed);

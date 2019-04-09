@@ -127,14 +127,31 @@ public:
         else return std::unique_ptr<ScaleOffset>();
     }
 
+    std::unique_ptr<SingleScaleOffset> gpsScaleOffset() const
+    {
+        if (hasTime())
+        {
+            const DimInfo& g(find(DimId::GpsTime));
+            if (g.scale() != 1.0 || g.offset() != 0.0)
+            {
+                return makeUnique<SingleScaleOffset>(g.scale(), g.offset());
+            }
+        }
+
+        return std::unique_ptr<SingleScaleOffset>();
+    }
+
     bool hasColor() const
     {
-        return contains("Red") || contains("Green") || contains("Blue");
+        return (
+            contains(DimId::Red) ||
+            contains(DimId::Green) ||
+            contains(DimId::Blue));
     }
 
     bool hasTime() const
     {
-        return contains("GpsTime");
+        return contains(DimId::GpsTime);
     }
 
     const DimInfo& find(const std::string& name) const
@@ -149,11 +166,16 @@ public:
         else throw std::runtime_error("Dimension not found: " + name);
     }
 
-    const Schema filter(const std::string& name) const
+    const Schema filter(DimId id) const
     {
         DimList res;
-        for (const auto& d : dims()) if (d.name() != name) res.push_back(d);
+        for (const auto& d : dims()) if (d.id() != id) res.push_back(d);
         return Schema(res);
+    }
+
+    const Schema filter(const std::string& name) const
+    {
+        return filter(getId(name));
     }
 
     DimInfo& find(DimId id)
@@ -207,9 +229,9 @@ public:
     {
         static const auto f(pdal::Dimension::BaseType::Floating);
         return
-            pdal::Dimension::base(find("X").type()) == f &&
-            pdal::Dimension::base(find("Y").type()) == f &&
-            pdal::Dimension::base(find("Z").type()) == f;
+            pdal::Dimension::base(find(DimId::X).type()) == f &&
+            pdal::Dimension::base(find(DimId::Y).type()) == f &&
+            pdal::Dimension::base(find(DimId::Z).type()) == f;
     }
 
     static Schema makeAbsolute(const Schema& s)
@@ -220,7 +242,15 @@ public:
             { DimId::Z, DimType::Double }
         });
 
-        return xyz.merge(s);
+        Schema rest = s.filter(DimId::X).filter(DimId::Y).filter(DimId::Z);
+
+        if (s.hasTime())
+        {
+            DimInfo& gps = rest.find(DimId::GpsTime);
+            gps = DimInfo(DimId::GpsTime);
+        }
+
+        return xyz.merge(rest);
     };
 
     std::vector<DimId> ids() const

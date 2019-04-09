@@ -92,6 +92,11 @@ Metadata::Metadata(const Config& config, const bool exists)
                     "Bounds are too large for the selected scale");
         }
     }
+
+    if (m_outSchema->gpsScaleOffset() && m_dataIo->type() == "laszip")
+    {
+        throw std::runtime_error("Cannot scale GpsTime with laszip data type");
+    }
 }
 
 Metadata::Metadata(const arbiter::Endpoint& ep, const Config& c)

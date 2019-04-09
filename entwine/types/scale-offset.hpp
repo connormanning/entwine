@@ -35,8 +35,24 @@ public:
     }
 
 private:
-    const Scale m_scale;
-    const Offset m_offset = 1;
+    const Scale m_scale = 1;
+    const Offset m_offset = 0;
+};
+
+class SingleScaleOffset
+{
+public:
+    SingleScaleOffset(double scale, double offset)
+        : m_scale(scale)
+        , m_offset(offset)
+    { }
+
+    double scale() const { return m_scale; }
+    double offset() const { return m_offset; }
+
+private:
+    const double m_scale = 1;
+    const double m_offset = 0;
 };
 
 } // namespace entwine

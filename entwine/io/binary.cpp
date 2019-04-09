@@ -67,6 +67,9 @@ std::vector<char> Binary::pack(BlockPointTable& src) const
 
     std::unique_ptr<ScaleOffset> so(outSchema.scaleOffset());
 
+    double gps(0);
+    std::unique_ptr<SingleScaleOffset> gpsSo(outSchema.gpsScaleOffset());
+
     for (uint64_t i(0); i < np; ++i)
     {
         srcPr.setPointId(i);
@@ -91,6 +94,14 @@ std::vector<char> Binary::pack(BlockPointTable& src) const
                     pos + outSchema.pdalLayout().dimOffset(dim.m_id),
                     dim.m_id,
                     dim.m_type);
+        }
+
+        if (gpsSo)
+        {
+            gps = srcPr.getFieldAs<double>(DimId::GpsTime);
+            dstPr.setField(
+                    DimId::GpsTime,
+                    Point::scale(gps, gpsSo->scale(), gpsSo->offset()));
         }
     }
 
@@ -118,6 +129,9 @@ void Binary::unpack(VectorPointTable& dst, std::vector<char>&& packed) const
     const Schema& outSchema(m_metadata.outSchema());
     std::unique_ptr<ScaleOffset> so(outSchema.scaleOffset());
 
+    double gps(0);
+    std::unique_ptr<SingleScaleOffset> gpsSo(outSchema.gpsScaleOffset());
+
     for (uint64_t i(0); i < np; ++i)
     {
         srcPr.setPointId(i);
@@ -143,6 +157,14 @@ void Binary::unpack(VectorPointTable& dst, std::vector<char>&& packed) const
             dstPr.setField(DimId::X, p.x);
             dstPr.setField(DimId::Y, p.y);
             dstPr.setField(DimId::Z, p.z);
+        }
+
+        if (gpsSo)
+        {
+            gps = srcPr.getFieldAs<double>(DimId::GpsTime);
+            dstPr.setField(
+                    DimId::GpsTime,
+                    Point::unscale(gps, gpsSo->scale(), gpsSo->offset()));
         }
     }
 

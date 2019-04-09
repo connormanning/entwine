@@ -144,6 +144,8 @@ public:
     std::vector<char>& data() { return m_data; }
     const std::vector<char>& data() const { return m_data; }
 
+    uint64_t size() const { return data().size() / m_pointSize; }
+
     std::vector<char>&& acquire() { return std::move(m_data); }
 
     void setProcess(Process f) { m_f = f; }
@@ -204,7 +206,6 @@ private:
 
     const std::size_t m_pointSize;
     std::vector<char> m_data;
-    std::size_t m_size = 0;
 
     Process m_f = []() { };
 };
