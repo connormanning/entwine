@@ -200,12 +200,21 @@ public:
 
     std::size_t pointSize() const { return m_pointSize; }
 
+    // Used when wrapping this table in a pdal::PointView, which calls this
+    // function to populate its indices.
+    virtual pdal::PointId addPoint() override
+    {
+        assert(m_added < size());
+        return m_added++;
+    }
+
 private:
     VectorPointTable(const VectorPointTable&);
     VectorPointTable& operator=(const VectorPointTable&);
 
     const std::size_t m_pointSize;
     std::vector<char> m_data;
+    std::size_t m_added = 0;
 
     Process m_f = []() { };
 };

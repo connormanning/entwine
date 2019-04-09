@@ -65,6 +65,8 @@ void ChunkCache::insert(
         const ChunkKey& ck,
         Clipper& clipper)
 {
+    assert(ck.depth() < maxDepth);
+
     // Get from single-threaded cache if we can.
     Chunk* chunk = clipper.get(ck);
 

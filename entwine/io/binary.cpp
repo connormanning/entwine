@@ -113,7 +113,7 @@ void Binary::unpack(VectorPointTable& dst, std::vector<char>&& packed) const
     VectorPointTable src(m_metadata.outSchema(), std::move(packed));
 
     const uint64_t np(src.capacity());
-    assert(np <= dst.capacity());
+    assert(np == dst.capacity());
 
     // For reading, our destination schema will always be normalized (i.e. XYZ
     // as doubles).  So we can just copy the full dimension list and then
