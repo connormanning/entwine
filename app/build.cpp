@@ -236,6 +236,33 @@ void Build::run()
             "\tPoints discarded: " << commify(stats.outOfBounds()) << "\n" <<
             std::endl;
     }
+
+    end(*builder);
+}
+
+void Build::end(const Builder& b) const
+{
+    const FileInfoList& list(b.metadata().files().list());
+
+    const bool error(std::any_of(list.begin(), list.end(), [](const FileInfo& f)
+    {
+        return f.status() == FileInfo::Status::Error;
+    }));
+
+    if (!error) return;
+
+    std::cout << "\nErrors encountered - data may be missing.  Errors:" <<
+        std::endl;
+
+    int i(0);
+    for (const auto& f : list)
+    {
+        if (f.status() == FileInfo::Status::Error)
+        {
+            std::cout << "\t" << ++i << " - " << f.path() << ": " <<
+                f.message() << std::endl;
+        }
+    }
 }
 
 void Build::log(const Builder& b) const
