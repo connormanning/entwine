@@ -89,6 +89,12 @@ public:
         m_boundsEpsilon = m_bounds.growBy(0.005);
     }
 
+    void setBounds(Bounds b)
+    {
+        m_bounds = b;
+        m_boundsEpsilon = b.growBy(0.005);
+    }
+
     void setOrigin(uint64_t o) { m_origin = o; }
 
     void add(const PointStats& stats) { m_pointStats.add(stats); }

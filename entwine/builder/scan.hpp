@@ -35,12 +35,19 @@ public:
     Scan(Config config);
     Config go();
 
+    void read();
+    Config aggregate();
+    void write(const Config& config) const;
+
     const Config& inConfig() const { return m_in; }
 
     std::size_t index() const { return m_index; }
     std::size_t total() const { return m_files.size(); }
 
     const Files& files() const { return m_files; }
+    Files& files() { return m_files; }
+
+    std::unique_ptr<Reprojection>& reprojection() { return m_re; }
 
 private:
     void add(FileInfo& f);
@@ -49,7 +56,6 @@ private:
     void addRanged(FileInfo& f);
 
     void add(FileInfo& f, std::string localPath);
-    Config aggregate();
 
     const Config m_in;
 

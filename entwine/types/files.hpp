@@ -81,6 +81,7 @@ public:
     }
 
     const FileInfoList& list() const { return m_files; }
+    FileInfoList& list() { return m_files; }
     const PointStats& pointStats() const { return m_pointStats; }
 
     FileInfoList diff(const FileInfoList& fileInfo) const;

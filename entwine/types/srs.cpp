@@ -92,6 +92,19 @@ void to_json(json& j, const Srs& srs)
     if (srs.wkt().size()) j["wkt"] = srs.wkt();
 }
 
+std::string Srs::toString() const
+{
+    if (!hasCode()) return m_wkt;
+
+    if (m_horizontal.empty())
+    {
+        throw std::runtime_error("No horizontal SRS component");
+    }
+
+    return m_authority + ":" + m_horizontal +
+        (m_vertical.size() ? "+" + m_vertical : "");
+}
+
 std::string Srs::codeString() const
 {
     if (!hasCode()) throw std::runtime_error("No SRS code found");
