@@ -30,7 +30,7 @@ namespace
 
 std::string idFrom(std::string path)
 {
-    return arbiter::util::getBasename(path);
+    return arbiter::getBasename(path);
 }
 
 } // unnamed namespace

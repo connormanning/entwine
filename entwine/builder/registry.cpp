@@ -13,7 +13,6 @@
 #include <pdal/PointView.hpp>
 
 #include <entwine/io/io.hpp>
-#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>

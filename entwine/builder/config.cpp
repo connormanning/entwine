@@ -179,9 +179,9 @@ FileInfoList Config::input() const
 
         if (p.back() != '*')
         {
-            if (arbiter::util::isDirectory(p)) p += '*';
+            if (arbiter::isDirectory(p)) p += '*';
             else if (
-                    arbiter::util::getBasename(p).find_first_of('.') ==
+                    arbiter::getBasename(p).find_first_of('.') ==
                     std::string::npos)
             {
                 p += "/*";

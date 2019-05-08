@@ -23,10 +23,10 @@
 
 namespace Json { class Value; }
 
+namespace arbiter { class Endpoint; }
+
 namespace entwine
 {
-
-namespace arbiter { class Endpoint; }
 
 class DataIo;
 class Files;

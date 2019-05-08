@@ -5,7 +5,7 @@
 
 TEST(init, initializes)
 {
-    const entwine::arbiter::Arbiter a;
+    const arbiter::Arbiter a;
     if (!a.tryGetSize(test::dataPath() + "ellipsoid.laz"))
     {
         std::cout << "Downloading test data..." << std::endl;
@@ -25,8 +25,8 @@ TEST(init, initializes)
             "ellipsoid.laz"
         };
 
-        entwine::arbiter::mkdirp(test::dataPath());
-        entwine::arbiter::mkdirp(test::dataPath() + "ellipsoid-multi");
+        arbiter::mkdirp(test::dataPath());
+        arbiter::mkdirp(test::dataPath() + "ellipsoid-multi");
         for (const std::string path : files)
         {
             a.copy(base + path, test::dataPath() + path, true);

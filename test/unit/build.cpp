@@ -440,7 +440,7 @@ TEST(build, subsetFromScan)
 
 TEST(build, reprojected)
 {
-    if (arbiter::util::env("APPVEYOR"))
+    if (arbiter::env("APPVEYOR"))
     {
         std::cout << "Skipping reprojection tests" << std::endl;
         return;

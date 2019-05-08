@@ -19,14 +19,10 @@
 #include <entwine/builder/chunk-cache.hpp>
 #include <entwine/builder/hierarchy.hpp>
 #include <entwine/builder/thread-pools.hpp>
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/key.hpp>
 #include <entwine/util/pool.hpp>
 #include <entwine/util/unique.hpp>
-
-namespace arbiter
-{
-    class Endpoint;
-}
 
 namespace entwine
 {

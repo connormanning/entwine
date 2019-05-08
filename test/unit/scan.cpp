@@ -45,7 +45,7 @@ TEST(scan, single)
     const auto expFile(Executor::get().preview(file.path()));
     ASSERT_TRUE(expFile);
 
-    EXPECT_EQ(arbiter::util::getBasename(file.path()), "ellipsoid.laz");
+    EXPECT_EQ(arbiter::getBasename(file.path()), "ellipsoid.laz");
     ASSERT_TRUE(file.bounds());
     EXPECT_EQ(*file.bounds(), v.bounds());
     EXPECT_EQ(file.points(), v.points());
@@ -75,7 +75,7 @@ TEST(scan, deepScan)
     const auto expFile(Executor::get().preview(file.path()));
     ASSERT_TRUE(expFile);
 
-    EXPECT_EQ(arbiter::util::getBasename(file.path()), "ellipsoid.laz");
+    EXPECT_EQ(arbiter::getBasename(file.path()), "ellipsoid.laz");
     ASSERT_TRUE(file.bounds());
     EXPECT_EQ(*file.bounds(), v.bounds());
     EXPECT_EQ(file.points(), v.points());
@@ -115,7 +115,7 @@ TEST(scan, multi)
     {
         const auto& file(input.at(i));
         const auto path(file.path());
-        const auto basename(arbiter::util::getBasename(path));
+        const auto basename(arbiter::getBasename(path));
         const auto expFile(Executor::get().preview(file.path()));
 
         ASSERT_TRUE(expFile) << path;
@@ -132,7 +132,7 @@ TEST(scan, multi)
 
 TEST(scan, reprojection)
 {
-    if (arbiter::util::env("APPVEYOR"))
+    if (arbiter::env("APPVEYOR"))
     {
         std::cout << "Skipping reprojection tests" << std::endl;
         return;
@@ -165,7 +165,7 @@ TEST(scan, reprojection)
     const auto expFile(Executor::get().preview(file.path()));
     ASSERT_TRUE(expFile);
 
-    EXPECT_EQ(arbiter::util::getBasename(file.path()), "ellipsoid.laz");
+    EXPECT_EQ(arbiter::getBasename(file.path()), "ellipsoid.laz");
     ASSERT_TRUE(file.bounds());
     EXPECT_EQ(*file.bounds(), bounds);
     EXPECT_EQ(file.points(), v.points());
@@ -177,7 +177,7 @@ TEST(scan, reprojection)
 
 TEST(scan, deepScanReprojection)
 {
-    if (arbiter::util::env("APPVEYOR"))
+    if (arbiter::env("APPVEYOR"))
     {
         std::cout << "Skipping reprojection tests" << std::endl;
         return;
@@ -211,7 +211,7 @@ TEST(scan, deepScanReprojection)
     const auto expFile(Executor::get().preview(file.path()));
     ASSERT_TRUE(expFile);
 
-    EXPECT_EQ(arbiter::util::getBasename(file.path()), "ellipsoid.laz");
+    EXPECT_EQ(arbiter::getBasename(file.path()), "ellipsoid.laz");
     ASSERT_TRUE(file.bounds());
     EXPECT_EQ(*file.bounds(), bounds);
     EXPECT_EQ(file.points(), v.points());
@@ -223,7 +223,7 @@ TEST(scan, deepScanReprojection)
 
 TEST(scan, reprojectionHammer)
 {
-    if (arbiter::util::env("APPVEYOR"))
+    if (arbiter::env("APPVEYOR"))
     {
         std::cout << "Skipping reprojection tests" << std::endl;
         return;
@@ -259,7 +259,7 @@ TEST(scan, reprojectionHammer)
     const auto expFile(Executor::get().preview(file.path()));
     ASSERT_TRUE(expFile);
 
-    EXPECT_EQ(arbiter::util::getBasename(
+    EXPECT_EQ(arbiter::getBasename(
                 file.path()), "ellipsoid-wrong-srs.laz");
     ASSERT_TRUE(file.bounds());
     EXPECT_EQ(*file.bounds(), bounds);
@@ -299,7 +299,7 @@ TEST(scan, outputFile)
     const auto expFile(Executor::get().preview(file.path()));
     ASSERT_TRUE(expFile);
 
-    EXPECT_EQ(arbiter::util::getBasename(file.path()), "ellipsoid.laz");
+    EXPECT_EQ(arbiter::getBasename(file.path()), "ellipsoid.laz");
     ASSERT_TRUE(file.bounds());
     EXPECT_EQ(*file.bounds(), v.bounds());
     EXPECT_EQ(file.points(), v.points());

@@ -30,14 +30,14 @@ namespace Json
     class Value;
 }
 
-namespace entwine
-{
-
 namespace arbiter
 {
     class Arbiter;
     class Endpoint;
 }
+
+namespace entwine
+{
 
 class Bounds;
 class Clipper;

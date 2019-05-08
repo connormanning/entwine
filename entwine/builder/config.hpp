@@ -110,7 +110,7 @@ public:
         if (force()) return false;
 
         arbiter::Arbiter a(arbiter());
-        const std::string path = arbiter::util::join(
+        const std::string path = arbiter::join(
                 output(), "ept" + postfix() + ".json");
         return !!a.tryGetSize(path);
     }

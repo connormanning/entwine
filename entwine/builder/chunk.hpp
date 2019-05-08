@@ -18,10 +18,10 @@
 #include <entwine/types/vector-point-table.hpp>
 #include <entwine/util/spin-lock.hpp>
 
+namespace arbiter { class Endpoint; }
+
 namespace entwine
 {
-
-namespace arbiter { class Endpoint; }
 
 class Hierarchy;
 class ChunkCache;
