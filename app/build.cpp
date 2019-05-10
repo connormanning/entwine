@@ -122,7 +122,10 @@ void Build::addArgs()
             "--scale",
             "The scale factor for spatial coordinates.\n"
             "Example: --scale 0.1, --scale \"[0.1, 0.1, 0.025]\"",
-            [this](json j) { m_json["scale"] = extract(j); });
+            [this](json j)
+            {
+                m_json["scale"] = json::parse(j.get<std::string>());
+            });
 
     m_ap.add(
             "--run",
