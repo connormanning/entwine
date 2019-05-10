@@ -27,7 +27,7 @@ public:
         , m_json {
             { "boundingVolume", { { "box", toBox(ck.bounds()) } } },
             { "geometricError", m_tileset.geometricErrorAt(ck.depth()) },
-            { "content", { { "url", external ?
+            { "content", { { "uri", external ?
                 "tileset-" + ck.toString() + ".json" : ck.toString() + ".pnts"
             } } }
         }
