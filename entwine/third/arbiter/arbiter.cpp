@@ -84,13 +84,13 @@ namespace
 
     json getConfig(const std::string& s)
     {
-        json in(json::parse(s));
+        json in(s.size() ? json::parse(s) : json::object());
 
         json config;
         std::string path("~/.arbiter/config.json");
 
-        if      (auto p = util::env("ARBITER_CONFIG_FILE")) path = *p;
-        else if (auto p = util::env("ARBITER_CONFIG_PATH")) path = *p;
+        if      (auto p = env("ARBITER_CONFIG_FILE")) path = *p;
+        else if (auto p = env("ARBITER_CONFIG_PATH")) path = *p;
 
         if (auto data = drivers::Fs().tryGet(path)) config = json::parse(*data);
 
@@ -271,7 +271,7 @@ void Arbiter::copy(
 
     // Globify the source path if it's a directory.  In this case, the source
     // already ends with a slash.
-    const std::string srcToResolve(src + (util::isDirectory(src) ? "**" : ""));
+    const std::string srcToResolve(src + (isDirectory(src) ? "**" : ""));
 
     if (srcToResolve.back() != '*')
     {
@@ -284,7 +284,7 @@ void Arbiter::copy(
         // All resolved paths will contain this common prefix, so we can
         // determine any nested paths from recursive resolutions by stripping
         // that common portion.
-        const Endpoint& srcEndpoint(getEndpoint(util::stripPostfixing(src)));
+        const Endpoint& srcEndpoint(getEndpoint(stripPostfixing(src)));
         const std::string commonPrefix(srcEndpoint.prefixedRoot());
 
         const Endpoint dstEndpoint(getEndpoint(dst));
@@ -311,7 +311,7 @@ void Arbiter::copy(
 
             if (dstEndpoint.isLocal())
             {
-                mkdirp(util::getNonBasename(dstEndpoint.fullPath(subpath)));
+                mkdirp(getNonBasename(dstEndpoint.fullPath(subpath)));
             }
 
             dstEndpoint.put(subpath, getBinary(path));
@@ -328,16 +328,16 @@ void Arbiter::copyFile(
 
     const Endpoint dstEndpoint(getEndpoint(dst));
 
-    if (util::isDirectory(dst))
+    if (isDirectory(dst))
     {
         // If the destination is a directory, maintain the basename of the
         // source file.
-        dst += util::getBasename(file);
+        dst += getBasename(file);
     }
 
     if (verbose) std::cout << file << " -> " << dst << std::endl;
 
-    if (dstEndpoint.isLocal()) mkdirp(util::getNonBasename(dst));
+    if (dstEndpoint.isLocal()) mkdirp(getNonBasename(dst));
 
     if (getEndpoint(file).type() == dstEndpoint.type())
     {
@@ -422,7 +422,7 @@ std::unique_ptr<LocalHandle> Arbiter::getLocalHandle(
 
         const auto ext(getExtension(path));
         const std::string basename(
-                crypto::encodeAsHex(crypto::sha256(stripExtension(path))) +
+                std::to_string(randomNumber()) +
                 (ext.size() ? "." + ext : ""));
         tempEndpoint.put(basename, getBinary(path));
         localHandle.reset(
@@ -629,6 +629,7 @@ std::vector<std::string> Driver::glob(std::string path, bool verbose) const
 #include <arbiter/drivers/fs.hpp>
 #include <arbiter/util/sha256.hpp>
 #include <arbiter/util/transforms.hpp>
+#include <arbiter/util/util.hpp>
 #endif
 
 #ifdef ARBITER_CUSTOM_NAMESPACE
@@ -694,9 +695,8 @@ std::unique_ptr<LocalHandle> Endpoint::getLocalHandle(
         const std::string tmp(getTempPath());
         const auto ext(Arbiter::getExtension(subpath));
         const std::string basename(
-                crypto::encodeAsHex(crypto::sha256(Arbiter::stripExtension(
-                            prefixedRoot() + subpath))) +
-                    (ext.size() ? "." + ext : ""));
+                std::to_string(randomNumber()) +
+                (ext.size() ? "." + ext : ""));
 
         const std::string local(tmp + basename);
 
@@ -940,16 +940,16 @@ namespace
         std::string s;
 
 #ifndef ARBITER_WINDOWS
-        if (auto home = util::env("HOME")) s = *home;
+        if (auto home = env("HOME")) s = *home;
 #else
-        if (auto userProfile = util::env("USERPROFILE"))
+        if (auto userProfile = env("USERPROFILE"))
         {
             s = *userProfile;
         }
         else
         {
-            auto homeDrive(util::env("HOMEDRIVE"));
-            auto homePath(util::env("HOMEPATH"));
+            auto homeDrive(env("HOMEDRIVE"));
+            auto homePath(env("HOMEPATH"));
 
             if (homeDrive && homePath) s = *homeDrive + *homePath;
         }
@@ -1062,11 +1062,11 @@ bool mkdirp(std::string raw)
         // not to remove drive letters like C:\\.
         const auto end = std::unique(s.begin(), s.end(), [](char l, char r)
         {
-            return util::isSlash(l) && util::isSlash(r);
+            return isSlash(l) && isSlash(r);
         });
 
         s = std::string(s.begin(), end);
-        if (s.size() && util::isSlash(s.back())) s.pop_back();
+        if (s.size() && isSlash(s.back())) s.pop_back();
         return s;
     })());
 
@@ -1075,7 +1075,7 @@ bool mkdirp(std::string raw)
 
     do
     {
-        it = std::find_if(++it, end, util::isSlash);
+        it = std::find_if(++it, end, isSlash);
 
         const std::string cur(dir.begin(), it);
 #ifndef ARBITER_WINDOWS
@@ -1287,10 +1287,10 @@ std::string getTempPath()
 {
     std::string tmp;
 #ifndef ARBITER_WINDOWS
-    if (const auto t = util::env("TMPDIR"))         tmp = *t;
-    else if (const auto t = util::env("TMP"))       tmp = *t;
-    else if (const auto t = util::env("TEMP"))      tmp = *t;
-    else if (const auto t = util::env("TEMPDIR"))   tmp = *t;
+    if (const auto t = env("TMPDIR"))         tmp = *t;
+    else if (const auto t = env("TMP"))       tmp = *t;
+    else if (const auto t = env("TEMP"))      tmp = *t;
+    else if (const auto t = env("TEMPDIR"))   tmp = *t;
     else tmp = "/tmp";
 #else
     std::vector<char> path(MAX_PATH, '\0');
@@ -1600,6 +1600,8 @@ namespace ARBITER_CUSTOM_NAMESPACE
 namespace arbiter
 {
 
+using namespace internal;
+
 namespace
 {
 #ifdef ARBITER_CURL
@@ -1664,7 +1666,6 @@ namespace drivers
 {
 
 using namespace http;
-using namespace util;
 
 S3::S3(
         Pool& pool,
@@ -1726,8 +1727,8 @@ std::string S3::extractProfile(const std::string s)
         return config["profile"].get<std::string>();
     }
 
-    if (auto p = util::env("AWS_PROFILE")) return *p;
-    if (auto p = util::env("AWS_DEFAULT_PROFILE")) return *p;
+    if (auto p = env("AWS_PROFILE")) return *p;
+    if (auto p = env("AWS_DEFAULT_PROFILE")) return *p;
     else return "default";
 }
 
@@ -1753,18 +1754,18 @@ std::unique_ptr<S3::Auth> S3::Auth::create(
 
     // Try environment settings next.
     {
-        auto access(util::env("AWS_ACCESS_KEY_ID"));
-        auto hidden(util::env("AWS_SECRET_ACCESS_KEY"));
-        auto token(util::env("AWS_SESSION_TOKEN"));
+        auto access(env("AWS_ACCESS_KEY_ID"));
+        auto hidden(env("AWS_SECRET_ACCESS_KEY"));
+        auto token(env("AWS_SESSION_TOKEN"));
 
         if (access && hidden)
         {
             return makeUnique<Auth>(*access, *hidden, token ? *token : "");
         }
 
-        access = util::env("AMAZON_ACCESS_KEY_ID");
-        hidden = util::env("AMAZON_SECRET_ACCESS_KEY");
-        token = util::env("AMAZON_SESSION_TOKEN");
+        access = env("AMAZON_ACCESS_KEY_ID");
+        hidden = env("AMAZON_SECRET_ACCESS_KEY");
+        token = env("AMAZON_SESSION_TOKEN");
 
         if (access && hidden)
         {
@@ -1773,8 +1774,8 @@ std::unique_ptr<S3::Auth> S3::Auth::create(
     }
 
     const std::string credPath(
-            util::env("AWS_CREDENTIAL_FILE") ?
-                *util::env("AWS_CREDENTIAL_FILE") : "~/.aws/credentials");
+            env("AWS_CREDENTIAL_FILE") ?
+                *env("AWS_CREDENTIAL_FILE") : "~/.aws/credentials");
 
     // Finally, try reading credentials file.
     drivers::Fs fsDriver;
@@ -1863,8 +1864,8 @@ std::string S3::Config::extractRegion(
         const std::string profile)
 {
     const std::string configPath(
-            util::env("AWS_CONFIG_FILE") ?
-                *util::env("AWS_CONFIG_FILE") : "~/.aws/config");
+            env("AWS_CONFIG_FILE") ?
+                *env("AWS_CONFIG_FILE") : "~/.aws/config");
 
     drivers::Fs fsDriver;
 
@@ -1876,11 +1877,11 @@ std::string S3::Config::extractRegion(
     {
         return c["region"].get<std::string>();
     }
-    else if (auto p = util::env("AWS_REGION"))
+    else if (auto p = env("AWS_REGION"))
     {
         return *p;
     }
-    else if (auto p = util::env("AWS_DEFAULT_REGION"))
+    else if (auto p = env("AWS_DEFAULT_REGION"))
     {
         return *p;
     }
@@ -1918,7 +1919,7 @@ std::string S3::Config::extractBaseUrl(
 
     std::string endpointsPath("~/.aws/endpoints.json");
 
-    if (const auto e = util::env("AWS_ENDPOINTS_FILE"))
+    if (const auto e = env("AWS_ENDPOINTS_FILE"))
     {
         endpointsPath = *e;
     }
@@ -2497,6 +2498,8 @@ namespace ARBITER_CUSTOM_NAMESPACE
 namespace arbiter
 {
 
+using namespace internal;
+
 namespace
 {
     std::mutex sslMutex;
@@ -2557,7 +2560,7 @@ std::unique_ptr<Google> Google::create(http::Pool& pool, const std::string s)
 {
     if (auto auth = Auth::create(s))
     {
-        return util::makeUnique<Google>(pool, std::move(auth));
+        return makeUnique<Google>(pool, std::move(auth));
     }
 
     return std::unique_ptr<Google>();
@@ -2575,7 +2578,7 @@ std::unique_ptr<std::size_t> Google::tryGetSize(const std::string path) const
     if (res.ok() && res.headers().count("Content-Length"))
     {
         const auto& s(res.headers().at("Content-Length"));
-        return util::makeUnique<std::size_t>(std::stoul(s));
+        return makeUnique<std::size_t>(std::stoul(s));
     }
 
     return std::unique_ptr<std::size_t>();
@@ -2680,13 +2683,13 @@ std::vector<std::string> Google::glob(std::string path, bool verbose) const
 std::unique_ptr<Google::Auth> Google::Auth::create(const std::string s)
 {
     const json j(json::parse(s));
-    if (auto path = util::env("GOOGLE_APPLICATION_CREDENTIALS"))
+    if (auto path = env("GOOGLE_APPLICATION_CREDENTIALS"))
     {
         if (const auto file = drivers::Fs().tryGet(*path))
         {
             try
             {
-                return util::makeUnique<Auth>(*file);
+                return makeUnique<Auth>(*file);
             }
             catch (const ArbiterError& e)
             {
@@ -2700,12 +2703,12 @@ std::unique_ptr<Google::Auth> Google::Auth::create(const std::string s)
         const auto path(j.get<std::string>());
         if (const auto file = drivers::Fs().tryGet(path))
         {
-            return util::makeUnique<Auth>(*file);
+            return makeUnique<Auth>(*file);
         }
     }
     else if (j.is_object())
     {
-        return util::makeUnique<Auth>(s);
+        return makeUnique<Auth>(s);
     }
 
     return std::unique_ptr<Auth>();
@@ -2901,6 +2904,8 @@ namespace ARBITER_CUSTOM_NAMESPACE
 namespace arbiter
 {
 
+using namespace internal;
+
 namespace
 {
     const std::string baseDropboxUrl("https://content.dropboxapi.com/");
@@ -2924,7 +2929,6 @@ namespace drivers
 {
 
 using namespace http;
-using namespace util;
 
 Dropbox::Dropbox(Pool& pool, const Dropbox::Auth& auth)
     : Http(pool)
@@ -3257,6 +3261,9 @@ namespace ARBITER_CUSTOM_NAMESPACE
 
 namespace arbiter
 {
+
+using namespace internal;
+
 namespace http
 {
 
@@ -3345,8 +3352,6 @@ Curl::Curl(const std::string s)
 #ifdef ARBITER_CURL
     const json c(s.size() ? json::parse(s) : json::object());
 
-    using namespace util;
-
     m_curl = curl_easy_init();
 
     // Configurable entries are:
@@ -3361,7 +3366,7 @@ Curl::Curl(const std::string s)
     {
         for (const auto& key : keys)
         {
-            if (auto e = util::env(key)) return makeUnique<std::string>(*e);
+            if (auto e = env(key)) return makeUnique<std::string>(*e);
         }
         return std::unique_ptr<std::string>();
     });
@@ -3949,9 +3954,9 @@ Contents parse(const std::string& s)
     Section section;
 
     const std::vector<std::string> lines;
-    for (std::string line : util::split(s))
+    for (std::string line : split(s))
     {
-        line = util::stripWhitespace(line);
+        line = stripWhitespace(line);
         const std::size_t semiPos(line.find_first_of(';'));
         const std::size_t hashPos(line.find_first_of('#'));
         line = line.substr(0, std::min(semiPos, hashPos));
@@ -4719,6 +4724,8 @@ int64_t Time::asUnix() const
 
 #include <algorithm>
 #include <cctype>
+#include <mutex>
+#include <random>
 
 #ifdef ARBITER_CUSTOM_NAMESPACE
 namespace ARBITER_CUSTOM_NAMESPACE
@@ -4727,8 +4734,20 @@ namespace ARBITER_CUSTOM_NAMESPACE
 
 namespace arbiter
 {
-namespace util
+
+namespace
 {
+    std::mutex randomMutex;
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<unsigned long long> distribution;
+}
+
+uint64_t randomNumber()
+{
+    std::lock_guard<std::mutex> lock(randomMutex);
+    return distribution(gen);
+}
 
 std::string stripPostfixing(const std::string path)
 {
@@ -4755,11 +4774,11 @@ std::string getBasename(const std::string fullPath)
 
     // Now do the real slash searching.
     std::size_t pos(stripped.rfind('/'));
-    
+
     // Maybe windows
-    if (pos == std::string::npos) 
+    if (pos == std::string::npos)
         pos = stripped.rfind('\\');
-    
+
     if (pos != std::string::npos)
     {
         const std::string sub(stripped.substr(pos + 1));
@@ -4849,7 +4868,6 @@ std::string stripWhitespace(const std::string& in)
     return out;
 }
 
-} // namespace util
 } // namespace arbiter
 
 #ifdef ARBITER_CUSTOM_NAMESPACE

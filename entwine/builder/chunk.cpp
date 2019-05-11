@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2018, Connor Manning (connor@hobu.co)
+* Copyright (c) 2019, Connor Manning (connor@hobu.co)
 *
 * Entwine -- Point cloud indexing
 *
@@ -10,159 +10,204 @@
 
 #include <entwine/builder/chunk.hpp>
 
+#include <entwine/builder/chunk-cache.hpp>
+#include <entwine/builder/hierarchy.hpp>
 #include <entwine/io/io.hpp>
+#include <entwine/types/metadata.hpp>
+#include <entwine/types/voxel.hpp>
+#include <entwine/util/unique.hpp>
 
 namespace entwine
 {
 
-namespace
+Chunk::Chunk(const ChunkKey& ck, const Hierarchy& hierarchy)
+    : m_metadata(ck.metadata())
+    , m_span(m_metadata.span())
+    , m_pointSize(m_metadata.schema().pointSize())
+    , m_chunkKey(ck)
+    , m_childKeys { {
+        ck.getStep(toDir(0)),
+        ck.getStep(toDir(1)),
+        ck.getStep(toDir(2)),
+        ck.getStep(toDir(3)),
+        ck.getStep(toDir(4)),
+        ck.getStep(toDir(5)),
+        ck.getStep(toDir(6)),
+        ck.getStep(toDir(7))
+    } }
+    , m_grid(m_span * m_span)
+    , m_gridBlock(m_pointSize, 4096)
 {
-    SpinLock spin;
-    ReffedChunk::Info info;
+    for (uint64_t i(0); i < dirEnd(); ++i)
+    {
+        const Dir dir(toDir(i));
+
+        // If there are already points here, it gets no overflow.
+        if (!hierarchy.get(childAt(dir).dxyz()))
+        {
+            m_overflows[i] = makeUnique<Overflow>(ck.getStep(dir));
+        }
+    }
 }
 
-ReffedChunk::ReffedChunk(
-        const ChunkKey& key,
+bool Chunk::insert(ChunkCache& cache, Clipper& clipper, Voxel& voxel, Key& key)
+{
+    const Xyz& pos(key.position());
+    const uint64_t i((pos.y % m_span) * m_span + (pos.x % m_span));
+    auto& tube(m_grid[i]);
+
+    UniqueSpin tubeLock(tube.spin());
+    Voxel& dst(tube[pos.z]);
+
+    if (dst.data())
+    {
+        const Point& mid(key.bounds().mid());
+        if (voxel.point().sqDist3d(mid) < dst.point().sqDist3d(mid))
+        {
+            voxel.swapDeep(dst, m_pointSize);
+        }
+    }
+    else
+    {
+        {
+            SpinGuard lock(m_spin);
+            dst.setData(m_gridBlock.next());
+        }
+        dst.initDeep(voxel.point(), voxel.data(), m_pointSize);
+        return true;
+    }
+
+    tubeLock.unlock();
+
+    return insertOverflow(cache, clipper, voxel, key);
+}
+
+bool Chunk::insertOverflow(
+        ChunkCache& cache,
+        Clipper& clipper,
+        Voxel& voxel,
+        Key& key)
+{
+    if (m_chunkKey.depth() < m_metadata.overflowDepth()) return false;
+
+    const Dir dir(getDirection(m_chunkKey.bounds().mid(), voxel.point()));
+    const uint64_t i(toIntegral(dir));
+
+    SpinGuard lock(m_overflowSpin);
+
+    if (!m_overflows[i]) return false;
+
+    m_overflows[i]->insert(voxel, key);
+
+    // Overflow inserted, update metric and perform overflow if needed.
+    if (++m_overflowCount >= m_metadata.minNodeSize())
+    {
+        maybeOverflow(cache, clipper);
+    }
+
+    return true;
+}
+
+void Chunk::maybeOverflow(ChunkCache& cache, Clipper& clipper)
+{
+    // See if our resident size is big enough to overflow.
+    uint64_t gridSize(0);
+    {
+        SpinGuard lock(m_spin);
+        gridSize = m_gridBlock.size();
+    }
+
+    const uint64_t ourSize(gridSize + m_overflowCount);
+    if (ourSize < m_metadata.maxNodeSize()) return;
+
+    // Find the overflow with the largest point count.
+    uint64_t selectedSize = 0;
+    uint64_t selectedIndex = 0;
+    for (uint64_t d(0); d < m_overflows.size(); ++d)
+    {
+        auto& current(m_overflows[d]);
+        if (current && current->size() > selectedSize)
+        {
+            selectedIndex = d;
+            selectedSize = current->size();
+        }
+    }
+
+    // Make sure our largest overflow is large enough to necessitate
+    // overflowing into its own node.
+    if (selectedSize < m_metadata.minNodeSize()) return;
+
+    doOverflow(cache, clipper, selectedIndex);
+}
+
+void Chunk::doOverflow(ChunkCache& cache, Clipper& clipper, uint64_t dir)
+{
+    assert(m_overflows[dir]);
+
+    std::unique_ptr<Overflow> active;
+    std::swap(m_overflows[dir], active);
+    m_overflowCount -= active->size();
+
+    // TODO We could unlock our overflowSpin here - bookkeeping has been
+    // fully updated for the removal of this Overflow.
+
+    const ChunkKey ck(m_childKeys[dir]);
+
+    for (auto& entry : active->list())
+    {
+        entry.key.step(entry.voxel.point());
+        cache.insert(entry.voxel, entry.key, ck, clipper);
+    }
+}
+
+uint64_t Chunk::save(
+        const arbiter::Endpoint& out,
+        const arbiter::Endpoint& tmp) const
+{
+    uint64_t np(m_gridBlock.size());
+    for (const auto& o : m_overflows) if (o) np += o->size();
+
+    BlockPointTable table(m_metadata.schema());
+    table.reserve(np);
+    table.insert(m_gridBlock);
+    for (auto& o : m_overflows) if (o) table.insert(o->block());
+
+    const auto filename(
+            m_chunkKey.toString() + m_metadata.postfix(m_chunkKey.depth()));
+    m_metadata.dataIo().write(
+            out,
+            tmp,
+            filename,
+            m_chunkKey.bounds(),
+            table);
+
+    return np;
+}
+
+void Chunk::load(
+        ChunkCache& cache,
+        Clipper& clipper,
         const arbiter::Endpoint& out,
         const arbiter::Endpoint& tmp,
-        Hierarchy& hierarchy)
-    : m_key(key)
-    , m_metadata(m_key.metadata())
-    , m_out(out)
-    , m_tmp(tmp)
-    , m_hierarchy(hierarchy)
+        const uint64_t np)
 {
-    SpinGuard lock(spin);
-    ++info.alive;
-}
-
-ReffedChunk::ReffedChunk(const ReffedChunk& o)
-    : ReffedChunk(
-            o.key(),
-            o.out(),
-            o.tmp(),
-            o.hierarchy())
-{
-    // This happens only during the constructor of the chunk.
-    assert(!o.m_chunk);
-    assert(o.m_refs.empty());
-}
-
-ReffedChunk::~ReffedChunk()
-{
-    SpinGuard lock(spin);
-    --info.alive;
-}
-
-bool ReffedChunk::insert(Voxel& voxel, Key& key, Clipper& clipper)
-{
-    if (clipper.insert(*this)) ref(clipper);
-    return m_chunk->insert(voxel, key, clipper);
-}
-
-void ReffedChunk::ref(Clipper& clipper)
-{
-    const Origin o(clipper.origin());
-    SpinGuard lock(m_spin);
-
-    if (m_refs.count(o))
-    {
-        ++m_refs[o];
-        return;
-    }
-
-    m_refs[o] = 1;
-
-    if (m_chunk && !m_chunk->remote()) return;
-
-    if (!m_chunk) m_chunk = makeUnique<Chunk>(*this);
-    if (m_chunk->remote()) m_chunk->init();
-
-    const uint64_t np = m_hierarchy.get(m_key.get());
-    if (!np) return;
-
-    {
-        SpinGuard lock(spin);
-        ++info.read;
-    }
-
     VectorPointTable table(m_metadata.schema(), np);
-    table.setProcess([this, &table, &clipper]()
+    table.setProcess([&]()
     {
         Voxel voxel;
-        Key pk(m_metadata);
+        Key key(m_metadata);
 
         for (auto it(table.begin()); it != table.end(); ++it)
         {
             voxel.initShallow(it.pointRef(), it.data());
-            pk.init(voxel.point(), m_key.depth());
-            insert(voxel, pk, clipper);
+            key.init(voxel.point(), m_chunkKey.depth());
+            cache.insert(voxel, key, m_chunkKey, clipper);
         }
     });
 
-    const auto filename(m_key.toString() + m_metadata.postfix(m_key.depth()));
-    m_metadata.dataIo().read(m_out, m_tmp, filename, table);
-}
-
-void ReffedChunk::unref(const Origin o)
-{
-    SpinGuard lock(m_spin);
-
-    assert(m_chunk);
-    assert(m_refs.count(o));
-
-    if (!--m_refs.at(o))
-    {
-        m_refs.erase(o);
-        if (m_refs.empty())
-        {
-            BlockPointTable table(m_metadata.schema());
-            uint64_t size(m_chunk->gridBlock().size());
-            for (const auto& mb : m_chunk->overflowBlocks()) size += mb.size();
-            table.reserve(size);
-            table.insert(m_chunk->gridBlock());
-            for (auto& mb : m_chunk->overflowBlocks()) table.insert(mb);
-
-            m_hierarchy.set(m_key.get(), table.size());
-
-            m_metadata.dataIo().write(
-                    m_out,
-                    m_tmp,
-                    m_key.toString() + m_metadata.postfix(m_key.depth()),
-                    m_key.bounds(),
-                    table);
-
-            m_chunk->reset();
-
-            SpinGuard lock(spin);
-            ++info.written;
-        }
-    }
-}
-
-bool ReffedChunk::empty()
-{
-    SpinGuard lock(m_spin);
-
-    if (!m_chunk) return true;
-
-    if (m_chunk->terminus() && m_refs.empty())
-    {
-        m_chunk.reset();
-        return true;
-    }
-
-    return false;
-}
-
-ReffedChunk::Info ReffedChunk::latchInfo()
-{
-    SpinGuard lock(spin);
-
-    Info result(info);
-    info.written = 0;
-    info.read = 0;
-    return result;
+    const auto filename(
+            m_chunkKey.toString() + m_metadata.postfix(m_chunkKey.depth()));
+    m_metadata.dataIo().read(out, tmp, filename, table);
 }
 
 } // namespace entwine

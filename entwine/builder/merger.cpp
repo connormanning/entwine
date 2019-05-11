@@ -14,6 +14,7 @@
 
 #include <entwine/builder/builder.hpp>
 #include <entwine/builder/clipper.hpp>
+#include <entwine/builder/registry.hpp>
 #include <entwine/builder/thread-pools.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/subset.hpp>
@@ -58,7 +59,7 @@ Merger::~Merger() { }
 
 void Merger::go()
 {
-    auto clipper(makeUnique<Clipper>(m_builder->registry()));
+    auto clipper(makeUnique<Clipper>(m_builder->registry().cache()));
 
     m_id = 2;
     while (m_id <= m_of)

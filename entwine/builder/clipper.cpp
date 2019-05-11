@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2018, Connor Manning (connor@hobu.co)
+* Copyright (c) 2019, Connor Manning (connor@hobu.co)
 *
 * Entwine -- Point cloud indexing
 *
@@ -11,94 +11,91 @@
 #include <entwine/builder/clipper.hpp>
 
 #include <entwine/builder/chunk.hpp>
-#include <entwine/builder/registry.hpp>
-#include <entwine/util/time.hpp>
+#include <entwine/builder/chunk-cache.hpp>
 
 namespace entwine
 {
 
-namespace
+Clipper::~Clipper()
 {
-    const std::size_t minClipDepth(4);
+    for (
+            uint64_t depth(0);
+            depth < m_slow.size() && m_slow[depth].size();
+            ++depth)
+    {
+        // Purging everything, insert everything into our aged list so we
+        // expire everything.
+        UsedMap& used(m_slow[depth]);
+        UsedMap& aged(m_aged[depth]);
+        aged.insert(used.begin(), used.end());
+    }
+
+    clip();
 }
 
-bool Clipper::insert(ReffedChunk& c)
+Chunk* Clipper::get(const ChunkKey& ck)
 {
-    const bool added(m_clips.at(c.key().depth()).insert(c));
-    if (added) ++m_count;
-    return added;
+    CachedChunk& fast(m_fast[ck.depth()]);
+    if (fast.xyz == ck.position()) return fast.chunk;
+
+    auto& slow(m_slow[ck.depth()]);
+    auto it = slow.find(ck.position());
+
+    if (it == slow.end())
+    {
+        auto& aged(m_aged[ck.depth()]);
+        auto agedIt = aged.find(ck.position());
+        if (agedIt == aged.end()) return nullptr;
+
+        it = slow.insert(std::make_pair(agedIt->first, agedIt->second)).first;
+        aged.erase(agedIt);
+    }
+
+    fast.xyz = ck.position();
+    return fast.chunk = it->second;
+}
+
+void Clipper::set(const ChunkKey& ck, Chunk* chunk)
+{
+    CachedChunk& fast(m_fast[ck.depth()]);
+
+    fast.xyz = ck.position();
+    fast.chunk = chunk;
+
+    auto& slow(m_slow[ck.depth()]);
+    assert(!slow.count(ck.position()));
+    slow[ck.position()] = chunk;
 }
 
 void Clipper::clip()
 {
-    if (m_count <= heuristics::clipCacheSize) return;
+    m_fast.fill(CachedChunk());
 
-    std::size_t cur(minClipDepth);
-    while (cur < m_clips.size() && !m_clips[cur].empty()) ++cur;
-    --cur; // We've gone one past the last - back it up by one.
-
-    while (cur >= minClipDepth && m_count > heuristics::clipCacheSize)
+    for (
+            uint64_t depth(0);
+            depth < m_slow.size() && (
+                m_slow[depth].size() || m_aged[depth].size()
+            );
+            ++depth)
     {
-        auto& c(m_clips[cur]);
-        if (c.empty()) return;
-        else m_count -= c.clip();
+        if (m_slow[depth].empty() && m_aged[depth].empty()) continue;
 
-        --cur;
-    }
-}
+        UsedMap& used(m_slow[depth]);
+        UsedMap& aged(m_aged[depth]);
 
-void Clipper::clipAll()
-{
-    const std::size_t last(m_clips.size() - 1);
-    for (std::size_t d(last); d <= last; --d)
-    {
-        m_count -= m_clips[d].clip(true);
-    }
-    assert(!m_count);
-}
+        // Whatever is in our aging list hasn't been touched in two iterations,
+        // so deref those chunks.
+        m_cache.clip(depth, aged);
 
-bool Clipper::Clip::insert(ReffedChunk& c)
-{
-    const auto it(m_chunks.find(&c));
-    if (it == m_chunks.end())
-    {
-        m_chunks[&c] = true;
-        return true;
-    }
-    else
-    {
-        it->second = true;
-        return false;
-    }
-}
+        // Get rid of what we just clipped, and lower our recently touched
+        // list into our aging list.
+        aged.clear();
 
-bool Clipper::Clip::Cmp::operator()(
-        const ReffedChunk* a,
-        const ReffedChunk* b) const
-{
-    return a->key().position() < b->key().position();
-}
-
-std::size_t Clipper::Clip::clip(const bool force)
-{
-    std::size_t n(0);
-    for (auto it(m_chunks.begin()); it != m_chunks.end(); )
-    {
-        if (force || !it->second)
-        {
-            ReffedChunk& c(*it->first);
-            const Origin o(m_clipper.origin());
-            m_clipper.registry().clipPool().add([&c, o] { c.unref(o); });
-            ++n;
-            it = m_chunks.erase(it);
-        }
-        else
-        {
-            it->second = false;
-            ++it;
-        }
+        // Now clear our "used" list, moving it into "aged".
+        std::swap(used, aged);
     }
-    return n;
+
+    m_cache.clipped();
 }
 
 } // namespace entwine

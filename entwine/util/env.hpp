@@ -11,6 +11,8 @@
 #pragma once
 
 #include <cstdlib>
+#include <memory>
+#include <string>
 
 #include <entwine/util/unique.hpp>
 

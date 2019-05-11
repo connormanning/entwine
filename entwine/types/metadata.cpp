@@ -47,7 +47,9 @@ Metadata::Metadata(const Config& config, const bool exists)
     , m_startDepth(std::log2(m_span))
     , m_sharedDepth(m_subset ? m_subset->splits() : 0)
     , m_overflowDepth(std::max(config.overflowDepth(), m_sharedDepth))
-    , m_overflowThreshold(config.overflowThreshold())
+    , m_minNodeSize(config.minNodeSize())
+    , m_maxNodeSize(config.maxNodeSize())
+    , m_cacheSize(config.cacheSize())
 {
     if (1ULL << m_startDepth != m_span)
     {
@@ -89,6 +91,11 @@ Metadata::Metadata(const Config& config, const bool exists)
             throw std::runtime_error(
                     "Bounds are too large for the selected scale");
         }
+    }
+
+    if (m_outSchema->gpsScaleOffset() && m_dataIo->type() == "laszip")
+    {
+        throw std::runtime_error("Cannot scale GpsTime with laszip data type");
     }
 }
 
@@ -133,7 +140,9 @@ void Metadata::save(const arbiter::Endpoint& ep, const Config& config) const
             { "version", currentEntwineVersion().toString() },
             { "trustHeaders", m_trustHeaders },
             { "overflowDepth", m_overflowDepth },
-            { "overflowThreshold", m_overflowThreshold }
+            { "minNodeSize", m_minNodeSize },
+            { "maxNodeSize", m_maxNodeSize },
+            { "cacheSize", m_cacheSize }
         };
         if (m_subset) buildMeta["subset"] = *m_subset;
         if (m_reprojection) buildMeta["reprojection"] = *m_reprojection;

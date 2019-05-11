@@ -75,10 +75,11 @@ point cloud data.
 | [absolute](#absolute) | Set double precision spatial coordinates |
 | [scale](#scale) | Scaling factor for scaled integral coordinates |
 | [run](#run) | Insert a fixed number of files |
-| [resetFiles](#resetfiles) | Reset memory pooling after a number of files |
 | [subset](#subset) | Run a subset portion of a larger build |
 | [overflowDepth](#overflowdepth) | Depth at which nodes may contain overflow |
-| [overflowThreshold](#overflowthreshold) | Threshold for overflowing nodes to split |
+| [maxNodeSize](#maxNodeSize) | Soft point count at which nodes may overflow |
+| [minNodeSize](#minNodeSize) | Soft minimum on the point count of nodes |
+| [cacheSize](#cacheSize) | Number of recently-unused nodes to hold in reserve |
 | [hierarchyStep](#hierarchystep) | Step size at which to split hierarchy files |
 
 ### input
@@ -264,15 +265,6 @@ by providing the same `output` value to a later build.
 { "run": 25 }
 ```
 
-### resetFiles
-
-For certain types of data or very long builds it may be useful to reset the
-memory pool used by Entwine.  If this value is set, then after the specified
-number of files, Entwine's memory pool will reset.
-```
-{ "resetFiles": 500 }
-```
-
 ### subset
 
 Entwine builds may be split into multiple subset tasks, and then be merged later
@@ -295,6 +287,27 @@ specified by this parameter.
 
 For nodes at depths of at least the `overflowDepth`, this parameter specifies
 the threshold at which they will split into bisected child nodes.
+
+### maxNodeSize
+
+A soft limit on the maximum number of points that may be stored in a data node.
+This limit is only applicable to points that are "overflow" for a node - so
+points that fit natively in the `span * span * span` grid can grow beyond this
+size.
+
+### minNodeSize
+
+A limit on the minimum number of points that may reside in a dedicated node.
+For would-be nodes containing less than this number, they will be grouped in
+with their parent node.
+
+### cacheSize
+
+When data nodes have not been touched recently during point insertion, they are
+eligible for serialization.  This parameter specifies the number of unused
+nodes that may be held in memory before serialization, so that if they are used
+again soon enough they won't need to be serialized and then reawakened from
+remote storage.
 
 ### hierarchyStep
 

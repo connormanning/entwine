@@ -16,23 +16,16 @@
 #include <set>
 #include <vector>
 
-#include <entwine/builder/chunk.hpp>
-#include <entwine/builder/clipper.hpp>
+#include <entwine/builder/chunk-cache.hpp>
 #include <entwine/builder/hierarchy.hpp>
 #include <entwine/builder/thread-pools.hpp>
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/key.hpp>
 #include <entwine/util/pool.hpp>
 #include <entwine/util/unique.hpp>
 
-namespace arbiter
-{
-    class Endpoint;
-}
-
 namespace entwine
 {
-
-class Clipper;
 
 class Registry
 {
@@ -44,21 +37,20 @@ public:
             ThreadPools& threadPools,
             bool exists = false);
 
-    void save() const;
+    void save(uint64_t hierarchyStep, bool verbose);
     void merge(const Registry& other, Clipper& clipper);
 
-    void addPoint(Voxel& voxel, Key& key, Clipper& clipper)
+    void addPoint(Voxel& voxel, Key& key, ChunkKey& ck, Clipper& clipper)
     {
-        m_root.insert(voxel, key, clipper);
+        m_chunkCache->insert(voxel, key, ck, clipper);
     }
-
-    void purge() { m_root.empty(); }
 
     Pool& workPool() { return m_threadPools.workPool(); }
     Pool& clipPool() { return m_threadPools.clipPool(); }
 
     const Metadata& metadata() const { return m_metadata; }
     const Hierarchy& hierarchy() const { return m_hierarchy; }
+    ChunkCache& cache() const { return *m_chunkCache; }
 
 private:
     const Metadata& m_metadata;
@@ -68,7 +60,7 @@ private:
     ThreadPools& m_threadPools;
     Hierarchy m_hierarchy;
 
-    ReffedChunk m_root;
+    std::unique_ptr<ChunkCache> m_chunkCache;
 };
 
 } // namespace entwine

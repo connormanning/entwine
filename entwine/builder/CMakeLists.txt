@@ -5,6 +5,7 @@ set(
     SOURCES
     "${BASE}/builder.cpp"
     "${BASE}/chunk.cpp"
+    "${BASE}/chunk-cache.cpp"
     "${BASE}/clipper.cpp"
     "${BASE}/config.cpp"
     "${BASE}/hierarchy.cpp"
@@ -19,11 +20,13 @@ set(
     HEADERS
     "${BASE}/builder.hpp"
     "${BASE}/chunk.hpp"
+    "${BASE}/chunk-cache.hpp"
     "${BASE}/clipper.hpp"
     "${BASE}/config.hpp"
     "${BASE}/heuristics.hpp"
     "${BASE}/hierarchy.hpp"
     "${BASE}/merger.hpp"
+    "${BASE}/overflow.hpp"
     "${BASE}/registry.hpp"
     "${BASE}/scan.hpp"
     "${BASE}/sequence.hpp"

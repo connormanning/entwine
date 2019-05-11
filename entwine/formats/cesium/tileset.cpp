@@ -102,7 +102,7 @@ void Tileset::build(const ChunkKey& ck) const
     const HierarchyTree hier(getHierarchyTree(ck));
 
     const json j {
-        { "asset", { { "version", "0.0" } } },
+        { "asset", { { "version", "1.0" } } },
         { "geometricError", m_rootGeometricError },
         { "root", build(ck.depth(), ck, hier) }
     };

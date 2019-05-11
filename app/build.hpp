@@ -27,6 +27,7 @@ private:
     virtual void run() override;
 
     void log(const Builder& b) const;
+    void end(const Builder& b) const;
 };
 
 } // namespace app

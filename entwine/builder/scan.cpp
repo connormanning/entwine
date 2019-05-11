@@ -49,7 +49,7 @@ Scan::Scan(const Config config)
     arbiter::mkdirp(m_tmp.root());
 }
 
-Config Scan::go()
+void Scan::read()
 {
     if (m_pool || m_done)
     {
@@ -71,44 +71,51 @@ Config Scan::go()
     }
 
     m_pool->cycle();
+}
 
-    Config out(aggregate());
-
+void Scan::write(const Config& out) const
+{
     std::string path(m_in.output());
-    if (path.size())
+    if (path.empty()) return;
+
+    arbiter::Endpoint ep(m_arbiter.getEndpoint(path));
+
+    if (ep.isLocal())
     {
-        arbiter::Endpoint ep(m_arbiter.getEndpoint(path));
-
-        if (ep.isLocal())
+        if (!arbiter::mkdirp(ep.root()))
         {
-            if (!arbiter::mkdirp(ep.root()))
-            {
-                std::cout << "Could not mkdir: " << path << std::endl;
-            }
-
-            if (!arbiter::mkdirp(ep.getSubEndpoint("ept-sources").root()))
-            {
-                std::cout << "Could not mkdir: " << path << std::endl;
-            }
+            std::cout << "Could not mkdir: " << path << std::endl;
         }
 
-        if (m_in.verbose())
+        if (!arbiter::mkdirp(ep.getSubEndpoint("ept-sources").root()))
         {
-            std::cout << std::endl;
-            std::cout << "Writing details to " << path << "..." << std::flush;
-        }
-
-        m_files.save(ep, "", m_in, true);
-        json j(out);
-        j.erase("input");
-        ep.put("scan.json", j.dump(2));
-
-        if (m_in.verbose())
-        {
-            std::cout << " written." << std::endl;
+            std::cout << "Could not mkdir: " << path << std::endl;
         }
     }
 
+    if (m_in.verbose())
+    {
+        std::cout << std::endl;
+        std::cout << "Writing details to " << path << "..." << std::flush;
+    }
+
+    m_files.save(ep, "", m_in, true);
+    json j(out);
+    j.erase("input");
+    ep.put("scan.json", j.dump(2));
+
+    if (m_in.verbose())
+    {
+        std::cout << " written." << std::endl;
+    }
+}
+
+
+Config Scan::go()
+{
+    read();
+    Config out(aggregate());
+    write(out);
     return out;
 }
 

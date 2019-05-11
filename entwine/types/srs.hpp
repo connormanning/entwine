@@ -31,6 +31,7 @@ public:
     // directly from the string.  Otherwise, we'll try to identify these values
     // with the pdal::SpatialReference::identifyEPSG functions.
     Srs(std::string s);
+    Srs(const char* c) : Srs(std::string(c)) { }
 
     // Construct from JSON.  In this case we won't do any inference - just pluck
     // out previously determined values.
@@ -42,6 +43,7 @@ public:
     bool exists() const { return !empty(); }
     bool hasCode() const { return !m_authority.empty(); }
     bool hasVerticalCode() const { return !m_vertical.empty(); }
+    std::string toString() const;
     std::string codeString() const;
 
     const pdal::SpatialReference& ref() const { return m_spatialReference; }

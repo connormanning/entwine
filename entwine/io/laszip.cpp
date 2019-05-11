@@ -68,7 +68,7 @@ void Laz::write(
     pdal::Stage* prev(&reader);
 
     std::unique_ptr<pdal::SortFilter> sort;
-    if (outSchema.contains("GpsTime"))
+    if (outSchema.hasTime())
     {
         sort = makeUnique<pdal::SortFilter>();
 
@@ -95,7 +95,6 @@ void Laz::write(
         arbiter::remove(tmp.prefixedRoot() + localFile);
     }
 }
-
 void Laz::read(
         const arbiter::Endpoint& out,
         const arbiter::Endpoint& tmp,

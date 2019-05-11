@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2018, Connor Manning (connor@hobu.co)
+* Copyright (c) 2019, Connor Manning (connor@hobu.co)
 *
 * Entwine -- Point cloud indexing
 *
@@ -10,67 +10,61 @@
 
 #pragma once
 
-#include <cassert>
-#include <cstdint>
-#include <set>
+#include <array>
+#include <limits>
 
-#include <entwine/types/defs.hpp>
 #include <entwine/types/key.hpp>
 
 namespace entwine
 {
 
-class Registry;
-class ReffedChunk;
+class Chunk;
+class ChunkCache;
+
+struct CachedChunk
+{
+    CachedChunk()
+        : xyz(
+                std::numeric_limits<uint64_t>::max(),
+                std::numeric_limits<uint64_t>::max(),
+                std::numeric_limits<uint64_t>::max())
+    { }
+
+    CachedChunk(const Xyz& xyz) : xyz(xyz) { }
+
+    Xyz xyz;
+    Chunk* chunk = nullptr;
+};
+
+inline bool operator<(const CachedChunk& a, const CachedChunk& b)
+{
+    return a.xyz < b.xyz;
+}
 
 class Clipper
 {
-    class Clip
-    {
-    public:
-        Clip(Clipper& c) : m_clipper(c) { }
-        ~Clip() { assert(empty()); }
-
-        bool insert(ReffedChunk& c);
-        std::size_t clip(bool force = false);
-        bool empty() const { return m_chunks.empty(); }
-
-    private:
-        Clipper& m_clipper;
-
-        struct Cmp
-        {
-            bool operator()(const ReffedChunk* a, const ReffedChunk* b) const;
-        };
-
-        std::map<ReffedChunk*, bool, Cmp> m_chunks;
-    };
-
 public:
-    Clipper(Registry& registry, Origin origin = 0)
-        : m_registry(registry)
-        , m_origin(origin)
-        , m_clips(64, *this)
-    { }
+    Clipper(ChunkCache& cache)
+        : m_cache(cache)
+    {
+        m_fast.fill(CachedChunk());
+    }
 
-    ~Clipper() { if (m_origin != invalidOrigin) clipAll(); }
+    ~Clipper();
 
-    Registry& registry() { return m_registry; }
-
-    bool insert(ReffedChunk& c);
-
+    Chunk* get(const ChunkKey& ck);
+    void set(const ChunkKey& ck, Chunk* chunk);
     void clip();
 
-    const Origin origin() const { return m_origin; }
-
 private:
-    void clipAll();
+    ChunkCache& m_cache;
 
-    Registry& m_registry;
-    const Origin m_origin;
+    using UsedMap = std::map<Xyz, Chunk*>;
+    using AgedSet = std::set<Xyz>;
 
-    std::size_t m_count = 0;
-    std::vector<Clip> m_clips;
+    std::array<CachedChunk, maxDepth> m_fast;
+    std::array<std::map<Xyz, Chunk*>, maxDepth> m_slow;
+    std::array<std::map<Xyz, Chunk*>, maxDepth> m_aged;
 };
 
 } // namespace entwine

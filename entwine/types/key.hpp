@@ -54,6 +54,11 @@ inline bool operator==(const Xyz& a, const Xyz& b)
     return a.x == b.x && a.y == b.y && a.z == b.z;
 }
 
+inline bool operator!=(const Xyz& a, const Xyz& b)
+{
+    return !(a == b);
+}
+
 struct Dxyz
 {
     Dxyz() : x(p.x), y(p.y), z(p.z) { }
@@ -102,6 +107,7 @@ struct Dxyz
 
     std::string toString() const { return p.toString(d); }
     uint64_t depth() const { return d; }
+    const Xyz& position() const { return p; }
 
     Xyz p;
 
@@ -199,6 +205,12 @@ struct ChunkKey
     {
         d = 0;
         k.reset();
+    }
+
+    void init(const Point& g, uint64_t d)
+    {
+        reset();
+        while (depth() < d) step(g);
     }
 
     Dir step(const Point& g)

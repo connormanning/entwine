@@ -20,10 +20,10 @@
 
 namespace Json { class Value; }
 
+namespace arbiter { class Arbiter; }
+
 namespace entwine
 {
-
-namespace arbiter { class Arbiter; }
 
 class Builder;
 

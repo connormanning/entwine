@@ -33,5 +33,20 @@ inline int since(TimePoint start)
     return std::chrono::duration_cast<T>(d).count();
 }
 
+// Format a duration in seconds to HH:MM:SS.
+inline std::string formatTime(const int seconds)
+{
+    const int h(seconds / 60 / 60);
+    const int m((seconds / 60) % 60);
+    const int s(seconds % 60);
+
+    auto pad([](int v)->std::string
+    {
+        return (v < 10 ? "0" : "") + std::to_string(v);
+    });
+
+    return (h ? pad(h) + ":" : "") + pad(m) + ":" + pad(s);
+}
+
 } // namespace entwine
 

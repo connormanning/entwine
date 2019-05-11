@@ -42,25 +42,45 @@ namespace
 {
     const std::size_t inputRetryLimit(16);
     std::size_t reawakened(0);
+
+    std::size_t workThreads(const Metadata& m, const Config& c)
+    {
+        // Limit worker threads to the number of files.
+        const std::size_t baseWorkThreads(c.workThreads());
+        return std::min(baseWorkThreads, m.files().size());
+    }
+
+    std::size_t clipThreads(const Metadata& m, const Config& c)
+    {
+        const std::size_t baseWorkThreads(c.workThreads());
+        const std::size_t baseClipThreads(c.clipThreads());
+
+        // Actual work threads is <= base work threads.
+        const std::size_t actualWorkThreads(workThreads(m, c));
+        const std::size_t stolenWorkThreads(
+                baseWorkThreads - actualWorkThreads);
+
+        return baseClipThreads + stolenWorkThreads;
+    }
 }
 
 Builder::Builder(const Config& config, std::shared_ptr<arbiter::Arbiter> a)
-    : m_config(config.prepare())
+    : m_config(config.prepareForBuild())
     , m_interval(m_config.progressInterval())
     , m_arbiter(a ? a : std::make_shared<arbiter::Arbiter>(m_config.arbiter()))
     , m_out(makeUnique<arbiter::Endpoint>(
                 m_arbiter->getEndpoint(m_config.output())))
     , m_tmp(makeUnique<arbiter::Endpoint>(
                 m_arbiter->getEndpoint(m_config.tmp())))
-    , m_threadPools(
-            makeUnique<ThreadPools>(
-                m_config.workThreads(),
-                m_config.clipThreads()))
     , m_isContinuation(m_config.isContinuation())
     , m_sleepCount(m_config.sleepCount())
     , m_metadata(m_isContinuation ?
             makeUnique<Metadata>(*m_out, m_config) :
             makeUnique<Metadata>(m_config))
+    , m_threadPools(
+            makeUnique<ThreadPools>(
+                workThreads(*m_metadata, m_config),
+                clipThreads(*m_metadata, m_config)))
     , m_registry(makeUnique<Registry>(
                 *m_metadata,
                 *m_out,
@@ -70,8 +90,6 @@ Builder::Builder(const Config& config, std::shared_ptr<arbiter::Arbiter> a)
     , m_sequence(makeUnique<Sequence>(*m_metadata, m_mutex))
     , m_verbose(m_config.verbose())
     , m_start(now())
-    , m_reset(now())
-    , m_resetFiles(m_config.resetFiles())
 {
     prepareEndpoints();
 }
@@ -82,7 +100,6 @@ Builder::~Builder()
 void Builder::go(std::size_t max)
 {
     m_start = now();
-    m_reset = m_start;
 
     bool done(false);
     const auto& files(m_metadata->files());
@@ -101,7 +118,8 @@ void Builder::go(std::size_t max)
         if (!m_interval) return;
 
         using ms = std::chrono::milliseconds;
-        std::size_t last(0);
+        uint64_t lastInserts(0);
+        int64_t lastProgress(0);
 
         const double totalPoints(files.totalPoints());
         const double megsPerHour(3600.0 / 1000000.0);
@@ -112,8 +130,10 @@ void Builder::go(std::size_t max)
             std::this_thread::sleep_for(ms(1000 - t % 1000));
             const auto s(since<std::chrono::seconds>(m_start));
 
-            if (s % m_interval == 0)
+            if (s != lastProgress && s % m_interval == 0)
             {
+                lastProgress = s;
+
                 const double inserts(
                         files.pointStats().inserts() - alreadyInserted);
 
@@ -121,39 +141,38 @@ void Builder::go(std::size_t max)
                         (files.pointStats().inserts() + alreadyInserted) /
                         totalPoints);
 
-                const auto info(ReffedChunk::latchInfo());
+                const ChunkCache::Info info(ChunkCache::latchInfo());
                 reawakened += info.read;
 
                 if (verbose())
                 {
+                    const uint64_t totalPace(
+                            inserts /
+                            static_cast<double>(s) *
+                            megsPerHour);
+
+                    const uint64_t lastIntervalPace(
+                            (inserts - lastInserts) /
+                            static_cast<double>(m_interval) *
+                            megsPerHour);
+
                     std::cout <<
-                        " T: " << commify(s) << "s" <<
-                        " R: " << commify(inserts / s * megsPerHour) <<
-                            "(" << commify((inserts - last) / m_interval *
-                                        megsPerHour) << ")" <<
-                            "M/h" <<
-                        " I: " << commify(inserts) <<
-                        " P: " << std::round(progress * 100.0) << "%" <<
-                        " W: " << info.written <<
-                        " R: " << info.read <<
-                        " A: " << commify(info.alive) <<
+                        formatTime(s) << " - " <<
+                        std::round(progress * 100.0) << "% - " <<
+                        commify(inserts) << " - " <<
+                        commify(totalPace) <<
+                        "(" << commify(lastIntervalPace) << ")M/h - " <<
+                        info.written << "W - " << info.read << "R - " <<
+                        info.alive << "A" <<
                         std::endl;
                 }
 
-                last = inserts;
+                lastInserts = inserts;
             }
         }
     });
 
     p.join();
-}
-
-void Builder::cycle()
-{
-    if (verbose()) std::cout << "\tCycling memory pool" << std::endl;
-    m_threadPools->cycle();
-    m_reset = now();
-    if (verbose()) std::cout << "\tCycled" << std::endl;
 }
 
 void Builder::doRun(const std::size_t max)
@@ -165,16 +184,6 @@ void Builder::doRun(const std::size_t max)
 
     while (auto o = m_sequence->next(max))
     {
-        /*
-        if (
-                (m_resetFiles && m_sequence->added() > m_resetFiles &&
-                     (m_sequence->added() - 1) % m_resetFiles == 0) ||
-                since<std::chrono::minutes>(m_reset) >= m_resetMinutes)
-        {
-            cycle();
-        }
-        */
-
         const Origin origin(*o);
         FileInfo& info(m_metadata->mutableFiles().get(origin));
         const auto path(info.path());
@@ -217,8 +226,6 @@ void Builder::doRun(const std::size_t max)
 
             m_metadata->mutableFiles().set(origin, status, message);
             if (verbose()) std::cout << "\tDone " << origin << std::endl;
-
-            m_registry->purge();
         });
     }
 
@@ -272,10 +279,11 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
     uint64_t inserted(0);
     uint64_t pointId(0);
 
-    Clipper clipper(*m_registry, originId);
+    ChunkKey ck(*m_metadata);
+    Clipper clipper(m_registry->cache());
 
     VectorPointTable table(m_metadata->schema());
-    table.setProcess([this, &table, &clipper, &inserted, &pointId, &originId]()
+    table.setProcess([&]()
     {
         inserted += table.numPoints();
 
@@ -306,12 +314,14 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
             if (so) voxel.clip(*so);
             const Point& point(voxel.point());
 
+            ck.reset();
+
             if (boundsConforming.contains(point))
             {
                 if (!boundsSubset || boundsSubset->contains(point))
                 {
                     key.init(point);
-                    m_registry->addPoint(voxel, key, clipper);
+                    m_registry->addPoint(voxel, key, ck, clipper);
                     pointStats.addInsert();
                 }
             }
@@ -320,7 +330,7 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
 
         if (originId != invalidOrigin)
         {
-            m_metadata->mutableFiles().add(clipper.origin(), pointStats);
+            m_metadata->mutableFiles().add(originId, pointStats);
         }
     });
 
@@ -350,20 +360,8 @@ void Builder::save(const arbiter::Endpoint& ep)
 
     if (verbose()) std::cout << "Reawakened: " << reawakened << std::endl;
 
-    if (!m_metadata->subset())
-    {
-        if (m_config.hierarchyStep())
-        {
-            m_registry->hierarchy().setStep(m_config.hierarchyStep());
-        }
-        else
-        {
-            m_registry->hierarchy().analyze(*m_metadata, verbose());
-        }
-    }
-
     if (verbose()) std::cout << "Saving registry..." << std::endl;
-    m_registry->save();
+    m_registry->save(m_config.hierarchyStep(), verbose());
 
     if (verbose()) std::cout << "Saving metadata..." << std::endl;
     m_metadata->save(*m_out, m_config);

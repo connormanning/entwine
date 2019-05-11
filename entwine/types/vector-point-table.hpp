@@ -82,7 +82,7 @@ public:
     { }
 
     void reserve(uint64_t size) { m_refs.reserve(size); }
-    void insert(MemBlock& m)
+    void insert(const MemBlock& m)
     {
         m_refs.insert(m_refs.end(), m.refs().begin(), m.refs().end());
     }
@@ -144,6 +144,8 @@ public:
     std::vector<char>& data() { return m_data; }
     const std::vector<char>& data() const { return m_data; }
 
+    uint64_t size() const { return data().size() / m_pointSize; }
+
     std::vector<char>&& acquire() { return std::move(m_data); }
 
     void setProcess(Process f) { m_f = f; }
@@ -198,13 +200,21 @@ public:
 
     std::size_t pointSize() const { return m_pointSize; }
 
+    // Used when wrapping this table in a pdal::PointView, which calls this
+    // function to populate its indices.
+    virtual pdal::PointId addPoint() override
+    {
+        assert(m_added < size());
+        return m_added++;
+    }
+
 private:
     VectorPointTable(const VectorPointTable&);
     VectorPointTable& operator=(const VectorPointTable&);
 
     const std::size_t m_pointSize;
     std::vector<char> m_data;
-    std::size_t m_size = 0;
+    std::size_t m_added = 0;
 
     Process m_f = []() { };
 };

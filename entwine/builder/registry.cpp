@@ -12,9 +12,7 @@
 
 #include <pdal/PointView.hpp>
 
-#include <entwine/builder/chunk.hpp>
 #include <entwine/io/io.hpp>
-#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/schema.hpp>
@@ -38,11 +36,25 @@ Registry::Registry(
     , m_tmp(tmp)
     , m_threadPools(threadPools)
     , m_hierarchy(m_metadata, m_hierEp, exists)
-    , m_root(ChunkKey(metadata), m_dataEp, tmp, m_hierarchy)
+    , m_chunkCache(
+            makeUnique<ChunkCache>(
+                m_hierarchy,
+                clipPool(),
+                m_dataEp,
+                m_tmp,
+                m_metadata.cacheSize()))
 { }
 
-void Registry::save() const
+void Registry::save(const uint64_t hierarchyStep, const bool verbose)
 {
+    m_chunkCache.reset();
+
+    if (!m_metadata.subset())
+    {
+        if (hierarchyStep) m_hierarchy.setStep(hierarchyStep);
+        else m_hierarchy.analyze(m_metadata, verbose);
+    }
+
     m_hierarchy.save(m_metadata, m_hierEp, m_threadPools.workPool());
 }
 
@@ -60,20 +72,16 @@ void Registry::merge(const Registry& other, Clipper& clipper)
             {
                 Voxel voxel;
                 Key pk(m_metadata);
+                ChunkKey ck(m_metadata);
 
                 for (auto it(table.begin()); it != table.end(); ++it)
                 {
                     voxel.initShallow(it.pointRef(), it.data());
                     const Point point(voxel.point());
                     pk.init(point, dxyz.d);
+                    ck.init(point, dxyz.d);
 
-                    ReffedChunk* rc(&m_root);
-                    for (uint64_t d(0); d < dxyz.d; ++d)
-                    {
-                        rc = &rc->chunk().step(point);
-                    }
-
-                    rc->insert(voxel, pk, clipper);
+                    m_chunkCache->insert(voxel, pk, ck, clipper);
                 }
             });
 

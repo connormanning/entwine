@@ -30,14 +30,14 @@ namespace Json
     class Value;
 }
 
-namespace entwine
-{
-
 namespace arbiter
 {
     class Arbiter;
     class Endpoint;
 }
+
+namespace entwine
+{
 
 class Bounds;
 class Clipper;
@@ -55,7 +55,6 @@ class ThreadPools;
 
 class Builder
 {
-    friend class Clipper;
     friend class Merger;
     friend class Sequence;
 
@@ -93,7 +92,6 @@ public:
 
     bool verbose() const { return m_verbose; }
     void verbose(bool v) { m_verbose = v; }
-    uint64_t resetFiles() const { return m_resetFiles; }
 
     const Config& inConfig() const { return m_config; }
 
@@ -109,14 +107,9 @@ private:
     void save(std::string to);
     void save(const arbiter::Endpoint& to);
 
-    void cycle();
-
     // Insert points from a file.  Sets any previously unset FileInfo fields
     // based on file contents.
     void insertPath(Origin origin, FileInfo& info);
-
-    // Returns a stack of rejected info nodes so that they may be reused.
-    // Cells insertData(Cells cells, Clipper& clipper);
 
     // Validate sources.
     void prepareEndpoints();
@@ -134,11 +127,10 @@ private:
     std::unique_ptr<arbiter::Endpoint> m_out;
     std::unique_ptr<arbiter::Endpoint> m_tmp;
 
-    std::unique_ptr<ThreadPools> m_threadPools;
-
     const bool m_isContinuation = false;
     const std::size_t m_sleepCount;
     std::unique_ptr<Metadata> m_metadata;
+    std::unique_ptr<ThreadPools> m_threadPools;
 
     mutable std::mutex m_mutex;
 
@@ -148,9 +140,6 @@ private:
     bool m_verbose;
 
     TimePoint m_start;
-    TimePoint m_reset;
-    const int m_resetMinutes = 60;
-    const uint64_t m_resetFiles = 0;
 
     Builder(const Builder&);
     Builder& operator=(const Builder&);
