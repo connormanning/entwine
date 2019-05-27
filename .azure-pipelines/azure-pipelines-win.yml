@@ -1,11 +1,25 @@
 
-- powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
-    displayName: Add conda to PATH
+jobs:
+- job: win
+  pool:
+    vmImage: vs2017-win2016
+  timeoutInMinutes: 360
+  strategy:
+    maxParallel: 4
+    matrix:
+      win_cxx_compilervs2015python3.7vc14:
+        CONFIG: win_cxx_compilervs2015python3.7vc14
+        CONDA_BLD_PATH: D:\\bld\\
+        UPLOAD_PACKAGES: False
+  steps:
 
-- script: conda create --yes --quiet --name entwine
-    displayName: Create conda environment
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
 
-- script: |
-    call activate entwine
-    conda install --yes --quiet --name entwine -c conda-forge pdal
-  displayName: Install conda packages
+    - script: conda create --yes --quiet --name entwine
+      displayName: Create conda environment
+
+    - script: |
+          call activate entwine
+          conda install --yes --quiet --name entwine -c conda-forge pdal
+      displayName: Install conda packages
