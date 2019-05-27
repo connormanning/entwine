@@ -1,0 +1,11 @@
+
+- powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+    displayName: Add conda to PATH
+
+- script: conda create --yes --quiet --name entwine
+    displayName: Create conda environment
+
+- script: |
+    call activate entwine
+    conda install --yes --quiet --name entwine -c conda-forge pdal
+  displayName: Install conda packages
