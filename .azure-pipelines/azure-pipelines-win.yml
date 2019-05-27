@@ -21,5 +21,18 @@ jobs:
 
     - script: |
           call activate entwine
-          conda install --yes --quiet --name entwine -c conda-forge pdal
+          conda install --yes --quiet --name entwine -c conda-forge pdal ninja
       displayName: Install conda packages
+
+    - script: |
+          call activate entwine
+          cmake -Wno-dev -G "Ninja" ^
+            -DCMAKE_INSTALL_PREFIX=D:/bld ^
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo ^
+            -DBUILD_SHARED_LIBS=ON ^
+            -Dgtest_force_shared_crt=ON .
+      displayName: Configure CMake
+
+    - script: |
+          ninja
+      displayName: Build
