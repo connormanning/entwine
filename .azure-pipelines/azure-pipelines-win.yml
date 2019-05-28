@@ -24,7 +24,7 @@ jobs:
           conda config --set always_yes True --set show_channel_urls True
           conda config --add channels conda-forge
           conda install --yes --quiet --name entwine -c conda-forge pdal ninja
-          choco uninstall gcc
+          choco uninstall mingw -y
       displayName: Install conda packages
 
     - script: |
