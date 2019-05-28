@@ -13,7 +13,13 @@ jobs:
         UPLOAD_PACKAGES: False
   steps:
 
-    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+    - powershell: |
+        Set-PSDebug -Trace 1
+
+        Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+
+        call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+
       displayName: Add conda to PATH
 
     - script: conda create --yes --quiet --name entwine
