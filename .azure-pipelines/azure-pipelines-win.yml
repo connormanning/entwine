@@ -24,6 +24,7 @@ jobs:
           conda config --set always_yes True --set show_channel_urls True
           conda config --add channels conda-forge
           conda install --yes --quiet --name entwine -c conda-forge pdal ninja
+          choco uninstall gcc
       displayName: Install conda packages
 
     - script: |
@@ -38,5 +39,6 @@ jobs:
       displayName: Configure CMake
 
     - script: |
+          call activate entwine
           ninja
       displayName: Build
