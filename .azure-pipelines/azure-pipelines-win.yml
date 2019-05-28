@@ -5,7 +5,6 @@ jobs:
     vmImage: vs2017-win2016
   timeoutInMinutes: 360
   strategy:
-    maxParallel: 4
     matrix:
       win64:
         compiler: msvc2015
@@ -24,22 +23,21 @@ jobs:
           conda config --set always_yes True --set show_channel_urls True
           conda config --add channels conda-forge
           conda install --yes --quiet --name entwine -c conda-forge pdal ninja
-      displayName: Install conda packages
+      displayName: Install PDAL
 
     - script: |
           ECHO ON
           call activate entwine
-          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86_amd64 -vcvars_ver=14.0
-          call .azure-pipelines\remove_mingw_cygwin_from_path.bat
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86_amd64
+          echo %PATH%
           cmake -Wno-dev -G "Ninja" ^
             -DCMAKE_INSTALL_PREFIX=D:/bld ^
             -DCMAKE_BUILD_TYPE=RelWithDebInfo ^
             -DBUILD_SHARED_LIBS=ON ^
             -Dgtest_force_shared_crt=ON .
-      displayName: Configure CMake
+      displayName: Configure
 
     - script: |
           call activate entwine
-          call .azure-pipelines\remove_mingw_cygwin_from_path.bat
           ninja
       displayName: Build
