@@ -37,6 +37,8 @@ jobs:
           call activate entwine
           call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86_amd64
           echo %PATH%
+          set CC=cl.exe
+          set CXX=cl.exe
           cmake -Wno-dev -G "NMake Makefiles" ^
             -DCMAKE_INSTALL_PREFIX=D:/bld ^
             -DCMAKE_BUILD_TYPE=RelWithDebInfo ^
@@ -46,5 +48,6 @@ jobs:
 
     - script: |
           call activate entwine
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86_amd64
           nmake /f Makefile
       displayName: Build
