@@ -24,13 +24,13 @@ jobs:
           conda config --set always_yes True --set show_channel_urls True
           conda config --add channels conda-forge
           conda install --yes --quiet --name entwine -c conda-forge pdal ninja
-          choco uninstall mingw -y
       displayName: Install conda packages
 
     - script: |
           ECHO ON
           call activate entwine
           call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86_amd64 -vcvars_ver=14.0
+          call .azure-pipelines\remove_mingw_cygwin_from_path.bat
           cmake -Wno-dev -G "Ninja" ^
             -DCMAKE_INSTALL_PREFIX=D:/bld ^
             -DCMAKE_BUILD_TYPE=RelWithDebInfo ^
@@ -40,5 +40,6 @@ jobs:
 
     - script: |
           call activate entwine
+          call .azure-pipelines\remove_mingw_cygwin_from_path.bat
           ninja
       displayName: Build
