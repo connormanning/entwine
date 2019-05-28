@@ -13,13 +13,7 @@ jobs:
         UPLOAD_PACKAGES: False
   steps:
 
-    - powershell: |
-        Set-PSDebug -Trace 1
-
-        Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
-
-        call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
       displayName: Add conda to PATH
 
     - script: conda create --yes --quiet --name entwine
@@ -32,6 +26,7 @@ jobs:
 
     - script: |
           call activate entwine
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           cmake -Wno-dev -G "Ninja" ^
             -DCMAKE_INSTALL_PREFIX=D:/bld ^
             -DCMAKE_BUILD_TYPE=RelWithDebInfo ^
