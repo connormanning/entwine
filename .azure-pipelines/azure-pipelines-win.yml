@@ -23,8 +23,9 @@ jobs:
       displayName: Install conda packages
 
     - script: |
+          ECHO ON
           call activate entwine
-          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 -vcvars_ver=14.11
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86_amd64 -vcvars_ver=14.0
           cmake -Wno-dev -G "Ninja" ^
             -DCMAKE_INSTALL_PREFIX=D:/bld ^
             -DCMAKE_BUILD_TYPE=RelWithDebInfo ^
