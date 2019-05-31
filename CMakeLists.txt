@@ -22,6 +22,7 @@ include(FeatureSummary)
 
 set(ROOT_DIR ${PROJECT_SOURCE_DIR})
 set(CMAKE_DIR ${ROOT_DIR}/cmake)
+link_directories(${ADDITIONAL_LINK_DIRECTORIES_PATHS})
 
 set(entwine_defs_hpp_in
     "${ROOT_DIR}/entwine/types/defs.hpp.in")
