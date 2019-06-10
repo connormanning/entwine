@@ -30,8 +30,6 @@ jobs:
     - script: |
           ECHO ON
           call activate entwine
-          conda config --set always_yes True --set show_channel_urls True
-          conda config --add channels conda-forge
           conda install --yes --quiet --name entwine -c conda-forge pdal ninja
       displayName: Install PDAL
 
