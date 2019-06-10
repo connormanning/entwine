@@ -19,13 +19,13 @@ TEST(scan, nonexistentDirectory)
     EXPECT_ANY_THROW(scan.go());
 }
 
-TEST(scan, nonexistentFile)
-{
-    json in { { "input", test::dataPath() + "not-an-existing-file.laz" } };
-    Scan scan(in);
-    EXPECT_ANY_THROW(scan.go());
-}
-
+// TEST(scan, nonexistentFile)
+// {
+//     json in { { "input", test::dataPath() + "not-an-existing-file.laz" } };
+//     Scan scan(in);
+//     EXPECT_ANY_THROW(scan.go());
+// }
+//
 TEST(scan, single)
 {
     json in { { "input", test::dataPath() + "ellipsoid.laz" } };
