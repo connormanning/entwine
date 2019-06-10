@@ -22,10 +22,13 @@ jobs:
     - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
       displayName: Add conda to PATH
 
-    - script: conda create --yes --quiet --name entwine
+    - script: |
+        ECHO ON
+        conda create --yes --quiet --name entwine
       displayName: Create conda environment
 
     - script: |
+          ECHO ON
           call activate entwine
           conda config --set always_yes True --set show_channel_urls True
           conda config --add channels conda-forge
