@@ -1079,7 +1079,7 @@ bool mkdirp(std::string raw)
 
         const std::string cur(dir.begin(), it);
 #ifndef ARBITER_WINDOWS
-        const bool err(::mkdir(cur.c_str(), S_IRWXU | S_IRGRP | S_IROTH));
+        const bool err(::mkdir(cur.c_str(), 0777));
         if (err && errno != EEXIST) return false;
 #else
         // Use CreateDirectory instead of _mkdir; it is more reliable when creating directories on a drive other than the working path.

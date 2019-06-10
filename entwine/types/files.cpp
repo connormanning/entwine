@@ -74,15 +74,13 @@ Files::Files(const FileInfoList& files)
         else basenames.insert(id);
     }
 
-    if (unique)
+    for (uint64_t i(0); i < m_files.size(); ++i)
     {
-        for (uint64_t i(0); i < m_files.size(); ++i)
-        {
-            const FileInfo& f(m_files[i]);
-            f.setId(idFrom(f.path()));
-            f.setUrl(std::to_string(i / sourcesStep * sourcesStep) + ".json");
-        }
+        const FileInfo& f(m_files[i]);
+        f.setId(unique ? idFrom(f.path()) : f.path());
+        f.setUrl(std::to_string(i / sourcesStep * sourcesStep) + ".json");
     }
+
 }
 
 FileInfoList Files::extract(
