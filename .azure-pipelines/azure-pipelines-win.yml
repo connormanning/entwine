@@ -55,3 +55,10 @@ jobs:
           call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86_amd64
           nmake /f Makefile
       displayName: Build
+
+    - script: |
+          call activate entwine
+          cd test
+          set PATH=%PATH%;gtest-1.8.0
+          ctest -V --output-on-failure
+      displayName: Test
