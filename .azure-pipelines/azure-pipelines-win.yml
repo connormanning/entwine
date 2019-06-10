@@ -24,13 +24,15 @@ jobs:
 
     - script: |
         ECHO ON
-        conda create --yes --quiet --name entwine
+        call conda create --yes --quiet --name entwine
       displayName: Create conda environment
 
     - script: |
           ECHO ON
           call activate entwine
-          conda install --yes --quiet --name entwine -c conda-forge pdal ninja
+          call conda config --set always_yes True --set show_channel_urls True
+          call conda config --add channels conda-forge
+          call conda install --yes --quiet --name entwine -c conda-forge pdal ninja
       displayName: Install PDAL
 
     - script: |
