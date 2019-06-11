@@ -6,8 +6,7 @@ jobs:
     vmImage: ubuntu-16.04
   container:
       image: connormanning/entwine
-      options: --privileged
-      endpoint:  /bin/sh
+      options: --privileged --endpoint /bin/sh
   timeoutInMinutes: 360
   steps:
   - script: |
