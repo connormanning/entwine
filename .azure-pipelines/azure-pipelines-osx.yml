@@ -33,7 +33,7 @@ jobs:
         -DCMAKE_PREFIX_PATH=$CONDA_PREFIX \
         -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX \
         ..
-      displayName: 'CMake'
+    displayName: 'CMake'
   - script: |
       source activate base
       cd build
