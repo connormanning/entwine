@@ -26,7 +26,7 @@ jobs:
 
   - script: |
       source activate base
-      conda install -n base -c conda-forge --quiet --yes entwine --only-deps
+      conda install -n base -c conda-forge --quiet --yes entwine cmake --only-deps
     displayName: 'Add Entwine conda package dependencies'
 
   - script: |

@@ -5,11 +5,24 @@ jobs:
   pool:
     vmImage: ubuntu-16.04
   container:
-      image: connormanning/entwine
-      options: --privileged --endpoint /bin/sh
+      image: pdal/pdal
+      options: --privileged
   timeoutInMinutes: 360
   steps:
   - script: |
+      apt-get update -y;
+      apt-get install -y \
+        autoconf \
+        build-essential \
+        cmake \
+        git \
+        liblzma-dev \
+        libjsoncpp-dev \
+        libssl-dev \
+        libcurl4-openssl-dev \
+        ninja-build \
+        python-numpy \
+        python-pip
       mkdir -p build
       cd build
       cmake \
