@@ -1,0 +1,26 @@
+# -*- mode: yaml -*-
+
+jobs:
+- job: linux
+  pool:
+    vmImage: ubuntu-16.04
+  container:
+      image: connormanning/entwine
+      options: --privileged
+  timeoutInMinutes: 360
+  steps:
+  - script: |
+      mkdir -p build
+      cd build
+      cmake \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        ..
+    displayName: 'CMake'
+
+  - script: |
+      make
+    displayName: 'Make'
+  - script: |
+      make test
+    displayName: 'Test'
