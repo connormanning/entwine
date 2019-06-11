@@ -10,8 +10,8 @@ jobs:
   timeoutInMinutes: 360
   steps:
   - script: |
-      apt-get update -y;
-      apt-get install -y \
+      sudo apt-get update -y;
+      sudo apt-get install -y \
         autoconf \
         build-essential \
         cmake \
