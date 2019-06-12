@@ -39,9 +39,9 @@ jobs:
           git push origin master
         displayName: 'Deploy the docs'
 
-        dependsOn:
+    dependsOn:
           - win
           - osx
           - linux
 
-        condition: and(notin(variables['Build.Reason'], 'PullRequest'), succeeded())
+    condition: and(notin(variables['Build.Reason'], 'PullRequest'), succeeded())
