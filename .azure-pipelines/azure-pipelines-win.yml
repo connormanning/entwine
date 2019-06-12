@@ -1,0 +1,64 @@
+
+jobs:
+- job: win
+  pool:
+    vmImage: vs2017-win2016
+  timeoutInMinutes: 360
+  strategy:
+    matrix:
+      win64:
+        compiler: msvc2015
+        arch: x86_64
+        backend: ninja
+  steps:
+
+    - powershell: |
+        Write-Host "Installing CMake 3.14.4"
+        Invoke-WebRequest https://cmake.org/files/v3.14/cmake-3.14.4-win64-x64.zip -OutFile C:\cmake-3.14.4-win64-x64.zip
+        Expand-Archive C:\cmake-3.14.4-win64-x64.zip -DestinationPath C:\
+        Rename-Item -Path C:\cmake-3.14.4-win64-x64 -NewName C:\cmake
+        Write-Host "##vso[task.prependpath]C:\cmake\bin"
+      displayName: 'Install CMake'
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: Add conda to PATH
+
+    - script: |
+        ECHO ON
+        call conda create --yes --quiet --name entwine
+      displayName: Create conda environment
+
+    - script: |
+          ECHO ON
+          call activate entwine
+          call conda config --set always_yes True --set show_channel_urls True
+          call conda config --add channels conda-forge
+          call conda install --yes --quiet --name entwine -c conda-forge pdal ninja
+      displayName: Install PDAL
+
+    - script: |
+          ECHO ON
+          call activate entwine
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86_amd64
+          echo %PATH%
+          set CC=cl.exe
+          set CXX=cl.exe
+          cmake -Wno-dev -G "Ninja" ^
+            -DCMAKE_INSTALL_PREFIX=D:/bld ^
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo ^
+            -DBUILD_SHARED_LIBS=ON ^
+            -DCMAKE_CXX_FLAGS=/D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING ^
+            -Dgtest_force_shared_crt=ON .
+      displayName: Configure
+
+    - script: |
+          call activate entwine
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86_amd64
+          ninja
+      displayName: Build
+
+    - script: |
+          call activate entwine
+          cd test
+          set PATH=%PATH%;gtest-1.8.0
+          ctest -V --output-on-failure
+      displayName: Test

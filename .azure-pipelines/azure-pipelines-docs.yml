@@ -1,0 +1,26 @@
+
+jobs:
+  - job: 'Documentation'
+    pool:
+      vmImage: 'ubuntu-16.04'
+    container:
+      image: osgeo/proj-docs
+      options: --privileged
+    steps:
+      - script: |
+          python3 --version
+          sphinx-build --version
+        displayName: 'Sphinx version'
+      - script: |
+          cd doc
+          if find . -name '*.rst' | xargs grep -P '\t'; then echo 'Tabs are bad, please use four spaces in .rst files.'; false; fi
+        displayName: 'Lint .rst files'
+      - script: |
+          cd doc
+          make html
+    dependsOn:
+      - win
+      - osx
+      - linux
+
+    condition: and(notin(variables['Build.Reason'], 'PullRequest'), succeeded())
