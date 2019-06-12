@@ -29,8 +29,8 @@ jobs:
           ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
         displayName: 'Deploy the key'
       - script: |
-          git config user.email "proj4bot@proj4.bot"
-          git config user.name "PDAL Doc Bot"
+          git config --global user.email "proj4bot@proj4.bot"
+          git config --global user.name "PDAL Doc Bot"
           git clone git@github.com:connormanning/entwine-docs.git ../entwine-docs
           cp -r doc/build/html ../entwine-docs
           cd ../entwine-docs
@@ -39,9 +39,9 @@ jobs:
           git push origin master
         displayName: 'Deploy the docs'
 
-    dependsOn:
-      - win
-      - osx
-      - linux
+        #    dependsOn:
+        #      - win
+        #      - osx
+        #      - linux
 
-    condition: and(notin(variables['Build.Reason'], 'PullRequest'), succeeded())
+        #    condition: and(notin(variables['Build.Reason'], 'PullRequest'), succeeded())
