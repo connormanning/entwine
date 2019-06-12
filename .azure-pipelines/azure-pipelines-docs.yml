@@ -29,17 +29,14 @@ jobs:
           ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
         displayName: 'Deploy the key'
       - script: |
-          mv doc/build/html entwine-docs
-          cd entwine-docs
-          git init
           git config user.email "proj4bot@proj4.bot"
           git config user.name "PDAL Doc Bot"
-          git remote add origin git@github.com:connormanning/entwine.git
-          echo "entwine.io" > CNAME
-          touch .nojekyll
+          git clone git@github.com:connormanning/entwine-docs.git
+          cp -r doc/build/html entwine-docs
+          git remote add origin git@github.com:connormanning/entwine-docs.git
           git add -A
           git commit -m "Update with https://github.com/connormanning/entwine/commit/$BUILD_SOURCEVERSION"
-          git push -f origin gh-pages
+          git push origin master
         displayName: 'Deploy the docs'
 
     dependsOn:
