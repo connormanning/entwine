@@ -22,10 +22,11 @@ jobs:
         libcurl4-openssl-dev \
         ninja-build \
         python-numpy \
+        ninja \
         python-pip
       mkdir -p build
       cd build
-      cmake \
+      cmake -G "Ninja" \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_INSTALL_PREFIX=/usr \
         ..
@@ -34,9 +35,9 @@ jobs:
 
   - script: |
       cd build
-      make
+      ninja
     displayName: 'Make'
   - script: |
       cd build
-      make test
+      ninja test
     displayName: 'Test'

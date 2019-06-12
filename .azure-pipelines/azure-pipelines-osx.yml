@@ -21,14 +21,14 @@ jobs:
 
   - script: |
       source activate base
-      conda install -n base -c conda-forge --quiet --yes pdal cmake
+      conda install -n base -c conda-forge --quiet --yes pdal cmake ninja
     displayName: 'Add Entwine dependencies'
 
   - script: |
       source activate base
       mkdir -p build
       cd build
-      cmake \
+      cmake -G "Ninja" \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DCMAKE_PREFIX_PATH=$CONDA_PREFIX \
         -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX \
@@ -37,10 +37,10 @@ jobs:
   - script: |
       source activate base
       cd build
-      make
+      ninja
     displayName: 'Make'
   - script: |
       source activate base
       cd build
-      make test
+      ninja test
     displayName: 'Test'

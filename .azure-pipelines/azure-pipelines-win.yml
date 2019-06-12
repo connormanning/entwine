@@ -42,7 +42,7 @@ jobs:
           echo %PATH%
           set CC=cl.exe
           set CXX=cl.exe
-          cmake -Wno-dev -G "NMake Makefiles" ^
+          cmake -Wno-dev -G "Ninja" ^
             -DCMAKE_INSTALL_PREFIX=D:/bld ^
             -DCMAKE_BUILD_TYPE=RelWithDebInfo ^
             -DBUILD_SHARED_LIBS=ON ^
@@ -53,7 +53,7 @@ jobs:
     - script: |
           call activate entwine
           call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86_amd64
-          nmake /f Makefile
+          ninja
       displayName: Build
 
     - script: |
