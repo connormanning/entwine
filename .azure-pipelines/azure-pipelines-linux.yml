@@ -22,7 +22,7 @@ jobs:
         libcurl4-openssl-dev \
         ninja-build \
         python-numpy \
-        ninja \
+        ninja-build \
         python-pip
       mkdir -p build
       cd build
