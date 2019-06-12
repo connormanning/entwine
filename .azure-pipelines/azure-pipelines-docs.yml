@@ -18,6 +18,30 @@ jobs:
       - script: |
           cd doc
           make html
+        displayName: 'Make HTML'
+      - task: DownloadSecureFile@1
+        inputs:
+          secureFile: 'pdal-docs-ssh-key'
+        displayName: 'Get the deploy key'
+      - script: |
+          mkdir ~/.ssh && mv $DOWNLOADSECUREFILE_SECUREFILEPATH ~/.ssh/id_rsa
+          chmod 700 ~/.ssh && chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
+        displayName: 'Deploy the key'
+      - script: |
+          mv doc/build/html entwine-docs
+          cd entwine-docs
+          git init
+          git config user.email "proj4bot@proj4.bot"
+          git config user.name "PDAL Doc Bot"
+          git remote add origin git@github.com:connormanning/entwine.git
+          echo "entwine.io" > CNAME
+          touch .nojekyll
+          git add -A
+          git commit -m "Update with https://github.com/connormanning/entwine/commit/$BUILD_SOURCEVERSION"
+          git push -f origin gh-pages
+        displayName: 'Deploy the docs'
+
     dependsOn:
       - win
       - osx
