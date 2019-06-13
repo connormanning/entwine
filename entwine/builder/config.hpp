@@ -124,16 +124,16 @@ public:
     bool force() const { return m_json.value("force", false); }
     bool trustHeaders() const { return m_json.value("trustHeaders", true); }
     bool allowOriginId() const { return m_json.value("allowOriginId", true); }
-    uint64_t span() const { return m_json.value("span", 256); }
+    uint64_t span() const { return m_json.value("span", 128); }
 
     uint64_t overflowDepth() const { return m_json.value("overflowDepth", 0); }
     uint64_t minNodeSize() const
     {
-        return m_json.value("minNodeSize", span() * span() / 4);
+        return m_json.value("minNodeSize", span() * span());
     }
     uint64_t maxNodeSize() const
     {
-        return m_json.value("maxNodeSize", span() * span());
+        return m_json.value("maxNodeSize", span() * span() * 4);
     }
     uint64_t cacheSize() const
     {
