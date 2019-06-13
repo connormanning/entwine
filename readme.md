@@ -1,9 +1,6 @@
 ![Entwine logo](./doc/logo/color/entwine_logo_2-color-small.png)
 
-[![Travis status](https://travis-ci.org/connormanning/entwine.svg?branch=master)](https://travis-ci.org/connormanning/entwine)
-[![Appveyor status](https://ci.appveyor.com/api/projects/status/qhqcre9jt14569uq/branch/master?svg=true
-)](https://ci.appveyor.com/project/hobu/entwine)
-
+[![Build Status](https://dev.azure.com/hobuinc/Entwine/_apis/build/status/connormanning.entwine?branchName=master)](https://dev.azure.com/hobuinc/Entwine/_build/latest?definitionId=1&branchName=master)
 
 
 Entwine is a data organization library for massive point clouds, designed to conquer datasets of hundreds of billions of points as well as desktop-scale point clouds.  Entwine can index anything that is [PDAL](https://pdal.io)-readable, and can read/write to a variety of sources like S3 or Dropbox.  Builds are completely lossless, so no points will be discarded even for terabyte-scale datasets.
