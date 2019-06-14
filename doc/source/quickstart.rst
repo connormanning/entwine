@@ -42,7 +42,7 @@ the Red Rocks Amphitheatre dataset from the internet and build an
 ::
 
    mkdir entwine
-   entwine build -i https://entwine.io/data/red-rocks.laz -o entwine/red-rocks
+   entwine build -i https://data.entwine.io/red-rocks.laz -o entwine/red-rocks
 
 
 
