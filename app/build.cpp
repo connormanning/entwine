@@ -71,7 +71,7 @@ void Build::addArgs()
     m_ap.add(
             "--dataType",
             "Data type for serialized point cloud data.  Valid values are "
-            "\"laszip\" or \"binary\".  Default: \"laszip\".\n"
+            "\"laszip\", \"zstandard\", or \"binary\".  Default: \"laszip\".\n"
             "Example: --dataType binary",
             [this](json j) { m_json["dataType"] = j; });
 

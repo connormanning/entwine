@@ -20,8 +20,7 @@
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/subset.hpp>
-
-namespace Json { class Value; }
+#include <entwine/util/json.hpp>
 
 namespace arbiter { class Endpoint; }
 
@@ -123,6 +122,8 @@ private:
 
     bool m_merged = false;
 };
+
+void to_json(json& j, const Metadata& m);
 
 } // namespace entwine
 
