@@ -154,11 +154,9 @@ void Files::writeMeta(
         meta[f.url()][f.id()] = f.toMetaJson();
     }
 
-    const bool styled(size() <= 1000);
-
     for (const auto& p : meta)
     {
-        pool.add([this, &ep, &p, styled]()
+        pool.add([&ep, &p]()
         {
             const std::string& filename(p.first);
             const json& j(p.second);

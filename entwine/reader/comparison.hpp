@@ -264,6 +264,9 @@ public:
         , m_op(std::move(op))
     { }
 
+    virtual ~Comparison()
+    {}
+
     static std::unique_ptr<Comparison> create(
             const Metadata& metadata,
             std::string dimName,

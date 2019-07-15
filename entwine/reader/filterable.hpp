@@ -23,6 +23,9 @@ namespace entwine
 class Filterable
 {
 public:
+    virtual ~Filterable()
+    {}
+
     virtual bool check(const pdal::PointRef& pointRef) const = 0;
     virtual bool check(const Bounds& bounds) const { return true; }
     virtual void log(const std::string& pre) const = 0;
