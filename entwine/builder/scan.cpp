@@ -133,7 +133,7 @@ void Scan::add(FileInfo& f)
                     pdal::StageFactory::inferReaderDriver(f.path());
 
                 if (driver == "readers.las") addLas(f);
-                else addRanged(f);
+                else if (driver != "readers.e57") addRanged(f);
             }
             else
             {
