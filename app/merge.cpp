@@ -29,6 +29,7 @@ void Merge::addArgs()
 
     addOutput("Path containing completed subset builds", true);
     addConfig();
+    addTmp();
     addSimpleThreads();
     addArbiter();
 }

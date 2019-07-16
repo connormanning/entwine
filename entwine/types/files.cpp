@@ -19,7 +19,6 @@
 #include <entwine/types/bounds.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/pool.hpp>
-#include <entwine/util/json.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine

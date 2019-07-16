@@ -118,18 +118,7 @@ Metadata::~Metadata() { }
 void Metadata::save(const arbiter::Endpoint& ep, const Config& config) const
 {
     {
-        const json meta {
-            { "version", eptVersion().toString() },
-            { "bounds", boundsCubic() },
-            { "boundsConforming", boundsConforming() },
-            { "schema", *m_outSchema },
-            { "span", m_span },
-            { "points", m_files->totalInserts() },
-            { "dataType", m_dataIo->type() },
-            { "hierarchyType", "json" }, // TODO
-            { "srs", *m_srs }
-        };
-
+        const json meta(*this);
         const std::string f("ept" + postfix() + ".json");
         ensurePut(ep, f, meta.dump(2));
     }
@@ -153,6 +142,21 @@ void Metadata::save(const arbiter::Endpoint& ep, const Config& config) const
 
     const bool detailed(!m_merged && primary());
     m_files->save(ep, postfix(), config, detailed);
+}
+
+void to_json(json& j, const Metadata& m)
+{
+    j = json {
+        { "version", m.eptVersion().toString() },
+        { "bounds", m.boundsCubic() },
+        { "boundsConforming", m.boundsConforming() },
+        { "schema", m.outSchema() },
+        { "span", m.span() },
+        { "points", m.files().totalInserts() },
+        { "dataType", m.dataIo().type() },
+        { "hierarchyType", "json" },
+        { "srs", m.srs() }
+    };
 }
 
 void Metadata::merge(const Metadata& other)

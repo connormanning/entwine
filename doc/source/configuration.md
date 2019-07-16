@@ -174,8 +174,10 @@ index instead, this field may be set to `true`.
 ### dataType
 
 Specification for the output storage type for point cloud data.  Currently
-acceptable values are `laszip` and `binary`.  For a `binary` selection, data
-is laid out according to the [schema](#schema).
+acceptable values are `laszip`, `zstandard`, and `binary`.  For a `binary`
+selection, data is laid out according to the [schema](#schema).  Zstandard
+data consists of binary data according to the [schema](#schema) that is then
+compressed with [Zstandard](https://facebook.github.io/zstd/) compression.
 ```json
 { "dataType": "laszip" }
 ```
