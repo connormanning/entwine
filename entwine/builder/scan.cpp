@@ -127,11 +127,12 @@ void Scan::add(FileInfo& f)
     {
         try
         {
-            if (m_in.trustHeaders() && m_arbiter.isHttpDerived(f.path()))
+            const std::string driver =
+              pdal::StageFactory::inferReaderDriver(f.path());
+            const bool hasHeaders = (driver != "readers.e57");
+            if (m_in.trustHeaders() && m_arbiter.isHttpDerived(f.path())
+                && hasHeaders)
             {
-                const std::string driver =
-                    pdal::StageFactory::inferReaderDriver(f.path());
-
                 if (driver == "readers.las") addLas(f);
                 else addRanged(f);
             }
