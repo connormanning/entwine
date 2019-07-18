@@ -210,10 +210,14 @@ void Scan::addLas(FileInfo& f)
     header = headerStream.str();
     std::vector<char> data(header.data(), header.data() + headerSize);
 
-    const auto vlrs = m_arbiter.getBinary(
-            f.path(),
-            rangeHeaders(headerSize, pointOffset));
-    data.insert(data.end(), vlrs.begin(), vlrs.end());
+    // check if has vlrs
+    bool hasVlrcs = headerSize < pointOffset;
+    if (hasVlrcs)
+    {
+        const auto vlrs = m_arbiter.getBinary(
+            f.path(), rangeHeaders(headerSize, pointOffset));
+        data.insert(data.end(), vlrs.begin(), vlrs.end());
+    }
 
     if (minorVersion >= 4)
     {
