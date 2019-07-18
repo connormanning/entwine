@@ -137,9 +137,7 @@ void Builder::go(std::size_t max)
                 const double inserts(
                         files.pointStats().inserts() - alreadyInserted);
 
-                const double progress(
-                        (files.pointStats().inserts() + alreadyInserted) /
-                        totalPoints);
+                const double progress((inserts + alreadyInserted) / totalPoints);
 
                 const ChunkCache::Info info(ChunkCache::latchInfo());
                 reawakened += info.read;
