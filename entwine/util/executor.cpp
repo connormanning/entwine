@@ -77,7 +77,7 @@ ScanInfo::ScanInfo(pdal::Stage& reader, const pdal::QuickInfo& qi)
         scale = makeUnique<Scale>(h.scaleX(), h.scaleY(), h.scaleZ());
     }
 
-    metadata = ([this, &reader]()
+    metadata = ([&reader]()
     {
         const auto s(pdal::Utils::toJSON(reader.getMetadata()));
         try { return json::parse(s); }

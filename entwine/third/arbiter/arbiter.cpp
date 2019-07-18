@@ -1871,11 +1871,9 @@ std::string S3::Config::extractRegion(
 
     const json c(s.size() ? json::parse(s) : json());
 
-    if (c.is_null()) return "us-east-1";
-
-    if (c.count("region"))
+    if (!c.is_null() && c.count("region"))
     {
-        return c["region"].get<std::string>();
+        return c.at("region").get<std::string>();
     }
     else if (auto p = env("AWS_REGION"))
     {
@@ -1895,7 +1893,7 @@ std::string S3::Config::extractRegion(
         }
     }
 
-    if (c.value("verbose", false))
+    if (!c.is_null() && c.value("verbose", false))
     {
         std::cout << "Region not found - defaulting to us-east-1" << std::endl;
     }

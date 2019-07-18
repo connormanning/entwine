@@ -127,20 +127,30 @@ void Scan::add(FileInfo& f)
     {
         try
         {
-            const std::string driver =
-              pdal::StageFactory::inferReaderDriver(f.path());
-            const bool hasHeaders = (driver != "readers.e57");
-            if (m_in.trustHeaders() && m_arbiter.isHttpDerived(f.path())
-                && hasHeaders)
+            if (m_in.trustHeaders() && m_arbiter.isHttpDerived(f.path()))
             {
-                if (driver == "readers.las") addLas(f);
-                else addRanged(f);
+                const std::string driver =
+                    pdal::StageFactory::inferReaderDriver(f.path());
+
+                // First, try reading the file metadata with only a truncated
+                // range of data.  For many file formats, this will work without
+                // downloading the full data and we'll save some IO here.
+                try
+                {
+                    if (driver == "readers.las") addLas(f);
+                    addRanged(f);
+
+                    return;
+                }
+                catch (...)
+                {
+                    // Something went wrong reading the truncated file.  Swallow
+                    // the error and simply use the entire file below.
+                }
             }
-            else
-            {
-                auto localHandle(m_arbiter.getLocalHandle(f.path(), m_tmp));
-                add(f, localHandle->localPath());
-            }
+
+            auto localHandle(m_arbiter.getLocalHandle(f.path(), m_tmp));
+            add(f, localHandle->localPath());
         }
         catch (std::exception& e)
         {

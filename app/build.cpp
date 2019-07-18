@@ -351,8 +351,21 @@ void Build::log(const Builder& b) const
         std::cout << "\tOffset: (none)" << std::endl;
     }
 
+    std::cout << "Metadata:\n";
+
+    const auto& srs(metadata.srs());
+    std::cout << "\tSRS: ";
+    if (srs.hasCode()) std::cout << srs.codeString();
+    else if (!srs.empty())
+    {
+        const auto s(srs.wkt());
+        if (s.size() < 60) std::cout << s;
+        else std::cout << s.substr(0, 60) + " ...";
+    }
+    else std::cout << "(none)";
+    std::cout << "\n";
+
     std::cout <<
-        "Metadata:\n" <<
         "\tBounds: " << metadata.boundsConforming() << "\n" <<
         "\tCube: " << metadata.boundsCubic() << "\n";
 
