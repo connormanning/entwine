@@ -599,6 +599,9 @@ std::vector<std::string> Driver::glob(std::string path, bool verbose) const
 // Beginning of content of file: arbiter/endpoint.cpp
 // //////////////////////////////////////////////////////////////////////
 
+#include <algorithm>
+#include <fstream>
+
 #ifndef ARBITER_IS_AMALGAMATION
 #include <arbiter/endpoint.hpp>
 
@@ -609,7 +612,6 @@ std::vector<std::string> Driver::glob(std::string path, bool verbose) const
 #include <arbiter/util/transforms.hpp>
 #include <arbiter/util/util.hpp>
 #endif
-#include<fstream>
 
 #ifdef ARBITER_CUSTOM_NAMESPACE
 namespace ARBITER_CUSTOM_NAMESPACE
@@ -695,7 +697,7 @@ std::unique_ptr<LocalHandle> Endpoint::getLocalHandle(
 
             for (std::size_t pos(0); pos < fileSize; pos += chunkSize)
             {
-                const std::size_t end(std::min(pos + chunkSize, fileSize));
+                const std::size_t end((std::min)(pos + chunkSize, fileSize));
                 const std::string range("bytes=" +
                     std::to_string(pos) + "-" +
                     std::to_string(end - 1));
