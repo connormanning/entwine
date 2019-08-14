@@ -102,7 +102,7 @@ void Scan::write(const Config& out) const
     m_files.save(ep, "", m_in, true);
     json j(out);
     j.erase("input");
-    ep.put("scan.json", j.dump(2));
+    ep.put("ept-scan.json", j.dump(2));
 
     if (m_in.verbose())
     {

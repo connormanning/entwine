@@ -20,7 +20,7 @@ namespace entwine
 namespace
 {
 
-const std::string scanFile("scan.json");
+const std::string scanFile("ept-scan.json");
 
 bool isScan(std::string s)
 {
