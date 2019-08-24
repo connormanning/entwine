@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 449aad2fe3af60db305d57309a925e12bf9f0969
+// Git SHA: 288f14433bd837c620b245d0bc810343620cf77f
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -26059,7 +26059,10 @@ public:
     bool isHttpDerived() const;
 
     /** See Arbiter::getLocalHandle. */
-    std::unique_ptr<LocalHandle> getLocalHandle(std::string subpath) const;
+    std::unique_ptr<LocalHandle> getLocalHandle(
+            std::string subpath,
+            http::Headers headers = http::Headers(),
+            http::Query query = http::Query()) const;
 
     /** Passthrough to Driver::get. */
     std::string get(std::string subpath) const;
