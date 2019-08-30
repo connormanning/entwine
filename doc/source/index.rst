@@ -23,6 +23,23 @@ Entwine
 News
 --------------------------------------------------------------------------------
 
+**2019-08-30**
+................................................................................
+
+View slides for "`Continental scale point cloud data management with Entwine`_" at `FOSS4G 2019`_ in Bucharest, Romania by `Connor Manning`_ (video to follow).
+
+Links:
+   - `Entwine <https://entwine.io>`_
+   - `PDAL <https://pdal.io>`_
+   - `EPT Tools <https://github.com/connormanning/ept-tools>`_
+   - `USGS lidar <https://usgs.entwine.io>`_
+   - `Potree/Entwine demo <http://potree.entwine.io>`_
+   - `Cesium/Entwine demo <http://cesium.entwine.io>`_
+
+.. _`Continental scale point cloud data management with Entwine`: https://data.entwine.io/slides/foss4g2019.html
+.. _`FOSS4G 2019`: http://2019.foss4g.org
+.. _`Connor Manning`: https://github.com/connormanning
+
 **2019-07-23**
 ................................................................................
 
