@@ -361,7 +361,13 @@ Config Scan::aggregate()
     out.setInput(m_files.list());
     if (m_re) out.setReprojection(*m_re);
     out.setSrs(srs);
-    out.setPipeline(m_in.pipeline(""));
+
+    // Don't bother setting the pipeline if it's just a default reader.
+    const json pipeline = m_in.pipeline("");
+    if (pipeline.size() > 1 || pipeline[0].size() > 1)
+    {
+        out.setPipeline(m_in.pipeline(""));
+    }
 
     return out;
 }
