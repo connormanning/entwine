@@ -342,9 +342,10 @@ the `scan` command, aside from `output`, described below.
 
 ### output (scan)
 
-The `output` for a scan is a file path to write detailed summary information
-determined by the scan, including per-file metadata.  This output file, in JSON
-format, may be used as the `input` for a [build](#build) command.
+The `output` for a scan is a directory path to write detailed summary
+information determined by the scan, including per-file metadata.  The
+`ept-scan.json` file that is written to this output directory may be used as
+the `input` for a [build](#build) command.
 
 
 
@@ -352,6 +353,9 @@ format, may be used as the `input` for a [build](#build) command.
 
 The `merge` command is used to combine [subset](#subset) builds into a full
 Entwine Point Tile dataset.  All subsets must be completed.
+
+*Note*: This command is **not** used to merge unrelated EPT datasets.
+
 
 | Key | Description |
 |-----|-------------|
