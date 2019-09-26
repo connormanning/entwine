@@ -3002,14 +3002,13 @@ Headers Dropbox::httpPostHeaders() const
     return headers;
 }
 
-std::unique_ptr<std::size_t> Dropbox::tryGetSize(
-        const std::string rawPath) const
+std::unique_ptr<std::size_t> Dropbox::tryGetSize(const std::string path) const
 {
     std::unique_ptr<std::size_t> result;
 
     Headers headers(httpPostHeaders());
 
-    json tx { { "path", "/" + sanitize(rawPath) } };
+    json tx { { "path", "/" + path } };
     const std::string f(tx.dump());
     const std::vector<char> postData(f.begin(), f.end());
 
@@ -3030,13 +3029,11 @@ std::unique_ptr<std::size_t> Dropbox::tryGetSize(
 }
 
 bool Dropbox::get(
-        const std::string rawPath,
+        const std::string path,
         std::vector<char>& data,
         const Headers userHeaders,
         const Query query) const
 {
-    const std::string path(sanitize(rawPath));
-
     Headers headers(httpGetHeaders());
 
     headers["Dropbox-API-Arg"] = json{{ "path", "/" + path }}.dump();
@@ -3099,13 +3096,11 @@ bool Dropbox::get(
 }
 
 void Dropbox::put(
-        const std::string rawPath,
+        const std::string path,
         const std::vector<char>& data,
         const Headers userHeaders,
         const Query query) const
 {
-    const std::string path(sanitize(rawPath));
-
     Headers headers(httpGetHeaders());
     headers["Dropbox-API-Arg"] = json{{ "path", "/" + path }}.dump();
     headers["Content-Type"] = "application/octet-stream";
