@@ -171,11 +171,13 @@ void Scan::addLas(FileInfo& f)
     const uint64_t headerSizePos(94);
     const uint64_t pointOffsetPos(96);
     const uint64_t evlrOffsetPos(235);
+    const uint64_t evlrNumberPos(evlrOffsetPos + 8);
 
     uint8_t minorVersion(0);
     uint16_t headerSize(0);
     uint32_t pointOffset(0);
     uint64_t evlrOffset(0);
+    uint32_t evlrNumber(0);
 
     std::string header(m_arbiter.get(f.path(), rangeHeaders(0, maxHeaderSize)));
 
@@ -200,6 +202,9 @@ void Scan::addLas(FileInfo& f)
         is.seek(evlrOffsetPos);
         is >> evlrOffset;
 
+        is.seek(evlrNumberPos);
+        is >> evlrNumber;
+
         // Modify the header such that the EVLRs come directly after the VLRs -
         // removing the point data itself.
         os.seek(evlrOffsetPos);
@@ -219,7 +224,7 @@ void Scan::addLas(FileInfo& f)
         data.insert(data.end(), vlrs.begin(), vlrs.end());
     }
 
-    if (minorVersion >= 4)
+    if (evlrNumber)
     {
         const auto evlrs = m_arbiter.getBinary(
                 f.path(),
