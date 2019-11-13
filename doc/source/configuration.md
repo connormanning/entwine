@@ -62,6 +62,7 @@ point cloud data.
 | [input](#input) | Path(s) to build |
 | [output](#output) | Output directory |
 | [tmp](#tmp) | Temporary directory |
+| [srs](#srs) | Output coordinate system |
 | [reprojection](#reprojection) | Coordinate system reprojection |
 | [threads](#threads) | Number of parallel threads |
 | [force](#force) | Force a new build at this output |
@@ -111,6 +112,15 @@ A directory for Entwine to write its EPT output.  May be local or remote.
 
 A local directory for Entwine's temporary data.
 
+### srs
+
+Specification for the output coordinate system.  Setting this value does not
+invoke a reprojection, it simply sets the `srs` field in the resulting EPT
+metadata.
+
+If input files have coordinate systems specified (and they all match), then this
+will typically be inferred from the files themselves.
+
 ### reprojection
 
 Coordinate system reprojection specification.  Specified as a JSON object with
@@ -118,7 +128,7 @@ up to 3 keys.
 
 If only the output projection is specified, then the input coordinate system
 will be inferred from the file headers.  If no coordinate system information
-can be found, this file will not be inserted.
+can be found for a given file, then this file will not be inserted.
 ```json
 { "reprojection": { "out": "EPSG:3857" } }
 ```
@@ -145,6 +155,10 @@ key should be set to `true.
     }
 }
 ```
+
+When using this option, the `output` value will be set as the coordinate system
+in the resulting EPT metadata, so the `srs` option does not need to be
+specified.
 
 ### threads
 
@@ -336,6 +350,7 @@ the `scan` command, aside from `output`, described below.
 | [input](#input) | Path(s) to build |
 | [output](#output-scan) | Output directory |
 | [tmp](#tmp) | Temporary directory |
+| [srs](#srs) | Output coordinate system |
 | [reprojection](#reprojection) | Coordinate system reprojection |
 | [threads](#threads) | Number of parallel threads |
 | [trustHeaders](#trustheaders) | Specify whether file headers are trustworthy |
