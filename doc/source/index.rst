@@ -10,9 +10,9 @@ Check out the client demos, showcasing Entwine output with `Potree`_, `Plasio`_,
 
 Entwine is available under the `LGPL License`_.
 
-.. _`PDAL`: http://pdal.io
+.. _`PDAL`: https://pdal.io
 .. _`Plasio`: http://dev.speck.ly
-.. _`Potree`: http://potree.entwine.io
+.. _`Potree`: https://potree.entwine.io
 .. _`Cesium`: http://cesium.entwine.io
 .. _`LGPL License`: https://github.com/connormanning/entwine/blob/master/LICENSE
 
