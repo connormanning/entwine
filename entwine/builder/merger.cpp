@@ -127,7 +127,6 @@ void Merger::go()
     if (m_verbose) std::cout << "Merge complete.  Saving..." << std::endl;
     clipper.reset();
     m_builder->save();
-    m_builder.reset();
     if (m_verbose) std::cout << "\tFinal save complete." << std::endl;
 }
 

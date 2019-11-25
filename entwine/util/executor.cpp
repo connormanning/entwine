@@ -159,7 +159,17 @@ std::unique_ptr<ScanInfo> Executor::preview(
 
     lock.unlock();
 
-    if (!result) return result;
+    if (!result)
+    {
+        static bool logged(false);
+        if (!logged)
+        {
+            logged = true;
+            std::cout << "Shallow preview failed - falling back to full read" <<
+                std::endl;
+        }
+        return deepScan(pipeline, true);
+    }
 
     const json filters(pipeline.begin() + 1, pipeline.end());
     if (filters.empty()) return result;
@@ -223,14 +233,20 @@ std::unique_ptr<ScanInfo> Executor::preview(
     return result;
 }
 
-std::unique_ptr<ScanInfo> Executor::deepScan(const json pipeline) const
+std::unique_ptr<ScanInfo> Executor::deepScan(
+    const json pipeline,
+    const bool fallback) const
 {
     // Start with a shallow scan to get SRS, scale, and metadata.
-    std::unique_ptr<ScanInfo> result(preview(pipeline, true));
+    std::unique_ptr<ScanInfo> result;
+    if (!fallback) result = preview(pipeline, true);
     if (!result) result = makeUnique<ScanInfo>();
 
-    DimList dims;
-    for (const std::string name : result->dimNames) dims.emplace_back(name);
+    DimList dims { { DimId::X }, { DimId::Y }, { DimId::Z } };
+    for (const std::string name : result->dimNames)
+    {
+        if (name != "X" && name != "Y" && name != "Z") dims.emplace_back(name);
+    }
     const Schema schema(dims);
 
     // Reset the values we're going to aggregate from the deep scan.

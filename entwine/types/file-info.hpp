@@ -89,6 +89,13 @@ public:
         m_boundsEpsilon = m_bounds.growBy(0.005);
     }
 
+    void setError(std::string message)
+    {
+        m_points = 0;
+        m_status = Status::Error;
+        m_message = message;
+    }
+
     void setBounds(Bounds b)
     {
         m_bounds = b;

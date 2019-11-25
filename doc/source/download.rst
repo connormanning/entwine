@@ -7,19 +7,21 @@ Download
 Current Release
 ------------------------------------------------------------------------------
 
-- **2018-12-18** `entwine-2.0.0-src.tar.gz`_ (`release notes`_)
+- **2019-07-23** `entwine-2.1.0-src.tar.gz`_ (`release notes`_)
 
-.. _`entwine-2.0.0-src.tar.gz`: https://github.com/connormanning/entwine/archive/2.0.0.tar.gz
-.. _`release notes`: https://github.com/connormanning/entwine/releases/tag/2.0.0
+.. _`entwine-2.1.0-src.tar.gz`: https://github.com/connormanning/entwine/archive/2.1.0.tar.gz
+.. _`release notes`: https://github.com/connormanning/entwine/releases/tag/2.1.0
 
 Previous Releases
 ------------------------------------------------------------------------------
 
+- **2018-12-18** `entwine-2.0.0-src.tar.gz`_
 - **2018-07-03** `entwine-1.3.0-src.tar.gz`_
 - **2017-12-04** `entwine-1.2.0-src.tar.gz`_
 - **2017-05-15** `entwine-1.1.0-src.tar.gz`_
 - **2017-05-15** `entwine-1.0.0-src.tar.gz`_
 
+.. _`entwine-2.0.0-src.tar.gz`: https://github.com/connormanning/entwine/archive/2.0.0.tar.gz
 .. _`entwine-1.3.0-src.tar.gz`: https://github.com/connormanning/entwine/archive/1.3.0.tar.gz
 .. _`entwine-1.2.0-src.tar.gz`: https://github.com/connormanning/entwine/archive/1.2.0.tar.gz
 .. _`entwine-1.1.0-src.tar.gz`: https://github.com/connormanning/entwine/archive/1.1.0.tar.gz
@@ -37,13 +39,20 @@ You can obtain a copy of the active source code by issuing the following command
 Binaries
 ------------------------------------------------------------------------------
 
+Conda
+................................................................................
+
+The fastest way to get going with Entwine is to use the Conda build.  See the
+:ref:`Quickstart` for more information.  The Conda build will always contain
+the most recent released version of Entwine.
+
 Docker
 ................................................................................
 
-The fastest way to get going with Entwine is to use the Docker build.  See the
-:ref:`Quickstart` for more information.
+Or use the Docker image for the latest code:
 
 ::
 
     docker pull connormanning/entwine
+    docker run -it connormanning/entwine --help
 

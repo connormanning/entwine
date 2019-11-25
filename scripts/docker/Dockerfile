@@ -1,31 +1,5 @@
-FROM connormanning/pdal:master
+FROM connormanning/entwine:dependencies
 MAINTAINER Connor Manning <connor@hobu.co>
-
-RUN apt-get update && apt-get install -y \
-    autoconf \
-    build-essential \
-    cmake \
-    git \
-    liblzma-dev \
-    libjsoncpp-dev \
-    libssl-dev \
-    libcurl4-openssl-dev \
-    ninja-build \
-    python-numpy \
-    python-pip \
-    vim && \
-    pip install numpy
-
-ENV CC gcc
-ENV CXX g++
-
-RUN git clone https://github.com/jemalloc/jemalloc.git /var/jemalloc && \
-    cd /var/jemalloc && \
-    ./autogen.sh && \
-    make dist && \
-    make && \
-    make install
-ENV LD_PRELOAD /usr/local/lib/libjemalloc.so.2
 
 ARG branch=master
 RUN echo Branch: $branch

@@ -102,7 +102,7 @@ void Scan::write(const Config& out) const
     m_files.save(ep, "", m_in, true);
     json j(out);
     j.erase("input");
-    ep.put("scan.json", j.dump(2));
+    ep.put("ept-scan.json", j.dump(2));
 
     if (m_in.verbose())
     {
@@ -135,17 +135,29 @@ void Scan::add(FileInfo& f)
                 // First, try reading the file metadata with only a truncated
                 // range of data.  For many file formats, this will work without
                 // downloading the full data and we'll save some IO here.
-                try
+                //
+                // For LAS/LAZ, this should always work since we pluck out the
+                // necessary ranges with respect to the file format - so any
+                // exceptions that occur here are real and should be thrown
+                // upward.
+                if (driver == "readers.las")
                 {
-                    if (driver == "readers.las") addLas(f);
-                    addRanged(f);
-
+                    addLas(f);
                     return;
                 }
-                catch (...)
+                else
                 {
-                    // Something went wrong reading the truncated file.  Swallow
-                    // the error and simply use the entire file below.
+                    try
+                    {
+                        addRanged(f);
+                        return;
+                    }
+                    catch (...)
+                    {
+                        // For non-LAS files, we might truncate necessary
+                        // portions of the data so this will error out.  Swallow
+                        // the error and simply use the entire file below.
+                    }
                 }
             }
 
@@ -171,11 +183,14 @@ void Scan::addLas(FileInfo& f)
     const uint64_t headerSizePos(94);
     const uint64_t pointOffsetPos(96);
     const uint64_t evlrOffsetPos(235);
+    const uint64_t evlrNumberPos(evlrOffsetPos + 8);
 
+    std::string fileSignature;
     uint8_t minorVersion(0);
     uint16_t headerSize(0);
     uint32_t pointOffset(0);
     uint64_t evlrOffset(0);
+    uint32_t evlrNumber(0);
 
     std::string header(m_arbiter.get(f.path(), rangeHeaders(0, maxHeaderSize)));
 
@@ -185,6 +200,15 @@ void Scan::addLas(FileInfo& f)
 
     pdal::ILeStream is(&headerStream);
     pdal::OLeStream os(&headerStream);
+
+    is.seek(0);
+    is.get(fileSignature, 4);
+
+    if (fileSignature != "LASF")
+    {
+        throw std::runtime_error(
+            "Invalid file signature for .las or .laz file: must be LASF");
+    }
 
     is.seek(minorVersionPos);
     is >> minorVersion;
@@ -199,6 +223,9 @@ void Scan::addLas(FileInfo& f)
     {
         is.seek(evlrOffsetPos);
         is >> evlrOffset;
+
+        is.seek(evlrNumberPos);
+        is >> evlrNumber;
 
         // Modify the header such that the EVLRs come directly after the VLRs -
         // removing the point data itself.
@@ -219,7 +246,7 @@ void Scan::addLas(FileInfo& f)
         data.insert(data.end(), vlrs.begin(), vlrs.end());
     }
 
-    if (minorVersion >= 4)
+    if (evlrNumber && evlrOffset)
     {
         const auto evlrs = m_arbiter.getBinary(
                 f.path(),
@@ -361,7 +388,13 @@ Config Scan::aggregate()
     out.setInput(m_files.list());
     if (m_re) out.setReprojection(*m_re);
     out.setSrs(srs);
-    out.setPipeline(m_in.pipeline(""));
+
+    // Don't bother setting the pipeline if it's just a default reader.
+    const json pipeline = m_in.pipeline("");
+    if (pipeline.size() > 1 || pipeline[0].size() > 1)
+    {
+        out.setPipeline(m_in.pipeline(""));
+    }
 
     return out;
 }

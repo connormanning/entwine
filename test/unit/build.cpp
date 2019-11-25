@@ -228,7 +228,7 @@ TEST(build, fromScan)
     const std::string metaPath(outPath + "ept-sources/");
 
     Config c(json {
-        { "input", scanPath + "scan.json" },
+        { "input", scanPath + "ept-scan.json" },
         { "output", outPath },
         { "force", true },
         { "span", v.span() },
@@ -388,7 +388,7 @@ TEST(build, subsetFromScan)
     for (uint64_t i(0); i < 4u; ++i)
     {
         Config c(json {
-            { "input", scanPath + "scan.json" },
+            { "input", scanPath + "ept-scan.json" },
             { "output", outPath },
             { "force", true },
             { "span", v.span() },

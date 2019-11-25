@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: a7036cd707cddb7560d855fae2d5e0bfb40e1395
+// Git SHA: 640d7866c1fbcafe9479d717c22b36f5599c3a87
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -24819,7 +24819,7 @@ ARBITER_DLL std::string getBasename(std::string fullPath);
  * For directory paths, this corresponds to all directories above the
  * innermost directory.
  */
-ARBITER_DLL std::string getNonBasename(std::string fullPath);
+ARBITER_DLL std::string getDirname(std::string fullPath);
 
 /** @cond arbiter_internal */
 ARBITER_DLL inline bool isSlash(char c) { return c == '/' || c == '\\'; }
@@ -26059,7 +26059,10 @@ public:
     bool isHttpDerived() const;
 
     /** See Arbiter::getLocalHandle. */
-    std::unique_ptr<LocalHandle> getLocalHandle(std::string subpath) const;
+    std::unique_ptr<LocalHandle> getLocalHandle(
+            std::string subpath,
+            http::Headers headers = http::Headers(),
+            http::Query query = http::Query()) const;
 
     /** Passthrough to Driver::get. */
     std::string get(std::string subpath) const;

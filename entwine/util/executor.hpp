@@ -92,7 +92,9 @@ public:
     static std::unique_lock<std::mutex> getLock();
 
 private:
-    std::unique_ptr<ScanInfo> deepScan(json pipeline) const;
+    std::unique_ptr<ScanInfo> deepScan(
+        json pipeline,
+        bool fallback = false) const;
 
     Executor();
     ~Executor();

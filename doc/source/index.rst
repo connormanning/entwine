@@ -10,9 +10,9 @@ Check out the client demos, showcasing Entwine output with `Potree`_, `Plasio`_,
 
 Entwine is available under the `LGPL License`_.
 
-.. _`PDAL`: http://pdal.io
+.. _`PDAL`: https://pdal.io
 .. _`Plasio`: http://dev.speck.ly
-.. _`Potree`: http://potree.entwine.io
+.. _`Potree`: https://potree.entwine.io
 .. _`Cesium`: http://cesium.entwine.io
 .. _`LGPL License`: https://github.com/connormanning/entwine/blob/master/LICENSE
 
@@ -22,6 +22,30 @@ Entwine
 
 News
 --------------------------------------------------------------------------------
+
+**2019-08-30**
+................................................................................
+
+Watch `Connor Manning`_ present "`Continental scale point cloud data management with Entwine`_" (`slides`_) at `FOSS4G 2019`_ in Bucharest, Romania.
+
+Links:
+   - `Entwine <https://entwine.io>`_
+   - `PDAL <https://pdal.io>`_
+   - `EPT Tools <https://github.com/connormanning/ept-tools>`_
+   - `USGS lidar <https://usgs.entwine.io>`_
+   - `Potree/Entwine demo <http://potree.entwine.io>`_
+   - `Cesium/Entwine demo <http://cesium.entwine.io>`_
+
+.. _`Continental scale point cloud data management with Entwine`: https://media.ccc.de/v/bucharest-129-continental-scale-point-cloud-data-management-and-exploitation-with-entwine
+.. _`slides`: https://data.entwine.io/slides/foss4g2019.html
+.. _`FOSS4G 2019`: http://2019.foss4g.org
+.. _`Connor Manning`: https://github.com/connormanning
+
+**2019-07-23**
+................................................................................
+
+Entwine 2.1 is now released. See :ref:`download` to obtain a copy of the source
+code.
 
 **2018-12-18**
 ................................................................................

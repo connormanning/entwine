@@ -37,6 +37,7 @@ public:
 
     uint64_t id() const { return m_id; }
     uint64_t of() const { return m_of; }
+    const Builder& builder() const { return *m_builder; }
 
 private:
     const Config m_config;

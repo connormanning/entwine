@@ -277,7 +277,7 @@ TEST(scan, outputFile)
         { "output", test::dataPath() + "out/scan/" }
     };
     Scan(in).go();
-    const std::string path(test::dataPath() + "out/scan/scan.json");
+    const std::string path(test::dataPath() + "out/scan/ept-scan.json");
     const Config out(json::parse(arbiter::Arbiter().get(path)));
 
     const Bounds bounds(out.bounds());

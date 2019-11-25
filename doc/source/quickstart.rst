@@ -41,8 +41,7 @@ the Red Rocks Amphitheatre dataset from the internet and build an
 
 ::
 
-   mkdir entwine
-   entwine build -i https://data.entwine.io/red-rocks.laz -o entwine/red-rocks
+   entwine build -i https://data.entwine.io/red-rocks.laz -o ~/entwine/red-rocks
 
 
 
@@ -50,7 +49,7 @@ the Red Rocks Amphitheatre dataset from the internet and build an
 ::
 
 
-Now we have our output at ``entwine/red-rocks``. We could have also
+Now we have our output at ``~/entwine/red-rocks``. We could have also
 passed a directory like ``-i ~/nyc/`` to index multiple files.
 Now we can statically serve the ``entwine`` directory with an HTTP server
 and visualize it with the WebGL-based `Potree`_ and `Plasio`_ projects.

@@ -53,7 +53,7 @@ public:
         return m_json.value("tmp", arbiter::getTempPath());
     }
 
-    uint64_t points() const { return m_json.value("points", 0); }
+    uint64_t points() const { return m_json.value("points", 0ull); }
     Schema schema() const { return m_json.value("schema", Schema()); }
 
     uint64_t totalThreads() const

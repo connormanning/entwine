@@ -41,7 +41,7 @@ void Build::addArgs()
             "File paths or directory entries.  For a recursive directory "
             "search, the notation is \"directory**\".  May also be the path "
             "to an `entwine scan` output file.\n"
-            "Example: -i path.laz, -i pointclouds/, -i autzen/scan.json");
+            "Example: -i path.laz, -i pointclouds/, -i autzen/ept-scan.json");
 
     addOutput(
             "Output directory.\n"
@@ -197,6 +197,7 @@ void Build::addArgs()
 
 void Build::run()
 {
+    if (m_json.count("srs")) m_json["srs"] = Srs(m_json.at("srs"));
     m_json["verbose"] = true;
 
     Config config(m_json);
