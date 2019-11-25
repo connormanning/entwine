@@ -246,7 +246,7 @@ void Scan::addLas(FileInfo& f)
         data.insert(data.end(), vlrs.begin(), vlrs.end());
     }
 
-    if (evlrNumber)
+    if (evlrNumber && evlrOffset)
     {
         const auto evlrs = m_arbiter.getBinary(
                 f.path(),
