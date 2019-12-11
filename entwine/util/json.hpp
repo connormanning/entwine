@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <sstream>
 #include <string>
 
@@ -56,6 +57,22 @@ inline json merge(const json& a, const json& b, bool hard = true)
     json c(a);
     recMerge(c, b, hard);
     return c;
+}
+
+inline bool isIntegral(double d)
+{
+    double dummy;
+    return std::modf(d, &dummy) == 0;
+}
+
+inline json getTypedValue(double d)
+{
+    if (isIntegral(d))
+    {
+        if (d < 0) return static_cast<int64_t>(d);
+        return static_cast<uint64_t>(d);
+    }
+    return d;
 }
 
 } // namespace entwine

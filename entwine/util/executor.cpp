@@ -31,11 +31,6 @@ namespace entwine
 namespace
 {
 
-json objectify(json p)
-{
-    return json { { "pipeline", p } };
-}
-
 json ensureArray(json in)
 {
     if (in.is_array() || in.is_null()) return in;
@@ -54,7 +49,7 @@ Executor::~Executor()
 
 bool Executor::good(const std::string path) const
 {
-    auto ext(arbiter::Arbiter::getExtension(path));
+    auto ext(arbiter::getExtension(path));
     return ext != "txt" && !m_stageFactory->inferReaderDriver(path).empty();
 }
 
@@ -128,7 +123,7 @@ std::unique_ptr<ScanInfo> Executor::preview(
         // overridden or defaulted here.  We'll need this SRS result to
         // reproject our extents later.
         pdal::PipelineManager pm;
-        std::istringstream readStream(objectify(ensureArray(readerJson)).dump());
+        std::istringstream readStream(ensureArray(readerJson).dump());
         pm.readPipeline(readStream);
         pdal::Stage* reader(pm.getStage());
 
@@ -150,7 +145,7 @@ std::unique_ptr<ScanInfo> Executor::preview(
         }
 
         pdal::PipelineManager pm;
-        std::istringstream readStream(objectify(ensureArray(readerJson)).dump());
+        std::istringstream readStream(ensureArray(readerJson).dump());
         pm.readPipeline(readStream);
         pdal::Stage* reader(pm.getStage());
 
@@ -184,7 +179,7 @@ std::unique_ptr<ScanInfo> Executor::preview(
     // to specify a deep scan which will pipeline every point.
 
     pdal::PipelineManager pm;
-    std::istringstream filterStream(objectify(filters).dump());
+    std::istringstream filterStream(filters.dump());
     pm.readPipeline(filterStream);
     pdal::Stage* last(pm.getStage());
     pdal::Stage* first(last);
@@ -285,7 +280,7 @@ std::unique_ptr<ScanInfo> Executor::deepScan(
 
 bool Executor::run(pdal::StreamPointTable& table, const json pipeline)
 {
-    std::istringstream iss(objectify(pipeline).dump());
+    std::istringstream iss(pipeline.dump());
 
     auto lock(getLock());
     pdal::PipelineManager pm;

@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 640d7866c1fbcafe9479d717c22b36f5599c3a87
+// Git SHA: 6dc530e2b80fdef59b2a76783dc070bfbccdf658
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -24971,6 +24971,22 @@ std::unique_ptr<T> maybeClone(const T* t)
 
 ARBITER_DLL uint64_t randomNumber();
 
+/** If no delimiter of "://" is found, returns "file".  Otherwise, returns
+ * the substring prior to but not including this delimiter.
+ */
+ARBITER_DLL std::string getProtocol(std::string path);
+
+/** Strip the type and delimiter `://`, if they exist. */
+ARBITER_DLL std::string stripProtocol(std::string path);
+
+/** Get the characters following the final instance of '.', or an empty
+ * string if there are no '.' characters. */
+ARBITER_DLL std::string getExtension(std::string path);
+
+/** Strip the characters following (and including) the final instance of
+ * '.' if one exists, otherwise return the full path. */
+ARBITER_DLL std::string stripExtension(std::string path);
+
 } // namespace arbiter
 
 #ifdef ARBITER_CUSTOM_NAMESPACE
@@ -26479,22 +26495,6 @@ public:
     std::unique_ptr<LocalHandle> getLocalHandle(
             std::string path,
             std::string tempPath = "") const;
-
-    /** If no delimiter of "://" is found, returns "file".  Otherwise, returns
-     * the substring prior to but not including this delimiter.
-     */
-    static std::string getType(std::string path);
-
-    /** Strip the type and delimiter `://`, if they exist. */
-    static std::string stripType(std::string path);
-
-    /** Get the characters following the final instance of '.', or an empty
-     * string if there are no '.' characters. */
-    static std::string getExtension(std::string path);
-
-    /** Strip the characters following (and including) the final instance of
-     * '.' if one exists, otherwise return the full path. */
-    static std::string stripExtension(std::string path);
 
     /** Fetch the common HTTP pool, which may be useful when dynamically
      * constructing adding a Driver via Arbiter::addDriver.

@@ -5,6 +5,7 @@ set(
     "${BASE}/build.cpp"
     "${BASE}/convert.cpp"
     "${BASE}/entwine.cpp"
+    "${BASE}/info.cpp"
     "${BASE}/merge.cpp"
     "${BASE}/scan.cpp"
 )

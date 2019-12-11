@@ -33,10 +33,9 @@ public:
     Schema() = default;
 
     explicit Schema(DimList dims)
-    {
-        for (const auto& dim : dims) m_dims.push_back(dim);
-        m_layout = makePointLayout(m_dims);
-    }
+        : m_dims(dims)
+        , m_layout(makePointLayout(m_dims))
+    { }
 
     explicit Schema(const json& j)
         : Schema(j.get<DimList>())
@@ -287,7 +286,7 @@ public:
 private:
     std::unique_ptr<pdal::PointLayout> makePointLayout(DimList& dims)
     {
-        std::unique_ptr<pdal::PointLayout> layout(new FixedPointLayout());
+        auto layout(makeUnique<FixedPointLayout>());
 
         for (auto& dim : dims)
         {

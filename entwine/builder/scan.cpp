@@ -254,10 +254,10 @@ void Scan::addLas(FileInfo& f)
         data.insert(data.end(), evlrs.begin(), evlrs.end());
     }
 
-    const std::string ext(arbiter::Arbiter::getExtension(f.path()));
+    const std::string ext(arbiter::getExtension(f.path()));
     const std::string basename(
             arbiter::crypto::encodeAsHex(arbiter::crypto::sha256(
-                    arbiter::Arbiter::stripExtension(f.path()))) +
+                    arbiter::stripExtension(f.path()))) +
             (ext.size() ? "." + ext : ""));
 
     m_tmp.put(basename, data);
@@ -269,10 +269,10 @@ void Scan::addRanged(FileInfo& f)
 {
     const auto data = m_arbiter.getBinary(f.path(), rangeHeaders(0, 16384));
 
-    const std::string ext(arbiter::Arbiter::getExtension(f.path()));
+    const std::string ext(arbiter::getExtension(f.path()));
     const std::string basename(
             arbiter::crypto::encodeAsHex(arbiter::crypto::sha256(
-                    arbiter::Arbiter::stripExtension(f.path()))) +
+                    arbiter::stripExtension(f.path()))) +
             (ext.size() ? "." + ext : ""));
 
     m_tmp.put(basename, data);

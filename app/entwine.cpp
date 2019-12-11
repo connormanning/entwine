@@ -9,8 +9,9 @@
 ******************************************************************************/
 
 #include "build.hpp"
-#include "entwine.hpp"
 #include "convert.hpp"
+#include "entwine.hpp"
+#include "info.hpp"
 #include "merge.hpp"
 #include "scan.hpp"
 
@@ -43,6 +44,8 @@ namespace
             t(3) + "Aggregate information about an unindexed dataset\n" +
             t(2) + "merge\n" +
             t(3) + "Merge colocated entwine subsets\n" +
+            t(2) + "info\n" +
+            t(3) + "Gather metadata information about point cloud files\n" +
             t(2) + "convert\n" +
             t(3) + "Convert an entwine dataset to a different format\n";
     }
@@ -319,6 +322,10 @@ int main(int argc, char** argv)
         else if (app == "convert")
         {
             entwine::app::Convert().go(args);
+        }
+        else if (app == "info")
+        {
+            entwine::app::Info().go(args);
         }
         else
         {

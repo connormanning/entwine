@@ -23,7 +23,7 @@ const auto isint = [](const std::string s)
 
 } // unnamed namespace
 
-Srs::Srs(const std::string full)
+Srs::Srs(std::string full)
     : m_spatialReference(full)
     , m_wkt(m_spatialReference.getWKT())
 {

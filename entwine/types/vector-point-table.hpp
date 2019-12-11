@@ -120,6 +120,7 @@ public:
         , m_pointSize(schema.pointSize())
         , m_data(std::move(data))
     {
+        if (!m_pointSize) throw std::runtime_error("Invalid schema of size 0");
         if (m_data.size() % m_pointSize != 0)
         {
             throw std::runtime_error("Invalid VectorPointTable data");
