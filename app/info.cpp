@@ -42,11 +42,20 @@ void Info::addArgs()
 
 void Info::run()
 {
-    entwine::Info infoRunner(m_json);
-    const auto info = infoRunner.go();
-    const auto comb = reduce(info);
-    // std::cout << "Info: " << json(info).dump(2) << std::endl;
-    std::cout << json(comb).dump(2) << std::endl;
+    const auto sources = analyze(m_json);
+    const auto reduced = reduce(sources);
+
+    if (m_json.count("output"))
+    {
+        const std::string output(m_json.at("output").get<std::string>());
+        const arbiter::Arbiter a(m_json.value("arbiter", json()).dump());
+
+        if (a.isLocal(output)) arbiter::mkdirp(output);
+        serialize(sources, a.getEndpoint(output));
+    }
+
+    std::cout << "Sources: " << json(sources).dump(2) << std::endl;
+    std::cout << "Info: " << json(reduced).dump(2) << std::endl;
 }
 
 } // namespace app

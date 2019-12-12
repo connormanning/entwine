@@ -19,6 +19,7 @@
 
 #include <pdal/filters/StatsFilter.hpp>
 
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/srs.hpp>
@@ -143,16 +144,16 @@ struct PointCloudInfo
 inline void to_json(json& j, const PointCloudInfo& info)
 {
     j = json::object();
-    for (const auto& warning : info.warnings)
-    {
-        j["warnings"].push_back(warning);
-    }
-    for (const auto& error : info.errors)
-    {
-        j["errors"].push_back(error);
-    }
 
-    if (j.count("errors")) return;
+    if (info.warnings.size())
+    {
+        j["warnings"] = info.warnings;
+    }
+    if (info.errors.size())
+    {
+        j["errors"] = info.errors;
+        return;
+    }
 
     j.update({
         { "srs", info.srs },
@@ -178,24 +179,25 @@ inline void to_json(json& j, const SourceInfo& source)
     j.update({ { "path", source.path } });
 }
 
-json getPipeline(std::string path, const Reprojection* r, json pipeline);
-
 PointCloudInfo combine(const PointCloudInfo& a, const PointCloudInfo& b);
 PointCloudInfo reduce(const SourceInfoList& infoList);
 
-class Info
-{
-public:
-    Info(const json& config);
+json createInfoPipeline(
+    json pipeline = json::array({ json::object() }),
+    const Reprojection* reprojection = nullptr);
 
-    SourceInfoList go();
+json extractInfoPipelineFromConfig(json config);
 
-private:
-    SourceInfoList m_sources;
-    const bool m_deep = false;
-    const json m_pipeline;
+SourceInfoList analyze(
+    const json& pipeline,
+    const StringList& inputs,
+    unsigned int threads = 8);
 
-    Pool m_pool;
-};
+SourceInfoList analyze(const json& config);
+
+void serialize(
+    const SourceInfoList& sources,
+    const arbiter::Endpoint& ep,
+    unsigned int threads = 8);
 
 } // namespace entwine

@@ -40,48 +40,6 @@ json& findOrAppendStage(json& pipeline, std::string type)
     return pipeline.back();
 }
 
-json getPipeline(
-    const Reprojection* reprojection = nullptr,
-    json pipeline = json::array({ json::object() }))
-{
-    if (pipeline.is_object()) pipeline = pipeline.at("pipeline");
-
-    if (!pipeline.is_array() || pipeline.empty())
-    {
-        throw std::runtime_error("Invalid pipeline: " + pipeline.dump(2));
-    }
-
-    json& reader(pipeline.at(0));
-
-    // Configure the reprojection stage, if applicable.
-    if (reprojection)
-    {
-        // First set the input SRS on the reader if necessary.
-        const std::string in(reprojection->in());
-        if (in.size())
-        {
-            if (reprojection->hammer()) reader["override_srs"] = in;
-            else reader["default_srs"] = in;
-        }
-
-        // Now set up the output.  If there's already a filters.reprojection in
-        // the pipeline, we'll fill it in.  Otherwise, we'll append one.
-        json& filter(findOrAppendStage(pipeline, "filters.reprojection"));
-        filter.update({ {"out_srs", reprojection->out() } });
-    }
-
-    // Finally, append a stats filter to the end of the pipeline.
-    {
-        json& filter(findOrAppendStage(pipeline, "filters.stats"));
-        if (!filter.count("enumerate"))
-        {
-            filter.update({ { "enumerate", "Classification" } });
-        }
-    }
-
-    return pipeline;
-}
-
 bool isDirectory(std::string path)
 {
     if (path.empty()) throw std::runtime_error("Cannot specify empty path");
@@ -92,7 +50,8 @@ bool isDirectory(std::string path)
 
 // Accepts an array of inputs which are some combination of file/directory
 // paths.  Input paths which are directories are globbed into their constituent
-// files.
+// files.  Input paths which are JSON paths are fetched and parsed and resolved
+// to their contents.
 StringList resolve(
     const StringList& input,
     const arbiter::Arbiter& a = arbiter::Arbiter())
@@ -309,10 +268,16 @@ PointCloudInfo getInfo(const json pipeline, const bool deep)
         {
             x.scale = so->scale()[0];
             x.offset = so->offset()[0];
+
             y.scale = so->scale()[1];
             y.offset = so->offset()[1];
+
             z.scale = so->scale()[2];
             z.offset = so->offset()[2];
+
+            x.type = DimType::Signed32;
+            y.type = DimType::Signed32;
+            z.type = DimType::Signed32;
         }
         info.bounds = Bounds(
             x.stats->minimum,
@@ -327,6 +292,10 @@ PointCloudInfo getInfo(const json pipeline, const bool deep)
     catch (std::exception& e)
     {
         info.errors.push_back(e.what());
+    }
+    catch (...)
+    {
+        info.errors.push_back("Unknown error");
     }
 
     return info;
@@ -434,41 +403,130 @@ PointCloudInfo reduce(const SourceInfoList& infoList)
         combineSources);
 }
 
-Info::Info(const json& config)
-    : m_deep(config.value("deep", false))
-    , m_pipeline(
-        getPipeline(
-            config.count("reprojection")
-                ? makeUnique<Reprojection>(config.at("reprojection")).get()
-                : nullptr,
-            config.value("pipeline", json::array({ json::object() }))
-        )
-    )
-    , m_pool(config.value("threads", 8u))
+json createInfoPipeline(json pipeline, const Reprojection* reprojection)
 {
-    std::cout << "Info config: " << config.dump(2) << std::endl;
-    std::cout << "Pipeline: " << m_pipeline.dump(2) << std::endl;
-    for (const auto& path : resolve(config.at("input")))
+    if (pipeline.is_object()) pipeline = pipeline.at("pipeline");
+
+    if (!pipeline.is_array() || pipeline.empty())
     {
-        m_sources.emplace_back(path);
+        throw std::runtime_error("Invalid pipeline: " + pipeline.dump(2));
     }
+
+    json& reader(pipeline.at(0));
+
+    // Configure the reprojection stage, if applicable.
+    if (reprojection)
+    {
+        // First set the input SRS on the reader if necessary.
+        const std::string in(reprojection->in());
+        if (in.size())
+        {
+            if (reprojection->hammer()) reader["override_srs"] = in;
+            else reader["default_srs"] = in;
+        }
+
+        // Now set up the output.  If there's already a filters.reprojection in
+        // the pipeline, we'll fill it in.  Otherwise, we'll append one.
+        json& filter(findOrAppendStage(pipeline, "filters.reprojection"));
+        filter.update({ {"out_srs", reprojection->out() } });
+    }
+
+    // Finally, append a stats filter to the end of the pipeline.
+    {
+        json& filter(findOrAppendStage(pipeline, "filters.stats"));
+        if (!filter.count("enumerate"))
+        {
+            filter.update({ { "enumerate", "Classification" } });
+        }
+    }
+
+    return pipeline;
 }
 
-SourceInfoList Info::go()
+json extractInfoPipelineFromConfig(json config)
 {
-    for (SourceInfo& source : m_sources)
+    const auto pipeline = config.value(
+        "pipeline",
+        json::array({ json::object() }));
+
+    auto reprojection = config.count("reprojection")
+        ? makeUnique<Reprojection>(config.at("reprojection"))
+        : nullptr;
+
+    return createInfoPipeline(pipeline, reprojection.get());
+}
+
+SourceInfoList analyze(
+    const json& pipelineTemplate,
+    const StringList& inputs,
+    const unsigned int threads)
+{
+    const StringList flattened(resolve(inputs));
+    SourceInfoList sources(flattened.begin(), flattened.end());
+    Pool pool(threads);
+    for (SourceInfo& source : sources)
     {
-        m_pool.add([this, &source]()
+        auto pipeline = pipelineTemplate;
+        pipeline.at(0)["filename"] = source.path;
+
+        pool.add([&source, pipeline]()
         {
-            json pipeline(m_pipeline);
-            pipeline.at(0)["filename"] = source.path;
-            source.info = getInfo(pipeline, m_deep);
+            source.info = getInfo(pipeline, true);
         });
     }
 
-    m_pool.join();
+    pool.join();
+    return sources;
+}
 
-    return m_sources;
+SourceInfoList analyze(const json& config)
+{
+    const json pipeline = extractInfoPipelineFromConfig(config);
+    const StringList inputs = config.at("input");
+    const unsigned int threads = config.value("threads", 8u);
+    return analyze(pipeline, inputs, threads);
+}
+
+std::string getStem(std::string path)
+{
+    return arbiter::stripExtension(arbiter::getBasename(path));
+}
+
+bool areBasenamesUnique(const SourceInfoList& sources)
+{
+    std::set<std::string> set;
+    for (const auto& source : sources)
+    {
+        const std::string stem = getStem(source.path);
+        if (set.count(stem)) return false;
+        set.insert(stem);
+    }
+    return true;
+}
+
+void serialize(
+    const SourceInfoList& sources,
+    const arbiter::Endpoint& ep,
+    const unsigned int threads)
+{
+    const bool basenamesUnique = areBasenamesUnique(sources);
+
+    uint64_t i(0);
+    Pool pool(threads);
+    for (const SourceInfo& source : sources)
+    {
+        const std::string stem = basenamesUnique
+            ? getStem(source.path)
+            : std::to_string(i);
+
+        pool.add([&ep, &source, stem]()
+        {
+            ep.put(stem + ".json", json(source).dump(2));
+        });
+
+        ++i;
+    }
+    pool.join();
 }
 
 } // namespace entwine
