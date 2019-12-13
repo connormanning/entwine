@@ -32,6 +32,7 @@ public:
     // with the pdal::SpatialReference::identifyEPSG functions.
     Srs(std::string s);
     Srs(const char* c) : Srs(std::string(c)) { }
+    Srs(const Srs& other) : Srs(other.wkt()) { }
 
     // Construct from JSON.  In this case we won't do any inference - just pluck
     // out previously determined values.

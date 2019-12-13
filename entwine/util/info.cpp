@@ -18,10 +18,10 @@
 #include <pdal/PointTable.hpp>
 #include <pdal/io/LasReader.hpp>
 
-#include <entwine/types/reprojection.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/util/executor.hpp>
 #include <entwine/types/scale-offset.hpp>
+#include <entwine/util/pool.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
@@ -50,8 +50,7 @@ bool isDirectory(std::string path)
 
 // Accepts an array of inputs which are some combination of file/directory
 // paths.  Input paths which are directories are globbed into their constituent
-// files.  Input paths which are JSON paths are fetched and parsed and resolved
-// to their contents.
+// files.
 StringList resolve(
     const StringList& input,
     const arbiter::Arbiter& a = arbiter::Arbiter())
@@ -151,51 +150,17 @@ json getMetadata(const pdal::Reader& reader)
     return json::parse(pdal::Utils::toJSON(reader.getMetadata()));
 }
 
-std::unique_ptr<ScaleOffset> getScaleOffset(const pdal::Reader& reader)
+optional<ScaleOffset> getScaleOffset(const pdal::Reader& reader)
 {
     if (const auto* las = dynamic_cast<const pdal::LasReader*>(&reader))
     {
         const auto& h(las->header());
-        return makeUnique<ScaleOffset>(
+        return ScaleOffset(
             Scale(h.scaleX(), h.scaleY(), h.scaleZ()),
             Offset(h.offsetX(), h.offsetY(), h.offsetZ())
         );
     }
-    return nullptr;
-}
-
-const DimensionDetail* maybeFindDimension(
-    const std::vector<DimensionDetail>& dims,
-    const std::string& name)
-{
-    const auto it = std::find_if(
-        dims.begin(),
-        dims.end(),
-        [name](const DimensionDetail& dim) { return dim.name == name; }
-    );
-    if (it == dims.end()) return nullptr;
-    return &*it;
-}
-DimensionDetail* maybeFindDimension(
-    std::vector<DimensionDetail>& dims,
-    const std::string& name)
-{
-    const auto it = std::find_if(
-        dims.begin(),
-        dims.end(),
-        [name](const DimensionDetail& dim) { return dim.name == name; }
-    );
-    if (it == dims.end()) return nullptr;
-    return &*it;
-}
-
-DimensionDetail& findDimension(
-    std::vector<DimensionDetail>& dims,
-    const std::string& name)
-{
-    DimensionDetail* dim(maybeFindDimension(dims, name));
-    if (!dim) throw std::runtime_error("Failed to find dimension: " + name);
-    return *dim;
+    return { };
 }
 
 class CountingPointTable : public pdal::FixedPointTable
@@ -218,9 +183,9 @@ protected:
     uint64_t m_total = 0;
 };
 
-PointCloudInfo getInfo(const json pipeline, const bool deep)
+source::Info getInfo(const json pipeline, const bool deep)
 {
-    PointCloudInfo info;
+    source::Info info;
 
     try
     {
@@ -251,17 +216,17 @@ PointCloudInfo getInfo(const json pipeline, const bool deep)
         const auto& layout(*table.layout());
         for (const DimId id : layout.dims())
         {
-            const DimensionStats stats(statsFilter.getStats(id));
-            const DimensionDetail dimension(
+            const dimension::Stats stats(statsFilter.getStats(id));
+            const dimension::Dimension dimension(
                 layout.dimName(id),
                 layout.dimType(id),
-                &stats);
-            info.schema.push_back(dimension);
+                stats);
+            info.dimensions.push_back(dimension);
         }
 
-        auto& x = findDimension(info.schema, "X");
-        auto& y = findDimension(info.schema, "Y");
-        auto& z = findDimension(info.schema, "Z");
+        auto& x = dimension::find(info.dimensions, "X");
+        auto& y = dimension::find(info.dimensions, "Y");
+        auto& z = dimension::find(info.dimensions, "Z");
 
         info.metadata = getMetadata(reader);
         if (const auto so = getScaleOffset(reader))
@@ -301,109 +266,24 @@ PointCloudInfo getInfo(const json pipeline, const bool deep)
     return info;
 }
 
-DimensionStats combineStats(DimensionStats agg, const DimensionStats& cur)
+std::string getStem(std::string path)
 {
-    agg.minimum = std::min(agg.minimum, cur.minimum);
-    agg.maximum = std::max(agg.maximum, cur.maximum);
-
-    // Weighted variance formula from: https://math.stackexchange.com/a/2971563
-    double n1 = agg.count;
-    double n2 = cur.count;
-    double m1 = agg.mean;
-    double m2 = cur.mean;
-    double v1 = agg.variance;
-    double v2 = cur.variance;
-    agg.variance =
-        (((n1 - 1) * v1) + ((n2 - 1) * v2)) / (n1 + n2 - 1) +
-        ((n1 * n2) * (m1 - m2) * (m1 - m2)) / ((n1 + n2) * (n1 + n2 - 1));
-
-    agg.mean = ((agg.mean * agg.count) + (cur.mean * cur.count)) /
-        (agg.count + cur.count);
-    agg.count += cur.count;
-    for (const auto& bucket : cur.values)
-    {
-        if (!agg.values.count(bucket.first)) agg.values[bucket.first] = 0;
-        agg.values[bucket.first] += bucket.second;
-    }
-    return agg;
+    return arbiter::stripExtension(arbiter::getBasename(path));
 }
 
-DimensionDetail combineDimension(DimensionDetail agg, const DimensionDetail& dim)
+bool areBasenamesUnique(const source::List& sources)
 {
-    assert(agg.name == dim.name);
-    if (pdal::Dimension::size(dim.type) > pdal::Dimension::size(agg.type))
+    std::set<std::string> set;
+    for (const auto& source : sources)
     {
-        agg.type = dim.type;
+        const std::string stem = getStem(source.path);
+        if (set.count(stem)) return false;
+        set.insert(stem);
     }
-    agg.scale = std::min(agg.scale, dim.scale);
-    // If all offsets are identical we can preserve the offset, otherwise an
-    // aggregated offset is meaningless.
-    if (agg.offset != dim.offset) agg.offset = 0;
-
-    if (!agg.stats) agg.stats = dim.stats;
-    else if (dim.stats)
-    {
-        agg.stats = std::make_shared<DimensionStats>(
-            combineStats(*agg.stats, *dim.stats));
-    }
-    return agg;
+    return true;
 }
 
-DimensionList combineDimensionList(DimensionList agg, const DimensionList& list)
-{
-    for (const auto& incoming : list)
-    {
-        auto* current(maybeFindDimension(agg, incoming.name));
-        if (!current) agg.push_back(incoming);
-        else *current = combineDimension(*current, incoming);
-    }
-    return agg;
-}
-
-PointCloudInfo combineInfo(const PointCloudInfo& agg, const PointCloudInfo& info)
-{
-    PointCloudInfo output(agg);
-    output.errors.insert(
-        output.errors.end(),
-        info.errors.begin(),
-        info.errors.end());
-    output.warnings.insert(
-        output.warnings.end(),
-        info.warnings.begin(),
-        info.warnings.end());
-
-    output.metadata = json();
-    if (output.srs.empty()) output.srs = info.srs;
-    output.bounds.grow(info.bounds);
-    output.points += info.points;
-    output.schema = combineDimensionList(output.schema, info.schema);
-
-    return output;
-}
-
-PointCloudInfo combineSources(const PointCloudInfo& agg, SourceInfo source)
-{
-    for (auto& warning : source.info.warnings)
-    {
-        warning = source.path + ": " + warning;
-    }
-    for (auto& error : source.info.errors)
-    {
-        error = source.path + ": " + error;
-    }
-    return combineInfo(agg, source.info);
-}
-
-PointCloudInfo reduce(const SourceInfoList& infoList)
-{
-    return std::accumulate(
-        infoList.begin(),
-        infoList.end(),
-        PointCloudInfo(),
-        combineSources);
-}
-
-json createInfoPipeline(json pipeline, const Reprojection* reprojection)
+json createInfoPipeline(json pipeline, optional<Reprojection> reprojection)
 {
     if (pipeline.is_object()) pipeline = pipeline.at("pipeline");
 
@@ -449,22 +329,20 @@ json extractInfoPipelineFromConfig(json config)
         "pipeline",
         json::array({ json::object() }));
 
-    auto reprojection = config.count("reprojection")
-        ? makeUnique<Reprojection>(config.at("reprojection"))
-        : nullptr;
+    optional<Reprojection> reprojection(config.value("reprojection", json()));
 
-    return createInfoPipeline(pipeline, reprojection.get());
+    return createInfoPipeline(pipeline, reprojection);
 }
 
-SourceInfoList analyze(
+source::List analyze(
     const json& pipelineTemplate,
     const StringList& inputs,
     const unsigned int threads)
 {
     const StringList flattened(resolve(inputs));
-    SourceInfoList sources(flattened.begin(), flattened.end());
+    source::List sources(flattened.begin(), flattened.end());
     Pool pool(threads);
-    for (SourceInfo& source : sources)
+    for (source::Source& source : sources)
     {
         auto pipeline = pipelineTemplate;
         pipeline.at(0)["filename"] = source.path;
@@ -479,7 +357,7 @@ SourceInfoList analyze(
     return sources;
 }
 
-SourceInfoList analyze(const json& config)
+source::List analyze(const json& config)
 {
     const json pipeline = extractInfoPipelineFromConfig(config);
     const StringList inputs = config.at("input");
@@ -487,25 +365,8 @@ SourceInfoList analyze(const json& config)
     return analyze(pipeline, inputs, threads);
 }
 
-std::string getStem(std::string path)
-{
-    return arbiter::stripExtension(arbiter::getBasename(path));
-}
-
-bool areBasenamesUnique(const SourceInfoList& sources)
-{
-    std::set<std::string> set;
-    for (const auto& source : sources)
-    {
-        const std::string stem = getStem(source.path);
-        if (set.count(stem)) return false;
-        set.insert(stem);
-    }
-    return true;
-}
-
 void serialize(
-    const SourceInfoList& sources,
+    const source::List& sources,
     const arbiter::Endpoint& ep,
     const unsigned int threads)
 {
@@ -513,7 +374,7 @@ void serialize(
 
     uint64_t i(0);
     Pool pool(threads);
-    for (const SourceInfo& source : sources)
+    for (const source::Source& source : sources)
     {
         const std::string stem = basenamesUnique
             ? getStem(source.path)

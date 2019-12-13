@@ -12,6 +12,10 @@
 
 #include <entwine/util/info.hpp>
 
+
+#include <entwine/util/optional.hpp>
+#include <entwine/types/srs.hpp>
+
 namespace entwine
 {
 namespace app
@@ -42,6 +46,19 @@ void Info::addArgs()
 
 void Info::run()
 {
+    // TODO: Make a unit test module for our optional implementation.
+    /*
+    const Srs srs("EPSG:3857");
+    optional<Srs> empty;
+    optional<Srs> forwarded(in_place, "EPSG:3857");
+    optional<Srs> copied(srs);
+    optional<Srs> moved(Srs("EPSG:3857"));
+    optional<Srs> copiedOptional(forwarded);
+    optional<Srs> movedOptional(std::move(forwarded));
+    optional<Srs> opEqual;
+    opEqual = copied;
+    */
+
     const auto sources = analyze(m_json);
     const auto reduced = reduce(sources);
 

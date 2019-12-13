@@ -29,6 +29,13 @@ inline std::vector<std::string> keys(const json& j)
     return result;
 }
 
+template <typename T>
+inline std::vector<T> extractList(const json& j)
+{
+    if (j) return j.get<std::vector<T>>();
+    return { };
+}
+
 // Not really JSON-related, but fine for now...
 inline std::string commify(const std::size_t n)
 {

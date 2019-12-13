@@ -15,6 +15,7 @@ set(
     "${BASE}/json.hpp"
     "${BASE}/locker.hpp"
     "${BASE}/matrix.hpp"
+    "${BASE}/optional.hpp"
     "${BASE}/pool.hpp"
     "${BASE}/spin-lock.hpp"
     "${BASE}/stack-trace.hpp"
