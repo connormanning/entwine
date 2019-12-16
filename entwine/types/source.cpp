@@ -37,7 +37,6 @@ void to_json(json& j, const Info& info)
     if (info.errors.size())
     {
         j["errors"] = info.errors;
-        return;
     }
 
     j.update({
@@ -79,10 +78,12 @@ Info combine(Info agg, Source source)
 
 Info reduce(const List& list)
 {
+    Info initial;
+    initial.bounds = Bounds::expander();
     return std::accumulate(
         list.begin(),
         list.end(),
-        Info(),
+        initial,
         [](Info info, Source source) { return combine(info, source); }
     );
 }

@@ -24,7 +24,7 @@ namespace pdal
 namespace Dimension
 {
 
-inline void from_json(const entwine::json& j, Type t);
+inline void from_json(const entwine::json& j, Type& t);
 
 } // namespace Dimension
 } // namespace pdal

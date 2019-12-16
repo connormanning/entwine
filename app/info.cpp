@@ -10,11 +10,10 @@
 
 #include "info.hpp"
 
-#include <entwine/util/info.hpp>
-
-
-#include <entwine/util/optional.hpp>
 #include <entwine/types/srs.hpp>
+#include <entwine/types/manifest.hpp>
+#include <entwine/util/fs.hpp>
+#include <entwine/util/info.hpp>
 
 namespace entwine
 {
@@ -24,6 +23,12 @@ namespace app
 void Info::addArgs()
 {
     m_ap.setUsage("entwine info <path(s)> (<options>)");
+
+    m_ap.add(
+            "--manifest",
+            "-m",
+            "Create a buildable manifest.",
+            [this](json j) { m_json["manifest"] = true; });
 
     addInput(
             "File paths or directory entries.  For a recursive directory "
@@ -46,21 +51,23 @@ void Info::addArgs()
 
 void Info::run()
 {
-    // TODO: Make a unit test module for our optional implementation.
-    /*
-    const Srs srs("EPSG:3857");
-    optional<Srs> empty;
-    optional<Srs> forwarded(in_place, "EPSG:3857");
-    optional<Srs> copied(srs);
-    optional<Srs> moved(Srs("EPSG:3857"));
-    optional<Srs> copiedOptional(forwarded);
-    optional<Srs> movedOptional(std::move(forwarded));
-    optional<Srs> opEqual;
-    opEqual = copied;
-    */
+    if (m_json.value("manifest", false))
+    {
+        /*
+        StringList filenames(resolve(m_json.at("input").get<StringList>()));
+
+        // Each filename may point at:
+        //      A JSON file of detailed information.
+        //      A point cloud file that needs to be analyzed.
+        //      TODO: A path/points/bounds reference from a shallow scan.
+        */
+        const auto manifest(manifest::create(analyze(m_json)));
+
+        return;
+    }
 
     const auto sources = analyze(m_json);
-    const auto reduced = reduce(sources);
+    const auto reduced = source::reduce(sources);
 
     if (m_json.count("output"))
     {

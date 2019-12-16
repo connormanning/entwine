@@ -19,7 +19,7 @@ Stats::Stats(const pdal::stats::Summary& s)
     : minimum(s.minimum())
     , maximum(s.maximum())
     , mean(s.average())
-    , variance(s.variance())
+    , variance(s.populationVariance())
     , count(s.count())
 {
     for (const auto& bucket : s.values()) values[bucket.first] = bucket.second;

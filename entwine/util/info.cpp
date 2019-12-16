@@ -19,8 +19,9 @@
 #include <pdal/io/LasReader.hpp>
 
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/util/executor.hpp>
 #include <entwine/types/scale-offset.hpp>
+#include <entwine/util/executor.hpp>
+#include <entwine/util/fs.hpp>
 #include <entwine/util/pool.hpp>
 #include <entwine/util/unique.hpp>
 
@@ -38,44 +39,6 @@ json& findOrAppendStage(json& pipeline, std::string type)
 
     pipeline.push_back({ { "type", type } });
     return pipeline.back();
-}
-
-bool isDirectory(std::string path)
-{
-    if (path.empty()) throw std::runtime_error("Cannot specify empty path");
-    const char c = path.back();
-    return c == '/' || c == '\\' || c == '*' ||
-        arbiter::getExtension(path).empty();
-}
-
-// Accepts an array of inputs which are some combination of file/directory
-// paths.  Input paths which are directories are globbed into their constituent
-// files.
-StringList resolve(
-    const StringList& input,
-    const arbiter::Arbiter& a = arbiter::Arbiter())
-{
-    StringList output;
-    for (std::string item : input)
-    {
-        if (isDirectory(item))
-        {
-            const char last = item.back();
-            if (last != '*')
-            {
-                if (last != '/') item.push_back('/');
-                item.push_back('*');
-            }
-
-            const StringList directory(a.resolve(item));
-            for (const auto& item : directory)
-            {
-                if (!isDirectory(item)) output.push_back(item);
-            }
-        }
-        else output.push_back(item);
-    }
-    return output;
 }
 
 void runNonStreaming(pdal::PipelineManager& pm, pdal::StreamPointTable& table)
@@ -163,33 +126,13 @@ optional<ScaleOffset> getScaleOffset(const pdal::Reader& reader)
     return { };
 }
 
-class CountingPointTable : public pdal::FixedPointTable
-{
-public:
-    CountingPointTable() : pdal::FixedPointTable(4096) { }
-
-    uint64_t total() const { return m_total; }
-
-protected:
-    void reset() override
-    {
-        for (uint64_t i(0); i < numPoints(); ++i)
-        {
-            if (!skip(i)) ++m_total;
-        }
-        pdal::FixedPointTable::reset();
-    }
-
-    uint64_t m_total = 0;
-};
-
-source::Info getInfo(const json pipeline, const bool deep)
+source::Info getInfo(const json pipeline)
 {
     source::Info info;
 
     try
     {
-        CountingPointTable table;
+        pdal::FixedPointTable table(4096);
         std::istringstream iss(pipeline.dump());
 
         auto lock(Executor::getLock());
@@ -337,23 +280,69 @@ json extractInfoPipelineFromConfig(json config)
 source::List analyze(
     const json& pipelineTemplate,
     const StringList& inputs,
+    const arbiter::Arbiter& a,
     const unsigned int threads)
 {
-    const StringList flattened(resolve(inputs));
-    source::List sources(flattened.begin(), flattened.end());
+    const StringList filenames(resolve(inputs));
+    source::List sources(filenames.begin(), filenames.end());
+
+    uint64_t i(0);
+
     Pool pool(threads);
     for (source::Source& source : sources)
     {
-        auto pipeline = pipelineTemplate;
-        pipeline.at(0)["filename"] = source.path;
+        std::cout << ++i << "/" << sources.size() << ": " << source.path <<
+            std::endl;
 
-        pool.add([&source, pipeline]()
+        if (arbiter::getExtension(source.path) == "json")
         {
-            source.info = getInfo(pipeline, true);
-        });
-    }
+            pool.add([&a, &source]()
+            {
+                try
+                {
+                    const json j(json::parse(a.get(source.path)));
 
+                    // Note that we're overwriting our JSON filename here with
+                    // the path to the actual point cloud.
+                    source.path = j.at("path").get<std::string>();
+                    source.info = j.get<source::Info>();
+                }
+                catch (const std::exception& e)
+                {
+                    source.info.errors.push_back(
+                        std::string("Failed to fetch info: ") + e.what());
+                }
+                catch (...)
+                {
+                    source.info.errors.push_back("Failed to fetch info");
+                }
+            });
+        }
+        else
+        {
+            auto pipeline = pipelineTemplate;
+            pipeline.at(0)["filename"] = source.path;
+
+            pool.add([&source, pipeline]()
+            {
+                try
+                {
+                    source.info = getInfo(pipeline);
+                }
+                catch (const std::exception& e)
+                {
+                    source.info.errors.push_back(
+                        std::string("Failed to analyze: ") + e.what());
+                }
+                catch (...)
+                {
+                    source.info.errors.push_back("Failed to analyze");
+                }
+            });
+        }
+    }
     pool.join();
+
     return sources;
 }
 
@@ -361,8 +350,9 @@ source::List analyze(const json& config)
 {
     const json pipeline = extractInfoPipelineFromConfig(config);
     const StringList inputs = config.at("input");
+    const arbiter::Arbiter a(config.value("arbiter", json()).dump());
     const unsigned int threads = config.value("threads", 8u);
-    return analyze(pipeline, inputs, threads);
+    return analyze(pipeline, inputs, a, threads);
 }
 
 void serialize(

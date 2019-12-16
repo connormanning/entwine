@@ -27,6 +27,7 @@ json extractInfoPipelineFromConfig(json config);
 source::List analyze(
     const json& pipeline,
     const StringList& inputs,
+    const arbiter::Arbiter& a = arbiter::Arbiter(),
     unsigned int threads = 8);
 
 source::List analyze(const json& config);

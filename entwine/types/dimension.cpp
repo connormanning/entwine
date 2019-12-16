@@ -15,7 +15,7 @@ namespace pdal
 namespace Dimension
 {
 
-inline void from_json(const entwine::json& j, Type t)
+inline void from_json(const entwine::json& j, Type& t)
 {
     const std::string type(j.at("type").get<std::string>());
     const int size(j.at("size").get<int>());

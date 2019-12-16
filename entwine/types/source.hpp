@@ -31,7 +31,7 @@ struct Info
 
     json metadata;
     Srs srs;
-    Bounds bounds = Bounds::expander();
+    Bounds bounds;
     uint64_t points = 0;
     dimension::List dimensions;
 };
@@ -49,7 +49,7 @@ struct Source
     Source(std::string path) : path(path) { }
     Source(const json& j)
         : path(j.at("path").get<std::string>())
-        , info(j)
+        , info(j.get<Info>())
     { }
 
     std::string path;

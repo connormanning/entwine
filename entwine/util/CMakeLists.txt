@@ -4,6 +4,7 @@ set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 set(
     SOURCES
     "${BASE}/executor.cpp"
+    "${BASE}/fs.cpp"
     "${BASE}/info.cpp"
 )
 
@@ -11,6 +12,7 @@ set(
     HEADERS
     "${BASE}/env.hpp"
     "${BASE}/executor.hpp"
+    "${BASE}/fs.hpp"
     "${BASE}/info.hpp"
     "${BASE}/json.hpp"
     "${BASE}/locker.hpp"

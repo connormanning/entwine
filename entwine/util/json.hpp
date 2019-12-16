@@ -32,7 +32,7 @@ inline std::vector<std::string> keys(const json& j)
 template <typename T>
 inline std::vector<T> extractList(const json& j)
 {
-    if (j) return j.get<std::vector<T>>();
+    if (!j.is_null()) return j.get<std::vector<T>>();
     return { };
 }
 
