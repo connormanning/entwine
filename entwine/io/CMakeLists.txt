@@ -4,7 +4,6 @@ set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 set(
     SOURCES
     "${BASE}/binary.cpp"
-    "${BASE}/ensure.cpp"
     "${BASE}/io.cpp"
     "${BASE}/laszip.cpp"
     "${BASE}/zstandard.cpp"
@@ -13,7 +12,6 @@ set(
 set(
     HEADERS
     "${BASE}/binary.hpp"
-    "${BASE}/ensure.hpp"
     "${BASE}/io.hpp"
     "${BASE}/laszip.hpp"
     "${BASE}/zstandard.hpp"

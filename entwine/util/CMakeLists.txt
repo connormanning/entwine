@@ -6,6 +6,7 @@ set(
     "${BASE}/executor.cpp"
     "${BASE}/fs.cpp"
     "${BASE}/info.cpp"
+    "${BASE}/io.cpp"
 )
 
 set(
@@ -14,6 +15,7 @@ set(
     "${BASE}/executor.hpp"
     "${BASE}/fs.hpp"
     "${BASE}/info.hpp"
+    "${BASE}/io.hpp"
     "${BASE}/json.hpp"
     "${BASE}/locker.hpp"
     "${BASE}/matrix.hpp"

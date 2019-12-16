@@ -11,8 +11,8 @@
 #include <entwine/builder/config.hpp>
 
 #include <entwine/builder/scan.hpp>
-#include <entwine/io/ensure.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
+#include <entwine/util/io.hpp>
 
 namespace entwine
 {

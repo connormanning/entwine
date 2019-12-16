@@ -63,6 +63,8 @@ void Info::run()
         */
         const auto manifest(manifest::create(analyze(m_json)));
 
+        std::cout << "Manifest: " << manifest.size() << std::endl;
+
         return;
     }
 

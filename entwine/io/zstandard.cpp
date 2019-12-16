@@ -13,6 +13,8 @@
 #include <pdal/compression/ZstdCompression.hpp>
 #include <pdal/filters/SortFilter.hpp>
 
+#include <entwine/util/io.hpp>
+
 namespace entwine
 {
 
@@ -43,7 +45,7 @@ void Zstandard::read(
         const std::string& filename,
         VectorPointTable& dst) const
 {
-    auto compressed(*ensureGet(out, filename + ".zst"));
+    auto compressed(ensureGetBinary(out, filename + ".zst"));
 
     std::vector<char> uncompressed;
     pdal::ZstdDecompressor dec([&uncompressed](char* pos, std::size_t size)

@@ -22,6 +22,7 @@ set(
     "${BASE}/dimension.hpp"
     "${BASE}/dimension-stats.hpp"
     "${BASE}/dir.hpp"
+    "${BASE}/exceptions.hpp"
     "${BASE}/file-info.hpp"
     "${BASE}/files.hpp"
     "${BASE}/fixed-point-layout.hpp"

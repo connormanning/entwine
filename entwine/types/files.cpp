@@ -15,8 +15,8 @@
 #include <limits>
 #include <set>
 
-#include <entwine/io/ensure.hpp>
 #include <entwine/types/bounds.hpp>
+#include <entwine/util/io.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/pool.hpp>
 #include <entwine/util/unique.hpp>
@@ -89,7 +89,7 @@ FileInfoList Files::extract(
 {
     const auto ep(top.getSubEndpoint("ept-sources"));
     const std::string filename("list" + postfix + ".json");
-    auto list(json::parse(ensureGetString(ep, filename)).get<FileInfoList>());
+    auto list(json::parse(ensureGet(ep, filename)).get<FileInfoList>());
 
     if (!primary) return list;
 
@@ -105,7 +105,7 @@ FileInfoList Files::extract(
 
     for (const auto url : urls)
     {
-        const auto meta(json::parse(ensureGetString(ep, url)));
+        const auto meta(json::parse(ensureGet(ep, url)));
         for (const auto& p : meta.items())
         {
             const std::string id(p.key());

@@ -17,6 +17,7 @@
 #include <entwine/types/binary-point-table.hpp>
 #include <entwine/types/scale-offset.hpp>
 #include <entwine/util/executor.hpp>
+#include <entwine/util/io.hpp>
 
 namespace entwine
 {
@@ -38,7 +39,7 @@ void Binary::read(
         const std::string& filename,
         VectorPointTable& dst) const
 {
-    auto packed(*ensureGet(out, filename + ".bin"));
+    auto packed(ensureGetBinary(out, filename + ".bin"));
     unpack(dst, std::move(packed));
 }
 

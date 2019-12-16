@@ -10,7 +10,7 @@
 
 #include <entwine/builder/hierarchy.hpp>
 
-#include <entwine/io/ensure.hpp>
+#include <entwine/util/io.hpp>
 #include <entwine/types/metadata.hpp>
 
 namespace entwine

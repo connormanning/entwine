@@ -14,7 +14,6 @@
 #include <memory>
 #include <string>
 
-#include <entwine/io/ensure.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/vector-point-table.hpp>
 

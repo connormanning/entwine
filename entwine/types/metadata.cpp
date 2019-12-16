@@ -17,6 +17,7 @@
 #include <entwine/types/schema.hpp>
 #include <entwine/types/srs.hpp>
 #include <entwine/types/subset.hpp>
+#include <entwine/util/io.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/unique.hpp>
 

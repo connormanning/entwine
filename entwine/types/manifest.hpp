@@ -30,11 +30,13 @@ struct Item
         , info(s.info)
     { }
 
+    /*
     Item(std::string path, uint64_t points, Bounds bounds)
         : path(path)
         , points(points)
         , bounds(bounds)
     { }
+    */
 
     std::string path;
     uint64_t points = 0;
@@ -47,11 +49,10 @@ struct Item
 };
 
 using ItemList = std::vector<Item>;
-using Manifest = ItemList;
 
-Manifest create(const source::List& sources)
+ItemList create(const source::List& sources)
 {
-    return Manifest(sources.begin(), sources.end());
+    return ItemList(sources.begin(), sources.end());
 }
 
 } // namespace manifest

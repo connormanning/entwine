@@ -16,6 +16,7 @@
 #include <pdal/io/LasWriter.hpp>
 
 #include <entwine/util/executor.hpp>
+#include <entwine/util/io.hpp>
 
 namespace entwine
 {
