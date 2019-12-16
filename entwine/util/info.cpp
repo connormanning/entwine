@@ -366,6 +366,9 @@ void serialize(
     Pool pool(threads);
     for (const source::Source& source : sources)
     {
+        std::cout << ++i << "/" << sources.size() << ": " << source.path <<
+            std::endl;
+
         const std::string stem = basenamesUnique
             ? getStem(source.path)
             : std::to_string(i);
