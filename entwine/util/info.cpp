@@ -15,44 +15,29 @@
 #include <iostream>
 #include <numeric>
 
+#include <pdal/io/BufferReader.hpp>
 #include <pdal/PointTable.hpp>
-#include <pdal/io/LasReader.hpp>
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/scale-offset.hpp>
 #include <entwine/util/executor.hpp>
 #include <entwine/util/fs.hpp>
+#include <entwine/util/io.hpp>
+#include <entwine/util/pipeline.hpp>
 #include <entwine/util/pool.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
 {
 
-json& findOrAppendStage(json& pipeline, std::string type)
+void executeStandard(pdal::Stage& s, pdal::StreamPointTable& table)
 {
-    auto it = std::find_if(
-        pipeline.begin(),
-        pipeline.end(),
-        [type](const json& stage) { return stage.value("type", "") == type; });
+    pdal::PointTable standardTable;
+    s.prepare(standardTable);
 
-    if (it != pipeline.end()) return *it;
-
-    pipeline.push_back({ { "type", type } });
-    return pipeline.back();
-}
-
-void runNonStreaming(pdal::PipelineManager& pm, pdal::StreamPointTable& table)
-{
-    auto lock(Executor::getLock());
-    pm.prepare();
-    lock.unlock();
-
-    pm.execute();
-
-    pdal::PointRef pr(table, 0);
-
+    pdal::PointRef pr(table);
     uint64_t current(0);
-    for (auto& view : pm.views())
+    for (auto& view : s.execute(standardTable))
     {
         table.setSpatialReference(view->spatialReference());
         pr.setPointId(current);
@@ -70,91 +55,158 @@ void runNonStreaming(pdal::PipelineManager& pm, pdal::StreamPointTable& table)
     if (current) table.clear(current);
 }
 
-void runStreaming(pdal::PipelineManager& pm, pdal::StreamPointTable& table)
+/*
+void prepare(pdal::Stage& s, pdal::StreamPointTable& table)
 {
     auto lock(Executor::getLock());
-    pdal::Stage *s = pm.getStage();
-    s->prepare(table);
-    lock.unlock();
-
-    s->execute(table);
+    if (s.pipelineStreamable()) s.prepare(table);
+    else s.prepare();
 }
+*/
 
-void run(pdal::PipelineManager& pm, pdal::StreamPointTable& table)
+void executeStreaming(pdal::Stage& s, pdal::StreamPointTable& table)
 {
-    if (pm.pipelineStreamable()) runStreaming(pm, table);
-    else runNonStreaming(pm, table);
-}
-
-const pdal::Reader& getReader(pdal::Stage& last)
-{
-    pdal::Stage* first(&last);
-    while (first->getInputs().size())
     {
-        if (first->getInputs().size() > 1)
-        {
-            throw std::runtime_error("Invalid pipeline - must be linear");
-        }
-
-        first = first->getInputs().at(0);
+        auto lock(Executor::getLock());
+        s.prepare(table);
     }
-
-    const pdal::Reader* reader(dynamic_cast<const pdal::Reader*>(first));
-    if (!reader)
-    {
-        throw std::runtime_error("Invalid pipeline - must start with reader");
-    }
-
-    return *reader;
+    s.execute(table);
 }
 
-json getMetadata(const pdal::Reader& reader)
+void execute(pdal::Stage& s, pdal::StreamPointTable& table)
 {
-    return json::parse(pdal::Utils::toJSON(reader.getMetadata()));
+    if (s.pipelineStreamable()) executeStreaming(s, table);
+    else executeStandard(s, table);
 }
 
-optional<ScaleOffset> getScaleOffset(const pdal::Reader& reader)
-{
-    if (const auto* las = dynamic_cast<const pdal::LasReader*>(&reader))
-    {
-        const auto& h(las->header());
-        return ScaleOffset(
-            Scale(h.scaleX(), h.scaleY(), h.scaleZ()),
-            Offset(h.offsetX(), h.offsetY(), h.offsetZ())
-        );
-    }
-    return { };
-}
-
-source::Info getInfo(const json pipeline)
+source::Info getShallowInfo(const json pipeline)
 {
     source::Info info;
+    info.pipeline = pipeline;
+
+    // const json readerJson = slice(pipeline, 0, 1);
+    const json filterJson = slice(pipeline, 1);
+
+    auto lock(Executor::getLock());
+
+    pdal::PipelineManager pm;
+    std::istringstream iss(pipeline.dump());
+    pm.readPipeline(iss);
+    pm.validateStageOptions();
+
+    pdal::Stage& stage = getStage(pm);
+    pdal::Reader& reader(getReader(stage));
+    const bool streamable = stage.pipelineStreamable();
+    if (!streamable) info.warnings.push_back("Pipeline is not streamable");
+
+    const pdal::QuickInfo qi(reader.preview());
+    if (!qi.valid()) throw ShallowInfoError("Preview could not be created");
+    if (qi.m_bounds.empty()) throw ShallowInfoError("Failed to extract bounds");
+
+    pdal::PointTable table;
+    stage.prepare(table);
+
+    lock.unlock();
+
+    info.dimensions = dimension::fromLayout(*table.layout());
+    if (const auto so = getScaleOffset(reader))
+    {
+        info.dimensions = applyScaleOffset(info.dimensions, *so);
+    }
+
+    info.points = qi.m_pointCount;
+    info.metadata = getMetadata(reader);
+
+    const auto& qb(qi.m_bounds);
+    const Bounds native(qb.minx, qb.miny, qb.minz, qb.maxx, qb.maxy, qb.maxz);
+    const Srs readerSrs(qi.m_srs.getWKT());
+
+    // If we have filters in our pipeline, these won't necessarily be correct -
+    // we'll handle that shortly.
+    info.srs = readerSrs;
+    info.bounds = native;
+
+    if (filterJson.empty()) return info;
+
+    // We've got most of what we need, except that our bounds and SRS may be
+    // altered by a reprojection or other transformation.  So we'll flow the
+    // extents of our reader's native bounds through the rest of the pipeline
+    // and see what comes out.
+    auto view = std::make_shared<pdal::PointView>(table); // , qi.m_srs);
+    for (int i(0); i < 8; ++i)
+    {
+        view->setField(DimId::X, i, native[0 + (i & 1 ? 0 : 3)]);
+        view->setField(DimId::Y, i, native[1 + (i & 2 ? 0 : 3)]);
+        view->setField(DimId::Z, i, native[2 + (i & 4 ? 0 : 3)]);
+    }
+    pdal::BufferReader bufferReader;
+    bufferReader.setSpatialReference(qi.m_srs);
+    bufferReader.addView(view);
+
+    {
+        lock.lock();
+
+        pdal::PipelineManager pm;
+        std::istringstream iss(filterJson.dump());
+        pm.readPipeline(iss);
+        pm.validateStageOptions();
+
+        pdal::Stage& last = getStage(pm);
+        getFirst(last).setInput(bufferReader);
+        last.prepare(table);
+
+        lock.unlock();
+
+        auto result = *last.execute(table).begin();
+
+        info.bounds = Bounds::expander();
+        for (uint64_t i(0); i < result->size(); ++i)
+        {
+            info.bounds.grow(
+                Point(
+                    result->getFieldAs<double>(DimId::X, i),
+                    result->getFieldAs<double>(DimId::Y, i),
+                    result->getFieldAs<double>(DimId::Z, i)));
+        }
+
+        info.srs = Srs(result->spatialReference().getWKT());
+    }
+
+    return info;
+}
+
+source::Info getDeepInfo(const json pipeline)
+{
+    source::Info info;
+    info.pipeline = pipeline;
 
     try
     {
-        pdal::FixedPointTable table(4096);
-        std::istringstream iss(pipeline.dump());
-
         auto lock(Executor::getLock());
         pdal::PipelineManager pm;
+        std::istringstream iss(pipeline.dump());
         pm.readPipeline(iss);
         pm.validateStageOptions();
+        if (!pm.pipelineStreamable())
+        {
+            info.warnings.push_back("Pipeline is not streamable");
+        }
         lock.unlock();
 
         // Extract stats filter from the pipeline.
-        const pdal::Stage* last(pm.getStage());
-        if (!last) throw std::runtime_error("Invalid pipeline - no stages");
-        if (last->getName() != "filters.stats")
+        pdal::Stage& last(getStage(pm));
+        if (last.getName() != "filters.stats")
         {
             throw std::runtime_error(
                 "Invalid pipeline - must end with filters.stats");
         }
         const pdal::StatsFilter& statsFilter(
-            dynamic_cast<const pdal::StatsFilter&>(*last));
+            dynamic_cast<const pdal::StatsFilter&>(last));
 
-        const pdal::Reader& reader(getReader(*pm.getStage()));
+        pdal::Reader& reader(getReader(getStage(pm)));
 
-        run(pm, table);
+        pdal::FixedPointTable table(4096);
+        execute(last, table);
 
         const auto& layout(*table.layout());
         for (const DimId id : layout.dims())
@@ -167,26 +219,15 @@ source::Info getInfo(const json pipeline)
             info.dimensions.push_back(dimension);
         }
 
-        auto& x = dimension::find(info.dimensions, "X");
-        auto& y = dimension::find(info.dimensions, "Y");
-        auto& z = dimension::find(info.dimensions, "Z");
-
         info.metadata = getMetadata(reader);
         if (const auto so = getScaleOffset(reader))
         {
-            x.scale = so->scale()[0];
-            x.offset = so->offset()[0];
-
-            y.scale = so->scale()[1];
-            y.offset = so->offset()[1];
-
-            z.scale = so->scale()[2];
-            z.offset = so->offset()[2];
-
-            x.type = DimType::Signed32;
-            y.type = DimType::Signed32;
-            z.type = DimType::Signed32;
+            info.dimensions = applyScaleOffset(info.dimensions, *so);
         }
+
+        auto& x = dimension::find(info.dimensions, "X");
+        auto& y = dimension::find(info.dimensions, "Y");
+        auto& z = dimension::find(info.dimensions, "Z");
         info.bounds = Bounds(
             x.stats->minimum,
             y.stats->minimum,
@@ -197,7 +238,7 @@ source::Info getInfo(const json pipeline)
         info.points = x.stats->count;
         info.srs = Srs(table.anySpatialReference().getWKT());
     }
-    catch (std::exception& e)
+    catch (const std::exception& e)
     {
         info.errors.push_back(e.what());
     }
@@ -226,7 +267,10 @@ bool areBasenamesUnique(const source::List& sources)
     return true;
 }
 
-json createInfoPipeline(json pipeline, optional<Reprojection> reprojection)
+json createInfoPipeline(
+    json pipeline,
+    bool deep,
+    optional<Reprojection> reprojection)
 {
     if (pipeline.is_object()) pipeline = pipeline.at("pipeline");
 
@@ -255,6 +299,7 @@ json createInfoPipeline(json pipeline, optional<Reprojection> reprojection)
     }
 
     // Finally, append a stats filter to the end of the pipeline.
+    if (deep)
     {
         json& filter(findOrAppendStage(pipeline, "filters.stats"));
         if (!filter.count("enumerate"))
@@ -272,14 +317,89 @@ json extractInfoPipelineFromConfig(json config)
         "pipeline",
         json::array({ json::object() }));
 
+    const bool deep = config.value("deep", false);
+
     optional<Reprojection> reprojection(config.value("reprojection", json()));
 
-    return createInfoPipeline(pipeline, reprojection);
+    return createInfoPipeline(pipeline, deep, reprojection);
+}
+
+source::Info analyzeOne(
+    const std::string path,
+    const bool deep,
+    json pipeline)
+{
+    try
+    {
+        pipeline.at(0)["filename"] = path;
+        return deep ? getDeepInfo(pipeline) : getShallowInfo(pipeline);
+    }
+    catch (const std::exception& e)
+    {
+        source::Info info;
+        info.errors.push_back(std::string("Failed to analyze: ") + e.what());
+        return info;
+    }
+    catch (...)
+    {
+        source::Info info;
+        info.errors.push_back("Failed to analyze");
+        return info;
+    }
+}
+
+source::Source parseOne(const std::string path, const arbiter::Arbiter& a)
+{
+    source::Source source(path);
+    try
+    {
+        const json j(json::parse(a.get(path)));
+
+        // Note that we're overwriting our JSON filename here with
+        // the path to the actual point cloud.
+        source.path = j.at("path").get<std::string>();
+        source.info = j.get<source::Info>();
+    }
+    catch (const std::exception& e)
+    {
+        source.info.errors.push_back(
+            std::string("Failed to fetch info: ") + e.what());
+    }
+    catch (...)
+    {
+        source.info.errors.push_back("Failed to fetch info");
+    }
+
+    return source;
+}
+
+std::string toLower(std::string s)
+{
+    std::transform(
+        s.begin(),
+        s.end(),
+        s.begin(),
+        [](unsigned char c) { return std::tolower(c); });
+    return s;
+}
+
+arbiter::LocalHandle localize(
+    const std::string path,
+    const bool deep,
+    const std::string tmp,
+    const arbiter::Arbiter& a)
+{
+    const std::string extension = toLower(arbiter::getExtension(path));
+    const bool isLas = extension == "las" || extension == "laz";
+    if (deep || a.isLocal(path) || !isLas) return a.getLocalHandle(path, tmp);
+    return getPointlessLasFile(path, tmp, a);
 }
 
 source::List analyze(
     const json& pipelineTemplate,
     const StringList& inputs,
+    const bool deep,
+    const std::string tmp,
     const arbiter::Arbiter& a,
     const unsigned int threads)
 {
@@ -296,48 +416,20 @@ source::List analyze(
 
         if (arbiter::getExtension(source.path) == "json")
         {
-            pool.add([&a, &source]()
+            pool.add([&source, &a]()
             {
-                try
-                {
-                    const json j(json::parse(a.get(source.path)));
-
-                    // Note that we're overwriting our JSON filename here with
-                    // the path to the actual point cloud.
-                    source.path = j.at("path").get<std::string>();
-                    source.info = j.get<source::Info>();
-                }
-                catch (const std::exception& e)
-                {
-                    source.info.errors.push_back(
-                        std::string("Failed to fetch info: ") + e.what());
-                }
-                catch (...)
-                {
-                    source.info.errors.push_back("Failed to fetch info");
-                }
+                source = parseOne(source.path, a);
             });
         }
         else
         {
-            auto pipeline = pipelineTemplate;
-            pipeline.at(0)["filename"] = source.path;
-
-            pool.add([&source, pipeline]()
+            pool.add([&]()
             {
-                try
-                {
-                    source.info = getInfo(pipeline);
-                }
-                catch (const std::exception& e)
-                {
-                    source.info.errors.push_back(
-                        std::string("Failed to analyze: ") + e.what());
-                }
-                catch (...)
-                {
-                    source.info.errors.push_back("Failed to analyze");
-                }
+                const auto handle(localize(source.path, deep, tmp, a));
+                source.info = analyzeOne(
+                    handle.localPath(),
+                    deep,
+                    pipelineTemplate);
             });
         }
     }
@@ -350,9 +442,11 @@ source::List analyze(const json& config)
 {
     const json pipeline = extractInfoPipelineFromConfig(config);
     const StringList inputs = config.at("input");
+    const bool deep = config.value("deep", false);
+    const std::string tmp = config.value("tmp", arbiter::getTempPath());
     const arbiter::Arbiter a(config.value("arbiter", json()).dump());
     const unsigned int threads = config.value("threads", 8u);
-    return analyze(pipeline, inputs, a, threads);
+    return analyze(pipeline, inputs, deep, tmp, a, threads);
 }
 
 void serialize(

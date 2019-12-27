@@ -33,14 +33,14 @@ ChunkCache::Info ChunkCache::latchInfo()
 
 ChunkCache::ChunkCache(
         Hierarchy& hierarchy,
-        Pool& ioPool,
         const arbiter::Endpoint& out,
         const arbiter::Endpoint& tmp,
+        const uint64_t threads,
         const uint64_t cacheSize)
     : m_hierarchy(hierarchy)
-    , m_pool(ioPool)
     , m_out(out)
     , m_tmp(tmp)
+    , m_pool(threads)
     , m_cacheSize(cacheSize)
 { }
 

@@ -407,7 +407,7 @@ const drivers::Http& Arbiter::getHttpDriver(const std::string path) const
     else throw ArbiterError("Cannot get driver for " + path + " as HTTP");
 }
 
-std::unique_ptr<LocalHandle> Arbiter::getLocalHandle(
+LocalHandle Arbiter::getLocalHandle(
         const std::string path,
         const Endpoint& tempEndpoint) const
 {
@@ -415,7 +415,7 @@ std::unique_ptr<LocalHandle> Arbiter::getLocalHandle(
     return fromEndpoint.getLocalHandle(getBasename(path));
 }
 
-std::unique_ptr<LocalHandle> Arbiter::getLocalHandle(
+LocalHandle Arbiter::getLocalHandle(
         const std::string path,
         std::string tempPath) const
 {
@@ -631,13 +631,11 @@ bool Endpoint::isHttpDerived() const
     return tryGetHttpDriver() != nullptr;
 }
 
-std::unique_ptr<LocalHandle> Endpoint::getLocalHandle(
+LocalHandle Endpoint::getLocalHandle(
         const std::string subpath,
         http::Headers headers,
         http::Query query) const
 {
-    std::unique_ptr<LocalHandle> handle;
-
     if (isRemote())
     {
         const std::string tmp(getTempPath());
@@ -686,14 +684,12 @@ std::unique_ptr<LocalHandle> Endpoint::getLocalHandle(
             fs.put(local, getBinary(subpath));
         }
 
-        handle.reset(new LocalHandle(local, true));
+        return LocalHandle(local, true);
     }
     else
     {
-        handle.reset(new LocalHandle(expandTilde(fullPath(subpath)), false));
+        return LocalHandle(expandTilde(fullPath(subpath)), false);
     }
-
-    return handle;
 }
 
 std::string Endpoint::get(const std::string subpath) const

@@ -8,6 +8,7 @@
 *
 ******************************************************************************/
 
+/*
 #include <entwine/builder/sequence.hpp>
 
 #include <iterator>
@@ -112,4 +113,4 @@ bool Sequence::checkBounds(
 }
 
 } // namespace entwine
-
+*/

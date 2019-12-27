@@ -52,6 +52,7 @@ protected:
     void addSimpleThreads();
     void addReprojection();
     void addNoTrustHeaders();
+    void addDeep();
     void addAbsolute();
     void addArbiter();
 

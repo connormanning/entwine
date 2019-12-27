@@ -28,24 +28,25 @@ Registry::Registry(
         const Metadata& metadata,
         const arbiter::Endpoint& out,
         const arbiter::Endpoint& tmp,
-        ThreadPools& threadPools,
+        const uint64_t clipThreads,
         const bool exists)
     : m_metadata(metadata)
     , m_dataEp(out.getSubEndpoint("ept-data"))
     , m_hierEp(out.getSubEndpoint("ept-hierarchy"))
-    , m_tmp(tmp)
-    , m_threadPools(threadPools)
     , m_hierarchy(m_metadata, m_hierEp, exists)
     , m_chunkCache(
             makeUnique<ChunkCache>(
                 m_hierarchy,
-                clipPool(),
                 m_dataEp,
-                m_tmp,
+                tmp,
+                clipThreads,
                 m_metadata.cacheSize()))
 { }
 
-void Registry::save(const uint64_t hierarchyStep, const bool verbose)
+void Registry::save(
+    const uint64_t hierarchyStep,
+    const uint64_t threads,
+    const bool verbose)
 {
     m_chunkCache.reset();
 
@@ -55,10 +56,13 @@ void Registry::save(const uint64_t hierarchyStep, const bool verbose)
         else m_hierarchy.analyze(m_metadata, verbose);
     }
 
-    m_hierarchy.save(m_metadata, m_hierEp, m_threadPools.workPool());
+    m_hierarchy.save(m_metadata, m_hierEp, threads);
 }
 
-void Registry::merge(const Registry& other, Clipper& clipper)
+void Registry::merge(
+    const Registry& other,
+    Clipper& clipper,
+    const arbiter::Endpoint& tmp)
 {
     for (const auto& p : other.hierarchy().map())
     {
@@ -87,7 +91,7 @@ void Registry::merge(const Registry& other, Clipper& clipper)
 
             const auto filename(
                     dxyz.toString() + other.metadata().postfix(dxyz.d));
-            m_metadata.dataIo().read(m_dataEp, m_tmp, filename, table);
+            m_metadata.dataIo().read(m_dataEp, tmp, filename, table);
         }
         else
         {

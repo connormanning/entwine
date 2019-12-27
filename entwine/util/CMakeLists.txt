@@ -7,6 +7,7 @@ set(
     "${BASE}/fs.cpp"
     "${BASE}/info.cpp"
     "${BASE}/io.cpp"
+    "${BASE}/pipeline.cpp"
 )
 
 set(
@@ -20,6 +21,7 @@ set(
     "${BASE}/locker.hpp"
     "${BASE}/matrix.hpp"
     "${BASE}/optional.hpp"
+    "${BASE}/pipeline.hpp"
     "${BASE}/pool.hpp"
     "${BASE}/spin-lock.hpp"
     "${BASE}/stack-trace.hpp"

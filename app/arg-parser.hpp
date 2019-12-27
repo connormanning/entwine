@@ -11,15 +11,17 @@
 #pragma once
 
 #include <functional>
+#include <iostream>
 #include <string>
 #include <vector>
 
+#include <entwine/types/defs.hpp>
 #include <entwine/util/json.hpp>
 
 namespace entwine
 {
 
-using Args = std::vector<std::string>;
+using Args = StringList;
 using Handler = std::function<void(json)>;
 
 class ArgParser

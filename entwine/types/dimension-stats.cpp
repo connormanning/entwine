@@ -10,6 +10,8 @@
 
 #include <entwine/types/dimension-stats.hpp>
 
+#include <entwine/types/defs.hpp>
+
 namespace entwine
 {
 namespace dimension

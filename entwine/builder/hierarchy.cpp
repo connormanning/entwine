@@ -10,8 +10,9 @@
 
 #include <entwine/builder/hierarchy.hpp>
 
-#include <entwine/util/io.hpp>
 #include <entwine/types/metadata.hpp>
+#include <entwine/util/io.hpp>
+#include <entwine/util/pool.hpp>
 
 namespace entwine
 {
@@ -47,10 +48,13 @@ void Hierarchy::load(
 void Hierarchy::save(
         const Metadata& m,
         const arbiter::Endpoint& ep,
-        Pool& pool) const
+        const uint64_t threads) const
 {
+    Pool pool(threads);
+
     json j;
     const ChunkKey k(m);
+
     save(m, ep, pool, k, j);
 
     const std::string f(filename(m, k));

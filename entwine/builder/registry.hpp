@@ -34,19 +34,19 @@ public:
             const Metadata& metadata,
             const arbiter::Endpoint& out,
             const arbiter::Endpoint& tmp,
-            ThreadPools& threadPools,
+            uint64_t clipThreads,
             bool exists = false);
 
-    void save(uint64_t hierarchyStep, bool verbose);
-    void merge(const Registry& other, Clipper& clipper);
+    void save(uint64_t hierarchyStep, uint64_t threads, bool verbose);
+    void merge(
+        const Registry& other,
+        Clipper& clipper,
+        const arbiter::Endpoint& tmp);
 
     void addPoint(Voxel& voxel, Key& key, ChunkKey& ck, Clipper& clipper)
     {
         m_chunkCache->insert(voxel, key, ck, clipper);
     }
-
-    Pool& workPool() { return m_threadPools.workPool(); }
-    Pool& clipPool() { return m_threadPools.clipPool(); }
 
     const Metadata& metadata() const { return m_metadata; }
     const Hierarchy& hierarchy() const { return m_hierarchy; }
@@ -56,8 +56,6 @@ private:
     const Metadata& m_metadata;
     const arbiter::Endpoint m_dataEp;
     const arbiter::Endpoint m_hierEp;
-    const arbiter::Endpoint& m_tmp;
-    ThreadPools& m_threadPools;
     Hierarchy m_hierarchy;
 
     std::unique_ptr<ChunkCache> m_chunkCache;

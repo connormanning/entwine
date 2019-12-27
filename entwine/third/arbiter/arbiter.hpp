@@ -25209,10 +25209,9 @@ ARBITER_DLL std::vector<std::string> glob(std::string path);
  */
 class ARBITER_DLL LocalHandle
 {
-    friend class arbiter::Arbiter;
-    friend class arbiter::Endpoint;
-
 public:
+    LocalHandle(std::string localPath, bool isRemote);
+
     /** @brief Deletes the local path if the data was copied from a remote
      * source.
      *
@@ -25240,8 +25239,6 @@ public:
     }
 
 private:
-    LocalHandle(std::string localPath, bool isRemote);
-
     const std::string m_localPath;
     bool m_erase;
 };
@@ -26075,7 +26072,7 @@ public:
     bool isHttpDerived() const;
 
     /** See Arbiter::getLocalHandle. */
-    std::unique_ptr<LocalHandle> getLocalHandle(
+    LocalHandle getLocalHandle(
             std::string subpath,
             http::Headers headers = http::Headers(),
             http::Query query = http::Query()) const;
@@ -26483,7 +26480,7 @@ public:
      *
      * @return A LocalHandle for local access to the resulting file.
      */
-    std::unique_ptr<LocalHandle> getLocalHandle(
+    LocalHandle getLocalHandle(
             std::string path,
             const Endpoint& tempEndpoint) const;
 
@@ -26492,7 +26489,7 @@ public:
      * If @p tempPath is not specified, the environment will be searched for a
      * temporary location.
      */
-    std::unique_ptr<LocalHandle> getLocalHandle(
+    LocalHandle getLocalHandle(
             std::string path,
             std::string tempPath = "") const;
 

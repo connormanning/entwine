@@ -16,6 +16,7 @@
 #include <string>
 
 #include <entwine/builder/builder.hpp>
+#include <entwine/builder/config.hpp>
 #include <entwine/builder/thread-pools.hpp>
 #include <entwine/io/io.hpp>
 #include <entwine/types/bounds.hpp>
@@ -197,8 +198,11 @@ void Build::addArgs()
 
 void Build::run()
 {
-    if (m_json.count("srs")) m_json["srs"] = Srs(m_json.at("srs"));
-    m_json["verbose"] = true;
+    // if (m_json.count("srs")) m_json["srs"] = Srs(m_json.at("srs"));
+    // m_json["verbose"] = true;
+
+    std::cout << "Configuration: " << m_json << std::endl;
+    TypedConfig typed(m_json);
 
     Config config(m_json);
     auto builder(makeUnique<Builder>(config));

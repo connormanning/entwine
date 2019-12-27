@@ -26,10 +26,46 @@
 #include <entwine/types/srs.hpp>
 #include <entwine/types/version.hpp>
 #include <entwine/util/json.hpp>
+#include <entwine/util/optional.hpp>
 #include <entwine/util/unique.hpp>
 
 namespace entwine
 {
+
+struct TypedConfig
+{
+    TypedConfig(const json& j);
+
+    StringList input;
+    std::string output;
+    std::string tmp;
+
+    json pipeline;
+    optional<Bounds> bounds;
+    optional<Schema> schema;
+    optional<Srs> srs;
+    optional<Reprojection> reprojection;
+
+    uint64_t workThreads = 0;
+    uint64_t clipThreads = 0;
+
+    std::string dataType;
+    uint64_t sleepCount = 0;
+    json arbiter;
+    bool verbose = true;
+    bool stats = true;
+    bool force = false;
+    bool deep = false;
+    uint64_t span = 0;
+    uint64_t overflowDepth = 0;
+    uint64_t minNodeSize = 0;
+    uint64_t maxNodeSize = 0;
+    uint64_t cacheSize = 0;
+    uint64_t hierarchyStep = 0;
+    uint64_t progressInterval = 0;
+};
+
+inline void from_json(const json& j, TypedConfig& c) { c = TypedConfig(j); }
 
 class Config
 {

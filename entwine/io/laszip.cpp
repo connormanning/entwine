@@ -105,7 +105,7 @@ void Laz::read(
     auto handle(out.getLocalHandle(filename + ".laz"));
 
     pdal::Options o;
-    o.add("filename", handle->localPath());
+    o.add("filename", handle.localPath());
     o.add("use_eb_vlr", true);
 
     pdal::LasReader reader;

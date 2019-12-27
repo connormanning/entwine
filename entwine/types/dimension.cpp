@@ -10,6 +10,8 @@
 
 #include <entwine/types/dimension.hpp>
 
+#include <entwine/types/defs.hpp>
+
 namespace pdal
 {
 namespace Dimension
@@ -59,6 +61,7 @@ Dimension::Dimension(std::string name, Type type)
     : name(name)
     , type(type)
 { }
+
 Dimension::Dimension(std::string name, Type type, Stats stats)
     : name(name)
     , type(type)
@@ -155,6 +158,41 @@ List combine(List agg, const List& cur)
         else *current = combine(*current, incoming);
     }
     return agg;
+}
+
+List fromLayout(const pdal::PointLayout& layout)
+{
+    List list;
+    for (const DimId id : layout.dims())
+    {
+        const dimension::Dimension dimension(
+            layout.dimName(id),
+            layout.dimType(id));
+        list.push_back(dimension);
+    }
+    return list;
+}
+
+List applyScaleOffset(List dims, const ScaleOffset so)
+{
+    auto& x = find(dims, "X");
+    auto& y = find(dims, "Y");
+    auto& z = find(dims, "Z");
+
+    x.scale = so.scale()[0];
+    x.offset = so.offset()[0];
+
+    y.scale = so.scale()[1];
+    y.offset = so.offset()[1];
+
+    z.scale = so.scale()[2];
+    z.offset = so.offset()[2];
+
+    x.type = DimType::Signed32;
+    y.type = DimType::Signed32;
+    z.type = DimType::Signed32;
+
+    return dims;
 }
 
 } // namespace dimension

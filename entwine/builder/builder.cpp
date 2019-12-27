@@ -14,13 +14,10 @@
 #include <limits>
 #include <numeric>
 #include <random>
-#include <thread>
 
 #include <entwine/builder/clipper.hpp>
 #include <entwine/builder/heuristics.hpp>
 #include <entwine/builder/registry.hpp>
-#include <entwine/builder/sequence.hpp>
-#include <entwine/builder/thread-pools.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/file-info.hpp>
@@ -43,6 +40,7 @@ namespace
     const std::size_t inputRetryLimit(16);
     std::size_t reawakened(0);
 
+    /*
     std::size_t workThreads(const Metadata& m, const Config& c)
     {
         // Limit worker threads to the number of files.
@@ -62,8 +60,17 @@ namespace
 
         return baseClipThreads + stolenWorkThreads;
     }
+    */
 }
 
+Builder::Builder(const TypedConfig& config)
+    : m_arbiter(config.arbiter.dump())
+    , m_out(m_arbiter.getEndpoint(config.output))
+    , m_tmp(m_arbiter.getEndpoint(config.tmp))
+    , m_sleepCount(config.sleepCount)
+    , m_metadata(m_out)
+
+/*
 Builder::Builder(const Config& config, std::shared_ptr<arbiter::Arbiter> a)
     : m_config(config.prepareForBuild())
     , m_interval(m_config.progressInterval())
@@ -77,26 +84,23 @@ Builder::Builder(const Config& config, std::shared_ptr<arbiter::Arbiter> a)
     , m_metadata(m_isContinuation ?
             makeUnique<Metadata>(*m_out, m_config) :
             makeUnique<Metadata>(m_config))
-    , m_threadPools(
-            makeUnique<ThreadPools>(
-                workThreads(*m_metadata, m_config),
-                clipThreads(*m_metadata, m_config)))
     , m_registry(makeUnique<Registry>(
                 *m_metadata,
                 *m_out,
                 *m_tmp,
                 *m_threadPools,
                 m_isContinuation))
-    , m_sequence(makeUnique<Sequence>(*m_metadata, m_mutex))
     , m_verbose(m_config.verbose())
     , m_start(now())
 {
     prepareEndpoints();
 }
+*/
 
 Builder::~Builder()
 { }
 
+/*
 void Builder::go(std::size_t max)
 {
     m_start = now();
@@ -234,7 +238,14 @@ void Builder::doRun(const std::size_t max)
 
     save();
 }
+*/
 
+void Builder::insert(manifest::Item item)
+{
+
+}
+
+/*
 void Builder::insertPath(const Origin originId, FileInfo& info)
 {
     const std::string rawPath(info.path());
@@ -339,15 +350,11 @@ void Builder::insertPath(const Origin originId, FileInfo& info)
         throw std::runtime_error("Failed to execute: " + rawPath);
     }
 }
+*/
 
 void Builder::save()
 {
     save(*m_out);
-}
-
-void Builder::save(const std::string to)
-{
-    save(m_arbiter->getEndpoint(to));
 }
 
 void Builder::save(const arbiter::Endpoint& ep)
@@ -418,9 +425,6 @@ const Registry& Builder::registry() const           { return *m_registry; }
 const arbiter::Arbiter& Builder::arbiter() const    { return *m_arbiter; }
 arbiter::Arbiter& Builder::arbiter() { return *m_arbiter; }
 Registry& Builder::registry() { return *m_registry; }
-
-Sequence& Builder::sequence() { return *m_sequence; }
-const Sequence& Builder::sequence() const { return *m_sequence; }
 
 ThreadPools& Builder::threadPools() const { return *m_threadPools; }
 

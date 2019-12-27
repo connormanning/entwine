@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <map>
 #include <set>
 
@@ -58,7 +59,7 @@ public:
     void save(
             const Metadata& metadata,
             const arbiter::Endpoint& top,
-            Pool& pool) const;
+            uint64_t threads) const;
 
     void analyze(const Metadata& m, bool verbose) const;
     void setStep(uint64_t step) const { m_step = step; }

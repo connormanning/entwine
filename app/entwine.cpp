@@ -8,12 +8,11 @@
 *
 ******************************************************************************/
 
-#include "build.hpp"
-#include "convert.hpp"
+// #include "build.hpp"
 #include "entwine.hpp"
 #include "info.hpp"
-#include "merge.hpp"
-#include "scan.hpp"
+// #include "merge.hpp"
+// #include "scan.hpp"
 
 #include <csignal>
 #include <cstdio>
@@ -45,9 +44,7 @@ namespace
             t(2) + "merge\n" +
             t(3) + "Merge colocated entwine subsets\n" +
             t(2) + "info\n" +
-            t(3) + "Gather metadata information about point cloud files\n" +
-            t(2) + "convert\n" +
-            t(3) + "Convert an entwine dataset to a different format\n";
+            t(3) + "Gather metadata information about point cloud files\n";
     }
 
     std::mutex mutex;
@@ -183,7 +180,22 @@ void App::addNoTrustHeaders()
             [this](json j)
             {
                 checkEmpty(j);
-                m_json["trustHeaders"] = false;
+                std::cout << "'trustHeaders' option is deprecated - " <<
+                    "use the 'deep' option instead." << std::endl;
+                m_json["deep"] = true;
+            });
+}
+
+void App::addDeep()
+{
+    m_ap.add(
+            "--deep",
+            "Read all points during file analysis rather than just the "
+            "headers.",
+            [this](json j)
+            {
+                checkEmpty(j);
+                m_json["deep"] = true;
             });
 }
 
@@ -307,6 +319,7 @@ int main(int argc, char** argv)
 
     try
     {
+        /*
         if (app == "scan")
         {
             entwine::app::Scan().go(args);
@@ -319,11 +332,7 @@ int main(int argc, char** argv)
         {
             entwine::app::Merge().go(args);
         }
-        else if (app == "convert")
-        {
-            entwine::app::Convert().go(args);
-        }
-        else if (app == "info")
+        else */ if (app == "info")
         {
             entwine::app::Info().go(args);
         }

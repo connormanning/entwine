@@ -25,11 +25,17 @@ void Info::addArgs()
 {
     m_ap.setUsage("entwine info <path(s)> (<options>)");
 
+    // TODO: Remove this.
     m_ap.add(
             "--manifest",
             "-m",
             "Create a buildable manifest.",
             [this](json j) { m_json["manifest"] = true; });
+
+    m_ap.add(
+            "--deep",
+            "",
+            [this](json j) { m_json["deep"] = true; });
 
     addInput(
             "File paths or directory entries.  For a recursive directory "
@@ -65,7 +71,7 @@ void Info::run()
         const auto start = now();
         const auto manifest(manifest::create(analyze(m_json)));
 
-        std::cout << "Manifest: " << manifest.size() << std::endl;
+        std::cout << "Manifest: " << json(manifest).dump(2) << std::endl;
         std::cout << "Parsed in " <<
             formatTime(since<std::chrono::seconds>(start)) << "s." << std::endl;
 
@@ -79,7 +85,7 @@ void Info::run()
     const auto sources = analyze(m_json);
     const auto reduced = source::reduce(sources);
     std::cout << "Analyzed in " <<
-        formatTime(since<std::chrono::seconds>(start)) << "s." << std::endl;
+        formatTime(since<std::chrono::seconds>(start)) << "." << std::endl;
 
     if (output.size())
     {
@@ -90,8 +96,11 @@ void Info::run()
 
         if (a.isLocal(output)) arbiter::mkdirp(output);
 
+        const auto endpoint(a.getEndpoint(output));
+
         const auto start = now();
-        serialize(sources, a.getEndpoint(output), threads);
+        serialize(sources, endpoint, threads);
+
         std::cout << "Serialized in " <<
             formatTime(since<std::chrono::seconds>(start)) << "s." << std::endl;
     }

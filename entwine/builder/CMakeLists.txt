@@ -10,6 +10,7 @@ set(
     "${BASE}/config.cpp"
     "${BASE}/hierarchy.cpp"
     "${BASE}/merger.cpp"
+    "${BASE}/metadata.cpp
     "${BASE}/registry.cpp"
     "${BASE}/scan.cpp"
     "${BASE}/sequence.cpp"
@@ -26,6 +27,7 @@ set(
     "${BASE}/heuristics.hpp"
     "${BASE}/hierarchy.hpp"
     "${BASE}/merger.hpp"
+    "${BASE}/metadata.hpp
     "${BASE}/overflow.hpp"
     "${BASE}/registry.hpp"
     "${BASE}/scan.hpp"

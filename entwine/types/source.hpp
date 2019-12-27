@@ -26,14 +26,20 @@ struct Info
     Info() = default;
     Info(const json& j);
 
+    // This info represents the output of a pipeline execution, with the sole
+    // exception of the "metadata" field which is representative of only the
+    // reader.
+
     StringList errors;
     StringList warnings;
 
-    json metadata;
+    json pipeline;
     Srs srs;
     Bounds bounds;
     uint64_t points = 0;
     dimension::List dimensions;
+
+    json metadata;  // Reader-specific.
 };
 
 using InfoList = std::vector<Info>;

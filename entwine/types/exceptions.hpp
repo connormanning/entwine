@@ -15,6 +15,18 @@
 namespace entwine
 {
 
+class ConfigurationError : public std::runtime_error
+{
+public:
+    ConfigurationError(const std::string& s) : std::runtime_error(s) { }
+};
+
+class ShallowInfoError : public std::runtime_error
+{
+public:
+    ShallowInfoError(const std::string& s) : std::runtime_error(s) { }
+};
+
 class FatalError : public std::runtime_error
 {
 public:

@@ -10,8 +10,13 @@
 
 #include <entwine/builder/config.hpp>
 
+#include <cassert>
+#include <cmath>
+
+#include <entwine/builder/heuristics.hpp>
 #include <entwine/builder/scan.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
+#include <entwine/types/exceptions.hpp>
 #include <entwine/util/io.hpp>
 
 namespace entwine
@@ -28,7 +33,58 @@ bool isScan(std::string s)
     return s.rfind(scanFile) == s.size() - scanFile.size();
 }
 
+struct Threads
+{
+    Threads(uint64_t work, uint64_t clip)
+        : work(std::max<uint64_t>(work, 1))
+        , clip(std::max<uint64_t>(clip, 3))
+    { }
+
+    uint64_t work = 0;
+    uint64_t clip = 0;
+};
+
+Threads extractThreads(const json& j)
+{
+    if (j.is_array())
+    {
+        return Threads(j.at(0).get<uint64_t>(), j.at(1).get<uint64_t>());
+    }
+
+    const uint64_t total = j.is_number() ? j.get<uint64_t>() : 8;
+    const uint64_t work =
+        std::llround(total * heuristics::defaultWorkToClipRatio);
+    assert(total >= work);
+    const uint64_t clip = total - work;
+    return Threads(work, clip);
+}
+
 } // unnamed namespace
+
+TypedConfig::TypedConfig(const json& j)
+    : input(j.at("input").get<StringList>())
+    , output(j.at("output").get<std::string>())
+    , tmp(j.value("tmp", arbiter::getTempPath()))
+    , pipeline(j.value("pipeline", json::array({ json::object() })))
+    , bounds(j.value("bounds", optional<Bounds>()))
+    , schema(j.value("schema", optional<Schema>()))
+    , srs(j.value("srs", optional<Srs>()))
+    , reprojection(j.value("reprojection", optional<Reprojection>()))
+    , workThreads(extractThreads(j.value("threads", json())).work)
+    , clipThreads(extractThreads(j.value("threads", json())).clip)
+    , dataType(j.value("dataType", "laszip"))
+    , sleepCount(j.value("sleepCount", heuristics::sleepCount))
+    , arbiter(j.value("arbiter", json()))
+    , verbose(j.value("verbose", true))
+    , stats(j.value("stats", true))
+    , force(j.value("force", false))
+    , deep(j.value("deep", false))
+    , span(j.value("span", 128))
+    , progressInterval(j.value("progressInterval", 10))
+{
+    if (output.empty()) throw ConfigurationError("Missing 'output'")
+    if (tmp.empty()) throw ConfigurationError("Missing 'tmp'")
+}
 
 Config Config::fromScan(const std::string file) const
 {

@@ -48,11 +48,11 @@ add_subdirectory(app)
 # of files which act as a target.  No actual file is built.
 #
 set(OBJS
-    $<TARGET_OBJECTS:formats>
-    $<TARGET_OBJECTS:reader>
+    # $<TARGET_OBJECTS:formats>
+    # $<TARGET_OBJECTS:reader>
     $<TARGET_OBJECTS:io>
     $<TARGET_OBJECTS:third>
-    $<TARGET_OBJECTS:builder>
+    # $<TARGET_OBJECTS:builder>
     $<TARGET_OBJECTS:types>
     $<TARGET_OBJECTS:util>
 )

@@ -2,12 +2,11 @@ set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 set(
     SOURCES
-    "${BASE}/build.cpp"
-    "${BASE}/convert.cpp"
+    # "${BASE}/build.cpp"
     "${BASE}/entwine.cpp"
     "${BASE}/info.cpp"
-    "${BASE}/merge.cpp"
-    "${BASE}/scan.cpp"
+    # "${BASE}/merge.cpp"
+    # "${BASE}/scan.cpp"
 )
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)

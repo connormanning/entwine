@@ -15,7 +15,10 @@
 #include <string>
 #include <vector>
 
+#include <pdal/PointLayout.hpp>
+
 #include <entwine/types/dimension-stats.hpp>
+#include <entwine/types/scale-offset.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/optional.hpp>
 
@@ -24,7 +27,7 @@ namespace pdal
 namespace Dimension
 {
 
-inline void from_json(const entwine::json& j, Type& t);
+void from_json(const entwine::json& j, Type& t);
 
 } // namespace Dimension
 } // namespace pdal
@@ -41,7 +44,7 @@ struct Dimension
 {
     Dimension() = default;
     Dimension(std::string name, Type type);
-    Dimension(std::string name, Type type, Stats stats = { });
+    Dimension(std::string name, Type type, Stats stats);
     Dimension(const json& j);
 
     std::string name;
@@ -63,6 +66,10 @@ Dimension& find(List& dims, std::string name);
 
 Dimension combine(Dimension agg, const Dimension& dim);
 List combine(List agg, const List& list);
+
+List fromLayout(const pdal::PointLayout& layout);
+
+List applyScaleOffset(List dims, ScaleOffset so);
 
 } // namespace dimension
 } // namespace entwine

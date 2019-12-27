@@ -100,6 +100,13 @@ private:
 };
 
 template <typename T>
+inline optional<T> maybeCreate(const json& j)
+{
+    if (!j.is_null()) return j.get<T>();
+    return { };
+}
+
+template <typename T>
 inline void from_json(const json& j, optional<T>& v)
 {
     if (!j.is_null()) v = j.get<T>();

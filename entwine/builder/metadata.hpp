@@ -14,8 +14,6 @@
 #include <string>
 #include <vector>
 
-#include <pdal/Dimension.hpp>
-
 #include <entwine/builder/config.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/defs.hpp>
@@ -28,7 +26,6 @@ namespace entwine
 {
 
 class DataIo;
-class Files;
 class Point;
 class Reprojection;
 class Schema;
@@ -37,10 +34,8 @@ class Version;
 
 class Metadata
 {
-    friend class Builder;
-    friend class Sequence;
-
 public:
+    Metadata(const TypedConfig& config);
     Metadata(const Config& config, bool exists = false);
     Metadata(
             const arbiter::Endpoint& endpoint,
@@ -48,7 +43,6 @@ public:
 
     ~Metadata();
 
-    void merge(const Metadata& other);
     void save(const arbiter::Endpoint& endpoint, const Config& config) const;
 
     const Bounds& boundsConforming() const { return *m_boundsConforming; }
@@ -61,7 +55,6 @@ public:
 
     const Schema& schema() const { return *m_schema; }
     const Schema& outSchema() const { return *m_outSchema; }
-    const Files& files() const { return *m_files; }
 
     const DataIo& dataIo() const { return *m_dataIo; }
 
@@ -93,32 +86,42 @@ private:
     Bounds makeConformingBounds(Bounds b) const;
     Bounds makeCube(const Bounds& b) const;
 
-    // These are aggregated as the Builder runs.
-    Files& mutableFiles() { return *m_files; }
+    Version m_eptVersion;
 
+    dimension::List m_dimensions;
+    Bounds m_boundsConforming;
+    Bounds m_bounds;
+
+    std::unique_ptr<DataIo> m_dataIo;
+
+    optional<Reprojection> m_reprojection;
+    optional<Srs> m_srs;
+    optional<Subset> m_subset;
+
+    /*
     std::unique_ptr<Schema> m_outSchema;
     std::unique_ptr<Schema> m_schema;
 
     std::unique_ptr<Bounds> m_boundsConforming;
     std::unique_ptr<Bounds> m_boundsCubic;
 
-    std::unique_ptr<Files> m_files;
     std::unique_ptr<DataIo> m_dataIo;
     std::unique_ptr<Reprojection> m_reprojection;
     std::unique_ptr<Version> m_eptVersion;
     std::unique_ptr<Srs> m_srs;
     std::unique_ptr<Subset> m_subset;
+    */
 
-    const bool m_trustHeaders = true;
+    bool m_trustHeaders = true;
 
-    const uint64_t m_span;
-    const uint64_t m_startDepth;
-    const uint64_t m_sharedDepth;
+    uint64_t m_span = 0;
+    uint64_t m_startDepth = 0;
+    uint64_t m_sharedDepth = 0;
 
-    const uint64_t m_overflowDepth;
-    const uint64_t m_minNodeSize;
-    const uint64_t m_maxNodeSize;
-    const uint64_t m_cacheSize;
+    uint64_t m_overflowDepth = 0;
+    uint64_t m_minNodeSize = 0;
+    uint64_t m_maxNodeSize = 0;
+    uint64_t m_cacheSize = 0;
 
     bool m_merged = false;
 };

@@ -13,11 +13,11 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <limits>
 #include <sstream>
 #include <string>
 
 #include <entwine/third/json.hpp>
-#include <entwine/types/defs.hpp>
 
 namespace entwine
 {
@@ -80,6 +80,31 @@ inline json getTypedValue(double d)
         return static_cast<uint64_t>(d);
     }
     return d;
+}
+
+// Slice has the semantics of Javascript's Array.slice, where negative numbers
+// indicate an offset from the end of the array.
+inline json slice(
+    json j,
+    int begin = 0,
+    int end = std::numeric_limits<int>::max())
+{
+    if (!j.is_array())
+    {
+        throw std::runtime_error("Invalid JSON type to slice: " + j.dump(2));
+    }
+
+    const int size(static_cast<int>(j.size()));
+
+    if (begin < 0) begin = size + begin;
+    if (end < 0) end = size + end;
+
+    begin = std::max(std::min(begin, size), 0);
+    end = std::max(std::min(end, size), 0);
+
+    if (begin >= end) return json::array();
+
+    return json(j.begin() + begin, j.begin() + end);
 }
 
 } // namespace entwine

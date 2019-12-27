@@ -20,14 +20,20 @@ namespace entwine
 
 json createInfoPipeline(
     json pipeline = json::array({ json::object() }),
+    bool deep = false,
     optional<Reprojection> = { });
 
 json extractInfoPipelineFromConfig(json config);
 
+source::Info analyzeOne(std::string path, bool deep, json pipelineTemplate);
+source::Source parseOne(std::string path, const arbiter::Arbiter& a = { });
+
 source::List analyze(
-    const json& pipeline,
+    const json& pipelineTemplate,
     const StringList& inputs,
-    const arbiter::Arbiter& a = arbiter::Arbiter(),
+    bool deep,
+    std::string tmp = arbiter::getTempPath(),
+    const arbiter::Arbiter& a = { },
     unsigned int threads = 8);
 
 source::List analyze(const json& config);

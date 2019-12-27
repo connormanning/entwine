@@ -11,7 +11,6 @@
 #include <cassert>
 
 #include <entwine/io/io.hpp>
-#include <entwine/types/files.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/schema.hpp>
@@ -24,6 +23,10 @@
 namespace entwine
 {
 
+Metadata::Metadata(const TypedConfig& config)
+    : m_eptVersion(currentEptVersion())
+    , m_dimensions
+
 Metadata::Metadata(const Config& config, const bool exists)
     : m_outSchema(makeUnique<Schema>(config.schema()))
     , m_schema(makeUnique<Schema>(Schema::makeAbsolute(*m_outSchema)))
@@ -35,7 +38,6 @@ Metadata::Metadata(const Config& config, const bool exists)
                 exists ?
                     config.bounds() :
                     makeCube(*m_boundsConforming)))
-    , m_files(makeUnique<Files>(config.input()))
     , m_dataIo(DataIo::create(*this, config.dataType()))
     , m_reprojection(config.reprojection())
     , m_eptVersion(exists ?
@@ -108,41 +110,30 @@ Metadata::Metadata(const arbiter::Endpoint& ep, const Config& c)
                     json::parse(ep.get("ept-build" + c.postfix() + ".json")),
                     json::parse(ep.get("ept" + c.postfix() + ".json")))),
             true)
-{
-    Files files(Files::extract(ep, primary(), c.postfix()));
-    files.append(m_files->list());
-    m_files = makeUnique<Files>(files.list());
-}
+{ }
 
 Metadata::~Metadata() { }
 
 void Metadata::save(const arbiter::Endpoint& ep, const Config& config) const
 {
-    {
-        const json meta(*this);
-        const std::string f("ept" + postfix() + ".json");
-        ensurePut(ep, f, meta.dump(2));
-    }
+    const json meta(*this);
+    const std::string filename("ept" + postfix() + ".json");
+    ensurePut(ep, filename, meta.dump(2));
 
-    {
-        json buildMeta {
-            { "software", "Entwine" },
-            { "version", currentEntwineVersion().toString() },
-            { "trustHeaders", m_trustHeaders },
-            { "overflowDepth", m_overflowDepth },
-            { "minNodeSize", m_minNodeSize },
-            { "maxNodeSize", m_maxNodeSize },
-            { "cacheSize", m_cacheSize }
-        };
-        if (m_subset) buildMeta["subset"] = *m_subset;
-        if (m_reprojection) buildMeta["reprojection"] = *m_reprojection;
+    json buildMeta {
+        { "software", "Entwine" },
+        { "version", currentEntwineVersion().toString() },
+        { "trustHeaders", m_trustHeaders },
+        { "overflowDepth", m_overflowDepth },
+        { "minNodeSize", m_minNodeSize },
+        { "maxNodeSize", m_maxNodeSize },
+        { "cacheSize", m_cacheSize }
+    };
+    if (m_subset) buildMeta["subset"] = *m_subset;
+    if (m_reprojection) buildMeta["reprojection"] = *m_reprojection;
 
-        const std::string f("ept-build" + postfix() + ".json");
-        ensurePut(ep, f, buildMeta.dump(2));
-    }
-
-    const bool detailed(!m_merged && primary());
-    m_files->save(ep, postfix(), config, detailed);
+    const std::string buildFilename("ept-build" + postfix() + ".json");
+    ensurePut(ep, buildFilename, buildMeta.dump(2));
 }
 
 void to_json(json& j, const Metadata& m)
@@ -153,16 +144,10 @@ void to_json(json& j, const Metadata& m)
         { "boundsConforming", m.boundsConforming() },
         { "schema", m.outSchema() },
         { "span", m.span() },
-        { "points", m.files().totalInserts() },
         { "dataType", m.dataIo().type() },
         { "hierarchyType", "json" },
         { "srs", m.srs() }
     };
-}
-
-void Metadata::merge(const Metadata& other)
-{
-    m_files->merge(other.files());
 }
 
 void Metadata::makeWhole()

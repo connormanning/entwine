@@ -30,14 +30,6 @@ struct Item
         , info(s.info)
     { }
 
-    /*
-    Item(std::string path, uint64_t points, Bounds bounds)
-        : path(path)
-        , points(points)
-        , bounds(bounds)
-    { }
-    */
-
     std::string path;
     uint64_t points = 0;
     Bounds bounds;
@@ -47,6 +39,18 @@ struct Item
 
     optional<source::Info> info;
 };
+
+inline void to_json(json& j, const Item& item)
+{
+    j = {
+        { "path", item.path },
+        { "points", item.points },
+        { "bounds", item.bounds },
+        { "inserted", item.inserted }
+    };
+
+    if (item.info) j.update(*item.info);
+}
 
 using ItemList = std::vector<Item>;
 

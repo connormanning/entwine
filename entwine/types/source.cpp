@@ -18,25 +18,28 @@ namespace source
 Info::Info(const json& j)
     : errors(extractList<std::string>(j.value("errors", json())))
     , warnings(extractList<std::string>(j.value("warnings", json())))
-    , metadata(j.value("metadata", json()))
+    , pipeline(j.value("pipeline", json()))
     , srs(j.value("srs", json()))
     , bounds(j.value("bounds", json()))
     , points(j.value("points", 0))
     , dimensions(
         extractList<dimension::Dimension>(j.value("dimensions", json())))
+    , metadata(j.value("metadata", json()))
 { }
 
 void to_json(json& j, const Info& info)
 {
     j = json::object();
 
-    if (info.warnings.size())
+    if (!info.pipeline.is_null()) j["pipeline"] = info.pipeline;
+    if (info.warnings.size()) j["warnings"] = info.warnings;
+    if (info.errors.size()) j["errors"] = info.errors;
+    if (!info.points)
     {
-        j["warnings"] = info.warnings;
-    }
-    if (info.errors.size())
-    {
-        j["errors"] = info.errors;
+        // If we have no points, then our SRS, bounds, and dimensions are not
+        // applicable.
+        j["points"] = 0;
+        return;
     }
 
     j.update({
