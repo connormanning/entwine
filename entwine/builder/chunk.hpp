@@ -14,47 +14,37 @@
 #include <cstddef>
 #include <utility>
 
+#include <entwine/builder/hierarchy.hpp>
 #include <entwine/builder/overflow.hpp>
+#include <entwine/third/arbiter/arbiter.hpp>
+#include <entwine/types/endpoints.hpp>
 #include <entwine/types/vector-point-table.hpp>
 #include <entwine/util/spin-lock.hpp>
-
-namespace arbiter { class Endpoint; }
 
 namespace entwine
 {
 
-class Hierarchy;
 class ChunkCache;
 class Clipper;
 
-class VoxelTube
+struct VoxelTube
 {
-public:
-    SpinLock& spin() { return m_spin; }
-    Voxel& operator[](uint32_t i)
-    {
-        return m_map[i];
-    }
-
-private:
-    SpinLock m_spin;
-    std::map<uint32_t, Voxel> m_map;
+    SpinLock spin;
+    std::map<uint32_t, Voxel> map;
 };
 
 class Chunk
 {
 public:
-    Chunk(const ChunkKey& ck, const Hierarchy& hierarchy);
+    Chunk(const Metadata& m, const ChunkKey& ck, const Hierarchy& hierarchy);
 
     bool insert(ChunkCache& cache, Clipper& clipper, Voxel& voxel, Key& key);
-    uint64_t save(const arbiter::Endpoint& out, const arbiter::Endpoint& tmp)
-        const;
+    uint64_t save(const Endpoints& endpoints) const;
     void load(
-            ChunkCache& cache,
-            Clipper& clipper,
-            const arbiter::Endpoint& out,
-            const arbiter::Endpoint& tmp,
-            uint64_t np);
+        ChunkCache& cache,
+        Clipper& clipper,
+        const Endpoints& endpoints,
+        uint64_t np);
 
     const ChunkKey& chunkKey() const { return m_chunkKey; }
     const ChunkKey& childAt(Dir dir) const
@@ -66,10 +56,10 @@ public:
 
 private:
     bool insertOverflow(
-            ChunkCache& cache,
-            Clipper& clipper,
-            Voxel& voxel,
-            Key& key);
+        ChunkCache& cache,
+        Clipper& clipper,
+        Voxel& voxel,
+        Key& key);
 
     void maybeOverflow(ChunkCache& cache, Clipper& clipper);
     void doOverflow(ChunkCache& cache, Clipper& clipper, uint64_t dir);

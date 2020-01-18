@@ -10,6 +10,11 @@
 
 #include <entwine/builder/hierarchy.hpp>
 
+#include <algorithm>
+#include <cassert>
+#include <cmath>
+
+#include <entwine/builder/heuristics.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/util/io.hpp>
 #include <entwine/util/pool.hpp>
@@ -17,200 +22,218 @@
 namespace entwine
 {
 
-Hierarchy::Hierarchy(
-        const Metadata& m,
-        const arbiter::Endpoint& ep,
-        const bool exists)
+void to_json(json& j, const Hierarchy& h)
 {
-    if (exists) load(m, ep);
+    j = json::object();
+    for (const auto& entry : h.map) j[entry.first.toString()] = entry.second;
 }
 
-void Hierarchy::load(
-        const Metadata& m,
-        const arbiter::Endpoint& ep,
-        const Dxyz& root)
+void from_json(const json& j, Hierarchy& h)
 {
-    const json j(json::parse(ep.get(filename(m, root))));
-
+    h.map = j.get<Hierarchy::Map>();
+    /*
     for (const auto& p : j.items())
     {
-        const std::string s(p.key());
-        const Dxyz k(s);
+        const Dxyz key(p.key());
+        const uint64_t value = p.value().get<uint64_t>();
+        h.map[key] = value;
+    }
+    */
+}
 
-        assert(!m_map.count(k));
+namespace hierarchy
+{
 
-        int64_t n(p.value().get<int64_t>());
-        if (n < 0) load(m, ep, k);
-        else m_map[k] = static_cast<uint64_t>(n);
+namespace
+{
+
+struct Analysis
+{
+    Analysis() = default;
+    Analysis(const Hierarchy::ChunkMap& chunks)
+    {
+        const double totalFiles = chunks.size();
+        double totalNodes = 0;
+        for (const auto& chunk : chunks)
+        {
+            const uint64_t chunkSize = chunk.second.size();
+            totalNodes += chunkSize;
+            maxNodesPerFile = std::max(maxNodesPerFile, chunkSize);
+        }
+
+        double mean = totalNodes / totalFiles;
+        double ss = 0;
+        for (const auto& chunk : chunks)
+        {
+            const double n = chunk.second.size();
+            ss += std::pow(n - mean, 2.0);
+        }
+        double stddev = std::sqrt(ss / (totalNodes - 1.0));
+        rsd = stddev / mean;
+    }
+
+    uint64_t maxNodesPerFile = 0;
+    double rsd = 0;
+};
+
+Dxyz getChild(const Dxyz& key, const int dir)
+{
+    return Dxyz(
+        key.d + 1,
+        key.x * 2 + ((dir & 0x1) ? 1 : 0),
+        key.y * 2 + ((dir & 0x2) ? 1 : 0),
+        key.z * 2 + ((dir & 0x4) ? 1 : 0));
+}
+
+void getChunks(
+    Hierarchy::ChunkMap& result,
+    const Dxyz& root,
+    const Dxyz& curr,
+    const Hierarchy::Map& h,
+    const unsigned step)
+{
+    if (!h.count(curr)) return;
+    const int64_t n = h.at(curr);
+
+    if (step && curr.d > root.d && curr.d % step == 0)
+    {
+        // Start a new subtree.
+        result[root][curr] = -1;
+        getChunks(result, curr, curr, h, step);
+    }
+    else
+    {
+        result[root][curr] = n;
+        for (int dir = 0; dir < 8; ++dir)
+        {
+            getChunks(result, root, getChild(curr, dir), h, step);
+        }
     }
 }
 
-void Hierarchy::save(
-        const Metadata& m,
-        const arbiter::Endpoint& ep,
-        const uint64_t threads) const
+} // unnamed namespace
+
+Hierarchy::ChunkMap getChunks(const Hierarchy& h, const unsigned step)
+{
+    Hierarchy::ChunkMap result;
+    getChunks(result, Dxyz(), Dxyz(), h.map, step);
+    return result;
+}
+
+unsigned determineStep(const Hierarchy& h)
+{
+    if (h.map.size() < heuristics::maxHierarchyNodesPerFile) return 0;
+
+    struct AnalysisEntry
+    {
+        AnalysisEntry(const Hierarchy& h, unsigned step)
+            : analysis(getChunks(h, step))
+            , step(step)
+        { }
+        Analysis analysis;
+        unsigned step = 0;
+    };
+
+    std::vector<AnalysisEntry> entries;
+    for (const uint64_t step : { 4, 5, 6, 8, 10 })
+    {
+        entries.emplace_back(h, step);
+    }
+
+    const auto best = std::min_element(
+        entries.begin(),
+        entries.end(),
+        [](const AnalysisEntry& a, const AnalysisEntry& b)
+        {
+            const auto max = heuristics::maxHierarchyNodesPerFile;
+            const bool afits = a.analysis.maxNodesPerFile < max;
+            const bool bfits = b.analysis.maxNodesPerFile < max;
+
+            if (afits && !bfits) return true;
+            if (bfits && !afits) return false;
+
+            if (a.analysis.rsd < b.analysis.rsd / 5.0) return true;
+            if (b.analysis.rsd < a.analysis.rsd / 5.0) return false;
+
+            // Prefer the higher step if their RSDs are close enough.
+            return a.step > b.step;
+        });
+
+    return best->step;
+}
+
+void save(
+    const Hierarchy& h,
+    const arbiter::Endpoint& ep,
+    const unsigned step,
+    const unsigned threads,
+    const std::string postfix)
 {
     Pool pool(threads);
 
-    json j;
-    const ChunkKey k(m);
+    const auto chunks = getChunks(h, step);
+    for (const auto& chunk : chunks)
+    {
+        pool.add([&]()
+        {
+            const Dxyz& root = chunk.first;
+            const Hierarchy::Map& counts = chunk.second;
 
-    save(m, ep, pool, k, j);
+            const std::string filename = root.toString() + postfix + ".json";
+            json data = json::object();
+            for (const auto& node : counts)
+            {
+                data[node.first.toString()] = node.second;
+            }
 
-    const std::string f(filename(m, k));
-    pool.add([&ep, f, j]() { ensurePut(ep, f, j.dump(2)); });
+            const int indent = root.d ? -1 : 2;
+            ensurePut(ep, filename, data.dump(indent));
+        });
+    }
+
+    pool.join();
+}
+
+void load(
+    Hierarchy& h,
+    const arbiter::Endpoint& ep,
+    Pool& pool,
+    const std::string& postfix,
+    const Dxyz& root = Dxyz())
+{
+    const json j = json::parse(
+        ensureGet(ep, root.toString() + postfix + ".json"));
+
+    for (const auto& node : j.items())
+    {
+        const Dxyz key(node.key());
+        const int64_t val(node.value().get<int64_t>());
+
+        if (val == -1)
+        {
+            pool.add([&h, &ep, &pool, &postfix, key]()
+            {
+                load(h, ep, pool, postfix, key);
+            });
+        }
+        else set(h, key, val);
+    }
+}
+
+Hierarchy load(
+    const arbiter::Endpoint& ep,
+    const unsigned threads,
+    const std::string postfix)
+{
+    Hierarchy hierarchy;
+    Pool pool(threads);
+
+    load(hierarchy, ep, pool, postfix);
 
     pool.await();
+
+    return hierarchy;
 }
 
-void Hierarchy::save(
-        const Metadata& m,
-        const arbiter::Endpoint& ep,
-        Pool& pool,
-        const ChunkKey& k,
-        json& curr) const
-{
-    const uint64_t n(get(k.dxyz()));
-    if (!n) return;
-
-    if (m_step && k.depth() && (k.depth() % m_step == 0))
-    {
-        curr[k.toString()] = -1;
-
-        json next;
-        next[k.toString()] = n;
-
-        for (uint64_t dir(0); dir < 8; ++dir)
-        {
-            save(m, ep, pool, k.getStep(toDir(dir)), next);
-        }
-
-        const std::string f(filename(m, k));
-        pool.add([&ep, f, next]() { ensurePut(ep, f, next.dump()); });
-    }
-    else
-    {
-        curr[k.toString()] = n;
-
-        for (uint64_t dir(0); dir < 8; ++dir)
-        {
-            save(m, ep, pool, k.getStep(toDir(dir)), curr);
-        }
-    }
-}
-
-void Hierarchy::analyze(const Metadata& m, const bool verbose) const
-{
-    if (m_step) return;
-    if (m_map.size() <= heuristics::maxHierarchyNodesPerFile) return;
-
-    AnalysisSet analysis;
-    std::vector<uint64_t> steps{ 5, 6, 8, 10 };
-    for (const uint64_t step : steps)
-    {
-        Map analyzed;
-        const ChunkKey k(m);
-        analyzed[k.dxyz()] = 1;
-        analyze(m, step, k, k.dxyz(), analyzed);
-
-        analysis.emplace(m_map, analyzed, step);
-    }
-
-    const auto& chosen(*analysis.begin());
-
-    if (verbose)
-    {
-        for (const auto& a : analysis) a.summarize();
-        std::cout << "Setting hierarchy step: " << chosen.step << std::endl;
-    }
-
-    m_step = chosen.step;
-}
-
-void Hierarchy::analyze(
-    const Metadata& m,
-    const uint64_t step,
-    const ChunkKey& k,
-    const Dxyz& curr,
-    Hierarchy::Map& map) const
-{
-    const uint64_t n(get(k.dxyz()));
-    if (!n) return;
-
-    ++map[curr];
-
-    if (step && k.depth() && (k.depth() % step == 0))
-    {
-        const Dxyz next(k.dxyz());
-        map[next] = 1;
-
-        for (uint64_t dir(0); dir < 8; ++dir)
-        {
-            analyze(m, step, k.getStep(toDir(dir)), next, map);
-        }
-    }
-    else
-    {
-        for (uint64_t dir(0); dir < 8; ++dir)
-        {
-            analyze(m, step, k.getStep(toDir(dir)), curr, map);
-        }
-    }
-}
-
-Hierarchy::Analysis::Analysis(
-        const Hierarchy::Map& hierarchy,
-        const Hierarchy::Map& analyzed,
-        uint64_t step)
-    : step(step)
-    , totalFiles(analyzed.size())
-{
-    for (const auto& p : analyzed)
-    {
-        const uint64_t n(p.second);
-        totalNodes += n;
-        maxNodesPerFile = std::max(maxNodesPerFile, n);
-    }
-
-    mean = (double)totalNodes / analyzed.size();
-
-    double ss(0);
-    for (const auto& p : analyzed)
-    {
-        const double n(p.second);
-        ss += std::pow(n - mean, 2.0);
-    }
-
-    stddev = std::sqrt(ss / ((double)totalNodes - 1.0));
-    rsd = stddev / mean;
-}
-
-bool Hierarchy::Analysis::operator<(const Hierarchy::Analysis& b) const
-{
-    const Hierarchy::Analysis& a(*this);
-
-    if (a.fits() && !b.fits()) return true;
-    if (b.fits() && !a.fits()) return false;
-
-    if (a.rsd < b.rsd / 5.0) return true;
-    if (b.rsd < a.rsd / 5.0) return false;
-
-    // Prefer the higher step if their RSDs are close enough.
-    return a.step > b.step;
-}
-
-void Hierarchy::Analysis::summarize() const
-{
-    std::cout <<
-        "HS" << step <<
-        " T: " << totalNodes <<
-        " F: " << totalFiles <<
-        " X: " << maxNodesPerFile <<
-        " M: " << mean <<
-        " D: " << stddev <<
-        " R: " << rsd <<
-        std::endl;
-}
-
+} // namespace hierarchy
 } // namespace entwine
-

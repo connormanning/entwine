@@ -15,9 +15,9 @@
 #include <string>
 #include <vector>
 
-#include <pdal/PointLayout.hpp>
-
+#include <entwine/types/defs.hpp>
 #include <entwine/types/dimension-stats.hpp>
+#include <entwine/types/fixed-point-layout.hpp>
 #include <entwine/types/scale-offset.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/optional.hpp>
@@ -34,8 +34,6 @@ void from_json(const entwine::json& j, Type& t);
 
 namespace entwine
 {
-namespace dimension
-{
 
 using Type = pdal::Dimension::Type;
 std::string typeString(Type type);
@@ -44,32 +42,42 @@ struct Dimension
 {
     Dimension() = default;
     Dimension(std::string name, Type type);
-    Dimension(std::string name, Type type, Stats stats);
+    Dimension(std::string name, Type type, DimensionStats stats);
+    Dimension(std::string name, Type type, optional<DimensionStats> stats);
     Dimension(const json& j);
 
     std::string name;
     Type type = Type::None;
     double scale = 1.0;
     double offset = 0.0;
-    optional<Stats> stats;
+    optional<DimensionStats> stats;
 };
 
 void to_json(json& j, const Dimension& dim);
 void from_json(const json& j, Dimension& dim);
 
-using List = std::vector<Dimension>;
+using Schema = std::vector<Dimension>;
 
-const Dimension* maybeFind(const List& dims, std::string name);
-const Dimension& find(const List& dims, std::string name);
-Dimension* maybeFind(List& dims, std::string name);
-Dimension& find(List& dims, std::string name);
+uint64_t getPointSize(const Schema& dims);
+
+const Dimension* maybeFind(const Schema& dims, std::string name);
+const Dimension& find(const Schema& dims, std::string name);
+Dimension* maybeFind(Schema& dims, std::string name);
+Dimension& find(Schema& dims, std::string name);
+bool contains(const Schema& dims, std::string name);
+Schema omit(Schema dims, std::string name);
+Schema omit(Schema dims, const StringList& names);
+bool hasStats(const Schema& dims);
+Schema clearStats(Schema dims);
 
 Dimension combine(Dimension agg, const Dimension& dim);
-List combine(List agg, const List& list);
+Schema combine(Schema agg, const Schema& list, bool fixed = false);
 
-List fromLayout(const pdal::PointLayout& layout);
+Schema makeAbsolute(Schema list);
+Schema fromLayout(const pdal::PointLayout& layout);
+FixedPointLayout toLayout(const Schema& list);
 
-List applyScaleOffset(List dims, ScaleOffset so);
+Schema setScaleOffset(Schema dims, ScaleOffset so);
+optional<ScaleOffset> getScaleOffset(const Schema& dims);
 
-} // namespace dimension
 } // namespace entwine

@@ -15,8 +15,6 @@
 namespace entwine
 {
 
-class Builder;
-
 namespace app
 {
 
@@ -25,9 +23,6 @@ class Build : public App
 private:
     virtual void addArgs() override;
     virtual void run() override;
-
-    void log(const Builder& b) const;
-    void end(const Builder& b) const;
 };
 
 } // namespace app

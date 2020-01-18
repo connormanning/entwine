@@ -75,7 +75,7 @@ bool putWithRetry(
     const int tries)
 {
     const auto f = [&ep, &path, &data]() { ep.put(path, data); };
-    return loop(f, tries, "Failed to put to " + path);
+    return loop(f, tries, "Failed to put " + path);
 }
 
 bool putWithRetry(
@@ -115,8 +115,11 @@ optional<std::vector<char>> getBinaryWithRetry(
 {
     std::vector<char> data;
     const auto f = [&ep, &path, &data]() { data = ep.getBinary(path); };
+    const std::string message =
+        "Failed to get " +
+        arbiter::join(ep.prefixedRoot(), path);
 
-    if (loop(f, tries)) return data;
+    if (loop(f, tries, message)) return data;
     else return { };
 }
 
@@ -138,8 +141,9 @@ optional<std::string> getWithRetry(
 {
     std::string data;
     const auto f = [&a, &path, &data]() { data = a.get("path"); };
+    const std::string message = "Failed to get " + path;
 
-    if (loop(f, tries)) return data;
+    if (loop(f, tries, message)) return data;
     return { };
 }
 
@@ -173,9 +177,23 @@ std::string ensureGet(
     else throw FatalError("Failed to get " + path);
 }
 
+arbiter::LocalHandle ensureGetLocalHandle(
+    const arbiter::Arbiter& a,
+    const std::string& path,
+    const int tries)
+{
+    for (int tried = 0; tried < tries; ++tried)
+    {
+        try { return a.getLocalHandle(path); }
+        catch(...) { }
+    }
+
+    throw std::runtime_error("Failed to get " + path);
+}
+
 arbiter::LocalHandle getPointlessLasFile(
-    const std::string path,
-    const std::string tmp,
+    const std::string& path,
+    const std::string& tmp,
     const arbiter::Arbiter& a)
 {
     const uint64_t maxHeaderSize(375);

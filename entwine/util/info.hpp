@@ -25,22 +25,22 @@ json createInfoPipeline(
 
 json extractInfoPipelineFromConfig(json config);
 
-source::Info analyzeOne(std::string path, bool deep, json pipelineTemplate);
-source::Source parseOne(std::string path, const arbiter::Arbiter& a = { });
+SourceInfo analyzeOne(std::string path, bool deep, json pipelineTemplate);
+Source parseOne(std::string path, const arbiter::Arbiter& a = { });
 
-source::List analyze(
-    const json& pipelineTemplate,
+SourceList analyze(
     const StringList& inputs,
+    const json& pipelineTemplate,
     bool deep,
     std::string tmp = arbiter::getTempPath(),
     const arbiter::Arbiter& a = { },
-    unsigned int threads = 8);
+    unsigned threads = 8);
 
-source::List analyze(const json& config);
+SourceList analyze(const json& config);
 
 void serialize(
-    const source::List& sources,
+    const SourceList& sources,
     const arbiter::Endpoint& ep,
-    unsigned int threads = 8);
+    unsigned threads = 8);
 
 } // namespace entwine

@@ -10,8 +10,8 @@
 
 #include "info.hpp"
 
+#include <entwine/types/metadata.hpp>
 #include <entwine/types/srs.hpp>
-#include <entwine/types/manifest.hpp>
 #include <entwine/util/fs.hpp>
 #include <entwine/util/info.hpp>
 #include <entwine/util/time.hpp>
@@ -25,18 +25,6 @@ void Info::addArgs()
 {
     m_ap.setUsage("entwine info <path(s)> (<options>)");
 
-    // TODO: Remove this.
-    m_ap.add(
-            "--manifest",
-            "-m",
-            "Create a buildable manifest.",
-            [this](json j) { m_json["manifest"] = true; });
-
-    m_ap.add(
-            "--deep",
-            "",
-            [this](json j) { m_json["deep"] = true; });
-
     addInput(
             "File paths or directory entries.  For a recursive directory "
             "search, the notation is 'directory/**'\n"
@@ -48,44 +36,24 @@ void Info::addArgs()
             "to this directory in JSON format\n"
             "Example: --output my-output/");
 
-    addConfig();
     addTmp();
+    addDeep();
     addReprojection();
     addSimpleThreads();
-    addNoTrustHeaders();
+    addConfig();
     addArbiter();
 }
 
 void Info::run()
 {
-    if (m_json.value("manifest", false))
-    {
-        /*
-        StringList filenames(resolve(m_json.at("input").get<StringList>()));
-
-        // Each filename may point at:
-        //      A JSON file of detailed information.
-        //      A point cloud file that needs to be analyzed.
-        //      TODO: A path/points/bounds reference from a shallow scan.
-        */
-        const auto start = now();
-        const auto manifest(manifest::create(analyze(m_json)));
-
-        std::cout << "Manifest: " << json(manifest).dump(2) << std::endl;
-        std::cout << "Parsed in " <<
-            formatTime(since<std::chrono::seconds>(start)) << "s." << std::endl;
-
-        return;
-    }
-
     const std::string output(m_json.value("output", ""));
 
     std::cout << "Analyzing" << std::endl;
     const auto start = now();
     const auto sources = analyze(m_json);
-    const auto reduced = source::reduce(sources);
-    std::cout << "Analyzed in " <<
-        formatTime(since<std::chrono::seconds>(start)) << "." << std::endl;
+    const auto reduced = manifest::reduce(sources);
+    std::cout << "Analyzed in " << formatTime(since(start)) << "s." <<
+        std::endl;
 
     if (output.size())
     {
@@ -101,8 +69,8 @@ void Info::run()
         const auto start = now();
         serialize(sources, endpoint, threads);
 
-        std::cout << "Serialized in " <<
-            formatTime(since<std::chrono::seconds>(start)) << "s." << std::endl;
+        std::cout << "Serialized in " << formatTime(since(start)) << "s." <<
+            std::endl;
     }
 
     // std::cout << "Sources: " << json(sources).dump(2) << std::endl;

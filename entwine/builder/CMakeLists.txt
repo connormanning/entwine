@@ -9,12 +9,8 @@ set(
     "${BASE}/clipper.cpp"
     "${BASE}/config.cpp"
     "${BASE}/hierarchy.cpp"
-    "${BASE}/merger.cpp"
-    "${BASE}/metadata.cpp
-    "${BASE}/registry.cpp"
-    "${BASE}/scan.cpp"
-    "${BASE}/sequence.cpp"
-    "${BASE}/thread-pools.cpp"
+    # "${BASE}/merger.cpp"
+    # "${BASE}/scan.cpp"
 )
 
 set(
@@ -27,12 +23,8 @@ set(
     "${BASE}/heuristics.hpp"
     "${BASE}/hierarchy.hpp"
     "${BASE}/merger.hpp"
-    "${BASE}/metadata.hpp
     "${BASE}/overflow.hpp"
-    "${BASE}/registry.hpp"
     "${BASE}/scan.hpp"
-    "${BASE}/sequence.hpp"
-    "${BASE}/thread-pools.hpp"
 )
 
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})

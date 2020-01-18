@@ -92,6 +92,8 @@ void to_json(json& j, const Srs& srs)
     if (srs.wkt().size()) j["wkt"] = srs.wkt();
 }
 
+void from_json(const json& j, Srs& srs) { srs = Srs(j); }
+
 std::string Srs::toString() const
 {
     if (!hasCode()) return m_wkt;

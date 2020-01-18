@@ -107,5 +107,10 @@ inline json slice(
     return json(j.begin() + begin, j.begin() + end);
 }
 
+inline unsigned getIndent(bool pretty)
+{
+    return pretty ? 2 : -1;
+}
+
 } // namespace entwine
 

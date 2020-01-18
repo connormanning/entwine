@@ -17,13 +17,6 @@
 namespace entwine
 {
 
-namespace
-{
-
-std::string vlrKey(int i) { return "vlr_" + std::to_string(i); }
-
-}
-
 json::const_iterator findStage(const json& pipeline, const std::string type)
 {
     return std::find_if(
@@ -56,6 +49,28 @@ json omitStage(json pipeline, const std::string type)
 
     pipeline.erase(it);
     return pipeline;
+}
+
+pdal::Stage* findStage(pdal::Stage& last, const std::string type)
+{
+    pdal::Stage* current(&last);
+
+    do
+    {
+        if (current->getName() == type) return current;
+
+        if (current->getInputs().size() > 1)
+        {
+            throw std::runtime_error("Invalid pipeline - must be linear");
+        }
+
+        current = current->getInputs().size()
+            ? current->getInputs().at(0)
+            : nullptr;
+    }
+    while (current);
+
+    return nullptr;
 }
 
 pdal::Stage& getStage(pdal::PipelineManager& pm)

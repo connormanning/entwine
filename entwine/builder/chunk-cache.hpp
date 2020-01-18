@@ -13,20 +13,21 @@
 #include <array>
 
 #include <entwine/builder/chunk.hpp>
+#include <entwine/builder/hierarchy.hpp>
 #include <entwine/types/defs.hpp>
+#include <entwine/util/pool.hpp>
 #include <entwine/util/spin-lock.hpp>
 
 namespace entwine
 {
 
 class Clipper;
-class Hierarchy;
 
 class ReffedChunk
 {
 public:
-    ReffedChunk(const ChunkKey& ck, const Hierarchy& hierarchy)
-        : m_chunk(makeUnique<Chunk>(ck, hierarchy))
+    ReffedChunk(const Metadata& m, const ChunkKey& ck, const Hierarchy& h)
+        : m_chunk(makeUnique<Chunk>(m, ck, h))
     { }
 
     SpinLock& spin() { return m_spin; }
@@ -47,10 +48,10 @@ public:
 
     void reset() { m_chunk.reset(); }
     bool exists() { return !!m_chunk; }
-    void assign(const ChunkKey& ck, const Hierarchy& hierarchy)
+    void assign(const Metadata& m, const ChunkKey& ck, const Hierarchy& h)
     {
         assert(!exists());
-        m_chunk = makeUnique<Chunk>(ck, hierarchy);
+        m_chunk = makeUnique<Chunk>(m, ck, h);
     }
 
 private:
@@ -63,17 +64,17 @@ class ChunkCache
 {
 public:
     ChunkCache(
-            Hierarchy& hierarchy,
-            const arbiter::Endpoint& out,
-            const arbiter::Endpoint& tmp,
-            uint64_t threads,
-            uint64_t cacheSize);
+        const Endpoints& endpoints,
+        const Metadata& Metadata,
+        Hierarchy& hierarchy,
+        uint64_t threads);
 
     ~ChunkCache();
 
     void insert(Voxel& voxel, Key& key, const ChunkKey& ck, Clipper& clipper);
     void clip(uint64_t depth, const std::map<Xyz, Chunk*>& stale);
     void clipped() { maybePurge(m_cacheSize); }
+    void join();
 
     struct Info
     {
@@ -90,9 +91,9 @@ private:
     void maybeErase(const Dxyz& dxyz);
     void maybePurge(uint64_t maxCacheSize);
 
+    const Endpoints& m_endpoints;
+    const Metadata& m_metadata;
     Hierarchy& m_hierarchy;
-    const arbiter::Endpoint& m_out;
-    const arbiter::Endpoint& m_tmp;
     Pool m_pool;
     const uint64_t m_cacheSize = 64;
 

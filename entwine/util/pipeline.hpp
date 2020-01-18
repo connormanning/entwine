@@ -29,6 +29,7 @@ json::const_iterator findStage(const json& pipeline, std::string type);
 json& findOrAppendStage(json& pipeline, std::string type);
 json omitStage(json pipeline, std::string type);
 
+pdal::Stage* findStage(pdal::Stage& last, std::string type);
 pdal::Stage& getStage(pdal::PipelineManager& pm);
 pdal::Reader& getReader(pdal::Stage& last);
 pdal::Stage& getFirst(pdal::Stage& last);

@@ -14,10 +14,8 @@
 
 namespace entwine
 {
-namespace dimension
-{
 
-Stats::Stats(const pdal::stats::Summary& s)
+DimensionStats::DimensionStats(const pdal::stats::Summary& s)
     : minimum(s.minimum())
     , maximum(s.maximum())
     , mean(s.average())
@@ -27,7 +25,7 @@ Stats::Stats(const pdal::stats::Summary& s)
     for (const auto& bucket : s.values()) values[bucket.first] = bucket.second;
 }
 
-Stats::Stats(const json& j)
+DimensionStats::DimensionStats(const json& j)
     : minimum(j.value<double>("minimum", 0))
     , maximum(j.value<double>("maximum", 0))
     , mean(j.value<double>("mean", j.value<double>("average", 0)))
@@ -58,7 +56,7 @@ Stats::Stats(const json& j)
     }
 }
 
-void to_json(json& j, const Stats& stats)
+void to_json(json& j, const DimensionStats& stats)
 {
     j = {
         { "minimum", getTypedValue(stats.minimum) },
@@ -78,9 +76,12 @@ void to_json(json& j, const Stats& stats)
     }
 }
 
-void from_json(const json& j, Stats& stats) { stats = Stats(j); }
+void from_json(const json& j, DimensionStats& stats)
+{
+    stats = DimensionStats(j);
+}
 
-Stats combine(Stats agg, const Stats& cur)
+DimensionStats combine(DimensionStats agg, const DimensionStats& cur)
 {
     agg.minimum = std::min(agg.minimum, cur.minimum);
     agg.maximum = std::max(agg.maximum, cur.maximum);
@@ -107,5 +108,4 @@ Stats combine(Stats agg, const Stats& cur)
     return agg;
 }
 
-} // namespace dimension
 } // namespace entwine

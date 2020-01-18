@@ -21,14 +21,12 @@
 
 namespace entwine
 {
-namespace dimension
-{
 
-struct Stats
+struct DimensionStats
 {
-    Stats() = default;
-    Stats(const pdal::stats::Summary& s);
-    explicit Stats(const json& j);
+    DimensionStats() = default;
+    DimensionStats(const pdal::stats::Summary& s);
+    explicit DimensionStats(const json& j);
 
     double minimum = 0.0;
     double maximum = 0.0;
@@ -40,10 +38,9 @@ struct Stats
     Values values;
 };
 
-void to_json(json& j, const Stats& stats);
-void from_json(const json& j, Stats& stats);
+void to_json(json& j, const DimensionStats& stats);
+void from_json(const json& j, DimensionStats& stats);
 
-Stats combine(Stats agg, const Stats& cur);
+DimensionStats combine(DimensionStats agg, const DimensionStats& cur);
 
-} // namespace dimension
 } // namespace entwine

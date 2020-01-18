@@ -26201,7 +26201,7 @@ private:
     const drivers::Http* tryGetHttpDriver() const;
     const drivers::Http& getHttpDriver() const;
 
-    const Driver& m_driver;
+    const Driver* m_driver;
     std::string m_root;
 };
 

@@ -17,7 +17,6 @@
 #include "arg-parser.hpp"
 
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/types/schema.hpp>
 #include <entwine/util/json.hpp>
 
 namespace entwine
@@ -68,7 +67,7 @@ protected:
 
     std::string yesNo(bool b) const { return b ? "yes" : "no"; }
 
-    std::string getDimensionString(const Schema& schema) const;
+    // std::string getDimensionString(const Schema& schema) const;
 };
 
 } // namespace app

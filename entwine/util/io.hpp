@@ -71,9 +71,14 @@ std::string ensureGet(
     const std::string& path,
     int tries = defaultTries);
 
+arbiter::LocalHandle ensureGetLocalHandle(
+    const arbiter::Arbiter& a,
+    const std::string& path,
+    int tries = defaultTries);
+
 arbiter::LocalHandle getPointlessLasFile(
-    const std::string path,
-    const std::string tmp,
+    const std::string& path,
+    const std::string& tmp,
     const arbiter::Arbiter& a);
 
 } // namespace entwine

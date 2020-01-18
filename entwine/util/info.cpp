@@ -16,6 +16,7 @@
 #include <numeric>
 
 #include <pdal/io/BufferReader.hpp>
+#include <pdal/PipelineManager.hpp>
 #include <pdal/PointTable.hpp>
 
 #include <entwine/third/arbiter/arbiter.hpp>
@@ -55,15 +56,6 @@ void executeStandard(pdal::Stage& s, pdal::StreamPointTable& table)
     if (current) table.clear(current);
 }
 
-/*
-void prepare(pdal::Stage& s, pdal::StreamPointTable& table)
-{
-    auto lock(Executor::getLock());
-    if (s.pipelineStreamable()) s.prepare(table);
-    else s.prepare();
-}
-*/
-
 void executeStreaming(pdal::Stage& s, pdal::StreamPointTable& table)
 {
     {
@@ -79,12 +71,11 @@ void execute(pdal::Stage& s, pdal::StreamPointTable& table)
     else executeStandard(s, table);
 }
 
-source::Info getShallowInfo(const json pipeline)
+SourceInfo getShallowInfo(const json pipeline)
 {
-    source::Info info;
+    SourceInfo info;
     info.pipeline = pipeline;
 
-    // const json readerJson = slice(pipeline, 0, 1);
     const json filterJson = slice(pipeline, 1);
 
     auto lock(Executor::getLock());
@@ -108,10 +99,10 @@ source::Info getShallowInfo(const json pipeline)
 
     lock.unlock();
 
-    info.dimensions = dimension::fromLayout(*table.layout());
+    info.schema = fromLayout(*table.layout());
     if (const auto so = getScaleOffset(reader))
     {
-        info.dimensions = applyScaleOffset(info.dimensions, *so);
+        info.schema = setScaleOffset(info.schema, *so);
     }
 
     info.points = qi.m_pointCount;
@@ -175,10 +166,18 @@ source::Info getShallowInfo(const json pipeline)
     return info;
 }
 
-source::Info getDeepInfo(const json pipeline)
+SourceInfo getDeepInfo(json pipeline)
 {
-    source::Info info;
+    SourceInfo info;
     info.pipeline = pipeline;
+
+    {
+        json& filter(findOrAppendStage(pipeline, "filters.stats"));
+        if (!filter.count("enumerate"))
+        {
+            filter.update({ { "enumerate", "Classification" } });
+        }
+    }
 
     try
     {
@@ -211,23 +210,23 @@ source::Info getDeepInfo(const json pipeline)
         const auto& layout(*table.layout());
         for (const DimId id : layout.dims())
         {
-            const dimension::Stats stats(statsFilter.getStats(id));
-            const dimension::Dimension dimension(
+            const DimensionStats stats(statsFilter.getStats(id));
+            const Dimension dimension(
                 layout.dimName(id),
                 layout.dimType(id),
                 stats);
-            info.dimensions.push_back(dimension);
+            info.schema.push_back(dimension);
         }
 
         info.metadata = getMetadata(reader);
         if (const auto so = getScaleOffset(reader))
         {
-            info.dimensions = applyScaleOffset(info.dimensions, *so);
+            info.schema = setScaleOffset(info.schema, *so);
         }
 
-        auto& x = dimension::find(info.dimensions, "X");
-        auto& y = dimension::find(info.dimensions, "Y");
-        auto& z = dimension::find(info.dimensions, "Z");
+        auto& x = find(info.schema, "X");
+        auto& y = find(info.schema, "Y");
+        auto& z = find(info.schema, "Z");
         info.bounds = Bounds(
             x.stats->minimum,
             y.stats->minimum,
@@ -250,12 +249,7 @@ source::Info getDeepInfo(const json pipeline)
     return info;
 }
 
-std::string getStem(std::string path)
-{
-    return arbiter::stripExtension(arbiter::getBasename(path));
-}
-
-bool areBasenamesUnique(const source::List& sources)
+bool areStemsUnique(const SourceList& sources)
 {
     std::set<std::string> set;
     for (const auto& source : sources)
@@ -267,10 +261,7 @@ bool areBasenamesUnique(const source::List& sources)
     return true;
 }
 
-json createInfoPipeline(
-    json pipeline,
-    bool deep,
-    optional<Reprojection> reprojection)
+json createInfoPipeline(json pipeline, optional<Reprojection> reprojection)
 {
     if (pipeline.is_object()) pipeline = pipeline.at("pipeline");
 
@@ -298,16 +289,6 @@ json createInfoPipeline(
         filter.update({ {"out_srs", reprojection->out() } });
     }
 
-    // Finally, append a stats filter to the end of the pipeline.
-    if (deep)
-    {
-        json& filter(findOrAppendStage(pipeline, "filters.stats"));
-        if (!filter.count("enumerate"))
-        {
-            filter.update({ { "enumerate", "Classification" } });
-        }
-    }
-
     return pipeline;
 }
 
@@ -317,17 +298,12 @@ json extractInfoPipelineFromConfig(json config)
         "pipeline",
         json::array({ json::object() }));
 
-    const bool deep = config.value("deep", false);
-
     optional<Reprojection> reprojection(config.value("reprojection", json()));
 
-    return createInfoPipeline(pipeline, deep, reprojection);
+    return createInfoPipeline(pipeline, reprojection);
 }
 
-source::Info analyzeOne(
-    const std::string path,
-    const bool deep,
-    json pipeline)
+SourceInfo analyzeOne(const std::string path, const bool deep, json pipeline)
 {
     try
     {
@@ -336,21 +312,21 @@ source::Info analyzeOne(
     }
     catch (const std::exception& e)
     {
-        source::Info info;
+        SourceInfo info;
         info.errors.push_back(std::string("Failed to analyze: ") + e.what());
         return info;
     }
     catch (...)
     {
-        source::Info info;
+        SourceInfo info;
         info.errors.push_back("Failed to analyze");
         return info;
     }
 }
 
-source::Source parseOne(const std::string path, const arbiter::Arbiter& a)
+Source parseOne(const std::string path, const arbiter::Arbiter& a)
 {
-    source::Source source(path);
+    Source source(path);
     try
     {
         const json j(json::parse(a.get(path)));
@@ -358,7 +334,7 @@ source::Source parseOne(const std::string path, const arbiter::Arbiter& a)
         // Note that we're overwriting our JSON filename here with
         // the path to the actual point cloud.
         source.path = j.at("path").get<std::string>();
-        source.info = j.get<source::Info>();
+        source.info = j.get<SourceInfo>();
     }
     catch (const std::exception& e)
     {
@@ -395,21 +371,21 @@ arbiter::LocalHandle localize(
     return getPointlessLasFile(path, tmp, a);
 }
 
-source::List analyze(
-    const json& pipelineTemplate,
+SourceList analyze(
     const StringList& inputs,
+    const json& pipelineTemplate,
     const bool deep,
     const std::string tmp,
     const arbiter::Arbiter& a,
     const unsigned int threads)
 {
     const StringList filenames(resolve(inputs));
-    source::List sources(filenames.begin(), filenames.end());
+    SourceList sources(filenames.begin(), filenames.end());
 
     uint64_t i(0);
 
     Pool pool(threads);
-    for (source::Source& source : sources)
+    for (Source& source : sources)
     {
         std::cout << ++i << "/" << sources.size() << ": " << source.path <<
             std::endl;
@@ -438,32 +414,32 @@ source::List analyze(
     return sources;
 }
 
-source::List analyze(const json& config)
+SourceList analyze(const json& config)
 {
+    const StringList inputs = config.value("input", StringList());
     const json pipeline = extractInfoPipelineFromConfig(config);
-    const StringList inputs = config.at("input");
     const bool deep = config.value("deep", false);
     const std::string tmp = config.value("tmp", arbiter::getTempPath());
     const arbiter::Arbiter a(config.value("arbiter", json()).dump());
     const unsigned int threads = config.value("threads", 8u);
-    return analyze(pipeline, inputs, deep, tmp, a, threads);
+    return analyze(inputs, pipeline, deep, tmp, a, threads);
 }
 
 void serialize(
-    const source::List& sources,
+    const SourceList& sources,
     const arbiter::Endpoint& ep,
     const unsigned int threads)
 {
-    const bool basenamesUnique = areBasenamesUnique(sources);
+    const bool stemsAreUnique = areStemsUnique(sources);
 
     uint64_t i(0);
     Pool pool(threads);
-    for (const source::Source& source : sources)
+    for (const Source& source : sources)
     {
-        std::cout << ++i << "/" << sources.size() << ": " << source.path <<
+        std::cout << (i + 1) << "/" << sources.size() << ": " << source.path <<
             std::endl;
 
-        const std::string stem = basenamesUnique
+        const std::string stem = stemsAreUnique
             ? getStem(source.path)
             : std::to_string(i);
 

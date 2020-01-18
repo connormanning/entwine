@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2018, Connor Manning (connor@hobu.co)
+* Copyright (c) 2020, Connor Manning (connor@hobu.co)
 *
 * Entwine -- Point cloud indexing
 *
@@ -14,40 +14,59 @@
 #include <memory>
 #include <string>
 
-#include <entwine/types/metadata.hpp>
+#include <entwine/types/endpoints.hpp>
 #include <entwine/types/vector-point-table.hpp>
+#include <entwine/util/json.hpp>
+
+#include <entwine/io/binary.hpp>
+#include <entwine/io/laszip.hpp>
+#include <entwine/io/zstandard.hpp>
 
 namespace entwine
 {
 
-class DataIo
+struct Metadata;
+
+namespace io
 {
-public:
-    DataIo(const Metadata& metadata) : m_metadata(metadata) { }
-    virtual ~DataIo() { }
 
-    static std::unique_ptr<DataIo> create(const Metadata& m, std::string type);
+enum class Type { Binary, Laszip, Zstandard };
 
-    virtual std::string type() const = 0;
+Type toType(std::string s);
+std::string toString(Type t);
+inline void to_json(json& j, Type t) { j = toString(t); }
+inline void from_json(const json& j, Type& t)
+{
+    t = toType(j.get<std::string>());
+}
 
-    virtual void write(
-            const arbiter::Endpoint& out,
-            const arbiter::Endpoint& tmp,
-            const std::string& filename,
-            const Bounds& bounds,
-            BlockPointTable& table) const
-    { }
+template <typename... Args>
+void write(Type type, Args&&... args)
+{
+    auto f = ([type]()
+    {
+        if (type == Type::Binary) return binary::write;
+        if (type == Type::Laszip) return laszip::write;
+        if (type == Type::Zstandard) return zstandard::write;
+        throw std::runtime_error("Invalid data type");
+    })();
 
-    virtual void read(
-            const arbiter::Endpoint& out,
-            const arbiter::Endpoint& tmp,
-            const std::string& filename,
-            VectorPointTable& table) const
-    { }
+    f(std::forward<Args>(args)...);
+}
 
-protected:
-    const Metadata& m_metadata;
-};
+template <typename... Args>
+void read(Type type, Args&&... args)
+{
+    auto f = ([type]()
+    {
+        if (type == Type::Binary) return binary::read;
+        if (type == Type::Laszip) return laszip::read;
+        if (type == Type::Zstandard) return zstandard::read;
+        throw std::runtime_error("Invalid data type");
+    })();
 
+    f(std::forward<Args>(args)...);
+}
+
+} // namespace io
 } // namespace entwine
-

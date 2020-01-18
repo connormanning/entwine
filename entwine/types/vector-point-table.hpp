@@ -17,8 +17,6 @@
 #include <pdal/PointRef.hpp>
 #include <pdal/PointTable.hpp>
 
-#include <entwine/types/schema.hpp>
-
 namespace entwine
 {
 
@@ -77,8 +75,8 @@ private:
 class BlockPointTable : public pdal::SimplePointTable
 {
 public:
-    BlockPointTable(const Schema& schema)
-        : SimplePointTable(schema.pdalLayout())
+    BlockPointTable(pdal::PointLayout& layout)
+        : SimplePointTable(layout)
     { }
 
     void reserve(uint64_t size) { m_refs.reserve(size); }
@@ -107,17 +105,15 @@ class VectorPointTable : public pdal::StreamPointTable
     using Process = std::function<void()>;
 
 public:
-    VectorPointTable(const Schema& schema, std::size_t np = 4096)
-        : pdal::StreamPointTable(schema.pdalLayout(), np)
-        , m_pointSize(schema.pointSize())
+    VectorPointTable(pdal::PointLayout& layout, std::size_t np = 4096)
+        : pdal::StreamPointTable(layout, np)
+        , m_pointSize(layout.pointSize())
         , m_data(np * m_pointSize, 0)
     { }
 
-    VectorPointTable(const Schema& schema, std::vector<char>&& data)
-        : pdal::StreamPointTable(
-                schema.pdalLayout(),
-                data.size() / schema.pointSize())
-        , m_pointSize(schema.pointSize())
+    VectorPointTable(pdal::PointLayout& layout, std::vector<char>&& data)
+        : pdal::StreamPointTable(layout, data.size() / layout.pointSize())
+        , m_pointSize(layout.pointSize())
         , m_data(std::move(data))
     {
         if (!m_pointSize) throw std::runtime_error("Invalid schema of size 0");

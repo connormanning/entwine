@@ -597,7 +597,7 @@ namespace
 }
 
 Endpoint::Endpoint(const Driver& driver, const std::string root)
-    : m_driver(driver)
+    : m_driver(&driver)
     , m_root(expandTilde(postfixSlash(root)))
 { }
 
@@ -613,12 +613,12 @@ std::string Endpoint::prefixedRoot() const
 
 std::string Endpoint::type() const
 {
-    return m_driver.type();
+    return m_driver->type();
 }
 
 bool Endpoint::isRemote() const
 {
-    return m_driver.isRemote();
+    return m_driver->isRemote();
 }
 
 bool Endpoint::isLocal() const
@@ -694,47 +694,47 @@ LocalHandle Endpoint::getLocalHandle(
 
 std::string Endpoint::get(const std::string subpath) const
 {
-    return m_driver.get(fullPath(subpath));
+    return m_driver->get(fullPath(subpath));
 }
 
 std::unique_ptr<std::string> Endpoint::tryGet(const std::string subpath)
     const
 {
-    return m_driver.tryGet(fullPath(subpath));
+    return m_driver->tryGet(fullPath(subpath));
 }
 
 std::vector<char> Endpoint::getBinary(const std::string subpath) const
 {
-    return m_driver.getBinary(fullPath(subpath));
+    return m_driver->getBinary(fullPath(subpath));
 }
 
 std::unique_ptr<std::vector<char>> Endpoint::tryGetBinary(
         const std::string subpath) const
 {
-    return m_driver.tryGetBinary(fullPath(subpath));
+    return m_driver->tryGetBinary(fullPath(subpath));
 }
 
 std::size_t Endpoint::getSize(const std::string subpath) const
 {
-    return m_driver.getSize(fullPath(subpath));
+    return m_driver->getSize(fullPath(subpath));
 }
 
 std::unique_ptr<std::size_t> Endpoint::tryGetSize(
         const std::string subpath) const
 {
-    return m_driver.tryGetSize(fullPath(subpath));
+    return m_driver->tryGetSize(fullPath(subpath));
 }
 
 void Endpoint::put(const std::string subpath, const std::string& data) const
 {
-    m_driver.put(fullPath(subpath), data);
+    m_driver->put(fullPath(subpath), data);
 }
 
 void Endpoint::put(
         const std::string subpath,
         const std::vector<char>& data) const
 {
-    m_driver.put(fullPath(subpath), data);
+    m_driver->put(fullPath(subpath), data);
 }
 
 std::string Endpoint::get(
@@ -834,7 +834,7 @@ std::string Endpoint::prefixedFullPath(const std::string& subpath) const
 
 Endpoint Endpoint::getSubEndpoint(std::string subpath) const
 {
-    return Endpoint(m_driver, m_root + subpath);
+    return Endpoint(*m_driver, m_root + subpath);
 }
 
 std::string Endpoint::softPrefix() const
@@ -844,7 +844,7 @@ std::string Endpoint::softPrefix() const
 
 const drivers::Http* Endpoint::tryGetHttpDriver() const
 {
-    return dynamic_cast<const drivers::Http*>(&m_driver);
+    return dynamic_cast<const drivers::Http*>(m_driver);
 }
 
 const drivers::Http& Endpoint::getHttpDriver() const

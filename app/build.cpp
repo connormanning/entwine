@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2016, Connor Manning (connor@hobu.co)
+* Copyright (c) 2019, Connor Manning (connor@hobu.co)
 *
 * Entwine -- Point cloud indexing
 *
@@ -10,24 +10,14 @@
 
 #include "build.hpp"
 
-#include <chrono>
-#include <fstream>
-#include <iostream>
-#include <string>
-
 #include <entwine/builder/builder.hpp>
 #include <entwine/builder/config.hpp>
-#include <entwine/builder/thread-pools.hpp>
-#include <entwine/io/io.hpp>
-#include <entwine/types/bounds.hpp>
-#include <entwine/types/files.hpp>
+#include <entwine/builder/hierarchy.hpp>
+#include <entwine/types/exceptions.hpp>
 #include <entwine/types/metadata.hpp>
-#include <entwine/types/reprojection.hpp>
-#include <entwine/types/schema.hpp>
-#include <entwine/types/subset.hpp>
-#include <entwine/util/env.hpp>
-#include <entwine/util/json.hpp>
-#include <entwine/util/matrix.hpp>
+#include <entwine/util/fs.hpp>
+#include <entwine/util/info.hpp>
+#include <entwine/util/time.hpp>
 
 namespace entwine
 {
@@ -116,7 +106,7 @@ void Build::addArgs()
                 }
             });
 
-    addNoTrustHeaders();
+    addDeep();
     addAbsolute();
 
     m_ap.add(
@@ -129,12 +119,11 @@ void Build::addArgs()
             });
 
     m_ap.add(
-            "--run",
-            "-g",
+            "--limit",
             "Maximum number of files to insert - the build may be continued "
             "with another `build` invocation.\n"
-            "Example: --run 20",
-            [this](json j) { m_json["run"] = extract(j); });
+            "Example: --limit 20",
+            [this](json j) { m_json["limit"] = extract(j); });
 
     m_ap.add(
             "--subset",
@@ -152,11 +141,6 @@ void Build::addArgs()
                 m_json["subset"]["id"] = id;
                 m_json["subset"]["of"] = of;
             });
-
-    m_ap.add(
-            "--overflowDepth",
-            "Depth at which nodes may overflow.",
-            [this](json j) { m_json["overflowDepth"] = extract(j); });
 
     m_ap.add(
             "--maxNodeSize",
@@ -198,214 +182,78 @@ void Build::addArgs()
 
 void Build::run()
 {
-    // if (m_json.count("srs")) m_json["srs"] = Srs(m_json.at("srs"));
-    // m_json["verbose"] = true;
+    const Endpoints endpoints = config::getEndpoints(m_json);
+    const unsigned threads = getTotal(config::getThreads(m_json));
 
-    std::cout << "Configuration: " << m_json << std::endl;
-    TypedConfig typed(m_json);
+    Manifest manifest;
+    Hierarchy hierarchy;
 
-    Config config(m_json);
-    auto builder(makeUnique<Builder>(config));
-
-    log(*builder);
-
-    const Files& files(builder->metadata().files());
-
-    auto start = now();
-    const uint64_t alreadyInserted(files.pointStats().inserts());
-
-    const uint64_t runCount(m_json.value("run", 0u));
-    builder->go(runCount);
-
-    std::cout << "\nIndex completed in " <<
-        formatTime(since<std::chrono::seconds>(start)) << "." << std::endl;
-
-    std::cout << "Save complete.\n";
-
-    const PointStats stats(files.pointStats());
-
-    if (alreadyInserted)
+    // TODO: Handle subset postfixing during existence check - currently
+    // continuations of subset builds will not work properly.
+    // const optional<Subset> subset = config::getSubset(m_json);
+    if (!config::getForce(m_json) && endpoints.output.tryGetSize("ept.json"))
     {
-        std::cout <<
-            "\tPoints inserted:\n" <<
-            "\t\tPreviously: " << commify(alreadyInserted) << "\n" <<
-            "\t\tCurrently:  " <<
-                commify((stats.inserts() - alreadyInserted)) << "\n" <<
-            "\t\tTotal:      " << commify(stats.inserts()) << std::endl;
-    }
-    else
-    {
-        std::cout << "\tPoints inserted: " << commify(stats.inserts()) << "\n";
+        std::cout << "Awakening existing build." << std::endl;
+
+        // Merge in our metadata JSON, overriding any config settings.
+        const json existingConfig = merge(
+            json::parse(endpoints.output.get("ept-build.json")),
+            json::parse(endpoints.output.get("ept.json"))
+        );
+        m_json = merge(m_json, existingConfig);
+
+        // Awaken our existing manifest.
+        std::cout << "Awakening existing sources." << std::endl;
+        manifest = manifest::load(endpoints.sources, threads);
+
+        // Awaken our existing hierarchy.
+        std::cout << "Awakening existing hierarchy." << std::endl;
+        hierarchy = hierarchy::load(endpoints.hierarchy, threads);
     }
 
-    if (stats.outOfBounds())
+    // Now, analyze the incoming `input` if needed.
+    StringList inputs = resolve(config::getInput(m_json), *endpoints.arbiter);
+    const auto exists = [&manifest](std::string path)
     {
-        std::cout <<
-            "\tPoints discarded: " << commify(stats.outOfBounds()) << "\n" <<
-            std::endl;
+        return std::any_of(
+            manifest.begin(),
+            manifest.end(),
+            [path](const BuildItem& b) { return b.source.path == path; });
+    };
+    inputs.erase(
+        std::remove_if(inputs.begin(), inputs.end(), exists),
+        inputs.end());
+    const SourceList sources = analyze(
+        inputs,
+        config::getPipeline(m_json),
+        config::getDeep(m_json),
+        config::getTmp(m_json),
+        *endpoints.arbiter,
+        threads
+    );
+    for (const auto& source : sources)
+    {
+        manifest.emplace_back(source);
     }
 
-    end(*builder);
-}
+    // It's possible we've just analyzed some files, in which case we have
+    // potentially new information like bounds, schema, and SRS.  Prioritize
+    // values from the config, which may explicitly override these.
+    m_json = merge(manifest::reduce(sources), m_json);
+    // std::cout << "Analyzed: " << m_json.dump(2) << std::endl;
+    const Metadata metadata = config::getMetadata(m_json);
+    // std::cout << "Meta: " << json(metadata).dump(2) << std::endl;
 
-void Build::end(const Builder& b) const
-{
-    const FileInfoList& list(b.metadata().files().list());
+    Builder builder(endpoints, metadata, manifest, hierarchy);
 
-    const bool error(std::any_of(list.begin(), list.end(), [](const FileInfo& f)
-    {
-        return f.status() == FileInfo::Status::Error;
-    }));
-
-    if (!error) return;
-
-    std::cout << "\nErrors encountered - data may be missing.  Errors:" <<
+    std::cout << "Metadata: " << json(builder.metadata).dump(2) << std::endl;
+    std::cout << "Internal: " << json(builder.metadata.internal).dump(2) <<
         std::endl;
 
-    int i(0);
-    for (const auto& f : list)
-    {
-        if (f.status() == FileInfo::Status::Error)
-        {
-            std::cout << "\t" << ++i << " - " << f.path() << ": " <<
-                f.message() << std::endl;
-        }
-    }
-}
+    builder.run(config::getThreads(m_json), config::getLimit(m_json));
 
-void Build::log(const Builder& b) const
-{
-    if (b.isContinuation())
-    {
-        std::cout << "\nContinuing previous index..." << std::endl;
-    }
-
-    std::string outPath(b.outEndpoint().prefixedRoot());
-    std::string tmpPath(b.tmpEndpoint().root());
-
-    const Metadata& metadata(b.metadata());
-    const Files& files(metadata.files());
-    const Reprojection* reprojection(metadata.reprojection());
-    const Schema& schema(metadata.outSchema());
-    const uint64_t runCount(m_json.value("run", 0u));
-
-    std::cout << std::endl;
-    std::cout <<
-        "Entwine Version: " << currentEntwineVersion().toString() << "\n" <<
-        "EPT Version: " << currentEptVersion().toString() << "\n" <<
-        "Input:\n\t";
-
-    if (files.size() == 1)
-    {
-        std::cout << "File: " << files.get(0).path() << std::endl;
-    }
-    else
-    {
-        std::cout << "Files: " << files.size() << std::endl;
-    }
-
-    if (runCount)
-    {
-        std::cout <<
-            "\tInserting up to " << runCount << " file" <<
-            (runCount > 1 ? "s" : "") << "\n";
-    }
-
-    std::cout << "\tTotal points: " <<
-        commify(metadata.files().totalPoints()) << std::endl;
-
-    std::cout << "\tDensity estimate (per square unit): " <<
-        densityLowerBound(metadata.files().list()) << std::endl;
-
-    if (!metadata.trustHeaders())
-    {
-        std::cout << "\tTrust file headers? " << yesNo(false) << "\n";
-    }
-
-    std::cout <<
-        "\tThreads: [" <<
-            b.threadPools().workPool().numThreads() << ", " <<
-            b.threadPools().clipPool().numThreads() << "]" <<
-        std::endl;
-
-    std::cout <<
-        "Output:\n" <<
-        "\tPath: " << outPath << "\n" <<
-        "\tData type: " << metadata.dataIo().type() << "\n" <<
-        "\tHierarchy type: " << "json" << "\n" <<
-        "\tSleep count: " << commify(b.sleepCount()) <<
-        std::endl;
-
-    if (schema.isScaled())
-    {
-        std::cout << "\tScale: ";
-        const Scale scale(schema.scale());
-        if (scale.x == scale.y && scale.x == scale.z)
-        {
-            std::cout << scale.x << std::endl;
-        }
-        else
-        {
-            std::cout << scale << std::endl;
-        }
-        std::cout << "\tOffset: " << schema.offset() << std::endl;
-    }
-    else
-    {
-        std::cout << "\tScale: (absolute)" << std::endl;
-        std::cout << "\tOffset: (none)" << std::endl;
-    }
-
-    std::cout << "Metadata:\n";
-
-    const auto& srs(metadata.srs());
-    std::cout << "\tSRS: ";
-    if (srs.hasCode()) std::cout << srs.codeString();
-    else if (!srs.empty())
-    {
-        const auto s(srs.wkt());
-        if (s.size() < 60) std::cout << s;
-        else std::cout << s.substr(0, 60) + " ...";
-    }
-    else std::cout << "(none)";
-    std::cout << "\n";
-
-    std::cout <<
-        "\tBounds: " << metadata.boundsConforming() << "\n" <<
-        "\tCube: " << metadata.boundsCubic() << "\n";
-
-    if (const Subset* s = metadata.subset())
-    {
-        std::cout << "\tSubset bounds: " << s->bounds() << "\n";
-    }
-
-    if (reprojection)
-    {
-        std::cout << "\tReprojection: " << *reprojection << "\n";
-    }
-
-    std::cout << "\tStoring dimensions: " << getDimensionString(schema) << "\n";
-
-    const auto t(metadata.span());
-    std::cout << "Build parameters:\n" <<
-        "\tSpan: " << t << "\n" <<
-        "\tResolution 2D: " <<
-            t << " * " << t << " = " << commify(t * t) << "\n" <<
-        "\tResolution 3D: " <<
-            t << " * " << t << " * " << t << " = " << commify(t * t * t) <<
-            "\n" <<
-        "\tMaximum node size: " << commify(metadata.maxNodeSize()) << "\n" <<
-        "\tMinimum node size: " << commify(metadata.minNodeSize()) << "\n" <<
-        "\tCache size: " << commify(metadata.cacheSize()) << "\n";
-
-    if (const Subset* s = metadata.subset())
-    {
-        std::cout << "\tSubset: " << s->id() << " of " << s->of() << "\n";
-    }
-
-    std::cout << std::endl;
+    std::cout << "Done" << std::endl;
 }
 
 } // namespace app
 } // namespace entwine
-

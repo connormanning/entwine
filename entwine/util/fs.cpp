@@ -23,6 +23,11 @@ bool isDirectory(std::string path)
         arbiter::getExtension(path).empty();
 }
 
+std::string getStem(const std::string path)
+{
+    return arbiter::stripExtension(arbiter::getBasename(path));
+}
+
 StringList resolve(const StringList& input, const arbiter::Arbiter& a)
 {
     StringList output;

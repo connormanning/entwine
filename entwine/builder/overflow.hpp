@@ -17,7 +17,7 @@
 namespace entwine
 {
 
-class Overflow
+struct Overflow
 {
     struct Entry
     {
@@ -26,32 +26,25 @@ class Overflow
         Key key;
     };
 
-public:
-    Overflow(const ChunkKey& ck)
-        : m_chunkKey(ck)
-        , m_pointSize(ck.metadata().schema().pointSize())
-        , m_block(m_pointSize, 256)
+    Overflow(const ChunkKey& chunkKey, uint64_t pointSize)
+        : chunkKey(chunkKey)
+        , pointSize(pointSize)
+        , block(pointSize, 256)
     { }
 
     void insert(Voxel& voxel, Key& key)
     {
         Entry entry(key);
-        entry.voxel.setData(m_block.next());
-        entry.voxel.initDeep(voxel.point(), voxel.data(), m_pointSize);
-        m_list.push_back(entry);
+        entry.voxel.setData(block.next());
+        entry.voxel.initDeep(voxel.point(), voxel.data(), pointSize);
+        list.push_back(entry);
     }
 
-    const ChunkKey& chunkKey() const { return m_chunkKey; }
-    MemBlock& block() { return m_block; }
-    uint64_t size() const { return m_block.size(); }
-    std::vector<Entry>& list() { return m_list; }
+    const ChunkKey chunkKey;
+    const uint64_t pointSize = 0;
 
-private:
-    const ChunkKey m_chunkKey;
-    const uint64_t m_pointSize = 0;
-
-    MemBlock m_block;
-    std::vector<Entry> m_list;
+    MemBlock block;
+    std::vector<Entry> list;
 };
 
 } // namespace entwine

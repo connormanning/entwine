@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/defs.hpp>
 #include <entwine/types/dimension.hpp>
@@ -18,17 +19,11 @@
 
 namespace entwine
 {
-namespace source
-{
 
-struct Info
+struct SourceInfo
 {
-    Info() = default;
-    Info(const json& j);
-
-    // This info represents the output of a pipeline execution, with the sole
-    // exception of the "metadata" field which is representative of only the
-    // reader.
+    SourceInfo() = default;
+    SourceInfo(const json& j);
 
     StringList errors;
     StringList warnings;
@@ -37,17 +32,13 @@ struct Info
     Srs srs;
     Bounds bounds;
     uint64_t points = 0;
-    dimension::List dimensions;
+    Schema schema;
 
-    json metadata;  // Reader-specific.
+    json metadata;
 };
-
-using InfoList = std::vector<Info>;
-
-void to_json(json& j, const Info& info);
-inline void from_json(const json& j, Info& info) { info = Info(j); }
-
-Info combine(Info agg, const Info& info);
+using InfoList = std::vector<SourceInfo>;
+void to_json(json& j, const SourceInfo& info);
+inline void from_json(const json& j, SourceInfo& info) { info = SourceInfo(j); }
 
 struct Source
 {
@@ -55,27 +46,82 @@ struct Source
     Source(std::string path) : path(path) { }
     Source(const json& j)
         : path(j.at("path").get<std::string>())
-        , info(j.get<Info>())
+        , info(j.get<SourceInfo>())
     { }
 
     std::string path;
-    Info info;
+    SourceInfo info;
 };
+using SourceList = std::vector<Source>;
+void to_json(json& j, const Source& source);
+inline void from_json(const json& j, Source& source) { source = Source(j); }
 
-using List = std::vector<Source>;
-
-inline void to_json(json& j, const Source& source)
+struct BuildItem
 {
-    j = { { "path", source.path } };
-    j.update(source.info);
-}
-inline void from_json(const json& j, Source& source)
+    BuildItem() = default;
+    BuildItem(
+        Source source,
+        bool inserted = false,
+        std::string metadataPath = "")
+        : source(source)
+        , inserted(inserted)
+        , metadataPath(metadataPath)
+    { }
+    BuildItem(const json& j)
+        : BuildItem(
+            Source(j),
+            j.value("inserted", false),
+            j.value("metadataPath", ""))
+    { }
+
+    Source source;
+    bool inserted = false;
+    std::string metadataPath;
+};
+using Manifest = std::vector<BuildItem>;
+void to_json(json& j, const BuildItem& item);
+inline void from_json(const json& j, BuildItem& item) { item = BuildItem(j); }
+
+namespace manifest
 {
-    source = Source(j);
+SourceInfo combine(SourceInfo agg, const SourceInfo& info);
+SourceInfo combine(SourceInfo agg, Source source);
+SourceInfo reduce(const SourceList& list);
+SourceInfo merge(SourceInfo a, const SourceInfo& b);
+} // namespace manifest
+
+inline bool hasStats(const BuildItem& item)
+{
+    return hasStats(item.source.info.schema);
 }
 
-Info combine(Info agg, Source source);
-Info reduce(const List& list);
+inline bool isInserted(const BuildItem& item)
+{
+    return item.inserted;
+}
 
-} // namespace source
+json toOverview(const Manifest& manifest);
+
+// If the stems of all the point cloud paths are unique, then those will be used
+// as metadata paths.  Otherwise they'll be stringified origin IDs.
+Manifest assignMetadataPaths(Manifest manifest);
+
+void saveEach(
+    const Manifest& manifest,
+    const arbiter::Endpoint& ep,
+    unsigned threads,
+    bool pretty = true);
+
+namespace manifest
+{
+
+Manifest load(
+    const arbiter::Endpoint& ep,
+    unsigned threads,
+    std::string postfix = "");
+
+Manifest merge(Manifest manifest, const Manifest& other);
+
+} // namespace manifest
+
 } // namespace entwine

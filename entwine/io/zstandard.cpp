@@ -17,15 +17,19 @@
 
 namespace entwine
 {
-
-void Zstandard::write(
-        const arbiter::Endpoint& out,
-        const arbiter::Endpoint& tmp,
-        const std::string& filename,
-        const Bounds& bounds,
-        BlockPointTable& src) const
+namespace io
 {
-    const std::vector<char> uncompressed(pack(src));
+namespace zstandard
+{
+
+void write(
+    const Metadata& metadata,
+    const Endpoints& endpoints,
+    const std::string filename,
+    BlockPointTable& table,
+    const Bounds bounds)
+{
+    const std::vector<char> uncompressed = binary::pack(metadata, table);
 
     std::vector<char> compressed;
     pdal::ZstdCompressor compressor([&compressed](char* pos, std::size_t size)
@@ -36,16 +40,18 @@ void Zstandard::write(
     compressor.compress(uncompressed.data(), uncompressed.size());
     compressor.done();
 
-    ensurePut(out, filename + ".zst", compressed);
+    ensurePut(endpoints.data, filename + ".zst", compressed);
 }
 
-void Zstandard::read(
-        const arbiter::Endpoint& out,
-        const arbiter::Endpoint& tmp,
-        const std::string& filename,
-        VectorPointTable& dst) const
+void read(
+    const Metadata& metadata,
+    const Endpoints& endpoints,
+    const std::string filename,
+    VectorPointTable& table)
 {
-    auto compressed(ensureGetBinary(out, filename + ".zst"));
+    const std::vector<char> compressed = ensureGetBinary(
+        endpoints.data,
+        filename + ".zst");
 
     std::vector<char> uncompressed;
     pdal::ZstdDecompressor dec([&uncompressed](char* pos, std::size_t size)
@@ -55,8 +61,9 @@ void Zstandard::read(
 
     dec.decompress(compressed.data(), compressed.size());
 
-    unpack(dst, std::move(uncompressed));
+    binary::unpack(metadata, table, std::move(uncompressed));
 }
 
+} // namespace zstandard
+} // namespace io
 } // namespace entwine
-

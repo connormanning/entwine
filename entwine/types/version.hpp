@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2016, Connor Manning (connor@hobu.co)
+* Copyright (c) 2019, Connor Manning (connor@hobu.co)
 *
 * Entwine -- Point cloud indexing
 *
@@ -13,6 +13,8 @@
 #include <algorithm>
 #include <cctype>
 #include <string>
+
+#include <entwine/util/json.hpp>
 
 // Don't know where/which macro defines these things
 #undef major
@@ -83,6 +85,8 @@ private:
     int m_minor = 0;
     int m_patch = 0;
 };
+
+inline void to_json(json& j, const Version& v) { j = v.toString(); }
 
 inline bool operator<(const Version& a, const Version& b)
 {

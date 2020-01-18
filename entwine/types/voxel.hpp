@@ -43,7 +43,7 @@ public:
 
     void clip(const ScaleOffset& so)
     {
-        m_point = so.clip(m_point);
+        m_point = entwine::clip(m_point, so);
     }
 
     void swapDeep(Voxel& other, uint64_t pointSize)

@@ -1,4 +1,4 @@
-# add_subdirectory(builder)
+add_subdirectory(builder)
 add_subdirectory(io)
 # add_subdirectory(reader)
 add_subdirectory(third)

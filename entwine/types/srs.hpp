@@ -63,6 +63,7 @@ private:
 };
 
 void to_json(json& j, const Srs& srs);
+void from_json(const json& j, Srs& srs);
 
 } // namespace entwine
 

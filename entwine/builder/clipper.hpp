@@ -25,9 +25,9 @@ struct CachedChunk
 {
     CachedChunk()
         : xyz(
-                std::numeric_limits<uint64_t>::max(),
-                std::numeric_limits<uint64_t>::max(),
-                std::numeric_limits<uint64_t>::max())
+            std::numeric_limits<uint64_t>::max(),
+            std::numeric_limits<uint64_t>::max(),
+            std::numeric_limits<uint64_t>::max())
     { }
 
     CachedChunk(const Xyz& xyz) : xyz(xyz) { }

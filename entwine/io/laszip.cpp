@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2018, Connor Manning (connor@hobu.co)
+* Copyright (c) 2020, Connor Manning (connor@hobu.co)
 *
 * Entwine -- Point cloud indexing
 *
@@ -15,27 +15,32 @@
 #include <pdal/io/LasReader.hpp>
 #include <pdal/io/LasWriter.hpp>
 
+#include <entwine/types/metadata.hpp>
 #include <entwine/util/executor.hpp>
 #include <entwine/util/io.hpp>
 
 namespace entwine
 {
-
-void Laz::write(
-        const arbiter::Endpoint& out,
-        const arbiter::Endpoint& tmp,
-        const std::string& filename,
-        const Bounds& bounds,
-        BlockPointTable& table) const
+namespace io
 {
+namespace laszip
+{
+
+void write(
+    const Metadata& metadata,
+    const Endpoints& endpoints,
+    const std::string filename,
+    BlockPointTable& table,
+    const Bounds bounds)
+{
+    const arbiter::Endpoint& out(endpoints.data);
+    const arbiter::Endpoint& tmp(endpoints.tmp);
+
     const bool local(out.isLocal());
-    const std::string localDir(
-            local ? out.prefixedRoot() : tmp.prefixedRoot());
+    const std::string localDir(local ? out.prefixedRoot() : tmp.prefixedRoot());
     const std::string localFile(
             (local ? filename : arbiter::crypto::encodeAsHex(filename)) +
             ".laz");
-
-    const Schema& outSchema(m_metadata.outSchema());
 
     pdal::BufferReader reader;
     auto view(std::make_shared<pdal::PointView>(table));
@@ -43,8 +48,8 @@ void Laz::write(
     reader.addView(view);
 
     // See https://www.pdal.io/stages/writers.las.html
-    const uint64_t timeMask(outSchema.hasTime() ? 1 : 0);
-    const uint64_t colorMask(outSchema.hasColor() ? 2 : 0);
+    const uint64_t timeMask(contains(metadata.schema, "GpsTime") ? 1 : 0);
+    const uint64_t colorMask(contains(metadata.schema, "Red") ? 2 : 0);
 
     pdal::Options options;
     options.add("filename", localDir + localFile);
@@ -54,22 +59,24 @@ void Laz::write(
     options.add("compression", "laszip");
     options.add("dataformat_id", timeMask | colorMask);
 
-    options.add("scale_x", outSchema.scale().x);
-    options.add("scale_y", outSchema.scale().y);
-    options.add("scale_z", outSchema.scale().z);
+    const auto so = getScaleOffset(metadata.schema);
+    if (!so) throw std::runtime_error("Scale/offset is required for laszip");
+    options.add("scale_x", so->scale.x);
+    options.add("scale_y", so->scale.y);
+    options.add("scale_z", so->scale.z);
 
-    options.add("offset_x", outSchema.offset().x);
-    options.add("offset_y", outSchema.offset().y);
-    options.add("offset_z", outSchema.offset().z);
+    options.add("offset_x", so->offset.x);
+    options.add("offset_y", so->offset.y);
+    options.add("offset_z", so->offset.z);
 
-    if (m_metadata.srs().exists()) options.add("a_srs", m_metadata.srs().wkt());
+    if (metadata.srs) options.add("a_srs", metadata.srs->wkt());
 
     auto lock(Executor::getLock());
 
     pdal::Stage* prev(&reader);
 
     std::unique_ptr<pdal::SortFilter> sort;
-    if (outSchema.hasTime())
+    if (contains(metadata.schema, "GpsTime"))
     {
         sort = makeUnique<pdal::SortFilter>();
 
@@ -96,13 +103,14 @@ void Laz::write(
         arbiter::remove(tmp.prefixedRoot() + localFile);
     }
 }
-void Laz::read(
-        const arbiter::Endpoint& out,
-        const arbiter::Endpoint& tmp,
-        const std::string& filename,
-        VectorPointTable& table) const
+
+void read(
+    const Metadata& metadata,
+    const Endpoints& endpoints,
+    const std::string filename,
+    VectorPointTable& table)
 {
-    auto handle(out.getLocalHandle(filename + ".laz"));
+    auto handle(endpoints.data.getLocalHandle(filename + ".laz"));
 
     pdal::Options o;
     o.add("filename", handle.localPath());
@@ -119,5 +127,6 @@ void Laz::read(
     reader.execute(table);
 }
 
+} // namespace laszip
+} // namespace io
 } // namespace entwine
-

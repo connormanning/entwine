@@ -54,26 +54,34 @@ inline void from_json(const entwine::json& j, Type& t)
 
 namespace entwine
 {
-namespace dimension
-{
 
 Dimension::Dimension(std::string name, Type type)
     : name(name)
     , type(type)
 { }
 
-Dimension::Dimension(std::string name, Type type, Stats stats)
+Dimension::Dimension(std::string name, Type type, DimensionStats stats)
     : name(name)
     , type(type)
     , stats(stats)
 { }
+
+Dimension::Dimension(
+    std::string name,
+    Type type,
+    optional<DimensionStats> stats)
+    : name(name)
+    , type(type)
+    , stats(stats)
+{ }
+
 Dimension::Dimension(const json& j)
     : name(j.at("name").get<std::string>())
     , type(j.get<Type>())
     , scale(j.value<double>("scale", 1))
     , offset(j.value<double>("offset", 0))
 {
-    if (j.count("count")) stats = j.get<Stats>();
+    if (j.count("count")) stats = j.get<DimensionStats>();
 }
 
 std::string typeString(Type type)
@@ -95,20 +103,24 @@ void to_json(json& j, const Dimension& dim)
         { "size", size(dim.type) },
     };
 
-    if (dim.scale != 1.0 || dim.offset != 0.0)
-    {
-        j.update({
-            { "scale", dim.scale },
-            { "offset", getTypedValue(dim.offset) }
-        });
-    }
-
+    if (dim.scale != 1) j.update({ { "scale", dim.scale } });
+    if (dim.offset != 0) j.update({ { "offset", getTypedValue(dim.offset) } });
     if (dim.stats) j.update(*dim.stats);
 }
 
 void from_json(const json& j, Dimension& dim) { dim = Dimension(j); }
 
-const Dimension* maybeFind(const List& dims, std::string name)
+uint64_t getPointSize(const Schema& dims)
+{
+    return std::accumulate(
+        dims.begin(),
+        dims.end(),
+        0,
+        [](uint64_t acc, const Dimension& d) { return acc + size(d.type); }
+    );
+}
+
+const Dimension* maybeFind(const Schema& dims, std::string name)
 {
     const auto it = std::find_if(
         dims.begin(),
@@ -118,20 +130,53 @@ const Dimension* maybeFind(const List& dims, std::string name)
     if (it == dims.end()) return nullptr;
     return &*it;
 }
-Dimension* maybeFind(List& dims, std::string name)
+Dimension* maybeFind(Schema& dims, std::string name)
 {
     return const_cast<Dimension*>(
-        maybeFind(static_cast<const List&>(dims), name)
+        maybeFind(static_cast<const Schema&>(dims), name)
     );
 }
-const Dimension& find(const List& dims, std::string name)
+const Dimension& find(const Schema& dims, std::string name)
 {
     if (const auto d = maybeFind(dims, name)) return *d;
     throw std::runtime_error("Failed to find dimension: " + name);
 }
-Dimension& find(List& dims, std::string name)
+Dimension& find(Schema& dims, std::string name)
 {
-    return const_cast<Dimension&>(find(static_cast<const List&>(dims), name));
+    return const_cast<Dimension&>(find(static_cast<const Schema&>(dims), name));
+}
+bool contains(const Schema& dims, const std::string name)
+{
+    return static_cast<bool>(maybeFind(dims, name));
+}
+Schema omit(Schema dims, const std::string name)
+{
+    dims.erase(
+        std::remove_if(
+            dims.begin(),
+            dims.end(),
+            [name](const Dimension& d) { return d.name == name; }));
+    return dims;
+}
+
+Schema omit(Schema dims, const StringList& names)
+{
+    for (const auto& name : names) dims = omit(dims, name);
+    return dims;
+}
+
+bool hasStats(const Schema& dims)
+{
+    return std::all_of(
+        dims.begin(),
+        dims.end(),
+        [](const Dimension& d) { return static_cast<bool>(d.stats); });
+}
+
+Schema clearStats(Schema dims)
+{
+    for (auto& dim : dims) dim.stats = { };
+    return dims;
 }
 
 Dimension combine(Dimension agg, const Dimension& dim)
@@ -149,44 +194,69 @@ Dimension combine(Dimension agg, const Dimension& dim)
     return agg;
 }
 
-List combine(List agg, const List& cur)
+Schema makeAbsolute(Schema list)
+{
+    std::array<Dimension*, 3> xyz = { {
+        &find(list, "X"),
+        &find(list, "Y"),
+        &find(list, "Z")
+    } };
+    for (auto d : xyz) *d = Dimension(d->name, DimType::Double, d->stats);
+
+    return list;
+}
+
+Schema combine(Schema agg, const Schema& cur, const bool fixed)
 {
     for (const auto& incoming : cur)
     {
-        Dimension* current(maybeFind(agg, incoming.name));
-        if (!current) agg.push_back(incoming);
-        else *current = combine(*current, incoming);
+        if (Dimension* current = maybeFind(agg, incoming.name))
+        {
+            *current = combine(*current, incoming);
+        }
+        else if (!fixed)
+        {
+            agg.push_back(incoming);
+        }
     }
     return agg;
 }
 
-List fromLayout(const pdal::PointLayout& layout)
+Schema fromLayout(const pdal::PointLayout& layout)
 {
-    List list;
+    Schema list;
     for (const DimId id : layout.dims())
     {
-        const dimension::Dimension dimension(
-            layout.dimName(id),
-            layout.dimType(id));
-        list.push_back(dimension);
+        list.push_back(Dimension(layout.dimName(id), layout.dimType(id)));
     }
     return list;
 }
 
-List applyScaleOffset(List dims, const ScaleOffset so)
+FixedPointLayout toLayout(const Schema& list)
+{
+    FixedPointLayout layout;
+    for (const auto& dim : list)
+    {
+        layout.registerOrAssignDim(dim.name, dim.type);
+    }
+    layout.finalize();
+    return layout;
+}
+
+Schema setScaleOffset(Schema dims, const ScaleOffset so)
 {
     auto& x = find(dims, "X");
     auto& y = find(dims, "Y");
     auto& z = find(dims, "Z");
 
-    x.scale = so.scale()[0];
-    x.offset = so.offset()[0];
+    x.scale = so.scale[0];
+    x.offset = so.offset[0];
 
-    y.scale = so.scale()[1];
-    y.offset = so.offset()[1];
+    y.scale = so.scale[1];
+    y.offset = so.offset[1];
 
-    z.scale = so.scale()[2];
-    z.offset = so.offset()[2];
+    z.scale = so.scale[2];
+    z.offset = so.offset[2];
 
     x.type = DimType::Signed32;
     y.type = DimType::Signed32;
@@ -195,5 +265,16 @@ List applyScaleOffset(List dims, const ScaleOffset so)
     return dims;
 }
 
-} // namespace dimension
+optional<ScaleOffset> getScaleOffset(const Schema& dims)
+{
+    const auto& x = find(dims, "X");
+    const auto& y = find(dims, "Y");
+    const auto& z = find(dims, "Z");
+    const Scale scale(x.scale, y.scale, z.scale);
+    const Offset offset(x.offset, y.offset, z.offset);
+
+    if (scale == 1.0 && offset == 0.0) return { };
+    return ScaleOffset(scale, offset);
+}
+
 } // namespace entwine

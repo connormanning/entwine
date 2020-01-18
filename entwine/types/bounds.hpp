@@ -302,6 +302,13 @@ private:
     }
 };
 
+inline Bounds intersection(const Bounds& a, const Bounds& b)
+{
+    return Bounds(
+        Point::max(a.min(), b.min()),
+        Point::min(a.max(), b.max()));
+}
+
 inline void from_json(const json& j, Bounds& b)
 {
     b = Bounds(j);

@@ -8,10 +8,10 @@
 *
 ******************************************************************************/
 
-// #include "build.hpp"
+#include "build.hpp"
 #include "entwine.hpp"
 #include "info.hpp"
-// #include "merge.hpp"
+#include "merge.hpp"
 // #include "scan.hpp"
 
 #include <csignal>
@@ -259,6 +259,7 @@ void App::addArbiter()
             });
 }
 
+/*
 std::string App::getDimensionString(const Schema& schema) const
 {
     const DimList dims(schema.dims());
@@ -291,6 +292,7 @@ std::string App::getDimensionString(const Schema& schema) const
 
     return results;
 }
+*/
 
 } // namespace app
 } // namespace entwine
@@ -324,7 +326,7 @@ int main(int argc, char** argv)
         {
             entwine::app::Scan().go(args);
         }
-        else if (app == "build")
+        else */ if (app == "build")
         {
             entwine::app::Build().go(args);
         }
@@ -332,7 +334,7 @@ int main(int argc, char** argv)
         {
             entwine::app::Merge().go(args);
         }
-        else */ if (app == "info")
+        else if (app == "info")
         {
             entwine::app::Info().go(args);
         }

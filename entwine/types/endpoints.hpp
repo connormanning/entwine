@@ -10,22 +10,26 @@
 
 #pragma once
 
+#include <stdexcept>
 #include <string>
 
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/types/defs.hpp>
+#include <entwine/util/json.hpp>
 
 namespace entwine
 {
 
-bool isDirectory(std::string path);
-std::string getStem(std::string path);
-
-// Accepts an array of inputs which are some combination of file/directory
-// paths.  Input paths which are directories are globbed into their constituent
-// files.
-StringList resolve(
-    const StringList& input,
-    const arbiter::Arbiter& a = arbiter::Arbiter());
+struct Endpoints
+{
+    Endpoints(json a, std::string output, std::string tmp);
+    std::shared_ptr<arbiter::Arbiter> arbiter;
+    // arbiter::Arbiter& arbiter;
+    // std::reference_wrapper<arbiter::Arbiter> arbiter;
+    arbiter::Endpoint output;
+    arbiter::Endpoint data;
+    arbiter::Endpoint hierarchy;
+    arbiter::Endpoint sources;
+    arbiter::Endpoint tmp;
+};
 
 } // namespace entwine

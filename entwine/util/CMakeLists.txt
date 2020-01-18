@@ -3,7 +3,6 @@ set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 set(
     SOURCES
-    "${BASE}/executor.cpp"
     "${BASE}/fs.cpp"
     "${BASE}/info.cpp"
     "${BASE}/io.cpp"

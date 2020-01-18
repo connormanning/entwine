@@ -52,7 +52,7 @@ set(OBJS
     # $<TARGET_OBJECTS:reader>
     $<TARGET_OBJECTS:io>
     $<TARGET_OBJECTS:third>
-    # $<TARGET_OBJECTS:builder>
+    $<TARGET_OBJECTS:builder>
     $<TARGET_OBJECTS:types>
     $<TARGET_OBJECTS:util>
 )

@@ -83,13 +83,13 @@ public:
     T& value()
     {
         if (!has_value()) throw bad_optional_access("Bad optional access");
-        return *this;
+        return **this;
     }
 
     const T& value() const
     {
         if (!has_value()) throw bad_optional_access("Bad optional access");
-        return *this;
+        return **this;
     }
 
     // Modifiers.
@@ -104,6 +104,12 @@ inline optional<T> maybeCreate(const json& j)
 {
     if (!j.is_null()) return j.get<T>();
     return { };
+}
+
+template <typename T>
+inline void to_json(json& j, const optional<T>& v)
+{
+    if (v) j = *v;
 }
 
 template <typename T>
