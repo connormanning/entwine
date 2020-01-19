@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2016, Connor Manning (connor@hobu.co)
+* Copyright (c) 2020, Connor Manning (connor@hobu.co)
 *
 * Entwine -- Point cloud indexing
 *
@@ -10,33 +10,23 @@
 
 #pragma once
 
-#include <memory>
 #include <mutex>
 
 namespace entwine
 {
 
-class Executor
+class PdalMutex
 {
 public:
-    static Executor& get()
+    static std::mutex& get()
     {
-        static Executor e;
-        return e;
+        static PdalMutex instance;
+        return instance.mutex;
     }
 
-    static std::mutex& mutex()
-    {
-        return get().m_mutex;
-    }
-
-    static std::unique_lock<std::mutex> getLock()
-    {
-        return std::unique_lock<std::mutex>(mutex());
-    }
-
-    mutable std::mutex m_mutex;
+private:
+    PdalMutex() = default;
+    std::mutex mutex;
 };
 
 } // namespace entwine
-

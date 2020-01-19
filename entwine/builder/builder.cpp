@@ -20,9 +20,9 @@
 #include <entwine/builder/heuristics.hpp>
 #include <entwine/types/dimension.hpp>
 #include <entwine/types/point-counts.hpp>
-#include <entwine/util/executor.hpp>
 #include <entwine/util/fs.hpp>
 #include <entwine/util/io.hpp>
+#include <entwine/util/pdal-mutex.hpp>
 #include <entwine/util/pipeline.hpp>
 
 namespace entwine
@@ -184,7 +184,7 @@ void Builder::insert(ChunkCache& cache, const Origin originId)
     pdal::PipelineManager pm;
     std::istringstream iss(pipeline.dump());
 
-    auto lock = Executor::getLock();
+    std::unique_lock<std::mutex> lock(PdalMutex::get());
 
     pm.readPipeline(iss);
     pm.validateStageOptions();

@@ -27,11 +27,10 @@ void create(const std::string& dir)
 } // unnamed namespace
 
 Endpoints::Endpoints(
-    const json a,
-    const std::string outputPath,
-    const std::string tmpPath)
-    : arbiter(std::make_shared<arbiter::Arbiter>(a.dump()))
-    // , arbiter(*sharedArbiter)
+    std::shared_ptr<arbiter::Arbiter> arbiter,
+    std::string outputPath,
+    std::string tmpPath)
+    : arbiter(arbiter)
     , output(arbiter->getEndpoint(outputPath))
     , data(output.getSubEndpoint("ept-data"))
     , hierarchy(output.getSubEndpoint("ept-hierarchy"))

@@ -18,13 +18,6 @@
 namespace entwine
 {
 
-json createInfoPipeline(
-    json pipeline = json::array({ json::object() }),
-    bool deep = false,
-    optional<Reprojection> = { });
-
-json extractInfoPipelineFromConfig(json config);
-
 SourceInfo analyzeOne(std::string path, bool deep, json pipelineTemplate);
 Source parseOne(std::string path, const arbiter::Arbiter& a = { });
 
@@ -34,13 +27,6 @@ SourceList analyze(
     bool deep,
     std::string tmp = arbiter::getTempPath(),
     const arbiter::Arbiter& a = { },
-    unsigned threads = 8);
-
-SourceList analyze(const json& config);
-
-void serialize(
-    const SourceList& sources,
-    const arbiter::Endpoint& ep,
     unsigned threads = 8);
 
 } // namespace entwine

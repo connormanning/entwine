@@ -96,15 +96,8 @@ void from_json(const json& j, Srs& srs) { srs = Srs(j); }
 
 std::string Srs::toString() const
 {
-    if (!hasCode()) return m_wkt;
-
-    if (m_horizontal.empty())
-    {
-        throw std::runtime_error("No horizontal SRS component");
-    }
-
-    return m_authority + ":" + m_horizontal +
-        (m_vertical.size() ? "+" + m_vertical : "");
+    if (hasCode()) return codeString();
+    return m_wkt;
 }
 
 std::string Srs::codeString() const
@@ -115,5 +108,12 @@ std::string Srs::codeString() const
     return s;
 }
 
-} // namespace entwine
+bool operator==(const Srs& a, const Srs& b)
+{
+    if (a.hasCode() && b.hasCode()) return a.codeString() == b.codeString();
+    return a.wkt() == b.wkt();
+}
 
+bool operator!=(const Srs& a, const Srs& b) { return !(a == b); }
+
+} // namespace entwine

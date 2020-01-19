@@ -21,9 +21,9 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/scale-offset.hpp>
-#include <entwine/util/executor.hpp>
 #include <entwine/util/fs.hpp>
 #include <entwine/util/io.hpp>
+#include <entwine/util/pdal-mutex.hpp>
 #include <entwine/util/pipeline.hpp>
 #include <entwine/util/pool.hpp>
 #include <entwine/util/unique.hpp>
@@ -59,7 +59,7 @@ void executeStandard(pdal::Stage& s, pdal::StreamPointTable& table)
 void executeStreaming(pdal::Stage& s, pdal::StreamPointTable& table)
 {
     {
-        auto lock(Executor::getLock());
+        std::lock_guard<std::mutex> lock(PdalMutex::get());
         s.prepare(table);
     }
     s.execute(table);
@@ -78,7 +78,7 @@ SourceInfo getShallowInfo(const json pipeline)
 
     const json filterJson = slice(pipeline, 1);
 
-    auto lock(Executor::getLock());
+    std::unique_lock<std::mutex> lock(PdalMutex::get());
 
     pdal::PipelineManager pm;
     std::istringstream iss(pipeline.dump());
@@ -91,7 +91,7 @@ SourceInfo getShallowInfo(const json pipeline)
     if (!streamable) info.warnings.push_back("Pipeline is not streamable");
 
     const pdal::QuickInfo qi(reader.preview());
-    if (!qi.valid()) throw ShallowInfoError("Preview could not be created");
+    if (!qi.valid()) throw ShallowInfoError("Failed to extract info");
     if (qi.m_bounds.empty()) throw ShallowInfoError("Failed to extract bounds");
 
     pdal::PointTable table;
@@ -181,7 +181,7 @@ SourceInfo getDeepInfo(json pipeline)
 
     try
     {
-        auto lock(Executor::getLock());
+        std::unique_lock<std::mutex> lock(PdalMutex::get());
         pdal::PipelineManager pm;
         std::istringstream iss(pipeline.dump());
         pm.readPipeline(iss);
@@ -259,48 +259,6 @@ bool areStemsUnique(const SourceList& sources)
         set.insert(stem);
     }
     return true;
-}
-
-json createInfoPipeline(json pipeline, optional<Reprojection> reprojection)
-{
-    if (pipeline.is_object()) pipeline = pipeline.at("pipeline");
-
-    if (!pipeline.is_array() || pipeline.empty())
-    {
-        throw std::runtime_error("Invalid pipeline: " + pipeline.dump(2));
-    }
-
-    json& reader(pipeline.at(0));
-
-    // Configure the reprojection stage, if applicable.
-    if (reprojection)
-    {
-        // First set the input SRS on the reader if necessary.
-        const std::string in(reprojection->in());
-        if (in.size())
-        {
-            if (reprojection->hammer()) reader["override_srs"] = in;
-            else reader["default_srs"] = in;
-        }
-
-        // Now set up the output.  If there's already a filters.reprojection in
-        // the pipeline, we'll fill it in.  Otherwise, we'll append one.
-        json& filter(findOrAppendStage(pipeline, "filters.reprojection"));
-        filter.update({ {"out_srs", reprojection->out() } });
-    }
-
-    return pipeline;
-}
-
-json extractInfoPipelineFromConfig(json config)
-{
-    const auto pipeline = config.value(
-        "pipeline",
-        json::array({ json::object() }));
-
-    optional<Reprojection> reprojection(config.value("reprojection", json()));
-
-    return createInfoPipeline(pipeline, reprojection);
 }
 
 SourceInfo analyzeOne(const std::string path, const bool deep, json pipeline)
@@ -412,45 +370,6 @@ SourceList analyze(
     pool.join();
 
     return sources;
-}
-
-SourceList analyze(const json& config)
-{
-    const StringList inputs = config.value("input", StringList());
-    const json pipeline = extractInfoPipelineFromConfig(config);
-    const bool deep = config.value("deep", false);
-    const std::string tmp = config.value("tmp", arbiter::getTempPath());
-    const arbiter::Arbiter a(config.value("arbiter", json()).dump());
-    const unsigned int threads = config.value("threads", 8u);
-    return analyze(inputs, pipeline, deep, tmp, a, threads);
-}
-
-void serialize(
-    const SourceList& sources,
-    const arbiter::Endpoint& ep,
-    const unsigned int threads)
-{
-    const bool stemsAreUnique = areStemsUnique(sources);
-
-    uint64_t i(0);
-    Pool pool(threads);
-    for (const Source& source : sources)
-    {
-        std::cout << (i + 1) << "/" << sources.size() << ": " << source.path <<
-            std::endl;
-
-        const std::string stem = stemsAreUnique
-            ? getStem(source.path)
-            : std::to_string(i);
-
-        pool.add([&ep, &source, stem]()
-        {
-            ep.put(stem + ".json", json(source).dump(2));
-        });
-
-        ++i;
-    }
-    pool.join();
 }
 
 } // namespace entwine

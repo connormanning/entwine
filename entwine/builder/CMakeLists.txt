@@ -9,8 +9,6 @@ set(
     "${BASE}/clipper.cpp"
     "${BASE}/config.cpp"
     "${BASE}/hierarchy.cpp"
-    # "${BASE}/merger.cpp"
-    # "${BASE}/scan.cpp"
 )
 
 set(
@@ -22,9 +20,7 @@ set(
     "${BASE}/config.hpp"
     "${BASE}/heuristics.hpp"
     "${BASE}/hierarchy.hpp"
-    "${BASE}/merger.hpp"
     "${BASE}/overflow.hpp"
-    "${BASE}/scan.hpp"
 )
 
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})

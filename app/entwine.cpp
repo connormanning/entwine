@@ -12,7 +12,6 @@
 #include "entwine.hpp"
 #include "info.hpp"
 #include "merge.hpp"
-// #include "scan.hpp"
 
 #include <csignal>
 #include <cstdio>
@@ -24,6 +23,7 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/defs.hpp>
+#include <entwine/types/dimension.hpp>
 #include <entwine/types/srs.hpp>
 #include <entwine/util/stack-trace.hpp>
 
@@ -259,40 +259,73 @@ void App::addArbiter()
             });
 }
 
-/*
+std::string App::getReprojectionString(optional<Reprojection> o)
+{
+    if (!o) return "none";
+    const Reprojection r = *o;
+
+    return std::string("\n") +
+        "\t\tInput: " + (r.in().empty() ? "(auto-detect)" : r.in()) + "\n" +
+        "\t\tOutput: " + r.out() + "\n" +
+        "\t\tOverride headers? " + yesNo(r.hammer());
+}
+
+namespace
+{
+std::string prettify(DimType t)
+{
+    std::string s;
+    switch (pdal::Dimension::base(t))
+    {
+        case pdal::Dimension::BaseType::Signed:
+            s = "int";
+            break;
+        case pdal::Dimension::BaseType::Unsigned:
+            s = "uint";
+            break;
+        case pdal::Dimension::BaseType::Floating:
+            s = "float";
+            break;
+        default:
+            s = "unknown";
+            break;
+    }
+    s += std::to_string(pdal::Dimension::size(t) * 8);
+    return s;
+}
+
+}
+
 std::string App::getDimensionString(const Schema& schema) const
 {
-    const DimList dims(schema.dims());
     std::string results("[\n");
-    const std::string prefix(16, ' ');
+    const std::string prefix(8, ' ');
     const std::size_t width(80);
 
     std::string line;
 
-    for (std::size_t i(0); i < dims.size(); ++i)
+    for (std::size_t i(0); i < schema.size(); ++i)
     {
-        const auto name(dims[i].name());
-        const auto type(dims[i].typeName());
-        const bool last(i == dims.size() - 1);
+        const auto& dim = schema[i];
+        const bool last(i == schema.size() - 1);
 
-        if (prefix.size() + line.size() + name.size() + 1 >= width)
+        if (prefix.size() + line.size() + dim.name.size() + 1 >= width)
         {
             results += prefix + line + '\n';
             line.clear();
         }
 
         if (line.size()) line += ' ';
-        line += dims[i].name() + ':' + type;
+        line += dim.name + ':' + prettify(dim.type);
 
         if (!last) line += ',';
         else results += prefix + line + '\n';
     }
 
-    results += "\t]";
+    results += "]";
 
     return results;
 }
-*/
 
 } // namespace app
 } // namespace entwine
@@ -321,12 +354,7 @@ int main(int argc, char** argv)
 
     try
     {
-        /*
-        if (app == "scan")
-        {
-            entwine::app::Scan().go(args);
-        }
-        else */ if (app == "build")
+        if (app == "build")
         {
             entwine::app::Build().go(args);
         }

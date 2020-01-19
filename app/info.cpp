@@ -10,6 +10,7 @@
 
 #include "info.hpp"
 
+#include <entwine/builder/config.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/srs.hpp>
 #include <entwine/util/fs.hpp>
@@ -44,37 +45,109 @@ void Info::addArgs()
     addArbiter();
 }
 
+namespace
+{
+void printProblems(const SourceInfo& info)
+{
+    if (info.warnings.size())
+    {
+        std::cout << "Warnings:\n";
+        for (const auto& w : info.warnings) std::cout << "\t- " << w << "\n";
+    }
+    if (info.errors.size())
+    {
+        std::cout << "Errors:\n";
+        for (const auto& e : info.errors) std::cout << "\t- " << e << "\n";
+    }
+}
+
+}
+
 void Info::run()
 {
-    const std::string output(m_json.value("output", ""));
+    StringList inputs = config::getInput(m_json);
+    if (inputs.empty())
+    {
+        std::cout << "No inputs supplied - exiting" << std::endl;
+        return;
+    }
+    if (std::any_of(inputs.begin(), inputs.end(), isDirectory))
+    {
+        std::cout << "Resolving inputs..." << std::endl;
+        inputs = resolve(inputs);
+        std::cout << "\tResolved." << std::endl;
+    }
 
-    std::cout << "Analyzing" << std::endl;
-    const auto start = now();
-    const auto sources = analyze(m_json);
-    const auto reduced = manifest::reduce(sources);
-    std::cout << "Analyzed in " << formatTime(since(start)) << "s." <<
+    const std::string output = config::getOutput(m_json);
+    const std::string tmp = config::getTmp(m_json);
+    const arbiter::Arbiter a = config::getArbiter(m_json);
+    const auto endpoint(a.getEndpoint(output));
+    const bool deep = config::getDeep(m_json);
+    const unsigned threads = config::getThreads(m_json);
+    const json pipeline = config::getPipeline(m_json);
+    const auto reprojection = config::getReprojection(m_json);
+
+    std::cout << "Analyzing:\n" <<
+        "\tInput: " <<
+            (inputs.size() > 1
+                ? std::to_string(inputs.size()) + " paths"
+                : inputs.at(0)) << "\n" <<
+        (output.size() ? "\tOutput: " + output + "\n" : "") <<
+        "\tReprojection: " << getReprojectionString(reprojection) << "\n" <<
+        "\tType: " << (deep ? "deep" : "shallow") << "\n" <<
+        "\tThreads: " << threads << "\n" <<
         std::endl;
+
+    const SourceList sources = analyze(
+        inputs,
+        pipeline,
+        deep,
+        tmp,
+        a,
+        threads);
+    const SourceInfo summary = manifest::reduce(sources);
+
+    std::cout << "\tDone.\n" << std::endl;
+
+    if (!summary.points)
+    {
+        printProblems(summary);
+        throw std::runtime_error("No points found!");
+    }
+
+    std::cout <<
+        "Dimensions: " << getDimensionString(summary.schema) << "\n" <<
+        "Points: " << commify(summary.points) << "\n" <<
+        "Bounds: " << summary.bounds << "\n";
+
+    if (const auto so = getScaleOffset(summary.schema))
+    {
+        std::cout << "Scale: ";
+        const auto s = so->scale;
+        if (s.x == s.y && s.x == s.z) std::cout << s.x;
+        else std::cout << s;
+        std::cout << "\n";
+    }
+
+    const std::string srsString = summary.srs.empty()
+        ? "none"
+        : summary.srs.toString();
+
+    std::cout << "SRS: " <<
+        (srsString.size() > 77 ? srsString.substr(0, 77) + "..." : srsString) <<
+        std::endl;
+    printProblems(summary);
+
+    std::cout << std::endl;
 
     if (output.size())
     {
-        std::cout << "Serializing to " << output << std::endl;
-
-        const arbiter::Arbiter a(m_json.value("arbiter", json()).dump());
-        const unsigned int threads(m_json.value("threads", 8));
-
+        std::cout << "Saving output..." << std::endl;
         if (a.isLocal(output)) arbiter::mkdirp(output);
-
-        const auto endpoint(a.getEndpoint(output));
-
-        const auto start = now();
-        serialize(sources, endpoint, threads);
-
-        std::cout << "Serialized in " << formatTime(since(start)) << "s." <<
-            std::endl;
+        const bool pretty = sources.size() <= 1000;
+        saveEach(sources, endpoint, threads, pretty);
+        std::cout << "\tSaved." << std::endl;
     }
-
-    // std::cout << "Sources: " << json(sources).dump(2) << std::endl;
-    std::cout << "Info: " << json(reduced).dump(2) << std::endl;
 }
 
 } // namespace app

@@ -183,7 +183,7 @@ void Build::addArgs()
 void Build::run()
 {
     const Endpoints endpoints = config::getEndpoints(m_json);
-    const unsigned threads = getTotal(config::getThreads(m_json));
+    const unsigned threads = config::getThreads(m_json);
 
     Manifest manifest;
     Hierarchy hierarchy;
@@ -250,7 +250,7 @@ void Build::run()
     std::cout << "Internal: " << json(builder.metadata.internal).dump(2) <<
         std::endl;
 
-    builder.run(config::getThreads(m_json), config::getLimit(m_json));
+    builder.run(config::getCompoundThreads(m_json), config::getLimit(m_json));
 
     std::cout << "Done" << std::endl;
 }

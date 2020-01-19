@@ -47,7 +47,7 @@ void Merge::run()
     std::cout << "Merging: " << m_json.dump(2) << std::endl;
 
     const Endpoints endpoints = config::getEndpoints(m_json);
-    const unsigned threads = getTotal(config::getThreads(m_json));
+    const unsigned threads = config::getThreads(m_json);
     const bool force = config::getForce(m_json);
 
     if (!force && endpoints.output.tryGetSize("ept.json"))

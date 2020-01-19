@@ -17,7 +17,10 @@
 #include "arg-parser.hpp"
 
 #include <entwine/third/arbiter/arbiter.hpp>
+#include <entwine/types/dimension.hpp>
+#include <entwine/types/reprojection.hpp>
 #include <entwine/util/json.hpp>
+#include <entwine/util/optional.hpp>
 
 namespace entwine
 {
@@ -67,7 +70,8 @@ protected:
 
     std::string yesNo(bool b) const { return b ? "yes" : "no"; }
 
-    // std::string getDimensionString(const Schema& schema) const;
+    std::string getReprojectionString(optional<Reprojection> r);
+    std::string getDimensionString(const Schema& schema) const;
 };
 
 } // namespace app

@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <memory>
 #include <stdexcept>
 #include <string>
 
@@ -21,10 +22,12 @@ namespace entwine
 
 struct Endpoints
 {
-    Endpoints(json a, std::string output, std::string tmp);
+    Endpoints(
+        std::shared_ptr<arbiter::Arbiter> a,
+        std::string output,
+        std::string tmp);
+
     std::shared_ptr<arbiter::Arbiter> arbiter;
-    // arbiter::Arbiter& arbiter;
-    // std::reference_wrapper<arbiter::Arbiter> arbiter;
     arbiter::Endpoint output;
     arbiter::Endpoint data;
     arbiter::Endpoint hierarchy;

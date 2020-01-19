@@ -19,6 +19,17 @@ namespace entwine
 namespace
 {
 
+bool areStemsUnique(const SourceList& sources)
+{
+    std::set<std::string> stems;
+    for (const auto& source : sources)
+    {
+        const std::string stem = getStem(source.path);
+        if (stem == "manifest" || !stems.insert(stem).second) return false;
+    }
+    return true;
+}
+
 bool areStemsUnique(const Manifest& manifest)
 {
     std::set<std::string> stems;
@@ -91,7 +102,22 @@ SourceInfo manifest::combine(SourceInfo agg, const SourceInfo& cur)
     if (!cur.points) return agg;
 
     agg.metadata = json();
-    if (agg.srs.empty()) agg.srs = cur.srs;
+    if (cur.srs.exists())
+    {
+        if (agg.srs.empty()) agg.srs = cur.srs;
+        else if (agg.srs != cur.srs)
+        {
+            const std::string message = "Multiple spatial references found";
+            const auto pred = [message](const std::string& s)
+            {
+                return s == message;
+            };
+            if (std::none_of(agg.warnings.begin(), agg.warnings.end(), pred))
+            {
+                agg.warnings.push_back(message);
+            }
+        }
+    }
     agg.bounds.grow(cur.bounds);
     agg.points += cur.points;
     agg.schema = combine(agg.schema, cur.schema);
@@ -155,6 +181,36 @@ Manifest assignMetadataPaths(Manifest manifest)
     }
 
     return manifest;
+}
+
+void saveEach(
+    const SourceList& sources,
+    const arbiter::Endpoint& ep,
+    const unsigned threads,
+    const bool pretty)
+{
+    const bool stemsAreUnique = areStemsUnique(sources);
+
+    uint64_t i = 0;
+    Pool pool(threads);
+    for (const Source& source : sources)
+    {
+        const std::string stem = stemsAreUnique
+            ? getStem(source.path)
+            : std::to_string(i);
+
+        pool.add([&ep, &source, stem, pretty]()
+        {
+            ensurePut(
+                ep,
+                stem + ".json",
+                json(source).dump(getIndent(pretty)));
+        });
+
+        ++i;
+    }
+
+    pool.join();
 }
 
 void saveEach(

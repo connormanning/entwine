@@ -42,7 +42,10 @@ public:
 
     bool empty() const { return m_spatialReference.empty(); }
     bool exists() const { return !empty(); }
-    bool hasCode() const { return !m_authority.empty(); }
+    bool hasCode() const
+    {
+        return !m_authority.empty() && !m_horizontal.empty();
+    }
     bool hasVerticalCode() const { return !m_vertical.empty(); }
     std::string toString() const;
     std::string codeString() const;
@@ -61,6 +64,9 @@ private:
     std::string m_vertical;
     std::string m_wkt;
 };
+
+bool operator==(const Srs& a, const Srs& b);
+bool operator!=(const Srs& a, const Srs& b);
 
 void to_json(json& j, const Srs& srs);
 void from_json(const json& j, Srs& srs);

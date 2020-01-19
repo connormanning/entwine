@@ -107,6 +107,11 @@ json toOverview(const Manifest& manifest);
 Manifest assignMetadataPaths(Manifest manifest);
 
 void saveEach(
+    const SourceList& sources,
+    const arbiter::Endpoint& ep,
+    unsigned threads,
+    bool pretty = true);
+void saveEach(
     const Manifest& manifest,
     const arbiter::Endpoint& ep,
     unsigned threads,

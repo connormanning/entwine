@@ -12,6 +12,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <memory>
 
 #include <entwine/builder/heuristics.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
@@ -43,7 +44,7 @@ BuildParameters getBuildParameters(const json& j)
 
 Endpoints getEndpoints(const json& j)
 {
-    const json arbiter = getArbiter(j);
+    const auto arbiter = std::make_shared<arbiter::Arbiter>(getArbiter(j));
     const auto output = getOutput(j);
     const auto tmp = getTmp(j);
 
@@ -67,7 +68,10 @@ Metadata getMetadata(const json& j)
         getBuildParameters(j));
 }
 
-json getArbiter(const json& j) { return j.value("arbiter", json()); }
+arbiter::Arbiter getArbiter(const json& j)
+{
+    return arbiter::Arbiter(j.value("arbiter", json()).dump());
+}
 StringList getInput(const json& j) { return j.value("input", StringList()); }
 std::string getOutput(const json& j) { return j.value("output", ""); }
 std::string getTmp(const json& j)
@@ -176,7 +180,8 @@ json getPipeline(const json& j)
     return pipeline;
 }
 
-Threads getThreads(const json& j)
+unsigned getThreads(const json& j) { return j.value("threads", 8); }
+Threads getCompoundThreads(const json& j)
 {
     return Threads(j.value("threads", json()));
 }

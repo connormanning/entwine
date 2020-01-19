@@ -41,7 +41,7 @@ namespace config
 Endpoints getEndpoints(const json& j);
 Metadata getMetadata(const json& j);
 
-json getArbiter(const json& j);
+arbiter::Arbiter getArbiter(const json& j);
 StringList getInput(const json& j);
 std::string getOutput(const json& j);
 std::string getTmp(const json& j);
@@ -58,7 +58,8 @@ optional<Scale> getScale(const json& j);
 
 json getPipeline(const json& j);
 
-Threads getThreads(const json& j);
+unsigned getThreads(const json& j);
+Threads getCompoundThreads(const json& j);
 Version getEptVersion(const json& j);
 
 bool getVerbose(const json& j);

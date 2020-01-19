@@ -16,8 +16,8 @@
 #include <pdal/io/LasWriter.hpp>
 
 #include <entwine/types/metadata.hpp>
-#include <entwine/util/executor.hpp>
 #include <entwine/util/io.hpp>
+#include <entwine/util/pdal-mutex.hpp>
 
 namespace entwine
 {
@@ -71,7 +71,7 @@ void write(
 
     if (metadata.srs) options.add("a_srs", metadata.srs->wkt());
 
-    auto lock(Executor::getLock());
+    std::unique_lock<std::mutex> lock(PdalMutex::get());
 
     pdal::Stage* prev(&reader);
 
@@ -120,7 +120,7 @@ void read(
     reader.setOptions(o);
 
     {
-        auto lock(Executor::getLock());
+        std::lock_guard<std::mutex> lock(PdalMutex::get());
         reader.prepare(table);
     }
 
