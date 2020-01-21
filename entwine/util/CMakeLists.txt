@@ -12,7 +12,6 @@ set(
 set(
     HEADERS
     "${BASE}/env.hpp"
-    "${BASE}/executor.hpp"
     "${BASE}/fs.hpp"
     "${BASE}/info.hpp"
     "${BASE}/io.hpp"
@@ -20,6 +19,7 @@ set(
     "${BASE}/locker.hpp"
     "${BASE}/matrix.hpp"
     "${BASE}/optional.hpp"
+    "${BASE}/pdal-mutex.hpp"
     "${BASE}/pipeline.hpp"
     "${BASE}/pool.hpp"
     "${BASE}/spin-lock.hpp"
