@@ -92,6 +92,12 @@ public:
         return **this;
     }
 
+    template <typename U>
+    T value_or(U&& def) const
+    {
+        return has_value() ? **this : static_cast<T>(std::forward<U>(def));
+    }
+
     // Modifiers.
     void reset() { m_value.reset(); }
 

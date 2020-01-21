@@ -202,12 +202,8 @@ void Build::run()
         );
         m_json = merge(m_json, existingConfig);
 
-        // Awaken our existing manifest.
-        std::cout << "Awakening existing sources." << std::endl;
+        // Awaken our existing manifest and hierarchy.
         manifest = manifest::load(endpoints.sources, threads);
-
-        // Awaken our existing hierarchy.
-        std::cout << "Awakening existing hierarchy." << std::endl;
         hierarchy = hierarchy::load(endpoints.hierarchy, threads);
     }
 
@@ -220,6 +216,7 @@ void Build::run()
             manifest.end(),
             [path](const BuildItem& b) { return b.source.path == path; });
     };
+    // Remove any inputs we already have in our manifest prior to analysis.
     inputs.erase(
         std::remove_if(inputs.begin(), inputs.end(), exists),
         inputs.end());
@@ -229,28 +226,39 @@ void Build::run()
         config::getDeep(m_json),
         config::getTmp(m_json),
         *endpoints.arbiter,
-        threads
-    );
-    for (const auto& source : sources)
-    {
-        manifest.emplace_back(source);
-    }
+        threads);
+    for (const auto& source : sources) manifest.emplace_back(source);
 
     // It's possible we've just analyzed some files, in which case we have
     // potentially new information like bounds, schema, and SRS.  Prioritize
     // values from the config, which may explicitly override these.
-    m_json = merge(manifest::reduce(sources), m_json);
-    // std::cout << "Analyzed: " << m_json.dump(2) << std::endl;
+    const SourceInfo analysis = manifest::reduce(sources);
+    m_json = merge(analysis, m_json);
     const Metadata metadata = config::getMetadata(m_json);
-    // std::cout << "Meta: " << json(metadata).dump(2) << std::endl;
 
     Builder builder(endpoints, metadata, manifest, hierarchy);
 
-    std::cout << "Metadata: " << json(builder.metadata).dump(2) << std::endl;
-    std::cout << "Internal: " << json(builder.metadata.internal).dump(2) <<
-        std::endl;
+    const uint64_t points = std::accumulate(
+        manifest.begin(),
+        manifest.end(),
+        0ull,
+        [](uint64_t p, const BuildItem& b)
+        {
+            return p + b.source.info.points;
+        });
 
-    builder.run(config::getCompoundThreads(m_json), config::getLimit(m_json));
+    printInfo(
+        metadata.schema,
+        metadata.boundsConforming,
+        metadata.srs.value_or(Srs()),
+        points,
+        analysis.warnings,
+        analysis.errors);
+
+    builder.run(
+        config::getCompoundThreads(m_json),
+        config::getLimit(m_json),
+        config::getProgressInterval(m_json));
 
     std::cout << "Done" << std::endl;
 }

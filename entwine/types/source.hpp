@@ -117,6 +117,9 @@ void saveEach(
     unsigned threads,
     bool pretty = true);
 
+uint64_t getInsertedPoints(const Manifest& manifest);
+uint64_t getTotalPoints(const Manifest& manifest);
+
 namespace manifest
 {
 

@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <string>
 
 #include <entwine/builder/chunk-cache.hpp>
@@ -30,9 +31,28 @@ struct Builder
         Manifest manifest,
         Hierarchy hierarchy = Hierarchy());
 
-    void run(Threads threads, uint64_t limit = 0);
-    void tryInsert(ChunkCache& cache, uint64_t origin);
-    void insert(ChunkCache& cache, uint64_t origin);
+    void run(
+        Threads threads,
+        uint64_t limit = 0,
+        uint64_t progressIntervalSeconds = 10);
+
+    void monitor(
+        uint64_t progressIntervalSeconds,
+        std::atomic_uint64_t& counter,
+        std::atomic_bool& done);
+
+    void runInserts(
+        Threads threads,
+        uint64_t limit,
+        std::atomic_uint64_t& counter);
+    void tryInsert(
+        ChunkCache& cache,
+        uint64_t origin,
+        std::atomic_uint64_t& counter);
+    void insert(
+        ChunkCache& cache,
+        uint64_t origin,
+        std::atomic_uint64_t& counter);
     void save(unsigned threads);
 
     void saveHierarchy(unsigned threads);

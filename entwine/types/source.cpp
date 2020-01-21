@@ -201,10 +201,7 @@ void saveEach(
 
         pool.add([&ep, &source, stem, pretty]()
         {
-            ensurePut(
-                ep,
-                stem + ".json",
-                json(source).dump(getIndent(pretty)));
+            ensurePut(ep, stem + ".json", json(source).dump(getIndent(pretty)));
         });
 
         ++i;
@@ -299,6 +296,33 @@ Manifest manifest::merge(Manifest dst, const Manifest& src)
     }
 
     return dst;
+}
+
+uint64_t getInsertedPoints(const Manifest& manifest)
+{
+    return std::accumulate(
+        manifest.begin(),
+        manifest.end(),
+        uint64_t(0),
+        [](const uint64_t n, const BuildItem& b)
+        {
+            if (b.inserted) return n + b.source.info.points;
+            return n;
+        }
+    );
+}
+
+uint64_t getTotalPoints(const Manifest& manifest)
+{
+    return std::accumulate(
+        manifest.begin(),
+        manifest.end(),
+        uint64_t(0),
+        [](const uint64_t n, const BuildItem& b)
+        {
+            return n + b.source.info.points;
+        }
+    );
 }
 
 } // namespace entwine

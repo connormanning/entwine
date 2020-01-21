@@ -293,7 +293,6 @@ std::string prettify(DimType t)
     s += std::to_string(pdal::Dimension::size(t) * 8);
     return s;
 }
-
 }
 
 std::string App::getDimensionString(const Schema& schema) const
@@ -325,6 +324,52 @@ std::string App::getDimensionString(const Schema& schema) const
     results += "]";
 
     return results;
+}
+
+void App::printProblems(const StringList& warnings, const StringList& errors)
+{
+    if (warnings.size())
+    {
+        std::cout << "Warnings:\n";
+        for (const auto& w : warnings) std::cout << "\t- " << w << "\n";
+    }
+    if (errors.size())
+    {
+        std::cout << "Errors:\n";
+        for (const auto& e : errors) std::cout << "\t- " << e << "\n";
+    }
+}
+
+void App::printInfo(
+    const Schema& schema,
+    const Bounds& bounds,
+    const Srs& srs,
+    const uint64_t points,
+    const StringList& warnings,
+    const StringList& errors)
+{
+    std::cout <<
+        "Dimensions: " << getDimensionString(schema) << "\n" <<
+        "Points: " << commify(points) << "\n" <<
+        "Bounds: " << bounds << "\n";
+
+    if (const auto so = getScaleOffset(schema))
+    {
+        std::cout << "Scale: ";
+        const auto s = so->scale;
+        if (s.x == s.y && s.x == s.z) std::cout << s.x;
+        else std::cout << s;
+        std::cout << "\n";
+    }
+
+    const std::string srsString = srs.empty() ? "none" : srs.toString();
+
+    std::cout << "SRS: " <<
+        (srsString.size() > 77 ? srsString.substr(0, 77) + "..." : srsString) <<
+        std::endl;
+    printProblems(warnings, errors);
+
+    std::cout << std::endl;
 }
 
 } // namespace app

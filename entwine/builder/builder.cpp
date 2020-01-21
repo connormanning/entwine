@@ -24,6 +24,7 @@
 #include <entwine/util/io.hpp>
 #include <entwine/util/pdal-mutex.hpp>
 #include <entwine/util/pipeline.hpp>
+#include <entwine/util/time.hpp>
 
 namespace entwine
 {
@@ -39,7 +40,26 @@ Builder::Builder(
     , hierarchy(hierarchy)
 { }
 
-void Builder::run(const Threads threads, const uint64_t limit)
+void Builder::run(
+    const Threads threads,
+    const uint64_t limit,
+    const uint64_t progressInterval)
+{
+    Pool pool(2);
+
+    // std::atomic_uint64_t counter(getInsertedPoints(manifest));
+    std::atomic_uint64_t counter(0);
+    std::atomic_bool done(false);
+    pool.add([&]() { monitor(progressInterval, counter, done); });
+    pool.add([&]() { runInserts(threads, limit, counter); done = true; });
+
+    pool.join();
+}
+
+void Builder::runInserts(
+    Threads threads,
+    uint64_t limit,
+    std::atomic_uint64_t& counter)
 {
     const Bounds active = metadata.subset
         ? intersection(
@@ -48,30 +68,35 @@ void Builder::run(const Threads threads, const uint64_t limit)
         )
         : metadata.boundsConforming;
 
-    uint64_t inserted = 0;
+    const uint64_t actualWorkThreads =
+        std::min<uint64_t>(threads.work, manifest.size());
+    const uint64_t stolenThreads = threads.work - actualWorkThreads;
+    const uint64_t actualClipThreads = threads.clip + stolenThreads;
 
-    ChunkCache cache(endpoints, metadata, hierarchy, threads.clip);
-    Pool pool(std::min<uint64_t>(threads.work, manifest.size()));
+    ChunkCache cache(endpoints, metadata, hierarchy, actualClipThreads);
+    Pool pool(std::min<uint64_t>(actualWorkThreads, manifest.size()));
+
+    uint64_t filesInserted = 0;
 
     for (
         uint64_t origin = 0;
-        origin < manifest.size() && (!limit || inserted < limit);
+        origin < manifest.size() && (!limit || filesInserted < limit);
         ++origin)
     {
         const auto& item = manifest.at(origin);
-        const auto& info(item.source.info);
+        const auto& info = item.source.info;
         if (!item.inserted && info.points && active.overlaps(info.bounds))
         {
             std::cout << "Adding " << origin << " - " << item.source.path <<
                 std::endl;
 
-            pool.add([this, &cache, origin]()
+            pool.add([this, &cache, origin, &counter]()
             {
-                tryInsert(cache, origin);
+                tryInsert(cache, origin, counter);
                 std::cout << "\tDone " << origin << std::endl;
             });
 
-            ++inserted;
+            ++filesInserted;
         }
     }
 
@@ -83,13 +108,59 @@ void Builder::run(const Threads threads, const uint64_t limit)
     save(getTotal(threads));
 }
 
-void Builder::tryInsert(ChunkCache& cache, const Origin originId)
+void Builder::monitor(
+    const uint64_t progressInterval,
+    std::atomic_uint64_t& atomicCurrent,
+    std::atomic_bool& done)
+{
+    using ms = std::chrono::milliseconds;
+    const double mph = 3600.0 / 1000000.0;
+
+    const double already = getInsertedPoints(manifest);
+    const double total = getTotalPoints(manifest);
+    const auto start = now();
+
+    int64_t lastTick = 0;
+    double lastInserted = 0;
+
+    while (!done)
+    {
+        std::this_thread::sleep_for(ms(1000 - (since<ms>(start) % 1000)));
+        const int64_t tick = since<std::chrono::seconds>(start);
+
+        if (tick == lastTick) continue;
+
+        lastTick = tick;
+
+        const double current = atomicCurrent;
+        const double inserted = already + current;
+        const double progress = inserted / total;
+
+        const uint64_t pace = inserted / tick * mph;
+        const uint64_t intervalPace =
+            (inserted - lastInserted) / progressInterval * mph;
+
+        lastInserted = inserted;
+
+        std::cout << formatTime(tick) << " - " <<
+            std::round(progress * 100) << "% - " <<
+            commify(inserted) << " - " <<
+            commify(pace) << " " <<
+            "(" << commify(intervalPace) << ") M/h" <<
+            std::endl;
+    }
+}
+
+void Builder::tryInsert(
+    ChunkCache& cache,
+    const Origin originId,
+    std::atomic_uint64_t& counter)
 {
     auto& item = manifest.at(originId);
 
     try
     {
-        insert(cache, originId);
+        insert(cache, originId, counter);
     }
     catch (const std::exception& e)
     {
@@ -103,7 +174,10 @@ void Builder::tryInsert(ChunkCache& cache, const Origin originId)
     item.inserted = true;
 }
 
-void Builder::insert(ChunkCache& cache, const Origin originId)
+void Builder::insert(
+    ChunkCache& cache,
+    const Origin originId,
+    std::atomic_uint64_t& counter)
 {
     auto& item = manifest.at(originId);
     auto& info(item.source.info);
@@ -127,6 +201,7 @@ void Builder::insert(ChunkCache& cache, const Origin originId)
     VectorPointTable table(layout);
     table.setProcess([&]()
     {
+        counter += table.numPoints();
         inserted += table.numPoints();
         if (inserted > heuristics::sleepCount)
         {
@@ -212,11 +287,9 @@ void Builder::insert(ChunkCache& cache, const Origin originId)
 
 void Builder::save(const unsigned threads)
 {
-    std::cout << "Saving hierarchy" << std::endl;
+    std::cout << "Saving" << std::endl;
     saveHierarchy(threads);
-    std::cout << "Saving sources" << std::endl;
     saveSources(threads);
-    std::cout << "Saving metadata" << std::endl;
     saveMetadata();
 }
 
@@ -293,14 +366,7 @@ void Builder::saveMetadata()
 
     const std::string metaFilename = "ept" + postfix + ".json";
     json metaJson = metadata;
-    metaJson["points"] = std::accumulate(
-        manifest.begin(),
-        manifest.end(),
-        uint64_t(0),
-        [](uint64_t points, const BuildItem& b)
-        {
-            return points + b.source.info.points;
-        });
+    metaJson["points"] = getInsertedPoints(manifest);
     ensurePut(endpoints.output, metaFilename, metaJson.dump(2));
 
     const std::string buildFilename = "ept-build" + postfix + ".json";

@@ -45,24 +45,6 @@ void Info::addArgs()
     addArbiter();
 }
 
-namespace
-{
-void printProblems(const SourceInfo& info)
-{
-    if (info.warnings.size())
-    {
-        std::cout << "Warnings:\n";
-        for (const auto& w : info.warnings) std::cout << "\t- " << w << "\n";
-    }
-    if (info.errors.size())
-    {
-        std::cout << "Errors:\n";
-        for (const auto& e : info.errors) std::cout << "\t- " << e << "\n";
-    }
-}
-
-}
-
 void Info::run()
 {
     StringList inputs = config::getInput(m_json);
@@ -111,34 +93,17 @@ void Info::run()
 
     if (!summary.points)
     {
-        printProblems(summary);
+        printProblems(summary.warnings, summary.errors);
         throw std::runtime_error("No points found!");
     }
 
-    std::cout <<
-        "Dimensions: " << getDimensionString(summary.schema) << "\n" <<
-        "Points: " << commify(summary.points) << "\n" <<
-        "Bounds: " << summary.bounds << "\n";
-
-    if (const auto so = getScaleOffset(summary.schema))
-    {
-        std::cout << "Scale: ";
-        const auto s = so->scale;
-        if (s.x == s.y && s.x == s.z) std::cout << s.x;
-        else std::cout << s;
-        std::cout << "\n";
-    }
-
-    const std::string srsString = summary.srs.empty()
-        ? "none"
-        : summary.srs.toString();
-
-    std::cout << "SRS: " <<
-        (srsString.size() > 77 ? srsString.substr(0, 77) + "..." : srsString) <<
-        std::endl;
-    printProblems(summary);
-
-    std::cout << std::endl;
+    printInfo(
+        summary.schema,
+        summary.bounds,
+        summary.srs,
+        summary.points,
+        summary.warnings,
+        summary.errors);
 
     if (output.size())
     {
