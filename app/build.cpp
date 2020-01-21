@@ -11,10 +11,10 @@
 #include "build.hpp"
 
 #include <entwine/builder/builder.hpp>
-#include <entwine/builder/config.hpp>
 #include <entwine/builder/hierarchy.hpp>
 #include <entwine/types/exceptions.hpp>
 #include <entwine/types/metadata.hpp>
+#include <entwine/util/config.hpp>
 #include <entwine/util/fs.hpp>
 #include <entwine/util/info.hpp>
 #include <entwine/util/time.hpp>

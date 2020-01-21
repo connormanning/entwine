@@ -10,9 +10,9 @@
 
 #include "info.hpp"
 
-#include <entwine/builder/config.hpp>
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/srs.hpp>
+#include <entwine/util/config.hpp>
 #include <entwine/util/fs.hpp>
 #include <entwine/util/info.hpp>
 #include <entwine/util/time.hpp>

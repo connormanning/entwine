@@ -18,6 +18,12 @@
 namespace entwine
 {
 
+arbiter::LocalHandle localize(
+    std::string path,
+    bool deep,
+    std::string tmp,
+    const arbiter::Arbiter& a);
+
 SourceInfo analyzeOne(std::string path, bool deep, json pipelineTemplate);
 Source parseOne(std::string path, const arbiter::Arbiter& a = { });
 

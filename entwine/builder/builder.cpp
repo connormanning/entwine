@@ -16,10 +16,10 @@
 #include <pdal/PipelineManager.hpp>
 
 #include <entwine/builder/clipper.hpp>
-#include <entwine/builder/config.hpp>
 #include <entwine/builder/heuristics.hpp>
 #include <entwine/types/dimension.hpp>
 #include <entwine/types/point-counts.hpp>
+#include <entwine/util/config.hpp>
 #include <entwine/util/fs.hpp>
 #include <entwine/util/io.hpp>
 #include <entwine/util/pdal-mutex.hpp>

@@ -7,7 +7,6 @@ set(
     "${BASE}/chunk.cpp"
     "${BASE}/chunk-cache.cpp"
     "${BASE}/clipper.cpp"
-    "${BASE}/config.cpp"
     "${BASE}/hierarchy.cpp"
 )
 
@@ -17,7 +16,6 @@ set(
     "${BASE}/chunk.hpp"
     "${BASE}/chunk-cache.hpp"
     "${BASE}/clipper.hpp"
-    "${BASE}/config.hpp"
     "${BASE}/heuristics.hpp"
     "${BASE}/hierarchy.hpp"
     "${BASE}/overflow.hpp"

@@ -17,8 +17,8 @@
 #include <string>
 
 #include <entwine/builder/builder.hpp>
-#include <entwine/builder/config.hpp>
 #include <entwine/types/endpoints.hpp>
+#include <entwine/util/config.hpp>
 
 namespace entwine
 {

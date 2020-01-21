@@ -8,7 +8,7 @@
 *
 ******************************************************************************/
 
-#include <entwine/builder/config.hpp>
+#include <entwine/util/config.hpp>
 
 #include <cassert>
 #include <cmath>
@@ -72,7 +72,14 @@ arbiter::Arbiter getArbiter(const json& j)
 {
     return arbiter::Arbiter(j.value("arbiter", json()).dump());
 }
-StringList getInput(const json& j) { return j.value("input", StringList()); }
+StringList getInput(const json& j)
+{
+    if (!j.count("input")) return { };
+
+    const json& input(j.at("input"));
+    if (input.is_string()) return StringList(1, input.get<std::string>());
+    else return input.get<StringList>();
+}
 std::string getOutput(const json& j) { return j.value("output", ""); }
 std::string getTmp(const json& j)
 {

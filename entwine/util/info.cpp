@@ -337,7 +337,7 @@ SourceList analyze(
     const arbiter::Arbiter& a,
     const unsigned int threads)
 {
-    const StringList filenames(resolve(inputs));
+    const StringList filenames = resolve(inputs);
     SourceList sources(filenames.begin(), filenames.end());
 
     uint64_t i(0);
