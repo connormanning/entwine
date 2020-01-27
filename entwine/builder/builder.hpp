@@ -31,7 +31,7 @@ struct Builder
         Manifest manifest,
         Hierarchy hierarchy = Hierarchy());
 
-    void run(
+    uint64_t run(
         Threads threads,
         uint64_t limit = 0,
         uint64_t progressIntervalSeconds = 10);

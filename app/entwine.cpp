@@ -368,8 +368,6 @@ void App::printInfo(
         (srsString.size() > 77 ? srsString.substr(0, 77) + "..." : srsString) <<
         std::endl;
     printProblems(warnings, errors);
-
-    std::cout << std::endl;
 }
 
 } // namespace app

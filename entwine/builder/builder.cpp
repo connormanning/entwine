@@ -40,20 +40,21 @@ Builder::Builder(
     , hierarchy(hierarchy)
 { }
 
-void Builder::run(
+uint64_t Builder::run(
     const Threads threads,
     const uint64_t limit,
     const uint64_t progressInterval)
 {
     Pool pool(2);
 
-    // std::atomic_uint64_t counter(getInsertedPoints(manifest));
     std::atomic_uint64_t counter(0);
     std::atomic_bool done(false);
     pool.add([&]() { monitor(progressInterval, counter, done); });
     pool.add([&]() { runInserts(threads, limit, counter); done = true; });
 
     pool.join();
+
+    return counter;
 }
 
 void Builder::runInserts(
@@ -113,6 +114,8 @@ void Builder::monitor(
     std::atomic_uint64_t& atomicCurrent,
     std::atomic_bool& done)
 {
+    if (!progressInterval) return;
+
     using ms = std::chrono::milliseconds;
     const double mph = 3600.0 / 1000000.0;
 
@@ -128,7 +131,7 @@ void Builder::monitor(
         std::this_thread::sleep_for(ms(1000 - (since<ms>(start) % 1000)));
         const int64_t tick = since<std::chrono::seconds>(start);
 
-        if (tick == lastTick) continue;
+        if (tick == lastTick || tick % progressInterval) continue;
 
         lastTick = tick;
 
@@ -201,7 +204,6 @@ void Builder::insert(
     VectorPointTable table(layout);
     table.setProcess([&]()
     {
-        counter += table.numPoints();
         inserted += table.numPoints();
         if (inserted > heuristics::sleepCount)
         {
@@ -236,8 +238,8 @@ void Builder::insert(
                     ++counts.inserts;
                 }
             }
-            else if (isPrimary(metadata)) ++counts.outOfBounds;
         }
+        counter += counts.inserts;
     });
 
     json pipeline = info.pipeline.is_null()

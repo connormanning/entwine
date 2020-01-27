@@ -238,15 +238,7 @@ void Build::run()
 
     Builder builder(endpoints, metadata, manifest, hierarchy);
 
-    const uint64_t points = std::accumulate(
-        manifest.begin(),
-        manifest.end(),
-        0ull,
-        [](uint64_t p, const BuildItem& b)
-        {
-            return p + b.source.info.points;
-        });
-
+    const uint64_t points = getTotalPoints(manifest);
     printInfo(
         metadata.schema,
         metadata.boundsConforming,
@@ -254,13 +246,21 @@ void Build::run()
         points,
         analysis.warnings,
         analysis.errors);
+    if (metadata.subset)
+    {
+        std::cout << "Subset: " <<
+            metadata.subset->id << "/" <<
+            metadata.subset->of << std::endl;
+    }
 
-    builder.run(
+    std::cout << std::endl;
+
+    const uint64_t actual = builder.run(
         config::getCompoundThreads(m_json),
         config::getLimit(m_json),
         config::getProgressInterval(m_json));
 
-    std::cout << "Done" << std::endl;
+    std::cout << "Wrote " << commify(actual) << " points." << std::endl;
 }
 
 } // namespace app

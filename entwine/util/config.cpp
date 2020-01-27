@@ -96,10 +96,26 @@ io::Type getDataType(const json& j)
 // 2: Both "bounds" and "boundsConforming" exist.
 Bounds getBoundsConforming(const json& j)
 {
-    const std::string key = j.count("boundsConforming")
-        ? "boundsConforming"
-        : "bounds";
-    return j.at(key).get<Bounds>();
+    if (j.count("boundsConforming"))
+    {
+        return j.at("boundsConforming").get<Bounds>();
+    }
+
+    // Bloat the conforming bounds to the nearest integer.
+    const Bounds b = j.at("bounds").get<Bounds>();
+    Point min = b.min();
+    Point max = b.max();
+    for (unsigned i = 0; i < 3; ++i)
+    {
+        if (isIntegral(min[i])) --min[i];
+        else min[i] = std::floor(min[i]);
+    }
+    for (unsigned i = 0; i < 3; ++i)
+    {
+        if (isIntegral(max[i])) ++max[i];
+        else max[i] = std::ceil(max[i]);
+    }
+    return Bounds(min, max);
 }
 Bounds getBounds(const json& j)
 {

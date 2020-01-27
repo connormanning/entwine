@@ -47,6 +47,7 @@ void Info::addArgs()
 
 void Info::run()
 {
+    const arbiter::Arbiter a = config::getArbiter(m_json);
     StringList inputs = config::getInput(m_json);
     if (inputs.empty())
     {
@@ -56,14 +57,12 @@ void Info::run()
     if (std::any_of(inputs.begin(), inputs.end(), isDirectory))
     {
         std::cout << "Resolving inputs..." << std::endl;
-        inputs = resolve(inputs);
+        inputs = resolve(inputs, a);
         std::cout << "\tResolved." << std::endl;
     }
 
     const std::string output = config::getOutput(m_json);
     const std::string tmp = config::getTmp(m_json);
-    const arbiter::Arbiter a = config::getArbiter(m_json);
-    const auto endpoint(a.getEndpoint(output));
     const bool deep = config::getDeep(m_json);
     const unsigned threads = config::getThreads(m_json);
     const json pipeline = config::getPipeline(m_json);
@@ -104,11 +103,13 @@ void Info::run()
         summary.points,
         summary.warnings,
         summary.errors);
+    std::cout << std::endl;
 
     if (output.size())
     {
         std::cout << "Saving output..." << std::endl;
         if (a.isLocal(output)) arbiter::mkdirp(output);
+        const auto endpoint = a.getEndpoint(output);
         const bool pretty = sources.size() <= 1000;
         saveEach(sources, endpoint, threads, pretty);
         std::cout << "\tSaved." << std::endl;
