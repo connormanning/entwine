@@ -287,6 +287,9 @@ int main(int argc, char** argv)
     signal(SIGINT, [](int sig) { exit(1); });
     entwine::stackTraceOn(SIGSEGV);
 
+    // We ignore SIGPIPE to prevent crashing in some cases
+    signal(SIGPIPE, SIG_IGN);
+
     if (argc < 2)
     {
         std::cout << "App type required\n" << getUsageString() << std::endl;
