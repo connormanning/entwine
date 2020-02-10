@@ -11,7 +11,6 @@
 #include <entwine/builder/chunk-cache.hpp>
 
 #include <entwine/builder/clipper.hpp>
-#include <entwine/builder/hierarchy.hpp>
 
 namespace entwine
 {
@@ -32,31 +31,34 @@ ChunkCache::Info ChunkCache::latchInfo()
 }
 
 ChunkCache::ChunkCache(
-        Hierarchy& hierarchy,
-        Pool& ioPool,
-        const arbiter::Endpoint& out,
-        const arbiter::Endpoint& tmp,
-        const uint64_t cacheSize)
-    : m_hierarchy(hierarchy)
-    , m_pool(ioPool)
-    , m_out(out)
-    , m_tmp(tmp)
-    , m_cacheSize(cacheSize)
+    const Endpoints& endpoints,
+    const Metadata& metadata,
+    Hierarchy& hierarchy,
+    const uint64_t threads)
+    : m_endpoints(endpoints)
+    , m_metadata(metadata)
+    , m_hierarchy(hierarchy)
+    , m_pool(threads)
 { }
 
 ChunkCache::~ChunkCache()
+{
+    join();
+}
+
+void ChunkCache::join()
 {
     maybePurge(0);
     m_pool.join();
 
     assert(
-            std::all_of(
-                m_slices.begin(),
-                m_slices.end(),
-                [](const std::map<Xyz, ReffedChunk>& slice)
-                {
-                    return slice.empty();
-                }));
+        std::all_of(
+            m_slices.begin(),
+            m_slices.end(),
+            [](const std::map<Xyz, ReffedChunk>& slice)
+            {
+                return slice.empty();
+            }));
 }
 
 void ChunkCache::insert(
@@ -109,7 +111,7 @@ Chunk& ChunkCache::addRef(const ChunkKey& ck, Clipper& clipper)
             // case, we'll need to reinitialize the resident chunk from its
             // remote source.  Our newly added reference will keep it from
             // being erased.
-            ref.assign(ck, m_hierarchy);
+            ref.assign(m_metadata, ck, m_hierarchy);
             assert(ref.exists());
 
             {
@@ -117,13 +119,13 @@ Chunk& ChunkCache::addRef(const ChunkKey& ck, Clipper& clipper)
                 ++info.read;
             }
 
-            const uint64_t np = m_hierarchy.get(ck.dxyz());
+            const uint64_t np = hierarchy::get(m_hierarchy, ck.dxyz());
             assert(np);
 
             // Need to insert this ref prior to loading the chunk or we'll end
             // up deadlocked.
             clipper.set(ck, &ref.chunk());
-            ref.chunk().load(*this, clipper, m_out, m_tmp, np);
+            ref.chunk().load(*this, clipper, m_endpoints, np);
         }
         else clipper.set(ck, &ref.chunk());
 
@@ -148,7 +150,7 @@ Chunk& ChunkCache::addRef(const ChunkKey& ck, Clipper& clipper)
     auto insertion = slice.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(ck.position()),
-            std::forward_as_tuple(ck, m_hierarchy));
+            std::forward_as_tuple(m_metadata, ck, m_hierarchy));
 
     {
         SpinGuard lock(infoSpin);
@@ -179,14 +181,14 @@ Chunk& ChunkCache::addRef(const ChunkKey& ck, Clipper& clipper)
     // Note that this in the case of a continued build, this chunk may have
     // been serialized prior to the current build process, so we still need to
     // check this.
-    if (const uint64_t np = m_hierarchy.get(ck.dxyz()))
+    if (const uint64_t np = hierarchy::get(m_hierarchy, ck.dxyz()))
     {
         {
             SpinGuard lock(infoSpin);
             ++info.read;
         }
 
-        ref.chunk().load(*this, clipper, m_out, m_tmp, np);
+        ref.chunk().load(*this, clipper, m_endpoints, np);
     }
 
     return ref.chunk();
@@ -317,8 +319,8 @@ void ChunkCache::maybeSerialize(const Dxyz& dxyz)
         ++info.written;
     }
 
-    const uint64_t np = ref.chunk().save(m_out, m_tmp);
-    m_hierarchy.set(ref.chunk().chunkKey().get(), np);
+    const uint64_t np = ref.chunk().save(m_endpoints);
+    hierarchy::set(m_hierarchy, ref.chunk().chunkKey().get(), np);
     assert(np);
 
     // Cannot erase this chunk here, since we haven't been holding the
@@ -360,4 +362,3 @@ void ChunkCache::maybeErase(const Dxyz& dxyz)
 }
 
 } // namespace entwine
-

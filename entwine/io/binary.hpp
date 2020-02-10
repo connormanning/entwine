@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2018, Connor Manning (connor@hobu.co)
+* Copyright (c) 2020, Connor Manning (connor@hobu.co)
 *
 * Entwine -- Point cloud indexing
 *
@@ -10,37 +10,42 @@
 
 #pragma once
 
-#include <entwine/io/io.hpp>
+#include <string>
+#include <vector>
 
-#include <entwine/types/binary-point-table.hpp>
+#include <entwine/types/bounds.hpp>
+#include <entwine/types/endpoints.hpp>
+#include <entwine/types/vector-point-table.hpp>
 
 namespace entwine
 {
 
-class Binary : public DataIo
+struct Metadata;
+
+namespace io
 {
-public:
-    Binary(const Metadata& m) : DataIo(m) { }
+namespace binary
+{
 
-    virtual std::string type() const override { return "binary"; }
+std::vector<char> pack(const Metadata& metadata, BlockPointTable& src);
+void unpack(
+    const Metadata& m,
+    VectorPointTable& dst,
+    std::vector<char>&& buffer);
 
-    virtual void write(
-            const arbiter::Endpoint& out,
-            const arbiter::Endpoint& tmp,
-            const std::string& filename,
-            const Bounds& bounds,
-            BlockPointTable& table) const override;
+void write(
+    const Metadata& Metadata,
+    const Endpoints& endpoints,
+    const std::string filename,
+    BlockPointTable& table,
+    const Bounds bounds);
 
-    virtual void read(
-            const arbiter::Endpoint& out,
-            const arbiter::Endpoint& tmp,
-            const std::string& filename,
-            VectorPointTable& table) const override;
+void read(
+    const Metadata& metadata,
+    const Endpoints& endpoints,
+    std::string filename,
+    VectorPointTable& table);
 
-protected:
-    std::vector<char> pack(BlockPointTable& src) const;
-    void unpack(VectorPointTable& dst, std::vector<char>&& buffer) const;
-};
-
+} // namespace binary
+} // namespace io
 } // namespace entwine
-

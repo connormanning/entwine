@@ -26,8 +26,8 @@ inline TimePoint now()
     return Clock::now();
 }
 
-template<typename T>
-inline int since(TimePoint start)
+template<typename T = std::chrono::seconds>
+inline int64_t since(TimePoint start)
 {
     const std::chrono::duration<double> d(now() - start);
     return std::chrono::duration_cast<T>(d).count();

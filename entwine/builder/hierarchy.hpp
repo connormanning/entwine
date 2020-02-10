@@ -10,114 +10,64 @@
 
 #pragma once
 
+#include <cstdint>
 #include <map>
-#include <set>
 
-#include <entwine/builder/heuristics.hpp>
-#include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/key.hpp>
-#include <entwine/util/json.hpp>
-#include <entwine/util/pool.hpp>
 #include <entwine/util/spin-lock.hpp>
 
 namespace entwine
 {
 
-class Metadata;
-
-class Hierarchy
+struct Hierarchy
 {
-public:
-    using Map = std::map<Dxyz, uint64_t>;
+    using Map = std::map<Dxyz, int64_t>;
+    using ChunkMap = std::map<Dxyz, Hierarchy::Map>;
 
-    Hierarchy() { }
-
-    Hierarchy(
-            const Metadata& metadata,
-            const arbiter::Endpoint& ep,
-            bool exists);
-
-    void set(const Dxyz& key, uint64_t val)
+    Hierarchy() = default;
+    Hierarchy(const Hierarchy& other) : map(other.map) { }
+    Hierarchy& operator=(const Hierarchy& other)
     {
-        SpinGuard lock(m_spin);
-        auto it(m_map.find(key));
-        if (it == m_map.end()) m_map[key] = val;
-        else it->second = val;
+        map = other.map;
+        return *this;
     }
 
-    uint64_t get(const Dxyz& key) const
-    {
-        SpinGuard lock(m_spin);
-        auto it(m_map.find(key));
-        if (it == m_map.end()) return 0;
-        else return it->second;
-    }
-
-    const Map& map() const { return m_map; }
-
-    void save(
-            const Metadata& metadata,
-            const arbiter::Endpoint& top,
-            Pool& pool) const;
-
-    void analyze(const Metadata& m, bool verbose) const;
-    void setStep(uint64_t step) const { m_step = step; }
-
-private:
-    struct Analysis
-    {
-        Analysis() { }
-        Analysis(const Map& hierarchy, const Map& analyzed, uint64_t step);
-
-        uint64_t step = 0;
-        uint64_t totalFiles = 0;
-        uint64_t totalNodes = 0;
-        uint64_t maxNodesPerFile = 0;
-        double mean = 0;
-        double stddev = 0;
-        double rsd = 0;
-
-        bool fits() const { return maxNodesPerFile <= 65536; }
-
-        void summarize() const;
-        bool operator<(const Analysis& b) const;
-    };
-
-    using AnalysisSet = std::set<Analysis>;
-
-    std::string filename(const Metadata& m, const Dxyz& dxyz) const
-    {
-        return dxyz.toString() + m.postfix() + ".json";
-    }
-
-    std::string filename(const Metadata& m, const ChunkKey& k) const
-    {
-        return filename(m, k.dxyz());
-    }
-
-    void load(
-            const Metadata& metadata,
-            const arbiter::Endpoint& endpoint,
-            const Dxyz& key = Dxyz());
-
-    void save(
-            const Metadata& metadata,
-            const arbiter::Endpoint& endpoint,
-            Pool& pool,
-            const ChunkKey& key,
-            json& j) const;
-
-    void analyze(
-            const Metadata& m,
-            uint64_t step,
-            const ChunkKey& key,
-            const Dxyz& curr,
-            Map& map) const;
-
-    mutable SpinLock m_spin;
-    Map m_map;
-    mutable uint64_t m_step = 0;
+    mutable SpinLock spin;
+    Map map = { { Dxyz(), 0 } };
 };
 
-} // namespace entwine
+void to_json(json& j, const Hierarchy& h);
+void from_json(const json& j, Hierarchy& h);
 
+namespace hierarchy
+{
+
+inline void set(Hierarchy& h, const Dxyz& key, uint64_t val)
+{
+    SpinGuard lock(h.spin);
+    h.map[key] = val;
+}
+
+inline uint64_t get(const Hierarchy& h, const Dxyz& key)
+{
+    SpinGuard lock(h.spin);
+    const auto it = h.map.find(key);
+    if (it == h.map.end()) return 0;
+    else return it->second;
+}
+
+unsigned determineStep(const Hierarchy& h);
+Hierarchy::ChunkMap getChunks(const Hierarchy& h, unsigned step = 0);
+void save(
+    const Hierarchy& h,
+    const arbiter::Endpoint& ep,
+    unsigned step,
+    unsigned threads,
+    std::string postfix = "");
+Hierarchy load(
+    const arbiter::Endpoint& ep,
+    unsigned threads,
+    std::string postfix = "");
+
+} // namespace hierarchy
+} // namespace entwine

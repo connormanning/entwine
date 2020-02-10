@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2018, Connor Manning (connor@hobu.co)
+* Copyright (c) 2020, Connor Manning (connor@hobu.co)
 *
 * Entwine -- Point cloud indexing
 *
@@ -10,38 +10,36 @@
 
 #pragma once
 
-#include <entwine/io/io.hpp>
+#include <string>
+#include <vector>
+
+#include <entwine/types/bounds.hpp>
+#include <entwine/types/endpoints.hpp>
+#include <entwine/types/vector-point-table.hpp>
 
 namespace entwine
 {
 
-class Laz : public DataIo
+struct Metadata;
+
+namespace io
 {
-public:
-    Laz(const Metadata& m)
-        : DataIo(m)
-    {
-        if (!m.outSchema().isScaled())
-        {
-            throw std::runtime_error("Laszip output requires scaling.");
-        }
-    }
+namespace laszip
+{
 
-    virtual std::string type() const override { return "laszip"; }
+void write(
+    const Metadata& Metadata,
+    const Endpoints& endpoints,
+    std::string filename,
+    BlockPointTable& table,
+    const Bounds bounds);
 
-    virtual void write(
-            const arbiter::Endpoint& out,
-            const arbiter::Endpoint& tmp,
-            const std::string& filename,
-            const Bounds& bounds,
-            BlockPointTable& table) const override;
+void read(
+    const Metadata& Metadata,
+    const Endpoints& endpoints,
+    std::string filename,
+    VectorPointTable& table);
 
-    virtual void read(
-            const arbiter::Endpoint& out,
-            const arbiter::Endpoint& tmp,
-            const std::string& filename,
-            VectorPointTable& table) const override;
-};
-
+} // namespace laszip
+} // namespace io
 } // namespace entwine
-

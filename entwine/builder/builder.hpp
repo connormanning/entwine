@@ -10,140 +10,67 @@
 
 #pragma once
 
-#include <chrono>
-#include <cstddef>
-#include <fstream>
-#include <memory>
-#include <mutex>
+#include <atomic>
 #include <string>
-#include <vector>
 
-#include <pdal/Dimension.hpp>
-
-#include <entwine/builder/config.hpp>
-#include <entwine/types/defs.hpp>
-#include <entwine/types/file-info.hpp>
-#include <entwine/util/time.hpp>
-
-namespace Json
-{
-    class Value;
-}
-
-namespace arbiter
-{
-    class Arbiter;
-    class Endpoint;
-}
+#include <entwine/builder/chunk-cache.hpp>
+#include <entwine/builder/hierarchy.hpp>
+#include <entwine/types/endpoints.hpp>
+#include <entwine/types/metadata.hpp>
+#include <entwine/types/source.hpp>
+#include <entwine/types/threads.hpp>
 
 namespace entwine
 {
 
-class Bounds;
-class Clipper;
-class Executor;
-class FileInfo;
-class Metadata;
-class Pool;
-class Registry;
-class Reprojection;
-class Schema;
-class Sequence;
-class Structure;
-class Subset;
-class ThreadPools;
-
-class Builder
+struct Builder
 {
-    friend class Merger;
-    friend class Sequence;
-
-public:
     Builder(
-            const Config& config,
-            std::shared_ptr<arbiter::Arbiter> arbiter = nullptr);
-    ~Builder();
+        Endpoints endpoints,
+        Metadata metadata,
+        Manifest manifest,
+        Hierarchy hierarchy = Hierarchy());
 
-    // Perform indexing.  A _maxFileInsertions_ of zero inserts all files.
-    void go(std::size_t maxFileInsertions = 0);
+    uint64_t run(
+        Threads threads,
+        uint64_t limit = 0,
+        uint64_t progressIntervalSeconds = 10);
 
-    // Aggregate spatially segmented build.
-    void merge(Builder& other, Clipper& clipper);
+    void monitor(
+        uint64_t progressIntervalSeconds,
+        std::atomic_uint64_t& counter,
+        std::atomic_bool& done);
 
-    // Various getters.
-    const Metadata& metadata() const;
-    const Registry& registry() const;
-    ThreadPools& threadPools() const;
-    arbiter::Arbiter& arbiter();
-    const arbiter::Arbiter& arbiter() const;
-    const Sequence& sequence() const;
-    Sequence& sequence();
+    void runInserts(
+        Threads threads,
+        uint64_t limit,
+        std::atomic_uint64_t& counter);
+    void tryInsert(
+        ChunkCache& cache,
+        uint64_t origin,
+        std::atomic_uint64_t& counter);
+    void insert(
+        ChunkCache& cache,
+        uint64_t origin,
+        std::atomic_uint64_t& counter);
+    void save(unsigned threads);
 
-    bool isContinuation() const { return m_isContinuation; }
-    std::size_t sleepCount() const { return m_sleepCount; }
+    void saveHierarchy(unsigned threads);
+    void saveSources(unsigned threads);
+    void saveMetadata();
 
-    const arbiter::Endpoint& outEndpoint() const;
-    const arbiter::Endpoint& tmpEndpoint() const;
-
-    // Set up our metadata as finished with merging.
-    void makeWhole();
-
-    void append(const FileInfoList& fileInfo);
-
-    bool verbose() const { return m_verbose; }
-    void verbose(bool v) { m_verbose = v; }
-
-    const Config& inConfig() const { return m_config; }
-
-private:
-    Registry& registry();
-    void doRun(std::size_t max);
-
-    std::mutex& mutex();
-
-    // Save the current state of the tree.  Files may no longer be inserted
-    // after this call, but getters are still valid.
-    void save();
-    void save(std::string to);
-    void save(const arbiter::Endpoint& to);
-
-    // Insert points from a file.  Sets any previously unset FileInfo fields
-    // based on file contents.
-    void insertPath(Origin origin, FileInfo& info);
-
-    // Validate sources.
-    void prepareEndpoints();
-
-    // Ensure that the file at this path is accessible locally for execution.
-    // Return the local path.
-    std::string localize(std::string path, Origin origin);
-
-    //
-
-    const Config m_config;
-    const uint64_t m_interval;
-
-    std::shared_ptr<arbiter::Arbiter> m_arbiter;
-    std::unique_ptr<arbiter::Endpoint> m_out;
-    std::unique_ptr<arbiter::Endpoint> m_tmp;
-
-    const bool m_isContinuation = false;
-    const std::size_t m_sleepCount;
-    std::unique_ptr<Metadata> m_metadata;
-    std::unique_ptr<ThreadPools> m_threadPools;
-
-    mutable std::mutex m_mutex;
-
-    std::unique_ptr<Registry> m_registry;
-    std::unique_ptr<Sequence> m_sequence;
-
-    bool m_verbose;
-
-    TimePoint m_start;
-
-    Builder(const Builder&);
-    Builder& operator=(const Builder&);
+    Endpoints endpoints;
+    Metadata metadata;
+    Manifest manifest;
+    Hierarchy hierarchy;
 };
 
-} // namespace entwine
+namespace builder
+{
 
+Builder load(Endpoints endpoints, unsigned threads, unsigned subsetId);
+void merge(Builder& dst, const Builder& src, ChunkCache& cache);
+
+} // namespace builder
+
+} // namespace entwine

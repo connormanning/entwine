@@ -15,45 +15,25 @@
 namespace entwine
 {
 
-class ScaleOffset
+struct ScaleOffset
 {
-public:
-    ScaleOffset(const Scale& scale, const Offset& offset)
-        : m_scale(scale)
-        , m_offset(offset)
+    ScaleOffset() = default;
+    ScaleOffset(Scale scale) : scale(scale) { }
+    ScaleOffset(Scale scale, Offset offset)
+        : scale(scale)
+        , offset(offset)
     { }
 
-    const Scale& scale() const { return m_scale; }
-    const Offset& offset() const { return m_offset; }
-
-    Point clip(const Point& a) const
-    {
-        return Point::unscale(
-            Point::scale(a, scale(), offset()).round(),
-            scale(),
-            offset());
-    }
-
-private:
-    const Scale m_scale = 1;
-    const Offset m_offset = 0;
+    Scale scale = 1;
+    Offset offset = 0;
 };
 
-class SingleScaleOffset
+inline Point clip(const Point& p, const ScaleOffset& so)
 {
-public:
-    SingleScaleOffset(double scale, double offset)
-        : m_scale(scale)
-        , m_offset(offset)
-    { }
-
-    double scale() const { return m_scale; }
-    double offset() const { return m_offset; }
-
-private:
-    const double m_scale = 1;
-    const double m_offset = 0;
-};
+    return Point::unscale(
+        Point::scale(p, so.scale, so.offset).round(),
+        so.scale,
+        so.offset);
+}
 
 } // namespace entwine
-

@@ -15,6 +15,7 @@
 #include <vector>
 
 #include <pdal/Dimension.hpp>
+#include <pdal/DimUtil.hpp>
 
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/version.hpp>
@@ -44,10 +45,13 @@ using Paths = std::vector<std::string>;
 
 using DimId = pdal::Dimension::Id;
 using DimType = pdal::Dimension::Type;
+using DimBase = pdal::Dimension::BaseType;
 
 // Enough to resolve contain a dataset the size of the earth at picometer
 // resolution.
 static constexpr uint64_t maxDepth = 64;
+
+using StringList = std::vector<std::string>;
 
 } // namespace entwine
 
