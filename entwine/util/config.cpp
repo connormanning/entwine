@@ -156,7 +156,11 @@ optional<Reprojection> getReprojection(const json& j)
 }
 optional<Srs> getSrs(const json& j)
 {
-    if (j.count("srs")) return j.at("srs").get<Srs>();
+    if (j.count("srs"))
+    {
+        const auto srs = j.at("srs").get<Srs>();
+        if (srs.exists()) return srs;
+    }
     if (const auto reprojection = getReprojection(j))
     {
         return Srs(reprojection->out());

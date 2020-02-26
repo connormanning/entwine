@@ -94,8 +94,8 @@ DimensionStats combine(DimensionStats agg, const DimensionStats& cur)
     double v1 = agg.variance;
     double v2 = cur.variance;
     agg.variance =
-        (((n1 - 1) * v1) + ((n2 - 1) * v2)) / (n1 + n2 - 1) +
-        ((n1 * n2) * (m1 - m2) * (m1 - m2)) / ((n1 + n2) * (n1 + n2 - 1));
+        ((n1 * v1) + (n2 * v2)) / (n1 + n2) +
+        ((n1 * n2) * (m1 - m2) * (m1 - m2)) / ((n1 + n2) * (n1 + n2));
 
     agg.mean = ((agg.mean * agg.count) + (cur.mean * cur.count)) /
         (agg.count + cur.count);
