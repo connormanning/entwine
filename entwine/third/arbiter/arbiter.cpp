@@ -4871,8 +4871,9 @@ std::string stripProtocol(const std::string raw)
     return result;
 }
 
-std::string getExtension(const std::string path)
+std::string getExtension(std::string path)
 {
+    path = getBasename(path);
     const std::size_t pos(path.find_last_of('.'));
 
     if (pos != std::string::npos) return path.substr(pos + 1);
