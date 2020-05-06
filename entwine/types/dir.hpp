@@ -27,9 +27,9 @@ enum class Dir : int
     neu = 7
 };
 
-static constexpr unsigned int EwBit = 0x01;
-static constexpr unsigned int NsBit = 0x02;
-static constexpr unsigned int UdBit = 0x04;
+static constexpr unsigned EwBit = 0x01;
+static constexpr unsigned NsBit = 0x02;
+static constexpr unsigned UdBit = 0x04;
 
 inline constexpr std::size_t dirHalfEnd() { return 4; }
 inline constexpr std::size_t dirEnd() { return 8; }

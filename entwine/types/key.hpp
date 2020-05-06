@@ -117,6 +117,12 @@ struct Dxyz
     uint64_t& z;
 };
 
+inline void to_json(json& j, const Dxyz& dxyz) { j = dxyz.toString(); }
+inline void from_json(const json& j, Dxyz& dxyz)
+{
+    dxyz = j.get<std::string>();
+}
+
 inline bool operator<(const Xyz& a, const Xyz& b)
 {
     return
@@ -142,15 +148,17 @@ inline bool operator!=(const Dxyz& a, const Dxyz& b)
 
 struct Key
 {
-    Key(const Metadata& metadata)
-        : m(metadata)
+    Key(Bounds cube, uint64_t startDepth)
+        : cube(cube)
+        , startDepth(startDepth)
+        , b(cube)
     {
         reset();
     }
 
     void reset()
     {
-        b = m.boundsCubic();
+        b = cube;
         p.reset();
     }
 
@@ -159,7 +167,7 @@ struct Key
     void init(const Point& g, uint64_t depth)
     {
         reset();
-        for (std::size_t d(0); d < m.startDepth() + depth; ++d) step(g);
+        for (std::size_t d(0); d < startDepth + depth; ++d) step(g);
     }
 
     Dir step(const Point& g)
@@ -177,11 +185,11 @@ struct Key
         return dir;
     }
 
-    const Metadata& metadata() const { return m; }
     const Bounds& bounds() const { return b; }
     const Xyz& position() const { return p; }
 
-    const Metadata& m;
+    const Bounds cube;
+    const uint64_t startDepth = 0;
 
     Bounds b;
     Xyz p;
@@ -199,7 +207,11 @@ inline bool operator==(const Key& a, const Key& b)
 
 struct ChunkKey
 {
-    ChunkKey(const Metadata& m) : k(m) { reset(); }
+    ChunkKey(Bounds cube, uint64_t startDepth)
+        : k(cube, startDepth)
+    {
+        reset();
+    }
 
     void reset()
     {
@@ -237,7 +249,6 @@ struct ChunkKey
     Dxyz get() const { return Dxyz(d, k.p); }
     Dxyz dxyz() const { return get(); }
 
-    const Metadata& metadata() const { return k.metadata(); }
     const Xyz& position() const { return k.position(); }
     const Bounds& bounds() const { return k.bounds(); }
     const Key& key() const { return k; }

@@ -12,7 +12,7 @@
 
 #include <entwine/third/mjson/json.hpp>
 
-namespace entwine { using json = nlohmann::json; }
+namespace entwine { using json = nlohmann::json; namespace nsjson = nlohmann; }
 
 // Work around:
 // https://github.com/nlohmann/json/issues/709

@@ -10,9 +10,8 @@
 
 #include "build.hpp"
 #include "entwine.hpp"
-#include "convert.hpp"
+#include "info.hpp"
 #include "merge.hpp"
-#include "scan.hpp"
 
 #include <csignal>
 #include <cstdio>
@@ -24,6 +23,7 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/defs.hpp>
+#include <entwine/types/dimension.hpp>
 #include <entwine/types/srs.hpp>
 #include <entwine/util/stack-trace.hpp>
 
@@ -43,8 +43,8 @@ namespace
             t(3) + "Aggregate information about an unindexed dataset\n" +
             t(2) + "merge\n" +
             t(3) + "Merge colocated entwine subsets\n" +
-            t(2) + "convert\n" +
-            t(3) + "Convert an entwine dataset to a different format\n";
+            t(2) + "info\n" +
+            t(3) + "Gather metadata information about point cloud files\n";
     }
 
     std::mutex mutex;
@@ -180,7 +180,22 @@ void App::addNoTrustHeaders()
             [this](json j)
             {
                 checkEmpty(j);
-                m_json["trustHeaders"] = false;
+                std::cout << "'trustHeaders' option is deprecated - " <<
+                    "use the 'deep' option instead." << std::endl;
+                m_json["deep"] = true;
+            });
+}
+
+void App::addDeep()
+{
+    m_ap.add(
+            "--deep",
+            "Read all points during file analysis rather than just the "
+            "headers.",
+            [this](json j)
+            {
+                checkEmpty(j);
+                m_json["deep"] = true;
             });
 }
 
@@ -244,37 +259,115 @@ void App::addArbiter()
             });
 }
 
+std::string App::getReprojectionString(optional<Reprojection> o)
+{
+    if (!o) return "none";
+    const Reprojection r = *o;
+
+    return std::string("\n") +
+        "\t\tInput: " + (r.in().empty() ? "(auto-detect)" : r.in()) + "\n" +
+        "\t\tOutput: " + r.out() + "\n" +
+        "\t\tOverride headers? " + yesNo(r.hammer());
+}
+
+namespace
+{
+std::string prettify(DimType t)
+{
+    std::string s;
+    switch (pdal::Dimension::base(t))
+    {
+        case pdal::Dimension::BaseType::Signed:
+            s = "int";
+            break;
+        case pdal::Dimension::BaseType::Unsigned:
+            s = "uint";
+            break;
+        case pdal::Dimension::BaseType::Floating:
+            s = "float";
+            break;
+        default:
+            s = "unknown";
+            break;
+    }
+    s += std::to_string(pdal::Dimension::size(t) * 8);
+    return s;
+}
+}
+
 std::string App::getDimensionString(const Schema& schema) const
 {
-    const DimList dims(schema.dims());
     std::string results("[\n");
-    const std::string prefix(16, ' ');
+    const std::string prefix(8, ' ');
     const std::size_t width(80);
 
     std::string line;
 
-    for (std::size_t i(0); i < dims.size(); ++i)
+    for (std::size_t i(0); i < schema.size(); ++i)
     {
-        const auto name(dims[i].name());
-        const auto type(dims[i].typeName());
-        const bool last(i == dims.size() - 1);
+        const auto& dim = schema[i];
+        const bool last(i == schema.size() - 1);
 
-        if (prefix.size() + line.size() + name.size() + 1 >= width)
+        if (prefix.size() + line.size() + dim.name.size() + 1 >= width)
         {
             results += prefix + line + '\n';
             line.clear();
         }
 
         if (line.size()) line += ' ';
-        line += dims[i].name() + ':' + type;
+        line += dim.name + ':' + prettify(dim.type);
 
         if (!last) line += ',';
         else results += prefix + line + '\n';
     }
 
-    results += "\t]";
+    results += "]";
 
     return results;
+}
+
+void App::printProblems(const StringList& warnings, const StringList& errors)
+{
+    if (warnings.size())
+    {
+        std::cout << "Warnings:\n";
+        for (const auto& w : warnings) std::cout << "\t- " << w << "\n";
+    }
+    if (errors.size())
+    {
+        std::cout << "Errors:\n";
+        for (const auto& e : errors) std::cout << "\t- " << e << "\n";
+    }
+}
+
+void App::printInfo(
+    const Schema& schema,
+    const Bounds& bounds,
+    const Srs& srs,
+    const uint64_t points,
+    const StringList& warnings,
+    const StringList& errors)
+{
+    std::cout <<
+        "Dimensions: " << getDimensionString(schema) << "\n" <<
+        "Points: " << commify(points) << "\n" <<
+        "Bounds: " << bounds << "\n";
+
+    if (const auto so = getScaleOffset(schema))
+    {
+        std::cout << "Scale: ";
+        const auto s = so->scale;
+        if (s.x == s.y && s.x == s.z) std::cout << s.x;
+        else std::cout << s;
+        std::cout << "\n";
+    }
+
+    const std::string srsString = srs.empty() ? "none" : srs.toString();
+
+    std::cout << "SRS: " <<
+        (srsString.size() > 77 ? srsString.substr(0, 77) + "..." : srsString) <<
+        std::endl;
+    printProblems(warnings, errors);
 }
 
 } // namespace app
@@ -307,11 +400,7 @@ int main(int argc, char** argv)
 
     try
     {
-        if (app == "scan")
-        {
-            entwine::app::Scan().go(args);
-        }
-        else if (app == "build")
+        if (app == "build")
         {
             entwine::app::Build().go(args);
         }
@@ -319,9 +408,9 @@ int main(int argc, char** argv)
         {
             entwine::app::Merge().go(args);
         }
-        else if (app == "convert")
+        else if (app == "info")
         {
-            entwine::app::Convert().go(args);
+            entwine::app::Info().go(args);
         }
         else
         {

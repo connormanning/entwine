@@ -1,4 +1,4 @@
-FROM connormanning/pdal:master
+FROM connormanning/pdal:info
 MAINTAINER Connor Manning <connor@hobu.co>
 
 RUN apt-get update && apt-get install -y \

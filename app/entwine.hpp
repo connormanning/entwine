@@ -17,8 +17,11 @@
 #include "arg-parser.hpp"
 
 #include <entwine/third/arbiter/arbiter.hpp>
-#include <entwine/types/schema.hpp>
+#include <entwine/types/dimension.hpp>
+#include <entwine/types/reprojection.hpp>
+#include <entwine/types/srs.hpp>
 #include <entwine/util/json.hpp>
+#include <entwine/util/optional.hpp>
 
 namespace entwine
 {
@@ -52,6 +55,7 @@ protected:
     void addSimpleThreads();
     void addReprojection();
     void addNoTrustHeaders();
+    void addDeep();
     void addAbsolute();
     void addArbiter();
 
@@ -67,7 +71,16 @@ protected:
 
     std::string yesNo(bool b) const { return b ? "yes" : "no"; }
 
+    std::string getReprojectionString(optional<Reprojection> r);
     std::string getDimensionString(const Schema& schema) const;
+    void printProblems(const StringList& warnings, const StringList& errors);
+    void printInfo(
+        const Schema& schema,
+        const Bounds& bounds,
+        const Srs& srs,
+        uint64_t points,
+        const StringList& warnings,
+        const StringList& errors);
 };
 
 } // namespace app

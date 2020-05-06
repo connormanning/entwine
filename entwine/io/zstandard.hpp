@@ -12,27 +12,24 @@
 
 namespace entwine
 {
-
-class Zstandard : public Binary
+namespace io
 {
-public:
-    Zstandard(const Metadata& m) : Binary(m) { }
+namespace zstandard
+{
 
-    virtual std::string type() const override { return "zstandard"; }
+void write(
+    const Metadata& Metadata,
+    const Endpoints& endpoints,
+    const std::string filename,
+    BlockPointTable& table,
+    const Bounds bounds);
 
-    virtual void write(
-            const arbiter::Endpoint& out,
-            const arbiter::Endpoint& tmp,
-            const std::string& filename,
-            const Bounds& bounds,
-            BlockPointTable& table) const override;
+void read(
+    const Metadata& metadata,
+    const Endpoints& endpoints,
+    std::string filename,
+    VectorPointTable& table);
 
-    virtual void read(
-            const arbiter::Endpoint& out,
-            const arbiter::Endpoint& tmp,
-            const std::string& filename,
-            VectorPointTable& table) const override;
-};
-
+} // namespace zstandard
+} // namespace io
 } // namespace entwine
-

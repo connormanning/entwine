@@ -12,22 +12,26 @@
 
 #include <stdexcept>
 
-#include <entwine/io/binary.hpp>
-#include <entwine/io/laszip.hpp>
-#include <entwine/io/zstandard.hpp>
-
-#include <entwine/util/unique.hpp>
-
 namespace entwine
 {
-
-std::unique_ptr<DataIo> DataIo::create(const Metadata& m, std::string type)
+namespace io
 {
-    if (type == "laszip") return makeUnique<Laz>(m);
-    if (type == "binary") return makeUnique<Binary>(m);
-    if (type == "zstandard") return makeUnique<Zstandard>(m);
-    throw std::runtime_error("Invalid data IO type: " + type);
+
+Type toType(const std::string s)
+{
+    if (s == "binary") return Type::Binary;
+    if (s == "laszip") return Type::Laszip;
+    if (s == "zstandard") return Type::Zstandard;
+    throw std::runtime_error("Invalid data IO type: " + s);
 }
 
-} // namespace entwine
+std::string toString(const Type t)
+{
+    if (t == Type::Binary) return "binary";
+    if (t == Type::Laszip) return "laszip";
+    if (t == Type::Zstandard) return "zstandard";
+    throw std::runtime_error("Invalid data IO enumeration");
+}
 
+} // namespace io
+} // namespace entwine

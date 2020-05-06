@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 namespace entwine
 {
 namespace heuristics
@@ -18,10 +20,10 @@ namespace heuristics
 // After this many points (per thread), we'll clip - which involves reference-
 // decrementing the chunks that haven't been used in the past two sleepCount
 // windows, which will trigger their serialization.
-const std::size_t sleepCount(65536 * 32);
+const uint64_t sleepCount(65536 * 32);
 
-// A per-thread count of the minimum chunk-cache size to keep during clipping.
-const std::size_t clipCacheSize(64);
+// How many unreferenced chunks to keep alive in our chunk cache.
+const uint64_t cacheSize(64);
 
 // When building, we are given a total thread count.  Because serialization is
 // more expensive than actually doing tree work, we'll allocate more threads to
@@ -30,7 +32,7 @@ const std::size_t clipCacheSize(64);
 const float defaultWorkToClipRatio(0.33f);
 
 // Max number of nodes to store in a single hierarchy file.
-const std::size_t maxHierarchyNodesPerFile(65536);
+const uint64_t maxHierarchyNodesPerFile(32768);
 
 } // namespace heuristics
 } // namespace entwine

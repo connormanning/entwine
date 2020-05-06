@@ -13,10 +13,12 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <string>
 
-#include <entwine/builder/config.hpp>
-#include <entwine/builder/merger.hpp>
+#include <entwine/builder/builder.hpp>
+#include <entwine/types/endpoints.hpp>
+#include <entwine/util/config.hpp>
 
 namespace entwine
 {
@@ -32,18 +34,77 @@ void Merge::addArgs()
     addTmp();
     addSimpleThreads();
     addArbiter();
+    m_ap.add(
+            "--force",
+            "-f",
+            "Force merge overwrite - if a completed EPT dataset exists at this "
+            "output location, overwrite it with the result of the merge.",
+            [this](json j) { checkEmpty(j); m_json["force"] = true; });
 }
 
 void Merge::run()
 {
-    m_json["verbose"] = true;
-    Config config(m_json);
-    Merger merger(config);
-    std::cout << "Merging " << config.output() << "..." << std::endl;
-    merger.go();
-    std::cout << "Merge complete." << std::endl;
+    const Endpoints endpoints = config::getEndpoints(m_json);
+    const unsigned threads = config::getThreads(m_json);
+    const bool force = config::getForce(m_json);
+
+    if (!force && endpoints.output.tryGetSize("ept.json"))
+    {
+        throw std::runtime_error(
+            "Completed dataset already exists here: "
+            "re-run with '--force' to overwrite it");
+    }
+
+    if (!endpoints.output.tryGetSize("ept-1.json"))
+    {
+        throw std::runtime_error("Failed to find first subset");
+    }
+
+    std::cout << "Initializing" << std::endl;
+    const Builder base = builder::load(endpoints, threads, 1);
+
+    // Grab the total number of subsets, then clear the subsetting from our
+    // metadata aggregator which will represent our merged output.
+    Metadata metadata = base.metadata;
+    const unsigned of = metadata.subset.value().of;
+    metadata.subset = { };
+
+    Manifest manifest = base.manifest;
+
+    Builder builder(endpoints, metadata, manifest);
+    ChunkCache cache(endpoints, builder.metadata, builder.hierarchy, threads);
+
+    std::cout << "Merging" << std::endl;
+
+    Pool pool(threads);
+    std::mutex mutex;
+
+    for (unsigned id = 1; id <= of; ++id)
+    {
+        std::cout << "\t" << id << "/" << of << ": ";
+        if (endpoints.output.tryGetSize("ept-" + std::to_string(id) + ".json"))
+        {
+            std::cout << "merging" << std::endl;
+            pool.add([&endpoints, threads, id, &builder, &cache, &mutex]()
+            {
+                Builder current = builder::load(endpoints, threads, id);
+                builder::merge(builder, current, cache);
+
+                std::lock_guard<std::mutex> lock(mutex);
+                builder.manifest = manifest::merge(
+                    builder.manifest,
+                    current.manifest);
+            });
+        }
+        else std::cout << "skipping" << std::endl;
+    }
+
+    pool.join();
+    cache.join();
+
+    builder.save(threads);
+    std::cout << "Done" << std::endl;
 }
 
 } // namespace app
 } // namespace entwine
-

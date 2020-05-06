@@ -7,13 +7,7 @@ set(
     "${BASE}/chunk.cpp"
     "${BASE}/chunk-cache.cpp"
     "${BASE}/clipper.cpp"
-    "${BASE}/config.cpp"
     "${BASE}/hierarchy.cpp"
-    "${BASE}/merger.cpp"
-    "${BASE}/registry.cpp"
-    "${BASE}/scan.cpp"
-    "${BASE}/sequence.cpp"
-    "${BASE}/thread-pools.cpp"
 )
 
 set(
@@ -22,15 +16,9 @@ set(
     "${BASE}/chunk.hpp"
     "${BASE}/chunk-cache.hpp"
     "${BASE}/clipper.hpp"
-    "${BASE}/config.hpp"
     "${BASE}/heuristics.hpp"
     "${BASE}/hierarchy.hpp"
-    "${BASE}/merger.hpp"
     "${BASE}/overflow.hpp"
-    "${BASE}/registry.hpp"
-    "${BASE}/scan.hpp"
-    "${BASE}/sequence.hpp"
-    "${BASE}/thread-pools.hpp"
 )
 
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})

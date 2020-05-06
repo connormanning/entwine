@@ -1,4 +1,4 @@
-FROM connormanning/entwine:dependencies
+FROM connormanning/entwine:info-dependencies
 MAINTAINER Connor Manning <connor@hobu.co>
 
 ARG branch=master
