@@ -68,6 +68,8 @@ void Info::run()
     const json pipeline = config::getPipeline(m_json);
     const auto reprojection = config::getReprojection(m_json);
 
+    if (inputs.empty()) throw std::runtime_error("No files found!");
+
     std::cout << "Analyzing:\n" <<
         "\tInput: " <<
             (inputs.size() > 1

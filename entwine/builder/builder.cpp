@@ -412,6 +412,7 @@ void merge(Builder& dst, const Builder& src, ChunkCache& cache)
     {
         const Dxyz& key = node.first;
         const uint64_t count = node.second;
+        if (!count) continue;
 
         if (key.d >= sharedDepth)
         {

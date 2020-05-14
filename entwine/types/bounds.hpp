@@ -304,6 +304,7 @@ private:
 
 inline Bounds intersection(const Bounds& a, const Bounds& b)
 {
+    if (!a.overlaps(b)) return Bounds();
     return Bounds(
         Point::max(a.min(), b.min()),
         Point::min(a.max(), b.max()));
