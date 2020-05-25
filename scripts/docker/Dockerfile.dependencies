@@ -1,4 +1,4 @@
-FROM connormanning/pdal:info
+FROM pdal/pdal:2.1
 MAINTAINER Connor Manning <connor@hobu.co>
 
 RUN apt-get update && apt-get install -y \
@@ -7,7 +7,6 @@ RUN apt-get update && apt-get install -y \
     cmake \
     git \
     liblzma-dev \
-    libjsoncpp-dev \
     libssl-dev \
     libcurl4-openssl-dev \
     ninja-build \
