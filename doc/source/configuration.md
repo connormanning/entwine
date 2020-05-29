@@ -54,7 +54,7 @@ Each command accepts some common options, detailed at [common](#common).
 ## Build
 
 The `build` command is used to generate an
-[Entwine Point Tile](https://github.com/connormanning/ept) (EPT) dataset from
+[Entwine Point Tile](entwine-point-tile.md) (EPT) dataset from
 point cloud data.
 
 | Key | Description |
@@ -328,7 +328,7 @@ remote storage.
 ### hierarchyStep
 
 For large datasets with lots of data files, the
-[hierarchy](https://github.com/connormanning/entwine/blob/ept/doc/entwine-point-tile.md#hierarchy)
+[hierarchy](entwine-point-tile.md#ept-hierarchy)
 describing the octree layout is split up to avoid large downloads.  This value
 describes the depth modulo at which hierarchy files are split up into child
 files.  In general, this should be set only for testing purposes as Entwine will
