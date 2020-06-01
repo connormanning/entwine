@@ -100,6 +100,11 @@ inline bool isInserted(const BuildItem& item)
     return item.inserted;
 }
 
+inline bool isSettled(const BuildItem& item)
+{
+    return isInserted(item) || item.source.info.errors.size();
+}
+
 json toOverview(const Manifest& manifest);
 
 // If the stems of all the point cloud paths are unique, then those will be used

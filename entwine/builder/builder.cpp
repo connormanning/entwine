@@ -297,11 +297,13 @@ void Builder::save(const unsigned threads)
 
 void Builder::saveHierarchy(const unsigned threads)
 {
-    const bool monolithic =
-        metadata.subset ||
-        !std::all_of(manifest.begin(), manifest.end(), isInserted);
+    // If we are a) saving a subset or b) saving a partial build, then defer
+    // choosing a hierarchy step and instead just write one monolothic file.
+    const bool stepped =
+        !metadata.subset &&
+        std::all_of(manifest.begin(), manifest.end(), isSettled);
 
-    const unsigned step = monolithic ? 0 : hierarchy::determineStep(hierarchy);
+    const unsigned step = stepped ? hierarchy::determineStep(hierarchy) : 0;
 
     hierarchy::save(
         hierarchy,

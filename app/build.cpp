@@ -227,7 +227,11 @@ void Build::run()
         config::getTmp(m_json),
         *endpoints.arbiter,
         threads);
-    for (const auto& source : sources) manifest.emplace_back(source);
+    for (const auto& source : sources)
+    {
+        if (source.info.points) manifest.emplace_back(source);
+        else std::cout << "\t- Skipping " << source.path << std::endl;
+    }
 
     // It's possible we've just analyzed some files, in which case we have
     // potentially new information like bounds, schema, and SRS.  Prioritize
