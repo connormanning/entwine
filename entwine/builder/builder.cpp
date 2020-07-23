@@ -145,11 +145,16 @@ void Builder::monitor(
 
         lastInserted = inserted;
 
+        const ChunkCache::Info info(ChunkCache::latchInfo());
+
         std::cout << formatTime(tick) << " - " <<
             std::round(progress * 100) << "% - " <<
             commify(inserted) << " - " <<
             commify(pace) << " " <<
-            "(" << commify(intervalPace) << ") M/h" <<
+            "(" << commify(intervalPace) << ") M/h - " <<
+            info.written << "W - " <<
+            info.read << "R - " <<
+            info.alive << "A" <<
             std::endl;
     }
 }
