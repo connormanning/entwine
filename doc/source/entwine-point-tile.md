@@ -115,10 +115,10 @@ Because the `span` is constant throughout an entire EPT dataset, but each subseq
 
 ### srs
 An object describing the spatial reference system for this indexed dataset, or may not exist if a spatial reference could not be determined and was not set manually.  In this object there are string keys with string values of the following descriptions:
-    - `authority`: Typically `"EPSG"` (if present), this value represents the authority for horizontal code as well as the vertical code if one is present.
-    - `horizontal`: Horizontal coordinate system code with respect to the given `authority`.  If present, `authority` must exist.
-    - `vertical`: Vertical coordinate system code with respect to the given `authority`.  If present, both `authority` and `horizontal` must exist.
-    - `wkt`: A WKT specification of the spatial reference, if available.
+- `authority`: Typically `"EPSG"` (if present), this value represents the authority for horizontal code as well as the vertical code if one is present.
+- `horizontal`: Horizontal coordinate system code with respect to the given `authority`.  If present, `authority` must exist.
+- `vertical`: Vertical coordinate system code with respect to the given `authority`.  If present, both `authority` and `horizontal` must exist.
+- `wkt`: A WKT specification of the spatial reference, if available.
 
 For a valid `srs` specification: if one of either `authority` or `horizontal` exists, then the other must also exist.  If `vertical` exists, then both `authority` and `horizontal` must exist.
 
