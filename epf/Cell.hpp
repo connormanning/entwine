@@ -4,6 +4,8 @@
 #include <cstddef>
 #include <memory>
 
+#include "EpfTypes.hpp"
+
 // A cell represents a voxel that contains points. All cells are the same size. A cell has
 // a buffer which is filled by points. When the buffer is filled, it's passed to the writer
 // and a new buffer is created.
@@ -40,7 +42,7 @@ class Cell
 public:
     static constexpr size_t BufSize = 4096 * 10;
 
-    Cell(int index, size_t pointSize, Writer *writer) : m_index(index), m_pointSize(pointSize),
+    Cell(int index, size_t pointSize, Writer *writer) :m_index(index), m_pointSize(pointSize),
         m_writer(writer)
     {
         assert(pointSize < BufSize);
@@ -58,7 +60,7 @@ public:
     void advance();
 
 private:
-    std::unique_ptr<std::vector<uint8_t>> m_buf;
+    DataVecPtr m_buf;
     int m_index;
     size_t m_pointSize;
     Writer *m_writer;

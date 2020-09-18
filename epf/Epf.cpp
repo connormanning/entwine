@@ -91,26 +91,24 @@ void Epf::run(const std::vector<std::string>& options)
         for (const FileDimInfo& fdi : fi.dimInfo)
             allDimNames.insert(fdi.name);
 
-    PointLayout layout;
+    PointLayoutPtr layout(new PointLayout());
     for (const std::string& dimName : allDimNames)
     {
         Dimension::Type type = Dimension::defaultType(Dimension::id(dimName));
-        std::cerr << "Type of " << dimName << " = " << type << "!\n";
         if (type == Dimension::Type::None)
             type = Dimension::Type::Double;
-        layout.registerOrAssignDim(dimName, type);
+        layout->registerOrAssignDim(dimName, type);
     }
-    layout.finalize();
-std::cerr << "Layout point size = " << layout.pointSize() << "!\n";
+    layout->finalize();
 
     // Fill in dim info now that the layout is finalized.
     for (FileInfo& fi : fileInfos)
     {
         for (FileDimInfo& di : fi.dimInfo)
         {
-            di.dim = layout.findDim(di.name);
-            di.type = layout.dimType(di.dim);
-            di.offset = layout.dimOffset(di.dim);
+            di.dim = layout->findDim(di.name);
+            di.type = layout->dimType(di.dim);
+            di.offset = layout->dimOffset(di.dim);
         }
     }
 
@@ -119,7 +117,7 @@ std::cerr << "Layout point size = " << layout.pointSize() << "!\n";
     for (const FileInfo& fi : fileInfos)
     {
         std::unique_ptr<FileProcessor> fp(
-            new FileProcessor(fi, layout.pointSize(), m_grid, m_writer.get()));
+            new FileProcessor(fi, layout->pointSize(), m_grid, m_writer.get()));
         std::function<void()> processor = std::bind(&FileProcessor::operator(), fp.get());
         m_pool.add(processor);
         processors.push_back(std::move(fp));

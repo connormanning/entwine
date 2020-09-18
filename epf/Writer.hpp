@@ -8,6 +8,7 @@
 #include <pdal/util/ThreadPool.hpp>
 
 #include "EpfTypes.hpp"
+#include "BufferCache.hpp"
 
 namespace epf
 {
@@ -25,6 +26,8 @@ public:
 
     void enqueue(int index, DataVecPtr data);
     void stop();
+    BufferCache& bufferCache()
+        { return m_bufferCache; }
 
 private:
     std::string path(int index);
@@ -32,6 +35,7 @@ private:
 
     std::string m_directory;
     pdal::ThreadPool m_pool;
+    BufferCache m_bufferCache;
     bool m_stop;
     std::list<WriteData> m_queue;
     std::list<int> m_active;

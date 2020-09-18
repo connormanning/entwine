@@ -13,7 +13,7 @@ namespace epf
 struct WriteData
 {
     int index;
-    std::unique_ptr<std::vector<uint8_t>> data;
+    DataVecPtr data;
 };
 
 Writer::Writer(const std::string& directory, int numThreads) :
@@ -87,6 +87,7 @@ void Writer::run()
 
         std::ofstream out(path(wd.index), std::ios::app | std::ios::binary);
         out.write(reinterpret_cast<const char *>(wd.data->data()), wd.data->size());
+        m_bufferCache.replace(std::move(wd.data));
 
         std::lock_guard<std::mutex> lock(m_mutex);
         m_active.remove(wd.index); 

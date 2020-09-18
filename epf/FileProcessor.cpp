@@ -21,7 +21,7 @@ void FileProcessor::operator()()
     Options opts;
     opts.add("filename", m_fi.filename);
 
-    std::cerr << "Processing " << m_fi.filename << " - " << m_cnt << "!\n";
+    std::cerr << ("Processing " + m_fi.filename + " - " + std::to_string(m_cnt) + "!\n");
 
     StageFactory factory;
     Stage *s = factory.createStage(m_fi.driver);
@@ -50,12 +50,13 @@ void FileProcessor::operator()()
     );
     f.setInput(*s);
 
-    FixedPointTable t(100000);
+    FixedPointTable t(1000);
 
     f.prepare(t);
     f.execute(t);
     
-    std::cerr << "Processed " << count << " points!\n";
+    std::cerr << ("Done " + m_fi.filename + " - " + std::to_string(m_cnt) + ": " +
+        std::to_string(count) + " points!\n");
 
     for (auto& cp : m_cells)
         cp.second->write();

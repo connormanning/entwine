@@ -6,7 +6,7 @@ namespace epf
 
 void Cell::initialize()
 {
-    m_buf.reset(new std::vector<uint8_t>(BufSize));
+    m_buf = m_writer->bufferCache().fetch();
     m_pos = m_buf->data();
     m_endPos = m_pos + m_pointSize * ((BufSize / m_pointSize) - 1);
 }
