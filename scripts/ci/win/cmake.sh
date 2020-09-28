@@ -12,4 +12,5 @@ cmake .. -G "Ninja" \
     -DCMAKE_LIBRARY_PATH:FILEPATH="$CONDA_PREFIX/Library/lib" \
     -DCMAKE_INCLUDE_PATH:FILEPATH="$CONDA_PREFIX/Library/include" \
     -DBUILD_SHARED_LIBS=ON \
+    -D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING=1 \
     -Dgtest_force_shared_crt=ON
