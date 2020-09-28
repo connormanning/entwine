@@ -34,7 +34,7 @@ jobs:
       shell: bash -l {0}
       run: |
           source ../scripts/ci/conda/compile.sh
-      working-directory: ./pdal-feedstock
+      working-directory: ./entwine-feedstock
 
     - uses: ilammy/msvc-dev-cmd@v1
       if: matrix.platform == 'windows-latest'
@@ -46,4 +46,4 @@ jobs:
     - uses: actions/upload-artifact@v2
       with:
         name: ${{ matrix.platform }}-conda-package
-        path: ./pdal-feedstock/packages/
+        path: ./entwine-feedstock/packages/
