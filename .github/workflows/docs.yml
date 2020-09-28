@@ -25,11 +25,6 @@ jobs:
       run: |
         if find . -name '*.rst' | xargs grep -P '\t'; then echo 'Tabs are bad, please use four spaces in .rst files.'; false; fi
       working-directory: ./doc
-    - name: Doxygen
-      shell: bash -l {0}
-      run: |
-        make doxygen
-      working-directory: ./doc
     - name: HTML
       shell: bash -l {0}
       run: |
@@ -43,7 +38,7 @@ jobs:
     - name: Spelling
       shell: bash -l {0}
       run: |
-        make spell
+        make spelling
       working-directory: ./doc
     - uses: actions/upload-artifact@v2
       with:

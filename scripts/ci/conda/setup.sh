@@ -6,7 +6,7 @@ pwd
 ls
 git clone https://github.com/conda-forge/entwine-feedstock.git
 
-cd pdal-feedstock
+cd entwine-feedstock
 cat > recipe/recipe_clobber.yaml <<EOL
 source:
   git_url: https://github.com/connormanning/entwine.git
