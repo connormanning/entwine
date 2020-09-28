@@ -38,10 +38,6 @@ jobs:
 
     - uses: ilammy/msvc-dev-cmd@v1
       if: matrix.platform == 'windows-latest'
-    - name: Test
-      shell: bash -l {0}
-      run: |
-          source ./scripts/ci/conda/examples.sh
 
     - uses: actions/upload-artifact@v2
       with:
