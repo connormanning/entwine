@@ -380,8 +380,10 @@ int main(int argc, char** argv)
     signal(SIGINT, [](int sig) { exit(1); });
     entwine::stackTraceOn(SIGSEGV);
 
+#ifndef _WIN32
     // We ignore SIGPIPE to prevent crashing in some cases
     signal(SIGPIPE, SIG_IGN);
+#endif
 
     if (argc < 2)
     {

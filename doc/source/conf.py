@@ -33,6 +33,7 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
     'sphinx_markdown_tables',
+    'sphinxcontrib.spelling'
 ]
 
 intersphinx_mapping = {'pdal': ('http://pdal.io', None), 'greyhound': ('https://greyhound.io', None)}
