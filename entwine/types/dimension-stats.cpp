@@ -19,7 +19,7 @@ DimensionStats::DimensionStats(const pdal::stats::Summary& s)
     : minimum(s.minimum())
     , maximum(s.maximum())
     , mean(s.average())
-    , variance(s.populationVariance())
+    , variance(0) // s.populationVariance())
     , count(s.count())
 {
     for (const auto& bucket : s.values()) values[bucket.first] = bucket.second;

@@ -252,8 +252,8 @@ void Builder::insert(
         : info.pipeline;
     pipeline.at(0)["filename"] = localPath;
 
-    // TODO: Allow this to be disabled via config.
-    const bool needsStats = !hasStats(info.schema);
+    // TODO: Allow this to be set via config.
+    const bool needsStats = false; // !hasStats(info.schema);
     if (needsStats)
     {
         json& statsFilter = findOrAppendStage(pipeline, "filters.stats");
