@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 063b8c9e32caec00c862051733655042a8699115
+// Git SHA: e9f91be5d7b36213e82bab86c1810f9bcc9225d3
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -25618,8 +25618,8 @@ public:
         , m_token(token)
     { }
 
-    Auth(std::string iamRole)
-        : m_role(internal::makeUnique<std::string>(iamRole))
+    Auth(std::string credUrl)
+        : m_credUrl(internal::makeUnique<std::string>(credUrl))
     { }
 
     static std::unique_ptr<Auth> create(std::string j, std::string profile);
@@ -25631,7 +25631,7 @@ private:
     mutable std::string m_hidden;
     mutable std::string m_token;
 
-    std::unique_ptr<std::string> m_role;
+    std::unique_ptr<std::string> m_credUrl;
     mutable std::unique_ptr<Time> m_expiration;
     mutable std::mutex m_mutex;
 };
