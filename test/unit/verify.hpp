@@ -1,7 +1,7 @@
 #pragma once
 
 #include <entwine/types/bounds.hpp>
-#include <entwine/types/schema.hpp>
+#include <entwine/types/dimension.hpp>
 
 using namespace entwine;
 
