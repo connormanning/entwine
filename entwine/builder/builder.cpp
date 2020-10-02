@@ -253,7 +253,7 @@ void Builder::insert(
     pipeline.at(0)["filename"] = localPath;
 
     // TODO: Allow this to be set via config.
-    const bool needsStats = false; // !hasStats(info.schema);
+    const bool needsStats = !hasStats(info.schema);
     if (needsStats)
     {
         json& statsFilter = findOrAppendStage(pipeline, "filters.stats");
@@ -282,7 +282,7 @@ void Builder::insert(
     if (pdal::Stage* stage = findStage(last, "filters.stats"))
     {
         const pdal::StatsFilter& statsFilter(
-            dynamic_cast<const pdal::StatsFilter&>(last));
+            dynamic_cast<const pdal::StatsFilter&>(*stage));
 
         for (Dimension& d : info.schema)
         {
