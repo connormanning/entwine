@@ -933,7 +933,6 @@ namespace
             if (homeDrive && homePath) s = *homeDrive + *homePath;
         }
 #endif
-        if (s.empty()) std::cout << "No home directory found" << std::endl;
 
         return s;
     }
@@ -1252,9 +1251,9 @@ std::vector<std::string> glob(std::string path)
 std::string expandTilde(std::string in)
 {
     std::string out(in);
-    static std::string home(getHome());
     if (!in.empty() && in.front() == '~')
     {
+        const std::string home = getHome();
         if (home.empty()) throw ArbiterError("No home directory found");
         out = home + in.substr(1);
     }
@@ -1589,11 +1588,13 @@ namespace
     constexpr int64_t reauthSeconds(60 * 4);
 #endif
 
-    // See:
     // https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/iam-roles-for-amazon-ec2.html
-    const std::string credIp("169.254.169.254/");
-    const std::string credBase(
-            credIp + "latest/meta-data/iam/security-credentials/");
+    const std::string ec2CredIp("169.254.169.254");
+    const std::string ec2CredBase(
+            ec2CredIp + "/latest/meta-data/iam/security-credentials");
+
+    // https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html
+    const std::string fargateCredIp("169.254.170.2");
 
     std::string line(const std::string& data) { return data + "\n"; }
     const std::vector<char> empty;
@@ -1776,6 +1777,9 @@ std::unique_ptr<S3::Auth> S3::Auth::create(
     }
 
 #ifdef ARBITER_CURL
+    http::Pool pool;
+    drivers::Http httpDriver(pool);
+
     // Nothing found in the environment or on the filesystem.  However we may
     // be running in an EC2 instance with an instance profile set up.
     //
@@ -1783,17 +1787,20 @@ std::unique_ptr<S3::Auth> S3::Auth::create(
     // an HTTP request on every Arbiter construction - but if we're allowed,
     // see if we can request an instance profile configuration.
     if (
-            (!config.is_null() &&
-                config.value("allowInstanceProfile", false)) ||
-            env("AWS_ALLOW_INSTANCE_PROFILE"))
+        (!config.is_null() && config.value("allowInstanceProfile", false)) ||
+        env("AWS_ALLOW_INSTANCE_PROFILE"))
     {
-        http::Pool pool;
-        drivers::Http httpDriver(pool);
-
-        if (const auto iamRole = httpDriver.tryGet(credBase))
+        if (const auto iamRole = httpDriver.tryGet(ec2CredBase))
         {
-            return makeUnique<Auth>(*iamRole);
+            return makeUnique<Auth>(ec2CredBase + "/" + *iamRole);
         }
+    }
+
+    // We also may be running in Fargate, which looks very similar but with a
+    // different IP.
+    if (const auto relUri = env("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"))
+    {
+        return makeUnique<Auth>(fargateCredIp + "/" + *relUri);
     }
 #endif
 
@@ -1809,7 +1816,7 @@ S3::Config::Config(const std::string s, const std::string profile)
 
     m_precheck = c.value("precheck", false);
 
-    if (c.value("sse", false)|| env("AWS_SSE"))
+    if (c.value("sse", false) || env("AWS_SSE"))
     {
         m_baseHeaders["x-amz-server-side-encryption"] = "AES256";
     }
@@ -1945,7 +1952,7 @@ std::string S3::Config::extractBaseUrl(
 S3::AuthFields S3::Auth::fields() const
 {
 #ifdef ARBITER_CURL
-    if (m_role)
+    if (m_credUrl)
     {
         std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -1955,7 +1962,7 @@ S3::AuthFields S3::Auth::fields() const
             http::Pool pool;
             drivers::Http httpDriver(pool);
 
-            const json creds(json::parse(httpDriver.get(credBase + *m_role)));
+            const json creds(json::parse(httpDriver.get(*m_credUrl)));
             m_access = creds.at("AccessKeyId").get<std::string>();
             m_hidden = creds.at("SecretAccessKey").get<std::string>();
             m_token = creds.at("Token").get<std::string>();
@@ -2370,12 +2377,21 @@ S3::Resource::Resource(std::string base, std::string fullPath)
     m_bucket = fullPath.substr(0, split);
     if (split != std::string::npos) m_object = fullPath.substr(split + 1);
 
-    // Always use virtual-host style paths.  We'll use HTTP for our back-end
-    // calls to allow this.  If we were to use HTTPS on the back-end, then we
-    // would have to use non-virtual-hosted paths if the bucket name contained
-    // '.' characters.
-    //
-    // m_virtualHosted = m_bucket.find_first_of('.') == std::string::npos;
+    // We would prefer to use virtual-hosted URLs all the time since path-style
+    // URLs are being deprecated in 2020.  We also want to use HTTPS all the
+    // time, which is required for KMS-managed server-side encryption.  However,
+    // these two desires are incompatible if the bucket name contains dots,
+    // because the SSL cert will not allow virtual-hosted paths to be accessed
+    // over HTTPS.  So we'll fall back to path-style requests for buckets
+    // containing dots.  A fix for this should be announced by September 30,
+    // 2020, at which point maybe we can use virtual-hosted paths all the time.
+
+    // Deprecation plan for path-style URLs:
+    // https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/
+
+    // Dots in bucket name limitation with virtual-hosting over HTTPS:
+    // https://docs.aws.amazon.com/AmazonS3/latest/dev/VirtualHosting.html#VirtualHostingLimitations
+    m_virtualHosted = m_bucket.find_first_of('.') == std::string::npos;
 }
 
 std::string S3::Resource::baseUrl() const
@@ -2392,7 +2408,7 @@ std::string S3::Resource::url() const
 {
     if (m_virtualHosted)
     {
-        return "http://" + m_bucket + "." + m_baseUrl + m_object;
+        return "https://" + m_bucket + "." + m_baseUrl + m_object;
     }
     else
     {
@@ -2521,10 +2537,10 @@ namespace
         std::string m_object;
 
     };
-    
+
     // https://cloud.google.com/storage/docs/json_api/#encoding
     const char GResource::exclusions[] = "!$&'()*+,;=:@";
-    
+
 } // unnamed namespace
 
 namespace drivers
@@ -2554,10 +2570,18 @@ std::unique_ptr<std::size_t> Google::tryGetSize(const std::string path) const
     const auto res(
             https.internalHead(resource.endpoint(), headers, altMediaQuery));
 
-    if (res.ok() && res.headers().count("Content-Length"))
+    if (res.ok())
     {
-        const auto& s(res.headers().at("Content-Length"));
-        return makeUnique<std::size_t>(std::stoull(s));
+        if (res.headers().count("Content-Length"))
+        {
+            const auto& s(res.headers().at("Content-Length"));
+            return makeUnique<std::size_t>(std::stoull(s));
+        }
+        else if (res.headers().count("content-length"))
+        {
+            const auto& s(res.headers().at("content-length"));
+            return makeUnique<std::size_t>(std::stoull(s));
+        }
     }
 
     return std::unique_ptr<std::size_t>();

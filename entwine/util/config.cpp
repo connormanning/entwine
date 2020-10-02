@@ -138,10 +138,10 @@ Schema getSchema(const json& j)
         schema = setScaleOffset(schema, Scale(0.01));
     }
 
-    // If we have a scale set, but no offset, calculate one.
+    // If we have a scale set, calculate an offset.
     if (auto so = getScaleOffset(schema))
     {
-        if (so->scale != 1 && so->offset == 0)
+        if (so->scale != 1)
         {
             so->offset = getBounds(j).mid().round();
             schema = setScaleOffset(schema, *so);
