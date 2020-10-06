@@ -9,7 +9,7 @@ conda install cmake ninja compilers -y
 if [ "$BUILD_TYPE" == "fixed" ]; then
 
     conda config --set channel_priority strict
-    conda install --yes --quiet pdal gdal=3.0.2=py37hbb6b9fb_8 python=3.7 abseil-cpp  -y
+    conda install --yes --quiet pdal=2.2.0=h9463286_0 abseil-cpp  -y
     conda install --yes --quiet entwine  --only-deps -y
 
 else
