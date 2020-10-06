@@ -56,7 +56,10 @@ TEST(info, analyzeReprojected)
 
     EXPECT_EQ(path, inputs.at(0));
     EXPECT_EQ(info.errors.size(), 0);
-    EXPECT_EQ(info.bounds, verify.boundsUtm);
+    for (std::size_t i = 0; i < 6u; ++i)
+    {
+        EXPECT_NEAR(info.bounds[i], verify.boundsUtm[i], 0.01);
+    }
     EXPECT_EQ(info.points, verify.points);
     EXPECT_EQ(info.srs, utmSrs);
     EXPECT_EQ(info.schema.size(), verify.schema.size());
