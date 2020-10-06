@@ -29,8 +29,8 @@ Source parseOne(std::string path, const arbiter::Arbiter& a = { });
 
 SourceList analyze(
     const StringList& inputs,
-    const json& pipelineTemplate,
-    bool deep,
+    const json& pipelineTemplate = json::array({ json::object() }),
+    bool deep = false,
     std::string tmp = arbiter::getTempPath(),
     const arbiter::Arbiter& a = { },
     unsigned threads = 8);

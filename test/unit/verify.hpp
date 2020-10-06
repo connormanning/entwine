@@ -2,48 +2,34 @@
 
 #include <entwine/types/bounds.hpp>
 #include <entwine/types/dimension.hpp>
+#include <entwine/types/srs.hpp>
 
 using namespace entwine;
 
-class Verify
+struct Verify
 {
-public:
-    Verify() { }
-
-    Bounds bounds() const
-    {
-        return Bounds(-8242746, 4966506, -50, -8242446, 4966706, 50);
-    }
-
-    Bounds boundsUtm() const
-    {
-        return Bounds(580621, 4504618, -50, 580850, 4504771, 50);
-    }
-
-    Schema schema() const
-    {
-        return Schema(DimList {
-            { DimId::X, DimType::Signed32, 0.01 },
-            { DimId::Y, DimType::Signed32, 0.01 },
-            { DimId::Z, DimType::Signed32, 0.01 },
-            DimId::Intensity,
-            DimId::ReturnNumber,
-            DimId::NumberOfReturns,
-            DimId::ScanDirectionFlag,
-            DimId::EdgeOfFlightLine,
-            DimId::Classification,
-            DimId::ScanAngleRank,
-            DimId::UserData,
-            DimId::PointSourceId,
-            DimId::GpsTime,
-            DimId::Red,
-            DimId::Green,
-            DimId::Blue
-        });
-    }
-
-    uint64_t points() const { return 100000; }
-    uint64_t hierarchyStep() const { return 2; }
-    uint64_t span() const { return 32; }
+    const Bounds bounds = Bounds(-8242746, 4966506, -50, -8242446, 4966706, 50);
+    const Bounds boundsUtm = Bounds(
+        580621.2087415651, 4504618.157951002, -50.0,
+        580850.5686624339, 4504771.858998275, 50.0);
+    const uint64_t points = 100000;
+    const Srs srs = Srs("EPSG:3857");
+    const Schema schema = Schema {
+        {"X", Type::Signed32, 0.01},
+        {"Y", Type::Signed32, 0.01},
+        {"Z", Type::Signed32, 0.01},
+        {"Intensity"},
+        {"ReturnNumber"},
+        {"NumberOfReturns"},
+        {"ScanDirectionFlag"},
+        {"EdgeOfFlightLine"},
+        {"Classification"},
+        {"ScanAngleRank"},
+        {"UserData"},
+        {"PointSourceId"},
+        {"GpsTime"},
+        {"Red"},
+        {"Green"},
+        {"Blue"}
+    };
 };
-

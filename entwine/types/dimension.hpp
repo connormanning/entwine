@@ -41,10 +41,14 @@ std::string typeString(Type type);
 struct Dimension
 {
     Dimension() = default;
-    Dimension(std::string name, Type type);
-    Dimension(std::string name, Type type, DimensionStats stats);
-    Dimension(std::string name, Type type, optional<DimensionStats> stats);
-    Dimension(const json& j);
+    Dimension(std::string name, double scale = 1, double offset = 0);
+    Dimension(std::string name, Type type, double scale = 1, double offset = 0);
+    Dimension(
+        std::string name,
+        Type type,
+        optional<DimensionStats> stats,
+        double scale = 1,
+        double offset = 0);
 
     std::string name;
     Type type = Type::None;

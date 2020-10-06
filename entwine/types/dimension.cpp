@@ -55,34 +55,33 @@ inline void from_json(const entwine::json& j, Type& t)
 namespace entwine
 {
 
-Dimension::Dimension(std::string name, Type type)
-    : name(name)
-    , type(type)
+Dimension::Dimension(std::string name, double scale, double offset)
+    : Dimension(
+        name,
+        pdal::Dimension::defaultType(pdal::Dimension::id(name)),
+        scale,
+        offset)
 { }
 
-Dimension::Dimension(std::string name, Type type, DimensionStats stats)
+Dimension::Dimension(std::string name, Type type, double scale, double offset)
     : name(name)
     , type(type)
-    , stats(stats)
+    , scale(scale)
+    , offset(offset)
 { }
 
 Dimension::Dimension(
     std::string name,
     Type type,
-    optional<DimensionStats> stats)
+    optional<DimensionStats> stats,
+    double scale,
+    double offset)
     : name(name)
     , type(type)
+    , scale(scale)
+    , offset(offset)
     , stats(stats)
 { }
-
-Dimension::Dimension(const json& j)
-    : name(j.at("name").get<std::string>())
-    , type(j.get<Type>())
-    , scale(j.value<double>("scale", 1))
-    , offset(j.value<double>("offset", 0))
-{
-    if (j.count("count")) stats = j.get<DimensionStats>();
-}
 
 std::string typeString(Type type)
 {
@@ -108,7 +107,14 @@ void to_json(json& j, const Dimension& dim)
     if (dim.stats) j.update(*dim.stats);
 }
 
-void from_json(const json& j, Dimension& dim) { dim = Dimension(j); }
+void from_json(const json& j, Dimension& dim)
+{
+    dim.name = j.at("name").get<std::string>();
+    dim.type = j.get<Type>();
+    dim.scale = j.value<double>("scale", 1);
+    dim.offset = j.value<double>("offset", 0);
+    if (j.count("count")) dim.stats = j.get<DimensionStats>();
+}
 
 uint64_t getPointSize(const Schema& dims)
 {
