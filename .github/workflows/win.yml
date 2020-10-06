@@ -45,7 +45,7 @@ jobs:
     - name: Paths
       shell: bash -l {0}
       run: |
-          echo "::add-path::D:/a/entwine/entwine/build/gtest-1.8.0"
+          echo "::add-path::D:/a/entwine/entwine/build/bin"
 
     - name: Test
       shell: bash -l {0}

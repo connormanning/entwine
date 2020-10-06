@@ -46,8 +46,3 @@ jobs:
           source ../scripts/ci/osx/test.sh
       working-directory: ./build
 
-    - name: Examples
-      shell: bash -l {0}
-      run: |
-          source ./scripts/ci/osx/examples.sh
-
