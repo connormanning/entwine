@@ -53,9 +53,4 @@ jobs:
       run: |
           source ../scripts/ci/win/test.sh
 
-    - name: Examples
-      shell: bash -l {0}
-      run: |
-          source ./scripts/ci/win/examples.sh
-
 
