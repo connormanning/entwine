@@ -9,7 +9,7 @@ git clone https://github.com/conda-forge/entwine-feedstock.git
 cd entwine-feedstock
 cat > recipe/recipe_clobber.yaml <<EOL
 source:
-  git_url: https://github.com/hobu/entwine.git
+  git_url: https://github.com/connormanning/entwine.git
   git_rev: ${GITHUB_SHA}
   url:
   sha256:
