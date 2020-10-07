@@ -45,7 +45,7 @@ jobs:
     - name: Paths
       shell: bash -l {0}
       run: |
-          echo "::add-path::D:/a/entwine/entwine/build/bin"
+          echo "D:/a/entwine/entwine/build/bin" >> $GITHUB_PATH
 
     - name: Test
       shell: bash -l {0}
