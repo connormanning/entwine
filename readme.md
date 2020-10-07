@@ -11,11 +11,6 @@
 [![Docs](https://github.com/connormanning/entwine/workflows/Docs/badge.svg)](https://github.com/connormanning/entwine/actions?query=workflow%3ADocs)
 [![Docker](https://github.com/connormanning/entwine/workflows/Docker/badge.svg)](https://github.com/connormanning/entwine/actions?query=workflow%3ADocker)
 
-
-
-[![Build Status](https://dev.azure.com/hobuinc/Entwine/_apis/build/status/connormanning.entwine?branchName=master)](https://dev.azure.com/hobuinc/Entwine/_build/latest?definitionId=1&branchName=master)
-
-
 Entwine is a data organization library for massive point clouds, designed to conquer datasets of hundreds of billions of points as well as desktop-scale point clouds.  Entwine can index anything that is [PDAL](https://pdal.io)-readable, and can read/write to a variety of sources like S3 or Dropbox.  Builds are completely lossless, so no points will be discarded even for terabyte-scale datasets.
 
 Check out the client demos, showcasing Entwine output with [Potree](http://potree.entwine.io), [Plas.io](http://speck.ly), and [Cesium](http://cesium.entwine.io) clients.
