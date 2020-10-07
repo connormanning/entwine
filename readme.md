@@ -1,5 +1,18 @@
 ![Entwine logo](./doc/logo/color/entwine_logo_2-color-small.png)
 
+
+## Build Status
+
+[![OSX](https://github.com/connormanning/entwine/workflows/OSX/badge.svg)](https://github.com/connormanning/entwine/actions?query=workflow%3AOSX)
+[![Linux](https://github.com/connormanning/entwine/workflows/Linux/badge.svg)](https://github.com/connormanning/entwine/actions?query=workflow%3ALinux)
+[![Windows](https://github.com/connormanning/entwine/workflows/Windows/badge.svg)](https://github.com/connormanning/entwine/actions?query=workflow%3AWindows)
+[![Docs](https://github.com/connormanning/entwine/workflows/Docs/badge.svg)](https://github.com/connormanning/entwine/actions?query=workflow%3ADocs)
+[![Conda](https://github.com/connormanning/entwine/workflows/Conda/badge.svg)](https://github.com/connormanning/entwine/actions?query=workflow%3AConda)
+[![Docs](https://github.com/connormanning/entwine/workflows/Docs/badge.svg)](https://github.com/connormanning/entwine/actions?query=workflow%3ADocs)
+[![Docker](https://github.com/connormanning/entwine/workflows/Docker/badge.svg)](https://github.com/connormanning/entwine/actions?query=workflow%3ADocker)
+
+
+
 [![Build Status](https://dev.azure.com/hobuinc/Entwine/_apis/build/status/connormanning.entwine?branchName=master)](https://dev.azure.com/hobuinc/Entwine/_build/latest?definitionId=1&branchName=master)
 
 
