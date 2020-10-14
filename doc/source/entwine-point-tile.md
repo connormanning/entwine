@@ -68,6 +68,7 @@ A string describing the binary encoding of the tiled point cloud data.  See the 
 
 - `laszip`: Point cloud files are [LASzip](https://laszip.org/) compressed, with file extension `.laz`.
 - `binary`: Point cloud files are stored as uncompressed binary data in the format matching the `schema`, with file extension `.bin`.
+- `zstandard`: Point cloud files are stored as compressed binary data (using [Zstandard](https://facebook.github.io/zstd/) compression) in the format matching the `schema`, with file extension `.zst`.
 
 ### hierarchyType
 A string describing the encoding of the hierarchy information.  See the `Hierarchy` section.  The hierarchy itself is always represented as JSON, but this value may indicate a compression method for this JSON.  Possible values:
