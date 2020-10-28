@@ -243,7 +243,7 @@ FixedPointLayout toLayout(const Schema& list)
     FixedPointLayout layout;
     for (const auto& dim : list)
     {
-        layout.registerOrAssignDim(dim.name, dim.type);
+        layout.registerOrAssignFixedDim(dim.name, dim.type);
     }
     layout.finalize();
     return layout;

@@ -25,6 +25,28 @@ public:
     using Added = std::vector<std::string>;
     const Added& added() const { return m_added; }
 
+    void registerFixedDim(pdal::Dimension::Id id, pdal::Dimension::Type type)
+    {
+        using namespace pdal::Dimension;
+
+        Detail dd = m_detail[pdal::Utils::toNative(id)];
+        dd.setType(type);
+        update(dd, pdal::Dimension::name(id));
+    }
+
+    pdal::Dimension::Id registerOrAssignFixedDim(
+        const std::string name,
+        pdal::Dimension::Type type)
+    {
+        pdal::Dimension::Id id = pdal::Dimension::id(name);
+        if (id != pdal::Dimension::Id::Unknown)
+        {
+            registerFixedDim(id, type);
+            return id;
+        }
+        return assignDim(name, type);
+    }
+
 private:
     virtual bool update(
             pdal::Dimension::Detail dimDetail,
