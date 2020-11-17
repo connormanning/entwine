@@ -19,7 +19,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - uses: ilammy/msvc-dev-cmd@v1
-    - uses: goanpeca/setup-miniconda@v1
+    - uses: conda-incubator/setup-miniconda@v2
       with:
         channels: conda-forge
         auto-update-conda: true
@@ -45,7 +45,7 @@ jobs:
     - name: Paths
       shell: bash -l {0}
       run: |
-          echo "::add-path::D:/a/entwine/entwine/build/bin"
+          echo "D:/a/entwine/entwine/build/bin" >> $GITHUB_PATH
 
     - name: Test
       shell: bash -l {0}
