@@ -1,8 +1,6 @@
 name: OSX
 
-on:
-  push:
-    branches: '*'
+on: [push, pull_request]
 
 jobs:
   build:
