@@ -13,6 +13,7 @@
 #include <algorithm>
 
 #include <pdal/io/LasReader.hpp>
+#include <pdal/io/LasHeader.hpp>
 
 namespace entwine
 {
