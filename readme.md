@@ -36,6 +36,8 @@ docker run -it -v ~/entwine:/var/www -p 8080:8080 connormanning/http-server
 
 And view the data with [Potree](http://potree.entwine.io/data/custom.html?r=http://localhost:8080/red-rocks/ept.json) and [Plasio](http://dev.speck.ly/?s=0&r=ept://localhost:8080/red-rocks&c0s=local://color).
 
+To view the data in [Cesium](https://www.cesium.com/), see the [EPT Tools](https://github.com/connormanning/ept-tools) project.
+
 Going further
 --------------------------------------------------------------------------------
 
