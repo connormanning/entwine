@@ -2866,7 +2866,7 @@ void AZ::copy(const std::string src, const std::string dst) const
 {
     Headers headers;
     const Resource resource(m_config->baseUrl(), src);
-    headers["x-ms-copy-source"] = resource.bucket() + '/' + resource.object();
+    headers["x-ms-copy-source"] = resource.object();
     put(dst, std::vector<char>(), headers, Query());
 }
 
@@ -2880,7 +2880,7 @@ std::vector<std::string> AZ::glob(std::string path, bool verbose) const
 
     const Resource resource(m_config->baseUrl(), path);
     const std::string& bucket(resource.bucket());
-    const std::string& object(resource.object());
+    const std::string& object(resource.blob());
 
     Query query;
 
@@ -2893,7 +2893,7 @@ std::vector<std::string> AZ::glob(std::string path, bool verbose) const
 
     if (verbose) std::cout << "." << std::flush;
 
-    if (!get(resource.bucket() + "/", data, Headers(), query))
+    if (!get(resource.bucket(), data, Headers(), query))
     {
         throw ArbiterError("Couldn't AZ GET " + resource.bucket());
     }
@@ -2913,40 +2913,43 @@ std::vector<std::string> AZ::glob(std::string path, bool verbose) const
     //read https://docs.microsoft.com/en-us/rest/api/storageservices/list-blobs
     if (XmlNode* topNode = xml.first_node("EnumerationResults"))
     {
-        if (XmlNode* conNode = topNode->first_node("Blobs"))
+        if (XmlNode* blobsNode = topNode->first_node("Blobs"))
         {
-            for ( ; conNode; conNode = conNode->next_sibling())
+            if (XmlNode* conNode = blobsNode->first_node("Blob"))
             {
-                if (XmlNode* keyNode = conNode->first_node("Name"))
+                for ( ; conNode; conNode = conNode->next_sibling())
                 {
-                    std::string key(keyNode->value());
-                    const bool isSubdir(
-                            key.find('/', object.size()) !=
-                            std::string::npos);
-
-                    // The prefix may contain slashes (i.e. is a sub-dir)
-                    // but we only want to traverse into subdirectories
-                    // beyond the prefix if recursive is true.
-                    if (recursive || !isSubdir)
+                    if (XmlNode* keyNode = conNode->first_node("Name"))
                     {
-                        results.push_back(
-                                type() + "://" + bucket + "/" + key);
+                        std::string key(keyNode->value());
+                        const bool isSubdir(
+                                key.find('/', object.size()) !=
+                                std::string::npos);
+
+                        // The prefix may contain slashes (i.e. is a sub-dir)
+                        // but we only want to traverse into subdirectories
+                        // beyond the prefix if recursive is true.
+                        if (recursive || !isSubdir)
+                        {
+                            results.push_back(
+                                    type() + "://" + bucket + "/" + key);
+                        }
                     }
                 }
-                else
-                {
-                    throw ArbiterError(badAZResponse);
-                }
+            }
+            else
+            {
+                throw ArbiterError("No blob node");
             }
         }
         else
         {
-            throw ArbiterError(badAZResponse);
+                throw ArbiterError("No blobs node");
         }
     }
     else
     {
-            throw ArbiterError(badAZResponse);
+            throw ArbiterError("No EnumerationResults node");
     }
 
     xml.clear();
@@ -2968,7 +2971,7 @@ AZ::ApiV1::ApiV1(
     , m_query(query)
 {
     Headers msHeaders;
-    msHeaders["x-ms-date"] = m_time.str(Time::iso8601NoSeparators);
+    msHeaders["x-ms-date"] = m_time.str(Time::rfc822);
     msHeaders["x-ms-version"] = "2019-12-12";
 
     if (verb == "PUT" || verb == "POST")
@@ -2977,8 +2980,10 @@ AZ::ApiV1::ApiV1(
         {
             m_headers["Content-Type"] = "application/octet-stream";
         }
+        m_headers["Content-Length"] = std::to_string(data.size());
         m_headers.erase("Transfer-Encoding");
         m_headers.erase("Expect");
+        msHeaders["x-ms-blob-type"] = "BlockBlob";
     }
 
     const std::string canonicalHeaders(buildCanonicalHeader(msHeaders,m_headers));
@@ -2992,24 +2997,35 @@ AZ::ApiV1::ApiV1(
     m_headers["Authorization"] = getAuthHeader(signature);
     m_headers["x-ms-date"] = msHeaders["x-ms-date"];
     m_headers["x-ms-version"] = msHeaders["x-ms-version"];
+    m_headers["x-ms-blob-type"] = msHeaders["x-ms-blob-type"];
 }
 
 std::string AZ::ApiV1::buildCanonicalHeader(
         http::Headers & msHeaders,
         const http::Headers & existingHeaders) const
 {
+    auto trim([](const std::string& s)
+    {
+        const std::string whitespace = " \t\r\n";
+        const size_t left = s.find_first_not_of(whitespace);
+        const size_t right = s.find_first_of(whitespace);
+        if (left == std::string::npos)
+        {
+            return std::string();
+        }
+        return s.substr(left,right - left +1);
+    });
+
     for (auto & h : existingHeaders)
     {
         if (h.first.rfind("x-ms-") == 0 || h.first.rfind("Content-MD5") == 0)
         {
-            msHeaders[makeLower(h.first)] = trimStr(h.second);
+            msHeaders[makeLower(h.first)] = trim(h.second);
         }
     }
     auto canonicalizeHeaders([](const std::string& s, const Headers::value_type& h)
     {
-        const std::string keyVal(
-                sanitize(h.first, "") + ":" +
-                sanitize(h.second, ""));
+        const std::string keyVal(h.first + ":" + h.second);
 
         return s + (s.size() ? "\n" : "") + keyVal;
     });
@@ -3034,9 +3050,9 @@ std::string AZ::ApiV1::buildCanonicalResource(
     {
         const std::string keyVal(
                 sanitize(q.first, "") + ":" +
-                sanitize(q.second, ""));
+                q.second);
 
-        return s + (s.size() ? "\n" : "") + keyVal;
+        return s + "\n" + keyVal;
     });
 
     const std::string canonicalQuery(
@@ -3046,7 +3062,7 @@ std::string AZ::ApiV1::buildCanonicalResource(
                 std::string(),
                 canonicalizeQuery));
 
-    return makeLine(canonicalUri) + canonicalQuery;
+    return canonicalUri + canonicalQuery;
 }
 
 std::string AZ::ApiV1::buildStringToSign(
@@ -3077,15 +3093,15 @@ std::string AZ::ApiV1::buildStringToSign(
 
     return
         makeLine(verb) +
-        makeLine(canonicalHeaders) +
         makeLine(headerValues) +
+        makeLine(canonicalHeaders) +
         canonicalRequest;
 }
 
 std::string AZ::ApiV1::calculateSignature(
         const std::string& stringToSign) const
 {
-    return crypto::hmacSha256(crypto::decodeBase64(m_authFields.key()),stringToSign);
+    return crypto::encodeBase64(crypto::hmacSha256(crypto::decodeBase64(m_authFields.key()),stringToSign));
 }
 
 std::string AZ::ApiV1::getAuthHeader(
@@ -3135,6 +3151,11 @@ std::string AZ::Resource::url() const
 std::string AZ::Resource::object() const
 {
     return m_bucket + "/" + m_object;
+}
+
+std::string AZ::Resource::blob() const
+{
+    return m_object;
 }
 
 std::string AZ::Resource::host() const
@@ -4064,6 +4085,7 @@ Curl::Curl(const std::string s)
     //      - caBundle          (CURLOPT_CAPATH)
     //      - caInfo            (CURLOPT_CAINFO)
     //      - verifyPeer        (CURLOPT_SSL_VERIFYPEER)
+    //      - proxy             (CURLOPT_PROXY)
 
     using Keys = std::vector<std::string>;
     auto find([](const Keys& keys)->std::unique_ptr<std::string>
@@ -4108,6 +4130,11 @@ Curl::Curl(const std::string s)
                 m_caInfo = mk(h["caInfo"].get<std::string>());
             }
 
+            if (h.count("Proxy"))
+            {
+                m_proxy = mk(h["Proxy"].get<std::string>());
+            }
+
             if (h.count("verifyPeer"))
             {
                 m_verifyPeer = h["verifyPeer"].get<bool>();
@@ -4130,6 +4157,7 @@ Curl::Curl(const std::string s)
     };
     Keys caPathKeys{ "CURL_CA_PATH", "CURL_CA_BUNDLE", "ARBITER_CA_PATH" };
     Keys caInfoKeys{ "CURL_CAINFO", "CURL_CA_INFO", "ARBITER_CA_INFO" };
+    Keys ProxyKeys{ "CURL_PROXY", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "ARBITER_PROXY"};
 
     if (auto v = find(verboseKeys)) m_verbose = !!std::stol(*v);
     if (auto v = find(timeoutKeys)) m_timeout = std::stol(*v);
@@ -4137,6 +4165,7 @@ Curl::Curl(const std::string s)
     if (auto v = find(verifyKeys)) m_verifyPeer = !!std::stol(*v);
     if (auto v = find(caPathKeys)) m_caPath = mk(*v);
     if (auto v = find(caInfoKeys)) m_caInfo = mk(*v);
+    if (auto v = find(ProxyKeys)) m_proxy = mk(*v);
 
     static bool logged(false);
     if (m_verbose && !logged)
@@ -4148,6 +4177,7 @@ Curl::Curl(const std::string s)
             "\n\tverifyPeer: " << m_verifyPeer <<
             "\n\tcaBundle: " << (m_caPath ? *m_caPath : "(default)") <<
             "\n\tcaInfo: " << (m_caInfo ? *m_caInfo : "(default)") <<
+            "\n\tProxy: " << (m_proxy ? *m_proxy : "(default)") <<
             std::endl;
     }
 #endif
@@ -4198,6 +4228,7 @@ void Curl::init(
     curl_easy_setopt(m_curl, CURLOPT_SSL_VERIFYPEER, toLong(m_verifyPeer));
     if (m_caPath) curl_easy_setopt(m_curl, CURLOPT_CAPATH, m_caPath->c_str());
     if (m_caInfo) curl_easy_setopt(m_curl, CURLOPT_CAINFO, m_caInfo->c_str());
+    if (m_proxy) curl_easy_setopt(m_curl, CURLOPT_PROXY, m_proxy->c_str());
 
     // Insert supplied headers.
     for (const auto& h : headers)
@@ -5393,6 +5424,7 @@ namespace
 }
 
 const std::string Time::iso8601 = "%Y-%m-%dT%H:%M:%SZ";
+const std::string Time::rfc822 = "%a, %d %b %Y %H:%M:%S GMT";
 const std::string Time::iso8601NoSeparators = "%Y%m%dT%H%M%SZ";
 const std::string Time::dateNoSeparators = "%Y%m%d";
 

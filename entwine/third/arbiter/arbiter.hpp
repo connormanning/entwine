@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 8143feb534f3766ce2878ce9295f5b72f3ed67c5
+// Git SHA: 18a41e535a428de1cb907b65601abd18d1d4b9b6
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -24326,6 +24326,7 @@ private:
     bool m_verifyPeer = true;
     std::unique_ptr<std::string> m_caPath;
     std::unique_ptr<std::string> m_caInfo;
+    std::unique_ptr<std::string> m_proxy;
 
     std::vector<char> m_data;
 };
@@ -24548,6 +24549,7 @@ class ARBITER_DLL Time
 {
 public:
     static const std::string iso8601;
+    static const std::string rfc822;
     static const std::string iso8601NoSeparators;
     static const std::string dateNoSeparators;
 
@@ -25892,6 +25894,7 @@ public:
     std::string baseUrl() const;
     std::string bucket() const;
     std::string object() const;
+    std::string blob() const;
     std::string storageAccount() const;
 
 private:
