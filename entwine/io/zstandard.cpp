@@ -9,8 +9,9 @@
 ******************************************************************************/
 
 #include <entwine/io/zstandard.hpp>
-
+#ifndef NO_ZSTD
 #include <pdal/compression/ZstdCompression.hpp>
+#endif
 #include <pdal/filters/SortFilter.hpp>
 
 #include <entwine/util/io.hpp>
@@ -29,6 +30,7 @@ void write(
     BlockPointTable& table,
     const Bounds bounds)
 {
+#ifndef NO_ZSTD
     const std::vector<char> uncompressed = binary::pack(metadata, table);
 
     std::vector<char> compressed;
@@ -41,6 +43,9 @@ void write(
     compressor.done();
 
     ensurePut(endpoints.data, filename + ".zst", compressed);
+#else
+    throw std::runtime_error("Entwine was not built with zstd support.");
+#endif
 }
 
 void read(
@@ -49,6 +54,7 @@ void read(
     const std::string filename,
     VectorPointTable& table)
 {
+#ifndef NO_ZSTD
     const std::vector<char> compressed = ensureGetBinary(
         endpoints.data,
         filename + ".zst");
@@ -62,6 +68,9 @@ void read(
     dec.decompress(compressed.data(), compressed.size());
 
     binary::unpack(metadata, table, std::move(uncompressed));
+#else
+    throw std::runtime_error("Entwine was not built with zstd support.");
+#endif
 }
 
 } // namespace zstandard
