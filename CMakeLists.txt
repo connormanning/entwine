@@ -30,6 +30,12 @@ set(entwine_defs_hpp
     ${PROJECT_BINARY_DIR}/include/entwine/types/defs.hpp)
 configure_file(${entwine_defs_hpp_in} ${entwine_defs_hpp})
 
+option(WITH_ZSTD
+    "Build support for compression/decompression with Zstd." TRUE)
+if (NOT WITH_ZSTD)
+    add_definitions(-DNO_ZSTD)
+endif()
+
 include(${CMAKE_DIR}/threads.cmake)
 include(${CMAKE_DIR}/backtrace.cmake)
 include(${CMAKE_DIR}/curl.cmake)
