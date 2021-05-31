@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8.12)
 
+
 project(entwine)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules" ${CMAKE_MODULE_PATH})
 
@@ -9,6 +10,9 @@ set(ENTWINE_VERSION_PATCH 0 CACHE STRING "Entwine patch version" FORCE)
 set(ENTWINE_VERSION_STRING
     "${ENTWINE_VERSION_MAJOR}.${ENTWINE_VERSION_MINOR}.${ENTWINE_VERSION_PATCH}"
     CACHE STRING "Entwine version string" FORCE)
+
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(ENTWINE_API_VERSION "2")
 set(ENTWINE_BUILD_VERSION ${ENTWINE_VERSION_STRING})
@@ -29,6 +33,12 @@ set(entwine_defs_hpp_in
 set(entwine_defs_hpp
     ${PROJECT_BINARY_DIR}/include/entwine/types/defs.hpp)
 configure_file(${entwine_defs_hpp_in} ${entwine_defs_hpp})
+
+option(WITH_ZSTD
+    "Build support for compression/decompression with Zstd." TRUE)
+if (NOT WITH_ZSTD)
+    add_definitions(-DNO_ZSTD)
+endif()
 
 include(${CMAKE_DIR}/threads.cmake)
 include(${CMAKE_DIR}/backtrace.cmake)

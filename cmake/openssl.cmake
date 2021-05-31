@@ -1,4 +1,4 @@
-find_package(OpenSSL 1.0.1)
+find_package(OpenSSL 1.0.1 REQUIRED)
 if (OPENSSL_FOUND)
     set(ARBITER_OPENSSL TRUE)
     set(ENTWINE_OPENSSL TRUE)
