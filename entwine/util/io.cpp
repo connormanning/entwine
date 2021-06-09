@@ -140,7 +140,7 @@ optional<std::string> getWithRetry(
     const int tries)
 {
     std::string data;
-    const auto f = [&a, &path, &data]() { data = a.get("path"); };
+    const auto f = [&a, &path, &data]() { data = a.get(path); };
     const std::string message = "Failed to get " + path;
 
     if (loop(f, tries, message)) return data;

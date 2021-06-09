@@ -35,7 +35,7 @@ public:
     void logUsage() const
     {
         std::cout << "\nUsage: " << m_usage << "\n" << std::endl;
-        for (const std::string d : m_descriptions)
+        for (const std::string& d : m_descriptions)
         {
             std::cout << d << std::endl;
         }
