@@ -3,6 +3,8 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 
+using namespace entwine;
+
 TEST(init, initializes)
 {
     const arbiter::Arbiter a;
@@ -27,7 +29,7 @@ TEST(init, initializes)
 
         arbiter::mkdirp(test::dataPath());
         arbiter::mkdirp(test::dataPath() + "ellipsoid-multi");
-        for (const std::string path : files)
+        for (const std::string& path : files)
         {
             a.copy(base + path, test::dataPath() + path, true);
         }
