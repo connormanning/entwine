@@ -45,7 +45,6 @@ SOFTWARE.
 /// If defined, indicates that the source file is amalgamated
 /// to prevent private header inclusion.
 #define ARBITER_IS_AMALGAMATION
-#define ARBITER_CUSTOM_NAMESPACE entwine
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: arbiter/third/xml/rapidxml.hpp

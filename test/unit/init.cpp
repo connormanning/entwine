@@ -3,8 +3,6 @@
 
 #include <entwine/third/arbiter/arbiter.hpp>
 
-using namespace entwine;
-
 TEST(init, initializes)
 {
     const arbiter::Arbiter a;
