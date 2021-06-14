@@ -2177,8 +2177,8 @@ std::vector<std::string> S3::glob(std::string path, bool verbose) const
 
     // https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGET.html
     const Resource resource(m_config->baseUrl(), path);
-    const std::string& bucket(resource.bucket());
-    const std::string& object(resource.object());
+    const std::string bucket(resource.bucket());
+    const std::string object(resource.object());
 
     Query query;
 
@@ -2191,9 +2191,9 @@ std::vector<std::string> S3::glob(std::string path, bool verbose) const
     {
         if (verbose) std::cout << "." << std::flush;
 
-        if (!get(resource.bucket() + "/", data, Headers(), query))
+        if (!get(bucket + "/", data, Headers(), query))
         {
-            throw ArbiterError("Couldn't S3 GET " + resource.bucket());
+            throw ArbiterError("Couldn't S3 GET " + bucket);
         }
 
         data.push_back('\0');
@@ -2351,7 +2351,7 @@ std::string S3::ApiV4::buildCanonicalRequest(
         const Query& query,
         const std::vector<char>& data) const
 {
-    const std::string canonicalUri("/" + resource.object());
+    const std::string canonicalUri = resource.canonicalUri();
 
     auto canonicalizeQuery([](const std::string& s, const Query::value_type& q)
     {
@@ -2424,6 +2424,7 @@ S3::Resource::Resource(std::string base, std::string fullPath)
     , m_object()
     , m_virtualHosted(true)
 {
+    std::cout << "Path is " << base << " - " << fullPath << std::endl;
     fullPath = sanitize(fullPath);
     const std::size_t split(fullPath.find("/"));
 
@@ -2451,6 +2452,18 @@ S3::Resource::Resource(std::string base, std::string fullPath)
     m_virtualHosted = m_bucket.find_first_of('.') == std::string::npos;
 }
 
+std::string S3::Resource::canonicalUri() const
+{
+    if (m_virtualHosted)
+    {
+        return "/" + m_object;
+    }
+    else
+    {
+        return "/" + m_bucket + "/" + m_object;
+    }
+}
+
 std::string S3::Resource::baseUrl() const
 {
     return m_baseUrl;
@@ -2458,7 +2471,12 @@ std::string S3::Resource::baseUrl() const
 
 std::string S3::Resource::bucket() const
 {
-    return m_virtualHosted ? m_bucket : "";
+    return m_bucket;
+}
+
+std::string S3::Resource::object() const
+{
+    return m_object;
 }
 
 std::string S3::Resource::url() const
@@ -2471,13 +2489,6 @@ std::string S3::Resource::url() const
     {
         return "https://" + m_baseUrl + m_bucket + "/" + m_object;
     }
-}
-
-std::string S3::Resource::object() const
-{
-    // We can't use virtual-host style paths if the bucket contains dots.
-    if (m_virtualHosted) return m_object;
-    else return m_bucket + "/" + m_object;
 }
 
 std::string S3::Resource::host() const
@@ -5247,7 +5258,7 @@ namespace
      //
      // Return the position of chr within base64_encode()
      //
-    
+
         if      (chr >= 'A' && chr <= 'Z') return chr - 'A';
         else if (chr >= 'a' && chr <= 'z') return chr - 'a' + ('Z' - 'A')               + 1;
         else if (chr >= '0' && chr <= '9') return chr - '0' + ('Z' - 'A') + ('z' - 'a') + 2;
