@@ -1,496 +1,253 @@
 #include "gtest/gtest.h"
 #include "config.hpp"
-#include "verify.hpp"
+
+#include <pdal/PipelineManager.hpp>
 
 #include <entwine/builder/builder.hpp>
-#include <entwine/builder/merger.hpp>
-#include <entwine/builder/scan.hpp>
+#include <entwine/types/vector-point-table.hpp>
+#include <entwine/util/config.hpp>
+#include <entwine/util/json.hpp>
 
 using namespace entwine;
 
 namespace
 {
-    const arbiter::Arbiter a;
-    const Verify v;
-
-    void checkSources(std::string outPath)
+    struct Stuff
     {
-        const json list(json::parse(a.get(outPath + "ept-sources/list.json")));
-        EXPECT_EQ(list.size(), 8u);
+        pdal::PipelineManager pm;
+        pdal::PointViewPtr view;
+    };
 
-        for (uint64_t o(0); o < 8; ++o)
+    arbiter::Arbiter a;
+    const std::string outDir(test::dataPath() + "out/ellipsoid/");
+    const std::string outFile(outDir + "ept.json");
+
+    const Bounds bounds(-8242747, 4966455, -151, -8242445, 4966757, 151);
+    const Bounds boundsConforming(-8242747, 4966505, -51, -8242445, 4966707, 51);
+
+    const Bounds boundsUtm(580620, 4504579, -116, 580852, 4504811, 116);
+    const Bounds boundsConformingUtm(
+        580621, 4504618, -51, 580851, 4504772, 51);
+
+    const uint64_t points = 100000;
+    const Srs srs("EPSG:3857");
+    const StringList dimensions = {
+        "X", "Y", "Z", "Intensity", "ReturnNumber", "NumberOfReturns",
+        "ScanDirectionFlag", "EdgeOfFlightLine", "Classification",
+        "ScanAngleRank", "UserData", "PointSourceId", "GpsTime", "Red", "Green",
+        "Blue"
+    };
+
+    uint64_t run(const json partial)
+    {
+        const json defaults = {
+            { "output", outDir },
+            { "force", true },
+            { "span", 32 },
+            { "hierarchyStep", 2 },
+            { "progressInterval", 0 },
+            { "verbose", false }
+        };
+        const json j = merge(defaults, partial);
+
+        Builder builder = builder::create(j);
+        return builder::run(builder, j);
+    }
+
+    json checkEpt()
+    {
+        const json ept = json::parse(a.get(outFile));
+        EXPECT_EQ(Bounds(ept.at("bounds")), bounds);
+        EXPECT_EQ(Bounds(ept.at("boundsConforming")), boundsConforming);
+        EXPECT_EQ(ept.at("hierarchyType").get<std::string>(), "json");
+        EXPECT_EQ(ept.at("points").get<int>(), 100000);
+        EXPECT_EQ(ept.at("span").get<int>(), 32);
+        EXPECT_EQ(Srs(ept.at("srs")), srs);
+        EXPECT_EQ(ept.at("version").get<std::string>(), "1.0.0");
+        const Schema schema = ept.at("schema").get<Schema>();
+        EXPECT_TRUE(hasStats(schema));
+        for (const auto& name : dimensions) EXPECT_TRUE(contains(schema, name));
+        return ept;
+    }
+
+    std::unique_ptr<Stuff> execute(const json pipeline = { outFile })
+    {
+        auto stuff = makeUnique<Stuff>();
+        auto& pm = stuff->pm;
+
+        std::istringstream iss(pipeline.dump());
+        pm.readPipeline(iss);
+        pm.prepare();
+        pm.execute();
+
+        const auto set = pm.views();
+        if (!set.empty())
         {
-            const auto entry(list.at(o));
-            const auto id(entry.at("id").get<std::string>());
-            const auto url(entry.at("url").get<std::string>());
-            const Bounds bounds(entry.at("bounds"));
+            stuff->view = (*set.begin())->makeNew();
+            for (const auto& current : set) stuff->view->append(*current);
+        }
+        return stuff;
+    }
 
-            ASSERT_TRUE(bounds.exists());
-            ASSERT_GT(id.size(), 0u);
-            ASSERT_GT(url.size(), 0u);
-
-            const json full(json::parse(a.get(outPath + "ept-sources/" + url)));
-            ASSERT_FALSE(full.is_null());
-            ASSERT_TRUE(full.count(id));
-
-            const auto meta(full.at(id));
-            ASSERT_FALSE(meta.is_null());
-            ASSERT_GT(meta.at("points").get<uint64_t>(), 0u);
-            ASSERT_EQ(meta.at("origin").get<Origin>(), (Origin)o);
-            ASSERT_TRUE(meta.at("metadata").is_object());
+    void checkData(pdal::PointView& view, const Bounds b = boundsConforming)
+    {
+        for (const auto pr : view)
+        {
+            const Point point(
+                pr.getFieldAs<double>(pdal::Dimension::Id::X),
+                pr.getFieldAs<double>(pdal::Dimension::Id::Y),
+                pr.getFieldAs<double>(pdal::Dimension::Id::Z));
+            ASSERT_TRUE(b.contains(point));
         }
     }
 }
 
-TEST(build, basic)
+TEST(build, laszip)
 {
-    const std::string outPath(test::dataPath() + "out/ellipsoid/");
-    const std::string metaPath(outPath + "ept-sources/");
+    run({ { "input", test::dataPath() + "ellipsoid.laz" } });
+    const json ept = checkEpt();
+    // By default, since this is laszip input, our output will be laszip.
+    EXPECT_EQ(ept.at("dataType").get<std::string>(), "laszip");
 
-    Config c(json {
-        { "input", test::dataPath() + "ellipsoid-multi/" },
-        { "output", outPath },
-        { "force", true },
-        { "span", v.span() },
-        { "hierarchyStep", v.hierarchyStep() }
+    const auto stuff = execute();
+    auto& view = stuff->view;
+    ASSERT_TRUE(view);
+    checkData(*view);
+}
+
+TEST(build, binary)
+{
+    run({
+        { "input", test::dataPath() + "ellipsoid.laz" },
+        { "dataType", "binary" }
     });
+    const json ept = checkEpt();
+    EXPECT_EQ(ept.at("dataType").get<std::string>(), "binary");
 
-    Builder(c).go();
-
-    const json info(json::parse(a.get(outPath + "ept.json")));
-
-    const Bounds bounds(info.at("bounds"));
-    const Bounds boundsConforming(info.at("boundsConforming"));
-    EXPECT_TRUE(bounds.isCubic());
-    EXPECT_TRUE(bounds.contains(boundsConforming));
-    for (std::size_t i(0); i < 6; ++i)
-    {
-        ASSERT_NEAR(boundsConforming[i], v.bounds()[i], 2.0) << "At: " << i <<
-            "\n" << boundsConforming << "\n!=\n" << v.bounds() << std::endl;
-    }
-
-    const auto dataType(info.at("dataType").get<std::string>());
-    EXPECT_EQ(dataType, "laszip");
-
-    const auto hierarchyType(info.at("hierarchyType").get<std::string>());
-    EXPECT_EQ(hierarchyType, "json");
-
-    const auto points(info.at("points").get<uint64_t>());
-    EXPECT_EQ(points, v.points());
-
-    const Schema schema(info.at("schema"));
-    Schema verifySchema(v.schema().append(DimId::OriginId));
-    verifySchema.setOffset(bounds.mid().round());
-    EXPECT_EQ(schema, verifySchema);
-
-    EXPECT_EQ(info.at("span").get<uint64_t>(), v.span());
-
-    checkSources(outPath);
+    const auto stuff = execute();
+    auto& view = stuff->view;
+    ASSERT_TRUE(view);
+    checkData(*view);
 }
 
-TEST(build, continued)
+#ifndef NO_ZSTD
+TEST(build, zstandard)
 {
-    const std::string outPath(test::dataPath() + "out/ellipsoid/");
-    const std::string metaPath(outPath + "ept-sources/");
-
-    {
-        Config c(json {
-            { "input", test::dataPath() + "ellipsoid-multi/" },
-            { "output", outPath },
-            { "force", true },
-            { "span", v.span() },
-            { "hierarchyStep", v.hierarchyStep() },
-            { "run", 4 }
-        });
-
-        Builder(c).go();
-    }
-
-    {
-        Config c(json { { "output", outPath } });
-        Builder(c).go();
-    }
-
-    const auto info(json::parse(a.get(outPath + "ept.json")));
-
-    const Bounds bounds(info.at("bounds"));
-    const Bounds boundsConforming(info.at("boundsConforming"));
-    EXPECT_TRUE(bounds.isCubic());
-    EXPECT_TRUE(bounds.contains(boundsConforming));
-    for (std::size_t i(0); i < 6; ++i)
-    {
-        ASSERT_NEAR(boundsConforming[i], v.bounds()[i], 2.0) << "At: " << i <<
-            "\n" << boundsConforming << "\n!=\n" << v.bounds() << std::endl;
-    }
-
-    const auto dataType(info.at("dataType").get<std::string>());
-    EXPECT_EQ(dataType, "laszip");
-
-    const auto hierarchyType(info.at("hierarchyType").get<std::string>());
-    EXPECT_EQ(hierarchyType, "json");
-
-    const auto points(info.at("points").get<uint64_t>());
-    EXPECT_EQ(points, v.points());
-
-    const Schema schema(info.at("schema"));
-    Schema verifySchema(v.schema().append(DimId::OriginId));
-    verifySchema.setOffset(bounds.mid().round());
-    EXPECT_EQ(schema, verifySchema);
-
-    EXPECT_EQ(info.at("span").get<uint64_t>(), v.span());
-
-    checkSources(outPath);
-}
-
-TEST(build, addedLater)
-{
-    const std::string outPath(test::dataPath() + "out/ellipsoid/");
-    const std::string metaPath(outPath + "ept-sources/");
-
-    {
-        Config c(json {
-            { "input", {
-                test::dataPath() + "ellipsoid-multi/ned.laz",
-                test::dataPath() + "ellipsoid-multi/neu.laz",
-                test::dataPath() + "ellipsoid-multi/nwd.laz",
-                test::dataPath() + "ellipsoid-multi/nwu.laz"
-            } },
-            { "output", outPath },
-            { "force", true },
-            { "span", v.span() },
-            { "hierarchyStep", v.hierarchyStep() },
-            { "bounds", v.bounds() }
-        });
-
-        Builder(c).go();
-    }
-
-    {
-        Config c(json {
-            { "input", {
-                test::dataPath() + "ellipsoid-multi/sed.laz",
-                test::dataPath() + "ellipsoid-multi/seu.laz",
-                test::dataPath() + "ellipsoid-multi/swd.laz",
-                test::dataPath() + "ellipsoid-multi/swu.laz"
-            } },
-            { "output", outPath }
-        });
-
-        Builder(c).go();
-    }
-
-    const auto info(json::parse(a.get(outPath + "ept.json")));
-
-    const Bounds bounds(info.at("bounds"));
-    const Bounds boundsConforming(info.at("boundsConforming"));
-    EXPECT_TRUE(bounds.isCubic());
-    EXPECT_TRUE(bounds.contains(boundsConforming));
-    for (std::size_t i(0); i < 6; ++i)
-    {
-        ASSERT_NEAR(boundsConforming[i], v.bounds()[i], 2.0) << "At: " << i <<
-            "\n" << boundsConforming << "\n!=\n" << v.bounds() << std::endl;
-    }
-
-    const auto dataType(info.at("dataType").get<std::string>());
-    EXPECT_EQ(dataType, "laszip");
-
-    const auto hierarchyType(info.at("hierarchyType").get<std::string>());
-    EXPECT_EQ(hierarchyType, "json");
-
-    const auto points(info.at("points").get<uint64_t>());
-    EXPECT_EQ(points, v.points());
-
-    const Schema schema(info.at("schema"));
-    Schema verifySchema(v.schema().append(DimId::OriginId));
-    verifySchema.setOffset(bounds.mid().round());
-    EXPECT_EQ(schema, verifySchema);
-
-    EXPECT_EQ(info.at("span").get<uint64_t>(), v.span());
-
-    checkSources(outPath);
-}
-
-TEST(build, fromScan)
-{
-    const std::string scanPath(test::dataPath() + "out/prebuild-scan/");
-
-    {
-        const std::string dataPath(test::dataPath() + "ellipsoid-multi");
-
-        Config c(json {
-            { "input", dataPath },
-            { "output", scanPath }
-        });
-        Scan(c).go();
-    }
-
-    const std::string outPath(test::dataPath() + "out/from-scan/");
-    const std::string metaPath(outPath + "ept-sources/");
-
-    Config c(json {
-        { "input", scanPath + "ept-scan.json" },
-        { "output", outPath },
-        { "force", true },
-        { "span", v.span() },
-        { "hierarchyStep", v.hierarchyStep() }
+    run({
+        { "input", test::dataPath() + "ellipsoid.laz" },
+        { "dataType", "zstandard" }
     });
+    const json ept = checkEpt();
+    EXPECT_EQ(ept.at("dataType").get<std::string>(), "zstandard");
 
-    Builder(c).go();
-
-    const auto info(json::parse(a.get(outPath + "ept.json")));
-
-    const Bounds bounds(info.at("bounds"));
-    const Bounds boundsConforming(info.at("boundsConforming"));
-    EXPECT_TRUE(bounds.isCubic());
-    EXPECT_TRUE(bounds.contains(boundsConforming));
-    for (std::size_t i(0); i < 6; ++i)
-    {
-        ASSERT_NEAR(boundsConforming[i], v.bounds()[i], 2.0) << "At: " << i <<
-            "\n" << boundsConforming << "\n!=\n" << v.bounds() << std::endl;
-    }
-
-    const auto dataType(info.at("dataType").get<std::string>());
-    EXPECT_EQ(dataType, "laszip");
-
-    const auto hierarchyType(info.at("hierarchyType").get<std::string>());
-    EXPECT_EQ(hierarchyType, "json");
-
-    const auto points(info.at("points").get<uint64_t>());
-    EXPECT_EQ(points, v.points());
-
-    const Schema schema(info.at("schema"));
-    Schema verifySchema(v.schema().append(DimId::OriginId));
-    verifySchema.setOffset(bounds.mid().round());
-    EXPECT_EQ(schema, verifySchema);
-
-    EXPECT_EQ(info.at("span").get<uint64_t>(), v.span());
-
-    checkSources(outPath);
+    const auto stuff = execute();
+    auto& view = stuff->view;
+    ASSERT_TRUE(view);
+    checkData(*view);
 }
+#endif
 
-TEST(build, subset)
+TEST(build, directory)
 {
-    const std::string outPath(test::dataPath() + "out/subset/");
-    const std::string metaPath(outPath + "ept-sources/");
+    run({ { "input", test::dataPath() + "ellipsoid-multi" } });
+    const json ept = checkEpt();
 
-    for (uint64_t i(0); i < 4u; ++i)
+    const auto stuff = execute();
+    auto& view = stuff->view;
+    ASSERT_TRUE(view);
+    checkData(*view);
+
+    // TODO: The origin query in PDAL needs to be caught up to the ept-sources
+    // layout of EPT 1.1 - so for now we can't yet verify with an origin query.
+    /*
+    const json pipeline = {
+        { { "filename", outFile }, { "origin", "ned" } }
+    };
+    const auto stuff = execute(pipeline);
+    auto& view = stuff->view;
+    ASSERT_TRUE(view);
+
+    // The selected "ned" file contains only the points in the north-east-up
+    // octant of the dataset, so make sure they fit in those smaller bounds.
+    const auto ned = boundsConforming.getNed();
+    for (const auto pr : *view)
     {
-        Config c(json {
-            { "input", test::dataPath() + "ellipsoid-multi/" },
-            { "output", outPath },
-            { "force", true },
-            { "span", v.span() },
-            { "hierarchyStep", v.hierarchyStep() },
-            { "subset", {
-                { "id", i + 1 },
-                { "of", 4 }
-            } }
-        });
-
-        Builder(c).go();
+        const Point point(
+            pr.getFieldAs<double>(pdal::Dimension::Id::X),
+            pr.getFieldAs<double>(pdal::Dimension::Id::Y),
+            pr.getFieldAs<double>(pdal::Dimension::Id::Z));
+        EXPECT_TRUE(ned.contains(point));
     }
-
-    {
-        Config c(json { { "output", outPath } });
-        Merger(c).go();
-    }
-
-    const auto info(json::parse(a.get(outPath + "ept.json")));
-
-    const Bounds bounds(info.at("bounds"));
-    const Bounds boundsConforming(info.at("boundsConforming"));
-    EXPECT_TRUE(bounds.isCubic());
-    EXPECT_TRUE(bounds.contains(boundsConforming));
-    for (std::size_t i(0); i < 6; ++i)
-    {
-        ASSERT_NEAR(boundsConforming[i], v.bounds()[i], 2.0) << "At: " << i <<
-            "\n" << boundsConforming << "\n!=\n" << v.bounds() << std::endl;
-    }
-
-    const auto dataType(info.at("dataType").get<std::string>());
-    EXPECT_EQ(dataType, "laszip");
-
-    const auto hierarchyType(info.at("hierarchyType").get<std::string>());
-    EXPECT_EQ(hierarchyType, "json");
-
-    const auto points(info.at("points").get<uint64_t>());
-    EXPECT_EQ(points, v.points());
-
-    const Schema schema(info.at("schema"));
-    Schema verifySchema(v.schema().append(DimId::OriginId));
-    verifySchema.setOffset(bounds.mid().round());
-    EXPECT_EQ(schema, verifySchema);
-
-    EXPECT_EQ(info.at("span").get<uint64_t>(), v.span());
-
-    checkSources(outPath);
-}
-
-TEST(build, invalidSubset)
-{
-    const std::string outPath(test::dataPath() + "out/subset/");
-
-    Config c(json {
-        { "input", test::dataPath() + "ellipsoid-multi/" },
-        { "output", outPath },
-        { "force", true },
-        { "span", v.span() },
-        { "hierarchyStep", v.hierarchyStep() },
-        { "subset", {
-            { "id", 1 }
-        } }
-    });
-
-    // Invalid subset range - must be more than one subset.
-    c.setSubsetOf(1);
-    EXPECT_ANY_THROW(Builder(c).go());
-
-    // Invalid subset range - must be a perfect square.
-    c.setSubsetOf(8);
-    EXPECT_ANY_THROW(Builder(c).go());
-
-    // Invalid subset range - must be a power of 2.
-    c.setSubsetOf(9);
-    EXPECT_ANY_THROW(Builder(c).go());
-
-    // Invalid subset range.
-    c.setSubsetOf(3320);
-    EXPECT_ANY_THROW(Builder(c).go());
-
-    c.setSubsetOf(4);
-
-    // Invalid subset ID - must be 1-based.
-    c.setSubsetId(0);
-    EXPECT_ANY_THROW(Builder(c).go());
-
-    // Invalid subset ID - must be less than or equal to total subsets.
-    c.setSubsetId(5);
-    EXPECT_ANY_THROW(Builder(c).go());
-}
-
-TEST(build, subsetFromScan)
-{
-    const std::string scanPath(test::dataPath() + "out/prebuild-scan/");
-
-    {
-        const std::string dataPath(test::dataPath() + "ellipsoid-multi");
-
-        json c {
-            { "input", dataPath },
-            { "output", scanPath }
-        };
-        Scan(c).go();
-    }
-
-    const std::string outPath(test::dataPath() + "out/from-scan-subset/");
-    const std::string metaPath(outPath + "ept-sources/");
-
-    for (uint64_t i(0); i < 4u; ++i)
-    {
-        Config c(json {
-            { "input", scanPath + "ept-scan.json" },
-            { "output", outPath },
-            { "force", true },
-            { "span", v.span() },
-            { "hierarchyStep", v.hierarchyStep() },
-            { "subset", {
-                { "id", i + 1 },
-                { "of", 4 }
-            } }
-        });
-
-        Builder(c).go();
-    }
-
-    {
-        Config c(json { { "output", outPath } });
-        Merger(c).go();
-    }
-
-    const auto info(json::parse(a.get(outPath + "ept.json")));
-
-    const Bounds bounds(info.at("bounds"));
-    const Bounds boundsConforming(info.at("boundsConforming"));
-    EXPECT_TRUE(bounds.isCubic());
-    EXPECT_TRUE(bounds.contains(boundsConforming));
-    for (std::size_t i(0); i < 6; ++i)
-    {
-        ASSERT_NEAR(boundsConforming[i], v.bounds()[i], 2.0) << "At: " << i <<
-            "\n" << boundsConforming << "\n!=\n" << v.bounds() << std::endl;
-    }
-
-    const auto dataType(info.at("dataType").get<std::string>());
-    EXPECT_EQ(dataType, "laszip");
-
-    const auto hierarchyType(info.at("hierarchyType").get<std::string>());
-    EXPECT_EQ(hierarchyType, "json");
-
-    const auto points(info.at("points").get<uint64_t>());
-    EXPECT_EQ(points, v.points());
-
-    const Schema schema(info.at("schema"));
-    Schema verifySchema(v.schema().append(DimId::OriginId));
-    verifySchema.setOffset(bounds.mid().round());
-    EXPECT_EQ(schema, verifySchema);
-
-    EXPECT_EQ(info.at("span").get<uint64_t>(), v.span());
-
-    checkSources(outPath);
+    */
 }
 
 TEST(build, reprojected)
 {
-    if (arbiter::env("APPVEYOR"))
-    {
-        std::cout << "Skipping reprojection tests" << std::endl;
-        return;
-    }
-
-    const std::string outPath(test::dataPath() + "out/ellipsoid-re/");
-    const std::string metaPath(outPath + "ept-sources/");
-
-    Config c(json {
-        { "input", test::dataPath() + "ellipsoid-multi/" },
-        { "output", outPath },
-        { "reprojection", {
-            { "out", "EPSG:26918" }
-        } },
-        { "force", true },
-        { "span", v.span() },
-        { "hierarchyStep", v.hierarchyStep() }
+    run({
+        { "input", test::dataPath() + "ellipsoid.laz" },
+        { "reprojection", { { "out", "EPSG:26918" } } }
     });
+    const json ept = json::parse(a.get(outFile));
+    EXPECT_EQ(Bounds(ept.at("bounds")), boundsUtm);
+    EXPECT_EQ(Bounds(ept.at("boundsConforming")), boundsConformingUtm);
+    EXPECT_EQ(Srs(ept.at("srs")), Srs("EPSG:26918"));
 
-    Builder(c).go();
-
-    const auto info(json::parse(a.get(outPath + "ept.json")));
-
-    const Bounds bounds(info.at("bounds"));
-    const Bounds boundsConforming(info.at("boundsConforming"));
-    EXPECT_TRUE(bounds.isCubic());
-    EXPECT_TRUE(bounds.contains(boundsConforming));
-    for (std::size_t i(0); i < 6; ++i)
-    {
-        ASSERT_NEAR(boundsConforming[i], v.boundsUtm()[i], 2.0) <<
-            "At: " << i <<
-            "\n" << boundsConforming << "\n!=\n" << v.boundsUtm() << std::endl;
-    }
-
-    const auto dataType(info.at("dataType").get<std::string>());
-    EXPECT_EQ(dataType, "laszip");
-
-    const auto hierarchyType(info.at("hierarchyType").get<std::string>());
-    EXPECT_EQ(hierarchyType, "json");
-
-    const auto points(info.at("points").get<uint64_t>());
-    EXPECT_EQ(points, v.points());
-
-    const Schema schema(info.at("schema"));
-    Schema verifySchema(v.schema().append(DimId::OriginId));
-    verifySchema.setOffset(bounds.mid().round());
-    EXPECT_EQ(schema, verifySchema);
-
-    EXPECT_EQ(info.at("span").get<uint64_t>(), v.span());
-
-    checkSources(outPath);
+    const auto stuff = execute();
+    auto& view = stuff->view;
+    ASSERT_TRUE(view);
+    checkData(*view, boundsConformingUtm);
 }
 
+
+TEST(build, continued)
+{
+    const std::string input = test::dataPath() + "ellipsoid-multi";
+    run({ { "input", input }, { "limit", 4 } });
+
+    // After the partial run, we should have partial data.
+    {
+        const auto stuff = execute();
+        auto& view = stuff->view;
+        ASSERT_TRUE(view);
+        ASSERT_TRUE(view->size() < points);
+    }
+
+    // Now run the rest.
+    run({ { "input", input }, { "force", false } });
+
+    const json ept = checkEpt();
+
+    const auto stuff = execute();
+    auto& view = stuff->view;
+    ASSERT_TRUE(view);
+    checkData(*view);
+}
+
+TEST(build, subset)
+{
+    const std::string input = test::dataPath() + "ellipsoid-multi";
+    for (int i = 0; i < 4; ++i)
+    {
+        const json config = {
+            { "input", input },
+            { "subset", {
+                { "id", i + 1 },
+                { "of", 4 }
+            } }
+        };
+        run(config);
+    }
+
+    builder::merge({
+        { "output", outDir },
+        { "force", true },
+        { "verbose", false },
+    });
+
+    const json ept = checkEpt();
+
+    const auto stuff = execute();
+    auto& view = stuff->view;
+    ASSERT_TRUE(view);
+    checkData(*view);
+}

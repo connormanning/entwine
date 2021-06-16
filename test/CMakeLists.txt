@@ -24,6 +24,7 @@ endmacro(ENTWINE_ADD_TEST)
 ENTWINE_ADD_TEST(initialize FILES unit/init.cpp)
 
 ENTWINE_ADD_TEST(info FILES unit/info.cpp)
+ENTWINE_ADD_TEST(build FILES unit/build.cpp)
 ENTWINE_ADD_TEST(pipeline FILES unit/pipeline-utils.cpp)
 ENTWINE_ADD_TEST(srs FILES unit/srs.cpp)
 ENTWINE_ADD_TEST(time FILES unit/time.cpp)

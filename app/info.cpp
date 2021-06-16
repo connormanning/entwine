@@ -110,10 +110,9 @@ void Info::run()
     if (output.size())
     {
         std::cout << "Saving output..." << std::endl;
-        if (a.isLocal(output)) arbiter::mkdirp(output);
-        const auto endpoint = a.getEndpoint(output);
         const bool pretty = sources.size() <= 1000;
-        saveEach(sources, endpoint, threads, pretty);
+        const auto endpoint = a.getEndpoint(output);
+        saveMany(sources, endpoint, threads, pretty);
         std::cout << "\tSaved." << std::endl;
     }
 }

@@ -183,6 +183,16 @@ Manifest assignMetadataPaths(Manifest manifest)
     return manifest;
 }
 
+void saveMany(
+    const SourceList& sources,
+    const arbiter::Endpoint& endpoint,
+    const unsigned threads,
+    const bool pretty)
+{
+    if (endpoint.isLocal()) arbiter::mkdirp(endpoint.root());
+    saveEach(sources, endpoint, threads, pretty);
+}
+
 void saveEach(
     const SourceList& sources,
     const arbiter::Endpoint& ep,
@@ -235,7 +245,8 @@ void saveEach(
 Manifest manifest::load(
     const arbiter::Endpoint& ep,
     const unsigned threads,
-    const std::string postfix)
+    const std::string postfix,
+    const bool verbose)
 {
     Manifest manifest =
         json::parse(ensureGet(ep, "manifest" + postfix + ".json"));
@@ -245,8 +256,11 @@ Manifest manifest::load(
     {
         if (entry.metadataPath.size())
         {
-            std::cout << "Loading " << entry.metadataPath << " from " <<
-                ep.prefixedRoot() << std::endl;
+            if (verbose)
+            {
+                std::cout << "Loading " << entry.metadataPath << " from " <<
+                    ep.prefixedRoot() << std::endl;
+            }
             const json metadata =
                 json::parse(ensureGet(ep, entry.metadataPath));
             entry = BuildItem(entwine::merge(json(entry), metadata));

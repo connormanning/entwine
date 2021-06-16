@@ -19,6 +19,7 @@
 #include <entwine/types/metadata.hpp>
 #include <entwine/types/source.hpp>
 #include <entwine/types/threads.hpp>
+#include <entwine/util/json.hpp>
 
 namespace entwine
 {
@@ -29,7 +30,8 @@ struct Builder
         Endpoints endpoints,
         Metadata metadata,
         Manifest manifest,
-        Hierarchy hierarchy = Hierarchy());
+        Hierarchy hierarchy = Hierarchy(),
+        bool verbose = true);
 
     uint64_t run(
         Threads threads,
@@ -63,13 +65,27 @@ struct Builder
     Metadata metadata;
     Manifest manifest;
     Hierarchy hierarchy;
+    bool verbose = true;
 };
 
 namespace builder
 {
 
-Builder load(Endpoints endpoints, unsigned threads, unsigned subsetId);
-void merge(Builder& dst, const Builder& src, ChunkCache& cache);
+Builder load(
+    Endpoints endpoints,
+    unsigned threads,
+    unsigned subsetId,
+    bool verbose = true);
+Builder create(json config);
+uint64_t run(Builder& builder, json config);
+
+void merge(json config);
+void merge(
+    Endpoints endpoints,
+    unsigned threads,
+    bool force = false,
+    bool verbose = true);
+void mergeOne(Builder& dst, const Builder& src, ChunkCache& cache);
 
 } // namespace builder
 

@@ -111,6 +111,11 @@ json toOverview(const Manifest& manifest);
 // as metadata paths.  Otherwise they'll be stringified origin IDs.
 Manifest assignMetadataPaths(Manifest manifest);
 
+void saveMany(
+    const SourceList& sources,
+    const arbiter::Endpoint& ep,
+    unsigned threads,
+    bool pretty = true);
 void saveEach(
     const SourceList& sources,
     const arbiter::Endpoint& ep,
@@ -131,7 +136,8 @@ namespace manifest
 Manifest load(
     const arbiter::Endpoint& ep,
     unsigned threads,
-    std::string postfix = "");
+    std::string postfix = "",
+    bool verbose = true);
 
 Manifest merge(Manifest manifest, const Manifest& other);
 

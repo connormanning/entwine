@@ -33,6 +33,7 @@ SourceList analyze(
     bool deep = false,
     std::string tmp = arbiter::getTempPath(),
     const arbiter::Arbiter& a = { },
-    unsigned threads = 8);
+    unsigned threads = 8,
+    bool verbose = true);
 
 } // namespace entwine

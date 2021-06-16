@@ -335,7 +335,8 @@ SourceList analyze(
     const bool deep,
     const std::string tmp,
     const arbiter::Arbiter& a,
-    const unsigned int threads)
+    const unsigned int threads,
+    const bool verbose)
 {
     const StringList filenames = resolve(inputs);
     SourceList sources(filenames.begin(), filenames.end());
@@ -345,8 +346,11 @@ SourceList analyze(
     Pool pool(threads);
     for (Source& source : sources)
     {
-        std::cout << ++i << "/" << sources.size() << ": " << source.path <<
-            std::endl;
+        if (verbose)
+        {
+            std::cout << ++i << "/" << sources.size() << ": " << source.path <<
+                std::endl;
+        }
 
         if (arbiter::getExtension(source.path) == "json")
         {

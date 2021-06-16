@@ -21,6 +21,7 @@
 #include <entwine/types/point-counts.hpp>
 #include <entwine/util/config.hpp>
 #include <entwine/util/fs.hpp>
+#include <entwine/util/info.hpp>
 #include <entwine/util/io.hpp>
 #include <entwine/util/pdal-mutex.hpp>
 #include <entwine/util/pipeline.hpp>
@@ -33,11 +34,13 @@ Builder::Builder(
     Endpoints endpoints,
     Metadata metadata,
     Manifest manifest,
-    Hierarchy hierarchy)
+    Hierarchy hierarchy,
+    bool verbose)
     : endpoints(endpoints)
     , metadata(metadata)
     , manifest(manifest)
     , hierarchy(hierarchy)
+    , verbose(verbose)
 { }
 
 uint64_t Builder::run(
@@ -88,20 +91,23 @@ void Builder::runInserts(
         const auto& info = item.source.info;
         if (!item.inserted && info.points && active.overlaps(info.bounds))
         {
-            std::cout << "Adding " << origin << " - " << item.source.path <<
-                std::endl;
+            if (verbose)
+            {
+                std::cout << "Adding " << origin << " - " << item.source.path <<
+                    std::endl;
+            }
 
             pool.add([this, &cache, origin, &counter]()
             {
                 tryInsert(cache, origin, counter);
-                std::cout << "\tDone " << origin << std::endl;
+                if (verbose) std::cout << "\tDone " << origin << std::endl;
             });
 
             ++filesInserted;
         }
     }
 
-    std::cout << "Joining" << std::endl;
+    if (verbose) std::cout << "Joining" << std::endl;
 
     pool.join();
     cache.join();
@@ -147,15 +153,18 @@ void Builder::monitor(
 
         const ChunkCache::Info info(ChunkCache::latchInfo());
 
-        std::cout << formatTime(tick) << " - " <<
-            std::round(progress * 100) << "% - " <<
-            commify(inserted) << " - " <<
-            commify(pace) << " " <<
-            "(" << commify(intervalPace) << ") M/h - " <<
-            info.written << "W - " <<
-            info.read << "R - " <<
-            info.alive << "A" <<
-            std::endl;
+        if (verbose)
+        {
+            std::cout << formatTime(tick) << " - " <<
+                std::round(progress * 100) << "% - " <<
+                commify(inserted) << " - " <<
+                commify(pace) << " " <<
+                "(" << commify(intervalPace) << ") M/h - " <<
+                info.written << "W - " <<
+                info.read << "R - " <<
+                info.alive << "A" <<
+                std::endl;
+        }
     }
 }
 
@@ -294,7 +303,7 @@ void Builder::insert(
 
 void Builder::save(const unsigned threads)
 {
-    std::cout << "Saving" << std::endl;
+    if (verbose) std::cout << "Saving" << std::endl;
     saveHierarchy(threads);
     saveSources(threads);
     saveMetadata();
@@ -396,7 +405,8 @@ namespace builder
 Builder load(
     const Endpoints endpoints,
     const unsigned threads,
-    const unsigned subsetId)
+    const unsigned subsetId,
+    const bool verbose)
 {
     const std::string postfix = subsetId ? "-" + std::to_string(subsetId) : "";
     const json metadataJson = entwine::merge(
@@ -406,7 +416,7 @@ Builder load(
     const Metadata metadata = config::getMetadata(metadataJson);
 
     const Manifest manifest =
-        manifest::load(endpoints.sources, threads, postfix);
+        manifest::load(endpoints.sources, threads, postfix, verbose);
 
     const Hierarchy hierarchy =
         hierarchy::load(endpoints.hierarchy, threads, postfix);
@@ -414,7 +424,161 @@ Builder load(
     return Builder(endpoints, metadata, manifest, hierarchy);
 }
 
-void merge(Builder& dst, const Builder& src, ChunkCache& cache)
+Builder create(json j)
+{
+    const bool verbose = config::getVerbose(j);
+    const Endpoints endpoints = config::getEndpoints(j);
+    const unsigned threads = config::getThreads(j);
+
+    Manifest manifest;
+    Hierarchy hierarchy;
+
+    // TODO: Handle subset postfixing during existence check - currently
+    // continuations of subset builds will not work properly.
+    // const optional<Subset> subset = config::getSubset(j);
+    if (!config::getForce(j) && endpoints.output.tryGetSize("ept.json"))
+    {
+        // Merge in our metadata JSON, overriding any config settings.
+        const json existingConfig = entwine::merge(
+            json::parse(endpoints.output.get("ept-build.json")),
+            json::parse(endpoints.output.get("ept.json"))
+        );
+        j = entwine::merge(j, existingConfig);
+
+        // Awaken our existing manifest and hierarchy.
+        manifest = manifest::load(endpoints.sources, threads, "", verbose);
+        hierarchy = hierarchy::load(endpoints.hierarchy, threads);
+    }
+
+    // Now, analyze the incoming `input` if needed.
+    StringList inputs = resolve(config::getInput(j), *endpoints.arbiter);
+    const auto exists = [&manifest](std::string path)
+    {
+        return std::any_of(
+            manifest.begin(),
+            manifest.end(),
+            [path](const BuildItem& b) { return b.source.path == path; });
+    };
+    // Remove any inputs we already have in our manifest prior to analysis.
+    inputs.erase(
+        std::remove_if(inputs.begin(), inputs.end(), exists),
+        inputs.end());
+    const SourceList sources = analyze(
+        inputs,
+        config::getPipeline(j),
+        config::getDeep(j),
+        config::getTmp(j),
+        *endpoints.arbiter,
+        threads,
+        verbose);
+    for (const auto& source : sources)
+    {
+        if (source.info.points) manifest.emplace_back(source);
+    }
+
+    // It's possible we've just analyzed some files, in which case we have
+    // potentially new information like bounds, schema, and SRS.  Prioritize
+    // values from the config, which may explicitly override these.
+    const SourceInfo analysis = manifest::reduce(sources);
+    j = merge(analysis, j);
+    const Metadata metadata = config::getMetadata(j);
+
+    return Builder(endpoints, metadata, manifest, hierarchy, verbose);
+}
+
+uint64_t run(Builder& builder, const json config)
+{
+    return builder.run(
+        config::getCompoundThreads(config),
+        config::getLimit(config),
+        config::getProgressInterval(config));
+}
+
+void merge(const json config)
+{
+    merge(
+        config::getEndpoints(config),
+        config::getThreads(config),
+        config::getForce(config),
+        config::getVerbose(config));
+}
+
+void merge(
+    const Endpoints endpoints,
+    const unsigned threads,
+    const bool force,
+    const bool verbose)
+{
+    if (!force && endpoints.output.tryGetSize("ept.json"))
+    {
+        throw std::runtime_error(
+            "Completed dataset already exists here: "
+            "re-run with '--force' to overwrite it");
+    }
+
+    if (!endpoints.output.tryGetSize("ept-1.json"))
+    {
+        throw std::runtime_error("Failed to find first subset");
+    }
+
+    if (verbose) std::cout << "Initializing" << std::endl;
+    const Builder base = builder::load(endpoints, threads, 1, verbose);
+
+    // Grab the total number of subsets, then clear the subsetting from our
+    // metadata aggregator which will represent our merged output.
+    Metadata metadata = base.metadata;
+    const unsigned of = metadata.subset.value().of;
+    metadata.subset = { };
+
+    Manifest manifest = base.manifest;
+
+    Builder builder(endpoints, metadata, manifest, Hierarchy(), verbose);
+    ChunkCache cache(endpoints, builder.metadata, builder.hierarchy, threads);
+
+    if (verbose) std::cout << "Merging" << std::endl;
+
+    Pool pool(threads);
+    std::mutex mutex;
+
+    for (unsigned id = 1; id <= of; ++id)
+    {
+        if (verbose) std::cout << "\t" << id << "/" << of << ": ";
+        if (endpoints.output.tryGetSize("ept-" + std::to_string(id) + ".json"))
+        {
+            if (verbose) std::cout << "merging" << std::endl;
+            pool.add([
+                &endpoints,
+                threads,
+                verbose,
+                id,
+                &builder,
+                &cache,
+                &mutex]()
+            {
+                Builder current = builder::load(
+                    endpoints,
+                    threads,
+                    id,
+                    verbose);
+                builder::mergeOne(builder, current, cache);
+
+                std::lock_guard<std::mutex> lock(mutex);
+                builder.manifest = manifest::merge(
+                    builder.manifest,
+                    current.manifest);
+            });
+        }
+        else if (verbose) std::cout << "skipping" << std::endl;
+    }
+
+    pool.join();
+    cache.join();
+
+    builder.save(threads);
+    if (verbose) std::cout << "Done" << std::endl;
+}
+
+void mergeOne(Builder& dst, const Builder& src, ChunkCache& cache)
 {
     // TODO: Should make sure that the src/dst metadata match.  For now we're
     // relying on the user not to have done anything weird.
@@ -464,5 +628,4 @@ void merge(Builder& dst, const Builder& src, ChunkCache& cache)
 }
 
 } // namespace builder
-
 } // namespace entwine

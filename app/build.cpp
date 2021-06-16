@@ -182,66 +182,18 @@ void Build::addArgs()
 
 void Build::run()
 {
-    const Endpoints endpoints = config::getEndpoints(m_json);
-    const unsigned threads = config::getThreads(m_json);
+    Builder builder = builder::create(m_json);
+    const Metadata metadata = builder.metadata;
+    const Manifest manifest = builder.manifest;
 
-    Manifest manifest;
-    Hierarchy hierarchy;
+    SourceList sources;
+    for (const auto& item : manifest) sources.push_back(item.source);
+    const auto analysis = manifest::reduce(sources);
 
-    // TODO: Handle subset postfixing during existence check - currently
-    // continuations of subset builds will not work properly.
-    // const optional<Subset> subset = config::getSubset(m_json);
-    if (!config::getForce(m_json) && endpoints.output.tryGetSize("ept.json"))
+    if (getInsertedPoints(manifest))
     {
-        std::cout << "Awakening existing build." << std::endl;
-
-        // Merge in our metadata JSON, overriding any config settings.
-        const json existingConfig = merge(
-            json::parse(endpoints.output.get("ept-build.json")),
-            json::parse(endpoints.output.get("ept.json"))
-        );
-        m_json = merge(m_json, existingConfig);
-
-        // Awaken our existing manifest and hierarchy.
-        manifest = manifest::load(endpoints.sources, threads);
-        hierarchy = hierarchy::load(endpoints.hierarchy, threads);
+        std::cout << "Continuing existing build." << std::endl;
     }
-
-    // Now, analyze the incoming `input` if needed.
-    StringList inputs = resolve(config::getInput(m_json), *endpoints.arbiter);
-    const auto exists = [&manifest](std::string path)
-    {
-        return std::any_of(
-            manifest.begin(),
-            manifest.end(),
-            [path](const BuildItem& b) { return b.source.path == path; });
-    };
-    // Remove any inputs we already have in our manifest prior to analysis.
-    inputs.erase(
-        std::remove_if(inputs.begin(), inputs.end(), exists),
-        inputs.end());
-    const SourceList sources = analyze(
-        inputs,
-        config::getPipeline(m_json),
-        config::getDeep(m_json),
-        config::getTmp(m_json),
-        *endpoints.arbiter,
-        threads);
-    for (const auto& source : sources)
-    {
-        if (source.info.points) manifest.emplace_back(source);
-        else std::cout << "\t- Skipping " << source.path << std::endl;
-    }
-
-    // It's possible we've just analyzed some files, in which case we have
-    // potentially new information like bounds, schema, and SRS.  Prioritize
-    // values from the config, which may explicitly override these.
-    const SourceInfo analysis = manifest::reduce(sources);
-    m_json = merge(analysis, m_json);
-    const Metadata metadata = config::getMetadata(m_json);
-
-    Builder builder(endpoints, metadata, manifest, hierarchy);
-
     const uint64_t points = getTotalPoints(manifest);
     printInfo(
         metadata.schema,
@@ -259,10 +211,7 @@ void Build::run()
 
     std::cout << std::endl;
 
-    const uint64_t actual = builder.run(
-        config::getCompoundThreads(m_json),
-        config::getLimit(m_json),
-        config::getProgressInterval(m_json));
+    const uint64_t actual = builder::run(builder, m_json);
 
     std::cout << "Wrote " << commify(actual) << " points." << std::endl;
 }

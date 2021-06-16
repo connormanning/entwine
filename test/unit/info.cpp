@@ -12,7 +12,7 @@ namespace
     const Verify verify;
 }
 
-TEST(info, analyzeFile)
+TEST(info, file)
 {
     const StringList inputs{test::dataPath() + "ellipsoid.laz"};
     const auto list = analyze(inputs);
@@ -39,7 +39,7 @@ TEST(info, analyzeFile)
     }
 }
 
-TEST(info, analyzeReprojected)
+TEST(info, reprojected)
 {
     const std::string utmString = "EPSG:26918";
     const Srs utmSrs(utmString);
@@ -74,7 +74,7 @@ TEST(info, analyzeReprojected)
     }
 }
 
-TEST(info, analyzeDirectory)
+TEST(info, directory)
 {
     // This directory consists of precisely the same data as ellipsoid.laz, but
     // split into octants.  There is also a non-point-cloud file zzz.txt which
