@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: a3a1d3bc3e638037aa733359d63ffce747d69ab8
+// Git SHA: f4dd22b1ad60e6ac713466492f937315523180b8
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -25278,6 +25278,7 @@ public:
     std::string baseUrl() const;
     std::string bucket() const;
     std::string object() const;
+    std::string canonicalUri() const;
 
 private:
     std::string m_baseUrl;
@@ -25463,6 +25464,8 @@ class AZ::Config
 public:
     Config(std::string j, std::string profile);
 
+    const http::Query& sasToken() const { return m_sasToken; }
+    bool hasSasToken() const { return m_sasToken.size() > 0; }
     const std::string& service() const { return m_service; }
     const std::string& storageAccount() const { return m_storageAccount; }
     const std::string& endpoint() const { return m_endpoint; }
@@ -25478,7 +25481,9 @@ private:
     static std::string extractBaseUrl(std::string j, std::string endpoint, std::string service, std::string account);
     static std::string extractStorageAccount(std::string j, std::string profile);
     static std::string extractStorageAccessKey(std::string j, std::string profile);
+    static std::string extractSasToken(std::string j);
 
+    http::Query m_sasToken;
     const std::string m_service;
     const std::string m_storageAccount;
     const std::string m_storageAccessKey;
@@ -25874,6 +25879,9 @@ class ARBITER_DLL Endpoint
     friend class Arbiter;
 
 public:
+    Endpoint() : m_driver(nullptr)
+    {}
+
     /** Returns root directory name without any type-prefixing, and will
      * always end with the character `/`.  For example `~/data/`, or
      * `my-bucket/nested-directory/`.
