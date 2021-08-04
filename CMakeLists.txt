@@ -1,11 +1,10 @@
 cmake_minimum_required(VERSION 2.8.12)
 
-
 project(entwine)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules" ${CMAKE_MODULE_PATH})
 
 set(ENTWINE_VERSION_MAJOR 2 CACHE STRING "Entwine major version" FORCE)
-set(ENTWINE_VERSION_MINOR 1 CACHE STRING "Entwine minor version" FORCE)
+set(ENTWINE_VERSION_MINOR 2 CACHE STRING "Entwine minor version" FORCE)
 set(ENTWINE_VERSION_PATCH 0 CACHE STRING "Entwine patch version" FORCE)
 set(ENTWINE_VERSION_STRING
     "${ENTWINE_VERSION_MAJOR}.${ENTWINE_VERSION_MINOR}.${ENTWINE_VERSION_PATCH}"
@@ -14,7 +13,7 @@ set(ENTWINE_VERSION_STRING
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(ENTWINE_API_VERSION "2")
+set(ENTWINE_API_VERSION "3")
 set(ENTWINE_BUILD_VERSION ${ENTWINE_VERSION_STRING})
 
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "")
@@ -58,8 +57,6 @@ add_subdirectory(app)
 # of files which act as a target.  No actual file is built.
 #
 set(OBJS
-    # $<TARGET_OBJECTS:formats>
-    # $<TARGET_OBJECTS:reader>
     $<TARGET_OBJECTS:io>
     $<TARGET_OBJECTS:third>
     $<TARGET_OBJECTS:builder>

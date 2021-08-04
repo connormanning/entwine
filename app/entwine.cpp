@@ -39,8 +39,6 @@ namespace
             t(1) + "Apps:\n" +
             t(2) + "build\n" +
             t(3) + "Build an EPT dataset\n" +
-            t(2) + "scan\n" +
-            t(3) + "Aggregate information about an unindexed dataset\n" +
             t(2) + "merge\n" +
             t(3) + "Merge colocated entwine subsets\n" +
             t(2) + "info\n" +
