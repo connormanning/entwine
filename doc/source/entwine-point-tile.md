@@ -53,7 +53,7 @@ The core metadata required to interpret the contents of an EPT dataset.  An exam
         "vertical": "5703",
         "wkt": "PROJCS[\"WGS 84 ... AUTHORITY[\"EPSG\",\"3857\"]]"
     },
-    "version" : "1.0.0"
+    "version" : "1.1.0"
 }
 ```
 
@@ -202,80 +202,72 @@ Hierarchy nodes must always contain a positive value with the sole exception of 
 ```
 
 ## ept-sources
-Sparse input data source information is stored in an array at `ept-sources/list.json`.  This contains an array of JSON objects representing sparse metadata for each input source.  This array may potentially be an empty array if this information is not stored.  If an `OriginId` dimension exists in the `schema`, then each item's position in this array maps to its `OriginId` value in the EPT dataset, starting from `0` at the first position in the array.  An sample `list.json` file may look like this:
+Sparse input data source information is stored in an array at `ept-sources/manifest.json`.  This contains an array of JSON objects representing a metadata summary for each input source.  This array may potentially be an empty array if this information is not stored.  If an `OriginId` dimension exists in the `schema`, then each item's position in this array maps to its `OriginId` value in the EPT dataset, starting from `0` at the first position in the array.  An sample `manifest.json` file may look like this:
 
 ```json
 [
     {
-        "id": "not-a-point-cloud.txt"
-    },
-    {
-        "id": "autzen-low.laz",
+        "path": "autzen-low.laz",
         "bounds": [635577.0, 848882.0, 406.0, 639004.0, 853538.0, 511.0],
-        "url": "autzen.json"
+        "inserted": true,
+        "points": 6000 ,
+        "metadataPath": "autzen-low.json"
     },
     {
-        "id": "autzen-high.laz",
+        "path": "autzen-high.laz",
         "bounds": [635577.0, 848882.0, 511.0, 639004.0, 853538.0, 616.0],
-        "url": "autzen.json"
+        "inserted": true,
+        "points": 4000,
+        "metadataPath": "autzen-high.json"
     }
 ]
 ```
 
-### id
-For each object in the list, this is a field of string type which must uniquely identify this source among all other sources.  A typical `id` value would be a file path, but could potentially be something else like a data stream identifier or an arbitrary unique ID.
-
 ### bounds
-A source object may optionally contain a bounds which, if existing, is an array of 6 numbers of the format `[xmin, ymin, zmin, xmax, ymax, zmax]`.
+A source object must contain a bounds which is an array of 6 numbers of the format `[xmin, ymin, zmin, xmax, ymax, zmax]`.
 
-### url
-A source object may optionally contain a string URL which points to a file, relative to the `ept-sources/` location, which contains more thorough metadata for this source.  If present, this URL must end in `.json` and this file must exist in JSON format.  Additionally, the JSON contained in this file must a) represent a JSON object and b) contain a string key matching the `id` of this source entry.  The format of this metadata file is discussed more fully in the *Source metadata* section, below.  More than one source entry may contain the same `url` string, and that file must contain an object with corresponding keys for each `id` that links to it.
+### error
+A string value representing an error which occurred during the insertion of this file.
+For successfully inserted files, this key must be absent.
+
+### inserted
+A flag denoting whether this file has been inserted into the EPT dataset.  In general
+this should always be `true` for public-facing EPT datasets, and will be false for
+builds which are only partially complete.
+
+### metadataPath
+A source object may optionally contain a string URL which points to a file, relative to the `ept-sources/` location, which contains more thorough metadata for this source.  If present, this URL must end in `.json` and this file must exist in JSON format.  The format of this metadata file is discussed more fully in the *Source metadata* section, below.
+
+### points
+The number of points inserted from this file.
 
 
 ### Source metadata
-To be lossless and facilitate a full reconstitution of original source data files from an EPT index, the full metadata for each input file may be retained.  For each listed source in `ept-sources/list.json` containing a `url` path, this URL points to a JSON file containing the associated metadata for that source (and potentially other sources as well, discussed below).
+To be lossless and facilitate a full reconstitution of original source data files from an EPT index, the full metadata for each input file may be retained.  For each listed source in `ept-sources/manifest.json` containing a `metadataPath`, this URL points to a JSON file containing the associated metadata for that source.
 
-Each of these files is a JSON object containing metadata information for one or more sources from `ept-sources/list.json`.  For each file, the JSON object must contain keys that match the `id` values from the source list, for each source entry pointing to this metadata file.
+This file contains a JSON object which may contain `bounds`, `path`, `points`, `schema`, and `srs` keys.  These keys have the same meanings and range of values described above, but are expressed here on a per-source basis rather than per-EPT dataset.
 
-Within each of these ID sub-keys, an object must exist which may contain the previously-defined keys `bounds`, `points`, and `srs` which are defined in the `ept.json` section.  These keys have the same meanings and range of values described above, but are expressed here on a per-source basis rather than per-EPT dataset.
+In addition to the keys described above, each metadata object can also contain a `metadata` key, which maps to a JSON object representing arbitrary metadata for this source.
 
-In addition to the well-known keys described above, each metadata object can also contain a `metadata` key, which maps to a JSON object representing arbitrary metadata for this source.
-
-With the `ept-sources/list.json` file described above, a corresponding `ept-sources/autzen.json` file might look something like:
+With the `ept-sources/list.json` file described above, a corresponding `ept-sources/autzen-high.json` file might look something like:
 
 ```json
 {
-    "autzen-low.laz": {
-        "bounds": [635577.0, 848882.0, 406.0, 639004.0, 853538.0, 511.0],
-        "points" : 180000,
-        "srs" :
-        {
-            "authority" : "EPSG",
-            "horizontal" : "3857",
-            "wkt": "PROJCS[\"WGS 84 ... AUTHORITY[\"EPSG\",\"3857\"]]"
-        },
-        "metadata" : {
-            "key": "value",
-            "sofware_id": "PDAL",
-            "version": 42,
-            "something": "I am arbitrary metadata related to this source"
-        }
+    "path": "autzen-high.laz",
+    "bounds": [635577.0, 848882.0, 511.0, 639004.0, 853538.0, 616.0],
+    "points" : 120000,
+    "srs" :
+    {
+        "authority" : "EPSG",
+        "horizontal" : "3857",
+        "wkt": "PROJCS[\"WGS 84 ... AUTHORITY[\"EPSG\",\"3857\"]]"
     },
-    "autzen-high.laz": {
-        "bounds": [635577.0, 848882.0, 511.0, 639004.0, 853538.0, 616.0],
-        "points" : 120000,
-        "srs" :
-        {
-            "authority" : "EPSG",
-            "horizontal" : "3857",
-            "wkt": "PROJCS[\"WGS 84 ... AUTHORITY[\"EPSG\",\"3857\"]]"
-        },
-        "metadata" : {
-            "key": "value",
-            "sofware_id": "PDAL",
-            "version": 58,
-            "something_else": -1
-        }
-    }
+    "metadata" : {
+        "key": "value",
+        "sofware_id": "PDAL",
+        "version": 58,
+        "something_else": -1
+    },
+    "schema": [] // Omitted for brevity.
 }
 ```
