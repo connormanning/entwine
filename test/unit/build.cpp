@@ -63,7 +63,7 @@ namespace
         EXPECT_EQ(ept.at("points").get<int>(), 100000);
         EXPECT_EQ(ept.at("span").get<int>(), 32);
         EXPECT_EQ(Srs(ept.at("srs")), srs);
-        EXPECT_EQ(ept.at("version").get<std::string>(), "1.0.0");
+        EXPECT_EQ(ept.at("version").get<std::string>(), "1.1.0");
         const Schema schema = ept.at("schema").get<Schema>();
         EXPECT_TRUE(hasStats(schema));
         for (const auto& name : dimensions) EXPECT_TRUE(contains(schema, name));

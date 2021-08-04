@@ -134,6 +134,12 @@ SourceInfo getShallowInfo(const json pipeline)
     bufferReader.setSpatialReference(qi.m_srs);
     bufferReader.addView(view);
 
+    const std::string overrideSrs = pipeline.at(0).value("override_srs", "");
+    if (overrideSrs.size())
+    {
+        bufferReader.setSpatialReference(overrideSrs);
+    }
+
     {
         lock.lock();
 

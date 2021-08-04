@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 0af37dc9acb264f4e38edce84804b3ce87b767f4
+// Git SHA: a3a1d3bc3e638037aa733359d63ffce747d69ab8
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -25278,7 +25278,6 @@ public:
     std::string baseUrl() const;
     std::string bucket() const;
     std::string object() const;
-    std::string canonicalUri() const;
 
 private:
     std::string m_baseUrl;

@@ -34,7 +34,7 @@ inline Version currentEntwineVersion()
 
 inline Version currentEptVersion()
 {
-    return Version("1.0.0");
+    return Version("1.1.0");
 }
 
 using Origin = uint64_t;

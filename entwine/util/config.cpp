@@ -214,8 +214,12 @@ Threads getCompoundThreads(const json& j)
 }
 Version getEptVersion(const json& j)
 {
-    if (!j.count("version")) return currentEptVersion();
-    return Version(j.at("version").get<std::string>());
+    const std::string existing = j.value("version", "");
+    if (existing.size() && existing != currentEptVersion().toString())
+    {
+        throw ConfigurationError("Cannot update a previous EPT version");
+    }
+    return currentEptVersion();
 }
 
 bool getVerbose(const json& j) { return j.value("verbose", true); }
