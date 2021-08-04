@@ -5,7 +5,7 @@ Entwine provides 4 sub-commands for indexing point cloud data:
 | Command             | Description                                             |
 |---------------------|---------------------------------------------------------|
 | [build](#build)     | Generate an EPT dataset from point cloud data           |
-| [scan](#scan)       | Scan information about point cloud data before building |
+| [info](#info)       | Gather information about point clouds before building   |
 | [merge](#merge)     | Merge datasets build as subsets                         |
 | [convert](#convert) | Convert an EPT dataset to a different format            |
 
@@ -94,7 +94,8 @@ This string may be:
 - a file path: `~/data/autzen.laz` or `s3://entwine.io/sample-data/red-rocks.laz`
 - a directory (non-recursive): `~/data` or `~/data/*`
 - a recursive directory: `~/data/**`
-- a scan output path: `~/entwine/scans/autzen.json`
+- an info directory path: `~/entwine/info/autzen-files/`
+- an info output file: `~/entwine/info/autzen-files/1.json`
 
 This field may also be a JSON array of multiples of each of the above strings:
 ```json
@@ -337,30 +338,28 @@ warrant splitting.
 
 
 
-## Scan
+## Info
 
-The `scan` command is used to aggregate information about unindexed point cloud
+The `info` command is used to aggregate information about unindexed point cloud
 data prior to building an Entwine Point Tile dataset.
 
 Most options here are common to `build` and perform exactly the same function in
-the `scan` command, aside from `output`, described below.
+the `info` command, aside from `output`, described below.
 
 | Key | Description |
 |-----|-------------|
 | [input](#input) | Path(s) to build |
-| [output](#output-scan) | Output directory |
+| [output](#output-info) | Output directory |
 | [tmp](#tmp) | Temporary directory |
 | [srs](#srs) | Output coordinate system |
 | [reprojection](#reprojection) | Coordinate system reprojection |
 | [threads](#threads) | Number of parallel threads |
 | [trustHeaders](#trustheaders) | Specify whether file headers are trustworthy |
 
-### output (scan)
+### output (info)
 
-The `output` for a scan is a directory path to write detailed summary
-information determined by the scan, including per-file metadata.  The
-`ept-scan.json` file that is written to this output directory may be used as
-the `input` for a [build](#build) command.
+The `output` is a directory path to write detailed per-file metadata.  This
+directory may then be used as the `input` for a [build](#build) command.
 
 
 
