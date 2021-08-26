@@ -1,6 +1,5 @@
 include(CMakeFindDependencyMacro)
 find_dependency(PDAL @PDAL_FIND_VERSION@)
-find_dependency(LazPerf)
 find_dependency(Threads)
 
 include("${CMAKE_CURRENT_LIST_DIR}/entwine-targets.cmake")

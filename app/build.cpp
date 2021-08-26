@@ -213,6 +213,14 @@ void Build::run()
 
     const uint64_t actual = builder::run(builder, m_json);
 
+    for (const auto& f : builder.manifest)
+    {
+        for (const auto& e : f.source.info.errors)
+        {
+            std::cout << "\t" << f.source.path << ": " << e << std::endl;
+        }
+    }
+
     std::cout << "Wrote " << commify(actual) << " points." << std::endl;
 }
 
