@@ -422,11 +422,16 @@ int main(int argc, char** argv)
             std::cout << getUsageString() << std::endl;
         }
     }
-    catch (std::runtime_error& e)
+    catch (std::exception& e)
     {
         std::cout << "Encountered an error: " << e.what() << std::endl;
         std::cout << "Exiting." << std::endl;
         return 1;
+    }
+    catch (...)
+    {
+        std::cout << "Encountered an unknown exception!"  << std::endl;
+        return 2;
     }
 
     return 0;
