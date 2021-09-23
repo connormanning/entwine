@@ -37,6 +37,16 @@ void Info::addArgs()
             "to this directory in JSON format\n"
             "Example: --output my-output/");
 
+    m_ap.add(
+        "--summary",
+        "Filename for a JSON summary of the analysis",
+        [this](json j) { m_json["summary"] = j.get<std::string>(); });
+
+    addOutput(
+            "If provided, detailed per-file information will be written "
+            "to this directory in JSON format\n"
+            "Example: --output my-output/");
+
     addTmp();
     addDeep();
     addReprojection();
@@ -67,6 +77,7 @@ void Info::run()
     const unsigned threads = config::getThreads(m_json);
     const json pipeline = config::getPipeline(m_json);
     const auto reprojection = config::getReprojection(m_json);
+    const std::string summaryFilename = m_json.value("summary", "");
 
     if (inputs.empty()) throw std::runtime_error("No files found!");
 
@@ -114,6 +125,12 @@ void Info::run()
         const auto endpoint = a.getEndpoint(output);
         saveMany(sources, endpoint, threads, pretty);
         std::cout << "\tSaved." << std::endl;
+    }
+
+    if (summaryFilename.size())
+    {
+        std::cout << "Saving summary..." << std::endl;
+        a.put(summaryFilename, json(summary).dump(2));
     }
 }
 
