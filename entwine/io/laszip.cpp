@@ -14,6 +14,7 @@
 #include <pdal/io/BufferReader.hpp>
 #include <pdal/io/LasReader.hpp>
 #include <pdal/io/LasWriter.hpp>
+#include <pdal/pdal_config.hpp>
 
 #include <entwine/types/metadata.hpp>
 #include <entwine/util/io.hpp>
@@ -56,7 +57,11 @@ void write(
     options.add("minor_version", 2);
     options.add("extra_dims", "all");
     options.add("software_id", "Entwine " + currentEntwineVersion().toString());
-    options.add("compression", "laszip");
+    if (pdal::Config::hasFeature(pdal::Config::Feature::LAZPERF)) {
+        options.add("compression", "lazperf");
+    } else {
+        options.add("compression", "laszip");
+    }
     options.add("dataformat_id", timeMask | colorMask);
 
     const auto so = getScaleOffset(metadata.schema);
