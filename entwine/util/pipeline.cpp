@@ -120,8 +120,8 @@ optional<ScaleOffset> getScaleOffset(const pdal::Reader& reader)
     {
         const auto& h(las->header());
         return ScaleOffset(
-            Scale(h.scaleX(), h.scaleY(), h.scaleZ()),
-            Offset(h.offsetX(), h.offsetY(), h.offsetZ())
+            Scale(h.scale.x, h.scale.y, h.scale.z),
+            Offset(h.offset.x, h.offset.y, h.offset.z)
         );
     }
     return { };
