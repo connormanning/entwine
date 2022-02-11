@@ -119,10 +119,19 @@ optional<ScaleOffset> getScaleOffset(const pdal::Reader& reader)
     if (const auto* las = dynamic_cast<const pdal::LasReader*>(&reader))
     {
         const auto& h(las->header());
+
+// PDAL LAS API changes between 2.3.0 and 2.4: https://github.com/PDAL/PDAL/commit/dd00e3a7
+#ifdef PDAL_HAS_LAS_REFACTOR
+        return ScaleOffset(
+            Scale(h.scale.x, h.scale.y, h.scale.z),
+            Offset(h.offset.x, h.offset.y, h.offset.z)
+        );
+#else
         return ScaleOffset(
             Scale(h.scaleX(), h.scaleY(), h.scaleZ()),
             Offset(h.offsetX(), h.offsetY(), h.offsetZ())
         );
+#endif
     }
     return { };
 }

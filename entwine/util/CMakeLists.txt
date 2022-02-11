@@ -33,3 +33,8 @@ set(
 install(FILES ${HEADERS} DESTINATION include/entwine/${MODULE})
 add_library(${MODULE} OBJECT ${SOURCES})
 compiler_options(${MODULE})
+
+if(PDAL_HAS_LAS_REFACTOR)
+    # PDAL LAS API changes between 2.3.0 & 2.4 https://github.com/PDAL/PDAL/commit/dd00e3a7
+    add_compile_definitions(PDAL_HAS_LAS_REFACTOR)
+endif()
