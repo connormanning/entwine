@@ -49,12 +49,13 @@ void write(
     reader.addView(view);
 
     // See https://www.pdal.io/stages/writers.las.html
-    const uint64_t timeMask(contains(metadata.schema, "GpsTime") ? 1 : 0);
-    const uint64_t colorMask(contains(metadata.schema, "Red") ? 2 : 0);
+    const uint64_t timeMask(contains(metadata.schema, "GpsTime") ? 6 : 0);
+    const uint64_t colorMask(contains(metadata.schema, "Red") ? 7 : 0);
+    const uint64_t infraredMask(contains(metadata.schema,"Infrared") ? 8 : 0);
 
     pdal::Options options;
     options.add("filename", localDir + localFile);
-    options.add("minor_version", 2);
+    options.add("minor_version", 4);
     options.add("extra_dims", "all");
     options.add("software_id", "Entwine " + currentEntwineVersion().toString());
     if (pdal::Config::hasFeature(pdal::Config::Feature::LAZPERF)) {
@@ -62,7 +63,7 @@ void write(
     } else {
         options.add("compression", "laszip");
     }
-    options.add("dataformat_id", timeMask | colorMask);
+    options.add("dataformat_id", timeMask | colorMask | infraredMask);
 
     const auto so = getScaleOffset(metadata.schema);
     if (!so) throw std::runtime_error("Scale/offset is required for laszip");
@@ -119,6 +120,7 @@ void read(
 
     pdal::Options o;
     o.add("filename", handle.localPath());
+    //keep it to be able to manage former 1.2 files
     o.add("use_eb_vlr", true);
 
     pdal::LasReader reader;
