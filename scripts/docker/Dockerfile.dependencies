@@ -16,7 +16,6 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     curl \
     libgeotiff-dev \
-    libgeotiff-epsg \
     libtiff5-dev \
     libproj-dev \
     libcurl4-openssl-dev \
@@ -24,7 +23,7 @@ RUN apt-get update && apt-get install -y \
     ninja-build \
     python3-setuptools \
     unzip \
-    libzstd1-dev \
+    libzstd-dev \
     pkg-config \
     libgdal-dev && \
     rm -rf /var/lib/apt/lists/*
