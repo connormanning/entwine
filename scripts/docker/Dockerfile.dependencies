@@ -1,6 +1,9 @@
 FROM pdal/pdal:2.4.1
 MAINTAINER Connor Manning <connor@hobu.co>
 
+ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
+ARG DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update && apt-get install -y \
     autoconf \
     build-essential \
