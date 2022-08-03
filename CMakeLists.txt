@@ -96,8 +96,17 @@ option(WITH_TESTS "Choose if Entwine unit tests should be built" TRUE)
 if (WITH_TESTS)
     message("Configuring with unit tests")
     enable_testing()
-    set(GOOGLETEST_VERSION 1.10.0)
-    add_subdirectory("${PROJECT_SOURCE_DIR}/test/googletest-release-1.10.0/googletest")
+
+    set(GOOGLETEST_VERSION 1.12.1)
+    include(FetchContent)
+    FetchContent_Declare(
+      googletest
+      GIT_REPOSITORY https://github.com/google/googletest.git
+      GIT_TAG release-${GOOGLETEST_VERSION}
+    )
+    # For Windows: Prevent overriding the parent project's compiler/linker settings
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
 
     add_subdirectory(test)
 else()
