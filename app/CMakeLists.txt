@@ -20,12 +20,15 @@ target_link_libraries(app
     PRIVATE
         entwine
         ${PDAL_LIBRARIES}
-        ${Backtrace_LIBRARIES}
         ${CMAKE_DL_LIBS}
         ${CMAKE_THREAD_LIBS_INIT}
         ${JSONCPP_LIBRARY}
 )
+
+if (DEFINED BACKTRACE_DEFS)
+  target_link_libraries(app PRIVATE ${Backtrace_LIBRARIES})
+endif (DEFINED BACKTRACE_DEFS)
+
 set_target_properties(app PROPERTIES OUTPUT_NAME entwine)
 
 install(TARGETS app DESTINATION bin)
-
