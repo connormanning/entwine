@@ -11,6 +11,8 @@ jobs:
       fail-fast: true
       matrix:
         platform: ['ubuntu-latest','windows-latest','macos-latest']
+    env:
+      PDAL_PLATFORM: ${{ matrix.platform }}
 
     steps:
     - uses: actions/checkout@v2
