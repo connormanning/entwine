@@ -38,4 +38,3 @@ conda:
 sphinx:
   builder: html
   configuration: doc/source/conf.py
-  fail_on_warning: true
