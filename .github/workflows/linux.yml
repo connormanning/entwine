@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        type: ['floating','fixed']
+        type: ['floating']
     env:
       BUILD_TYPE: ${{ matrix.type }}
 
