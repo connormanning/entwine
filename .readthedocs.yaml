@@ -33,9 +33,9 @@ formats:
   - epub
 
 conda:
-  environment: docs/environment.yml
+  environment: doc/environment.yml
 
 sphinx:
   builder: html
-  configuration: docs/source/conf.py
+  configuration: doc/source/conf.py
   fail_on_warning: true
