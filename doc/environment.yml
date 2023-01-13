@@ -12,3 +12,4 @@ dependencies:
     - sphinx-rtd-theme
     - sphinxcontrib-bibtex
     - sphinxcontrib-spelling
+    - sphinx_markdown_tables
