@@ -13,3 +13,5 @@ dependencies:
     - sphinxcontrib-bibtex
     - sphinxcontrib-spelling
     - sphinx_markdown_tables
+    - recommonmark
+    - sphinxcontrib-spelling!=7.4.0
