@@ -3,10 +3,10 @@
 echo "Configuring build type '$BUILD_TYPE'"
 mkdir build
 
-conda update -n base -c defaults conda
-conda install cmake ninja compilers -y
+mamba update -n base -c defaults conda
+mamba install cmake ninja compilers -y
 
-conda install entwine --only-deps -y
+mamba install entwine --only-deps -y
 
 gdalinfo --version
 
