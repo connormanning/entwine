@@ -1,6 +1,6 @@
-!/bin/bash
+#!/bin/bash
 
-mamba update -n base -c defaults conda
+mamba update -n base -c defaults conda -y
 mamba install conda-build ninja compilers -y
 pwd
 ls
