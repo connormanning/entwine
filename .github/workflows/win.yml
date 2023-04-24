@@ -21,12 +21,16 @@ jobs:
       fail-fast: true
       matrix:
         type: ['floating']
+    defaults:
+      run:
+        shell: bash -l {0}
     env:
       BUILD_TYPE: ${{ matrix.type }}
       CACHE_NUMBER: 0
 
     steps:
     - uses: actions/checkout@v2
+    - uses: ilammy/msvc-dev-cmd@v1
     - name: Support longpaths
       run: git config --system core.longpaths true
       if: matrix.platform == 'windows-latest'
