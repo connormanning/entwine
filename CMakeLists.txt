@@ -1,10 +1,10 @@
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.5)
 
 project(entwine)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules" ${CMAKE_MODULE_PATH})
 
 set(ENTWINE_VERSION_MAJOR 2 CACHE STRING "Entwine major version" FORCE)
-set(ENTWINE_VERSION_MINOR 2 CACHE STRING "Entwine minor version" FORCE)
+set(ENTWINE_VERSION_MINOR 3 CACHE STRING "Entwine minor version" FORCE)
 set(ENTWINE_VERSION_PATCH 0 CACHE STRING "Entwine patch version" FORCE)
 set(ENTWINE_VERSION_STRING
     "${ENTWINE_VERSION_MAJOR}.${ENTWINE_VERSION_MINOR}.${ENTWINE_VERSION_PATCH}"
