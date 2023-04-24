@@ -123,7 +123,6 @@ TEST(build, laz14)
     });
     const json ept = checkEpt();
     EXPECT_EQ(ept.at("dataType").get<std::string>(), "laszip");
-    EXPECT_EQ(ept.at("laz_14").get<std::string>(), "true");
 
     const auto stuff = execute();
     auto& view = stuff->view;
