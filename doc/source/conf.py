@@ -33,6 +33,7 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
     'sphinx_markdown_tables',
+    'recommonmark',
     'sphinxcontrib.spelling'
 ]
 
