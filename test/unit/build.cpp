@@ -115,6 +115,21 @@ TEST(build, laszip)
     checkData(*view);
 }
 
+TEST(build, laz14)
+{
+    run({
+        { "input", test::dataPath() + "ellipsoid.laz" },
+        { "laz_14", "true" }
+    });
+    const json ept = checkEpt();
+    EXPECT_EQ(ept.at("dataType").get<std::string>(), "laszip");
+
+    const auto stuff = execute();
+    auto& view = stuff->view;
+    ASSERT_TRUE(view);
+    checkData(*view);
+}
+
 TEST(build, binary)
 {
     run({

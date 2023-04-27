@@ -27,6 +27,12 @@ SHELL ["conda", "run", "-n", "build", "/bin/bash", "-c"]
 RUN mamba install -y -c conda-forge entwine --only-deps
 
 
+
+SHELL ["conda", "run", "-n", "base", "/bin/bash", "-c"]
+
+RUN mamba install -c conda-forge ninja cmake compilers
+RUN mamba install -c conda-forge entwine --only-deps
+
 RUN git clone https://github.com/connormanning/entwine.git /var/entwine && \
     cd /var/entwine && \
     git checkout $branch && \
