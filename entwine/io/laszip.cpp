@@ -54,14 +54,16 @@ void write(
 
     pdal::Options options;
     options.add("filename", localDir + localFile);
-    options.add("minor_version", 2);
+
+    if (metadata.internal.laz_14)
+        options.add("minor_version", 4);
+    else
+        options.add("minor_version", 2);
+
+
     options.add("extra_dims", "all");
     options.add("software_id", "Entwine " + currentEntwineVersion().toString());
-    if (pdal::Config::hasFeature(pdal::Config::Feature::LAZPERF)) {
-        options.add("compression", "lazperf");
-    } else {
-        options.add("compression", "laszip");
-    }
+
     options.add("dataformat_id", timeMask | colorMask);
 
     const auto so = getScaleOffset(metadata.schema);

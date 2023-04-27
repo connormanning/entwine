@@ -4,9 +4,6 @@ if (WIN32)
 
 else()
     include(${CMAKE_DIR}/unix_compiler_options.cmake)
-	if (APPLE)
-		cmake_policy(SET CMP0042 NEW) #osx rpath
-	endif()
 endif()
 
 function(compiler_options target)
