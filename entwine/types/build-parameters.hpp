@@ -30,7 +30,8 @@ struct BuildParameters
         uint64_t progressInterval,
         uint64_t hierarchyStep,
         bool verbose = true,
-        bool laz_14 = false)
+        bool laz_14 = false,
+        bool withSchemaStats = true)
         : minNodeSize(minNodeSize)
         , maxNodeSize(maxNodeSize)
         , cacheSize(cacheSize)
@@ -38,7 +39,8 @@ struct BuildParameters
         , progressInterval(progressInterval)
         , hierarchyStep(hierarchyStep)
         , verbose(verbose)
-        , laz_14(false)
+        , laz_14(laz_14)
+        , withSchemaStats(withSchemaStats)
     { }
     BuildParameters(uint64_t minNodeSize, uint64_t maxNodeSize)
         : minNodeSize(minNodeSize)
@@ -54,6 +56,7 @@ struct BuildParameters
     uint64_t hierarchyStep = 0;
     bool verbose = true;
     bool laz_14 = false;
+    bool withSchemaStats = true;
 };
 
 inline void to_json(json& j, const BuildParameters& p)
@@ -64,6 +67,7 @@ inline void to_json(json& j, const BuildParameters& p)
         { "minNodeSize", p.minNodeSize },
         { "maxNodeSize", p.maxNodeSize },
         { "laz_14", p.laz_14 },
+        { "withSchemaStats", p.withSchemaStats }
     };
     if (p.hierarchyStep) j.update({ { "hierarchyStep", p.hierarchyStep } });
 }

@@ -104,7 +104,7 @@ void to_json(json& j, const Dimension& dim)
 
     if (dim.scale != 1) j.update({ { "scale", dim.scale } });
     if (dim.offset != 0) j.update({ { "offset", getTypedValue(dim.offset) } });
-    if (dim.stats) j.update(*dim.stats);
+    if (dim.stats && dim.stats->count > 0) j.update(*dim.stats);
 }
 
 void from_json(const json& j, Dimension& dim)

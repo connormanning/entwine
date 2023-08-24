@@ -183,6 +183,15 @@ void Build::addArgs()
             "logging (default: 10).",
             [this](json j) { m_json["laz_14"] = extract(j); });
 
+    m_ap.add(
+            "--noSchemaStats",
+            "Skip detailed dimension statistics (for subset builds only).",
+            [this](json j)
+            {
+                checkEmpty(j);
+                m_json["withSchemaStats"] = false;
+            });
+
     addArbiter();
 }
 

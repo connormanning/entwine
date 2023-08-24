@@ -285,6 +285,8 @@ Manifest manifest::merge(Manifest dst, const Manifest& src)
         auto& dstInfo = dstEntry.source.info;
         const auto& srcInfo = srcEntry.source.info;
 
+        dstInfo.points += srcInfo.points;
+
         if (dstEntry.source.path != srcEntry.source.path)
         {
             throw std::runtime_error(
@@ -296,7 +298,11 @@ Manifest manifest::merge(Manifest dst, const Manifest& src)
             if (!dstEntry.inserted) dstEntry = srcEntry;
             else
             {
-                // If both subsets inserted this file, then
+                if (srcInfo.points) 
+                {
+                    dstInfo.schema = combine(dstInfo.schema, srcInfo.schema);
+                }
+
                 dstInfo.errors.insert(
                     dstInfo.errors.end(),
                     srcInfo.errors.begin(),

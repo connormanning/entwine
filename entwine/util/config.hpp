@@ -41,7 +41,7 @@ namespace config
 Endpoints getEndpoints(const json& j);
 Metadata getMetadata(const json& j);
 
-arbiter::Arbiter getArbiter(const json& j);
+std::unique_ptr<arbiter::Arbiter> getArbiter(const json& j);
 StringList getInput(const json& j);
 std::string getOutput(const json& j);
 std::string getTmp(const json& j);
@@ -67,6 +67,8 @@ bool getDeep(const json& j);
 bool getStats(const json& j);
 bool getForce(const json& j);
 bool getAbsolute(const json& j);
+bool getAllowOriginId(const json& j);
+bool getWithSchemaStats(const json& j);
 
 uint64_t getSpan(const json& j);
 uint64_t getMinNodeSize(const json& j);

@@ -44,7 +44,8 @@ BuildParameters getBuildParameters(const json& j)
 
 Endpoints getEndpoints(const json& j)
 {
-    const auto arbiter = std::make_shared<arbiter::Arbiter>(getArbiter(j));
+    const auto arbiter = std::shared_ptr<arbiter::Arbiter>(
+        getArbiter(j).release());
     const auto output = getOutput(j);
     const auto tmp = getTmp(j);
 
@@ -68,9 +69,10 @@ Metadata getMetadata(const json& j)
         getBuildParameters(j));
 }
 
-arbiter::Arbiter getArbiter(const json& j)
+std::unique_ptr<arbiter::Arbiter> getArbiter(const json& j)
 {
-    return arbiter::Arbiter(j.value("arbiter", json()).dump());
+    return std::unique_ptr<arbiter::Arbiter>(
+        new arbiter::Arbiter(j.value("arbiter", json()).dump()));
 }
 StringList getInput(const json& j)
 {
@@ -146,6 +148,11 @@ Schema getSchema(const json& j)
             so->offset = getBounds(j).mid().round();
             schema = setScaleOffset(schema, *so);
         }
+    }
+
+    if (getAllowOriginId(j) && !contains(schema, "OriginId"))
+    {
+        schema.emplace_back("OriginId", Type::Unsigned32);
     }
 
     return schema;
@@ -227,6 +234,11 @@ bool getDeep(const json& j) { return j.value("deep", false); }
 bool getStats(const json& j) { return j.value("stats", true); }
 bool getForce(const json& j) { return j.value("force", false); }
 bool getAbsolute(const json& j) { return j.value("absolute", false); }
+bool getAllowOriginId(const json& j) { return j.value("allowOriginId", true); }
+bool getWithSchemaStats(const json& j)
+{
+    return j.value("withSchemaStats", true); 
+}
 
 uint64_t getSpan(const json& j)
 {
