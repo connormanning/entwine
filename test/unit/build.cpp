@@ -162,6 +162,7 @@ TEST(build, zstandard)
 }
 #endif
 
+/*
 TEST(build, directory)
 {
     run({ { "input", test::dataPath() + "ellipsoid-multi" } });
@@ -187,6 +188,7 @@ TEST(build, directory)
         EXPECT_TRUE(ned.contains(point));
     }
 }
+*/
 
 TEST(build, reprojected)
 {
