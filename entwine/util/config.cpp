@@ -159,7 +159,13 @@ Schema getSchema(const json& j)
 }
 optional<Reprojection> getReprojection(const json& j)
 {
-    return j.value("reprojection", optional<Reprojection>());
+    // TODO: For some reason this is not working for Reprojection although we
+    // use this pattern for several other classes.  Should look into it but the
+    // below works properly.
+    // return j.value("reprojection", optional<Reprojection>());
+
+    if (j.count("reprojection")) return Reprojection(j.at("reprojection"));
+    return optional<Reprojection>();
 }
 optional<Srs> getSrs(const json& j)
 {

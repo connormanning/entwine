@@ -1,4 +1,4 @@
 set(BASE "${CMAKE_CURRENT_SOURCE_DIR}")
 set(HEADERS "${BASE}/json.hpp")
-install(FILES ${HEADERS} DESTINATION include/entwine/third/mjson)
+install(FILES ${HEADERS} DESTINATION include/entwine/third/nlohmann)
 
