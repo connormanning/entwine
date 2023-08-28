@@ -11,4 +11,4 @@ dependencies:
   - xz
   - curl
   - openssl
-
+  - boa
