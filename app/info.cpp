@@ -57,8 +57,7 @@ void Info::addArgs()
 
 void Info::run()
 {
-    const std::unique_ptr<arbiter::Arbiter> a = 
-        config::getArbiter(m_json.dump());
+    const std::unique_ptr<arbiter::Arbiter> a = config::getArbiter(m_json);
     StringList inputs = config::getInput(m_json);
     if (inputs.empty())
     {
@@ -72,6 +71,7 @@ void Info::run()
         std::cout << "\tResolved." << std::endl;
     }
 
+    std::cout << "Parsing" << std::endl;
     const std::string output = config::getOutput(m_json);
     const std::string tmp = config::getTmp(m_json);
     const bool deep = config::getDeep(m_json);
@@ -79,6 +79,7 @@ void Info::run()
     const json pipeline = config::getPipeline(m_json);
     const auto reprojection = config::getReprojection(m_json);
     const std::string summaryFilename = m_json.value("summary", "");
+    std::cout << "Parsed" << std::endl;
 
     if (inputs.empty()) throw std::runtime_error("No files found!");
 
