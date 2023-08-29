@@ -18,6 +18,7 @@
 #include <pdal/io/BufferReader.hpp>
 #include <pdal/PipelineManager.hpp>
 #include <pdal/PointTable.hpp>
+#include <pdal/util/Utils.hpp>
 
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/scale-offset.hpp>
@@ -358,7 +359,9 @@ SourceList analyze(
                 std::endl;
         }
 
-        if (arbiter::getExtension(source.path) == "json")
+        if (
+            arbiter::getExtension(source.path) == "json" &&
+            !pdal::Utils::endsWith(source.path, "ept.json"))
         {
             pool.add([&source, &a]()
             {

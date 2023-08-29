@@ -13,6 +13,7 @@
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/source.hpp>
+#include <entwine/util/json.hpp>
 #include <entwine/util/optional.hpp>
 
 namespace entwine

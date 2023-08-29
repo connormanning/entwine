@@ -7,7 +7,6 @@ Entwine provides 4 sub-commands for indexing point cloud data:
 | [build](#build)     | Generate an EPT dataset from point cloud data           |
 | [info](#info)       | Gather information about point clouds before building   |
 | [merge](#merge)     | Merge datasets build as subsets                         |
-| [convert](#convert) | Convert an EPT dataset to a different format            |
 
 These commands are invoked via the command line as:
 
@@ -384,64 +383,6 @@ where `n` is the `of` value from the subset specification.
 
 
 
-## Convert
-
-The `convert` command provides utilities to transform Entwine Point Tile output
-into other formats.  Currently the only conversion provided is to the
-[Cesium 3D Tiles](https://github.com/AnalyticalGraphicsInc/3d-tiles) format.
-For proper positioning, data must be reprojected to `EPSG:4978` during the
-`entwine build` step.
-
-| Key | Description |
-|-----|-------------|
-| [input](#input-convert) | Directory containing a completed Entwine build |
-| [output](#output-convert) | Output directory for the converted dataset |
-| [tmp](#tmp) | Temporary directory |
-| [threads](#threads) | Number of parallel threads |
-| [colorType](#colorType) | Color selection for output tileset |
-| [truncate](#truncate) | Truncate color values to one byte |
-| [geometricErrorDivisor](#geometricerrordivisor) | Geometric error divisor |
-
-### input (convert)
-
-The `input` to a `convert` command is the path of a directory containing a
-completed Entwine build.
-
-### output (convert)
-
-Output directory in which to write the converted dataset.
-
-### colorType
-
-An optional setting to select a coloring method for the output.  If omitted,
-RGB will be used if they exist in the input, or Intensity if it exists and RGB
-does not exist.  If neither exist and no `colorType` is provided, then the
-output tileset will not contain color.
-
-If set, valid values to color the RGB in the output are:
-
-| Value | Description |
-|-------|-------------|
-| `none` | RGB is omitted |
-| `rgb` | Color values from the input |
-| `intensity` | Grayscale intensity values |
-| `tile` | Each tile is randomly colored |
-
-### truncate
-
-Cesium accepts one-byte color values, but many formats allow two-byte storage
-of intensities and RGB values.  If the input data contains values to be colored
-as RGB values that are greater than `255`, then they may be scaled down to one
-byte with the `--truncate` flag.
-
-### geometricErrorDivisor
-
-The root geometric error is determined as `cubeWidth / geometricErrorDivisor`,
-which defaults to `32.0`.  Lower values will cause Cesium to render the data
-more densely.
-```json
-{ "geometricErrorDivisor": 16.0 }
-```
 
 
 

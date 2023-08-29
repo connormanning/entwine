@@ -55,15 +55,16 @@ public:
     const Point& max() const { return m_max; }
     const Point& mid() const { return m_mid; }
 
-    // Returns true if these Bounds share any area in common with another.
+    // Returns true if these Bounds share any area/edge/corner in common with 
+    // one another.
     bool overlaps(const Bounds& other, bool force2d = false) const
     {
         return
-            max().x > other.min().x && min().x < other.max().x &&
-            max().y > other.min().y && min().y < other.max().y &&
+            max().x >= other.min().x && min().x <= other.max().x &&
+            max().y >= other.min().y && min().y <= other.max().y &&
             (force2d || (
                 (!height() && !other.height()) || (
-                    max().z > other.min().z && min().z < other.max().z)));
+                    max().z >= other.min().z && min().z <= other.max().z)));
     }
 
     // Returns true if the requested Bounds are contained within these Bounds.

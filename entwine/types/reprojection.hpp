@@ -69,6 +69,11 @@ inline void to_json(json& j, const Reprojection& r)
     if (r.hammer()) j["hammer"] = true;
 }
 
+inline void from_json(const json& j, Reprojection& r)
+{
+    r = Reprojection(j);
+}
+
 inline std::ostream& operator<<(std::ostream& os, const Reprojection& r)
 {
     return os <<

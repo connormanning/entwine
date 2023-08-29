@@ -38,7 +38,7 @@ struct BuildParameters
         , progressInterval(progressInterval)
         , hierarchyStep(hierarchyStep)
         , verbose(verbose)
-        , laz_14(false)
+        , laz_14(laz_14)
     { }
     BuildParameters(uint64_t minNodeSize, uint64_t maxNodeSize)
         : minNodeSize(minNodeSize)
@@ -63,7 +63,7 @@ inline void to_json(json& j, const BuildParameters& p)
         { "version", currentEntwineVersion() },
         { "minNodeSize", p.minNodeSize },
         { "maxNodeSize", p.maxNodeSize },
-        { "laz_14", p.laz_14 },
+        { "laz_14", p.laz_14 }
     };
     if (p.hierarchyStep) j.update({ { "hierarchyStep", p.hierarchyStep } });
 }

@@ -12,6 +12,8 @@
 
 #include <algorithm>
 #include <cassert>
+#include <iostream>
+#include <limits>
 
 #include <pdal/PipelineManager.hpp>
 
@@ -29,6 +31,18 @@
 
 namespace entwine
 {
+namespace
+{
+
+std::string toFullPrecisionString(double d) {
+    std::ostringstream os;
+    os << 
+        std::fixed << 
+        std::setprecision(std::numeric_limits<double>::max_digits10) << 
+        d;
+    return os.str();
+}
+}
 
 Builder::Builder(
     Endpoints endpoints,
@@ -211,17 +225,23 @@ void Builder::insert(
         ? getBounds(metadata.bounds, *metadata.subset)
         : optional<Bounds>();
 
-    uint64_t inserted(0);
+    uint64_t insertedSinceLastSleep(0);
     uint64_t pointId(0);
+
+    // We have our metadata point count - but now we'll count the points that
+    // are actually inserted.  If the file's header metadata was inaccurate, or
+    // an overabundance of duplicate points causes some to be discarded, then we
+    // won't count them.
+    info.points = 0;
 
     auto layout = toLayout(metadata.absoluteSchema);
     VectorPointTable table(layout);
     table.setProcess([&]()
     {
-        inserted += table.numPoints();
-        if (inserted > heuristics::sleepCount)
+        insertedSinceLastSleep += table.numPoints();
+        if (insertedSinceLastSleep > heuristics::sleepCount)
         {
-            inserted = 0;
+            insertedSinceLastSleep = 0;
             clipper.clip();
         }
 
@@ -248,11 +268,11 @@ void Builder::insert(
                 if (!boundsSubset || boundsSubset->contains(point))
                 {
                     key.init(point);
-                    cache.insert(voxel, key, ck, clipper);
-                    ++counts.inserts;
+                    if (cache.insert(voxel, key, ck, clipper)) ++counts.inserts;
                 }
             }
         }
+        info.points += counts.inserts;
         counter += counts.inserts;
     });
 
@@ -261,7 +281,14 @@ void Builder::insert(
         : info.pipeline;
     pipeline.at(0)["filename"] = localPath;
 
-    // TODO: Allow this to be set via config.
+    if (contains(metadata.schema, "OriginId"))
+    {
+        pipeline.push_back({
+            { "type", "filters.assign" },
+            { "value", "OriginId = " + std::to_string(originId) }
+        });
+    }
+
     const bool needsStats = !hasStats(info.schema);
     if (needsStats)
     {
@@ -270,6 +297,22 @@ void Builder::insert(
         {
             statsFilter.update({ { "enumerate", "Classification" } });
         }
+
+        // Only accumulate stats for points that actually get inserted.
+        const Bounds b = boundsSubset 
+            ? *boundsSubset 
+            : metadata.boundsConforming;
+
+        const auto& min = b.min();
+        const auto& max = b.max();
+
+        const std::string where = 
+            "X >= " + toFullPrecisionString(min.x) + " && " + 
+            "X < " + toFullPrecisionString(max.x) + " && " +
+            "Y >= " + toFullPrecisionString(min.y) + " && " + 
+            "Y < " + toFullPrecisionString(max.y);
+
+        statsFilter.update({ { "where", where } });
     }
 
     pdal::PipelineManager pm;
@@ -286,17 +329,25 @@ void Builder::insert(
 
     last.execute(table);
 
-    // TODO:
-    // - update point count information for this file's metadata.
     if (pdal::Stage* stage = findStage(last, "filters.stats"))
     {
         const pdal::StatsFilter& statsFilter(
             dynamic_cast<const pdal::StatsFilter&>(*stage));
 
+        // Our source file metadata might not have an origin id since we add
+        // that dimension.  In that case, add it to the source file's schema so
+        // it ends up being included in the stats.
+        if (contains(metadata.schema, "OriginId") && 
+            !contains(info.schema, "OriginId"))
+        {
+            info.schema.emplace_back("OriginId", Type::Unsigned32);
+        }
+
         for (Dimension& d : info.schema)
         {
             const DimId id = layout.findDim(d.name);
             d.stats = DimensionStats(statsFilter.getStats(id));
+            d.stats->count = info.points;
         }
     }
 }
@@ -345,11 +396,43 @@ void Builder::saveSources(const unsigned threads)
     {
         // If we are a subset, write the whole detailed metadata as one giant
         // blob, since we know we're going to need to wake up the whole thing to
-        // do the merge.
-        ensurePut(
-            endpoints.sources,
-            manifestFilename,
-            json(manifest).dump(getIndent(pretty)));
+        // do the merge.  In this case, aside from the schema which contains
+        // detailed dimension stats for the subset, each corresponding item is 
+        // identical per subset: so in that case we will only write the path and
+        // schema.
+        if (metadata.subset->id != 1)
+        {
+            json list = json::array();
+            for (auto& item : manifest)
+            {
+                list.push_back({
+                    { "path", item.source.path },
+                    { "inserted", item.inserted }
+                });
+
+                const auto& info = item.source.info;
+                auto& j = list.back();
+
+                if (item.inserted)
+                {
+                    j.update({ { "points", info.points } });
+
+                    if (info.points) j.update({ { "schema", info.schema } });
+                }
+            }
+
+            ensurePut(
+                endpoints.sources,
+                manifestFilename,
+                list.dump(getIndent(pretty)));
+        }
+        else
+        {
+            ensurePut(
+                endpoints.sources,
+                manifestFilename,
+                json(manifest).dump(getIndent(pretty)));
+        }
     }
     else
     {
@@ -562,10 +645,15 @@ void merge(
                     verbose);
                 builder::mergeOne(builder, current, cache);
 
-                std::lock_guard<std::mutex> lock(mutex);
-                builder.manifest = manifest::merge(
-                    builder.manifest,
-                    current.manifest);
+                // Our base builder contains the manifest of subset 1 so we
+                // don't need to merge that one.
+                if (id > 1)
+                {
+                    std::lock_guard<std::mutex> lock(mutex);
+                    builder.manifest = manifest::merge(
+                        builder.manifest,
+                        current.manifest);
+                }
             });
         }
         else if (verbose) std::cout << "skipping" << std::endl;

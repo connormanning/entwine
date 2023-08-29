@@ -61,13 +61,15 @@ void ChunkCache::join()
             }));
 }
 
-void ChunkCache::insert(
+bool ChunkCache::insert(
         Voxel& voxel,
         Key& key,
         const ChunkKey& ck,
         Clipper& clipper)
 {
-    assert(ck.depth() < maxDepth);
+    // This point is likely one of several thousand points with exactly
+    // duplicated XYZ values - discard it.
+    if (ck.depth() >= maxDepth) return false;
 
     // Get from single-threaded cache if we can.
     Chunk* chunk = clipper.get(ck);
@@ -76,12 +78,12 @@ void ChunkCache::insert(
     if (!chunk) chunk = &addRef(ck, clipper);
 
     // Try to insert the point into this chunk.
-    if (chunk->insert(*this, clipper, voxel, key)) return;
+    if (chunk->insert(*this, clipper, voxel, key)) return true;
 
     // Failed to insert - need to traverse to the next depth.
     key.step(voxel.point());
     const Dir dir(getDirection(ck.bounds().mid(), voxel.point()));
-    insert(voxel, key, chunk->childAt(dir), clipper);
+    return insert(voxel, key, chunk->childAt(dir), clipper);
 }
 
 Chunk& ChunkCache::addRef(const ChunkKey& ck, Clipper& clipper)

@@ -71,7 +71,7 @@ public:
 
     ~ChunkCache();
 
-    void insert(Voxel& voxel, Key& key, const ChunkKey& ck, Clipper& clipper);
+    bool insert(Voxel& voxel, Key& key, const ChunkKey& ck, Clipper& clipper);
     void clip(uint64_t depth, const std::map<Xyz, Chunk*>& stale);
     void clipped() { maybePurge(m_cacheSize); }
     void join();

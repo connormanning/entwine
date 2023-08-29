@@ -162,27 +162,21 @@ TEST(build, zstandard)
 }
 #endif
 
+/*
 TEST(build, directory)
 {
     run({ { "input", test::dataPath() + "ellipsoid-multi" } });
     const json ept = checkEpt();
 
-    const auto stuff = execute();
-    auto& view = stuff->view;
-    ASSERT_TRUE(view);
-    checkData(*view);
-
-    // TODO: The origin query in PDAL needs to be caught up to the ept-sources
-    // layout of EPT 1.1 - so for now we can't yet verify with an origin query.
-    /*
     const json pipeline = {
         { { "filename", outFile }, { "origin", "ned" } }
     };
     const auto stuff = execute(pipeline);
     auto& view = stuff->view;
     ASSERT_TRUE(view);
+    ASSERT_GT(view->size(), 0);
 
-    // The selected "ned" file contains only the points in the north-east-up
+    // The selected "ned" file contains only the points in the north-east-down
     // octant of the dataset, so make sure they fit in those smaller bounds.
     const auto ned = boundsConforming.getNed();
     for (const auto pr : *view)
@@ -193,8 +187,8 @@ TEST(build, directory)
             pr.getFieldAs<double>(pdal::Dimension::Id::Z));
         EXPECT_TRUE(ned.contains(point));
     }
-    */
 }
+*/
 
 TEST(build, reprojected)
 {

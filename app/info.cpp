@@ -57,7 +57,7 @@ void Info::addArgs()
 
 void Info::run()
 {
-    const arbiter::Arbiter a = config::getArbiter(m_json);
+    const std::unique_ptr<arbiter::Arbiter> a = config::getArbiter(m_json);
     StringList inputs = config::getInput(m_json);
     if (inputs.empty())
     {
@@ -67,10 +67,11 @@ void Info::run()
     if (std::any_of(inputs.begin(), inputs.end(), isDirectory))
     {
         std::cout << "Resolving inputs..." << std::endl;
-        inputs = resolve(inputs, a);
+        inputs = resolve(inputs, *a);
         std::cout << "\tResolved." << std::endl;
     }
 
+    std::cout << "Parsing" << std::endl;
     const std::string output = config::getOutput(m_json);
     const std::string tmp = config::getTmp(m_json);
     const bool deep = config::getDeep(m_json);
@@ -78,6 +79,7 @@ void Info::run()
     const json pipeline = config::getPipeline(m_json);
     const auto reprojection = config::getReprojection(m_json);
     const std::string summaryFilename = m_json.value("summary", "");
+    std::cout << "Parsed" << std::endl;
 
     if (inputs.empty()) throw std::runtime_error("No files found!");
 
@@ -97,7 +99,7 @@ void Info::run()
         pipeline,
         deep,
         tmp,
-        a,
+        *a,
         threads);
     const SourceInfo summary = manifest::reduce(sources);
 
@@ -122,7 +124,7 @@ void Info::run()
     {
         std::cout << "Saving output..." << std::endl;
         const bool pretty = sources.size() <= 1000;
-        const auto endpoint = a.getEndpoint(output);
+        const auto endpoint = a->getEndpoint(output);
         saveMany(sources, endpoint, threads, pretty);
         std::cout << "\tSaved." << std::endl;
     }
@@ -130,7 +132,7 @@ void Info::run()
     if (summaryFilename.size())
     {
         std::cout << "Saving summary..." << std::endl;
-        a.put(summaryFilename, json(summary).dump(2));
+        a->put(summaryFilename, json(summary).dump(2));
     }
 }
 

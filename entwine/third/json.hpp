@@ -10,9 +10,9 @@
 
 #pragma once
 
-#include <entwine/third/mjson/json.hpp>
+#include <entwine/third/nlohmann/json.hpp>
 
-namespace entwine { using json = nlohmann::json; namespace nsjson = nlohmann; }
+namespace entwine { using json = nlohmann::json; }
 
 // Work around:
 // https://github.com/nlohmann/json/issues/709
@@ -24,4 +24,3 @@ inline void PrintTo(json const& json, std::ostream* os)
     *os << json.dump();
 }
 }
-
