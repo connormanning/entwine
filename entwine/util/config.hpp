@@ -68,7 +68,6 @@ bool getStats(const json& j);
 bool getForce(const json& j);
 bool getAbsolute(const json& j);
 bool getAllowOriginId(const json& j);
-bool getWithSchemaStats(const json& j);
 
 uint64_t getSpan(const json& j);
 uint64_t getMinNodeSize(const json& j);

@@ -241,10 +241,6 @@ bool getStats(const json& j) { return j.value("stats", true); }
 bool getForce(const json& j) { return j.value("force", false); }
 bool getAbsolute(const json& j) { return j.value("absolute", false); }
 bool getAllowOriginId(const json& j) { return j.value("allowOriginId", true); }
-bool getWithSchemaStats(const json& j)
-{
-    return j.value("withSchemaStats", true); 
-}
 
 uint64_t getSpan(const json& j)
 {
