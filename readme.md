@@ -13,7 +13,8 @@
 
 Entwine is a data organization library for massive point clouds, designed to conquer datasets of hundreds of billions of points as well as desktop-scale point clouds.  Entwine can index anything that is [PDAL](https://pdal.io)-readable, and can read/write to a variety of sources like S3 or Dropbox.  Builds are completely lossless, so no points will be discarded even for terabyte-scale datasets.
 
-Check out the client demos, showcasing Entwine output with [Cesium](https://viewer.copc.io?state=ccb44831117c8d751bdb751dafac7fd54943dfc3e1825404e6879f88c665c7e6) and [Potree](http://potree.entwine.io) clients.
+Check out the client demos, showcasing Entwine output with [Cesium](https://viewer.copc.io?state=209b4b8dc400dd769eed0b8c15ecb46de666b10658fb12fc9c32c81f48242ad1) (see
+"Sample Data" section) and [Potree](http://potree.entwine.io) clients.
 
 Usage
 --------------------------------------------------------------------------------
