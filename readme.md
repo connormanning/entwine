@@ -46,4 +46,6 @@ Going further
 
 For detailed information about how to configure your builds, check out the [configuration documentation](https://entwine.io/configuration.html).  Here, you can find information about reprojecting your data, using configuration files and templates, enabling S3 capabilities, and all sorts of other settings.
 
-To learn about the Entwine Point Tile file format produced by Entwine, see the [file format documentation](https://entwine.io/entwine-point-tile.html).
+To learn about the Entwine Point Tile (EPT) file format produced by Entwine, see the [file format documentation](https://entwine.io/entwine-point-tile.html).
+
+For an alternative method of generating EPT which can also generate [COPC](https://copc.io) data, see the [Untwine](https://github.com/hobuinc/untwine) project.

@@ -47,14 +47,3 @@ Conda
 The fastest way to get going with Entwine is to use the Conda build.  See the
 :ref:`Quickstart` for more information.  The Conda build will always contain
 the most recent released version of Entwine.
-
-Docker
-................................................................................
-
-Or use the Docker image for the latest code:
-
-::
-
-    docker pull connormanning/entwine
-    docker run -it connormanning/entwine --help
-
