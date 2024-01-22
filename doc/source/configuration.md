@@ -230,19 +230,23 @@ is specified as an array of the format `[xmin, ymin, zmin, xmax, ymax, zmax]`.
 ### schema
 
 An array of objects representing the dimensions to be stored in the output.
-Each dimension is specified with a string `name` and a string `type`.  Typically
+Each dimension is specified with a string `name`, a string `type`, and a string `size`.  Typically
 this field does not need to be specified as it will be inferred from the data
 itself.
 
-Valid `type` values are: `int8`, `int16`, `int32`, `int64`, `uint8`, `uint16`,
-`uint32`, `uint64`, `float`, and `double`.
+Valid `type` values are: `signed`, `unsigned`, and `float`.
+
+Size values are the number of bytes used for each dimension. For example, an `unsigned` 
+type with size 2 is capable of storing any `uint16` value. Likewise, n `unsigned` type 
+with size 4 is capable of storing any `uint32`.
+
 ```json
 {
     "schema": [
-        { "name": "X", "type": "uint32" },
-        { "name": "Y", "type": "uint32" },
-        { "name": "Z", "type": "uint32" },
-        { "name": "Intensity", "type": "int8" }
+        { "name": "X", "type": "unsigned", "size": 4 },
+        { "name": "Y", "type": "unsigned", "size": 4 },
+        { "name": "Z", "type": "unsigned", "size": 4 },
+        { "name": "Intensity", "type": "int8", "size": 1 }
     ]
 }
 ```
