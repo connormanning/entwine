@@ -14,21 +14,18 @@
 #endif
 #include <pdal/filters/SortFilter.hpp>
 
+#include <entwine/io/binary.hpp>
 #include <entwine/util/io.hpp>
 
 namespace entwine
 {
 namespace io
 {
-namespace zstandard
-{
 
-void write(
-    const Metadata& metadata,
-    const Endpoints& endpoints,
+void Zstandard::write(
     const std::string filename,
     BlockPointTable& table,
-    const Bounds bounds)
+    const Bounds bounds) const
 {
 #ifndef NO_ZSTD
     const std::vector<char> uncompressed = binary::pack(metadata, table);
@@ -48,11 +45,7 @@ void write(
 #endif
 }
 
-void read(
-    const Metadata& metadata,
-    const Endpoints& endpoints,
-    const std::string filename,
-    VectorPointTable& table)
+void Zstandard::read(std::string filename, VectorPointTable& table) const
 {
 #ifndef NO_ZSTD
     const std::vector<char> compressed = ensureGetBinary(
@@ -73,6 +66,5 @@ void read(
 #endif
 }
 
-} // namespace zstandard
 } // namespace io
 } // namespace entwine

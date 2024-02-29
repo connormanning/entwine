@@ -24,15 +24,11 @@ namespace entwine
 {
 namespace io
 {
-namespace laszip
-{
 
-void write(
-    const Metadata& metadata,
-    const Endpoints& endpoints,
+void Laszip::write(
     const std::string filename,
     BlockPointTable& table,
-    const Bounds bounds)
+    const Bounds bounds) const
 {
     const arbiter::Endpoint& out(endpoints.data);
     const arbiter::Endpoint& tmp(endpoints.tmp);
@@ -111,11 +107,7 @@ void write(
     }
 }
 
-void read(
-    const Metadata& metadata,
-    const Endpoints& endpoints,
-    const std::string filename,
-    VectorPointTable& table)
+void Laszip::read(std::string filename, VectorPointTable& table) const
 {
     auto handle(endpoints.data.getLocalHandle(filename + ".laz"));
 
@@ -134,6 +126,5 @@ void read(
     reader.execute(table);
 }
 
-} // namespace laszip
 } // namespace io
 } // namespace entwine

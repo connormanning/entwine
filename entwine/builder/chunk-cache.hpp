@@ -11,6 +11,9 @@
 #pragma once
 
 #include <array>
+#include <mutex>
+#include <string>
+#include <vector>
 
 #include <entwine/builder/chunk.hpp>
 #include <entwine/builder/hierarchy.hpp>
@@ -26,8 +29,12 @@ class Clipper;
 class ReffedChunk
 {
 public:
-    ReffedChunk(const Metadata& m, const ChunkKey& ck, const Hierarchy& h)
-        : m_chunk(makeUnique<Chunk>(m, ck, h))
+    ReffedChunk(
+        const Metadata& m, 
+        const Io& io,
+        const ChunkKey& ck, 
+        const Hierarchy& h)
+        : m_chunk(makeUnique<Chunk>(m, io, ck, h))
     { }
 
     SpinLock& spin() { return m_spin; }
@@ -48,10 +55,14 @@ public:
 
     void reset() { m_chunk.reset(); }
     bool exists() { return !!m_chunk; }
-    void assign(const Metadata& m, const ChunkKey& ck, const Hierarchy& h)
+    void assign(
+        const Metadata& m, 
+        const Io& io,
+        const ChunkKey& ck, 
+        const Hierarchy& h)
     {
         assert(!exists());
-        m_chunk = makeUnique<Chunk>(m, ck, h);
+        m_chunk = makeUnique<Chunk>(m, io, ck, h);
     }
 
 private:
@@ -66,6 +77,7 @@ public:
     ChunkCache(
         const Endpoints& endpoints,
         const Metadata& Metadata,
+        const Io& io,
         Hierarchy& hierarchy,
         uint64_t threads);
 
@@ -85,6 +97,12 @@ public:
 
     static Info latchInfo();
 
+    std::vector<std::string> fatalErrors() const
+    {
+        std::lock_guard<std::mutex> lock(m_errorsMutex);
+        return m_errors;
+    }
+
 private:
     Chunk& addRef(const ChunkKey& ck, Clipper& clipper);
     void maybeSerialize(const Dxyz& dxyz);
@@ -93,12 +111,16 @@ private:
 
     const Endpoints& m_endpoints;
     const Metadata& m_metadata;
+    const Io& m_io;
     Hierarchy& m_hierarchy;
     Pool m_pool;
     const uint64_t m_cacheSize = 64;
 
     std::array<SpinLock, maxDepth> m_spins;
     std::array<std::map<Xyz, ReffedChunk>, maxDepth> m_slices;
+
+    mutable std::mutex m_errorsMutex;
+    std::vector<std::string> m_errors;
 
     SpinLock m_ownedSpin;
     std::set<Dxyz> m_owned;

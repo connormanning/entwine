@@ -8,28 +8,26 @@
 *
 ******************************************************************************/
 
-#include <entwine/io/binary.hpp>
+#include <entwine/io/io.hpp>
 
 namespace entwine
 {
 namespace io
 {
-namespace zstandard
+
+struct Zstandard : public Io
 {
+    Zstandard(const Metadata& metadata, const Endpoints& endpoints)
+        : Io(metadata, endpoints)
+    { }
 
-void write(
-    const Metadata& Metadata,
-    const Endpoints& endpoints,
-    const std::string filename,
-    BlockPointTable& table,
-    const Bounds bounds);
+    virtual void write(
+        std::string filename,
+        BlockPointTable& table,
+        const Bounds bounds) const override;
 
-void read(
-    const Metadata& metadata,
-    const Endpoints& endpoints,
-    std::string filename,
-    VectorPointTable& table);
+    void read(std::string filename, VectorPointTable& table) const override;
+};
 
-} // namespace zstandard
 } // namespace io
 } // namespace entwine

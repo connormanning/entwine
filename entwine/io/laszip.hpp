@@ -10,36 +10,26 @@
 
 #pragma once
 
-#include <string>
-#include <vector>
-
-#include <entwine/types/bounds.hpp>
-#include <entwine/types/endpoints.hpp>
-#include <entwine/types/vector-point-table.hpp>
+#include <entwine/io/io.hpp>
 
 namespace entwine
 {
-
-struct Metadata;
-
 namespace io
 {
-namespace laszip
+
+struct Laszip : public Io
 {
+    Laszip(const Metadata& metadata, const Endpoints& endpoints)
+        : Io(metadata, endpoints)
+    { }
 
-void write(
-    const Metadata& Metadata,
-    const Endpoints& endpoints,
-    std::string filename,
-    BlockPointTable& table,
-    const Bounds bounds);
+    virtual void write(
+        std::string filename,
+        BlockPointTable& table,
+        const Bounds bounds) const override;
 
-void read(
-    const Metadata& Metadata,
-    const Endpoints& endpoints,
-    std::string filename,
-    VectorPointTable& table);
+    void read(std::string filename, VectorPointTable& table) const override;
+};
 
-} // namespace laszip
 } // namespace io
 } // namespace entwine

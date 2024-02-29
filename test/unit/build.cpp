@@ -4,6 +4,7 @@
 #include <pdal/PipelineManager.hpp>
 
 #include <entwine/builder/builder.hpp>
+#include <entwine/io/laszip.hpp>
 #include <entwine/types/vector-point-table.hpp>
 #include <entwine/util/config.hpp>
 #include <entwine/util/json.hpp>
@@ -113,6 +114,34 @@ TEST(build, laszip)
     auto& view = stuff->view;
     ASSERT_TRUE(view);
     checkData(*view);
+}
+
+TEST(build, failedWrite)
+{
+    struct FailIo : public io::Laszip
+    {
+        FailIo(const Metadata& metadata, const Endpoints& endpoints)
+            : Laszip(metadata, endpoints)
+        { }
+
+        virtual void write(
+            const std::string filename,
+            BlockPointTable& table,
+            const Bounds bounds) const override
+        {
+            throw std::runtime_error("Faking IO failure");
+        }
+    };
+
+    const json config = {
+        { "input", test::dataPath() + "ellipsoid.laz" },
+        { "output", outDir },
+        { "force", true },
+        { "verbose", false }
+    };
+    Builder builder = builder::create(config);
+    builder.io.reset(new FailIo(builder.metadata, builder.endpoints));
+    ASSERT_ANY_THROW(builder::run(builder, config));
 }
 
 TEST(build, laz14)

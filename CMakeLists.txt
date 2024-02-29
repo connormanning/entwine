@@ -50,7 +50,6 @@ include(${CMAKE_DIR}/pdal.cmake)
 include(${CMAKE_DIR}/system.cmake)
 
 set(THIRD_ROOT $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/entwine/third>)
-message(WARNING "INCLUDING" ${THIRD_ROOT})
 include_directories(SYSTEM PUBLIC ${THIRD_ROOT})
 
 add_subdirectory(entwine)

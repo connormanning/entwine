@@ -19,8 +19,13 @@
 namespace entwine
 {
 
-Chunk::Chunk(const Metadata& m, const ChunkKey& ck, const Hierarchy& hierarchy)
+Chunk::Chunk(
+    const Metadata& m, 
+    const Io& io,
+    const ChunkKey& ck, 
+    const Hierarchy& hierarchy)
     : m_metadata(m)
+    , m_io(io)
     , m_span(m_metadata.span)
     , m_pointSize(getPointSize(m_metadata.absoluteSchema))
     , m_chunkKey(ck)
@@ -173,13 +178,7 @@ uint64_t Chunk::save(const Endpoints& endpoints) const
     const auto filename =
         m_chunkKey.toString() + getPostfix(m_metadata, m_chunkKey.depth());
 
-    io::write(
-        m_metadata.dataType,
-        m_metadata,
-        endpoints,
-        filename,
-        table,
-        m_chunkKey.bounds());
+    m_io.write(filename, table, m_chunkKey.bounds());
 
     return np;
 }
@@ -208,7 +207,7 @@ void Chunk::load(
     const auto filename =
         m_chunkKey.toString() + getPostfix(m_metadata, m_chunkKey.depth());
 
-    io::read(m_metadata.dataType, m_metadata, endpoints, filename, table);
+    m_io.read(filename, table);
 }
 
 } // namespace entwine

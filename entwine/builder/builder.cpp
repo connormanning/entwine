@@ -52,6 +52,7 @@ Builder::Builder(
     bool verbose)
     : endpoints(endpoints)
     , metadata(metadata)
+    , io(Io::create(this->metadata, this->endpoints))
     , manifest(manifest)
     , hierarchy(hierarchy)
     , verbose(verbose)
@@ -64,12 +65,33 @@ uint64_t Builder::run(
 {
     Pool pool(2);
 
+    std::string fatalError;
+
     std::atomic_uint64_t counter(0);
     std::atomic_bool done(false);
     pool.add([&]() { monitor(progressInterval, counter, done); });
-    pool.add([&]() { runInserts(threads, limit, counter); done = true; });
+    pool.add([&]()
+    { 
+        try
+        {
+            runInserts(threads, limit, counter);
+            done = true;
+        }
+        catch (std::exception& e)
+        {
+            fatalError = e.what();
+            done = true;
+        }
+        catch (...)
+        {
+            fatalError = "Fatal error: unknown error";
+            done = true;
+        }
+    });
 
     pool.join();
+
+    if (fatalError.size()) throw new std::runtime_error(fatalError);
 
     return counter;
 }
@@ -91,7 +113,7 @@ void Builder::runInserts(
     const uint64_t stolenThreads = threads.work - actualWorkThreads;
     const uint64_t actualClipThreads = threads.clip + stolenThreads;
 
-    ChunkCache cache(endpoints, metadata, hierarchy, actualClipThreads);
+    ChunkCache cache(endpoints, metadata, *io, hierarchy, actualClipThreads);
     Pool pool(std::min<uint64_t>(actualWorkThreads, manifest.size()));
 
     uint64_t filesInserted = 0;
@@ -101,6 +123,8 @@ void Builder::runInserts(
         origin < manifest.size() && (!limit || filesInserted < limit);
         ++origin)
     {
+        if (cache.fatalErrors().size()) break;
+
         const auto& item = manifest.at(origin);
         const auto& info = item.source.info;
         if (!item.inserted && info.points && active.overlaps(info.bounds))
@@ -125,6 +149,24 @@ void Builder::runInserts(
 
     pool.join();
     cache.join();
+
+    // While pool errors from *input* are not fatal and just get stored and
+    // logged as errors to note that an input file failed to be inserted,
+    // errors reading/writing from the *output* are irrecoverably fatal.  In
+    // this case, log the error and throw, no need to save metadata since
+    // the build is busted.
+    const auto errors = cache.fatalErrors();
+    if (errors.size())
+    {
+        if (verbose)
+        {
+            std::cout << "Fatal error: failed to read or write output data\n";
+            for (const auto& e : errors) std::cout << "\t" << e << std::endl;
+            std::cout << "Terminating fatally corrupted build..." << std::endl;
+        }
+
+        throw std::runtime_error(errors.front());
+    }
 
     save(getTotal(threads));
 }
@@ -616,7 +658,12 @@ void merge(
     Manifest manifest = base.manifest;
 
     Builder builder(endpoints, metadata, manifest, Hierarchy(), verbose);
-    ChunkCache cache(endpoints, builder.metadata, builder.hierarchy, threads);
+    ChunkCache cache(
+        endpoints, 
+        builder.metadata, 
+        *builder.io, 
+        builder.hierarchy, 
+        threads);
 
     if (verbose) std::cout << "Merging" << std::endl;
 
@@ -670,8 +717,9 @@ void mergeOne(Builder& dst, const Builder& src, ChunkCache& cache)
 {
     // TODO: Should make sure that the src/dst metadata match.  For now we're
     // relying on the user not to have done anything weird.
-    const auto& endpoints = dst.endpoints;
     const auto& metadata = dst.metadata;
+    const auto& endpoints = dst.endpoints;
+    auto io = Io::create(metadata, endpoints);
 
     Clipper clipper(cache);
     const auto sharedDepth = getSharedDepth(src.metadata);
@@ -710,7 +758,7 @@ void mergeOne(Builder& dst, const Builder& src, ChunkCache& cache)
             });
 
             const auto stem = key.toString() + getPostfix(src.metadata);
-            io::read(metadata.dataType, metadata, endpoints, stem, table);
+            io->read(stem, table);
         }
     }
 }

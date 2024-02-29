@@ -14,18 +14,40 @@
 #include <memory>
 #include <string>
 
+#include <entwine/types/bounds.hpp>
 #include <entwine/types/endpoints.hpp>
 #include <entwine/types/vector-point-table.hpp>
 #include <entwine/util/json.hpp>
-
-#include <entwine/io/binary.hpp>
-#include <entwine/io/laszip.hpp>
-#include <entwine/io/zstandard.hpp>
 
 namespace entwine
 {
 
 struct Metadata;
+
+struct Io
+{
+    Io(
+        const Metadata& metadata,
+        const Endpoints& endpoints)
+        : metadata(metadata)
+        , endpoints(endpoints)
+    { }
+    virtual ~Io() { }
+
+    static std::unique_ptr<Io> create(
+        const Metadata& metadata,
+        const Endpoints& endpoints);
+
+    virtual void write(
+        std::string filename,
+        BlockPointTable& table,
+        const Bounds bounds) const = 0;
+
+    virtual void read(std::string filename, VectorPointTable& table) const = 0;
+
+    const Metadata& metadata;
+    const Endpoints& endpoints;
+};
 
 namespace io
 {
@@ -38,34 +60,6 @@ inline void to_json(json& j, Type t) { j = toString(t); }
 inline void from_json(const json& j, Type& t)
 {
     t = toType(j.get<std::string>());
-}
-
-template <typename... Args>
-void write(Type type, Args&&... args)
-{
-    auto f = ([type]()
-    {
-        if (type == Type::Binary) return binary::write;
-        if (type == Type::Laszip) return laszip::write;
-        if (type == Type::Zstandard) return zstandard::write;
-        throw std::runtime_error("Invalid data type");
-    })();
-
-    f(std::forward<Args>(args)...);
-}
-
-template <typename... Args>
-void read(Type type, Args&&... args)
-{
-    auto f = ([type]()
-    {
-        if (type == Type::Binary) return binary::read;
-        if (type == Type::Laszip) return laszip::read;
-        if (type == Type::Zstandard) return zstandard::read;
-        throw std::runtime_error("Invalid data type");
-    })();
-
-    f(std::forward<Args>(args)...);
 }
 
 } // namespace io

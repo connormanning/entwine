@@ -8,12 +8,35 @@
 *
 ******************************************************************************/
 
-#include <entwine/io/io.hpp>
-
 #include <stdexcept>
+
+#include <entwine/io/io.hpp>
+#include <entwine/types/metadata.hpp>
+
+#include <entwine/io/binary.hpp>
+#include <entwine/io/laszip.hpp>
+#include <entwine/io/zstandard.hpp>
 
 namespace entwine
 {
+
+std::unique_ptr<Io> Io::create(
+    const Metadata& metadata, 
+    const Endpoints& endpoints)
+{
+    switch (metadata.dataType)
+    {
+        case io::Type::Binary:
+            return std::unique_ptr<Io>(new io::Binary(metadata, endpoints));
+        case io::Type::Laszip:
+            return std::unique_ptr<Io>(new io::Laszip(metadata, endpoints));
+        case io::Type::Zstandard:
+            return std::unique_ptr<Io>(new io::Zstandard(metadata, endpoints));
+        default:
+            throw std::runtime_error("Invalid data IO type");
+    }
+}
+
 namespace io
 {
 

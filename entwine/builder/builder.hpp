@@ -63,6 +63,8 @@ struct Builder
 
     Endpoints endpoints;
     Metadata metadata;
+    std::unique_ptr<Io> io;
+
     Manifest manifest;
     Hierarchy hierarchy;
     bool verbose = true;

@@ -10,20 +10,27 @@
 
 #pragma once
 
-#include <string>
-#include <vector>
-
-#include <entwine/types/bounds.hpp>
-#include <entwine/types/endpoints.hpp>
-#include <entwine/types/vector-point-table.hpp>
+#include <entwine/io/io.hpp>
 
 namespace entwine
 {
-
-struct Metadata;
-
 namespace io
 {
+
+struct Binary : public Io
+{
+    Binary(const Metadata& metadata, const Endpoints& endpoints)
+        : Io(metadata, endpoints)
+    { }
+
+    virtual void write(
+        std::string filename,
+        BlockPointTable& table,
+        const Bounds bounds) const override;
+
+    void read(std::string filename, VectorPointTable& table) const override;
+};
+
 namespace binary
 {
 
@@ -32,19 +39,6 @@ void unpack(
     const Metadata& m,
     VectorPointTable& dst,
     std::vector<char>&& buffer);
-
-void write(
-    const Metadata& Metadata,
-    const Endpoints& endpoints,
-    const std::string filename,
-    BlockPointTable& table,
-    const Bounds bounds);
-
-void read(
-    const Metadata& metadata,
-    const Endpoints& endpoints,
-    std::string filename,
-    VectorPointTable& table);
 
 } // namespace binary
 } // namespace io

@@ -16,6 +16,7 @@
 
 #include <entwine/builder/hierarchy.hpp>
 #include <entwine/builder/overflow.hpp>
+#include <entwine/io/io.hpp>
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/endpoints.hpp>
 #include <entwine/types/vector-point-table.hpp>
@@ -36,7 +37,11 @@ struct VoxelTube
 class Chunk
 {
 public:
-    Chunk(const Metadata& m, const ChunkKey& ck, const Hierarchy& hierarchy);
+    Chunk(
+        const Metadata& m, 
+        const Io& io,
+        const ChunkKey& ck, 
+        const Hierarchy& hierarchy);
 
     bool insert(ChunkCache& cache, Clipper& clipper, Voxel& voxel, Key& key);
     uint64_t save(const Endpoints& endpoints) const;
@@ -65,6 +70,7 @@ private:
     void doOverflow(ChunkCache& cache, Clipper& clipper, uint64_t dir);
 
     const Metadata& m_metadata;
+    const Io& m_io;
     const uint64_t m_span;
     const uint64_t m_pointSize;
     const ChunkKey m_chunkKey;
