@@ -37,7 +37,8 @@ BuildParameters getBuildParameters(const json& j)
         getSleepCount(j),
         getProgressInterval(j),
         getHierarchyStep(j),
-        getVerbose(j));
+        getVerbose(j),
+        j.value("laz_14", false));
 }
 
 } // unnamed namespace

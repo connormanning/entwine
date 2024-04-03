@@ -120,7 +120,6 @@ TEST(build, laszip14)
 {
     run({ { "input", test::dataPath() + "ellipsoid14.laz" } });
     const json ept = checkEpt();
-    // By default, since this is laszip input, our output will be laszip.
     EXPECT_EQ(ept.at("dataType").get<std::string>(), "laszip");
 
     const auto stuff = execute();
@@ -133,10 +132,9 @@ TEST(build, withflags)
 {
     run({ { "input", test::dataPath() + "ellipsoid14.laz" } });
     const json ept = checkEpt();
-    // By default, since this is laszip input, our output will be laszip.
     EXPECT_EQ(ept.at("dataType").get<std::string>(), "laszip");
 
-    const auto stuff = execute({ outDir + "ept-data/0-0-0-0.laz" });
+    const auto stuff = execute();
 
     auto& view = stuff->view;
     ASSERT_TRUE(view);
@@ -144,6 +142,26 @@ TEST(build, withflags)
     for (const auto pr : *view)
     {
         ASSERT_TRUE(pr.getFieldAs<bool>(pdal::Dimension::Id::KeyPoint));
+    }
+}
+
+TEST(build, laz14Output)
+{
+    run({ 
+        { "input", test::dataPath() + "ellipsoid-class33.laz" },
+        { "laz_14", true },
+    });
+    const json ept = checkEpt();
+    EXPECT_EQ(ept.at("dataType").get<std::string>(), "laszip");
+
+    const auto stuff = execute();
+
+    auto& view = stuff->view;
+    ASSERT_TRUE(view);
+    checkData(*view);
+    for (const auto pr : *view)
+    {
+        ASSERT_EQ(pr.getFieldAs<int>(pdal::Dimension::Id::Classification), 33);
     }
 }
 
@@ -173,21 +191,6 @@ TEST(build, failedWrite)
     Builder builder = builder::create(config);
     builder.io.reset(new FailIo(builder.metadata, builder.endpoints));
     ASSERT_ANY_THROW(builder::run(builder, config));
-}
-
-TEST(build, laz14)
-{
-    run({
-        { "input", test::dataPath() + "ellipsoid.laz" },
-        { "laz_14", "true" }
-    });
-    const json ept = checkEpt();
-    EXPECT_EQ(ept.at("dataType").get<std::string>(), "laszip");
-
-    const auto stuff = execute();
-    auto& view = stuff->view;
-    ASSERT_TRUE(view);
-    checkData(*view);
 }
 
 TEST(build, binary)

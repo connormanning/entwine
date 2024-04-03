@@ -179,9 +179,12 @@ void Build::addArgs()
 
     m_ap.add(
             "--laz_14",
-            "Write LAZ 1.4 content encoding (default: false)"
-            "logging (default: 10).",
-            [this](json j) { m_json["laz_14"] = extract(j); });
+            "Write LAZ 1.4 content encoding (default: false)",
+            [this](json j)
+            {
+                checkEmpty(j);
+                m_json["laz_14"] = true;
+            });
 
     addArbiter();
 }

@@ -45,22 +45,31 @@ void Laszip::write(
     reader.addView(view);
 
     // See https://www.pdal.io/stages/writers.las.html
-    const uint64_t timeMask(contains(metadata.schema, "GpsTime") ? 1 : 0);
-    const uint64_t colorMask(contains(metadata.schema, "Red") ? 2 : 0);
+    const bool hasColor = contains(metadata.schema, "Red");
 
     pdal::Options options;
     options.add("filename", localDir + localFile);
 
     if (metadata.internal.laz_14)
+    {
+        const bool hasNir = contains(metadata.schema, "Infrared");
+        int pdrf = hasColor ? 7 : 6;
+        if (hasNir) pdrf = 8;
         options.add("minor_version", 4);
+        options.add("dataformat_id", pdrf);
+    }
     else
+    {
+        const uint64_t timeMask(contains(metadata.schema, "GpsTime") ? 1 : 0);
+        const uint64_t colorMask(hasColor ? 2 : 0);
         options.add("minor_version", 2);
+        options.add("dataformat_id", timeMask | colorMask);
+    }
 
 
     options.add("extra_dims", "all");
     options.add("software_id", "Entwine " + currentEntwineVersion().toString());
 
-    options.add("dataformat_id", timeMask | colorMask);
 
     const auto so = getScaleOffset(metadata.schema);
     if (!so) throw std::runtime_error("Scale/offset is required for laszip");
