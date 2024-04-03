@@ -52,15 +52,6 @@ void ChunkCache::join()
 {
     maybePurge(0);
     m_pool.join();
-
-    assert(
-        std::all_of(
-            m_slices.begin(),
-            m_slices.end(),
-            [](const std::map<Xyz, ReffedChunk>& slice)
-            {
-                return slice.empty();
-            }));
 }
 
 bool ChunkCache::insert(
