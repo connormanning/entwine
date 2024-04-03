@@ -78,8 +78,8 @@ Dimension combine(Dimension agg, const Dimension& dim);
 Schema combine(Schema agg, const Schema& list, bool fixed = false);
 
 Schema makeAbsolute(Schema list);
-Schema fromLayout(const pdal::PointLayout& layout);
-FixedPointLayout toLayout(const Schema& list);
+Schema fromLayout(const pdal::PointLayout& layout, bool islas);
+FixedPointLayout toLayout(const Schema& list, bool islas);
 
 Schema setScaleOffset(Schema dims, ScaleOffset so);
 optional<ScaleOffset> getScaleOffset(const Schema& dims);

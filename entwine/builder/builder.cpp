@@ -276,7 +276,9 @@ void Builder::insert(
     // won't count them.
     info.points = 0;
 
-    auto layout = toLayout(metadata.absoluteSchema);
+    auto layout = toLayout(
+        metadata.absoluteSchema, 
+        metadata.dataType == io::Type::Laszip);
     VectorPointTable table(layout);
     table.setProcess([&]()
     {
@@ -736,7 +738,9 @@ void mergeOne(Builder& dst, const Builder& src, ChunkCache& cache)
         }
         else
         {
-            auto layout = toLayout(metadata.absoluteSchema);
+            auto layout = toLayout(
+                metadata.absoluteSchema, 
+                metadata.dataType == io::Type::Laszip);
             VectorPointTable table(layout, count);
             table.setProcess([&]()
             {

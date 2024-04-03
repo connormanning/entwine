@@ -169,7 +169,9 @@ uint64_t Chunk::save(const Endpoints& endpoints) const
     uint64_t np(m_gridBlock.size());
     for (const auto& o : m_overflows) if (o) np += o->block.size();
 
-    auto layout = toLayout(m_metadata.absoluteSchema);
+    auto layout = toLayout(
+        m_metadata.absoluteSchema, 
+        m_metadata.dataType == io::Type::Laszip);
     BlockPointTable table(layout);
     table.reserve(np);
     table.insert(m_gridBlock);
@@ -189,7 +191,9 @@ void Chunk::load(
         const Endpoints& endpoints,
         const uint64_t np)
 {
-    auto layout = toLayout(m_metadata.absoluteSchema);
+    auto layout = toLayout(
+        m_metadata.absoluteSchema, 
+        m_metadata.dataType == io::Type::Laszip);
     VectorPointTable table(layout, np);
     table.setProcess([&]()
     {

@@ -96,8 +96,6 @@ TEST(srs, fromHorizontalWkt)
 
 TEST(srs, fromCompoundWkt)
 {
-    // Unfortunately GDAL's auto-identify-vertical-EPSG doesn't actually return
-    // the vertical in this case.
     const std::string s("EPSG:26915+5703");
     pdal::SpatialReference ref(s);
     Srs srs(ref.getWKT());
@@ -105,13 +103,14 @@ TEST(srs, fromCompoundWkt)
     EXPECT_FALSE(srs.empty());
     EXPECT_EQ(srs.authority(), "EPSG");
     EXPECT_EQ(srs.horizontal(), "26915");
-    EXPECT_EQ(srs.vertical(), "");
+    EXPECT_EQ(srs.vertical(), "5703");
     EXPECT_EQ(srs.wkt(), ref.getWKT());
 
     const json j(srs);
     const json v {
         { "authority", "EPSG" },
         { "horizontal", "26915" },
+        { "vertical", "5703" },
         { "wkt", ref.getWKT() }
     };
     EXPECT_EQ(j, v) << j.dump(2) << " != " << v.dump(2) << std::endl;

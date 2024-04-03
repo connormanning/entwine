@@ -100,7 +100,7 @@ SourceInfo getShallowInfo(const json pipeline)
 
     lock.unlock();
 
-    info.schema = fromLayout(*table.layout());
+    info.schema = fromLayout(*table.layout(), false);
     if (const auto so = getScaleOffset(reader))
     {
         info.schema = setScaleOffset(info.schema, *so);

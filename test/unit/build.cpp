@@ -63,7 +63,7 @@ namespace
         EXPECT_EQ(ept.at("hierarchyType").get<std::string>(), "json");
         EXPECT_EQ(ept.at("points").get<int>(), 100000);
         EXPECT_EQ(ept.at("span").get<int>(), 32);
-        EXPECT_EQ(Srs(ept.at("srs")), srs);
+        EXPECT_EQ(ept.at("srs").get<Srs>(), srs);
         EXPECT_EQ(ept.at("version").get<std::string>(), "1.1.0");
         const Schema schema = ept.at("schema").get<Schema>();
         EXPECT_TRUE(hasStats(schema));
@@ -114,6 +114,37 @@ TEST(build, laszip)
     auto& view = stuff->view;
     ASSERT_TRUE(view);
     checkData(*view);
+}
+
+TEST(build, laszip14)
+{
+    run({ { "input", test::dataPath() + "ellipsoid14.laz" } });
+    const json ept = checkEpt();
+    // By default, since this is laszip input, our output will be laszip.
+    EXPECT_EQ(ept.at("dataType").get<std::string>(), "laszip");
+
+    const auto stuff = execute();
+    auto& view = stuff->view;
+    ASSERT_TRUE(view);
+    checkData(*view);
+}
+
+TEST(build, withflags)
+{
+    run({ { "input", test::dataPath() + "ellipsoid14.laz" } });
+    const json ept = checkEpt();
+    // By default, since this is laszip input, our output will be laszip.
+    EXPECT_EQ(ept.at("dataType").get<std::string>(), "laszip");
+
+    const auto stuff = execute({ outDir + "ept-data/0-0-0-0.laz" });
+
+    auto& view = stuff->view;
+    ASSERT_TRUE(view);
+    checkData(*view);
+    for (const auto pr : *view)
+    {
+        ASSERT_TRUE(pr.getFieldAs<bool>(pdal::Dimension::Id::KeyPoint));
+    }
 }
 
 TEST(build, failedWrite)

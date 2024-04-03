@@ -46,7 +46,7 @@ std::vector<char> pack(const Metadata& m, BlockPointTable& src)
 {
     const uint64_t np(src.size());
 
-    auto layout = toLayout(m.schema);
+    auto layout = toLayout(m.schema, false);
     VectorPointTable dst(layout, np);
 
     // Handle XYZ separately since we might need to scale/offset them.
@@ -102,7 +102,7 @@ void unpack(
     VectorPointTable& dst,
     std::vector<char>&& packed)
 {
-    auto scaledLayout = toLayout(m.schema);
+    auto scaledLayout = toLayout(m.schema, false);
     VectorPointTable src(scaledLayout, std::move(packed));
 
     const uint64_t np(src.capacity());
@@ -111,7 +111,7 @@ void unpack(
     // For reading, our destination schema will always be normalized (i.e. XYZ
     // as doubles).  So we can just copy the full dimension list and then
     // transform XYZ in place, if necessary.
-    auto absoluteLayout = toLayout(m.absoluteSchema);
+    auto absoluteLayout = toLayout(m.absoluteSchema, false);
     pdal::DimTypeList dimTypes(absoluteLayout.dimTypes());
 
     pdal::PointRef srcPr(src, 0);
