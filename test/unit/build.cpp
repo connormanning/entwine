@@ -118,50 +118,24 @@ TEST(build, laszip)
 
 TEST(build, laszip14)
 {
-    run({ { "input", test::dataPath() + "ellipsoid14.laz" } });
-    const json ept = checkEpt();
-    EXPECT_EQ(ept.at("dataType").get<std::string>(), "laszip");
-
-    const auto stuff = execute();
-    auto& view = stuff->view;
-    ASSERT_TRUE(view);
-    checkData(*view);
-}
-
-TEST(build, withflags)
-{
-    run({ { "input", test::dataPath() + "ellipsoid14.laz" } });
-    const json ept = checkEpt();
-    EXPECT_EQ(ept.at("dataType").get<std::string>(), "laszip");
-
-    const auto stuff = execute();
-
-    auto& view = stuff->view;
-    ASSERT_TRUE(view);
-    checkData(*view);
-    for (const auto pr : *view)
-    {
-        ASSERT_TRUE(pr.getFieldAs<bool>(pdal::Dimension::Id::KeyPoint));
-    }
-}
-
-TEST(build, laz14Output)
-{
+    // This file has for every point:
+    //   Classification=33
+    //   KeyPoint=1
     run({ 
-        { "input", test::dataPath() + "ellipsoid-class33.laz" },
-        { "laz_14", true },
+        { "input", test::dataPath() + "ellipsoid14.laz" },
+        { "laz_14", true }
     });
     const json ept = checkEpt();
     EXPECT_EQ(ept.at("dataType").get<std::string>(), "laszip");
 
     const auto stuff = execute();
-
     auto& view = stuff->view;
     ASSERT_TRUE(view);
     checkData(*view);
     for (const auto pr : *view)
     {
         ASSERT_EQ(pr.getFieldAs<int>(pdal::Dimension::Id::Classification), 33);
+        ASSERT_TRUE(pr.getFieldAs<bool>(pdal::Dimension::Id::KeyPoint));
     }
 }
 

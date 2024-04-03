@@ -22,7 +22,8 @@ TEST(init, initializes)
             "ellipsoid-multi/swu.laz",
             "ellipsoid-multi/zzz.txt",
             "ellipsoid-wrong-srs.laz",
-            "ellipsoid.laz"
+            "ellipsoid.laz",
+            "ellipsoid14.laz"
         };
 
         arbiter::mkdirp(test::dataPath());
