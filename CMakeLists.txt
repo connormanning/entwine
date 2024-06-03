@@ -95,13 +95,16 @@ set_target_properties(
 #
 # Test
 #
-option(WITH_TESTS "Choose if Entwine unit tests should be built" TRUE)
-if (WITH_TESTS)
+option(BUILD_TESTING "Choose if Entwine unit tests should be built" TRUE)
+if(DEFINED WITH_TESTS)
+  message(DEPRECATION "WITH_TESTS has been replaced with the standard CMake BUILD_TESTING variable")
+  set(BUILD_TESTING ${WITH_TESTS})
+endif()
+if (BUILD_TESTING)
     message("Configuring with unit tests")
     enable_testing()
     set(GOOGLETEST_VERSION 1.13.0)
     add_subdirectory("${PROJECT_SOURCE_DIR}/test/googletest-1.13.0/googletest")
-
     add_subdirectory(test)
 else()
     message("Configuring with NO unit tests")

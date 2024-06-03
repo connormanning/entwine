@@ -50,8 +50,8 @@ jobs:
               -DBUILD_TESTING=ON \
               -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX} \
               -Dgtest_force_shared_crt=ON \
-              -DWITH_TESTS=ON \
-              -D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING=1 \
+              -DBUILD_TESTING=ON \
+              -DOPENSSL_ROOT_DIR=${CONDA_PREFIX} \
               ..
 
 
