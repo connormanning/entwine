@@ -50,7 +50,8 @@ jobs:
               -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX} \
               -Dgtest_force_shared_crt=ON \
               -DBUILD_TESTING=ON \
-              -DOPENSSL_ROOT_DIR=${CONDA_PREFIX}/lib/ --debug-find \
+              -DBUILD_SHARED_LIBS=ON \
+               --debug-find \
               ..
 
 
