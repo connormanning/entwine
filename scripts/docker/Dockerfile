@@ -13,37 +13,13 @@ RUN printf "I'm building for TARGETPLATFORM=${TARGETPLATFORM}" \
     && printf "and  branch: ${BRANCH}"
 
 
-#RUN echo Branch: $branch
-#ADD https://api.github.com/repos/connormanning/entwine/commits?sha=$branch \
-#    /tmp/bust-cache
-
 RUN mamba install -c conda-forge conda-pack -y
-RUN mamba create -n build -y -c conda-forge ninja cmake compilers
-RUN mamba create -n entwine -y
-
-SHELL ["conda", "run", "-n", "build", "/bin/bash", "-c"]
-
-RUN mamba install -y -c conda-forge entwine --only-deps
-
-RUN git clone https://github.com/connormanning/entwine.git /var/entwine && \
-    cd /var/entwine && \
-    git checkout $BRANCH && \
-    mkdir build && \
-    cd build && \
-    cmake -G Ninja \
-        -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX \
-        -DCMAKE_BUILD_TYPE=Release .. && \
-    ninja && \
-    ninja install
+RUN mamba create -n entwine entwine -y
 
 SHELL ["conda", "run", "-n", "entwine", "/bin/bash", "-c"]
 
 ENV CONDA_ENV_NAME "entwine"
 ENV CONDAENV "/opt/conda/envs/${CONDA_ENV_NAME}"
-
-RUN mamba install -c conda-forge entwine --only-deps
-RUN cp /opt/conda/envs/build/bin/entwine $CONDAENV/bin/entwine
-RUN cp /opt/conda/envs/build/lib/libentwine.so* $CONDAENV/lib
 
 SHELL ["conda", "run", "-n", "base", "/bin/bash", "-c"]
 
