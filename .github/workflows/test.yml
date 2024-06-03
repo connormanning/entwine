@@ -45,12 +45,11 @@ jobs:
         fi
 
         cmake   -G "Ninja"  \
-              -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+              -DCMAKE_BUILD_TYPE=Release \
               -DBUILD_SHARED_LIBS=$BUILD_SHARED_LIBS \
               -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX} \
               -Dgtest_force_shared_crt=ON \
               -DBUILD_TESTING=ON \
-              -DOPENSSL_ROOT_DIR=${CONDA_PREFIX}/lib/ --debug-find \
               ..
 
 
