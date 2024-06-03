@@ -42,16 +42,22 @@ jobs:
         if [ "$RUNNER_OS" == "Windows" ]; then
         export CC=cl.exe
         export CXX=cl.exe
+        export ENTWINE_LIBRARY_PATH=$CONDA_PREFIX/Library/lib
+        export ENTWINE_INCLUDE_PATH=$CONDA_PREFIX/Library/include
+        else
+        export ENTWINE_LIBRARY_PATH=$CONDA_PREFIX/lib
+        export ENTWINE_INCLUDE_PATH=$CONDA_PREFIX/include
         fi
 
         cmake   -G "Ninja"  \
               -DCMAKE_BUILD_TYPE=Release \
-              -DBUILD_SHARED_LIBS=$BUILD_SHARED_LIBS \
               -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX} \
               -Dgtest_force_shared_crt=ON \
               -DBUILD_TESTING=ON \
+              -DCMAKE_LIBRARY_PATH:FILEPATH=$ENTWINE_LIBRARY_PATH \
+              -DCMAKE_INCLUDE_PATH:FILEPATH=$ENTWINE_INCLUDE_PATH \
+              -D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING=1 \
               -DBUILD_SHARED_LIBS=ON \
-               --debug-find \
               ..
 
 
