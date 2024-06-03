@@ -50,7 +50,7 @@ jobs:
               -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX} \
               -Dgtest_force_shared_crt=ON \
               -DBUILD_TESTING=ON \
-              -DOPENSSL_ROOT_DIR=${CONDA_PREFIX}/lib/cmake/OpenSSL --debug-find \
+              -DOPENSSL_ROOT_DIR=${CONDA_PREFIX}/lib/--debug-find \
               ..
 
 
