@@ -1,4 +1,4 @@
-name: entwine-build
+name: build
 channels:
   - conda-forge
 dependencies:

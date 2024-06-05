@@ -19,6 +19,13 @@ macro(ENTWINE_ADD_TEST _name)
         PRIVATE GTEST_LINKED_AS_SHARED_LIBRARY=1)
 
     add_test(NAME ${_name} COMMAND ${test-name})
+    if (WIN32)
+        file(TO_NATIVE_PATH  ${CMAKE_BINARY_DIR} TESTBINDIR)
+        cmake_path(SET TESTBINDIR "${CMAKE_BINARY_DIR}/bin")
+        cmake_path(CONVERT "${TESTBINDIR}" TO_NATIVE_PATH_LIST native_paths)
+        set_property(TEST ${_name} PROPERTY ENVIRONMENT_MODIFICATION
+        "PATH=path_list_prepend:${TESTBINDIR}")
+    endif()
 endmacro(ENTWINE_ADD_TEST)
 
 ENTWINE_ADD_TEST(initialize FILES unit/init.cpp)
