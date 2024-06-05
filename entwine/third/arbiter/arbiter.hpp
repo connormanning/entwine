@@ -1,7 +1,7 @@
 /// Arbiter amalgamated header (https://github.com/connormanning/arbiter).
 /// It is intended to be used with #include "arbiter.hpp"
 
-// Git SHA: 3e8919a297f4dc357e1ef2473bb295d8d1eac226
+// Git SHA: 5c3f36e86e7a74aadb8a98edb14ad207158aa785
 
 // //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: LICENSE
@@ -3277,48 +3277,6 @@ private:
 
 
 // //////////////////////////////////////////////////////////////////////
-// Beginning of content of file: arbiter/util/macros.hpp
-// //////////////////////////////////////////////////////////////////////
-
-#pragma once
-
-#define ROTLEFT(a,b) (((a) << (b)) | ((a) >> (32-(b))))
-#define ROTRIGHT(a,b) (((a) >> (b)) | ((a) << (32-(b))))
-
-// SHA256.
-#define CH(x,y,z) (((x) & (y)) ^ (~(x) & (z)))
-#define MAJ(x,y,z) (((x) & (y)) ^ ((x) & (z)) ^ ((y) & (z)))
-#define EP0(x) (ROTRIGHT(x,2) ^ ROTRIGHT(x,13) ^ ROTRIGHT(x,22))
-#define EP1(x) (ROTRIGHT(x,6) ^ ROTRIGHT(x,11) ^ ROTRIGHT(x,25))
-#define SIG0(x) (ROTRIGHT(x,7) ^ ROTRIGHT(x,18) ^ ((x) >> 3))
-#define SIG1(x) (ROTRIGHT(x,17) ^ ROTRIGHT(x,19) ^ ((x) >> 10))
-
-// MD5.
-#define F(x,y,z) ((x & y) | (~x & z))
-#define G(x,y,z) ((x & z) | (y & ~z))
-#define H(x,y,z) (x ^ y ^ z)
-#define I(x,y,z) (y ^ (x | ~z))
-
-#define FF(a,b,c,d,m,s,t) { a += F(b,c,d) + m + t; \
-                            a = b + ROTLEFT(a,s); }
-#define GG(a,b,c,d,m,s,t) { a += G(b,c,d) + m + t; \
-                            a = b + ROTLEFT(a,s); }
-#define HH(a,b,c,d,m,s,t) { a += H(b,c,d) + m + t; \
-                            a = b + ROTLEFT(a,s); }
-#define II(a,b,c,d,m,s,t) { a += I(b,c,d) + m + t; \
-                            a = b + ROTLEFT(a,s); }
-
-
-// //////////////////////////////////////////////////////////////////////
-// End of content of file: arbiter/util/macros.hpp
-// //////////////////////////////////////////////////////////////////////
-
-
-
-
-
-
-// //////////////////////////////////////////////////////////////////////
 // Beginning of content of file: arbiter/util/md5.hpp
 // //////////////////////////////////////////////////////////////////////
 
@@ -4320,6 +4278,8 @@ private:
             std::string path,
             bool verbose) const override;
 
+    AuthFields authFields() const;
+
     class ApiV4;
     class Resource;
 
@@ -4330,13 +4290,15 @@ private:
 class S3::AuthFields
 {
 public:
-    AuthFields(std::string access, std::string hidden, std::string token = "")
+    AuthFields(std::string access = "", std::string hidden = "", std::string token = "")
         : m_access(access), m_hidden(hidden), m_token(token)
     { }
 
     const std::string& access() const { return m_access; }
     const std::string& hidden() const { return m_hidden; }
     const std::string& token() const { return m_token; }
+
+    explicit operator bool() const { return m_access.size() || m_hidden.size() || m_token.size(); }
 
 private:
     std::string m_access;
