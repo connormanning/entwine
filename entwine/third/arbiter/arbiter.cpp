@@ -353,16 +353,13 @@ std::shared_ptr<Driver> Arbiter::getDriver(const std::string path) const
 {
     const auto type(getProtocol(path));
 
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        auto it = m_drivers.find(type);
-        if (it != m_drivers.end()) return it->second;
-    }
+    std::lock_guard<std::mutex> lock(m_mutex);
+    auto it = m_drivers.find(type);
+    if (it != m_drivers.end()) return it->second;
 
     const json config = getConfig(m_config);
     if (auto driver = Driver::create(*m_pool, type, config.dump()))
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
         m_drivers[type] = driver;
         return driver;
     }
