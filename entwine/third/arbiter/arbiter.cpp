@@ -353,13 +353,16 @@ std::shared_ptr<Driver> Arbiter::getDriver(const std::string path) const
 {
     const auto type(getProtocol(path));
 
-    std::lock_guard<std::mutex> lock(m_mutex);
-    auto it = m_drivers.find(type);
-    if (it != m_drivers.end()) return it->second;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        auto it = m_drivers.find(type);
+        if (it != m_drivers.end()) return it->second;
+    }
 
     const json config = getConfig(m_config);
     if (auto driver = Driver::create(*m_pool, type, config.dump()))
     {
+        std::lock_guard<std::mutex> lock(m_mutex);
         m_drivers[type] = driver;
         return driver;
     }
@@ -1692,8 +1695,6 @@ namespace
     const std::string ec2CredBase(
             ec2CredIp + "/latest/meta-data/iam/security-credentials");
 
-    const std::string defaultDnsSuffix = "amazonaws.com";
-
     // https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html
     const std::string fargateCredIp("169.254.170.2");
 
@@ -1750,11 +1751,6 @@ namespace
         else if (auto e = env("ARBITER_VERBOSE")) verbose = *e;
         return (!verbose.empty()) && !!std::stol(verbose);
     }
-
-    bool doSignRequests()
-    {
-        return !env("AWS_NO_SIGN_REQUEST");
-    }
 }
 
 namespace drivers
@@ -1784,7 +1780,9 @@ std::unique_ptr<S3> S3::create(
         if (auto p = env("AWS_PROFILE")) profile = *p;
     }
 
-    auto auth(doSignRequests() ? Auth::create(s, profile) : nullptr);
+    auto auth(Auth::create(s, profile));
+    if (!auth) return std::unique_ptr<S3>();
+
     auto config = makeUnique<Config>(s, profile);
     return makeUnique<S3>(pool, profile, std::move(auth), std::move(config));
 }
@@ -1955,6 +1953,11 @@ S3::Config::Config(const std::string s, const std::string profile)
                 m_baseHeaders[p.key()] = p.value().get<std::string>();
             }
         }
+        else
+        {
+            std::cout << "s3.headers expected to be object - skipping" <<
+                std::endl;
+        }
     }
 }
 
@@ -2004,12 +2007,6 @@ std::string S3::Config::extractBaseUrl(
     const std::string s,
     const std::string region)
 {
-    if (auto p = env("AWS_ENDPOINT_URL"))
-    {
-        const std::string path = *p;
-        return path.back() == '/' ? path : path + '/';
-    }
-
     const json c(s.size() ? json::parse(s) : json());
 
     if (!c.is_null() &&
@@ -2027,6 +2024,8 @@ std::string S3::Config::extractBaseUrl(
         endpointsPath = *e;
     }
 
+    std::string dnsSuffix("amazonaws.com");
+
     drivers::Fs fsDriver;
     if (std::unique_ptr<std::string> e = fsDriver.tryGet(endpointsPath))
     {
@@ -2034,42 +2033,32 @@ std::string S3::Config::extractBaseUrl(
 
         for (const auto& partition : ep["partitions"])
         {
-            if (
-                !partition.count("regions") || 
-                !partition.at("regions").count(region))
+            if (partition.count("dnsSuffix"))
             {
-                continue;
+                dnsSuffix = partition["dnsSuffix"].get<std::string>();
             }
 
-            // Look for an explicit hostname for this region/service.
-            if (
-                partition.count("services") && 
-                partition["services"].count("s3") &&
-                partition["services"]["s3"].count("endpoints"))
-            {
-                const auto& endpoints(partition["services"]["s3"]["endpoints"]);
+            const auto& endpoints(
+                    partition.at("services").at("s3").at("endpoints"));
 
-                for (const auto& r : endpoints.items())
+            for (const auto& r : endpoints.items())
+            {
+                if (r.key() == region &&
+                        endpoints.value("region", json::object())
+                            .count("hostname"))
                 {
-                    if (r.key() == region &&
-                            endpoints.value("region", json::object())
-                                .count("hostname"))
-                    {
-                        return endpoints["region"]["hostname"].get<std::string>() +
-                            '/';
-                    }
+                    return endpoints["region"]["hostname"].get<std::string>() +
+                        '/';
                 }
             }
-
-            // No explicit hostname found, so build it from our region/DNS suffix.
-            std::string dnsSuffix = partition.value("dnsSuffix", defaultDnsSuffix);
-            return "s3." + region + "." + dnsSuffix + "/";
         }
     }
 
+    if (dnsSuffix.size() && dnsSuffix.back() != '/') dnsSuffix += '/';
+
     // https://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region
-    if (region == "us-east-1") return "s3." + defaultDnsSuffix + "/";
-    else return "s3-" + region + "." + defaultDnsSuffix + "/";
+    if (region == "us-east-1") return "s3." + dnsSuffix;
+    else return "s3-" + region + "." + dnsSuffix;
 }
 
 S3::AuthFields S3::Auth::fields() const
@@ -2153,7 +2142,7 @@ std::unique_ptr<std::size_t> S3::tryGetSize(
             "HEAD",
             m_config->region(),
             resource,
-            authFields(),
+            m_auth->fields(),
             query,
             headers,
             empty);
@@ -2189,7 +2178,7 @@ bool S3::get(
             "GET",
             m_config->region(),
             resource,
-            authFields(),
+            m_auth->fields(),
             query,
             headers,
             empty);
@@ -2207,10 +2196,11 @@ bool S3::get(
         data = res.data();
         return true;
     }
-
-    if (isVerbose()) std::cout << res.code() << ": " << res.str() << std::endl;
-
-    return false;
+    else
+    {
+        std::cout << res.code() << ": " << res.str() << std::endl;
+        return false;
+    }
 }
 
 std::vector<char> S3::put(
@@ -2233,7 +2223,7 @@ std::vector<char> S3::put(
             "PUT",
             m_config->region(),
             resource,
-            authFields(),
+            m_auth->fields(),
             query,
             headers,
             data);
@@ -2383,11 +2373,6 @@ std::vector<std::string> S3::glob(std::string path, bool verbose) const
     return results;
 }
 
-S3::AuthFields S3::authFields() const
-{
-    return m_auth ? m_auth->fields() : S3::AuthFields();
-}
-
 S3::ApiV4::ApiV4(
         const std::string verb,
         const std::string& region,
@@ -2421,8 +2406,6 @@ S3::ApiV4::ApiV4(
         m_headers.erase("Transfer-Encoding");
         m_headers.erase("Expect");
     }
-
-    if (!m_authFields) return;
 
     const Headers normalizedHeaders(
             std::accumulate(
@@ -2917,7 +2900,7 @@ std::unique_ptr<std::size_t> AZ::tryGetSize(
     if (m_config->hasSasToken())
     {
         Query q = m_config->sasToken();
-        q.insert(std::begin(query), std::end(query));
+        q.insert(std::cbegin(query),std::cend(query));
         res.reset(new Response(http.internalHead(resource.url(), headers, q)));
     }
     else
@@ -4462,11 +4445,7 @@ int Curl::perform()
 
     if (code != CURLE_OK)
     {
-        if (m_verbose)
-        {
-            std::cout << "Curl failure: " << curl_easy_strerror(code) << 
-                std::endl;
-        }
+        std::cerr << "Curl failure: " << curl_easy_strerror(code) << std::endl;
         httpCode = 550;
     }
 
@@ -4986,24 +4965,8 @@ Contents parse(const std::string& s)
 
 #ifndef ARBITER_IS_AMALGAMATION
 #include <arbiter/util/md5.hpp>
+#include <arbiter/util/macros.hpp>
 #endif
-
-// Various crypto utilities.
-#define ROTLEFT(a,b) (((a) << (b)) | ((a) >> (32-(b))))
-#define ROTRIGHT(a,b) (((a) >> (b)) | ((a) << (32-(b))))
-#define F(x,y,z) ((x & y) | (~x & z))
-#define G(x,y,z) ((x & z) | (y & ~z))
-#define H(x,y,z) (x ^ y ^ z)
-#define I(x,y,z) (y ^ (x | ~z))
-
-#define FF(a,b,c,d,m,s,t) { a += F(b,c,d) + m + t; \
-                            a = b + ROTLEFT(a,s); }
-#define GG(a,b,c,d,m,s,t) { a += G(b,c,d) + m + t; \
-                            a = b + ROTLEFT(a,s); }
-#define HH(a,b,c,d,m,s,t) { a += H(b,c,d) + m + t; \
-                            a = b + ROTLEFT(a,s); }
-#define II(a,b,c,d,m,s,t) { a += I(b,c,d) + m + t; \
-                            a = b + ROTLEFT(a,s); }
 
 #ifdef ARBITER_CUSTOM_NAMESPACE
 namespace ARBITER_CUSTOM_NAMESPACE
@@ -5225,18 +5188,8 @@ std::string md5(const std::string& data)
 
 #ifndef ARBITER_IS_AMALGAMATION
 #include <arbiter/util/sha256.hpp>
+#include <arbiter/util/macros.hpp>
 #endif
-
-
-// Various crypto utilities.
-#define ROTLEFT(a,b) (((a) << (b)) | ((a) >> (32-(b))))
-#define ROTRIGHT(a,b) (((a) >> (b)) | ((a) << (32-(b))))
-#define CH(x,y,z) (((x) & (y)) ^ (~(x) & (z)))
-#define MAJ(x,y,z) (((x) & (y)) ^ ((x) & (z)) ^ ((y) & (z)))
-#define EP0(x) (ROTRIGHT(x,2) ^ ROTRIGHT(x,13) ^ ROTRIGHT(x,22))
-#define EP1(x) (ROTRIGHT(x,6) ^ ROTRIGHT(x,11) ^ ROTRIGHT(x,25))
-#define SIG0(x) (ROTRIGHT(x,7) ^ ROTRIGHT(x,18) ^ ((x) >> 3))
-#define SIG1(x) (ROTRIGHT(x,17) ^ ROTRIGHT(x,19) ^ ((x) >> 10))
 
 #ifdef ARBITER_CUSTOM_NAMESPACE
 namespace ARBITER_CUSTOM_NAMESPACE
