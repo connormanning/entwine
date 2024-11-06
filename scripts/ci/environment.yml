@@ -2,7 +2,7 @@ name: entwine-build
 channels:
   - conda-forge
 dependencies:
-  - pdal
+  - libpdal-core
   - compilers
   - ninja
   - cmake
