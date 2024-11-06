@@ -32,20 +32,19 @@ jobs:
       run: git config --system core.longpaths true
       if: matrix.platform == 'windows-latest'
 
-    - uses: mamba-org/setup-micromamba@v1
+    - uses: conda-incubator/setup-miniconda@v3
       with:
         init-shell: bash
         environment-file: "scripts/ci/environment.yml"
         environment-name: "entwine-build"
-        cache-downloads: true
 
     - name: Setup
-      shell: bash -l {0}
+      shell: bash -el {0}
       run: |
           source ./scripts/ci/conda/setup.sh
 
     - name: Build
-      shell: bash -l {0}
+      shell: bash -el {0}
       run: |
           source ../scripts/ci/conda/compile.sh
       working-directory: ./entwine-feedstock
