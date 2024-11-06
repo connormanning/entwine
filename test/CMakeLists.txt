@@ -20,9 +20,9 @@ macro(ENTWINE_ADD_TEST _name)
 
     add_test(NAME ${_name}
         COMMAND
-            "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${_test-name}"
+            ${test-name}
         WORKING_DIRECTORY
-           "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/..")
+            "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/..")
 
 
 endmacro(ENTWINE_ADD_TEST)
