@@ -33,6 +33,7 @@ jobs:
 
     - uses: conda-incubator/setup-miniconda@v3
       with:
+        channels: conda-forge
         environment-file: "scripts/ci/environment.yml"
         environment-name: "entwine-build"
 
@@ -43,11 +44,13 @@ jobs:
         if [ "$RUNNER_OS" == "Windows" ]; then
           export CC=cl.exe
           export CXX=cl.exe
+          export PREFIX_BASE=Library
         fi
         mkdir build
         cd build
         cmake .. \
           -G Ninja \
+          -DCMAKE_PREFIX_PATH:FILEPATH="$CONDA_PREFIX/$PREFIX_BASE" \
           -DCMAKE_BUILD_TYPE=RelWithDebInfo \
           -DBUILD_SHARED_LIBS=ON \
           -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX} \
