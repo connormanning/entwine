@@ -34,7 +34,6 @@ jobs:
 
     - uses: conda-incubator/setup-miniconda@v3
       with:
-        init-shell: bash
         environment-file: "scripts/ci/environment.yml"
         environment-name: "entwine-build"
 
