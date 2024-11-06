@@ -34,9 +34,6 @@ jobs:
         environment-file: "scripts/ci/environment.yml"
         environment-name: "entwine-build"
 
-    - uses: ilammy/msvc-dev-cmd@v1
-      if: matrix.os == 'windows-latest'
-
     - name: CMake
       shell: bash -l {0}
       run: |
