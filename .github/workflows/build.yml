@@ -1,4 +1,4 @@
-name: OSX
+name: Linux
 
 on:
   push:
@@ -14,15 +14,15 @@ concurrency:
 
 jobs:
   build:
-    name: OSX
+    name: Linux ${{ matrix.type }}
 
-    runs-on: 'macos-latest'
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
       matrix:
-        type: ['floating']
+        os: ['ubuntu-latest', 'macos-latest', 'windows-latest']
+
     env:
-      BUILD_TYPE: ${{ matrix.type }}
       CACHE_NUMBER: 0
 
     steps:
@@ -31,40 +31,43 @@ jobs:
       run: git config --system core.longpaths true
       if: matrix.platform == 'windows-latest'
     - name: Cache Conda Environment
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       with:
         path: ~/conda_pkgs_dir
         key: ${{ runner.os }}-${{ steps.get-date.outputs.today }}-conda-${{ env.CACHE_NUMBER }}
-    - uses: conda-incubator/setup-miniconda@v2
+    - uses: mamba-org/setup-micromamba@v2
       with:
-        miniforge-variant: Mambaforge
-        miniforge-version: latest
-        environment-file: scripts/ci/environment.yml
-        python-version: "3.10"
-        activate-environment: "entwine-build"
-        use-mamba: true
-        auto-update-conda: true
-
-    - name: Setup
-      shell: bash -l {0}
-      run: |
-          source ./scripts/ci/osx/setup.sh
+        init-shell: bash
+        environment-file: "scripts/ci/environment.yml"
+        environment-name: "entwine-build"
+        cache-environment: true
+        cache-downloads: true
 
     - name: CMake
       shell: bash -l {0}
       run: |
-          source ../scripts/ci/osx/cmake.sh
-      working-directory: ./build
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          export CC=cl.exe
+          export CXX=cl.exe
+        fi
+        mkdir build
+        cmake .. \
+          -G Ninja \
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+          -DBUILD_SHARED_LIBS=ON \
+          -D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING=1 \
+          -Dgtest_force_shared_crt=ON \
+          ..
 
     - name: Compile
       shell: bash -l {0}
       run: |
-          source ../scripts/ci/osx/compile.sh
+        ninja install
       working-directory: ./build
 
     - name: Test
       shell: bash -l {0}
       run: |
-          source ../scripts/ci/osx/test.sh
+        ctest -VV --output-on-failure
       working-directory: ./build
 
