@@ -28,12 +28,11 @@ jobs:
       run: git config --system core.longpaths true
       if: matrix.platform == 'windows-latest'
 
-    - uses: mamba-org/setup-micromamba@v1
+    - uses: conda-incubator/setup-miniconda@v3
       with:
         init-shell: bash
         environment-file: "scripts/ci/environment.yml"
         environment-name: "entwine-build"
-        cache-downloads: true
 
     - uses: ilammy/msvc-dev-cmd@v1
       if: matrix.os == 'windows-latest'
