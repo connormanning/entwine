@@ -1,8 +1,5 @@
 #!/bin/bash
 
-conda install -c conda-forge boa mamba -y
-mamba update -n base -c defaults conda -y
-mamba install conda-build ninja compilers -y
 pwd
 ls
 git clone https://github.com/conda-forge/entwine-feedstock.git
