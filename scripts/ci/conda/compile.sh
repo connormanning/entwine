@@ -17,7 +17,7 @@ if grep -q "macos" <<< "$PDAL_PLATFORM"; then
     CI_PLAT="osx"
 fi
 
-mamba build recipe --clobber-file recipe/recipe_clobber.yaml --output-folder packages -m ".ci_support/${CI_PLAT}_64_openssl1.1.1.yaml"
+conda mambabuild recipe --clobber-file recipe/recipe_clobber.yaml --output-folder packages -m ".ci_support/${CI_PLAT}_.yaml"
 
 mamba install -c ./packages entwine
 
