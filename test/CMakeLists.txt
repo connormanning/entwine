@@ -19,6 +19,15 @@ macro(ENTWINE_ADD_TEST _name)
         PRIVATE GTEST_LINKED_AS_SHARED_LIBRARY=1)
 
     add_test(NAME ${_name} COMMAND ${test-name})
+
+    if (WIN32)
+        set( PATH_MODIFICATION
+          "PATH=path_list_prepend:$<SHELL_PATH:$<TARGET_SONAME_FILE_DIR:gtest>>"
+          "PATH=path_list_prepend:$<SHELL_PATH:$<TARGET_SONAME_FILE_DIR:gtest-main>>"
+           )
+        set_tests_properties( ${_name} PROPERTIES ENVIRONMENT_MODIFICATION "${PATH_MODIFICATION}" )
+    endif()
+
 endmacro(ENTWINE_ADD_TEST)
 
 ENTWINE_ADD_TEST(initialize FILES unit/init.cpp)

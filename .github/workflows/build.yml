@@ -67,6 +67,10 @@ jobs:
     - name: Test
       shell: bash -l {0}
       run: |
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          export PATH="%cd%/bin:$PATH"
+          echo "PATHSETTING $PATH"
+        fi
         ctest -VV --output-on-failure
       working-directory: ./build
 
