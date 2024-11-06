@@ -4,6 +4,8 @@ channels:
 dependencies:
   - libpdal-core
   - compilers
+  - conda-build
+  - boa
   - ninja
   - cmake
   - make  # [not win]
