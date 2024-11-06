@@ -37,7 +37,6 @@ jobs:
         init-shell: bash
         environment-file: "scripts/ci/environment.yml"
         environment-name: "entwine-build"
-        cache-environment: true
         cache-downloads: true
 
     - name: Setup
