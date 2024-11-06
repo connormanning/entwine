@@ -22,7 +22,7 @@ macro(ENTWINE_ADD_TEST _name)
 
     if (WIN32)
         set_property(TEST ${_name} PROPERTY ENVIRONMENT
-             "PATH=$<SHELL_PATH:${CMAKE_BINARY_DIR}>;$ENV{PATH}")
+             "PATH=$<SHELL_PATH:${CMAKE_BINARY_DIR}/bin>;$ENV{PATH}")
     endif()
 
 endmacro(ENTWINE_ADD_TEST)
