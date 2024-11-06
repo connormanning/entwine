@@ -18,12 +18,12 @@ macro(ENTWINE_ADD_TEST _name)
     target_compile_definitions(${test-name}
         PRIVATE GTEST_LINKED_AS_SHARED_LIBRARY=1)
 
-    add_test(NAME ${_name}
-        COMMAND
-            ${test-name}
-        WORKING_DIRECTORY
-            "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/..")
+    add_test(NAME ${_name} COMMAND ${test-name})
 
+    if (WIN32)
+        set_property(TEST ${_name} PROPERTY ENVIRONMENT
+             "PATH=$<SHELL_PATH:${CMAKE_BINARY_DIR}>;$ENV{PATH}")
+    endif()
 
 endmacro(ENTWINE_ADD_TEST)
 
