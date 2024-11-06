@@ -59,6 +59,7 @@ jobs:
           -G Ninja \
           -DCMAKE_BUILD_TYPE=RelWithDebInfo \
           -DBUILD_SHARED_LIBS=ON \
+          -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX} \
           -D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING=1 \
           -Dgtest_force_shared_crt=ON \
           ..
