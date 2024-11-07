@@ -21,8 +21,9 @@ macro(ENTWINE_ADD_TEST _name)
     add_test(NAME ${_name} COMMAND ${test-name})
 
     if (WIN32)
-        set_property(TEST ${_name} PROPERTY ENVIRONMENT
-             "PATH=$<SHELL_PATH:${CMAKE_BINARY_DIR}/bin>;$ENV{PATH}")
+        set_property(TEST ${_name} PROPERTY
+            ENVIRONMENT_MODIFICATION
+            PATH=path_list_append:$<TARGET_RUNTIME_DLL_DIRS:gtest_main>)
     endif()
 
 endmacro(ENTWINE_ADD_TEST)

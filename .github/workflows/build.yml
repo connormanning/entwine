@@ -35,7 +35,10 @@ jobs:
       with:
         channels: conda-forge
         environment-file: "scripts/ci/environment.yml"
-        environment-name: "entwine-build"
+        mamba-version: "*"
+        channels: conda-forge,defaults
+        activate-environment: "entwine-build"
+        channel-priority: true
 
 
     - name: CMake
