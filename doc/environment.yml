@@ -10,8 +10,9 @@ dependencies:
     - breathe
     - pybtex
     - sphinx-rtd-theme
+    - sphinx > 6
     - sphinxcontrib-bibtex
     - sphinxcontrib-spelling
     - sphinx_markdown_tables
     - recommonmark
-    - sphinxcontrib-spelling!=7.4.0
+    - sphinxcontrib-spelling

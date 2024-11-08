@@ -46,8 +46,6 @@ the Red Rocks Amphitheatre dataset from the internet and build an
 
 
 
-::
-
 
 Now we have our output at ``~/entwine/red-rocks``. We could have also
 passed a directory like ``-i ~/nyc/`` to index multiple files.
