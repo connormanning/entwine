@@ -10,7 +10,7 @@ TEST(init, initializes)
     {
         std::cout << "Downloading test data..." << std::endl;
 
-        const std::string base("https://github.com/PDAL/data/raw/master/entwine/test/");
+        const std::string base("https://github.com/PDAL/data/raw/refs/heads/main/entwine/test/");
         const std::vector<std::string> files {
             "ellipsoid-multi/ned.laz",
             "ellipsoid-multi/neu.laz",
