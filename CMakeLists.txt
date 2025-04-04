@@ -72,13 +72,9 @@ if (MSVC)
     add_library(entwine STATIC ${OBJS})
     target_link_libraries(entwine
             PRIVATE
-            wsock32 ws2_32
-            nlohmann_json::nlohmann_json)
+            wsock32 ws2_32)
 else()
     add_library(entwine SHARED ${OBJS})
-    target_link_libraries(entwine
-            PRIVATE
-            nlohmann_json::nlohmann_json)
 endif()
 
 target_link_libraries(entwine
@@ -87,6 +83,7 @@ target_link_libraries(entwine
         ${CMAKE_DL_LIBS}
     PRIVATE
         pdalcpp
+        nlohmann_json::nlohmann_json
         ${CURL_LIBRARIES}
         ${OPENSSL_LIBRARIES}
         ${SHLWAPI}
