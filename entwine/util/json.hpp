@@ -17,10 +17,13 @@
 #include <sstream>
 #include <string>
 
-#include <entwine/third/json.hpp>
+#include <nlohmann/json.hpp>
+using json = nlohmann::json;
 
 namespace entwine
 {
+
+using json = nlohmann::json;
 
 inline std::vector<std::string> keys(const json& j)
 {

@@ -42,6 +42,7 @@ endif()
 include(${CMAKE_DIR}/threads.cmake)
 include(${CMAKE_DIR}/backtrace.cmake)
 include(${CMAKE_DIR}/curl.cmake)
+include(${CMAKE_DIR}/nlohmann.cmake)
 include(${CMAKE_DIR}/openssl.cmake)
 include(${CMAKE_DIR}/pdal.cmake)
 #
@@ -69,9 +70,15 @@ set(OBJS
 
 if (MSVC)
     add_library(entwine STATIC ${OBJS})
-    target_link_libraries(entwine PRIVATE wsock32 ws2_32)
+    target_link_libraries(entwine
+            PRIVATE
+            wsock32 ws2_32
+            nlohmann_json::nlohmann_json)
 else()
     add_library(entwine SHARED ${OBJS})
+    target_link_libraries(entwine
+            PRIVATE
+            nlohmann_json::nlohmann_json)
 endif()
 
 target_link_libraries(entwine
@@ -99,8 +106,7 @@ option(WITH_TESTS "Choose if Entwine unit tests should be built" TRUE)
 if (WITH_TESTS)
     message("Configuring with unit tests")
     enable_testing()
-    set(GOOGLETEST_VERSION 1.13.0)
-    add_subdirectory("${PROJECT_SOURCE_DIR}/test/googletest-1.13.0/googletest")
+    include(${CMAKE_DIR}/gtest.cmake)
 
     add_subdirectory(test)
 else()

@@ -25,7 +25,7 @@ const auto isint = [](const std::string s)
 
 Srs::Srs(std::string full)
     : m_spatialReference(full)
-    , m_wkt(m_spatialReference.getWKT())
+    , m_wkt(m_spatialReference.getWKT2())
 {
     auto pos = full.find(':');
     if (pos != std::string::npos)
@@ -76,6 +76,13 @@ Srs::Srs(const json& j)
     m_horizontal = j.value("horizontal", "");
     m_vertical = j.value("vertical", "");
 
+    // preferentially set from wkt2
+    if (j.count("wkt2"))
+    {
+        m_wkt = j.at("wkt2").get<std::string>();
+        m_spatialReference.set(m_wkt);
+    }
+
     if (j.count("wkt"))
     {
         m_wkt = j.at("wkt").get<std::string>();
@@ -90,6 +97,8 @@ void to_json(json& j, const Srs& srs)
     if (srs.horizontal().size()) j["horizontal"] = srs.horizontal();
     if (srs.vertical().size()) j["vertical"] = srs.vertical();
     if (srs.wkt().size()) j["wkt"] = srs.wkt();
+    std::string wkt2 = srs.wkt2();
+    if (wkt2.size()) j["wkt2"] = srs.wkt2();
 }
 
 void from_json(const json& j, Srs& srs) { srs = Srs(j); }
