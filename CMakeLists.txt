@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.13)
 
-project(entwine LANGUAGES CXX)
+project(entwine LANGUAGES CXX C)
 
 set(ENTWINE_VERSION_MAJOR 3 CACHE STRING "Entwine major version" FORCE)
 set(ENTWINE_VERSION_MINOR 1 CACHE STRING "Entwine minor version" FORCE)

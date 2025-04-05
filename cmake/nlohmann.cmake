@@ -27,15 +27,15 @@ option(USE_EXTERNAL_NLOHMANN "Use an external nlohmann JSON library" ${USE_EXTER
 
 set(NLOHMANN_REQUESTED_VERSION "3.11.3")
 if(USE_EXTERNAL_NLOHMANN)
-    find_package(nlohmann_json "${NLOHMANN_REQUESTED_VERSION}" CONFIG)
     message(STATUS "Using external nlohmann_json")
+    find_package(nlohmann_json "${NLOHMANN_REQUESTED_VERSION}" CONFIG)
 
     if(nlohmann_json_FOUND)
         message(STATUS "External nlohmann_json found in environment")
         return()
     else()
         if(NOT CMAKE_REQUIRED_QUIET)
-            message(STATUS "Fetching remote nlohmann_json from GitHub")
+            message(STATUS "External nlohmann_json not found locally. Fetching remote nlohmann_json from GitHub")
         endif()
         if(POLICY CMP0135)
             cmake_policy(SET CMP0135 NEW)  # for DOWNLOAD_EXTRACT_TIMESTAMP option
