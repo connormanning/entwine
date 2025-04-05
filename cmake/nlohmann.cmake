@@ -37,6 +37,9 @@ if(USE_EXTERNAL_NLOHMANN)
         if(NOT CMAKE_REQUIRED_QUIET)
             message(STATUS "Fetching remote nlohmann_json from GitHub")
         endif()
+        if(POLICY CMP0135)
+            cmake_policy(SET CMP0135 NEW)  # for DOWNLOAD_EXTRACT_TIMESTAMP option
+        endif()
         include(FetchContent)
         FetchContent_Declare(nlohmann
             URL "https://github.com/nlohmann/json/releases/download/v${NLOHMANN_REQUESTED_VERSION}/json.tar.xz")
