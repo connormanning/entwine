@@ -81,6 +81,7 @@ target_link_libraries(entwine
     PRIVATE
         pdalcpp
         OpenSSL::applink
+        OpenSSL::Crypto
         ${SHLWAPI}
 )
 if (CURL_FOUND)
