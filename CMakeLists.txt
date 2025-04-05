@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.13)
 
-project(entwine)
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules" ${CMAKE_MODULE_PATH})
+project(entwine LANGUAGES CXX)
 
 set(ENTWINE_VERSION_MAJOR 3 CACHE STRING "Entwine major version" FORCE)
 set(ENTWINE_VERSION_MINOR 1 CACHE STRING "Entwine minor version" FORCE)
@@ -22,6 +21,7 @@ if ("${CMAKE_BUILD_TYPE}" STREQUAL "")
 endif()
 
 include(FeatureSummary)
+
 
 set(ROOT_DIR ${PROJECT_SOURCE_DIR})
 set(CMAKE_DIR ${ROOT_DIR}/cmake)
@@ -49,9 +49,6 @@ include(${CMAKE_DIR}/pdal.cmake)
 # Must come last.  Depends on vars set in other include files.
 #
 include(${CMAKE_DIR}/system.cmake)
-
-set(THIRD_ROOT $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/entwine/third>)
-include_directories(SYSTEM PUBLIC ${THIRD_ROOT})
 
 add_subdirectory(entwine)
 add_subdirectory(app)
@@ -83,11 +80,15 @@ target_link_libraries(entwine
         ${CMAKE_DL_LIBS}
     PRIVATE
         pdalcpp
-        nlohmann_json::nlohmann_json
-        ${CURL_LIBRARIES}
-        ${OPENSSL_LIBRARIES}
+        OpenSSL::applink
         ${SHLWAPI}
 )
+if (CURL_FOUND)
+    target_link_libraries(entwine
+        PRIVATE
+            CURL::libcurl
+    )
+endif()
 
 set_target_properties(
     entwine

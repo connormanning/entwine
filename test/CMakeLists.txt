@@ -12,7 +12,19 @@ macro(ENTWINE_ADD_TEST _name)
     add_executable(${test-name} ${ENTWINE_ADD_TEST_FILES})
     compiler_options(${test-name})
     target_link_libraries(${test-name}
-        PRIVATE entwine GTest::gtest GTest::gtest_main ${PDAL_LIBRARIES})
+        PRIVATE entwine
+            GTest::gtest
+            GTest::gtest_main
+            OpenSSL::applink
+            pdalcpp
+        )
+    if (CURL_FOUND)
+        target_link_libraries(${test-name}
+            PRIVATE
+                CURL::libcurl
+        )
+    endif()
+
     target_include_directories(${test-name}
         PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/unit)
     target_compile_definitions(${test-name}
