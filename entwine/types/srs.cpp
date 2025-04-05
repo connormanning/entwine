@@ -25,7 +25,8 @@ const auto isint = [](const std::string s)
 
 Srs::Srs(std::string full)
     : m_spatialReference(full)
-    , m_wkt(m_spatialReference.getWKT2())
+    , m_wkt(m_spatialReference.getWKT())
+    , m_wkt2(m_spatialReference.getWKT2())
 {
     auto pos = full.find(':');
     if (pos != std::string::npos)
@@ -79,8 +80,8 @@ Srs::Srs(const json& j)
     // preferentially set from wkt2
     if (j.count("wkt2"))
     {
-        m_wkt = j.at("wkt2").get<std::string>();
-        m_spatialReference.set(m_wkt);
+        m_wkt2 = j.at("wkt2").get<std::string>();
+        m_spatialReference.set(m_wkt2);
     }
 
     if (j.count("wkt"))

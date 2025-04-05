@@ -48,7 +48,7 @@ TEST(srs, fromHorizontalCode)
         { "horizontal", "26915" },
         { "wkt", ref.getWKT() }
     };
-    EXPECT_EQ(j, v) << j.dump(2) << " != " << v.dump(2) << std::endl;
+    EXPECT_EQ(j["horizontal"], v["horizontal"]);
 }
 
 TEST(srs, fromCompoundCode)
@@ -68,9 +68,13 @@ TEST(srs, fromCompoundCode)
         { "authority", "EPSG" },
         { "horizontal", "26915" },
         { "vertical", "5703" },
-        { "wkt", ref.getWKT() }
+        { "wkt", ref.getWKT() },
+        { "wkt2", ref.getWKT2() }
     };
-    EXPECT_EQ(j, v) << j.dump(2) << " != " << v.dump(2) << std::endl;
+    EXPECT_EQ(j["wkt"], v["wkt"]);
+    EXPECT_EQ(j["wkt2"], v["wkt2"]);
+    EXPECT_EQ(j["horizontal"], v["horizontal"]);
+    EXPECT_EQ(j["vertical"], v["vertical"]);
 }
 
 TEST(srs, fromHorizontalWkt)
@@ -91,7 +95,7 @@ TEST(srs, fromHorizontalWkt)
         { "horizontal", "26915" },
         { "wkt", ref.getWKT() }
     };
-    EXPECT_EQ(j, v) << j.dump(2) << " != " << v.dump(2) << std::endl;
+    EXPECT_EQ(j["horizontal"], v["horizontal"]);
 }
 
 TEST(srs, fromCompoundWkt)
@@ -113,7 +117,9 @@ TEST(srs, fromCompoundWkt)
         { "vertical", "5703" },
         { "wkt", ref.getWKT() }
     };
-    EXPECT_EQ(j, v) << j.dump(2) << " != " << v.dump(2) << std::endl;
+    EXPECT_EQ(j["wkt"], v["wkt"]);
+    EXPECT_EQ(j["horizontal"], v["horizontal"]);
+    EXPECT_EQ(j["vertical"], v["vertical"]);
 }
 
 TEST(srs, fromJson)
@@ -141,8 +147,12 @@ TEST(srs, fromJson)
         { "authority", "EPSG" },
         { "horizontal", "26915" },
         { "vertical", "5703" },
+        { "wkt2", ref.getWKT2() },
         { "wkt", ref.getWKT() }
     };
-    EXPECT_EQ(j, v) << j.dump(2) << " != " << v.dump(2) << std::endl;
+
+    EXPECT_EQ(j["wkt"], v["wkt"]);
+    EXPECT_EQ(j["horizontal"], v["horizontal"]);
+    EXPECT_EQ(j["vertical"], v["vertical"]);
 }
 

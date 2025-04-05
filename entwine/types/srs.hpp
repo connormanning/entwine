@@ -65,6 +65,7 @@ private:
     std::string m_horizontal;
     std::string m_vertical;
     std::string m_wkt;
+    std::string m_wkt2;
 };
 
 bool operator==(const Srs& a, const Srs& b);
