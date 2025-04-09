@@ -131,7 +131,8 @@ TEST(srs, fromJson)
         { "authority", "EPSG" },
         { "horizontal", "26915" },
         { "vertical", "5703" },
-        { "wkt", ref.getWKT() }
+        { "wkt", ref.getWKT() },
+        { "projjson", ref.getPROJJSON() }
     };
 
     Srs srs(in);
@@ -141,6 +142,7 @@ TEST(srs, fromJson)
     EXPECT_EQ(srs.horizontal(), "26915");
     EXPECT_EQ(srs.vertical(), "5703");
     EXPECT_EQ(srs.wkt(), ref.getWKT());
+    EXPECT_EQ(srs.projjson(), ref.getPROJJSON());
 
     const json j(srs);
     const json v {
