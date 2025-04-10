@@ -1,7 +1,6 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.13)
 
-project(entwine)
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules" ${CMAKE_MODULE_PATH})
+project(entwine LANGUAGES CXX C)
 
 set(ENTWINE_VERSION_MAJOR 3 CACHE STRING "Entwine major version" FORCE)
 set(ENTWINE_VERSION_MINOR 1 CACHE STRING "Entwine minor version" FORCE)
@@ -23,6 +22,7 @@ endif()
 
 include(FeatureSummary)
 
+
 set(ROOT_DIR ${PROJECT_SOURCE_DIR})
 set(CMAKE_DIR ${ROOT_DIR}/cmake)
 link_directories(${ADDITIONAL_LINK_DIRECTORIES_PATHS})
@@ -42,15 +42,13 @@ endif()
 include(${CMAKE_DIR}/threads.cmake)
 include(${CMAKE_DIR}/backtrace.cmake)
 include(${CMAKE_DIR}/curl.cmake)
+include(${CMAKE_DIR}/nlohmann.cmake)
 include(${CMAKE_DIR}/openssl.cmake)
 include(${CMAKE_DIR}/pdal.cmake)
 #
 # Must come last.  Depends on vars set in other include files.
 #
 include(${CMAKE_DIR}/system.cmake)
-
-set(THIRD_ROOT $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/entwine/third>)
-include_directories(SYSTEM PUBLIC ${THIRD_ROOT})
 
 add_subdirectory(entwine)
 add_subdirectory(app)
@@ -69,7 +67,9 @@ set(OBJS
 
 if (MSVC)
     add_library(entwine STATIC ${OBJS})
-    target_link_libraries(entwine PRIVATE wsock32 ws2_32)
+    target_link_libraries(entwine
+            PRIVATE
+            wsock32 ws2_32)
 else()
     add_library(entwine SHARED ${OBJS})
 endif()
@@ -80,10 +80,16 @@ target_link_libraries(entwine
         ${CMAKE_DL_LIBS}
     PRIVATE
         pdalcpp
-        ${CURL_LIBRARIES}
-        ${OPENSSL_LIBRARIES}
+        OpenSSL::applink
+        OpenSSL::Crypto
         ${SHLWAPI}
 )
+if (CURL_FOUND)
+    target_link_libraries(entwine
+        PRIVATE
+            CURL::libcurl
+    )
+endif()
 
 set_target_properties(
     entwine
@@ -99,8 +105,7 @@ option(WITH_TESTS "Choose if Entwine unit tests should be built" TRUE)
 if (WITH_TESTS)
     message("Configuring with unit tests")
     enable_testing()
-    set(GOOGLETEST_VERSION 1.13.0)
-    add_subdirectory("${PROJECT_SOURCE_DIR}/test/googletest-1.13.0/googletest")
+    include(${CMAKE_DIR}/gtest.cmake)
 
     add_subdirectory(test)
 else()

@@ -55,6 +55,8 @@ public:
     const std::string& horizontal() const { return m_horizontal; }
     const std::string& vertical() const { return m_vertical; }
     const std::string& wkt() const { return m_wkt; }
+    const std::string wkt2() const { return m_spatialReference.getWKT2(); }
+    const std::string projjson() const { return m_spatialReference.getPROJJSON(); }
 
 private:
     pdal::SpatialReference m_spatialReference;
@@ -63,6 +65,7 @@ private:
     std::string m_horizontal;
     std::string m_vertical;
     std::string m_wkt;
+    std::string m_wkt2;
 };
 
 bool operator==(const Srs& a, const Srs& b);

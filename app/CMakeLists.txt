@@ -22,8 +22,18 @@ target_link_libraries(app
         ${PDAL_LIBRARIES}
         ${CMAKE_DL_LIBS}
         ${CMAKE_THREAD_LIBS_INIT}
-        ${JSONCPP_LIBRARY}
+        pdalcpp
+        OpenSSL::applink
+        OpenSSL::Crypto
 )
+if (CURL_FOUND)
+    target_link_libraries(app
+        PRIVATE
+            CURL::libcurl
+    )
+endif()
+
+
 
 if (DEFINED BACKTRACE_DEFS)
   target_link_libraries(app PRIVATE ${Backtrace_LIBRARIES})
