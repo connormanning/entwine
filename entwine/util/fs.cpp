@@ -52,7 +52,7 @@ StringList resolve(const StringList& input, const arbiter::Arbiter& a)
                 }
                 if (last != '/') item.push_back('/');
                 item.push_back('*');
-			}
+            }
             const StringList directory(a.resolve(item));
             for (const auto& item : directory)
             {
