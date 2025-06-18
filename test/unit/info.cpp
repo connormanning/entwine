@@ -84,6 +84,12 @@ TEST(info, directory)
 
     EXPECT_EQ(list.size(), 9);
 
+    // Testing that it can resolve postfix after a wildcard:
+    const StringList globInputs{test::dataPath() + "ellipsoid-multi/*u.laz"};
+    const auto globList = analyze(globInputs);
+
+    EXPECT_EQ(globList.size(), 4);
+     
     const auto info = manifest::reduce(list);
 
     EXPECT_EQ(info.errors.size(), 1);
