@@ -292,9 +292,9 @@ Schema setScaleOffset(Schema dims, const ScaleOffset so)
 
 optional<ScaleOffset> getScaleOffset(const Schema& dims)
 {
-    const auto& x = find(dims, "X");
-    const auto& y = find(dims, "Y");
-    const auto& z = find(dims, "Z");
+    const Dimension x = find(dims, "X");
+    const Dimension y = find(dims, "Y");
+    const Dimension z = find(dims, "Z");
     const Scale scale(x.scale, y.scale, z.scale);
     const Offset offset(x.offset, y.offset, z.offset);
 

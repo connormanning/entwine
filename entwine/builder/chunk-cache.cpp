@@ -227,12 +227,9 @@ void ChunkCache::clip(uint64_t depth, const std::map<Xyz, Chunk*>& stale)
 
 void ChunkCache::maybePurge(const uint64_t maxCacheSize)
 {
-    uint64_t disowned(0);
     UniqueSpin ownedLock(m_ownedSpin);
     while (m_owned.size() > maxCacheSize)
     {
-        ++disowned;
-
         const Dxyz dxyz(*m_owned.rbegin());
         auto& slice(m_slices[dxyz.depth()]);
         UniqueSpin sliceLock(m_spins[dxyz.depth()]);
