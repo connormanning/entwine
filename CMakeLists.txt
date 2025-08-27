@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.13)
 project(entwine LANGUAGES CXX C)
 
 set(ENTWINE_VERSION_MAJOR 3 CACHE STRING "Entwine major version" FORCE)
-set(ENTWINE_VERSION_MINOR 1 CACHE STRING "Entwine minor version" FORCE)
+set(ENTWINE_VERSION_MINOR 2 CACHE STRING "Entwine minor version" FORCE)
 set(ENTWINE_VERSION_PATCH 0 CACHE STRING "Entwine patch version" FORCE)
 set(ENTWINE_VERSION_STRING
     "${ENTWINE_VERSION_MAJOR}.${ENTWINE_VERSION_MINOR}.${ENTWINE_VERSION_PATCH}"
@@ -33,11 +33,7 @@ set(entwine_defs_hpp
     ${PROJECT_BINARY_DIR}/include/entwine/types/defs.hpp)
 configure_file(${entwine_defs_hpp_in} ${entwine_defs_hpp})
 
-option(WITH_ZSTD
-    "Build support for compression/decompression with Zstd." TRUE)
-if (NOT WITH_ZSTD)
-    add_definitions(-DNO_ZSTD)
-endif()
+add_definitions(-DNO_ZSTD)
 
 include(${CMAKE_DIR}/threads.cmake)
 include(${CMAKE_DIR}/backtrace.cmake)
