@@ -7,10 +7,10 @@ Download
 Current Release
 ------------------------------------------------------------------------------
 
-- **2025-08-28** `entwine-3.2.0-src.tar.gz`_ (`release notes`_)
+- **2025-08-28** `entwine-3.2.1-src.tar.gz`_ (`release notes`_)
 
 
-.. _`entwine-3.2.0-src.tar.gz`: https://github.com/connormanning/entwine/archive/3.2.0.tar.gz
+.. _`entwine-3.2.1-src.tar.gz`: https://github.com/connormanning/entwine/archive/3.2.1.tar.gz
 .. _`release notes`: https://github.com/connormanning/entwine/releases/tag/3.2.0
 
 Previous Releases
