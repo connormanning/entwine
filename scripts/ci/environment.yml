@@ -11,4 +11,5 @@ dependencies:
   - ccache
   - xz
   - curl
+  - yq
   - openssl
