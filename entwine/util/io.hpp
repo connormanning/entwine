@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -76,7 +77,12 @@ arbiter::LocalHandle ensureGetLocalHandle(
     const std::string& path,
     int tries = defaultTries);
 
-arbiter::LocalHandle getPointlessLasFile(
+struct MaybePointlessFile
+{
+    arbiter::LocalHandle handle;
+    uint64_t pointCount = 0;
+};
+MaybePointlessFile getPointlessLasFile(
     const std::string& path,
     const std::string& tmp,
     const arbiter::Arbiter& a);

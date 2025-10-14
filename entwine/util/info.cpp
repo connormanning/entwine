@@ -268,12 +268,22 @@ bool areStemsUnique(const SourceList& sources)
     return true;
 }
 
-SourceInfo analyzeOne(const std::string path, const bool deep, json pipeline)
+SourceInfo analyzeOne(
+    const std::string path, 
+    const bool deep, 
+    json pipeline,
+    const uint64_t pointCount)
 {
     try
     {
         pipeline.at(0)["filename"] = path;
-        return deep ? getDeepInfo(pipeline) : getShallowInfo(pipeline);
+        SourceInfo info = deep 
+            ? getDeepInfo(pipeline) 
+            : getShallowInfo(pipeline);
+        
+        if (!info.points && pointCount) info.points = pointCount;
+
+        return info;
     }
     catch (const std::exception& e)
     {
@@ -324,7 +334,7 @@ std::string toLower(std::string s)
     return s;
 }
 
-arbiter::LocalHandle localize(
+MaybePointlessFile localize(
     const std::string path,
     const bool deep,
     const std::string tmp,
@@ -332,7 +342,9 @@ arbiter::LocalHandle localize(
 {
     const std::string extension = toLower(arbiter::getExtension(path));
     const bool isLas = extension == "las" || extension == "laz";
-    if (deep || a.isLocal(path) || !isLas) return a.getLocalHandle(path, tmp);
+    if (deep || a.isLocal(path) || !isLas) {
+        return MaybePointlessFile { a.getLocalHandle(path, tmp) };
+    }
     return getPointlessLasFile(path, tmp, a);
 }
 
@@ -372,11 +384,14 @@ SourceList analyze(
         {
             pool.add([&]()
             {
-                const auto handle(localize(source.path, deep, tmp, a));
+                const auto file(localize(source.path, deep, tmp, a));
+                const auto handle = file.handle;
+                const auto pointCount = file.pointCount;
                 source.info = analyzeOne(
                     handle.localPath(),
                     deep,
-                    pipelineTemplate);
+                    pipelineTemplate,
+                    pointCount);
             });
         }
     }

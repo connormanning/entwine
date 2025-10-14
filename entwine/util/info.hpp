@@ -13,19 +13,25 @@
 #include <entwine/third/arbiter/arbiter.hpp>
 #include <entwine/types/reprojection.hpp>
 #include <entwine/types/source.hpp>
+#include <entwine/util/io.hpp>
 #include <entwine/util/json.hpp>
 #include <entwine/util/optional.hpp>
 
 namespace entwine
 {
 
-arbiter::LocalHandle localize(
+MaybePointlessFile localize(
     std::string path,
     bool deep,
     std::string tmp,
     const arbiter::Arbiter& a);
 
-SourceInfo analyzeOne(std::string path, bool deep, json pipelineTemplate);
+SourceInfo analyzeOne(
+    std::string path, 
+    bool deep, 
+    json pipelineTemplate, 
+    uint64_t pointCount = 0);
+
 Source parseOne(std::string path, const arbiter::Arbiter& a = { });
 
 SourceList analyze(

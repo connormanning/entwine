@@ -191,7 +191,7 @@ arbiter::LocalHandle ensureGetLocalHandle(
     throw std::runtime_error("Failed to get " + path);
 }
 
-arbiter::LocalHandle getPointlessLasFile(
+MaybePointlessFile getPointlessLasFile(
     const std::string& path,
     const std::string& tmp,
     const arbiter::Arbiter& a)
@@ -201,6 +201,8 @@ arbiter::LocalHandle getPointlessLasFile(
     const uint64_t minorVersionPos(25);
     const uint64_t headerSizePos(94);
     const uint64_t pointOffsetPos(96);
+    const uint64_t legacyPointCountPos(107);
+    const uint64_t pointCountPos(247);
     const uint64_t evlrOffsetPos(235);
     const uint64_t evlrNumberPos(evlrOffsetPos + 8);
 
@@ -208,6 +210,8 @@ arbiter::LocalHandle getPointlessLasFile(
     uint8_t minorVersion(0);
     uint16_t headerSize(0);
     uint32_t pointOffset(0);
+    uint32_t legacyPointCount(0);
+    uint64_t pointCount(0);
     uint64_t evlrOffset(0);
     uint32_t evlrNumber(0);
 
@@ -238,6 +242,14 @@ arbiter::LocalHandle getPointlessLasFile(
     is.seek(pointOffsetPos);
     is >> pointOffset;
 
+    // Grab the legacy point count, then set its value in the header to zero.
+    is.seek(legacyPointCountPos);
+    is >> legacyPointCount;
+    pointCount = legacyPointCount;
+
+    os.seek(legacyPointCountPos);
+    os << static_cast<uint32_t>(0);
+
     if (minorVersion >= 4)
     {
         is.seek(evlrOffsetPos);
@@ -250,6 +262,10 @@ arbiter::LocalHandle getPointlessLasFile(
         // removing the point data itself.
         os.seek(evlrOffsetPos);
         os << pointOffset;
+
+        // And zero out the non-legacy point count.
+        os.seek(pointCountPos);
+        os << static_cast<uint64_t>(0);
     }
 
     // Extract the modified header, VLRs, and append the EVLRs.
@@ -279,6 +295,9 @@ arbiter::LocalHandle getPointlessLasFile(
 
     const std::string outputPath = arbiter::join(tmp, basename);
     a.put(outputPath, data);
-    return arbiter::LocalHandle(outputPath, true);
+    return MaybePointlessFile {
+        arbiter::LocalHandle(outputPath, true),
+        pointCount
+    };
 }
 } // namespace entwine
