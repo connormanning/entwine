@@ -4,11 +4,12 @@ channels:
 dependencies:
   - libpdal-core
   - compilers
-  - conda-build
+  - rattler-build
   - ninja
   - cmake
   - make  # [not win]
   - ccache
   - xz
   - curl
+  - yq
   - openssl

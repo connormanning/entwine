@@ -15,13 +15,12 @@
 
 #include <entwine/io/binary.hpp>
 #include <entwine/io/laszip.hpp>
-#include <entwine/io/zstandard.hpp>
 
 namespace entwine
 {
 
 std::unique_ptr<Io> Io::create(
-    const Metadata& metadata, 
+    const Metadata& metadata,
     const Endpoints& endpoints)
 {
     switch (metadata.dataType)
@@ -30,8 +29,6 @@ std::unique_ptr<Io> Io::create(
             return std::unique_ptr<Io>(new io::Binary(metadata, endpoints));
         case io::Type::Laszip:
             return std::unique_ptr<Io>(new io::Laszip(metadata, endpoints));
-        case io::Type::Zstandard:
-            return std::unique_ptr<Io>(new io::Zstandard(metadata, endpoints));
         default:
             throw std::runtime_error("Invalid data IO type");
     }
@@ -44,7 +41,6 @@ Type toType(const std::string s)
 {
     if (s == "binary") return Type::Binary;
     if (s == "laszip") return Type::Laszip;
-    if (s == "zstandard") return Type::Zstandard;
     throw std::runtime_error("Invalid data IO type: " + s);
 }
 
@@ -52,7 +48,6 @@ std::string toString(const Type t)
 {
     if (t == Type::Binary) return "binary";
     if (t == Type::Laszip) return "laszip";
-    if (t == Type::Zstandard) return "zstandard";
     throw std::runtime_error("Invalid data IO enumeration");
 }
 

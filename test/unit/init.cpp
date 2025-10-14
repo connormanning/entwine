@@ -5,6 +5,7 @@
 
 TEST(init, initializes)
 {
+    using namespace entwine;
     const arbiter::Arbiter a;
     if (!a.tryGetSize(test::dataPath() + "ellipsoid.laz"))
     {
