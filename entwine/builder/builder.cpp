@@ -626,6 +626,12 @@ Builder create(json j)
         if (source.info.points) manifest.emplace_back(source);
     }
 
+    if (sources.empty())
+    {
+        throw std::runtime_error(
+            "No valid input files found - nothing to build.  Check your input paths and pipeline configuration.");
+    }
+
     // It's possible we've just analyzed some files, in which case we have
     // potentially new information like bounds, schema, and SRS.  Prioritize
     // values from the config, which may explicitly override these.
