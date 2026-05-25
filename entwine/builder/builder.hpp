@@ -33,6 +33,9 @@ struct Builder
         Hierarchy hierarchy = Hierarchy(),
         bool verbose = true);
 
+    Builder(Builder&&) noexcept;
+    Builder& operator=(Builder&&) noexcept;
+
     uint64_t run(
         Threads threads,
         uint64_t limit = 0,

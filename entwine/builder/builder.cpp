@@ -58,6 +58,29 @@ Builder::Builder(
     , verbose(verbose)
 { }
 
+Builder::Builder(Builder&& o) noexcept
+    : endpoints(std::move(o.endpoints))
+    , metadata(std::move(o.metadata))
+    , io(Io::create(metadata, endpoints))
+    , manifest(std::move(o.manifest))
+    , hierarchy(std::move(o.hierarchy))
+    , verbose(o.verbose)
+{ }
+
+Builder& Builder::operator=(Builder&& o) noexcept
+{
+    if (this != &o)
+    {
+        endpoints = std::move(o.endpoints);
+        metadata = std::move(o.metadata);
+        manifest = std::move(o.manifest);
+        hierarchy = std::move(o.hierarchy);
+        verbose = o.verbose;
+        io = Io::create(metadata, endpoints);
+    }
+    return *this;
+}
+
 uint64_t Builder::run(
     const Threads threads,
     const uint64_t limit,

@@ -167,6 +167,28 @@ TEST(build, failedWrite)
     ASSERT_ANY_THROW(builder::run(builder, config));
 }
 
+TEST(build, movedBuilderIoMetadata)
+{
+    const json config = {
+        { "input", test::dataPath() + "ellipsoid.laz" },
+        { "output", outDir },
+        { "force", true },
+        { "verbose", false },
+        { "progressInterval", 0 },
+        { "span", 32 },
+        { "hierarchyStep", 2 }
+    };
+    Builder builder = builder::create(config);
+    ASSERT_TRUE(contains(builder.metadata.schema, "X"));
+
+    Builder moved(std::move(builder));
+    EXPECT_EQ(&moved.io->metadata, &moved.metadata);
+    EXPECT_TRUE(contains(moved.io->metadata.schema, "X"));
+
+    const uint64_t count = builder::run(moved, config);
+    EXPECT_GT(count, 0u);
+}
+
 TEST(build, binary)
 {
     run({
