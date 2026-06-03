@@ -2426,7 +2426,7 @@ std::vector<std::string> S3::glob(std::string path, bool verbose) const
 
             if (XmlNode* conNode = topNode->first_node("Contents"))
             {
-                for ( ; conNode; conNode = conNode->next_sibling())
+                for ( ; conNode; conNode = conNode->next_sibling("Contents"))
                 {
                     if (XmlNode* keyNode = conNode->first_node("Key"))
                     {
