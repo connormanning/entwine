@@ -13,6 +13,8 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <memory>
+#include <vector>
 
 #include <entwine/builder/heuristics.hpp>
 #include <entwine/types/metadata.hpp>
@@ -50,22 +52,22 @@ namespace
 struct Analysis
 {
     Analysis() = default;
-    Analysis(const Hierarchy::ChunkMap& chunks)
+    Analysis(const Hierarchy::Map& sizes)
     {
-        const double totalFiles = chunks.size();
+        const double totalFiles = sizes.size();
         double totalNodes = 0;
-        for (const auto& chunk : chunks)
+        for (const auto& page : sizes)
         {
-            const uint64_t chunkSize = chunk.second.size();
+            const uint64_t chunkSize = page.second;
             totalNodes += chunkSize;
             maxNodesPerFile = std::max(maxNodesPerFile, chunkSize);
         }
 
         double mean = totalNodes / totalFiles;
         double ss = 0;
-        for (const auto& chunk : chunks)
+        for (const auto& page : sizes)
         {
-            const double n = chunk.second.size();
+            const double n = page.second;
             ss += std::pow(n - mean, 2.0);
         }
         double stddev = std::sqrt(ss / (totalNodes - 1.0));
@@ -78,37 +80,63 @@ struct Analysis
 
 Dxyz getChild(const Dxyz& key, const int dir)
 {
+    const Xyz& position = key.position();
     return Dxyz(
         key.d + 1,
-        key.x * 2 + ((dir & 0x1) ? 1 : 0),
-        key.y * 2 + ((dir & 0x2) ? 1 : 0),
-        key.z * 2 + ((dir & 0x4) ? 1 : 0));
+        position.x * 2 + ((dir & 0x1) ? 1 : 0),
+        position.y * 2 + ((dir & 0x2) ? 1 : 0),
+        position.z * 2 + ((dir & 0x4) ? 1 : 0));
 }
 
-void getChunks(
-    Hierarchy::ChunkMap& result,
-    const Dxyz& root,
-    const Dxyz& curr,
-    const Hierarchy::Map& h,
-    const unsigned step)
+template <typename Page, typename Append, typename Complete>
+void visitPages(
+    const Hierarchy::Map& hierarchy,
+    const Hierarchy::Map::value_type& node,
+    const uint64_t pageDepth,
+    const unsigned step,
+    Page& page,
+    const Append& append,
+    const Complete& complete)
 {
-    if (!h.count(curr)) return;
-    const int64_t n = h.at(curr);
-
-    if (step && curr.d > root.d && curr.d % step == 0)
+    const Dxyz& key = node.first;
+    if (step && key.d > pageDepth && key.d % step == 0)
     {
-        // Start a new subtree.
-        result[root][curr] = -1;
-        getChunks(result, curr, curr, h, step);
+        append(page, key, -1);
+        Page child {};
+        visitPages(hierarchy, node, key.d, step, child, append, complete);
+        complete(key, std::move(child));
+        return;
     }
-    else
+
+    append(page, key, node.second);
+    for (int dir = 0; dir < 8; ++dir)
     {
-        result[root][curr] = n;
-        for (int dir = 0; dir < 8; ++dir)
+        const auto child = hierarchy.find(getChild(key, dir));
+        if (child != hierarchy.end())
         {
-            getChunks(result, root, getChild(curr, dir), h, step);
+            visitPages(hierarchy, *child, pageDepth, step, page, append, complete);
         }
     }
+}
+
+template <typename Page, typename Append, typename Complete>
+void forEachPage(const Hierarchy& hierarchy, unsigned step, Append append, Complete complete)
+{
+    const auto root = hierarchy.map.find(Dxyz());
+    if (root == hierarchy.map.end()) return;
+    Page page {};
+    visitPages(hierarchy.map, *root, root->first.d, step, page, append, complete);
+    complete(root->first, std::move(page));
+}
+
+Hierarchy::Map countPages(const Hierarchy& hierarchy, unsigned step)
+{
+    Hierarchy::Map sizes;
+    forEachPage<int64_t>(
+        hierarchy, step,
+        [](int64_t& count, const Dxyz&, int64_t) { ++count; },
+        [&](const Dxyz& root, int64_t count) { sizes.emplace(root, count); });
+    return sizes;
 }
 
 } // unnamed namespace
@@ -116,7 +144,10 @@ void getChunks(
 Hierarchy::ChunkMap getChunks(const Hierarchy& h, const unsigned step)
 {
     Hierarchy::ChunkMap result;
-    getChunks(result, Dxyz(), Dxyz(), h.map, step);
+    forEachPage<Hierarchy::Map>(
+        h, step,
+        [](Hierarchy::Map& page, const Dxyz& key, int64_t count) { page.emplace(key, count); },
+        [&](const Dxyz& root, Hierarchy::Map&& page) { result.emplace(root, std::move(page)); });
     return result;
 }
 
@@ -127,7 +158,7 @@ unsigned determineStep(const Hierarchy& h)
     struct AnalysisEntry
     {
         AnalysisEntry(const Hierarchy& h, unsigned step)
-            : analysis(getChunks(h, step))
+            : analysis(countPages(h, step))
             , step(step)
         { }
         Analysis analysis;
@@ -171,25 +202,33 @@ void save(
 {
     Pool pool(threads);
 
-    const auto chunks = getChunks(h, step);
-    for (const auto& chunk : chunks)
+    struct PageEntry
     {
-        pool.add([&]()
+        const Dxyz* key;
+        int64_t count;
+    };
+    using Page = std::vector<PageEntry>;
+
+    forEachPage<Page>(
+        h, step,
+        [](Page& page, const Dxyz& key, int64_t count) { page.push_back({ &key, count }); },
+        [&](const Dxyz& root, Page&& page)
         {
-            const Dxyz& root = chunk.first;
-            const Hierarchy::Map& counts = chunk.second;
-
             const std::string filename = root.toString() + postfix + ".json";
-            json data = json::object();
-            for (const auto& node : counts)
-            {
-                data[node.first.toString()] = node.second;
-            }
-
             const int indent = root.d ? -1 : 2;
-            ensurePut(ep, filename, data.dump(indent));
+            // The pool copies tasks. Share the completed page so the queue
+            // retains just its entries until a writer finishes with them.
+            const auto counts = std::make_shared<const Page>(std::move(page));
+            pool.add([&ep, filename, indent, counts]()
+            {
+                json data = json::object();
+                for (const auto& node : *counts)
+                {
+                    data[node.key->toString()] = node.count;
+                }
+                ensurePut(ep, filename, data.dump(indent));
+            });
         });
-    }
 
     pool.join();
 }

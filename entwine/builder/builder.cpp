@@ -50,11 +50,11 @@ Builder::Builder(
     Manifest manifest,
     Hierarchy hierarchy,
     bool verbose)
-    : endpoints(endpoints)
-    , metadata(metadata)
+    : endpoints(std::move(endpoints))
+    , metadata(std::move(metadata))
     , io(Io::create(this->metadata, this->endpoints))
-    , manifest(manifest)
-    , hierarchy(hierarchy)
+    , manifest(std::move(manifest))
+    , hierarchy(std::move(hierarchy))
     , verbose(verbose)
 { }
 
@@ -553,7 +553,7 @@ namespace builder
 {
 
 Builder load(
-    const Endpoints endpoints,
+    Endpoints endpoints,
     const unsigned threads,
     const unsigned subsetId,
     const bool verbose)
@@ -563,15 +563,14 @@ Builder load(
         json::parse(endpoints.output.get("ept-build" + postfix + ".json")),
         json::parse(endpoints.output.get("ept" + postfix + ".json")));
 
-    const Metadata metadata = config::getMetadata(metadataJson);
-
-    const Manifest manifest =
-        manifest::load(endpoints.sources, threads, postfix, verbose);
-
-    const Hierarchy hierarchy =
-        hierarchy::load(endpoints.hierarchy, threads, postfix);
-
-    return Builder(endpoints, metadata, manifest, hierarchy);
+    Metadata metadata = config::getMetadata(metadataJson);
+    Manifest manifest = manifest::load(endpoints.sources, threads, postfix, verbose);
+    Hierarchy hierarchy = hierarchy::load(endpoints.hierarchy, threads, postfix);
+    return Builder(
+        std::move(endpoints),
+        std::move(metadata),
+        std::move(manifest),
+        std::move(hierarchy));
 }
 
 Builder create(json j)
@@ -678,17 +677,15 @@ void merge(
     }
 
     if (verbose) std::cout << "Initializing" << std::endl;
-    const Builder base = builder::load(endpoints, threads, 1, verbose);
+    Builder first = builder::load(endpoints, threads, 1, verbose);
 
     // Grab the total number of subsets, then clear the subsetting from our
     // metadata aggregator which will represent our merged output.
-    Metadata metadata = base.metadata;
+    Metadata metadata = first.metadata;
     const unsigned of = metadata.subset.value().of;
     metadata.subset = { };
 
-    Manifest manifest = base.manifest;
-
-    Builder builder(endpoints, metadata, manifest, Hierarchy(), verbose);
+    Builder builder(endpoints, std::move(metadata), std::move(first.manifest), Hierarchy(), verbose);
     ChunkCache cache(
         endpoints, 
         builder.metadata, 
@@ -713,24 +710,20 @@ void merge(
                 verbose,
                 id,
                 &builder,
+                &first,
                 &cache,
                 &mutex]()
             {
-                Builder current = builder::load(
-                    endpoints,
-                    threads,
-                    id,
-                    verbose);
+                Builder current = id == 1
+                    ? std::move(first)
+                    : builder::load(endpoints, threads, id, verbose);
                 builder::mergeOne(builder, current, cache);
 
-                // Our base builder contains the manifest of subset 1 so we
-                // don't need to merge that one.
+                // The destination already owns subset 1's manifest.
                 if (id > 1)
                 {
                     std::lock_guard<std::mutex> lock(mutex);
-                    builder.manifest = manifest::merge(
-                        builder.manifest,
-                        current.manifest);
+                    manifest::merge(builder.manifest, current.manifest);
                 }
             });
         }
@@ -770,7 +763,10 @@ void mergeOne(Builder& dst, const Builder& src, ChunkCache& cache)
             auto layout = toLayout(
                 metadata.absoluteSchema, 
                 metadata.dataType == io::Type::Laszip);
-            VectorPointTable table(layout, count);
+            const auto capacity = metadata.dataType == io::Type::Laszip
+                ? std::min<uint64_t>(count, 4096)
+                : count;
+            VectorPointTable table(layout, capacity);
             table.setProcess([&]()
             {
                 Voxel voxel;
@@ -787,6 +783,13 @@ void mergeOne(Builder& dst, const Builder& src, ChunkCache& cache)
                     assert(ck.dxyz() == key);
 
                     cache.insert(voxel, pk, ck, clipper);
+                }
+
+                // Insertion can swap into the source records. Reset the reused
+                // storage, including dimensions missing in a legacy tile.
+                if (capacity < count)
+                {
+                    std::fill(table.data().begin(), table.data().end(), 0);
                 }
             });
 

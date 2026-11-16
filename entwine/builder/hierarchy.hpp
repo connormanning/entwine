@@ -12,6 +12,7 @@
 
 #include <cstdint>
 #include <map>
+#include <utility>
 
 #include <entwine/types/key.hpp>
 #include <entwine/util/spin-lock.hpp>
@@ -29,6 +30,13 @@ struct Hierarchy
     Hierarchy& operator=(const Hierarchy& other)
     {
         map = other.map;
+        return *this;
+    }
+
+    Hierarchy(Hierarchy&& other) noexcept : map(std::move(other.map)) { }
+    Hierarchy& operator=(Hierarchy&& other) noexcept
+    {
+        map = std::move(other.map);
         return *this;
     }
 

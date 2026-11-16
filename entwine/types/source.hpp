@@ -139,7 +139,7 @@ Manifest load(
     std::string postfix = "",
     bool verbose = true);
 
-Manifest merge(Manifest manifest, const Manifest& other);
+void merge(Manifest& dst, const Manifest& src);
 
 } // namespace manifest
 

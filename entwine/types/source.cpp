@@ -270,11 +270,21 @@ Manifest manifest::load(
     return manifest;
 }
 
-Manifest manifest::merge(Manifest dst, const Manifest& src)
+void manifest::merge(Manifest& dst, const Manifest& src)
 {
     if (dst.size() != src.size())
     {
         throw std::runtime_error("Manifest sizes do not match");
+    }
+
+    // Validate the source order before modifying the accumulated manifest.
+    for (uint64_t i = 0; i < dst.size(); ++i)
+    {
+        if (dst[i].source.path != src[i].source.path)
+        {
+            throw std::runtime_error(
+                "Manifest mismatch at origin " + std::to_string(i));
+        }
     }
 
     for (uint64_t i = 0; i < dst.size(); ++i)
@@ -286,12 +296,6 @@ Manifest manifest::merge(Manifest dst, const Manifest& src)
         const auto& srcInfo = srcEntry.source.info;
 
         dstInfo.points += srcInfo.points;
-
-        if (dstEntry.source.path != srcEntry.source.path)
-        {
-            throw std::runtime_error(
-                "Manifest mismatch at origin " + std::to_string(i));
-        }
 
         if (srcEntry.inserted)
         {
@@ -315,7 +319,6 @@ Manifest manifest::merge(Manifest dst, const Manifest& src)
         }
     }
 
-    return dst;
 }
 
 uint64_t getInsertedPoints(const Manifest& manifest)
